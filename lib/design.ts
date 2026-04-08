@@ -1,33 +1,59 @@
 // SWL Brand tokens — single source of truth
+// Sidebar: dark navy theme (unchanged)
+// Content: clean light theme that complements the sidebar
+
 export const C = {
-  // Backgrounds
-  bg:       "#060a14",
-  surface:  "#0d1424",
-  card:     "#111a2e",
-  cardHov:  "#16213a",
-  border:   "#1f3050",
-  border2:  "#2a3f60",
+  // ── Sidebar (dark) ──
+  sidebarBg:      "#050810",
+  sidebarBorder:  "#1a2540",
+  gold:           "#c9a83a",
+  goldDim:        "#8c7225",
+  goldGlow:       "rgba(201,168,58,0.15)",
 
-  // Brand
-  gold:     "#c9a83a",
-  goldDim:  "#8c7225",
-  goldGlow: "rgba(201,168,58,0.15)",
-  cyan:     "#00e5ff",
-  cyanGlow: "rgba(0,229,255,0.11)",
+  // ── Content area (light) ──
+  bg:             "#F7F8FB",
+  surface:        "#FFFFFF",
+  card:           "#FFFFFF",
+  cardHov:        "#F9FAFB",
+  border:         "#E2E5EB",
+  border2:        "#D1D5DB",
 
-  // Semantic
-  green:    "#3ddc84",
-  greenGlow:"rgba(61,220,132,0.13)",
-  red:      "#ff5f5f",
-  redGlow:  "rgba(255,95,95,0.13)",
-  yellow:   "#f5c842",
-  yellowGlow:"rgba(245,200,66,0.13)",
+  // ── Brand accent (teal — bridges sidebar navy to content) ──
+  accent:         "#1A7F74",
+  accentLight:    "#E6F5F3",
+  accentDark:     "#145F56",
 
-  // Text
-  textPrimary: "#e6eaf4",
-  textBody:    "#9aa3b8",
-  textMuted:   "#4e5a72",
-  textDim:     "#2a3348",
+  // ── Semantic ──
+  green:          "#059669",
+  greenLight:     "#ECFDF5",
+  red:            "#DC2626",
+  redLight:       "#FEF2F2",
+  orange:         "#EA580C",
+  orangeLight:    "#FFF7ED",
+  blue:           "#2563EB",
+  blueLight:      "#EFF6FF",
+  yellow:         "#D97706",
+  yellowLight:    "#FFFBEB",
+
+  // ── Score badges ──
+  hot:            "#DC2626",
+  hotBg:          "#FEE2E2",
+  warm:           "#EA580C",
+  warmBg:         "#FFEDD5",
+  nurture:        "#1A7F74",
+  nurtureBg:      "#E6F5F3",
+
+  // ── Text ──
+  textPrimary:    "#111827",
+  textBody:       "#374151",
+  textMuted:      "#6B7280",
+  textDim:        "#9CA3AF",
+  textOnDark:     "#E6EAF4",
+
+  // ── Channel icons ──
+  linkedin:       "#0A66C2",
+  email:          "#059669",
+  phone:          "#EA580C",
 } as const;
 
 export type Color = typeof C;

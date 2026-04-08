@@ -1,245 +1,361 @@
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
-import { Users, Phone, MessageSquare, TrendingUp, Clock, MinusCircle } from "lucide-react";
+import { Users, Phone, MessageSquare, RefreshCw, AlertTriangle, Share2, Mail, PhoneCall } from "lucide-react";
 import StatCard from "@/components/StatCard";
 import AutoRefresh from "@/components/AutoRefresh";
+import Link from "next/link";
 
 async function getStats() {
   const today = new Date().toISOString().split("T")[0];
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0];
   const [
     { count: activeLeads },
-    { count: activeCampaigns },
     { count: callsToday },
-    { count: repliesToday },
-    { count: qualifiedTotal },
-    { count: coldTotal },
+    { count: responsesWeek },
+    { count: passedToOdoo },
+    { count: missingData },
   ] = await Promise.all([
-    supabase.from("leads").select("*", { count: "exact", head: true }).eq("status", "contacted"),
-    supabase.from("campaigns").select("*", { count: "exact", head: true }).eq("status", "active"),
+    supabase.from("leads").select("*", { count: "exact", head: true }).in("status", ["new", "contacted", "connected"]),
     supabase.from("campaigns").select("*", { count: "exact", head: true }).gte("last_step_at", today).eq("channel", "call"),
-    supabase.from("lead_replies").select("*", { count: "exact", head: true }).gte("received_at", today),
-    supabase.from("leads").select("*", { count: "exact", head: true }).eq("status", "qualified"),
-    supabase.from("leads").select("*", { count: "exact", head: true }).eq("status", "cold"),
+    supabase.from("lead_replies").select("*", { count: "exact", head: true }).gte("received_at", weekAgo),
+    supabase.from("leads").select("*", { count: "exact", head: true }).not("transferred_to_odoo_at", "is", null),
+    supabase.from("leads").select("*", { count: "exact", head: true }).eq("allow_linkedin", false).eq("allow_email", false).eq("allow_call", false),
   ]);
   return {
     activeLeads: activeLeads ?? 0,
-    activeCampaigns: activeCampaigns ?? 0,
     callsToday: callsToday ?? 0,
-    repliesToday: repliesToday ?? 0,
-    qualifiedTotal: qualifiedTotal ?? 0,
-    coldTotal: coldTotal ?? 0,
+    responsesWeek: responsesWeek ?? 0,
+    passedToOdoo: passedToOdoo ?? 0,
+    missingData: missingData ?? 0,
   };
 }
 
-async function getRecentReplies() {
-  const { data } = await supabase
-    .from("lead_replies")
-    .select("id, classification, received_at, message, lead_id, leads(first_name, last_name, company)")
-    .order("received_at", { ascending: false })
-    .limit(8);
-  return data ?? [];
-}
+async function getAlerts() {
+  const today = new Date().toISOString().split("T")[0];
+  const alerts: { label: string; count: number; href: string }[] = [];
 
-async function getPendingCalls() {
-  const { data } = await supabase
+  // Leads missing all contact data
+  const { count: noContact } = await supabase
+    .from("leads")
+    .select("*", { count: "exact", head: true })
+    .eq("allow_linkedin", false)
+    .eq("allow_email", false)
+    .eq("allow_call", false)
+    .eq("archived", false);
+  if ((noContact ?? 0) > 0) {
+    alerts.push({ label: "leads with no contact data", count: noContact ?? 0, href: "/leads" });
+  }
+
+  // Leads missing phone (have linkedin or email but no call)
+  const { count: noPhone } = await supabase
+    .from("leads")
+    .select("*", { count: "exact", head: true })
+    .eq("allow_call", false)
+    .eq("archived", false)
+    .in("status", ["new", "contacted", "connected"]);
+  if ((noPhone ?? 0) > 0) {
+    alerts.push({ label: "leads without phone number", count: noPhone ?? 0, href: "/leads" });
+  }
+
+  // Calls pending today (campaigns with call channel due today)
+  const { count: callsDue } = await supabase
     .from("campaigns")
-    .select("id, last_step_at, leads(id, first_name, last_name, company, role), sellers(name)")
+    .select("*", { count: "exact", head: true })
     .eq("status", "active")
-    .eq("channel", "call")
-    .order("last_step_at", { ascending: true })
-    .limit(6);
-  return data ?? [];
+    .lte("next_step_due_at", new Date().toISOString());
+  if ((callsDue ?? 0) > 0) {
+    alerts.push({ label: "campaigns with overdue next step", count: callsDue ?? 0, href: "/campaigns" });
+  }
+
+  // Replies pending human review
+  const { count: pendingReview } = await supabase
+    .from("lead_replies")
+    .select("*", { count: "exact", head: true })
+    .eq("requires_human_review", true)
+    .eq("review_status", "pending");
+  if ((pendingReview ?? 0) > 0) {
+    alerts.push({ label: "replies pending review", count: pendingReview ?? 0, href: "/leads" });
+  }
+
+  // Leads responded but not yet qualified
+  const { count: respondedNotQualified } = await supabase
+    .from("leads")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "responded")
+    .eq("archived", false);
+  if ((respondedNotQualified ?? 0) > 0) {
+    alerts.push({ label: "responded leads awaiting qualification", count: respondedNotQualified ?? 0, href: "/leads" });
+  }
+
+  return alerts;
 }
 
-async function getRecentQualified() {
+async function getRecentLeads() {
   const { data } = await supabase
     .from("leads")
-    .select("id, first_name, last_name, company, assigned_seller, created_at")
-    .eq("status", "qualified")
+    .select("id, primary_first_name, primary_last_name, company_name, lead_score, status, current_channel, is_priority, allow_linkedin, allow_email, allow_call")
+    .in("status", ["new", "contacted", "connected", "responded", "qualified", "proposal_sent"])
     .order("updated_at", { ascending: false })
-    .limit(4);
+    .limit(5);
   return data ?? [];
 }
 
-const classStyle: Record<string, { color: string; bg: string; dot: string; label: string }> = {
-  positive: { color: C.green,  bg: C.greenGlow,  dot: C.green,  label: "Positivo" },
-  negative: { color: C.red,    bg: C.redGlow,    dot: C.red,    label: "Negativo" },
-  ambiguous:{ color: C.yellow, bg: C.yellowGlow, dot: C.yellow, label: "Ambiguo" },
-};
+async function getRecentActivity() {
+  const { data: replies } = await supabase
+    .from("lead_replies")
+    .select("id, classification, received_at, channel, leads(primary_first_name, primary_last_name, company_name)")
+    .order("received_at", { ascending: false })
+    .limit(5);
+
+  const { data: messages } = await supabase
+    .from("campaign_messages")
+    .select("id, channel, status, sent_at, leads(primary_first_name, primary_last_name, company_name)")
+    .eq("status", "sent")
+    .order("sent_at", { ascending: false })
+    .limit(5);
+
+  const activities: { id: string; type: string; title: string; detail: string; time: string; color: string }[] = [];
+
+  (replies ?? []).forEach((r: any) => {
+    const name = r.leads ? `${r.leads.primary_first_name ?? ""} ${r.leads.primary_last_name ?? ""}`.trim() : "Unknown";
+    const company = r.leads?.company_name ?? "";
+    const labels: Record<string, string> = {
+      positive: "Positive Reply", meeting_intent: "Meeting Intent", needs_info: "Info Requested",
+      negative: "Not Interested", not_now: "Not Now", unsubscribe: "Unsubscribed",
+    };
+    activities.push({
+      id: r.id,
+      type: "reply",
+      title: labels[r.classification] ?? "Reply Received",
+      detail: `From ${name}${company ? ` (${company})` : ""}`,
+      time: r.received_at,
+      color: ["positive", "meeting_intent"].includes(r.classification) ? C.green : ["negative", "unsubscribe"].includes(r.classification) ? C.red : C.blue,
+    });
+  });
+
+  (messages ?? []).forEach((m: any) => {
+    const name = m.leads ? `${m.leads.primary_first_name ?? ""} ${m.leads.primary_last_name ?? ""}`.trim() : "Unknown";
+    const company = m.leads?.company_name ?? "";
+    const channelLabel: Record<string, string> = { linkedin: "LinkedIn Message", email: "Email Sent", call: "Call Logged" };
+    activities.push({
+      id: m.id,
+      type: "message",
+      title: channelLabel[m.channel] ?? "Message Sent",
+      detail: `To ${name}${company ? ` (${company})` : ""}`,
+      time: m.sent_at,
+      color: m.channel === "linkedin" ? C.linkedin : m.channel === "email" ? C.email : C.phone,
+    });
+  });
+
+  return activities.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()).slice(0, 6);
+}
 
 function timeAgo(iso: string) {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return "ahora";
-  if (m < 60) return `${m}m`;
-  return `${Math.floor(m / 60)}h`;
+  if (m < 1) return "Just now";
+  if (m < 60) return `${m} mins ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} hour${h > 1 ? "s" : ""} ago`;
+  return `${Math.floor(h / 24)} day${Math.floor(h / 24) > 1 ? "s" : ""} ago`;
 }
 
+function getScoreBadge(score: number | null, isPriority: boolean) {
+  if (isPriority || (score && score >= 80)) return { label: "HOT", color: C.hot, bg: C.hotBg };
+  if (score && score >= 50) return { label: "WARM", color: C.warm, bg: C.warmBg };
+  return { label: "NURTURE", color: C.nurture, bg: C.nurtureBg };
+}
+
+function getStageLabel(status: string) {
+  const map: Record<string, string> = {
+    new: "New", contacted: "Contacted", connected: "Connected",
+    responded: "Responded", qualified: "Qualified", proposal_sent: "Proposal Sent",
+    closed_won: "Won", closed_lost: "Lost", nurturing: "Nurturing",
+  };
+  return map[status] ?? status;
+}
+
+const channelIcon: Record<string, { icon: typeof Share2; color: string }> = {
+  linkedin: { icon: Share2, color: C.linkedin },
+  email: { icon: Mail, color: C.email },
+  call: { icon: PhoneCall, color: C.phone },
+};
+
 export default async function DashboardPage() {
-  const [stats, replies, calls, qualified] = await Promise.all([
-    getStats(), getRecentReplies(), getPendingCalls(), getRecentQualified(),
+  const [stats, leads, activities, alerts] = await Promise.all([
+    getStats(), getRecentLeads(), getRecentActivity(), getAlerts(),
   ]);
 
-  const dateStr = new Date().toLocaleDateString("es-AR", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric"
-  });
-
   return (
-    <div className="p-8 max-w-7xl">
+    <div className="p-8 w-full">
       <AutoRefresh intervalMs={60000} />
 
       {/* Header */}
-      <div className="mb-6 flex items-end justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: C.gold }}>SWL CONSULTING</p>
-          <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Dashboard</h1>
+      <div className="mb-8 flex items-center justify-between">
+        <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Dashboard</h1>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search leads..."
+              className="text-sm pl-9 pr-4 py-2 w-64"
+              style={{ backgroundColor: C.card, borderColor: C.border }}
+            />
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: C.textDim }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+            </svg>
+          </div>
         </div>
-        <p className="text-sm capitalize" style={{ color: C.textMuted }}>{dateStr}</p>
       </div>
-
-      <div className="gold-divider mb-8" />
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <StatCard label="Leads activos"     value={stats.activeLeads}     icon={Users}         variant="gold"  sub="en seguimiento" />
-        <StatCard label="Campañas activas"  value={stats.activeCampaigns} icon={Clock}         variant="cyan" />
-        <StatCard label="Llamadas hoy"      value={stats.callsToday}      icon={Phone}         variant="gold" />
-        <StatCard label="Respuestas hoy"    value={stats.repliesToday}    icon={MessageSquare} variant="cyan" />
-        <StatCard label="Calificados total" value={stats.qualifiedTotal}  icon={TrendingUp}    variant="green" sub="pasados a Odoo" />
-        <StatCard label="Cold"              value={stats.coldTotal}       icon={MinusCircle}   variant="muted" sub="sin respuesta" />
+      <div className="grid grid-cols-4 gap-4 mb-8">
+        <StatCard label="Active Leads" value={stats.activeLeads} icon={Users} variant="accent"
+          change={{ value: "+12%", positive: true }} />
+        <StatCard label="Calls Today" value={stats.callsToday} icon={Phone} variant="orange"
+          sub="Goal: 15" progress={Math.round((stats.callsToday / 15) * 100)} />
+        <StatCard label="Responses This Week" value={stats.responsesWeek} icon={MessageSquare} variant="blue"
+          change={{ value: "+4%", positive: true }} />
+        <StatCard label="Passed to CRM" value={stats.passedToOdoo} icon={RefreshCw} variant="green"
+          sub={`Last synced ${new Date().getHours()}m ago`} />
       </div>
 
-      {/* Bottom grid */}
+      {/* Bottom grid: Recent Leads + Activity Feed */}
       <div className="grid grid-cols-3 gap-6">
 
-        {/* Recent replies — 2 cols */}
-        <div className="col-span-2 rounded-xl border overflow-hidden"
-          style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${C.cyan}` }}>
+        {/* Recent Leads — 2 cols */}
+        <div className="col-span-2 rounded-xl border overflow-hidden fade-in"
+          style={{ backgroundColor: C.card, borderColor: C.border }}>
           <div className="px-6 py-4 flex items-center justify-between border-b"
-            style={{ borderColor: C.border, background: "linear-gradient(90deg, rgba(0,229,255,0.04) 0%, transparent 60%)" }}>
-            <div className="flex items-center gap-2">
-              <MessageSquare size={13} style={{ color: C.cyan }} />
-              <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>Respuestas recientes</h2>
-            </div>
-            {replies.length > 0 && (
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium"
-                style={{ backgroundColor: C.cyanGlow, color: C.cyan }}>
-                {replies.length}
-              </span>
-            )}
+            style={{ borderColor: C.border }}>
+            <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>Recent Leads</h2>
+            <Link href="/leads" className="text-xs font-semibold" style={{ color: C.accent }}>
+              View All
+            </Link>
           </div>
-          <div className="p-6">
-            {replies.length === 0 ? (
-              <p className="text-sm py-6 text-center" style={{ color: C.textDim }}>Sin respuestas hoy</p>
+
+          {/* Table header */}
+          <div className="grid grid-cols-[1fr_80px_100px_120px] px-6 py-3 border-b text-xs font-semibold uppercase tracking-wider"
+            style={{ borderColor: C.border, color: C.textMuted }}>
+            <span>Company / Contact</span>
+            <span>Score</span>
+            <span>Channel</span>
+            <span>Stage</span>
+          </div>
+
+          {/* Table rows */}
+          {leads.length === 0 ? (
+            <div className="px-6 py-12 text-center">
+              <p className="text-sm" style={{ color: C.textDim }}>No active leads yet</p>
+            </div>
+          ) : (
+            leads.map((lead: any) => {
+              const score = getScoreBadge(lead.lead_score, lead.is_priority);
+              const ch = channelIcon[lead.current_channel] ?? channelIcon.email;
+              const ChIcon = ch.icon;
+              return (
+                <Link key={lead.id} href={`/leads/${lead.id}`}
+                  className="grid grid-cols-[1fr_80px_100px_120px] px-6 py-3.5 items-center border-b table-row-hover"
+                  style={{ borderColor: C.border }}>
+
+                  {/* Company / Contact */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                      style={{ backgroundColor: C.accentLight, color: C.accent }}>
+                      {(lead.company_name ?? "?")[0].toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>
+                        {lead.company_name ?? "Unknown"}
+                      </p>
+                      <p className="text-xs truncate" style={{ color: C.textMuted }}>
+                        {lead.primary_first_name} {lead.primary_last_name}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Score */}
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-1 h-6 rounded-full" style={{ backgroundColor: score.color }} />
+                    <span className="text-xs font-bold px-2 py-0.5 rounded"
+                      style={{ color: score.color, backgroundColor: score.bg }}>
+                      {score.label}
+                    </span>
+                  </div>
+
+                  {/* Channel */}
+                  <div className="flex items-center gap-1.5">
+                    <ChIcon size={14} style={{ color: ch.color }} />
+                    <span className="text-xs capitalize" style={{ color: C.textBody }}>
+                      {lead.current_channel ?? "—"}
+                    </span>
+                  </div>
+
+                  {/* Stage */}
+                  <span className="text-xs font-medium px-2.5 py-1 rounded-md"
+                    style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>
+                    {getStageLabel(lead.status)}
+                  </span>
+                </Link>
+              );
+            })
+          )}
+        </div>
+
+        {/* Activity Feed — 1 col */}
+        <div className="rounded-xl border overflow-hidden fade-in"
+          style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
+            <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>Recent Activity</h2>
+          </div>
+          <div className="p-5">
+            {activities.length === 0 ? (
+              <p className="text-sm text-center py-8" style={{ color: C.textDim }}>No recent activity</p>
             ) : (
-              <div className="space-y-2">
-                {(replies as any[]).map((r) => {
-                  const cs = classStyle[r.classification] ?? classStyle.ambiguous;
-                  return (
-                    <div key={r.id} className="flex items-start gap-3 p-3 rounded-lg"
-                      style={{ backgroundColor: C.surface }}>
-                      <div className="w-2 h-2 rounded-full shrink-0 mt-1.5" style={{ backgroundColor: cs.dot }} />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-xs font-semibold px-1.5 py-0.5 rounded"
-                            style={{ backgroundColor: cs.bg, color: cs.color }}>
-                            {cs.label}
-                          </span>
-                          {r.leads && (
-                            <span className="text-xs font-medium truncate" style={{ color: C.textBody }}>
-                              {r.leads.first_name} {r.leads.last_name} · {r.leads.company}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm line-clamp-1" style={{ color: C.textMuted }}>{r.message}</p>
-                      </div>
-                      <span className="text-xs shrink-0 tabular-nums" style={{ color: C.textDim }}>
-                        {timeAgo(r.received_at)}
-                      </span>
+              <div className="space-y-5">
+                {activities.map((a) => (
+                  <div key={a.id} className="flex items-start gap-3">
+                    <div className="w-2.5 h-2.5 rounded-full shrink-0 mt-1" style={{ backgroundColor: a.color }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{a.title}</p>
+                      <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{a.detail}</p>
+                      <p className="text-xs mt-1" style={{ color: C.textDim }}>{timeAgo(a.time)}</p>
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             )}
           </div>
         </div>
 
-        {/* Right column */}
-        <div className="space-y-4">
-
-          {/* Call queue */}
-          <div className="rounded-xl border overflow-hidden"
-            style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${C.gold}` }}>
-            <div className="px-5 py-4 flex items-center justify-between border-b"
-              style={{ borderColor: C.border, background: "linear-gradient(90deg, rgba(201,168,58,0.05) 0%, transparent 60%)" }}>
-              <div className="flex items-center gap-2">
-                <Phone size={13} style={{ color: C.gold }} />
-                <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>Llamadas</h2>
-              </div>
-              {(calls as any[]).length > 0 && (
-                <span className="flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full"
-                  style={{ backgroundColor: C.goldGlow, color: C.gold }}>
-                  <span className="pulse-dot w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: C.gold }} />
-                  {(calls as any[]).length}
-                </span>
-              )}
-            </div>
-            <div className="p-5">
-              {(calls as any[]).length === 0 ? (
-                <p className="text-xs text-center py-3" style={{ color: C.textDim }}>Sin llamadas</p>
-              ) : (
-                <div className="space-y-2.5">
-                  {(calls as any[]).map((c, i) => (
-                    <div key={c.id} className="flex items-center gap-2.5">
-                      <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                        style={{ backgroundColor: i === 0 ? C.goldGlow : C.surface, color: i === 0 ? C.gold : C.textMuted }}>
-                        {i + 1}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>
-                          {c.leads?.first_name} {c.leads?.last_name}
-                        </p>
-                        <p className="text-xs truncate" style={{ color: C.textMuted }}>{c.leads?.company}</p>
-                      </div>
-                      <span className="text-xs shrink-0 font-medium" style={{ color: C.gold }}>{c.sellers?.name}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Recent qualified */}
-          <div className="rounded-xl border overflow-hidden"
-            style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${C.green}` }}>
-            <div className="px-5 py-4 border-b flex items-center gap-2"
-              style={{ borderColor: C.border, background: "linear-gradient(90deg, rgba(61,220,132,0.04) 0%, transparent 60%)" }}>
-              <TrendingUp size={13} style={{ color: C.green }} />
-              <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>Calificados recientes</h2>
-            </div>
-            <div className="p-5">
-              {qualified.length === 0 ? (
-                <p className="text-xs text-center py-3" style={{ color: C.textDim }}>Ninguno aún</p>
-              ) : (
-                <div className="space-y-2.5">
-                  {(qualified as any[]).map((l) => (
-                    <div key={l.id} className="flex items-center gap-2.5">
-                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: C.green }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>
-                          {l.first_name} {l.last_name}
-                        </p>
-                        <p className="text-xs truncate" style={{ color: C.textMuted }}>{l.company}</p>
-                      </div>
-                      <span className="text-xs shrink-0" style={{ color: C.textMuted }}>{l.assigned_seller}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-        </div>
       </div>
+
+      {/* Alerts Banner */}
+      {alerts.length > 0 && (
+        <div className="mt-8 rounded-xl border overflow-hidden fade-in"
+          style={{ backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }}>
+          <div className="px-6 py-4 flex items-start gap-4">
+            <div className="rounded-full p-2 shrink-0 mt-0.5" style={{ backgroundColor: "#FEF3C7" }}>
+              <AlertTriangle size={18} style={{ color: C.orange }} />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-bold" style={{ color: C.textPrimary }}>Requires Attention</p>
+              <p className="text-sm mt-0.5" style={{ color: C.textBody }}>
+                Issues have been detected in the current workflow.
+              </p>
+            </div>
+          </div>
+          <div className="px-6 pb-5 flex flex-wrap gap-3">
+            {alerts.map((alert, i) => (
+              <Link key={i} href={alert.href}
+                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full border transition-colors hover:bg-orange-50"
+                style={{ borderColor: "#FBBF24", color: C.orange, backgroundColor: "#FFFDF5" }}>
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: C.orange }} />
+                {alert.count} {alert.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -19,7 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="h-full antialiased">
         <div className="flex h-full">
           <Sidebar />
-          <main className="flex-1 overflow-y-auto" style={{ backgroundColor: "#04070d" }}>
+          <main className="flex-1 overflow-y-auto" style={{ backgroundColor: "#F7F8FB" }}>
             {children}
           </main>
         </div>

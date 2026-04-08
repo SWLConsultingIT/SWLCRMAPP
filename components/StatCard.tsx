@@ -1,61 +1,67 @@
 import type { LucideIcon } from "lucide-react";
 import { C } from "@/lib/design";
 
-type Variant = "gold" | "cyan" | "green" | "red" | "muted";
+type Variant = "accent" | "green" | "orange" | "red" | "blue" | "muted";
 
 const variants: Record<Variant, {
-  iconBg: string; iconColor: string; valueColor: string;
-  topBorder: string; iconGlow: string;
+  iconBg: string; iconColor: string; accentColor: string; barColor: string;
 }> = {
-  gold:  { iconBg: C.goldGlow,  iconColor: C.gold,      valueColor: C.gold,      topBorder: C.gold,      iconGlow: "0 0 18px rgba(201,168,58,0.35)" },
-  cyan:  { iconBg: C.cyanGlow,  iconColor: C.cyan,      valueColor: C.cyan,      topBorder: C.cyan,      iconGlow: "0 0 18px rgba(0,229,255,0.25)" },
-  green: { iconBg: C.greenGlow, iconColor: C.green,     valueColor: C.green,     topBorder: C.green,     iconGlow: "0 0 18px rgba(61,220,132,0.28)" },
-  red:   { iconBg: C.redGlow,   iconColor: C.red,       valueColor: C.red,       topBorder: C.red,       iconGlow: "0 0 18px rgba(255,95,95,0.28)" },
-  muted: { iconBg: "rgba(78,90,114,0.12)", iconColor: C.textMuted, valueColor: C.textBody, topBorder: C.border2, iconGlow: "none" },
+  accent: { iconBg: C.accentLight, iconColor: C.accent,  accentColor: C.accent,  barColor: C.accent },
+  green:  { iconBg: C.greenLight,  iconColor: C.green,   accentColor: C.green,   barColor: C.green },
+  orange: { iconBg: C.orangeLight, iconColor: C.orange,  accentColor: C.orange,  barColor: C.orange },
+  red:    { iconBg: C.redLight,    iconColor: C.red,     accentColor: C.red,     barColor: C.red },
+  blue:   { iconBg: C.blueLight,   iconColor: C.blue,    accentColor: C.blue,    barColor: C.blue },
+  muted:  { iconBg: "#F3F4F6",     iconColor: C.textMuted, accentColor: C.textMuted, barColor: "#D1D5DB" },
 };
 
 export default function StatCard({
-  label, value, icon: Icon, variant = "gold", sub,
+  label, value, icon: Icon, variant = "accent", sub, change, progress,
 }: {
   label: string;
   value: string | number;
   icon: LucideIcon;
   variant?: Variant;
   sub?: string;
+  change?: { value: string; positive: boolean };
+  progress?: number;
 }) {
   const v = variants[variant];
   return (
-    <div
-      className="rounded-xl p-4 border fade-in relative overflow-hidden"
-      style={{
-        backgroundColor: C.card,
-        borderColor: C.border,
-        borderTop: `2px solid ${v.topBorder}`,
-        background: `linear-gradient(160deg, #131d2e 0%, ${C.card} 60%)`,
-      }}
-    >
-      {/* Subtle background glow blob */}
-      <div
-        className="absolute -top-4 -right-4 w-16 h-16 rounded-full pointer-events-none"
-        style={{ background: v.topBorder, opacity: 0.05, filter: "blur(14px)" }}
-      />
-
-      <div className="flex items-center justify-between mb-4 relative">
+    <div className="rounded-xl p-5 border fade-in"
+      style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
           {label}
         </span>
-        <div
-          className="rounded-lg p-2"
-          style={{ backgroundColor: v.iconBg, boxShadow: v.iconGlow }}
-        >
-          <Icon size={15} style={{ color: v.iconColor }} />
+        {change && (
+          <span className="text-xs font-semibold px-1.5 py-0.5 rounded"
+            style={{
+              color: change.positive ? C.green : C.red,
+              backgroundColor: change.positive ? C.greenLight : C.redLight,
+            }}>
+            {change.positive ? "+" : ""}{change.value}
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-end justify-between">
+        <div>
+          <p className="text-3xl font-bold tracking-tight tabular-nums" style={{ color: C.textPrimary }}>
+            {value}
+          </p>
+          {sub && <p className="text-xs mt-1.5" style={{ color: C.textDim }}>{sub}</p>}
+        </div>
+        <div className="rounded-lg p-2.5" style={{ backgroundColor: v.iconBg }}>
+          <Icon size={18} style={{ color: v.iconColor }} />
         </div>
       </div>
 
-      <p className="text-3xl font-bold tracking-tight tabular-nums relative" style={{ color: v.valueColor }}>
-        {value}
-      </p>
-      {sub && <p className="text-xs mt-2" style={{ color: C.textDim }}>{sub}</p>}
+      {progress !== undefined && (
+        <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "#F3F4F6" }}>
+          <div className="h-full rounded-full animate-fill"
+            style={{ width: `${Math.min(progress, 100)}%`, backgroundColor: v.barColor }} />
+        </div>
+      )}
     </div>
   );
 }
