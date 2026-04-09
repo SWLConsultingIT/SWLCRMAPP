@@ -54,6 +54,13 @@ export const C = {
   linkedin:       "#0A66C2",
   email:          "#059669",
   phone:          "#EA580C",
+
+  // ── Legacy aliases (for components not yet migrated) ──
+  cyan:           "#0A66C2",
+  cyanGlow:       "rgba(10,102,194,0.1)",
+  greenGlow:      "#ECFDF5",
+  redGlow:        "#FEF2F2",
+  yellowGlow:     "#FFFBEB",
 } as const;
 
 export type Color = typeof C;

@@ -4,7 +4,7 @@ import CallsClient from "@/components/CallsClient";
 async function getCallQueue() {
   const { data } = await supabase
     .from("campaigns")
-    .select("id, last_step_at, sequence_steps, current_step, leads(id, first_name, last_name, company, role, email, linkedin_url, n8n_flow), sellers(name)")
+    .select("id, last_step_at, sequence_steps, current_step, leads(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, n8n_flow), sellers(name)")
     .eq("status", "active")
     .eq("channel", "call")
     .order("last_step_at", { ascending: true })
@@ -15,7 +15,7 @@ async function getCallQueue() {
 async function getCallHistory() {
   const { data } = await supabase
     .from("campaigns")
-    .select("id, completed_at, leads(id, first_name, last_name, company), sellers(name)")
+    .select("id, completed_at, leads(id, primary_first_name, primary_last_name, company_name), sellers(name)")
     .eq("channel", "call")
     .eq("status", "completed")
     .not("completed_at", "is", null)

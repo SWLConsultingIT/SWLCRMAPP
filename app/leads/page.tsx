@@ -6,7 +6,7 @@ async function getLeads() {
   // Get leads with message counts and reply info
   const { data: leads } = await supabase
     .from("leads")
-    .select("id, first_name, last_name, company, role, email, linkedin_url, status, assigned_seller, allow_linkedin, allow_email, allow_whatsapp, allow_call, n8n_flow, created_at, updated_at, odoo_lead_id")
+    .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, status, assigned_seller, allow_linkedin, allow_email, allow_whatsapp, allow_call, allow_instagram, allow_sms, n8n_flow, created_at, updated_at, odoo_lead_id, current_channel, lead_score, is_priority, primary_phone")
     .order("created_at", { ascending: false })
     .limit(500);
 
@@ -65,9 +65,16 @@ async function getLeads() {
 
     return {
       ...l,
+      // Map DB columns to component expected names
+      first_name: l.primary_first_name,
+      last_name: l.primary_last_name,
+      company: l.company_name,
+      role: l.primary_title_role,
+      email: l.primary_work_email,
+      linkedin_url: l.primary_linkedin_url,
       messages_sent: sentByLead[l.id] ?? 0,
       reply_count: lReplies.length,
-      has_positive: lReplies.some((r) => r.classification === "positive"),
+      has_positive: lReplies.some((r) => r.classification === "positive" || r.classification === "meeting_intent"),
       has_reply: lReplies.length > 0,
       last_activity: lastActivity ?? l.created_at,
       channels_active: lCamps.map((c) => c.channel).filter((v, i, a) => a.indexOf(v) === i),

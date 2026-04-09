@@ -2,14 +2,18 @@
 
 import { useState, useRef, useEffect } from "react";
 import { C } from "@/lib/design";
-import { CheckCircle, XCircle, Clock, MinusCircle, ChevronDown, Loader } from "lucide-react";
+import { CheckCircle, XCircle, Clock, MinusCircle, ChevronDown, Loader, MessageSquare } from "lucide-react";
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  new:         { label: "Nuevo",      color: C.cyan,     bg: C.cyanGlow,                    icon: Clock },
-  contacted:   { label: "Contactado", color: C.gold,     bg: C.goldGlow,                    icon: Clock },
-  qualified:   { label: "Calificado", color: C.green,    bg: C.greenGlow,                   icon: CheckCircle },
-  cold:        { label: "Cold",       color: C.textBody, bg: "rgba(78,90,114,0.08)",         icon: MinusCircle },
-  closed_lost: { label: "Perdido",    color: C.red,      bg: C.redGlow,                     icon: XCircle },
+  new:           { label: "New",        color: C.blue,      bg: C.blueLight,   icon: Clock },
+  contacted:     { label: "Contacted",  color: C.orange,    bg: C.orangeLight, icon: Clock },
+  connected:     { label: "Connected",  color: C.accent,    bg: C.accentLight, icon: CheckCircle },
+  responded:     { label: "Responded",  color: C.green,     bg: C.greenLight,  icon: MessageSquare },
+  qualified:     { label: "Qualified",  color: C.green,     bg: C.greenLight,  icon: CheckCircle },
+  proposal_sent: { label: "Proposal",   color: C.accent,    bg: C.accentLight, icon: CheckCircle },
+  closed_won:    { label: "Won",        color: C.green,     bg: C.greenLight,  icon: CheckCircle },
+  closed_lost:   { label: "Lost",       color: C.red,       bg: C.redLight,    icon: XCircle },
+  nurturing:     { label: "Nurturing",  color: C.textMuted, bg: "#F3F4F6",     icon: MinusCircle },
 };
 
 export default function LeadStatusSelect({ leadId, initialStatus, onUpdate }: {
@@ -55,6 +59,7 @@ export default function LeadStatusSelect({ leadId, initialStatus, onUpdate }: {
   return (
     <div ref={ref} className="relative" onClick={e => e.stopPropagation()}>
       <button
+        suppressHydrationWarning
         onClick={() => setOpen(o => !o)}
         className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all"
         style={{ backgroundColor: st.bg }}

@@ -24,11 +24,15 @@ type Lead = {
 const PAGE_SIZE = 50;
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  new:         { label: "Nuevo",      color: C.cyan,     bg: C.cyanGlow,             icon: Clock },
-  contacted:   { label: "Contactado", color: C.gold,     bg: C.goldGlow,             icon: Clock },
-  qualified:   { label: "Calificado", color: C.green,    bg: C.greenGlow,            icon: CheckCircle },
-  cold:        { label: "Cold",       color: C.textBody, bg: "rgba(78,90,114,0.08)", icon: MinusCircle },
-  closed_lost: { label: "Perdido",    color: C.red,      bg: C.redGlow,              icon: XCircle },
+  new:           { label: "New",          color: C.blue,      bg: C.blueLight,    icon: Clock },
+  contacted:     { label: "Contacted",    color: C.orange,    bg: C.orangeLight,  icon: Clock },
+  connected:     { label: "Connected",    color: C.accent,    bg: C.accentLight,  icon: CheckCircle },
+  responded:     { label: "Responded",    color: C.green,     bg: C.greenLight,   icon: MessageSquare },
+  qualified:     { label: "Qualified",    color: C.green,     bg: C.greenLight,   icon: CheckCircle },
+  proposal_sent: { label: "Proposal",     color: C.accent,    bg: C.accentLight,  icon: CheckCircle },
+  closed_won:    { label: "Won",          color: C.green,     bg: C.greenLight,   icon: CheckCircle },
+  closed_lost:   { label: "Lost",         color: C.red,       bg: C.redLight,     icon: XCircle },
+  nurturing:     { label: "Nurturing",    color: C.textMuted, bg: "#F3F4F6",      icon: MinusCircle },
 };
 
 function relativeTime(iso: string) {
@@ -157,10 +161,10 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
   }
 
   return (
-    <div className="p-8">
+    <div className="p-8 w-full">
       {/* Header */}
       <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: C.gold }}>Base de datos</p>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: C.gold }}>Database</p>
         <div className="flex items-end justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Leads</h1>
@@ -169,24 +173,24 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
           </div>
           <div className="flex items-center gap-3">
             {filtered.length !== leads.length && (
-              <span className="text-sm" style={{ color: C.textMuted }}>{filtered.length} filtrados</span>
+              <span className="text-sm" style={{ color: C.textMuted }}>{filtered.length} filtered</span>
             )}
             <button onClick={() => exportCSV(filtered)}
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border"
               style={{ backgroundColor: C.goldGlow, borderColor: `${C.gold}30`, color: C.gold }}>
-              <Download size={12} /> Exportar CSV
+              <Download size={12} /> Export CSV
             </button>
           </div>
         </div>
       </div>
 
-      <div className="gold-divider mb-5" />
+      <div className="h-px mb-5" style={{ background: `linear-gradient(90deg, ${C.gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
 
       {/* Status chips */}
       <div className="flex flex-wrap gap-2 mb-5">
         <button onClick={() => changeFilter(setFilterStatus, ALL)}
           className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition-all"
-          style={{ backgroundColor: filterStatus === ALL ? C.goldGlow : "transparent", color: filterStatus === ALL ? C.gold : C.textMuted, borderColor: filterStatus === ALL ? `${C.gold}30` : C.border }}>
+          style={{ backgroundColor: filterStatus === ALL ? C.accentLight : "transparent", color: filterStatus === ALL ? C.accent : C.textMuted, borderColor: filterStatus === ALL ? `${C.accent}30` : C.border }}>
           <Users size={11} /> Todos <span className="font-bold">{leads.length}</span>
         </button>
         {(Object.entries(statusConfig) as [string, typeof statusConfig[string]][]).map(([key, { label, color, bg, icon: Icon }]) => (
@@ -226,7 +230,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
       {/* Bulk action bar */}
       {selected.size > 0 && (
         <div className="flex items-center gap-3 mb-4 px-4 py-2.5 rounded-xl border fade-in"
-          style={{ backgroundColor: C.goldGlow, borderColor: `${C.gold}25` }}>
+          style={{ backgroundColor: C.accentLight, borderColor: `${C.accent}25` }}>
           <span className="text-sm font-semibold" style={{ color: C.gold }}>
             {selected.size} seleccionado{selected.size !== 1 ? "s" : ""}
           </span>
@@ -249,7 +253,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
         style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${C.gold}` }}>
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ borderBottom: `1px solid ${C.border}`, background: "linear-gradient(90deg, rgba(201,168,58,0.04) 0%, transparent 50%)" }}>
+            <tr style={{ borderBottom: `1px solid ${C.border}`, background: `linear-gradient(90deg, rgba(201,168,58,0.04) 0%, transparent 50%)` }}>
               <th className="px-4 py-3 w-8">
                 <button onClick={toggleSelectAll}>
                   {allPageSelected
@@ -268,7 +272,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
               ].map(({ label, col }) => (
                 <th key={label}
                   className={`text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider ${col ? "cursor-pointer select-none" : ""}`}
-                  style={{ color: sortCol === col ? C.gold : C.textMuted }}
+                  style={{ color: sortCol === col ? C.accent : C.textMuted }}
                   onClick={() => col && toggleSort(col)}>
                   <div className="flex items-center gap-1">
                     {label}
@@ -281,7 +285,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
           <tbody>
             {paginated.map((lead) => (
               <tr key={lead.id} className="table-row-hover"
-                style={{ borderBottom: `1px solid ${C.surface}`, backgroundColor: selected.has(lead.id) ? `${C.goldGlow}` : undefined }}
+                style={{ borderBottom: `1px solid ${C.surface}`, backgroundColor: selected.has(lead.id) ? `${C.accentLight}` : undefined }}
                 onClick={() => router.push(`/leads/${lead.id}`)}>
                 <td className="px-4 py-3" onClick={e => toggleSelect(lead.id, e)}>
                   {selected.has(lead.id)
@@ -291,7 +295,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                      style={{ background: `linear-gradient(135deg, ${C.gold}, #e8c84a)`, color: "#0a0d14" }}>
+                      style={{ backgroundColor: C.accentLight, color: C.accent }}>
                       {lead.first_name?.[0]}{lead.last_name?.[0]}
                     </div>
                     <div>
@@ -300,7 +304,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
                     </div>
                     {lead.has_positive && (
                       <span className="ml-1 text-xs px-1.5 py-0.5 rounded font-semibold"
-                        style={{ backgroundColor: C.greenGlow, color: C.green }}>★</span>
+                        style={{ backgroundColor: C.greenLight, color: C.green }}>★</span>
                     )}
                   </div>
                 </td>
@@ -310,10 +314,10 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <Link2          size={13} style={{ color: lead.allow_linkedin  ? C.cyan    : C.textDim }} />
+                    <Link2          size={13} style={{ color: lead.allow_linkedin  ? C.linkedin    : C.textDim }} />
                     <Mail           size={13} style={{ color: lead.allow_email     ? C.green   : C.textDim }} />
                     <MessageCircle  size={13} style={{ color: lead.allow_whatsapp  ? "#22c55e" : C.textDim }} />
-                    <Phone          size={13} style={{ color: lead.allow_call      ? C.gold    : C.textDim }} />
+                    <Phone          size={13} style={{ color: lead.allow_call      ? C.accent    : C.textDim }} />
                   </div>
                 </td>
                 <td className="px-4 py-3">
@@ -324,8 +328,8 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
                     </div>
                     {lead.reply_count > 0 && (
                       <div className="flex items-center gap-1">
-                        <MessageSquare size={11} style={{ color: lead.has_positive ? C.green : C.cyan }} />
-                        <span className="text-sm font-semibold tabular-nums" style={{ color: lead.has_positive ? C.green : C.cyan }}>{lead.reply_count}</span>
+                        <MessageSquare size={11} style={{ color: lead.has_positive ? C.green : C.linkedin }} />
+                        <span className="text-sm font-semibold tabular-nums" style={{ color: lead.has_positive ? C.green : C.linkedin }}>{lead.reply_count}</span>
                       </div>
                     )}
                   </div>
@@ -369,7 +373,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
               return (
                 <button key={p} onClick={() => setPage(p)}
                   className="w-7 h-7 rounded text-xs font-medium"
-                  style={{ backgroundColor: p === page ? C.gold : C.surface, color: p === page ? "#04070d" : C.textMuted }}>
+                  style={{ backgroundColor: p === page ? C.gold : "#F3F4F6", color: p === page ? "#fff" : C.textMuted }}>
                   {p + 1}
                 </button>
               );
