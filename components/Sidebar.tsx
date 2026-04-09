@@ -5,35 +5,39 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
-import { LayoutDashboard, Users, Megaphone, Phone, BarChart3 } from "lucide-react";
+import { LayoutDashboard, Users, Megaphone, Phone, BarChart3, Building2, Target } from "lucide-react";
 
 const nav = [
-  { href: "/",          label: "Dashboard", icon: LayoutDashboard },
-  { href: "/leads",     label: "Leads",     icon: Users },
-  { href: "/campaigns", label: "Campaigns", icon: Megaphone },
-  { href: "/calls",     label: "Call Queue", icon: Phone, badgeKey: "calls" },
-  { href: "/reports",   label: "Reports",   icon: BarChart3 },
+  { href: "/",               label: "Dashboard",    icon: LayoutDashboard, badgeKey: "pending" },
+  { href: "/company-bios",   label: "Company Bio",  icon: Building2 },
+  { href: "/icp",            label: "ICP",          icon: Target },
+  { href: "/leads",          label: "Leads",        icon: Users },
+  { href: "/campaigns",      label: "Campaigns",    icon: Megaphone },
+  { href: "/calls",          label: "Call Queue",   icon: Phone, badgeKey: "calls" },
+  { href: "/reports",        label: "Reports",      icon: BarChart3 },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [callCount, setCallCount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
-    async function fetchCalls() {
-      const { count } = await supabase
-        .from("campaigns")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "active")
-        .eq("channel", "call");
-      setCallCount(count ?? 0);
+    async function fetchBadges() {
+      const [{ count: calls }, { count: pendingIcps }, { count: pendingCampaigns }] = await Promise.all([
+        supabase.from("campaigns").select("*", { count: "exact", head: true }).eq("status", "active").eq("channel", "call"),
+        supabase.from("icp_profiles").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("campaign_requests").select("*", { count: "exact", head: true }).eq("status", "pending_review"),
+      ]);
+      setCallCount(calls ?? 0);
+      setPendingCount((pendingIcps ?? 0) + (pendingCampaigns ?? 0));
     }
-    fetchCalls();
-    const interval = setInterval(fetchCalls, 60000);
+    fetchBadges();
+    const interval = setInterval(fetchBadges, 60000);
     return () => clearInterval(interval);
   }, []);
 
-  const badges: Record<string, number> = { calls: callCount };
+  const badges: Record<string, number> = { calls: callCount, pending: pendingCount };
 
   return (
     <aside className="w-56 flex flex-col shrink-0 border-r"

@@ -1,6 +1,6 @@
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
-import { Users, Phone, MessageSquare, RefreshCw, AlertTriangle, Share2, Mail, PhoneCall } from "lucide-react";
+import { Users, Phone, MessageSquare, RefreshCw, AlertTriangle, Share2, Mail, PhoneCall, Target, Clock, CheckCircle } from "lucide-react";
 import AutoRefresh from "@/components/AutoRefresh";
 import Link from "next/link";
 
@@ -51,6 +51,14 @@ async function getRecentLeads() {
   return data ?? [];
 }
 
+async function getPendingReviews() {
+  const [{ data: icps }, { data: campaigns }] = await Promise.all([
+    supabase.from("icp_profiles").select("id, profile_name, target_industries, target_roles, created_at").eq("status", "pending").order("created_at", { ascending: false }),
+    supabase.from("campaign_requests").select("id, name, channels, status, created_at").eq("status", "pending_review").order("created_at", { ascending: false }),
+  ]);
+  return { icps: icps ?? [], campaigns: campaigns ?? [] };
+}
+
 async function getRecentActivity() {
   const { data: replies } = await supabase.from("lead_replies")
     .select("id, classification, received_at, channel, leads(primary_first_name, primary_last_name, company_name)")
@@ -92,7 +100,7 @@ const stageLabel: Record<string, string> = { new: "New", contacted: "Contacted",
 const chIcon: Record<string, { icon: typeof Share2; color: string }> = { linkedin: { icon: Share2, color: C.linkedin }, email: { icon: Mail, color: C.email }, call: { icon: PhoneCall, color: C.phone } };
 
 export default async function DashboardPage() {
-  const [stats, leads, activities, alerts] = await Promise.all([getStats(), getRecentLeads(), getRecentActivity(), getAlerts()]);
+  const [stats, leads, activities, alerts, pending] = await Promise.all([getStats(), getRecentLeads(), getRecentActivity(), getAlerts(), getPendingReviews()]);
 
   return (
     <div className="p-8 w-full">
@@ -136,6 +144,72 @@ export default async function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Pending Reviews */}
+      {(pending.icps.length > 0 || pending.campaigns.length > 0) && (
+        <div className="rounded-xl border overflow-hidden mb-8 fade-in"
+          style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+          <div className="px-6 py-4 flex items-center justify-between border-b"
+            style={{ borderColor: C.border, background: `linear-gradient(90deg, ${goldLight} 0%, transparent 50%)` }}>
+            <div className="flex items-center gap-2.5">
+              <Clock size={15} style={{ color: gold }} />
+              <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>Pending Reviews</h2>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: goldGlow, color: gold }}>
+                {pending.icps.length + pending.campaigns.length}
+              </span>
+            </div>
+          </div>
+          <div className="divide-y" style={{ borderColor: C.border }}>
+            {pending.icps.map((icp: any) => (
+              <Link key={icp.id} href="/icp"
+                className="flex items-center gap-4 px-6 py-3.5 table-row-hover">
+                <div className="rounded-lg p-2" style={{ backgroundColor: `${C.accent}15` }}>
+                  <Target size={15} style={{ color: C.accent }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium" style={{ color: C.textPrimary }}>
+                    New ICP Profile: {icp.profile_name}
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
+                    {[...(icp.target_industries ?? []), ...(icp.target_roles ?? [])].slice(0, 4).join(", ") || "No details"}
+                  </p>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-md"
+                  style={{ backgroundColor: C.yellowLight, color: C.yellow }}>
+                  Awaiting review
+                </span>
+                <span className="text-xs tabular-nums" style={{ color: C.textDim }}>
+                  {timeAgo(icp.created_at)}
+                </span>
+              </Link>
+            ))}
+            {pending.campaigns.map((cr: any) => (
+              <Link key={cr.id} href="/campaigns"
+                className="flex items-center gap-4 px-6 py-3.5 table-row-hover">
+                <div className="rounded-lg p-2" style={{ backgroundColor: `${gold}15` }}>
+                  <CheckCircle size={15} style={{ color: gold }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium" style={{ color: C.textPrimary }}>
+                    Campaign Request: {cr.name}
+                  </p>
+                  <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
+                    Channels: {(cr.channels ?? []).join(", ")}
+                  </p>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-md"
+                  style={{ backgroundColor: C.yellowLight, color: C.yellow }}>
+                  Awaiting approval
+                </span>
+                <span className="text-xs tabular-nums" style={{ color: C.textDim }}>
+                  {timeAgo(cr.created_at)}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Bottom grid */}
       <div className="grid grid-cols-3 gap-6">

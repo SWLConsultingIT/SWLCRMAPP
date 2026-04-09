@@ -47,7 +47,8 @@ input, select {
   transition: border-color 0.15s;
 }
 input::placeholder { color: #9CA3AF; }
-input:focus, select:focus { outline: none; border-color: #1A7F74; box-shadow: 0 0 0 2px rgba(26,127,116,0.12); }
+input:focus, select:focus, textarea:focus { outline: none; border-color: #1A7F74; box-shadow: 0 0 0 2px rgba(26,127,116,0.12); }
+.tag-input:focus-within { border-color: #1A7F74; box-shadow: 0 0 0 2px rgba(26,127,116,0.12); }
 select option { background-color: #FFFFFF; color: #111827; }
 
 /* Toast slide in */

@@ -33,7 +33,7 @@ function ChannelIcon({ channel, size = 14 }: { channel: string; size?: number })
   return <span className={s}>💬</span>;
 }
 
-const channelIcons: Record<string, { color: string; bg: string; label: string }> = {
+const channelIcons: Record<string, { icon?: typeof Mail; color: string; bg: string; label: string }> = {
   linkedin: { color: C.linkedin, bg: "#EFF6FF", label: "LinkedIn" },
   email:    { icon: Mail, color: C.email, bg: "#ECFDF5", label: "Email" },
   call:     { icon: Phone, color: C.phone, bg: "#FFF7ED", label: "Phone" },
