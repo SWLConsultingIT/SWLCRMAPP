@@ -10,7 +10,7 @@ import { LayoutDashboard, Users, Megaphone, Phone, BarChart3, Building2, Target 
 const nav = [
   { href: "/",               label: "Dashboard",    icon: LayoutDashboard, badgeKey: "pending" },
   { href: "/company-bios",   label: "Company Bio",  icon: Building2 },
-  { href: "/icp",            label: "ICP",          icon: Target },
+  { href: "/icp",            label: "Lead Gen",     icon: Target },
   { href: "/leads",          label: "Leads",        icon: Users },
   { href: "/campaigns",      label: "Campaigns",    icon: Megaphone },
   { href: "/calls",          label: "Call Queue",   icon: Phone, badgeKey: "calls" },

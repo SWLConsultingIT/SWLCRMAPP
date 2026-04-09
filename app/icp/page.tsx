@@ -129,10 +129,10 @@ export default function IcpPage() {
           <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Setup</p>
           <h1 className="text-2xl font-bold flex items-center gap-2.5" style={{ color: C.textPrimary }}>
             <Target size={22} style={{ color: gold }} />
-            Ideal Customer Profile
+            Lead Gen
           </h1>
           <p className="text-sm mt-1" style={{ color: C.textMuted }}>
-            Define el perfil del prospecto ideal. El equipo SWL lo revisará antes de armar la campaña.
+            Define the ideal prospect profile. The SWL team will review it before setting up the campaign.
           </p>
         </div>
         {!showForm && (
@@ -140,109 +140,109 @@ export default function IcpPage() {
             onClick={() => setShowForm(true)}
             className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-opacity hover:opacity-80"
             style={{ backgroundColor: gold, color: "#04070d" }}>
-            <Plus size={15} /> Nuevo ICP
+            <Plus size={15} /> New Profile
           </button>
         )}
       </div>
 
       <div className="h-px mb-8" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
 
-      {/* New ICP form */}
+      {/* New Profile form */}
       {showForm && (
         <div className="rounded-xl border mb-8" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
           <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b" style={{ borderColor: C.border }}>
-            <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>Nuevo perfil ICP</h2>
+            <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>New Lead Gen Profile</h2>
             <button onClick={() => { setShowForm(false); setForm(emptyForm); }} style={{ color: C.textMuted }}>
               <X size={18} />
             </button>
           </div>
           <div className="p-6 space-y-5">
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Nombre del perfil *</label>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Profile Name *</label>
               <input
                 className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none"
                 style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
                 value={form.profile_name}
                 onChange={e => setForm(f => ({ ...f, profile_name: e.target.value }))}
-                placeholder="Ej: CFO de Pyme Argentina"
+                placeholder="E.g.: CFO of Argentine SME"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Industrias objetivo</label>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Target Industries</label>
                 <TagInput
                   values={form.target_industries}
                   onChange={v => setForm(f => ({ ...f, target_industries: v }))}
-                  placeholder="Escribir y presionar Enter…"
+                  placeholder="Type and press Enter…"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Roles objetivo</label>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Target Roles</label>
                 <TagInput
                   values={form.target_roles}
                   onChange={v => setForm(f => ({ ...f, target_roles: v }))}
-                  placeholder="CEO, CFO, Gerente de Ventas…"
+                  placeholder="CEO, CFO, Sales Manager…"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Tamaño de empresa</label>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Company Size</label>
                 <select
                   className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none bg-transparent"
                   style={{ borderColor: C.border, color: form.company_size ? C.textPrimary : C.textDim, backgroundColor: C.bg }}
                   value={form.company_size}
                   onChange={e => setForm(f => ({ ...f, company_size: e.target.value }))}>
-                  <option value="">Cualquier tamaño</option>
-                  <option value="1-10">1–10 empleados</option>
-                  <option value="11-50">11–50 empleados</option>
-                  <option value="51-200">51–200 empleados</option>
-                  <option value="201-500">201–500 empleados</option>
-                  <option value="500+">500+ empleados</option>
+                  <option value="">Any size</option>
+                  <option value="1-10">1–10 employees</option>
+                  <option value="11-50">11–50 employees</option>
+                  <option value="51-200">51–200 employees</option>
+                  <option value="201-500">201–500 employees</option>
+                  <option value="500+">500+ employees</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Geografía</label>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Geography</label>
                 <TagInput
                   values={form.geography}
                   onChange={v => setForm(f => ({ ...f, geography: v }))}
-                  placeholder="Argentina, España, LATAM…"
+                  placeholder="Argentina, Spain, LATAM…"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Dolor / problema que resuelves</label>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Pain Points You Solve</label>
               <textarea
                 rows={3}
                 className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
                 style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
                 value={form.pain_points}
                 onChange={e => setForm(f => ({ ...f, pain_points: e.target.value }))}
-                placeholder="Qué problema tienen estos prospectos que tu empresa puede resolver"
+                placeholder="What problem do these prospects have that your company can solve"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Soluciones que ofreces para este perfil</label>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Solutions You Offer for This Profile</label>
               <textarea
                 rows={2}
                 className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
                 style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
                 value={form.solutions_offered}
                 onChange={e => setForm(f => ({ ...f, solutions_offered: e.target.value }))}
-                placeholder="Qué servicio/producto específico encaja mejor con este perfil"
+                placeholder="What specific service/product best fits this profile"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Notas adicionales</label>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Additional Notes</label>
               <textarea
                 rows={2}
                 className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
                 style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
                 value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                placeholder="Contexto adicional, referencias, casos de éxito similares…"
+                placeholder="Additional context, references, similar case studies…"
               />
             </div>
 
@@ -259,10 +259,10 @@ export default function IcpPage() {
                 className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50"
                 style={{ backgroundColor: gold, color: "#04070d" }}>
                 {saving ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
-                {saving ? "Enviando…" : "Enviar para revisión"}
+                {saving ? "Submitting…" : "Submit for Review"}
               </button>
               <span className="text-xs" style={{ color: C.textMuted }}>
-                El equipo SWL recibirá una notificación para revisar este perfil.
+                The SWL team will be notified to review this profile.
               </span>
             </div>
           </div>
@@ -272,25 +272,25 @@ export default function IcpPage() {
       {savedId && (
         <div className="flex items-center gap-2 rounded-xl px-4 py-3 mb-6 text-sm font-medium"
           style={{ backgroundColor: C.greenLight, color: C.green, border: `1px solid ${C.green}22` }}>
-          <CheckCircle size={15} /> Perfil enviado para revisión. El equipo SWL lo revisará pronto.
+          <CheckCircle size={15} /> Profile submitted for review. The SWL team will review it soon.
         </div>
       )}
 
       {/* Profiles list */}
       {loading ? (
         <div className="flex items-center justify-center py-12" style={{ color: C.textMuted }}>
-          <Loader2 size={20} className="animate-spin mr-2" /> Cargando…
+          <Loader2 size={20} className="animate-spin mr-2" /> Loading…
         </div>
       ) : profiles.length === 0 && !showForm ? (
         <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
           <Target size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-          <p className="text-sm font-medium" style={{ color: C.textBody }}>No hay perfiles ICP todavía</p>
-          <p className="text-xs mt-1 mb-4" style={{ color: C.textMuted }}>Crea el primero para empezar a armar campañas</p>
+          <p className="text-sm font-medium" style={{ color: C.textBody }}>No Lead Gen profiles yet</p>
+          <p className="text-xs mt-1 mb-4" style={{ color: C.textMuted }}>Create the first one to start building campaigns</p>
           <button
             onClick={() => setShowForm(true)}
             className="rounded-lg px-5 py-2 text-sm font-semibold"
             style={{ backgroundColor: gold, color: "#04070d" }}>
-            Nuevo ICP
+            New Profile
           </button>
         </div>
       ) : (
@@ -303,7 +303,7 @@ export default function IcpPage() {
                   <div>
                     <h3 className="font-semibold text-base" style={{ color: C.textPrimary }}>{p.profile_name}</h3>
                     <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
-                      {new Date(p.created_at).toLocaleDateString("es-AR", { day: "2-digit", month: "long", year: "numeric" })}
+                      {new Date(p.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
                     </p>
                   </div>
                   <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold"
@@ -315,7 +315,7 @@ export default function IcpPage() {
                 <div className="grid grid-cols-3 gap-4 text-xs">
                   {p.target_industries?.length > 0 && (
                     <div>
-                      <p className="font-medium mb-1" style={{ color: C.textMuted }}>Industrias</p>
+                      <p className="font-medium mb-1" style={{ color: C.textMuted }}>Industries</p>
                       <div className="flex flex-wrap gap-1">
                         {p.target_industries.map(i => (
                           <span key={i} className="rounded-full px-2 py-0.5 font-medium"
@@ -337,7 +337,7 @@ export default function IcpPage() {
                   )}
                   {p.geography?.length > 0 && (
                     <div>
-                      <p className="font-medium mb-1" style={{ color: C.textMuted }}>Geografía</p>
+                      <p className="font-medium mb-1" style={{ color: C.textMuted }}>Geography</p>
                       <div className="flex flex-wrap gap-1">
                         {p.geography.map(g => (
                           <span key={g} className="rounded-full px-2 py-0.5 font-medium"
@@ -350,7 +350,7 @@ export default function IcpPage() {
 
                 {p.pain_points && (
                   <p className="text-xs mt-3 line-clamp-2" style={{ color: C.textBody }}>
-                    <span className="font-medium" style={{ color: C.textMuted }}>Dolor: </span>{p.pain_points}
+                    <span className="font-medium" style={{ color: C.textMuted }}>Pain: </span>{p.pain_points}
                   </p>
                 )}
               </div>
