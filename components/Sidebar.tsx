@@ -5,16 +5,17 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
-import { LayoutDashboard, Users, Megaphone, Phone, BarChart3, Building2, Target } from "lucide-react";
+import { LayoutDashboard, Users, Megaphone, Phone, BarChart3, Building2, Target, Shield } from "lucide-react";
 
 const nav = [
-  { href: "/",               label: "Dashboard",    icon: LayoutDashboard, badgeKey: "pending" },
+  { href: "/",               label: "Dashboard",    icon: LayoutDashboard },
   { href: "/company-bios",   label: "Company Bio",  icon: Building2 },
   { href: "/icp",            label: "Lead Gen",     icon: Target },
   { href: "/leads",          label: "Leads",        icon: Users },
   { href: "/campaigns",      label: "Campaigns",    icon: Megaphone },
   { href: "/calls",          label: "Call Queue",   icon: Phone, badgeKey: "calls" },
   { href: "/reports",        label: "Reports",      icon: BarChart3 },
+  { href: "/admin",          label: "Admin",        icon: Shield, badgeKey: "pending" },
 ];
 
 export default function Sidebar() {
@@ -24,13 +25,14 @@ export default function Sidebar() {
 
   useEffect(() => {
     async function fetchBadges() {
-      const [{ count: calls }, { count: pendingIcps }, { count: pendingCampaigns }] = await Promise.all([
+      const [{ count: calls }, { count: pendingReview }, { count: pendingExec }, { count: pendingCampaigns }] = await Promise.all([
         supabase.from("campaigns").select("*", { count: "exact", head: true }).eq("status", "active").eq("channel", "call"),
         supabase.from("icp_profiles").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("icp_profiles").select("*", { count: "exact", head: true }).eq("status", "approved").in("execution_status", ["not_started", "in_progress"]),
         supabase.from("campaign_requests").select("*", { count: "exact", head: true }).eq("status", "pending_review"),
       ]);
       setCallCount(calls ?? 0);
-      setPendingCount((pendingIcps ?? 0) + (pendingCampaigns ?? 0));
+      setPendingCount((pendingReview ?? 0) + (pendingExec ?? 0) + (pendingCampaigns ?? 0));
     }
     fetchBadges();
     const interval = setInterval(fetchBadges, 60000);
