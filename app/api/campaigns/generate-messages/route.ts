@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
   const channelCounters: Record<string, number> = {};
   const allStepsSoFar: { channel: string; type: string }[] = [];
   let cumulativeDay = 0;
+  let companyIntroduced = false; // Track if ANY previous step already introduced the company
 
   const steps = (sequence ?? []).map((s, i) => {
     cumulativeDay += i === 0 ? 0 : s.daysAfter;
@@ -54,51 +55,62 @@ export async function POST(req: NextRequest) {
     - Do NOT use "I'd love to connect" or "I came across your profile" — these are spam.
     - The ONLY goal is to make them curious enough to accept. That's it.
     - Think of it as a 1-sentence reason why connecting makes sense for THEM.`;
-      } else if (nth === 2) {
-        msgType = "FIRST DM POST-CONNECTION";
-        narrative = `The prospect ACCEPTED your connection request. You are now connected. This is your first real direct message — the INTRODUCTION MESSAGE.
-    Context: They only saw your short connection request note before this. They know nothing about your company yet.
+        // Connection request does NOT count as introducing the company
+      } else if (nth === 2 && !companyIntroduced) {
+        // First real LinkedIn DM AND no other channel introduced the company yet
+        msgType = "FIRST DM — COMPANY INTRODUCTION";
+        narrative = `The prospect ACCEPTED your connection request. This is your first LinkedIn DM and the FIRST time the prospect hears about your company.
 
-    ⚠️ FORBIDDEN OPENERS (DO NOT USE ANY OF THESE — they are spam and will be rejected):
-    - "Gracias por aceptar mi conexión/solicitud"
-    - "Thanks for connecting/accepting"
-    - "Great to be connected"
-    - "Hi, I noticed we recently connected"
+    ⚠️ FORBIDDEN OPENERS (DO NOT USE — they are spam):
+    - "Gracias por aceptar mi conexión/solicitud" / "Thanks for connecting/accepting" / "Great to be connected"
     - Any variation of acknowledging the connection acceptance
 
-    INSTEAD, START THE MESSAGE DIRECTLY WITH VALUE. Good openers:
-    - A specific observation about their industry ("The ${(icpProfile.target_industries || ["your"])[0]} sector is seeing [trend]...")
-    - A question about a challenge they face ("Are you finding that [pain point] is impacting [outcome]?")
-    - A bold insight ("Most ${(icpProfile.target_roles || ["leaders"])[0]}s in ${(icpProfile.target_industries || ["your industry"])[0]} are still struggling with [problem]...")
+    START DIRECTLY WITH VALUE. Structure:
+    1. Open with a specific insight about their industry or challenge — NOT a greeting
+    2. Introduce yourself: "I'm [name] from ${companyBio.company_name} — we ${companyBio.description || "help companies like yours"}"
+    3. Connect their pain point to your specific solution
+    4. Social proof: ${(companyBio.key_clients || []).length > 0 ? `"We've worked with ${(companyBio.key_clients || []).slice(0, 2).join(", ")}"` : '"We\'ve helped companies"'} + a concrete result
+    5. End with ONE specific question about their situation
 
-    THIS MESSAGE MUST INCLUDE:
-    1. Open with a specific insight about their industry or a challenge they face — NOT a greeting about connecting
-    2. Introduce who you are: "I'm [name] from ${companyBio.company_name} — we ${companyBio.description || "help companies like yours"}"
-    3. Connect their pain point to your solution: explain HOW you solve it specifically
-    4. Social proof: "${(companyBio.key_clients || []).length > 0 ? `We've worked with ${(companyBio.key_clients || []).slice(0, 2).join(", ")}` : "We've helped companies"}" + a concrete result
-    5. End with ONE soft question — not "let me know if you're interested" but a specific question about their situation
-
-    Rules: Max 1000 characters. The message should read like: [insight about them] → [who we are] → [how we solve their problem] → [proof] → [question].`;
+    Rules: Max 1000 characters. Flow: [insight] → [who we are] → [solution] → [proof] → [question].`;
+        companyIntroduced = true;
       } else if (isLastForChannel) {
         msgType = "BREAKUP MESSAGE";
         narrative = `This is your LAST LinkedIn touch. The prospect has received ${nth - 1} previous LinkedIn messages and hasn't engaged.
     Rules: Max 500 characters. Respectful, no guilt. Offer one final piece of value (insight, resource). Leave the door open. "No worries if the timing isn't right" tone.`;
       } else {
+        // This is a FOLLOW-UP — either nth >= 3, or nth === 2 but company was already introduced on another channel
+        const followUpNum = companyIntroduced ? nth - 1 : nth - 2;
+        const crossChannelRef = (nth === 2 && companyIntroduced)
+          ? `\n    The prospect already knows about your company from a previous ${allStepsSoFar.filter(p => p.type.includes("INTRODUCTION") || p.type.includes("COLD EMAIL")).map(p => p.channel).join("/")} message. Do NOT re-introduce yourself. Instead, reference what you said before and add new value.`
+          : "";
         msgType = "FOLLOW-UP DM";
-        narrative = `This is follow-up #${nth - 1} after your initial DM. The prospect hasn't replied yet.
-    Rules: Max 800 characters. Do NOT repeat your previous pitch. Bring something NEW: a case study result, a specific stat, a relevant industry trend, or social proof. Reference what you said before briefly, then add new value.`;
+        narrative = `This is follow-up #${Math.max(1, followUpNum)} on LinkedIn. The prospect hasn't replied yet.${crossChannelRef}
+    Rules: Max 800 characters. Do NOT repeat your previous pitch or re-introduce yourself. Bring something NEW: a case study result, a specific stat, a relevant industry trend, or social proof. Reference what you said before briefly, then add new value.`;
+        if (!companyIntroduced) companyIntroduced = true;
       }
     } else if (s.channel === "email") {
       if (nth === 1) {
-        msgType = "COLD EMAIL";
         const hasLinkedIn = allStepsSoFar.some(p => p.channel === "linkedin");
-        narrative = `${hasLinkedIn ? "The prospect may have seen your LinkedIn outreach. This is your first EMAIL." : "This is a cold email. The prospect has never heard from you."}
-    THIS EMAIL MUST INCLUDE A COMPANY INTRODUCTION:
-    ${hasLinkedIn ? "- Since they may know you from LinkedIn, keep the intro brief (1 sentence) and reference the LinkedIn outreach" : "- This is the first contact: introduce who you are and what your company does clearly (name, what you do, who you help)"}
-    - After the intro, connect THEIR specific pain point to YOUR specific solution
+        if (!companyIntroduced) {
+          msgType = "COLD EMAIL — COMPANY INTRODUCTION";
+          narrative = `${hasLinkedIn ? "The prospect may have seen your LinkedIn connection request. This is your first EMAIL and their first real introduction to your company." : "This is a cold email. The prospect has never heard from you."}
+    THIS EMAIL MUST INTRODUCE YOUR COMPANY:
+    - ${hasLinkedIn ? "Reference the LinkedIn outreach briefly, then" : "Open with something about THEM, then"} introduce who you are and what your company does
+    - Connect THEIR specific pain point to YOUR specific solution
     - Include a concrete result or social proof (client name, metric, case study)
     - End with a low-friction CTA (15-min call, not "schedule a demo")
-    Rules: Subject line max 60 chars — curiosity-driven, no spam words, no ALL CAPS, no exclamation marks. Body: 3-5 SHORT paragraphs. Open with something specific about THEM, then introduce yourself, bridge to their pain point with your solution.`;
+    Rules: Subject line max 60 chars — curiosity-driven, no spam words, no ALL CAPS. Body: 3-5 SHORT paragraphs.`;
+          companyIntroduced = true;
+        } else {
+          msgType = "COLD EMAIL — FOLLOW-UP";
+          narrative = `The prospect already knows about your company from previous outreach (${allStepsSoFar.filter(p => !p.type.includes("CONNECTION REQUEST")).map(p => p.channel).join(", ")}). This is your first EMAIL.
+    Do NOT re-introduce yourself. They know who you are. Instead:
+    - Reference previous outreach briefly ("I reached out on LinkedIn about...")
+    - Add a NEW angle: a different case study, a specific metric, an industry insight they haven't seen
+    - End with a clear CTA
+    Rules: Subject line max 60 chars. Body: 3-4 SHORT paragraphs. Get to the point fast.`;
+        }
       } else if (nth === 2) {
         msgType = "FOLLOW-UP EMAIL";
         narrative = `Following up on your first email. The prospect hasn't replied.
@@ -114,15 +126,23 @@ export async function POST(req: NextRequest) {
       }
     } else if (s.channel === "call") {
       if (nth === 1) {
-        msgType = "FIRST CALL SCRIPT";
-        narrative = `${allStepsSoFar.length > 0 ? "The prospect has received previous outreach on other channels. Reference it briefly." : "This is a cold call. You must introduce yourself and your company."}
-    Rules: Bullet point format. Include:
-    - OPENER: who you are + your company name + what you do (1 sentence, clear and direct)
-    - BRIDGE: mention something specific about their company/industry to show research
+        msgType = companyIntroduced ? "CALL SCRIPT — FOLLOW-UP" : "CALL SCRIPT — FIRST CONTACT";
+        narrative = companyIntroduced
+          ? `The prospect has already been contacted via ${allStepsSoFar.filter(p => !p.type.includes("CONNECTION REQUEST")).map(p => p.channel).join(" and ")}. They know who you are.
+    Rules: Bullet point format.
+    - OPENER: "Hi {{first_name}}, this is [name] from ${companyBio.company_name} — I reached out to you recently on ${allStepsSoFar[allStepsSoFar.length - 1]?.channel ?? "another channel"}"
+    - Reference what you sent them and ask if they had a chance to see it
+    - 1-2 discovery questions
+    - Restate your value briefly with a NEW angle
+    - MEETING ASK`
+          : `This is a cold call. You must introduce yourself and your company.
+    Rules: Bullet point format.
+    - OPENER: who you are + your company name + what you do (1 sentence)
+    - BRIDGE: mention something specific about their company/industry
     - 2-3 discovery questions about their pain points
-    - VALUE PITCH (30 seconds max): how your specific service solves their specific problem, with a result/metric if possible
-    - MEETING ASK: propose a short follow-up call
-    Be conversational, not scripted.`;
+    - VALUE PITCH (30 sec max): how your service solves their problem, with a result/metric
+    - MEETING ASK`;
+        if (!companyIntroduced) companyIntroduced = true;
       } else {
         msgType = "FOLLOW-UP CALL SCRIPT";
         narrative = `Follow-up call. The prospect has had ${allStepsSoFar.length} previous touchpoints.

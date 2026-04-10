@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import Link from "next/link";
 import {
   Share2, Mail, Phone, ChevronDown, ChevronRight,
   PlayCircle, PauseCircle, CheckCircle, XCircle,
-  Users, BarChart3,
+  Users, BarChart3, Pause, Play, Trash2, Loader2,
 } from "lucide-react";
 
 const gold = "#C9A83A";
@@ -88,9 +90,34 @@ function groupCampaigns(campaigns: Campaign[]): CampaignGroup[] {
 }
 
 export default function ActiveCampaignsView({ campaigns }: { campaigns: Campaign[] }) {
+  const router = useRouter();
   const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
+  const [acting, setActing] = useState<string | null>(null); // "group:name:action" or "lead:id:action"
 
   const groups = groupCampaigns(campaigns);
+
+  async function handleGroupAction(group: CampaignGroup, action: "pause" | "resume" | "cancel") {
+    const key = `group:${group.name}:${action}`;
+    setActing(key);
+    const ids = group.campaigns
+      .filter(c => action === "pause" ? c.status === "active" : action === "resume" ? c.status === "paused" : ["active", "paused"].includes(c.status))
+      .map(c => c.id);
+    if (ids.length > 0) {
+      const newStatus = action === "pause" ? "paused" : action === "resume" ? "active" : "completed";
+      await supabase.from("campaigns").update({ status: newStatus }).in("id", ids);
+    }
+    setActing(null);
+    router.refresh();
+  }
+
+  async function handleLeadAction(campaignId: string, action: "pause" | "resume" | "cancel") {
+    const key = `lead:${campaignId}:${action}`;
+    setActing(key);
+    const newStatus = action === "pause" ? "paused" : action === "resume" ? "active" : "completed";
+    await supabase.from("campaigns").update({ status: newStatus }).eq("id", campaignId);
+    setActing(null);
+    router.refresh();
+  }
 
   if (groups.length === 0) {
     return (
@@ -209,13 +236,45 @@ export default function ActiveCampaignsView({ campaigns }: { campaigns: Campaign
               </div>
             </button>
 
-            {/* Expanded — leads table */}
+            {/* Expanded — actions bar + leads table */}
             {isExpanded && (
               <div style={{ borderTop: `1px solid ${C.border}` }}>
+                {/* Group actions */}
+                <div className="px-5 py-3 flex items-center gap-2 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                  <span className="text-xs font-medium mr-2" style={{ color: C.textMuted }}>Actions:</span>
+                  {activeCount > 0 && (
+                    <button onClick={() => handleGroupAction(group, "pause")}
+                      disabled={!!acting}
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity disabled:opacity-50"
+                      style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}>
+                      {acting === `group:${group.name}:pause` ? <Loader2 size={11} className="animate-spin" /> : <Pause size={11} />}
+                      Pause All
+                    </button>
+                  )}
+                  {pausedCount > 0 && (
+                    <button onClick={() => handleGroupAction(group, "resume")}
+                      disabled={!!acting}
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity disabled:opacity-50"
+                      style={{ backgroundColor: C.greenLight, color: C.green }}>
+                      {acting === `group:${group.name}:resume` ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />}
+                      Resume All
+                    </button>
+                  )}
+                  {(activeCount > 0 || pausedCount > 0) && (
+                    <button onClick={() => { if (confirm(`Cancel all ${activeCount + pausedCount} active campaigns in "${group.name}"?`)) handleGroupAction(group, "cancel"); }}
+                      disabled={!!acting}
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity disabled:opacity-50"
+                      style={{ backgroundColor: C.redLight, color: C.red }}>
+                      {acting === `group:${group.name}:cancel` ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                      Cancel All
+                    </button>
+                  )}
+                </div>
+
                 <table className="w-full text-sm">
                   <thead>
                     <tr style={{ background: `rgba(201,168,58,0.04)` }}>
-                      {["Lead", "Company", "Role", "Status", "Progress", "Last Step", "Paused Until"].map(h => (
+                      {["Lead", "Company", "Role", "Status", "Progress", "Last Step", ""].map(h => (
                         <th key={h} className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider"
                           style={{ color: C.textMuted, borderBottom: `1px solid ${C.border}` }}>{h}</th>
                       ))}
@@ -267,11 +326,31 @@ export default function ActiveCampaignsView({ campaigns }: { campaigns: Campaign
                               : "—"}
                           </td>
                           <td className="px-5 py-3">
-                            {c.paused_until ? (
-                              <span className="text-xs font-semibold tabular-nums" style={{ color: "#D97706" }}>
-                                {new Date(c.paused_until).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit" })}
-                              </span>
-                            ) : <span style={{ color: C.textDim }}>—</span>}
+                            {(c.status === "active" || c.status === "paused") && (
+                              <div className="flex items-center gap-1.5">
+                                {c.status === "active" ? (
+                                  <button onClick={() => handleLeadAction(c.id, "pause")} disabled={!!acting}
+                                    className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-opacity disabled:opacity-50"
+                                    style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}>
+                                    {acting === `lead:${c.id}:pause` ? <Loader2 size={10} className="animate-spin" /> : <Pause size={10} />}
+                                    Pause
+                                  </button>
+                                ) : (
+                                  <button onClick={() => handleLeadAction(c.id, "resume")} disabled={!!acting}
+                                    className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-opacity disabled:opacity-50"
+                                    style={{ backgroundColor: C.greenLight, color: C.green }}>
+                                    {acting === `lead:${c.id}:resume` ? <Loader2 size={10} className="animate-spin" /> : <Play size={10} />}
+                                    Resume
+                                  </button>
+                                )}
+                                <button onClick={() => { if (confirm(`Remove ${leadName} from this campaign?`)) handleLeadAction(c.id, "cancel"); }}
+                                  disabled={!!acting}
+                                  className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium transition-opacity disabled:opacity-50"
+                                  style={{ backgroundColor: C.redLight, color: C.red }}>
+                                  {acting === `lead:${c.id}:cancel` ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       );
