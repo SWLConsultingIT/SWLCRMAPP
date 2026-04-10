@@ -3,18 +3,16 @@ import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, Globe, MapPin, Users as UsersIcon, Mail, Phone,
-  Star, ExternalLink, Share2,
-  Newspaper, BookOpen, Building2, Megaphone,
+  ArrowLeft, Mail, Phone, Share2, Building2, MapPin, Globe,
+  Star, ExternalLink, Calendar, FileText, UserCheck, CheckCircle2,
 } from "lucide-react";
-import { LinkedInIcon, InstagramIcon, TwitterXIcon, FacebookIcon, GoogleIcon, WebsiteIcon } from "@/components/SocialIcons";
+import { LinkedInIcon } from "@/components/SocialIcons";
 import CompanyTabs from "@/components/CompanyTabs";
-import ContactCards from "@/components/ContactCards";
 import ActivityTimeline from "@/components/ActivityTimeline";
+import CampaignJourney from "@/components/CampaignJourney";
 
 const gold = "#C9A83A";
 const goldLight = "rgba(201,168,58,0.08)";
-const goldGlow = "rgba(201,168,58,0.15)";
 
 // ── Data fetchers ──
 
@@ -23,177 +21,192 @@ async function getLead(id: string) {
   return data;
 }
 
-async function getCompanyContacts(companyName: string, currentLeadId: string) {
-  if (!companyName) return [];
+async function getCampaign(leadId: string) {
   const { data } = await supabase
-    .from("leads")
-    .select("id, primary_first_name, primary_last_name, primary_title_role, primary_seniority, status, lead_score, is_priority, allow_linkedin, allow_email, allow_call, primary_work_email, primary_phone, primary_linkedin_url, current_channel")
-    .eq("company_name", companyName)
-    .order("lead_score", { ascending: false });
+    .from("campaigns")
+    .select("id, name, channel, status, current_step, sequence_steps, started_at, next_step_due_at, paused_until, completed_at, sellers(name)")
+    .eq("lead_id", leadId)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return data;
+}
+
+async function getMessages(leadId: string) {
+  const { data } = await supabase
+    .from("campaign_messages")
+    .select("id, campaign_id, step_number, channel, content, status, sent_at")
+    .eq("lead_id", leadId)
+    .order("step_number", { ascending: true });
   return data ?? [];
 }
 
-async function getCampaignStats(leadIds: string[]) {
-  if (!leadIds.length) return { campaigns: 0, messages: 0, replies: 0 };
-  const [{ count: campaigns }, { count: messages }, { count: replies }] = await Promise.all([
-    supabase.from("campaigns").select("*", { count: "exact", head: true }).in("lead_id", leadIds),
-    supabase.from("campaign_messages").select("*", { count: "exact", head: true }).in("lead_id", leadIds).eq("status", "sent"),
-    supabase.from("lead_replies").select("*", { count: "exact", head: true }).in("lead_id", leadIds),
-  ]);
-  return { campaigns: campaigns ?? 0, messages: messages ?? 0, replies: replies ?? 0 };
+async function getReplies(leadId: string) {
+  const { data } = await supabase
+    .from("lead_replies")
+    .select("id, campaign_id, channel, reply_text, received_at, classification, ai_confidence, requires_human_review")
+    .eq("lead_id", leadId)
+    .order("received_at", { ascending: false });
+  return data ?? [];
 }
 
 // ── Helpers ──
 
+function scoreBadge(score: number | null, priority: boolean) {
+  if (priority || (score && score >= 80)) return { label: "HOT",    color: C.hot,    bg: C.hotBg };
+  if (score && score >= 50)               return { label: "WARM",   color: C.warm,   bg: C.warmBg };
+  return                                         { label: "NURTURE", color: C.nurture, bg: C.nurtureBg };
+}
+
+const statusMap: Record<string, { label: string; color: string; bg: string }> = {
+  new:           { label: "New",           color: C.blue,      bg: C.blueLight },
+  contacted:     { label: "Contacted",     color: C.orange,    bg: C.orangeLight },
+  connected:     { label: "Connected",     color: C.accent,    bg: C.accentLight },
+  responded:     { label: "Responded",     color: C.green,     bg: C.greenLight },
+  qualified:     { label: "Qualified",     color: C.green,     bg: C.greenLight },
+  proposal_sent: { label: "Proposal Sent", color: C.accent,    bg: C.accentLight },
+  closed_won:    { label: "Won",           color: C.green,     bg: C.greenLight },
+  closed_lost:   { label: "Lost",          color: C.red,       bg: C.redLight },
+  nurturing:     { label: "Nurturing",     color: C.textMuted, bg: "#F3F4F6" },
+};
+
 function formatRevenue(val: number | null) {
   if (!val) return null;
-  if (val >= 1_000_000) return `£${(val / 1_000_000).toFixed(val % 1_000_000 === 0 ? 0 : 1)}M`;
-  if (val >= 1_000) return `£${(val / 1_000).toFixed(0)}K`;
+  if (val >= 1_000_000) return `£${(val / 1_000_000).toFixed(1)}M`;
+  if (val >= 1_000)     return `£${(val / 1_000).toFixed(0)}K`;
   return `£${val}`;
 }
 
 function StarRating({ rating }: { rating: number }) {
-  const full = Math.floor(rating);
-  const half = rating - full >= 0.3;
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-0.5">
       {Array.from({ length: 5 }, (_, i) => (
-        <Star key={i} size={14} fill={i < full ? "#F59E0B" : i === full && half ? "#F59E0B" : "none"}
-          style={{ color: i < full || (i === full && half) ? "#F59E0B" : "#D1D5DB" }} />
+        <Star key={i} size={12} fill={i < Math.floor(rating) ? "#F59E0B" : "none"}
+          style={{ color: i < Math.floor(rating) ? "#F59E0B" : "#D1D5DB" }} />
       ))}
       <span className="text-xs font-medium ml-1" style={{ color: C.textBody }}>{rating}</span>
     </div>
   );
 }
 
-function scoreBadge(score: number | null, priority: boolean) {
-  if (priority || (score && score >= 80)) return { label: "HOT", color: C.hot, bg: C.hotBg };
-  if (score && score >= 50) return { label: "WARM", color: C.warm, bg: C.warmBg };
-  return { label: "NURTURE", color: C.nurture, bg: C.nurtureBg };
+// Score ring SVG
+function ScoreRing({ score, color }: { score: number; color: string }) {
+  const r = 22;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (Math.min(score, 100) / 100) * circ;
+  return (
+    <div className="relative w-14 h-14 flex items-center justify-center">
+      <svg width="56" height="56" className="absolute -rotate-90">
+        <circle cx="28" cy="28" r={r} fill="none" stroke="#E5E7EB" strokeWidth="3.5" />
+        <circle cx="28" cy="28" r={r} fill="none" stroke={color} strokeWidth="3.5"
+          strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" />
+      </svg>
+      <div className="text-center z-10">
+        <p className="text-sm font-bold leading-none" style={{ color: C.textPrimary }}>{score}</p>
+        <p style={{ color: C.textDim, fontSize: 8, letterSpacing: "0.05em" }}>SCORE</p>
+      </div>
+    </div>
+  );
 }
 
-const statusMap: Record<string, { label: string; color: string; bg: string }> = {
-  new: { label: "New", color: C.blue, bg: C.blueLight },
-  contacted: { label: "Contacted", color: C.orange, bg: C.orangeLight },
-  connected: { label: "Connected", color: C.accent, bg: C.accentLight },
-  responded: { label: "Responded", color: C.green, bg: C.greenLight },
-  qualified: { label: "Qualified", color: C.green, bg: C.greenLight },
-  proposal_sent: { label: "Proposal Sent", color: C.accent, bg: C.accentLight },
-  closed_won: { label: "Won", color: C.green, bg: C.greenLight },
-  closed_lost: { label: "Lost", color: C.red, bg: C.redLight },
-  nurturing: { label: "Nurturing", color: C.textMuted, bg: "#F3F4F6" },
-};
+// Channel permission row
+const CHANNELS = [
+  { key: "allow_linkedin",  icon: <LinkedInIcon size={14} />,     activeColor: "#0A66C2" },
+  { key: "allow_email",     icon: <span className="text-sm">✉️</span>, activeColor: C.green },
+  { key: "allow_call",      icon: <span className="text-sm">📱</span>, activeColor: C.phone },
+  { key: "allow_whatsapp",  icon: <span className="text-sm">💬</span>, activeColor: "#25D366" },
+  { key: "allow_instagram", icon: <span className="text-sm">📸</span>, activeColor: "#E1306C" },
+  { key: "allow_sms",       icon: <span className="text-sm">💬</span>, activeColor: C.blue },
+];
 
 // ── Page ──
 
-export default async function CompanyDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const lead = await getLead(id);
   if (!lead) notFound();
 
-  const allContacts = await getCompanyContacts(lead.company_name, "---none---");
-  const contactIds = allContacts.map((c: any) => c.id);
-  const stats = await getCampaignStats(contactIds);
-
-  const technologies: string[] = lead.organization_technologies ?? [];
-  const keywords = lead.keywords ? lead.keywords.split(",").map((k: string) => k.trim()).filter(Boolean) : [];
+  const [campaign, messages, replies] = await Promise.all([
+    getCampaign(id),
+    getMessages(id),
+    getReplies(id),
+  ]);
 
   const score = scoreBadge(lead.lead_score, lead.is_priority);
   const st = statusMap[lead.status] ?? statusMap.new;
+  const initials = `${(lead.primary_first_name ?? "?")[0]}${(lead.primary_last_name ?? "?")[0]}`.toUpperCase();
+  const avatarBg = score.label === "HOT" ? gold : score.label === "WARM" ? "#334155" : "#9CA3AF";
 
-  // Count positive replies across all contacts
-  const { data: allReplies } = await supabase
-    .from("lead_replies")
-    .select("classification")
-    .in("lead_id", contactIds)
-    .in("classification", ["positive", "meeting_intent"]);
-  const positiveReplies = allReplies?.length ?? 0;
+  const totalMsgsSent = messages.filter((m: any) => m.status === "sent").length;
+  const totalReplies = replies.length;
+  const positiveReplies = replies.filter((r: any) => ["positive", "meeting_intent"].includes(r.classification ?? "")).length;
+  // Step progress data
+  const channelStepLabels: Record<string, string> = {
+    linkedin: "LinkedIn", email: "Email", call: "Call",
+    whatsapp: "WhatsApp", sms: "SMS", instagram: "Instagram",
+  };
+  const rawSteps: string[] = campaign?.sequence_steps ?? [];
+  const steps = rawSteps.map((s: string) => channelStepLabels[s.toLowerCase()] ?? s);
+  const currentStep = campaign?.current_step ?? 0;
+  const stepPct = steps.length > 0 ? Math.round((currentStep / steps.length) * 100) : 0;
+  const campMsgsForStepper = campaign
+    ? messages.filter((m: any) => m.campaign_id === campaign.id).sort((a: any, b: any) => (a.step_number ?? 0) - (b.step_number ?? 0))
+    : [];
 
-  // Build activity timeline from all contacts
-  const contactNameMap: Record<string, string> = {};
-  allContacts.forEach((c: any) => {
-    contactNameMap[c.id] = `${c.primary_first_name ?? ""} ${c.primary_last_name ?? ""}`.trim() || "Unknown";
-  });
-
-  const { data: allCampaigns } = await supabase
-    .from("campaigns")
-    .select("id, lead_id, name, channel, status, started_at, sellers(name)")
-    .in("lead_id", contactIds)
-    .order("started_at", { ascending: false });
-
-  const campaignIds = (allCampaigns ?? []).map((c: any) => c.id);
-
-  const [{ data: allMessages }, { data: allReplyData }] = await Promise.all([
-    campaignIds.length > 0
-      ? supabase.from("campaign_messages").select("id, campaign_id, lead_id, step_number, channel, content, status, sent_at")
-          .in("campaign_id", campaignIds).eq("status", "sent").order("sent_at", { ascending: false })
-      : { data: [] },
-    supabase.from("lead_replies").select("id, lead_id, campaign_id, channel, reply_text, received_at, classification, ai_confidence, requires_human_review")
-      .in("lead_id", contactIds).order("received_at", { ascending: false }),
-  ]);
-
-  // Map campaigns to lead_id for lookup
-  const campaignByLead: Record<string, any> = {};
-  (allCampaigns ?? []).forEach((c: any) => { if (!campaignByLead[c.lead_id]) campaignByLead[c.lead_id] = c; });
-
+  // Build activity items scoped to this lead only
   type ActivityItem = {
     id: string; type: "message_sent" | "reply" | "campaign_start" | "lead_created";
     contactName: string; channel: string; content: string | null; timestamp: string;
     stepNumber?: number; classification?: string; aiConfidence?: number; requiresReview?: boolean; sellerName?: string;
   };
 
+  const contactName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
   const activityItems: ActivityItem[] = [];
 
-  // Messages sent
-  (allMessages ?? []).forEach((m: any) => {
-    const camp = (allCampaigns ?? []).find((c: any) => c.id === m.campaign_id);
+  messages.filter((m: any) => m.status === "sent").forEach((m: any) => {
     activityItems.push({
       id: m.id, type: "message_sent",
-      contactName: contactNameMap[m.lead_id ?? camp?.lead_id] ?? "Unknown",
-      channel: m.channel ?? camp?.channel ?? "email",
+      contactName,
+      channel: m.channel ?? campaign?.channel ?? "email",
       content: m.content?.substring(0, 100) ?? null,
-      timestamp: m.sent_at, stepNumber: m.step_number,
+      timestamp: m.sent_at,
+      stepNumber: m.step_number,
     });
   });
 
-  // Replies
-  (allReplyData ?? []).forEach((r: any) => {
+  replies.forEach((r: any) => {
     activityItems.push({
       id: r.id, type: "reply",
-      contactName: contactNameMap[r.lead_id] ?? "Unknown",
+      contactName,
       channel: r.channel ?? "email",
-      content: r.reply_text, timestamp: r.received_at,
-      classification: r.classification, aiConfidence: r.ai_confidence,
+      content: r.reply_text,
+      timestamp: r.received_at,
+      classification: r.classification,
+      aiConfidence: r.ai_confidence,
       requiresReview: r.requires_human_review,
     });
   });
 
-  // Campaign starts
-  (allCampaigns ?? []).forEach((c: any) => {
-    if (c.started_at) {
-      activityItems.push({
-        id: `camp-${c.id}`, type: "campaign_start",
-        contactName: contactNameMap[c.lead_id] ?? "Unknown",
-        channel: c.channel ?? "email", content: c.name,
-        timestamp: c.started_at, sellerName: c.sellers?.name,
-      });
-    }
-  });
+  if (campaign?.started_at) {
+    activityItems.push({
+      id: `camp-${campaign.id}`, type: "campaign_start",
+      contactName,
+      channel: campaign.channel ?? "email",
+      content: campaign.name,
+      timestamp: campaign.started_at,
+      sellerName: (campaign as any).sellers?.name,
+    });
+  }
 
-  // Sort by timestamp desc
   activityItems.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-  // Mock notes (from seller_notes field)
   const teamNotes: { author: string; text: string; time: string }[] = [];
-  allContacts.forEach((c: any) => {
-    if ((c as any).seller_notes) {
-      // seller_notes isn't in the select, skip for now
-    }
-  });
-  // Use lead's seller_notes if available
   if (lead.seller_notes) {
     teamNotes.push({ author: lead.assigned_seller ?? "Team", text: lead.seller_notes, time: "Recently" });
   }
+
+  const keywords = lead.keywords ? lead.keywords.split(",").map((k: string) => k.trim()).filter(Boolean) : [];
+  const technologies: string[] = lead.organization_technologies ?? [];
 
   return (
     <div className="p-6 w-full fade-in">
@@ -204,457 +217,662 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
           <ArrowLeft size={12} /> Leads
         </Link>
         <span>/</span>
-        <span style={{ color: C.textBody }}>{lead.company_name ?? "Company"}</span>
+        <span style={{ color: C.textBody }}>{lead.company_name ?? "Contact"}</span>
+        <span>/</span>
+        <span style={{ color: C.textPrimary }}>{contactName}</span>
       </div>
 
-      {/* ═══ COMPANY HEADER ═══ */}
-      <div className="rounded-xl border mb-0" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      {/* ═══ CONTACT HEADER ═══ */}
+      <div className="rounded-xl border mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
 
-        {/* Top row: Logo + Name + Badges */}
-        <div className="p-6 flex items-start justify-between gap-6">
-          <div className="flex items-start gap-4">
-            {lead.organization_logo_url ? (
-              <img src={lead.organization_logo_url} alt="" className="w-16 h-16 rounded-xl object-cover border" style={{ borderColor: C.border }} />
-            ) : (
-              <div className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold shrink-0"
-                style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
-                {(lead.company_name ?? "?")[0].toUpperCase()}
-              </div>
-            )}
+        {/* Main row */}
+        <div className="p-5 flex items-start justify-between gap-6">
+
+          {/* Left: Avatar + Name + Badges */}
+          <div className="flex items-start gap-4 flex-1">
+            {/* Avatar */}
+            <div className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold text-white shrink-0"
+              style={{ backgroundColor: avatarBg }}>
+              {initials}
+            </div>
+
+            {/* Name block */}
             <div>
-              <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>
-                {lead.company_name ?? "Unknown Company"}
+              <h1 className="text-xl font-bold" style={{ color: C.textPrimary }}>
+                {lead.primary_first_name} {lead.primary_last_name}
               </h1>
-              <div className="flex items-center gap-2 mt-1.5">
-                {lead.company_industry && (
-                  <span className="flex items-center gap-1.5 text-sm" style={{ color: C.textBody }}>
-                    <Building2 size={13} style={{ color: gold }} />
-                    {lead.company_industry}{lead.company_sub_industry ? ` · ${lead.company_sub_industry}` : ""}
+              <p className="text-sm mt-0.5" style={{ color: C.textMuted }}>
+                {lead.primary_title_role ?? "—"}
+              </p>
+              {lead.company_name && (
+                <Link href={`/companies/${encodeURIComponent(lead.company_name)}`}
+                  className="flex items-center gap-1.5 text-sm mt-1 hover:underline"
+                  style={{ color: C.blue }}>
+                  <Building2 size={12} style={{ color: C.textDim }} />
+                  {lead.company_name}
+                  <ExternalLink size={10} style={{ opacity: 0.6 }} />
+                </Link>
+              )}
+              {/* Badges row */}
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full"
+                  style={{ color: st.color, backgroundColor: st.bg }}>
+                  {st.label.toUpperCase()}
+                </span>
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full"
+                  style={{ color: score.color, backgroundColor: score.bg }}>
+                  {score.label}
+                </span>
+                {lead.assigned_seller && (
+                  <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
+                    style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
+                    <div className="w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                      style={{ backgroundColor: gold, fontSize: 9 }}>
+                      {lead.assigned_seller[0]}
+                    </div>
+                    {lead.assigned_seller}
                   </span>
                 )}
-                <span className="text-sm" style={{ color: C.textDim }}>·</span>
-                {(lead.company_city || lead.company_country) && (
-                  <span className="flex items-center gap-1 text-sm" style={{ color: C.textMuted }}>
-                    <MapPin size={12} /> {[lead.company_city, lead.company_country].filter(Boolean).join(", ")}
-                  </span>
-                )}
               </div>
             </div>
           </div>
 
-          <Link href={`/campaigns/new/lead/${lead.id}`}
-            className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-bold transition-all hover:shadow-lg hover:scale-[1.02] shrink-0"
-            style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#04070d", boxShadow: `0 2px 8px ${gold}40` }}>
-            <Megaphone size={15} /> Target this Lead
-          </Link>
-        </div>
-
-        {/* Divider */}
-        <div className="border-t" style={{ borderColor: C.border }} />
-
-        {/* Metrics row */}
-        <div className="px-6 py-4 grid grid-cols-4 gap-4">
-          {/* ICP */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>ICP Score</p>
-            <div className="flex items-center gap-2">
-              <div className="w-1 h-8 rounded-full" style={{ backgroundColor: score.color }} />
-              <span className="text-xs font-bold px-2 py-1 rounded"
-                style={{ color: score.color, backgroundColor: score.bg }}>
-                {score.label}
-              </span>
-              {lead.lead_score > 0 && (
-                <span className="text-lg font-bold" style={{ color: C.textPrimary }}>{lead.lead_score}/100</span>
-              )}
-            </div>
-          </div>
-
-          {/* Employees */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Employees</p>
-            <p className="text-xl font-bold" style={{ color: C.textPrimary }}>{lead.employees ? `${lead.employees}+` : "—"}</p>
-          </div>
-
-          {/* Revenue */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Annual Revenue</p>
-            <p className="text-xl font-bold" style={{ color: C.textPrimary }}>{formatRevenue(Number(lead.annual_revenue)) ?? "—"}</p>
-          </div>
-
-          {/* Current Activity */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Current Activity</p>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: stats.campaigns > 0 ? C.green : C.textDim }} />
-              <p className="text-lg font-bold" style={{ color: C.textPrimary }}>
-                {stats.campaigns > 0 ? `${stats.campaigns} Active Campaign${stats.campaigns > 1 ? "s" : ""}` : "No campaigns"}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Outreach stats bar */}
-        <div className="mx-6 mb-4 px-5 py-3 rounded-lg flex items-center gap-8" style={{ backgroundColor: goldLight, border: `1px solid rgba(201,168,58,0.2)` }}>
-          <div className="flex items-center gap-2">
-            <span className="text-xl font-bold" style={{ color: C.textPrimary }}>{stats.messages}</span>
-            <span className="text-sm" style={{ color: C.textMuted }}>Messages Sent</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xl font-bold" style={{ color: C.textPrimary }}>{stats.replies}</span>
-            <span className="text-sm" style={{ color: C.textMuted }}>Replies</span>
-          </div>
-          {stats.replies > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-bold" style={{ color: C.green }}>
-                {positiveReplies} ({stats.replies > 0 ? Math.round((positiveReplies / stats.replies) * 100) : 0}%)
-              </span>
-              <span className="text-sm" style={{ color: C.textMuted }}>Positive Sentiment</span>
-            </div>
-          )}
-        </div>
-
-        {/* Tabs */}
-        <CompanyTabs tabs={[
-          { label: "Overview" },
-          { label: "Contacts", count: allContacts.length },
-          { label: "Activity" },
-        ]}>
-
-          {/* ═══ TAB 0: OVERVIEW ═══ */}
-          <div className="space-y-6">
-
-        {/* Row 1: Company Profile + Location & Contact */}
-        <div className="grid grid-cols-2 gap-6">
-
-          {/* Company Profile */}
-          <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Company Profile</h2>
-              {lead.google_reviews_rating && <StarRating rating={Number(lead.google_reviews_rating)} />}
-            </div>
-
-            {lead.organization_tagline && (
-              <p className="text-sm italic mb-3" style={{ color: C.accent }}>{lead.organization_tagline}</p>
-            )}
-
-            {(lead.organization_description || lead.organization_short_desc) && (
-              <p className="text-sm leading-relaxed mb-4" style={{ color: C.textBody }}>
-                {lead.organization_short_desc ?? lead.organization_description}
-              </p>
-            )}
-
-            {lead.company_mission && (
-              <div className="rounded-lg border p-3 mb-4" style={{ borderColor: C.border, backgroundColor: "#F9FAFB" }}>
-                <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Our Mission</p>
-                <p className="text-sm italic" style={{ color: C.textBody }}>"{lead.company_mission}"</p>
-              </div>
-            )}
-
-            <div className="flex items-center gap-6 pt-3 border-t" style={{ borderColor: C.border }}>
-              {lead.employees && (
-                <div>
-                  <p className="text-xs uppercase font-semibold" style={{ color: C.textMuted }}>Employees</p>
-                  <p className="text-lg font-bold" style={{ color: C.textPrimary }}>{lead.employees}</p>
-                </div>
-              )}
-              {lead.annual_revenue && (
-                <div>
-                  <p className="text-xs uppercase font-semibold" style={{ color: C.textMuted }}>Revenue</p>
-                  <p className="text-lg font-bold" style={{ color: C.textPrimary }}>{formatRevenue(Number(lead.annual_revenue))}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Location & Contact */}
-          <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <h2 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>Location & Contact</h2>
-
-            {/* Map */}
-            {(() => {
-              const locationQuery = [lead.company_address_1, lead.company_city, lead.company_state, lead.company_country].filter(Boolean).join(", ");
-              return locationQuery ? (
-                <div className="rounded-lg h-36 mb-4 overflow-hidden border" style={{ borderColor: C.border }}>
-                  <iframe
-                    width="100%" height="100%" style={{ border: 0 }} loading="lazy" referrerPolicy="no-referrer-when-downgrade"
-                    src={`https://maps.google.com/maps?q=${encodeURIComponent(locationQuery)}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
-                    title="Location map"
-                  />
-                </div>
-              ) : null;
-            })()}
-
-            {/* Address */}
-            {(lead.company_address_1 || lead.company_city) && (
-              <div className="flex items-start gap-2 mb-3">
-                <MapPin size={14} className="shrink-0 mt-0.5" style={{ color: C.textMuted }} />
-                <p className="text-sm" style={{ color: C.textBody }}>
-                  {[lead.company_address_1, lead.company_address_2, lead.company_cp, lead.company_city, lead.company_state, lead.company_country].filter(Boolean).join(", ")}
-                </p>
-              </div>
-            )}
-
-            {/* Contact details */}
-            <div className="space-y-2.5 mt-4">
-              {lead.company_phone && (
-                <div className="flex items-center gap-2">
-                  <Phone size={14} style={{ color: C.phone }} />
-                  <span className="text-sm" style={{ color: C.textBody }}>{lead.company_phone}</span>
-                </div>
-              )}
-              {lead.company_email && (
-                <div className="flex items-center gap-2">
-                  <Mail size={14} style={{ color: C.email }} />
-                  <a href={`mailto:${lead.company_email}`} className="text-sm hover:underline" style={{ color: C.textBody }}>{lead.company_email}</a>
-                </div>
-              )}
-              {lead.company_website && (
-                <div className="flex items-center gap-2">
-                  <Globe size={14} style={{ color: C.accent }} />
-                  <a href={lead.company_website} target="_blank" rel="noopener noreferrer"
-                    className="text-sm font-medium hover:underline" style={{ color: C.accent }}>
-                    {lead.company_website.replace(/^https?:\/\//, "")}
-                  </a>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Row 2: Online Presence + Technologies & Keywords + Industry Intel */}
-        <div className="grid grid-cols-3 gap-6">
-
-          {/* Online Presence */}
-          <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <h3 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: gold }}>Online Presence</h3>
-            <div className="grid grid-cols-2 gap-2.5">
-              {[
-                { label: "Website", icon: <WebsiteIcon size={22} />, url: lead.company_website, activeBg: "#0D9488", activeText: "#FFFFFF" },
-                { label: "LinkedIn", icon: <LinkedInIcon size={22} />, url: lead.company_linkedin, activeBg: "#0A66C2", activeText: "#FFFFFF" },
-                { label: "Instagram", icon: <InstagramIcon size={22} />, url: lead.company_instagram ? `https://instagram.com/${lead.company_instagram}` : null, activeBg: "#E4405F", activeText: "#FFFFFF" },
-                { label: "GMB", icon: <GoogleIcon size={22} />, url: lead.company_google_mybusiness, activeBg: "#FBBC05", activeText: "#1F2937" },
-                { label: "Twitter", icon: <TwitterXIcon size={22} />, url: lead.twitter_url, activeBg: "#14171A", activeText: "#FFFFFF" },
-                { label: "Facebook", icon: <FacebookIcon size={22} />, url: lead.facebook_url, activeBg: "#1877F2", activeText: "#FFFFFF" },
-              ].map(({ label, icon, url, activeBg, activeText }) => {
-                const hasUrl = !!url;
-                return hasUrl ? (
-                  <a key={label} href={url!} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-3 px-3 py-3 rounded-lg transition-all hover:opacity-90 hover:shadow-md cursor-pointer"
-                    style={{ backgroundColor: activeBg }}>
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>
-                      <div className="[&_svg]:fill-white [&_svg_path]:fill-white [&_svg_circle]:stroke-white [&_svg_line]:stroke-white [&_svg_path]:stroke-none [&_svg]:stroke-none">
-                        {icon}
+          {/* Right: Score ring + Channel icons */}
+          <div className="flex items-start gap-6 shrink-0">
+            {/* Channel permission icons */}
+            <div className="flex items-center gap-1.5">
+              {CHANNELS.map(ch => {
+                const allowed = lead[ch.key] !== false;
+                return (
+                  <div key={ch.key}
+                    className="w-8 h-8 rounded-full flex items-center justify-center border relative"
+                    title={ch.key.replace("allow_", "")}
+                    style={{
+                      backgroundColor: allowed ? "#F0FDF4" : "#F9FAFB",
+                      borderColor: allowed ? "#BBF7D0" : C.border,
+                      opacity: allowed ? 1 : 0.45,
+                    }}>
+                    {ch.icon}
+                    {allowed && (
+                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full flex items-center justify-center"
+                        style={{ backgroundColor: C.green }}>
+                        <span style={{ color: "#fff", fontSize: 7, lineHeight: 1 }}>✓</span>
                       </div>
-                    </div>
-                    <span className="text-sm font-semibold" style={{ color: activeText }}>{label}</span>
-                  </a>
-                ) : (
-                  <div key={label}
-                    className="flex items-center gap-3 px-3 py-3 rounded-lg border"
-                    style={{ borderColor: "#E5E7EB", backgroundColor: "#F9FAFB" }}>
-                    <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 grayscale opacity-30" style={{ backgroundColor: "white" }}>
-                      {icon}
-                    </div>
-                    <span className="text-sm font-medium" style={{ color: "#D1D5DB" }}>{label}</span>
+                    )}
                   </div>
                 );
               })}
             </div>
-          </div>
 
-          {/* Technologies & Keywords */}
-          <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>Technologies & Keywords</h3>
-
-            {technologies.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {technologies.map((tech: string) => (
-                  <span key={tech} className="text-xs font-medium px-2 py-1 rounded-md"
-                    style={{ backgroundColor: C.accentLight, color: C.accent }}>
-                    {tech}
-                  </span>
-                ))}
-              </div>
+            {/* Score ring */}
+            {lead.lead_score > 0 && (
+              <ScoreRing score={lead.lead_score} color={score.color} />
             )}
-
-            {keywords.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {keywords.map((kw: string) => (
-                  <span key={kw} className="text-xs px-2 py-1 rounded-full border"
-                    style={{ borderColor: C.accent, color: C.accent }}>
-                    {kw}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {lead.similar_organization && (
-              <p className="text-xs mt-3 pt-3 border-t" style={{ borderColor: C.border, color: C.textMuted }}>
-                Similar to: <span className="font-medium" style={{ color: C.accent }}>{lead.similar_organization}</span>
-              </p>
-            )}
-          </div>
-
-          {/* Industry Intel */}
-          <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>Industry Intel</h3>
-
-            <p className="text-sm font-semibold mb-1" style={{ color: C.textPrimary }}>
-              {lead.company_industry ?? "—"}
-            </p>
-            {lead.company_sub_industry && (
-              <p className="text-xs uppercase mb-3" style={{ color: C.textMuted }}>{lead.company_sub_industry}</p>
-            )}
-
-            {lead.industry_trends && (
-              <div className="rounded-lg p-3 mb-3" style={{ backgroundColor: "#F9FAFB" }}>
-                <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>{lead.industry_trends}</p>
-              </div>
-            )}
-
-            <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
-              {lead.source_tool && (
-                <span className="text-xs px-2 py-1 rounded-md" style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>
-                  {lead.source_tool}
-                </span>
-              )}
-              {lead.source_universe && (
-                <span className="text-xs px-2 py-1 rounded-md" style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>
-                  {lead.source_universe}
-                </span>
-              )}
-            </div>
           </div>
         </div>
 
-        {/* Row 3: Latest Content & News + Company Social Activity */}
-        <div className="grid grid-cols-5 gap-6">
-
-          {/* Latest Content & News (3 cols) */}
-          <div className="col-span-3 rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <h2 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>Latest Content & News</h2>
-
-            <div className="grid grid-cols-2 gap-5">
-              {lead.recent_website_news && (
-                <div>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Newspaper size={12} style={{ color: C.orange }} />
-                    <span className="text-xs font-semibold uppercase" style={{ color: C.textMuted }}>Website News</span>
-                  </div>
-                  <p className="text-sm font-semibold mb-1" style={{ color: C.textPrimary }}>
-                    {lead.recent_website_news.substring(0, 80)}
-                  </p>
-                  <p className="text-xs line-clamp-2" style={{ color: C.textMuted }}>
-                    {lead.recent_website_news.substring(80)}
-                  </p>
-                </div>
-              )}
-
-              {lead.company_blog && (
-                <div>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <BookOpen size={12} style={{ color: C.blue }} />
-                    <span className="text-xs font-semibold uppercase" style={{ color: C.textMuted }}>Blog</span>
-                  </div>
-                  <p className="text-sm line-clamp-3" style={{ color: C.textBody }}>{lead.company_blog}</p>
-                </div>
-              )}
-
-              {(lead.company_linkedin_post || lead.recent_linkedin_post) && (
-                <div>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Share2 size={12} style={{ color: "#0A66C2" }} />
-                    <span className="text-xs font-semibold uppercase" style={{ color: C.textMuted }}>LinkedIn Post</span>
-                  </div>
-                  <p className="text-sm line-clamp-3" style={{ color: C.textBody }}>
-                    {lead.recent_linkedin_post ?? lead.company_linkedin_post}
-                  </p>
-                </div>
-              )}
-
-              {lead.website_summary && (
-                <div>
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <Globe size={12} style={{ color: C.accent }} />
-                    <span className="text-xs font-semibold uppercase" style={{ color: C.textMuted }}>Website Summary</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {lead.website_summary.split(",").slice(0, 5).map((w: string, i: number) => (
-                      <span key={i} className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>
-                        {w.trim()}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {!lead.recent_website_news && !lead.company_blog && !lead.company_linkedin_post && !lead.recent_linkedin_post && !lead.website_summary && (
-                <div className="col-span-2 py-6 text-center">
-                  <p className="text-sm" style={{ color: C.textDim }}>No content data available yet</p>
-                </div>
-              )}
+        {/* Stats bar */}
+        <div className="mx-5 mb-4 px-5 py-3 rounded-lg grid grid-cols-4 gap-4"
+          style={{ backgroundColor: goldLight, border: `1px solid rgba(201,168,58,0.2)` }}>
+          {[
+            { label: "Messages Sent",  value: totalMsgsSent },
+            { label: "Replies",        value: totalReplies },
+            { label: "Positive",       value: positiveReplies },
+            { label: "Campaign Step",  value: campaign ? `${currentStep}/${steps.length}` : "—" },
+          ].map(s => (
+            <div key={s.label} className="text-center">
+              <p className="text-xl font-bold" style={{ color: C.textPrimary }}>{s.value}</p>
+              <p className="text-xs" style={{ color: C.textMuted }}>{s.label}</p>
             </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ═══ CAMPAIGN STEP PROGRESS (always visible) ═══ */}
+      {steps.length > 0 ? (
+        <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-wider" style={{ color: C.textPrimary, letterSpacing: "0.08em" }}>
+                Campaign Step Progress
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
+                {campaign!.name ?? "Outreach Campaign"}
+              </p>
+            </div>
+            <span className="text-base font-bold italic" style={{ color: gold }}>
+              {stepPct}% Complete
+            </span>
           </div>
 
-          {/* Company Social Activity (2 cols) */}
-          <div className="col-span-2 rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <h3 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>Company Social Activity</h3>
+          {/* Stepper */}
+          <div className="relative flex items-start justify-between px-4">
+            {steps.map((stepLabel: string, idx: number) => {
+              const stepNum = idx + 1;
+              const isCurrent = stepNum === currentStep;
+              const isCompleted = stepNum < currentStep;
+              const msg = campMsgsForStepper.find((m: any) => m.step_number === stepNum);
 
-            <div className="space-y-4">
-              {(lead.recent_ig_post || lead.instagram_last_posts) && (
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#FDF2F8" }}>
-                    <InstagramIcon size={18} />
+              return (
+                <div key={idx} className="flex flex-col items-center relative" style={{ flex: 1, minWidth: 100 }}>
+                  {/* Connector line — centered at 34px (half of 68px container) */}
+                  {idx > 0 && (
+                    <div className="absolute"
+                      style={{
+                        top: 33,
+                        height: 4,
+                        borderRadius: 2,
+                        backgroundColor: stepNum <= currentStep ? gold : "#D1D5DB",
+                        left: "-50%",
+                        width: "100%",
+                        zIndex: 0,
+                      }} />
+                  )}
+
+                  {/* Node container — 68px tall to fit the large current node */}
+                  <div className="relative z-10 mb-3 flex items-center justify-center" style={{ height: 68 }}>
+                    {isCompleted ? (
+                      <div className="rounded-full flex items-center justify-center"
+                        style={{ width: 48, height: 48, backgroundColor: "#DCFCE7" }}>
+                        <CheckCircle2 size={26} style={{ color: "#22C55E" }} />
+                      </div>
+                    ) : isCurrent ? (
+                      <div className="rounded-full flex items-center justify-center"
+                        style={{ width: 68, height: 68, border: `3.5px solid ${gold}`, backgroundColor: "rgba(201,168,58,0.05)" }}>
+                        <div className="rounded-full flex items-center justify-center font-bold"
+                          style={{ width: 44, height: 44, border: `2.5px solid ${gold}`, color: "#5A4A1E", backgroundColor: "#fff", fontSize: 18 }}>
+                          {String(stepNum).padStart(2, "0")}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-full"
+                        style={{ width: 40, height: 40, backgroundColor: "#D1D5DB" }} />
+                    )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold" style={{ color: C.textMuted }}>Instagram</p>
-                    <p className="text-sm line-clamp-2 mt-0.5" style={{ color: C.textBody }}>
-                      {lead.recent_ig_post ?? lead.instagram_last_posts}
+
+                  {/* Label */}
+                  <p className="text-center leading-tight px-1"
+                    style={{
+                      color: isCurrent ? C.textPrimary : isCompleted ? C.textBody : "#9CA3AF",
+                      fontWeight: isCurrent ? 700 : isCompleted ? 500 : 400,
+                      fontSize: isCurrent ? 13 : 12,
+                    }}>
+                    {stepLabel}
+                  </p>
+
+                  {/* Date under current step */}
+                  {isCurrent && (
+                    <p className="text-xs text-center mt-1" style={{ color: C.textMuted }}>
+                      {msg?.sent_at
+                        ? `${new Date(msg.sent_at).toLocaleDateString("en-GB", { month: "short", day: "numeric" })} — Today`
+                        : "Today"}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Progress bar */}
+          <div className="mt-6 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+            <div className="h-1.5 rounded-full transition-all" style={{ width: `${stepPct}%`, backgroundColor: gold }} />
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-wider" style={{ color: C.textPrimary, letterSpacing: "0.08em" }}>
+                Campaign Step Progress
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
+                {campaign
+                  ? `${campaign.name ?? "Campaign"} — no sequence steps defined yet`
+                  : "No campaign assigned to this contact yet"}
+              </p>
+            </div>
+            <span className="text-base font-bold italic" style={{ color: C.textDim }}>
+              0% Complete
+            </span>
+          </div>
+
+          {/* Empty progress bar */}
+          <div className="mt-5 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }} />
+        </div>
+      )}
+
+      {/* ═══ TABS ═══ */}
+      <CompanyTabs tabs={[
+        { label: "Profile Overview" },
+        { label: "Campaign" },
+        { label: "Recent Activity",  count: activityItems.length },
+        { label: "Social & Content" },
+      ]}>
+
+        {/* ── TAB 1: Profile Overview ── */}
+        <div className="grid grid-cols-[1fr_340px] gap-5">
+
+          {/* LEFT — About the Person */}
+          <div className="space-y-5">
+
+            {/* About This Person */}
+            <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>About This Person</h3>
+
+              {/* Role + Seniority */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex-1 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
+                  <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Role / Title</p>
+                  <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{lead.primary_title_role ?? "—"}</p>
+                </div>
+                <div className="p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
+                  <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Seniority</p>
+                  <span className="text-xs font-bold px-2.5 py-1 rounded"
+                    style={{ backgroundColor: goldLight, color: gold }}>
+                    {lead.primary_seniority?.replace("_", " ").toUpperCase() ?? "—"}
+                  </span>
+                </div>
+              </div>
+
+              {/* LinkedIn Headline */}
+              {lead.primary_headline && (
+                <div className="flex items-center gap-2.5 mb-4 px-3 py-2.5 rounded-lg" style={{ backgroundColor: C.bg }}>
+                  <span className="shrink-0"><LinkedInIcon size={14} /></span>
+                  <p className="text-sm leading-relaxed" style={{ color: C.textBody }}>{lead.primary_headline}</p>
+                </div>
+              )}
+
+              {/* Contact methods */}
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                {lead.primary_work_email && (
+                  <div className="flex items-center gap-2.5 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
+                    <Mail size={14} style={{ color: C.email }} />
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Email</p>
+                      <a href={`mailto:${lead.primary_work_email}`} className="text-sm font-medium hover:underline block truncate"
+                        style={{ color: C.textBody }}>{lead.primary_work_email}</a>
+                    </div>
+                  </div>
+                )}
+                {lead.primary_phone && (
+                  <div className="flex items-center gap-2.5 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
+                    <Phone size={14} style={{ color: C.phone }} />
+                    <div>
+                      <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Mobile</p>
+                      <a href={`tel:${lead.primary_phone}`} className="text-sm font-medium hover:underline"
+                        style={{ color: C.textBody }}>{lead.primary_phone}</a>
+                    </div>
+                  </div>
+                )}
+                {lead.primary_linkedin_url && (
+                  <div className="flex items-center gap-2.5 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
+                    <LinkedInIcon size={14} />
+                    <div>
+                      <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>LinkedIn</p>
+                      <a href={lead.primary_linkedin_url} target="_blank" rel="noopener"
+                        className="text-sm font-medium hover:underline flex items-center gap-1"
+                        style={{ color: "#0A66C2" }}>View Profile <ExternalLink size={11} /></a>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Assigned Seller + Channel permissions */}
+              <div className="flex items-center gap-4 pt-4 border-t" style={{ borderColor: C.border }}>
+                {lead.assigned_seller && (
+                  <div className="flex items-center gap-2.5 pr-4 border-r" style={{ borderColor: C.border }}>
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                      style={{ backgroundColor: gold }}>
+                      {lead.assigned_seller[0]}
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wider" style={{ color: C.textDim, fontSize: 10 }}>Seller</p>
+                      <p className="text-sm font-semibold" style={{ color: C.textBody }}>{lead.assigned_seller}</p>
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <p className="text-xs uppercase tracking-wider mb-1.5" style={{ color: C.textDim, fontSize: 10 }}>Channels</p>
+                  <div className="flex items-center gap-2">
+                    {[
+                      { key: "allow_linkedin",  label: "LinkedIn",  icon: <LinkedInIcon size={15} /> },
+                      { key: "allow_email",     label: "Email",     icon: <span style={{ fontSize: 14 }}>✉️</span> },
+                      { key: "allow_call",      label: "Call",      icon: <span style={{ fontSize: 14 }}>📱</span> },
+                      { key: "allow_whatsapp",  label: "WhatsApp",  icon: <span style={{ fontSize: 14 }}>💬</span> },
+                      { key: "allow_instagram", label: "Instagram", icon: <span style={{ fontSize: 14 }}>📸</span> },
+                      { key: "allow_sms",       label: "SMS",       icon: <span style={{ fontSize: 14 }}>💬</span> },
+                    ].map(ch => {
+                      const allowed = lead[ch.key] !== false;
+                      return (
+                        <div key={ch.key} title={`${ch.label}: ${allowed ? "Allowed" : "Blocked"}`}
+                          className="w-9 h-9 rounded-full flex items-center justify-center border"
+                          style={{
+                            backgroundColor: allowed ? "#F0FDF4" : "#F9FAFB",
+                            borderColor: allowed ? "#BBF7D0" : C.border,
+                            opacity: allowed ? 1 : 0.4,
+                          }}>
+                          {ch.icon}
+                        </div>
+                  );
+                })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Company link (compact) */}
+            {lead.company_name && (
+              <Link href={`/companies/${encodeURIComponent(lead.company_name)}`}
+                className="flex items-center justify-between rounded-xl border p-4 hover:shadow-sm transition-shadow"
+                style={{ backgroundColor: C.card, borderColor: C.border }}>
+                <div className="flex items-center gap-3">
+                  <Building2 size={16} style={{ color: C.textDim }} />
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{lead.company_name}</p>
+                    <p className="text-xs" style={{ color: C.textMuted }}>
+                      {[lead.company_industry, lead.employees ? `${lead.employees} employees` : null, lead.company_city].filter(Boolean).join(" · ")}
                     </p>
                   </div>
                 </div>
-              )}
+                <ExternalLink size={14} style={{ color: C.textDim }} />
+              </Link>
+            )}
 
-              {lead.twitter_last_posts && (
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#F8FAFC" }}>
-                    <TwitterXIcon size={18} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold" style={{ color: C.textMuted }}>Twitter / X</p>
-                    <p className="text-sm line-clamp-2 mt-0.5" style={{ color: C.textBody }}>{lead.twitter_last_posts}</p>
-                  </div>
+            {/* Industry Context */}
+            {lead.industry_trends && (
+              <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Industry Context</h3>
+                <p className="text-sm leading-relaxed" style={{ color: C.textBody }}>{lead.industry_trends}</p>
+              </div>
+            )}
+
+            {/* Social Activity — this person's posts */}
+            {(lead.recent_linkedin_post || lead.recent_ig_post || lead.twitter_last_posts) && (
+              <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Recent Social Activity</h3>
+                <div className="space-y-3">
+                  {lead.recent_linkedin_post && (
+                    <div className="flex gap-3 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#EFF6FF" }}>
+                        <LinkedInIcon size={14} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold mb-1" style={{ color: "#0A66C2" }}>LinkedIn</p>
+                        <p className="text-sm leading-relaxed line-clamp-3" style={{ color: C.textBody }}>{lead.recent_linkedin_post}</p>
+                      </div>
+                    </div>
+                  )}
+                  {lead.recent_ig_post && (
+                    <div className="flex gap-3 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#FDF2F8" }}>
+                        <span style={{ fontSize: 14 }}>📸</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold mb-1" style={{ color: "#E1306C" }}>Instagram</p>
+                        <p className="text-sm leading-relaxed line-clamp-3" style={{ color: C.textBody }}>{lead.recent_ig_post}</p>
+                      </div>
+                    </div>
+                  )}
+                  {lead.twitter_last_posts && (
+                    <div className="flex gap-3 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#F3F4F6" }}>
+                        <span style={{ fontSize: 13 }}>𝕏</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold mb-1" style={{ color: C.textPrimary }}>X / Twitter</p>
+                        <p className="text-sm leading-relaxed line-clamp-3" style={{ color: C.textBody }}>{lead.twitter_last_posts}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+            )}
 
-              {lead.company_posts_content && (
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: C.accentLight }}>
-                    <Newspaper size={16} style={{ color: C.accent }} />
+            {/* Tech Stack & Keywords */}
+            {(keywords.length > 0 || technologies.length > 0) && (
+              <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Tech Stack & Keywords</h3>
+                {technologies.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-xs font-medium mb-2" style={{ color: C.textDim }}>Technologies</p>
+                    <div className="flex flex-wrap gap-2">
+                      {technologies.map((t: string) => (
+                        <span key={t} className="text-xs px-2.5 py-1 rounded-full border"
+                          style={{ borderColor: "#BFDBFE", color: C.blue, backgroundColor: C.blueLight }}>
+                          {t}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold" style={{ color: C.textMuted }}>Recent Posts</p>
-                    <p className="text-sm line-clamp-2 mt-0.5" style={{ color: C.textBody }}>{lead.company_posts_content}</p>
+                )}
+                {keywords.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium mb-2" style={{ color: C.textDim }}>Keywords</p>
+                    <div className="flex flex-wrap gap-2">
+                      {keywords.map((kw: string) => (
+                        <span key={kw} className="text-xs px-2.5 py-1 rounded-full border"
+                          style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
+                          {kw}
+                        </span>
+                      ))}
+                    </div>
                   </div>
+                )}
+              </div>
+            )}
+
+          </div>
+
+          {/* RIGHT SIDEBAR */}
+          <div className="space-y-5">
+
+            {/* Lead Source */}
+            {(lead.source_universe || lead.source_tool) && (
+              <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Lead Source</h3>
+                <div className="space-y-2 text-sm">
+                  {lead.source_tool && (
+                    <div className="flex items-center justify-between">
+                      <span style={{ color: C.textMuted }}>Tool</span>
+                      <span className="font-medium" style={{ color: C.textBody }}>{lead.source_tool}</span>
+                    </div>
+                  )}
+                  {lead.source_universe && (
+                    <div className="flex items-center justify-between">
+                      <span style={{ color: C.textMuted }}>Universe</span>
+                      <span className="font-medium" style={{ color: C.textBody }}>{lead.source_universe}</span>
+                    </div>
+                  )}
+                  {lead.created_at && (
+                    <div className="flex items-center justify-between">
+                      <span style={{ color: C.textMuted }}>Created</span>
+                      <span className="font-medium" style={{ color: C.textBody }}>
+                        {new Date(lead.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                      </span>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+            )}
 
-              {!lead.recent_ig_post && !lead.instagram_last_posts && !lead.twitter_last_posts && !lead.company_posts_content && (
-                <p className="text-sm text-center py-4" style={{ color: C.textDim }}>No social activity data</p>
-              )}
-            </div>
+            {/* Career / Education */}
+            {lead.primary_career && (
+              <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Career & Education</h3>
+                <div className="space-y-0">
+                  {lead.primary_career.split("\n").filter(Boolean).map((item: string, idx: number) => (
+                    <div key={idx} className="flex gap-3">
+                      <div className="flex flex-col items-center">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                          style={{ backgroundColor: goldLight, color: gold, border: `1.5px solid ${gold}` }}>
+                          {idx + 1}
+                        </div>
+                        {idx < lead.primary_career.split("\n").filter(Boolean).length - 1 && (
+                          <div className="flex-1 w-px my-1" style={{ backgroundColor: C.border, minHeight: 12 }} />
+                        )}
+                      </div>
+                      <p className="text-sm leading-relaxed pb-3" style={{ color: C.textBody, paddingTop: 3 }}>
+                        {item.replace(/^[•\-]\s*/, "")}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Website Intelligence */}
+            {(lead.website_summary || lead.recent_website_news) && (
+              <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Website Intelligence</h3>
+                {lead.website_summary && (
+                  <div className="mb-3">
+                    <p className="text-xs font-medium mb-1" style={{ color: C.textDim }}>Services</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {lead.website_summary.split(",").map((s: string) => s.trim()).filter(Boolean).map((s: string) => (
+                        <span key={s} className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: C.bg, color: C.textBody }}>{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {lead.recent_website_news && (
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: "#FFFBEB", borderLeft: "3px solid #F59E0B" }}>
+                    <p className="text-xs font-bold mb-1" style={{ color: "#D97706" }}>Recent News</p>
+                    <p className="text-sm leading-relaxed" style={{ color: C.textBody }}>{lead.recent_website_news}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
-          </div>
 
-          {/* ═══ TAB 1: CONTACTS ═══ */}
-          <ContactCards contacts={allContacts} />
+        {/* ── TAB 2: Campaign ── */}
+        <CampaignJourney campaign={campaign as any} messages={messages as any} replies={replies as any} />
 
-          {/* ═══ TAB 2: ACTIVITY ═══ */}
-          <ActivityTimeline activities={activityItems} notes={teamNotes} />
+        {/* ── TAB 3: Recent Activity ── */}
+        <ActivityTimeline activities={activityItems as any} notes={teamNotes} />
 
-        </CompanyTabs>
-      </div>
+        {/* ── TAB 4: Social & Content ── */}
+        <div className="space-y-5">
+
+          {/* Social Feed */}
+          {[
+            lead.recent_linkedin_post && {
+              platform: "LinkedIn",
+              icon: <LinkedInIcon size={16} />,
+              color: "#0A66C2",
+              bg: "#EFF6FF",
+              content: lead.recent_linkedin_post,
+              handle: lead.primary_linkedin_url ? `@${contactName.split(" ")[0].toLowerCase()}` : null,
+            },
+            lead.recent_ig_post && {
+              platform: "Instagram",
+              icon: <span style={{ fontSize: 15 }}>📸</span>,
+              color: "#E1306C",
+              bg: "#FDF2F8",
+              content: lead.recent_ig_post,
+              handle: lead.primary_instagram ? `@${lead.primary_instagram}` : null,
+            },
+            lead.twitter_last_posts && {
+              platform: "X / Twitter",
+              icon: <span style={{ fontSize: 14, fontWeight: 800 }}>𝕏</span>,
+              color: "#111827",
+              bg: "#F3F4F6",
+              content: lead.twitter_last_posts,
+              handle: lead.twitter_url ? `@${lead.twitter_url.split("/").pop()}` : null,
+            },
+            lead.company_blog && {
+              platform: "Company Blog",
+              icon: <span style={{ fontSize: 14 }}>📝</span>,
+              color: C.accent,
+              bg: "#F0FDFA",
+              content: lead.company_blog,
+              handle: lead.company_name,
+            },
+            lead.company_posts_content && {
+              platform: "Company Post",
+              icon: <span style={{ fontSize: 14 }}>🏢</span>,
+              color: gold,
+              bg: goldLight,
+              content: lead.company_posts_content,
+              handle: lead.company_name,
+            },
+          ].filter(Boolean).length > 0 ? (
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider px-1" style={{ color: C.textMuted }}>Scraped Social Content</h3>
+              {[
+                lead.recent_linkedin_post && {
+                  platform: "LinkedIn",
+                  icon: <LinkedInIcon size={16} />,
+                  color: "#0A66C2",
+                  bg: "#EFF6FF",
+                  content: lead.recent_linkedin_post,
+                  handle: lead.primary_linkedin_url ? contactName : null,
+                },
+                lead.recent_ig_post && {
+                  platform: "Instagram",
+                  icon: <span style={{ fontSize: 15 }}>📸</span>,
+                  color: "#E1306C",
+                  bg: "#FDF2F8",
+                  content: lead.recent_ig_post,
+                  handle: lead.company_instagram ?? null,
+                },
+                lead.twitter_last_posts && {
+                  platform: "X / Twitter",
+                  icon: <span style={{ fontSize: 14, fontWeight: 800 }}>𝕏</span>,
+                  color: "#111827",
+                  bg: "#F3F4F6",
+                  content: lead.twitter_last_posts,
+                  handle: lead.twitter_url ? lead.twitter_url.split("/").pop() : null,
+                },
+                lead.company_blog && {
+                  platform: "Company Blog",
+                  icon: <span style={{ fontSize: 14 }}>📝</span>,
+                  color: C.accent,
+                  bg: "#F0FDFA",
+                  content: lead.company_blog,
+                  handle: lead.company_name,
+                },
+                lead.company_posts_content && {
+                  platform: "Company Post",
+                  icon: <span style={{ fontSize: 14 }}>🏢</span>,
+                  color: gold,
+                  bg: goldLight,
+                  content: lead.company_posts_content,
+                  handle: lead.company_name,
+                },
+              ].filter(Boolean).map((post: any, idx: number) => (
+                <div key={idx} className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                  {/* Post header */}
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: post.bg }}>
+                      {post.icon}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{post.platform}</span>
+                        <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ color: post.color, backgroundColor: post.bg }}>
+                          POST
+                        </span>
+                      </div>
+                      {post.handle && (
+                        <p className="text-xs" style={{ color: C.textDim }}>{post.handle}</p>
+                      )}
+                    </div>
+                  </div>
+                  {/* Post content */}
+                  <p className="text-sm leading-relaxed" style={{ color: C.textBody }}>{post.content}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="rounded-xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <p className="text-sm" style={{ color: C.textDim }}>No social content scraped for this contact yet.</p>
+            </div>
+          )}
+        </div>
+
+      </CompanyTabs>
     </div>
   );
 }
