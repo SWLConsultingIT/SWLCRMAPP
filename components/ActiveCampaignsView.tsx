@@ -291,8 +291,9 @@ export default function ActiveCampaignsView({ campaigns }: { campaigns: Campaign
                       return (
                         <tr key={c.id} className="table-row-hover" style={{ borderBottom: `1px solid ${C.border}` }}>
                           <td className="px-5 py-3">
-                            <Link href={`/leads/${c.leads?.id}`} className="hover:underline">
+                            <Link href={`/campaigns/${c.id}`} className="hover:underline">
                               <p className="font-medium" style={{ color: C.textPrimary }}>{leadName}</p>
+                              <p className="text-xs" style={{ color: gold }}>View campaign →</p>
                             </Link>
                           </td>
                           <td className="px-5 py-3 text-xs" style={{ color: C.textBody }}>
