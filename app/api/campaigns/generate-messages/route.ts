@@ -11,260 +11,166 @@ export async function POST(req: NextRequest) {
     language?: string;
   };
 
-  const langLabel: Record<string, string> = {
+  const langMap: Record<string, string> = {
     en: "English", es: "Spanish", pt: "Portuguese", fr: "French", de: "German", it: "Italian",
   };
-  const outputLanguage = langLabel[language ?? "en"] ?? "English";
+  const lang = langMap[language ?? "en"] ?? "English";
 
   const openaiKey = process.env.OPENAI_API_KEY;
   if (!openaiKey) {
     return NextResponse.json({ error: "OpenAI API key not configured" }, { status: 500 });
   }
 
-  // ── Build rich step descriptions with full narrative context ──
-
+  // ── Classify each step ──
   const channelCounters: Record<string, number> = {};
-  const allStepsSoFar: { channel: string; type: string }[] = [];
-  let cumulativeDay = 0;
-  let companyIntroduced = false; // Track if ANY previous step already introduced the company
+  let introduced = false;
+  let cumDay = 0;
 
-  const steps = (sequence ?? []).map((s, i) => {
-    cumulativeDay += i === 0 ? 0 : s.daysAfter;
+  const stepDescriptions = (sequence ?? []).map((s, i) => {
+    cumDay += i === 0 ? 0 : s.daysAfter;
     channelCounters[s.channel] = (channelCounters[s.channel] ?? 0) + 1;
     const nth = channelCounters[s.channel];
-    const totalForChannel = sequence.filter(x => x.channel === s.channel).length;
-    const isLastForChannel = nth === totalForChannel;
+    const totalForCh = sequence.filter(x => x.channel === s.channel).length;
+    const isLast = nth === totalForCh;
 
-    // Build what happened before this step
-    const previousTouchpoints = allStepsSoFar.length > 0
-      ? `\n    Previous touchpoints: ${allStepsSoFar.map((p, j) => `Step ${j + 1} (${p.channel}: ${p.type})`).join(" → ")}`
-      : "\n    This is the FIRST touchpoint. The prospect has never heard from you.";
-
-    let msgType = "";
-    let narrative = "";
-
+    let type = "";
     if (s.channel === "linkedin") {
-      if (nth === 1) {
-        msgType = "CONNECTION REQUEST NOTE";
-        narrative = `IMPORTANT: This is the NOTE attached to a LinkedIn connection request, NOT a regular message. The prospect has NOT accepted you yet — you are a stranger.
-    This is a special LinkedIn format: a very short note (MAX 300 CHARACTERS including spaces) that appears when you send a connection request.
-    Rules:
-    - STRICTLY under 300 characters total. Count carefully.
-    - Be curious about THEM. Ask about something specific (their role, a recent post, their company).
-    - Do NOT pitch, do NOT sell, do NOT mention your company's services.
-    - Do NOT use "I'd love to connect" or "I came across your profile" — these are spam.
-    - The ONLY goal is to make them curious enough to accept. That's it.
-    - Think of it as a 1-sentence reason why connecting makes sense for THEM.`;
-        // Connection request does NOT count as introducing the company
-      } else if (nth === 2 && !companyIntroduced) {
-        // First real LinkedIn DM AND no other channel introduced the company yet
-        msgType = "FIRST DM — COMPANY INTRODUCTION";
-        narrative = `The prospect ACCEPTED your connection request. This is your first LinkedIn DM and the FIRST time the prospect hears about your company.
-
-    ⚠️ FORBIDDEN OPENERS (DO NOT USE — they are spam):
-    - "Gracias por aceptar mi conexión/solicitud" / "Thanks for connecting/accepting" / "Great to be connected"
-    - Any variation of acknowledging the connection acceptance
-
-    START DIRECTLY WITH VALUE. Structure:
-    1. Open with a specific insight about their industry or challenge — NOT a greeting
-    2. Introduce yourself: "I'm [name] from ${companyBio.company_name} — we ${companyBio.description || "help companies like yours"}"
-    3. Connect their pain point to your specific solution
-    4. Social proof: ${(companyBio.key_clients || []).length > 0 ? `"We've worked with ${(companyBio.key_clients || []).slice(0, 2).join(", ")}"` : '"We\'ve helped companies"'} + a concrete result
-    5. End with ONE specific question about their situation
-
-    Rules: Max 1000 characters. Flow: [insight] → [who we are] → [solution] → [proof] → [question].`;
-        companyIntroduced = true;
-      } else if (isLastForChannel) {
-        msgType = "BREAKUP MESSAGE";
-        narrative = `This is your LAST LinkedIn touch. The prospect has received ${nth - 1} previous LinkedIn messages and hasn't engaged.
-    Rules: Max 500 characters. Respectful, no guilt. Offer one final piece of value (insight, resource). Leave the door open. "No worries if the timing isn't right" tone.`;
-      } else {
-        // This is a FOLLOW-UP — either nth >= 3, or nth === 2 but company was already introduced on another channel
-        const followUpNum = companyIntroduced ? nth - 1 : nth - 2;
-        const crossChannelRef = (nth === 2 && companyIntroduced)
-          ? `\n    The prospect already knows about your company from a previous ${allStepsSoFar.filter(p => p.type.includes("INTRODUCTION") || p.type.includes("COLD EMAIL")).map(p => p.channel).join("/")} message. Do NOT re-introduce yourself. Instead, reference what you said before and add new value.`
-          : "";
-        msgType = "FOLLOW-UP DM";
-        narrative = `This is follow-up #${Math.max(1, followUpNum)} on LinkedIn. The prospect hasn't replied yet.${crossChannelRef}
-    Rules: Max 800 characters. Do NOT repeat your previous pitch or re-introduce yourself. Bring something NEW: a case study result, a specific stat, a relevant industry trend, or social proof. Reference what you said before briefly, then add new value.`;
-        if (!companyIntroduced) companyIntroduced = true;
-      }
+      if (nth === 1) type = "LINKEDIN_CONNECTION_REQUEST";
+      else if (!introduced) { type = "LINKEDIN_INTRO_DM"; introduced = true; }
+      else if (isLast) type = "LINKEDIN_BREAKUP";
+      else { type = "LINKEDIN_FOLLOWUP"; }
     } else if (s.channel === "email") {
-      if (nth === 1) {
-        const hasLinkedIn = allStepsSoFar.some(p => p.channel === "linkedin");
-        if (!companyIntroduced) {
-          msgType = "COLD EMAIL — COMPANY INTRODUCTION";
-          narrative = `${hasLinkedIn ? "The prospect may have seen your LinkedIn connection request. This is your first EMAIL and their first real introduction to your company." : "This is a cold email. The prospect has never heard from you."}
-    THIS EMAIL MUST INTRODUCE YOUR COMPANY:
-    - ${hasLinkedIn ? "Reference the LinkedIn outreach briefly, then" : "Open with something about THEM, then"} introduce who you are and what your company does
-    - Connect THEIR specific pain point to YOUR specific solution
-    - Include a concrete result or social proof (client name, metric, case study)
-    - End with a low-friction CTA (15-min call, not "schedule a demo")
-    Rules: Subject line max 60 chars — curiosity-driven, no spam words, no ALL CAPS. Body: 3-5 SHORT paragraphs.`;
-          companyIntroduced = true;
-        } else {
-          msgType = "COLD EMAIL — FOLLOW-UP";
-          narrative = `The prospect already knows about your company from previous outreach (${allStepsSoFar.filter(p => !p.type.includes("CONNECTION REQUEST")).map(p => p.channel).join(", ")}). This is your first EMAIL.
-    Do NOT re-introduce yourself. They know who you are. Instead:
-    - Reference previous outreach briefly ("I reached out on LinkedIn about...")
-    - Add a NEW angle: a different case study, a specific metric, an industry insight they haven't seen
-    - End with a clear CTA
-    Rules: Subject line max 60 chars. Body: 3-4 SHORT paragraphs. Get to the point fast.`;
-        }
-      } else if (nth === 2) {
-        msgType = "FOLLOW-UP EMAIL";
-        narrative = `Following up on your first email. The prospect hasn't replied.
-    Rules: Subject should feel like a reply thread ("Re: " style or continuation). Keep it SHORT — 2-3 sentences max. Add ONE new piece of value they didn't see in the first email (a case study, a stat, a competitor insight). Don't re-explain who you are.`;
-      } else if (isLastForChannel) {
-        msgType = "BREAKUP EMAIL";
-        narrative = `This is your LAST email. The prospect hasn't engaged with any previous emails.
-    Rules: 2-3 sentences max. "Last message" tone but NOT guilt-trippy. Create soft urgency by referencing a specific result or opportunity they're missing. Close gracefully.`;
-      } else {
-        msgType = "NURTURE EMAIL";
-        narrative = `This is a value-add email. The prospect hasn't replied to previous emails.
-    Rules: Do NOT pitch again. Instead, provide genuine value: share an insight about their industry, a relevant trend, a framework, or a data point. The CTA is soft — "thought this might be relevant" tone.`;
-      }
+      if (!introduced) { type = "EMAIL_INTRO"; introduced = true; }
+      else if (nth === 1) type = "EMAIL_FOLLOWUP_CROSS";
+      else if (isLast) type = "EMAIL_BREAKUP";
+      else type = "EMAIL_FOLLOWUP";
     } else if (s.channel === "call") {
-      if (nth === 1) {
-        msgType = companyIntroduced ? "CALL SCRIPT — FOLLOW-UP" : "CALL SCRIPT — FIRST CONTACT";
-        narrative = companyIntroduced
-          ? `The prospect has already been contacted via ${allStepsSoFar.filter(p => !p.type.includes("CONNECTION REQUEST")).map(p => p.channel).join(" and ")}. They know who you are.
-    Rules: Bullet point format.
-    - OPENER: "Hi {{first_name}}, this is [name] from ${companyBio.company_name} — I reached out to you recently on ${allStepsSoFar[allStepsSoFar.length - 1]?.channel ?? "another channel"}"
-    - Reference what you sent them and ask if they had a chance to see it
-    - 1-2 discovery questions
-    - Restate your value briefly with a NEW angle
-    - MEETING ASK`
-          : `This is a cold call. You must introduce yourself and your company.
-    Rules: Bullet point format.
-    - OPENER: who you are + your company name + what you do (1 sentence)
-    - BRIDGE: mention something specific about their company/industry
-    - 2-3 discovery questions about their pain points
-    - VALUE PITCH (30 sec max): how your service solves their problem, with a result/metric
-    - MEETING ASK`;
-        if (!companyIntroduced) companyIntroduced = true;
-      } else {
-        msgType = "FOLLOW-UP CALL SCRIPT";
-        narrative = `Follow-up call. The prospect has had ${allStepsSoFar.length} previous touchpoints.
-    Rules: Bullet points. Reference a specific previous touchpoint. Bring a new angle or urgency. Ask for a meeting.`;
-      }
+      if (nth === 1) type = "CALL_FIRST";
+      else type = "CALL_FOLLOWUP";
+      if (!introduced) introduced = true;
     }
 
-    allStepsSoFar.push({ channel: s.channel, type: msgType });
-
-    return `STEP ${i + 1} | Day ${cumulativeDay} | ${s.channel.toUpperCase()} | ${msgType}
-    ${narrative}${previousTouchpoints}`;
+    return { step: i + 1, day: cumDay, channel: s.channel, type };
   });
 
-  // ── Build lead-specific intelligence section ──
+  // ── Company info ──
+  const co = companyBio;
+  const companyBlock = `SENDER: ${co.company_name}
+Does: ${co.description || co.value_proposition || "N/A"}
+Services: ${(co.main_services || []).join(", ") || "N/A"}
+Differentiators: ${co.differentiators || "N/A"}
+Clients: ${(co.key_clients || []).join(", ") || "N/A"}
+Case studies: ${(co.case_studies || []).join("; ") || "N/A"}
+Tone: ${co.tone_of_voice || "Professional, direct"}`;
 
-  let leadIntelligence = "";
+  // ── ICP info ──
+  const icp = icpProfile;
+  const icpBlock = `TARGET: ${icp.profile_name}
+Industries: ${(icp.target_industries || []).join(", ") || "N/A"}
+Roles: ${(icp.target_roles || []).join(", ") || "N/A"}
+Pain points: ${icp.pain_points || "N/A"}
+Our solution: ${icp.solutions_offered || "N/A"}`;
+
+  // ── Lead-specific data ──
+  let leadBlock = "";
   if (lead) {
-    const dataPoints: string[] = [];
-
-    if (lead.recent_linkedin_post || lead.company_linkedin_post) {
-      dataPoints.push(`RECENT LINKEDIN POST: "${(lead.recent_linkedin_post ?? lead.company_linkedin_post).slice(0, 300)}"`);
-    }
-    if (lead.recent_website_news) {
-      dataPoints.push(`RECENT NEWS: "${lead.recent_website_news.slice(0, 300)}"`);
-    }
-    if (lead.website_summary) {
-      dataPoints.push(`WEBSITE SUMMARY: ${lead.website_summary}`);
-    }
-    if (lead.industry_trends) {
-      dataPoints.push(`INDUSTRY TRENDS: ${lead.industry_trends}`);
-    }
-    if (lead.company_blog) {
-      dataPoints.push(`BLOG CONTENT: "${lead.company_blog.slice(0, 200)}"`);
-    }
-    if (lead.organization_technologies && (Array.isArray(lead.organization_technologies) ? lead.organization_technologies.length > 0 : lead.organization_technologies)) {
+    const parts = [
+      `Name: ${lead.primary_first_name} ${lead.primary_last_name}`,
+      `Company: ${lead.company_name ?? "N/A"} (${lead.company_industry ?? "N/A"})`,
+      `Role: ${lead.primary_title_role ?? "N/A"}`,
+    ];
+    if (lead.organization_short_desc || lead.organization_description)
+      parts.push(`About: ${(lead.organization_short_desc ?? lead.organization_description).slice(0, 200)}`);
+    if (lead.recent_linkedin_post || lead.company_linkedin_post)
+      parts.push(`Recent LinkedIn post: "${(lead.recent_linkedin_post ?? lead.company_linkedin_post).slice(0, 200)}"`);
+    if (lead.recent_website_news)
+      parts.push(`Recent news: "${lead.recent_website_news.slice(0, 200)}"`);
+    if (lead.industry_trends)
+      parts.push(`Industry trends: ${lead.industry_trends.slice(0, 200)}`);
+    if (lead.organization_technologies) {
       const tech = Array.isArray(lead.organization_technologies) ? lead.organization_technologies.join(", ") : lead.organization_technologies;
-      dataPoints.push(`TECHNOLOGIES USED: ${tech}`);
+      if (tech) parts.push(`Tech stack: ${tech}`);
     }
-    if (lead.company_posts_content) {
-      dataPoints.push(`SOCIAL MEDIA CONTENT: "${lead.company_posts_content.slice(0, 200)}"`);
-    }
-    if (lead.company_mission) {
-      dataPoints.push(`COMPANY MISSION: "${lead.company_mission}"`);
-    }
+    if (lead.website_summary)
+      parts.push(`Website: ${lead.website_summary.slice(0, 150)}`);
+    if (lead.company_mission)
+      parts.push(`Mission: "${lead.company_mission.slice(0, 150)}"`);
 
-    leadIntelligence = `
-## SPECIFIC PROSPECT — USE THIS DATA TO PERSONALIZE EVERY MESSAGE:
-Name: ${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}
-Company: ${lead.company_name ?? "N/A"}
-Role: ${lead.primary_title_role ?? "N/A"}
-Seniority: ${lead.primary_seniority ?? "N/A"}
-Industry: ${lead.company_industry ?? "N/A"}${lead.company_sub_industry ? ` — ${lead.company_sub_industry}` : ""}
-Company Description: ${lead.organization_short_desc ?? lead.organization_description ?? "N/A"}
-Company Tagline: ${lead.organization_tagline ?? "N/A"}
-Employees: ${lead.employees ?? "N/A"}
-Annual Revenue: ${lead.annual_revenue ?? "N/A"}
-
-## RESEARCH INTELLIGENCE (reference this in your messages to show you've done homework):
-${dataPoints.length > 0 ? dataPoints.join("\n") : "No additional intelligence available — use the company description and ICP pain points."}
-
-CRITICAL: You MUST weave at least one piece of this research into EACH message. For example:
-- Connection request: mention their recent LinkedIn post or a specific company achievement
-- First DM: reference an industry trend affecting their sector
-- Follow-ups: use their tech stack, blog content, or news to add relevance
-DO NOT write generic messages that could apply to anyone. Every message must prove you know THIS specific company.`;
+    leadBlock = `\nPROSPECT DATA (use real names, no {{variables}}):\n${parts.join("\n")}`;
   }
 
-  const personalizationRules = lead
-    ? `- Address the prospect by their REAL name (${lead.primary_first_name}) and reference their REAL company (${lead.company_name})
-- DO NOT use placeholder variables like {{first_name}} — use actual data
-- Each message MUST reference at least one specific data point from the Research Intelligence section`
-    : `- Use these personalization variables: {{first_name}}, {{last_name}}, {{company}}, {{role}}
-- Write messages that feel specific even with variables — reference the ICP's industry, pain points, and trends`;
+  const varsNote = lead
+    ? "Use the prospect's real name and company. No {{variables}}."
+    : "Use {{first_name}}, {{last_name}}, {{company}}, {{role}} as placeholders.";
 
-  const prompt = `You are a world-class B2B outbound sales copywriter. You write sequences that feel like genuine human outreach, not mass templates.
+  // ── Build the sequence description ──
+  const seqLines = stepDescriptions.map(s => `Step ${s.step} | Day ${s.day} | ${s.channel} | ${s.type}`).join("\n");
 
-CRITICAL RULES:
-1. Write ALL messages in ${outputLanguage} only.
-2. Each message must be DIFFERENT — never repeat the same pitch, angle, or structure across steps.
-3. Messages must follow a narrative arc: curiosity → value → proof → urgency.
-4. Every message MUST connect the prospect's specific pain points to the sender's specific solution.
-5. Be concise. Executives scan, they don't read essays.
-6. LINKEDIN SEQUENCE LOGIC: The 1st LinkedIn step is ALWAYS a connection request note (max 300 chars, no selling). The 2nd LinkedIn step is the first real DM AFTER they accepted. Never confuse these — the prospect can't receive a DM until they accept the connection.
-7. Each message must ACKNOWLEDGE what the prospect already received. Don't write messages in isolation — they are part of a conversation arc. Reference or build on previous messages naturally.
+  const prompt = `Write a ${sequence.length}-message B2B outreach sequence in ${lang}.
 
-## SENDING COMPANY (this is WHO is reaching out):
-Company: ${companyBio.company_name}
-Industry: ${companyBio.industry || "N/A"}
-What they do: ${companyBio.description || "N/A"}
-Value Proposition: ${companyBio.value_proposition || "N/A"}
-Key Services: ${(companyBio.main_services || []).join(", ") || "N/A"}
-Differentiators: ${companyBio.differentiators || "N/A"}
-Target Market: ${companyBio.target_market || "N/A"}
-Tone of Voice: ${companyBio.tone_of_voice || "Professional but approachable, direct, no corporate jargon"}
-Key Clients: ${(companyBio.key_clients || []).join(", ") || "N/A"}
-Case Studies: ${(companyBio.case_studies || []).join("; ") || "N/A"}
+${companyBlock}
 
-## TARGET PROSPECT PROFILE (this is WHO you're writing to):
-Profile Name: ${icpProfile.profile_name}
-Target Industries: ${(icpProfile.target_industries || []).join(", ") || "N/A"}
-Target Roles: ${(icpProfile.target_roles || []).join(", ") || "N/A"}
-Company Size: ${icpProfile.company_size || "N/A"}
-Their Pain Points: ${icpProfile.pain_points || "N/A"}
-How We Solve It: ${icpProfile.solutions_offered || "N/A"}
-${leadIntelligence}
+${icpBlock}
+${leadBlock}
 
-## THE SEQUENCE — FOLLOW EACH STEP'S RULES EXACTLY:
+SEQUENCE:
+${seqLines}
 
-${steps.join("\n\n")}
+MESSAGE TYPE RULES:
 
-## PERSONALIZATION RULES:
-${personalizationRules}
+LINKEDIN_CONNECTION_REQUEST:
+- Max 300 characters. This is a connection request note, NOT a message.
+- Ask something about THEM. No pitch, no company mention.
+- Example: "Hi {{first_name}}, I've been following how {{company}} is approaching [topic]. Would love to exchange ideas on [specific thing]."
 
-## OUTPUT FORMAT (respond ONLY with valid JSON, no markdown, no explanation):
-{
-  "messages": [
-    {"step": 1, "channel": "linkedin", "subject": null, "body": "message text here"},
-    {"step": 2, "channel": "email", "subject": "subject line here", "body": "email body here"}
-  ]
-}
+LINKEDIN_INTRO_DM:
+- This is the first real message AFTER they accepted the connection. 800-1000 chars.
+- NEVER start with "thanks for connecting" or any variation.
+- Structure: [Insight about their industry/challenge] → [Introduce yourself and company: who you are, what you do, key services] → [How you solve THEIR specific pain point] → [Social proof/result] → [Soft question]
+- Example: "The [industry] space is evolving fast, especially around [pain point]. I'm [name] with ${co.company_name} — we help [target] companies [solution]. We recently helped [client] achieve [result]. Are you seeing similar challenges with [specific problem]?"
 
-Generate exactly ${sequence.length} messages in order. "subject" is only for email channel (null for linkedin and call).`;
+LINKEDIN_FOLLOWUP:
+- 400-600 chars. They already know who you are — do NOT re-introduce.
+- Bring ONE new piece of value: a case study, stat, insight, or relevant trend.
+- Reference your previous message briefly, then add something new.
+
+LINKEDIN_BREAKUP:
+- 200-400 chars. Last touch. Respectful, no pressure, leave door open.
+
+EMAIL_INTRO:
+- Subject: max 60 chars, curiosity-driven, no spam words.
+- Body: 3-4 short paragraphs.
+- Must introduce who you are and what the company does.
+- If LinkedIn preceded this: reference it ("I recently connected with you on LinkedIn...").
+- Structure: [Hook about them] → [Who we are + what we do] → [Pain point → solution] → [Proof] → [CTA: quick call]
+
+EMAIL_FOLLOWUP_CROSS:
+- Subject: max 60 chars. Body: 3-4 short paragraphs.
+- They already received outreach on another channel. Reference it.
+- Do NOT re-introduce yourself. Add a NEW angle, case study, or insight.
+- End with clear CTA.
+
+EMAIL_FOLLOWUP:
+- Subject: "Re:" style. Body: 2-3 sentences max.
+- Add one new piece of value. Don't re-explain who you are.
+
+EMAIL_BREAKUP:
+- 2-3 sentences. "Last message" tone. Soft urgency, graceful close.
+
+CALL_FIRST / CALL_FOLLOWUP:
+- Bullet point script: Opener → Bridge → Questions → Pitch → Ask.
+
+RULES:
+- ${varsNote}
+- Each message builds on the previous. They are a SEQUENCE, not isolated messages.
+- Never repeat the same angle, pitch, or structure across messages.
+- Use the prospect's industry, pain points, and research data to personalize.
+- Be concise and professional. No fluff, no corporate jargon.
+
+OUTPUT (valid JSON only, no markdown):
+{"messages":[{"step":1,"channel":"linkedin","subject":null,"body":"..."},{"step":2,"channel":"email","subject":"...","body":"..."}]}
+
+Generate exactly ${sequence.length} messages. "subject" is null for linkedin and call.`;
 
   try {
     const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -274,13 +180,13 @@ Generate exactly ${sequence.length} messages in order. "subject" is only for ema
         Authorization: `Bearer ${openaiKey}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-4o",
         temperature: 0.7,
         response_format: { type: "json_object" },
         messages: [
           {
             role: "system",
-            content: `You are an expert B2B outbound sales copywriter. You write messages in ${outputLanguage} that feel personal, human, and research-driven — never templated. Each message in a sequence must be distinct and build on the previous one narratively. Always respond with valid JSON only.`,
+            content: `You are an expert B2B sales copywriter. Write in ${lang}. Follow the message type rules EXACTLY. Each message type has specific rules — do not mix them up. NEVER say "thanks for connecting" in any message. Always respond with valid JSON only.`,
           },
           { role: "user", content: prompt },
         ],
