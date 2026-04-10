@@ -3,8 +3,8 @@ import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, Building2, Target, Users, Megaphone, Clock, MapPin, Briefcase, Globe,
-  CheckCircle, XCircle, ChevronRight, Share2, Mail, Phone,
+  ArrowLeft, Target, Users, Megaphone, Clock, MapPin, Briefcase, Globe,
+  ChevronRight, Share2, Mail, Phone, User,
 } from "lucide-react";
 import AdminActions from "../AdminActions";
 
@@ -49,6 +49,36 @@ async function getCampaigns(bioId: string) {
   return { campaigns: data ?? [], total: count ?? 0 };
 }
 
+async function getPendingCampaignRequests(_bioId: string, profileIds: string[], leadIds: string[]) {
+  // Campaign requests linked via icp_profile_id or lead_id
+  const requests: any[] = [];
+
+  if (profileIds.length > 0) {
+    const { data } = await supabase
+      .from("campaign_requests")
+      .select("*")
+      .eq("status", "pending_review")
+      .in("icp_profile_id", profileIds);
+    if (data) requests.push(...data);
+  }
+
+  if (leadIds.length > 0) {
+    const { data } = await supabase
+      .from("campaign_requests")
+      .select("*")
+      .eq("status", "pending_review")
+      .in("lead_id", leadIds)
+      .is("icp_profile_id", null);
+    if (data) requests.push(...data);
+  }
+
+  // Deduplicate by id and sort by created_at desc
+  const seen = new Set<string>();
+  return requests
+    .filter(r => { if (seen.has(r.id)) return false; seen.add(r.id); return true; })
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+}
+
 const statusStyles: Record<string, { label: string; color: string; bg: string }> = {
   pending:  { label: "Pending",  color: "#D97706", bg: "#FFFBEB" },
   reviewed: { label: "Reviewed", color: C.blue,    bg: C.blueLight },
@@ -89,6 +119,12 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
   const [profiles, { leads, total: totalLeads }, { campaigns, total: totalCampaigns }] = await Promise.all([
     getProfiles(id), getLeads(id), getCampaigns(id),
   ]);
+
+  // Get IDs for campaign_requests lookup
+  const profileIds = profiles.map((p: any) => p.id);
+  const { data: clientLeadIds } = await supabase.from("leads").select("id").eq("company_bio_id", id);
+  const leadIdList = (clientLeadIds ?? []).map((l: any) => l.id);
+  const pendingRequests = await getPendingCampaignRequests(id, profileIds, leadIdList);
 
   const pendingProfiles = profiles.filter(p => p.status === "pending");
   const approvedProfiles = profiles.filter(p => p.status === "approved");
@@ -192,6 +228,150 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                 )}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ PENDING CAMPAIGN REVIEWS ═══ */}
+      {pendingRequests.length > 0 && (
+        <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${C.blue}` }}>
+          <div className="px-6 py-4 flex items-center gap-2.5 border-b" style={{ borderColor: C.border, background: `${C.blue}06` }}>
+            <Megaphone size={15} style={{ color: C.blue }} />
+            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Pending Campaign Reviews</h2>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: C.blueLight, color: C.blue }}>
+              {pendingRequests.length}
+            </span>
+          </div>
+          <div className="divide-y" style={{ borderColor: C.border }}>
+            {pendingRequests.map((req: any) => {
+              const prompts = req.message_prompts ?? {};
+              const sequence: { channel: string; daysAfter: number }[] = prompts.sequence ?? [];
+              const messages: { step: number; channel: string; subject?: string; body: string }[] = prompts.messages ?? [];
+              const channels: string[] = req.channels ?? [...new Set(sequence.map((s: any) => s.channel))];
+              const isIndividual = !!req.lead_id && req.target_leads_count === 1;
+
+              const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
+                linkedin: { icon: Share2, color: C.linkedin, label: "LinkedIn" },
+                email:    { icon: Mail,   color: C.email,    label: "Email" },
+                call:     { icon: Phone,  color: C.phone,    label: "Call" },
+              };
+
+              // Calculate total days
+              let totalDays = 0;
+              sequence.forEach((s: any, i: number) => { totalDays += i === 0 ? 0 : s.daysAfter; });
+
+              return (
+                <div key={req.id} className="px-6 py-5">
+                  {/* Header row */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        {isIndividual && (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md"
+                            style={{ backgroundColor: `${gold}15`, color: gold }}>
+                            <User size={10} /> Individual
+                          </span>
+                        )}
+                        <h3 className="text-sm font-semibold" style={{ color: C.textPrimary }}>{req.name}</h3>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs" style={{ color: C.textMuted }}>
+                        <span>{timeAgo(req.created_at)}</span>
+                        <span>·</span>
+                        <span>{req.target_leads_count} {req.target_leads_count === 1 ? "lead" : "leads"}</span>
+                        <span>·</span>
+                        <span>{sequence.length} steps · ~{totalDays} days</span>
+                      </div>
+                    </div>
+                    <AdminActions id={req.id} table="campaign_requests" />
+                  </div>
+
+                  {/* Channels */}
+                  <div className="flex items-center gap-2 mb-4">
+                    {channels.map((ch: string) => {
+                      const meta = channelMeta[ch];
+                      if (!meta) return null;
+                      const Icon = meta.icon;
+                      return (
+                        <span key={ch} className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md"
+                          style={{ backgroundColor: `${meta.color}12`, color: meta.color }}>
+                          <Icon size={11} /> {meta.label}
+                        </span>
+                      );
+                    })}
+                  </div>
+
+                  {/* Sequence timeline */}
+                  {sequence.length > 0 && (
+                    <div className="rounded-lg border p-4 mb-4" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                      <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Sequence</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {sequence.map((step: any, i: number) => {
+                          const meta = channelMeta[step.channel];
+                          if (!meta) return null;
+                          const Icon = meta.icon;
+                          return (
+                            <div key={i} className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5"
+                                style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>
+                                <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
+                                  style={{ backgroundColor: meta.color }}>
+                                  <Icon size={10} color="#fff" />
+                                </div>
+                                <span className="text-xs font-medium" style={{ color: C.textPrimary }}>
+                                  {meta.label}
+                                </span>
+                                <span className="text-xs tabular-nums" style={{ color: C.textDim }}>
+                                  D{sequence.slice(0, i + 1).reduce((d: number, s: any, j: number) => d + (j === 0 ? 0 : s.daysAfter), 0)}
+                                </span>
+                              </div>
+                              {i < sequence.length - 1 && (
+                                <div className="w-4 h-px" style={{ backgroundColor: C.border }} />
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Message previews */}
+                  {messages.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Messages Preview</p>
+                      {messages.map((msg: any, i: number) => {
+                        const meta = channelMeta[msg.channel];
+                        if (!meta) return null;
+                        const Icon = meta.icon;
+                        return (
+                          <div key={i} className="rounded-lg border px-4 py-3 flex items-start gap-3"
+                            style={{ borderColor: C.border, backgroundColor: C.card }}>
+                            <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+                              style={{ backgroundColor: meta.color }}>
+                              <Icon size={10} color="#fff" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-xs font-semibold" style={{ color: meta.color }}>
+                                  Step {msg.step ?? i + 1} — {meta.label}
+                                </span>
+                                {msg.subject && (
+                                  <span className="text-xs truncate" style={{ color: C.textMuted }}>
+                                    Subject: {msg.subject}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>
+                                {msg.body?.length > 200 ? `${msg.body.slice(0, 200)}...` : msg.body}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
