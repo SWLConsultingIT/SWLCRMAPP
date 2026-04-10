@@ -38,13 +38,21 @@ export async function POST(req: NextRequest) {
 
     if (s.channel === "linkedin") {
       if (nth === 1) {
-        msgType = "CONNECTION REQUEST";
-        narrative = `The prospect does NOT know you yet. Send a connection request.
-    Rules: Max 300 characters. Be curious about THEM, not about selling. Mention something specific about their company, role, or a recent post to show you did your research. No pitch, no links, no "I'd love to connect" cliches.`;
+        msgType = "CONNECTION REQUEST NOTE";
+        narrative = `IMPORTANT: This is the NOTE attached to a LinkedIn connection request, NOT a regular message. The prospect has NOT accepted you yet — you are a stranger.
+    This is a special LinkedIn format: a very short note (MAX 300 CHARACTERS including spaces) that appears when you send a connection request.
+    Rules:
+    - STRICTLY under 300 characters total. Count carefully.
+    - Be curious about THEM. Ask about something specific (their role, a recent post, their company).
+    - Do NOT pitch, do NOT sell, do NOT mention your company's services.
+    - Do NOT use "I'd love to connect" or "I came across your profile" — these are spam.
+    - The ONLY goal is to make them curious enough to accept. That's it.
+    - Think of it as a 1-sentence reason why connecting makes sense for THEM.`;
       } else if (nth === 2) {
         msgType = "FIRST DM POST-CONNECTION";
-        narrative = `The prospect ACCEPTED your connection request. This is your first direct message.
-    Rules: Max 1000 characters. Do NOT say "thanks for connecting" or "thanks for accepting" — it's robotic. Instead, lead with a specific insight about their industry or company, then bridge to how your company addresses that exact challenge. End with a soft question, not a hard CTA.`;
+        narrative = `The prospect ACCEPTED your connection request. You are now connected. This is your first real direct message to them.
+    Context: They only saw your short connection request note before this. This is where you actually introduce why you reached out.
+    Rules: Max 1000 characters. Do NOT say "thanks for connecting" or "thanks for accepting" — it's robotic and wastes space. Instead, lead with a specific insight about their industry or company, then bridge to how your company addresses that exact challenge. End with a soft question, not a hard CTA.`;
       } else if (isLastForChannel) {
         msgType = "BREAKUP MESSAGE";
         narrative = `This is your LAST LinkedIn touch. The prospect has received ${nth - 1} previous LinkedIn messages and hasn't engaged.
@@ -159,6 +167,8 @@ CRITICAL RULES:
 3. Messages must follow a narrative arc: curiosity → value → proof → urgency.
 4. Every message MUST connect the prospect's specific pain points to the sender's specific solution.
 5. Be concise. Executives scan, they don't read essays.
+6. LINKEDIN SEQUENCE LOGIC: The 1st LinkedIn step is ALWAYS a connection request note (max 300 chars, no selling). The 2nd LinkedIn step is the first real DM AFTER they accepted. Never confuse these — the prospect can't receive a DM until they accept the connection.
+7. Each message must ACKNOWLEDGE what the prospect already received. Don't write messages in isolation — they are part of a conversation arc. Reference or build on previous messages naturally.
 
 ## SENDING COMPANY (this is WHO is reaching out):
 Company: ${companyBio.company_name}
