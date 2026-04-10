@@ -40,7 +40,7 @@ export default function CampaignActions({ campaignId, status }: { campaignId: st
       }}
     >
       {loading ? <Loader size={10} className="animate-spin" /> : isPaused ? <Play size={10} /> : <Pause size={10} />}
-      {isPaused ? "Reactivar" : "Pausar"}
+      {isPaused ? "Resume" : "Pause"}
     </button>
   );
 }

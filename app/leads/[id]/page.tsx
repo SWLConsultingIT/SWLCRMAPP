@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   ArrowLeft, Globe, MapPin, Users as UsersIcon, Mail, Phone,
   Star, ExternalLink, Share2,
-  Newspaper, BookOpen, Building2,
+  Newspaper, BookOpen, Building2, Megaphone,
 } from "lucide-react";
 import { LinkedInIcon, InstagramIcon, TwitterXIcon, FacebookIcon, GoogleIcon, WebsiteIcon } from "@/components/SocialIcons";
 import CompanyTabs from "@/components/CompanyTabs";
@@ -242,8 +242,11 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
             </div>
           </div>
 
-          {/* spacer */}
-          <div />
+          <Link href={`/campaigns/new/lead/${lead.id}`}
+            className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-bold transition-all hover:shadow-lg hover:scale-[1.02] shrink-0"
+            style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#04070d", boxShadow: `0 2px 8px ${gold}40` }}>
+            <Megaphone size={15} /> Target this Lead
+          </Link>
         </div>
 
         {/* Divider */}
