@@ -2,7 +2,7 @@ import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { Target, Clock, MapPin, Users, Briefcase, CheckCircle, Upload, XCircle } from "lucide-react";
+import { Target, Clock, MapPin, Users, Briefcase } from "lucide-react";
 import AdminActions from "../../../AdminActions";
 import ExecutionActions from "./ExecutionActions";
 
@@ -15,12 +15,6 @@ const statusStyles: Record<string, { label: string; color: string; bg: string }>
   rejected: { label: "Rejected",       color: C.red,     bg: C.redLight },
 };
 
-const execStyles: Record<string, { label: string; color: string; bg: string; icon: typeof Clock }> = {
-  not_started:  { label: "Not Started",     color: C.textMuted, bg: "#F3F4F6",     icon: Clock },
-  in_progress:  { label: "In Progress",     color: "#D97706",   bg: "#FFFBEB",     icon: Clock },
-  uploaded:     { label: "Leads Uploaded",   color: C.green,     bg: C.greenLight,  icon: Upload },
-  completed:    { label: "Completed",        color: C.green,     bg: C.greenLight,  icon: CheckCircle },
-};
 
 export default async function AdminProfileDetailPage({ params }: { params: Promise<{ id: string; profileId: string }> }) {
   const { id, profileId } = await params;
@@ -149,6 +143,7 @@ export default async function AdminProfileDetailPage({ params }: { params: Promi
       {(profile.status === "approved" || profile.execution_status !== "not_started") && (
         <ExecutionActions
           id={profile.id}
+          companyBioId={id}
           currentStatus={profile.execution_status ?? "not_started"}
           leadsUploaded={profile.leads_uploaded ?? 0}
         />
