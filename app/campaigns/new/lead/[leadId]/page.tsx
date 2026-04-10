@@ -6,13 +6,23 @@ import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import {
   ArrowLeft, ArrowRight, Check, Share2, Mail, Phone,
-  Loader2, Sparkles, Send, Megaphone, Plus, Trash2, User,
+  Loader2, Sparkles, Send, Megaphone, Plus, Trash2, User, Globe,
 } from "lucide-react";
+import MessageAttachments, { type Attachment } from "@/components/MessageAttachments";
 
 const gold = C.gold;
 
 type SequenceStep = { channel: string; daysAfter: number };
-type Message = { step: number; channel: string; subject: string | null; body: string };
+type Message = { step: number; channel: string; subject: string | null; body: string; attachments?: Attachment[] };
+
+const languageOptions = [
+  { code: "en", label: "English" },
+  { code: "es", label: "Spanish" },
+  { code: "pt", label: "Portuguese" },
+  { code: "fr", label: "French" },
+  { code: "de", label: "German" },
+  { code: "it", label: "Italian" },
+];
 
 const channelOptions = [
   { key: "linkedin", label: "LinkedIn", icon: Share2, color: C.linkedin, short: "LI" },
@@ -101,6 +111,7 @@ export default function NewLeadCampaignWizard() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [generating, setGenerating] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [language, setLanguage] = useState("en");
 
   useEffect(() => {
     async function load() {
@@ -166,6 +177,7 @@ export default function NewLeadCampaignWizard() {
           companyBio: bio,
           icpProfile: profile,
           lead,
+          language,
         }),
       });
       const data = await res.json();
@@ -186,6 +198,10 @@ export default function NewLeadCampaignWizard() {
 
   function updateMessage(idx: number, field: "subject" | "body", value: string) {
     setMessages(prev => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m));
+  }
+
+  function updateAttachments(idx: number, attachments: Attachment[]) {
+    setMessages(prev => prev.map((m, i) => i === idx ? { ...m, attachments } : m));
   }
 
   // Submit — creates a campaign for this single lead
@@ -319,7 +335,6 @@ export default function NewLeadCampaignWizard() {
             <div className="space-y-2">
               {sequence.map((s, i) => {
                 const ch = channelOptions.find(c => c.key === s.channel)!;
-                const Icon = ch.icon;
                 return (
                   <div key={i} className="flex items-center gap-3 rounded-lg border px-4 py-3"
                     style={{ borderColor: C.border, backgroundColor: i === 0 ? `${ch.color}06` : "transparent" }}>
@@ -425,24 +440,38 @@ export default function NewLeadCampaignWizard() {
 
         return (
           <div className="space-y-5">
-            {/* AI generate button */}
-            <div className="flex items-center justify-between rounded-xl border px-5 py-4"
-              style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <div className="flex items-center gap-3">
-                <Sparkles size={18} style={{ color: gold }} />
-                <div>
-                  <p className="text-sm font-medium" style={{ color: C.textPrimary }}>AI Message Assistant</p>
-                  <p className="text-xs" style={{ color: C.textMuted }}>
-                    Generate personalized messages for {leadName} using their company data, role, and recent activity
-                  </p>
+            {/* AI generate bar */}
+            <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <div className="px-5 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Sparkles size={18} style={{ color: gold }} />
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: C.textPrimary }}>AI Message Assistant</p>
+                    <p className="text-xs" style={{ color: C.textMuted }}>
+                      Generate personalized messages for {leadName} using their company data, role, and recent activity
+                    </p>
+                  </div>
                 </div>
+                <button onClick={generateMessages} disabled={generating || !bio || !profile}
+                  className="flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-semibold transition-opacity shrink-0 disabled:opacity-40"
+                  style={{ backgroundColor: gold, color: "#04070d" }}>
+                  {generating ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                  {generating ? "Generating..." : msgs.some(m => m.body) ? "Regenerate All" : "Generate All"}
+                </button>
               </div>
-              <button onClick={generateMessages} disabled={generating || !bio || !profile}
-                className="flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-semibold transition-opacity shrink-0 disabled:opacity-40"
-                style={{ backgroundColor: gold, color: "#04070d" }}>
-                {generating ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                {generating ? "Generating..." : msgs.some(m => m.body) ? "Regenerate All" : "Generate All"}
-              </button>
+              <div className="px-5 py-3 flex items-center gap-3 border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                <Globe size={13} style={{ color: C.textMuted }} />
+                <span className="text-xs font-medium" style={{ color: C.textMuted }}>Language:</span>
+                <select
+                  value={language}
+                  onChange={e => setLanguage(e.target.value)}
+                  className="rounded-lg border px-2.5 py-1 text-xs font-medium focus:outline-none"
+                  style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}>
+                  {languageOptions.map(l => (
+                    <option key={l.code} value={l.code}>{l.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {!profile && (
@@ -489,6 +518,11 @@ export default function NewLeadCampaignWizard() {
                         placeholder={msg.channel === "call" ? "Call script / talking points..." : "Write your message here..."}
                         onChange={e => updateMessage(i, "body", e.target.value)} />
                     </div>
+                    <MessageAttachments
+                      attachments={msg.attachments ?? []}
+                      onChange={atts => updateAttachments(i, atts)}
+                      stepNumber={i + 1}
+                    />
                     <p className="text-xs" style={{ color: C.textDim }}>
                       Messages are fully personalized for {leadName} — no variables needed
                     </p>

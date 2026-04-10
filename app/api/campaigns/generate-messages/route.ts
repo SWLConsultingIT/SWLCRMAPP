@@ -3,12 +3,18 @@ import { NextRequest, NextResponse } from "next/server";
 type SequenceStep = { channel: string; daysAfter: number };
 
 export async function POST(req: NextRequest) {
-  const { sequence, companyBio, icpProfile, lead } = await req.json() as {
+  const { sequence, companyBio, icpProfile, lead, language } = await req.json() as {
     sequence: SequenceStep[];
     companyBio: any;
     icpProfile: any;
     lead?: any;
+    language?: string;
   };
+
+  const langLabel: Record<string, string> = {
+    en: "English", es: "Spanish", pt: "Portuguese", fr: "French", de: "German", it: "Italian",
+  };
+  const outputLanguage = langLabel[language ?? "en"] ?? "English";
 
   const openaiKey = process.env.OPENAI_API_KEY;
   if (!openaiKey) {
@@ -50,9 +56,14 @@ export async function POST(req: NextRequest) {
     - Think of it as a 1-sentence reason why connecting makes sense for THEM.`;
       } else if (nth === 2) {
         msgType = "FIRST DM POST-CONNECTION";
-        narrative = `The prospect ACCEPTED your connection request. You are now connected. This is your first real direct message to them.
-    Context: They only saw your short connection request note before this. This is where you actually introduce why you reached out.
-    Rules: Max 1000 characters. Do NOT say "thanks for connecting" or "thanks for accepting" — it's robotic and wastes space. Instead, lead with a specific insight about their industry or company, then bridge to how your company addresses that exact challenge. End with a soft question, not a hard CTA.`;
+        narrative = `The prospect ACCEPTED your connection request. You are now connected. This is your first real direct message — the INTRODUCTION MESSAGE.
+    Context: They only saw your short connection request note before this. They know nothing about your company yet.
+    THIS MESSAGE MUST:
+    1. Briefly introduce who you are and what your company does (1-2 sentences using the Sending Company data: name, industry, key services)
+    2. Connect a specific pain point of their industry/role to a specific service or solution you offer
+    3. Mention a concrete result or case study if available (e.g., "We helped [client] achieve [result]")
+    4. End with a soft question or low-friction CTA ("Would it make sense to explore this?")
+    Rules: Max 1000 characters. Do NOT say "thanks for connecting" or "thanks for accepting". Lead with value, not with a generic intro. The introduction should feel natural, not like a pitch deck.`;
       } else if (isLastForChannel) {
         msgType = "BREAKUP MESSAGE";
         narrative = `This is your LAST LinkedIn touch. The prospect has received ${nth - 1} previous LinkedIn messages and hasn't engaged.
@@ -65,8 +76,14 @@ export async function POST(req: NextRequest) {
     } else if (s.channel === "email") {
       if (nth === 1) {
         msgType = "COLD EMAIL";
-        narrative = `${allStepsSoFar.some(p => p.channel === "linkedin") ? "The prospect may have seen your LinkedIn outreach. This is your first EMAIL." : "This is a cold email. The prospect has never heard from you."}
-    Rules: Subject line max 60 chars — curiosity-driven, no spam words, no ALL CAPS, no exclamation marks. Body: 3-5 SHORT paragraphs. Open with something specific about THEM (not about you), bridge to their pain point, explain your solution briefly with a concrete result, end with a low-friction CTA (15-min call, not "schedule a demo").`;
+        const hasLinkedIn = allStepsSoFar.some(p => p.channel === "linkedin");
+        narrative = `${hasLinkedIn ? "The prospect may have seen your LinkedIn outreach. This is your first EMAIL." : "This is a cold email. The prospect has never heard from you."}
+    THIS EMAIL MUST INCLUDE A COMPANY INTRODUCTION:
+    ${hasLinkedIn ? "- Since they may know you from LinkedIn, keep the intro brief (1 sentence) and reference the LinkedIn outreach" : "- This is the first contact: introduce who you are and what your company does clearly (name, what you do, who you help)"}
+    - After the intro, connect THEIR specific pain point to YOUR specific solution
+    - Include a concrete result or social proof (client name, metric, case study)
+    - End with a low-friction CTA (15-min call, not "schedule a demo")
+    Rules: Subject line max 60 chars — curiosity-driven, no spam words, no ALL CAPS, no exclamation marks. Body: 3-5 SHORT paragraphs. Open with something specific about THEM, then introduce yourself, bridge to their pain point with your solution.`;
       } else if (nth === 2) {
         msgType = "FOLLOW-UP EMAIL";
         narrative = `Following up on your first email. The prospect hasn't replied.
@@ -83,8 +100,14 @@ export async function POST(req: NextRequest) {
     } else if (s.channel === "call") {
       if (nth === 1) {
         msgType = "FIRST CALL SCRIPT";
-        narrative = `${allStepsSoFar.length > 0 ? "The prospect has received previous outreach on other channels. Reference it briefly." : "This is a cold call."}
-    Rules: Bullet point format. Include: opener (who you are + why calling in 1 sentence), 2-3 discovery questions about their pain points, value pitch (30 seconds max), meeting ask. Be conversational, not scripted.`;
+        narrative = `${allStepsSoFar.length > 0 ? "The prospect has received previous outreach on other channels. Reference it briefly." : "This is a cold call. You must introduce yourself and your company."}
+    Rules: Bullet point format. Include:
+    - OPENER: who you are + your company name + what you do (1 sentence, clear and direct)
+    - BRIDGE: mention something specific about their company/industry to show research
+    - 2-3 discovery questions about their pain points
+    - VALUE PITCH (30 seconds max): how your specific service solves their specific problem, with a result/metric if possible
+    - MEETING ASK: propose a short follow-up call
+    Be conversational, not scripted.`;
       } else {
         msgType = "FOLLOW-UP CALL SCRIPT";
         narrative = `Follow-up call. The prospect has had ${allStepsSoFar.length} previous touchpoints.
@@ -162,7 +185,7 @@ DO NOT write generic messages that could apply to anyone. Every message must pro
   const prompt = `You are a world-class B2B outbound sales copywriter. You write sequences that feel like genuine human outreach, not mass templates.
 
 CRITICAL RULES:
-1. Write ALL messages in ENGLISH only.
+1. Write ALL messages in ${outputLanguage} only.
 2. Each message must be DIFFERENT — never repeat the same pitch, angle, or structure across steps.
 3. Messages must follow a narrative arc: curiosity → value → proof → urgency.
 4. Every message MUST connect the prospect's specific pain points to the sender's specific solution.
@@ -222,7 +245,7 @@ Generate exactly ${sequence.length} messages in order. "subject" is only for ema
         messages: [
           {
             role: "system",
-            content: "You are an expert B2B outbound sales copywriter. You write messages in English that feel personal, human, and research-driven — never templated. Each message in a sequence must be distinct and build on the previous one narratively. Always respond with valid JSON only.",
+            content: `You are an expert B2B outbound sales copywriter. You write messages in ${outputLanguage} that feel personal, human, and research-driven — never templated. Each message in a sequence must be distinct and build on the previous one narratively. Always respond with valid JSON only.`,
           },
           { role: "user", content: prompt },
         ],
