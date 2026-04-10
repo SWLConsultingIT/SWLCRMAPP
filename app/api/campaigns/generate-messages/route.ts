@@ -58,12 +58,27 @@ export async function POST(req: NextRequest) {
         msgType = "FIRST DM POST-CONNECTION";
         narrative = `The prospect ACCEPTED your connection request. You are now connected. This is your first real direct message — the INTRODUCTION MESSAGE.
     Context: They only saw your short connection request note before this. They know nothing about your company yet.
-    THIS MESSAGE MUST:
-    1. Briefly introduce who you are and what your company does (1-2 sentences using the Sending Company data: name, industry, key services)
-    2. Connect a specific pain point of their industry/role to a specific service or solution you offer
-    3. Mention a concrete result or case study if available (e.g., "We helped [client] achieve [result]")
-    4. End with a soft question or low-friction CTA ("Would it make sense to explore this?")
-    Rules: Max 1000 characters. Do NOT say "thanks for connecting" or "thanks for accepting". Lead with value, not with a generic intro. The introduction should feel natural, not like a pitch deck.`;
+
+    ⚠️ FORBIDDEN OPENERS (DO NOT USE ANY OF THESE — they are spam and will be rejected):
+    - "Gracias por aceptar mi conexión/solicitud"
+    - "Thanks for connecting/accepting"
+    - "Great to be connected"
+    - "Hi, I noticed we recently connected"
+    - Any variation of acknowledging the connection acceptance
+
+    INSTEAD, START THE MESSAGE DIRECTLY WITH VALUE. Good openers:
+    - A specific observation about their industry ("The ${(icpProfile.target_industries || ["your"])[0]} sector is seeing [trend]...")
+    - A question about a challenge they face ("Are you finding that [pain point] is impacting [outcome]?")
+    - A bold insight ("Most ${(icpProfile.target_roles || ["leaders"])[0]}s in ${(icpProfile.target_industries || ["your industry"])[0]} are still struggling with [problem]...")
+
+    THIS MESSAGE MUST INCLUDE:
+    1. Open with a specific insight about their industry or a challenge they face — NOT a greeting about connecting
+    2. Introduce who you are: "I'm [name] from ${companyBio.company_name} — we ${companyBio.description || "help companies like yours"}"
+    3. Connect their pain point to your solution: explain HOW you solve it specifically
+    4. Social proof: "${(companyBio.key_clients || []).length > 0 ? `We've worked with ${(companyBio.key_clients || []).slice(0, 2).join(", ")}` : "We've helped companies"}" + a concrete result
+    5. End with ONE soft question — not "let me know if you're interested" but a specific question about their situation
+
+    Rules: Max 1000 characters. The message should read like: [insight about them] → [who we are] → [how we solve their problem] → [proof] → [question].`;
       } else if (isLastForChannel) {
         msgType = "BREAKUP MESSAGE";
         narrative = `This is your LAST LinkedIn touch. The prospect has received ${nth - 1} previous LinkedIn messages and hasn't engaged.
