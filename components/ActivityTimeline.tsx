@@ -35,8 +35,8 @@ function ChannelIcon({ channel, size = 14 }: { channel: string; size?: number })
 
 const channelIcons: Record<string, { icon?: typeof Mail; color: string; bg: string; label: string }> = {
   linkedin: { color: C.linkedin, bg: "#EFF6FF", label: "LinkedIn" },
-  email:    { icon: Mail, color: C.email, bg: "#ECFDF5", label: "Email" },
-  call:     { icon: Phone, color: C.phone, bg: "#FFF7ED", label: "Phone" },
+  email:    { color: C.email, bg: "#ECFDF5", label: "Email" },
+  call:     { color: C.phone, bg: "#FFF7ED", label: "Phone" },
 };
 
 const classificationStyles: Record<string, { label: string; color: string; bg: string }> = {
