@@ -26,6 +26,7 @@ export type AutoReplies = {
 };
 
 export type ChannelMessages = {
+  connectionRequest?: string;
   steps: StepMessage[];
   autoReplies: AutoReplies;
 };
@@ -55,9 +56,12 @@ function classifySteps(sequence: { channel: string; daysAfter: number }[]): { ty
     const nth = counters[s.channel];
 
     if (s.channel === "linkedin") {
-      if (nth === 1) return { type: "LINKEDIN_CONNECTION_REQUEST", channel: s.channel, label: "Connection Request + Note", hasSubject: false };
-      if (!introduced) { introduced = true; return { type: "LINKEDIN_INTRO_DM", channel: s.channel, label: "First DM (Post-Connection)", hasSubject: false }; }
-      return { type: "LINKEDIN_FOLLOWUP", channel: s.channel, label: `LinkedIn Follow-up ${nth - 2 + (introduced ? 1 : 0)}`, hasSubject: false };
+      // Connection request is handled separately — all LinkedIn steps here are DMs
+      if (nth === 1) {
+        if (!introduced) { introduced = true; return { type: "LINKEDIN_INTRO_DM", channel: s.channel, label: "First DM (Post-Connection)", hasSubject: false }; }
+        return { type: "LINKEDIN_FOLLOWUP", channel: s.channel, label: "LinkedIn Follow-up 1", hasSubject: false };
+      }
+      return { type: "LINKEDIN_FOLLOWUP", channel: s.channel, label: `LinkedIn Follow-up ${introduced ? nth - 1 : nth}`, hasSubject: false };
     } else if (s.channel === "email") {
       if (!introduced) { introduced = true; return { type: "EMAIL_INTRO", channel: s.channel, label: "Introduction Email", hasSubject: true }; }
       if (nth === 1) return { type: "EMAIL_FOLLOWUP_CROSS", channel: s.channel, label: "Email (Cross-channel Follow-up)", hasSubject: true };
@@ -71,7 +75,6 @@ function classifySteps(sequence: { channel: string; daysAfter: number }[]): { ty
 }
 
 const typeDescriptions: Record<string, string> = {
-  LINKEDIN_CONNECTION_REQUEST: "Short note with the connection request. Include a brief intro of who you are and why you want to connect. Max 300 chars.",
   LINKEDIN_INTRO_DM: "First real message after they accept. Start with 'Gracias por conectar'. Introduce yourself, your company, what you offer, and ask if interested.",
   LINKEDIN_FOLLOWUP: "Follow-up message. Reference your previous message, bring new value (data, case study, trend). Don't re-introduce yourself.",
   EMAIL_INTRO: "First email. Subject + body. Introduce yourself and your company, connect their pain point to your solution, include proof, end with CTA.",
@@ -82,7 +85,6 @@ const typeDescriptions: Record<string, string> = {
 };
 
 const typePlaceholders: Record<string, string> = {
-  LINKEDIN_CONNECTION_REQUEST: "Hola [nombre], soy [vendedor] de SWL Consulting. Vi tu trabajo en [tema] y me gustaría conectar para intercambiar ideas sobre [tema relevante].",
   LINKEDIN_INTRO_DM: "Gracias por conectar, [nombre].\n\nSoy [vendedor] de SWL Consulting, donde ayudamos a empresas de [industria] a...\n\n¿Te interesaría coordinar una charla breve?\n\nGracias,\n[vendedor]\nSWL Consulting",
   LINKEDIN_FOLLOWUP: "[nombre], volviendo a lo que te comenté sobre [tema].\n\n[Nuevo dato/caso/tendencia relevante]\n\n¿Te resulta relevante?\n\nGracias,\n[vendedor]",
   EMAIL_INTRO: "Hola [nombre],\n\n[Hook sobre su empresa]\n\nSoy [vendedor] de SWL Consulting — [qué hacemos].\n\n[Pain point → Solución]\n\n[Prueba social]\n\n¿Tendría sentido coordinar 15 min?\n\nGracias,\n[vendedor]",
@@ -134,13 +136,16 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         });
         const currentReplies = channelMessages.autoReplies || { positive: "", negative: "", question: "" };
 
-        if (idx !== undefined) {
+        if (fieldType === "connectionNote") {
+          // Connection request is a separate field
+          onChange({ ...channelMessages, connectionRequest: data.content, steps: currentSteps, autoReplies: currentReplies });
+        } else if (idx !== undefined) {
           currentSteps[idx] = {
             ...currentSteps[idx],
             body: data.content,
             subject: data.subject || currentSteps[idx]?.subject,
           };
-          onChange({ steps: currentSteps, autoReplies: currentReplies });
+          onChange({ ...channelMessages, steps: currentSteps, autoReplies: currentReplies });
         } else {
           // Auto-reply field
           const replyMap: Record<string, string> = { replyPositive: "positive", replyNegative: "negative" };
@@ -165,6 +170,21 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         type: cls.type, channel: cls.channel, label: cls.label, body: "", subject: cls.hasSubject ? "" : undefined,
       });
       let replies = { ...(channelMessages.autoReplies || { positive: "", negative: "", question: "" }) };
+
+      // Generate connection request if LinkedIn is in sequence
+      let connRequest = channelMessages.connectionRequest || "";
+      if (sequence.some(s => s.channel === "linkedin")) {
+        const crRes = await fetch("/api/campaigns/generate-field", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ channel: "linkedin", fieldType: "connectionNote", leadId, language }),
+        });
+        const crData = await crRes.json();
+        if (crData.content) {
+          connRequest = crData.content;
+          onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
+        }
+      }
 
       // Generate each step sequentially
       for (let i = 0; i < classified.length; i++) {
@@ -204,7 +224,6 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   // Map step type to AI fieldType
   function stepToFieldType(type: string): string {
     const map: Record<string, string> = {
-      LINKEDIN_CONNECTION_REQUEST: "connectionNote",
       LINKEDIN_INTRO_DM: "introDM",
       LINKEDIN_FOLLOWUP: "followUp",
       EMAIL_INTRO: "introEmail",
@@ -242,6 +261,44 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           {aiLoading === "all" ? "Generating..." : "Generate All with AI"}
         </button>
       </div>
+
+      {/* ═══ LINKEDIN CONNECTION REQUEST (always shown if LinkedIn is in sequence) ═══ */}
+      {sequence.some(s => s.channel === "linkedin") && (
+        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${C.linkedin}` }}>
+          <div className="px-5 py-3 flex items-center justify-between border-b"
+            style={{ borderColor: C.border, background: `${C.linkedin}06` }}>
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: C.linkedin }}>
+                <Share2 size={14} color="#fff" />
+              </div>
+              <div>
+                <span className="text-sm font-bold" style={{ color: C.textPrimary }}>LinkedIn Connection Request</span>
+                <p className="text-xs" style={{ color: C.textMuted }}>Sent when requesting to connect. The orchestrator skips this if already connected.</p>
+              </div>
+            </div>
+            <button onClick={() => generateField("connectionNote", undefined)} disabled={!!aiLoading}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity disabled:opacity-50"
+              style={{ backgroundColor: `${gold}15`, color: gold }}>
+              {aiLoading === "connectionNote:" ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+              AI
+            </button>
+          </div>
+          <div className="px-5 py-4 space-y-2">
+            <p className="text-xs" style={{ color: C.textMuted }}>Short note: who you are + why you want to connect. Max 300 characters.</p>
+            <textarea
+              rows={2}
+              className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+              style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
+              value={channelMessages.connectionRequest || ""}
+              onChange={e => onChange({ ...channelMessages, connectionRequest: e.target.value })}
+              placeholder="Hola [nombre], soy [vendedor] de SWL Consulting. Vi tu trabajo en [tema] y me gustaría conectar para intercambiar ideas."
+            />
+            <p className="text-xs text-right" style={{ color: (channelMessages.connectionRequest?.length || 0) > 300 ? C.red : C.textDim }}>
+              {channelMessages.connectionRequest?.length || 0}/300
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ═══ OUTREACH SEQUENCE (in order) ═══ */}
       <div className="relative">
