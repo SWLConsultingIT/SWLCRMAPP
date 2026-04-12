@@ -48,12 +48,18 @@ export async function POST(req: NextRequest) {
     messages = prompts.messages;
   }
 
+  // Selected lead IDs from partial selection
+  const selectedLeadIds: string[] = prompts.selectedLeadIds ?? [];
+
   // 2. Get the leads to create campaigns for
   let leadIds: string[] = [];
 
   if (request.lead_id) {
     // Individual lead campaign
     leadIds = [request.lead_id];
+  } else if (selectedLeadIds.length > 0) {
+    // Partial selection from profile
+    leadIds = selectedLeadIds;
   } else if (request.icp_profile_id) {
     // Bulk campaign for all uncampaigned leads in this ICP profile
     const { data: profileLeads } = await supabase

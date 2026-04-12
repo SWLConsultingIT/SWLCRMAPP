@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import {
@@ -92,13 +92,19 @@ const WIZARD_STEPS = ["Sequence", "Messages", "Review"];
 export default function NewCampaignWizard() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const profileId = params.profileId as string;
+
+  // Selected lead IDs from URL (?leads=id1,id2,id3)
+  const selectedLeadIds = searchParams.get("leads")?.split(",").filter(Boolean) ?? [];
+  const isPartialSelection = selectedLeadIds.length > 0;
 
   const [wizardStep, setWizardStep] = useState(0);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [bio, setBio] = useState<any>(null);
   const [leadsCount, setLeadsCount] = useState(0);
+  const [selectedLeadNames, setSelectedLeadNames] = useState<string[]>([]);
 
   // Sequence builder
   const [sequence, setSequence] = useState<SequenceStep[]>([
@@ -115,11 +121,28 @@ export default function NewCampaignWizard() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: p }, { data: b }, { count }] = await Promise.all([
+      const [{ data: p }, { data: b }] = await Promise.all([
         supabase.from("icp_profiles").select("*").eq("id", profileId).single(),
         supabase.from("company_bios").select("*").order("created_at", { ascending: false }).limit(1).single(),
-        supabase.from("leads").select("*", { count: "exact", head: true }).eq("icp_profile_id", profileId),
       ]);
+
+      // Count leads: either selected or all in profile
+      let count = 0;
+      if (isPartialSelection) {
+        count = selectedLeadIds.length;
+        // Fetch names for display
+        const { data: names } = await supabase
+          .from("leads")
+          .select("primary_first_name, primary_last_name")
+          .in("id", selectedLeadIds);
+        setSelectedLeadNames((names ?? []).map(n => `${n.primary_first_name ?? ""} ${n.primary_last_name ?? ""}`.trim()));
+      } else {
+        const { count: totalCount } = await supabase
+          .from("leads")
+          .select("*", { count: "exact", head: true })
+          .eq("icp_profile_id", profileId);
+        count = totalCount ?? 0;
+      }
       setProfile(p);
       setBio(b);
       setLeadsCount(count ?? 0);
@@ -196,16 +219,17 @@ export default function NewCampaignWizard() {
   async function handleSubmit() {
     setSubmitting(true);
     const uniqueChannels = [...new Set(sequence.map(s => s.channel))];
-    const { error } = await supabase.from("campaign_requests").insert({
-      name: `${profile?.profile_name} — ${uniqueChannels.map(c => channelOptions.find(o => o.key === c)?.label).join(" + ")}`,
+    const insertData: Record<string, any> = {
+      name: `${profile?.profile_name}${isPartialSelection ? ` (${selectedLeadIds.length} selected)` : ""} — ${uniqueChannels.map(c => channelOptions.find(o => o.key === c)?.label).join(" + ")}`,
       icp_profile_id: profileId,
       channels: uniqueChannels,
       sequence_length: sequence.length,
       frequency_days: 0,
       target_leads_count: leadsCount,
-      message_prompts: { sequence, messages },
+      message_prompts: { sequence, messages, selectedLeadIds: isPartialSelection ? selectedLeadIds : null },
       status: "pending_review",
-    });
+    };
+    const { error } = await supabase.from("campaign_requests").insert(insertData);
     if (!error) {
       router.push("/campaigns?submitted=1");
     }
@@ -231,8 +255,21 @@ export default function NewCampaignWizard() {
           <Megaphone size={22} style={{ color: gold }} /> Configure Campaign
         </h1>
         <p className="text-sm mt-1" style={{ color: C.textMuted }}>
-          {profile?.profile_name} — {leadsCount} leads
+          {profile?.profile_name} — {leadsCount} {isPartialSelection ? "selected" : ""} leads
         </p>
+        {isPartialSelection && selectedLeadNames.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {selectedLeadNames.slice(0, 8).map((name, i) => (
+              <span key={i} className="text-xs px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: `${gold}15`, color: gold }}>{name}</span>
+            ))}
+            {selectedLeadNames.length > 8 && (
+              <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: C.bg, color: C.textMuted }}>
+                +{selectedLeadNames.length - 8} more
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
