@@ -1,9 +1,9 @@
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
-import { Share2, CheckCircle, Target, Megaphone } from "lucide-react";
-import Link from "next/link";
+import { CheckCircle } from "lucide-react";
 import CampaignTabs from "./CampaignTabs";
 import ActiveCampaignsView from "@/components/ActiveCampaignsView";
+import ReadyToLaunchGroup from "@/components/ReadyToLaunchGroup";
 
 const gold = "#C9A83A";
 
@@ -118,102 +118,13 @@ export default async function CampaignsPage() {
               {Object.entries(uncampaignedGroups).map(([key, group]) => {
                 const profile = group.profile_id ? icpMap[group.profile_id] : null;
                 return (
-                  <div key={key} className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${C.blue}` }}>
-                    {/* Group header */}
-                    <div className="px-6 py-4 flex items-center justify-between border-b"
-                      style={{ borderColor: C.border, background: `${C.blue}06` }}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                          style={{ backgroundColor: `${C.blue}15` }}>
-                          <Target size={15} style={{ color: C.blue }} />
-                        </div>
-                        <div>
-                          <h3 className="text-sm font-semibold" style={{ color: C.textPrimary }}>
-                            {profile?.profile_name ?? "Unassigned Leads"}
-                          </h3>
-                          {profile && (
-                            <p className="text-xs" style={{ color: C.textMuted }}>
-                              {[...(profile.target_industries ?? []), ...(profile.target_roles ?? [])].slice(0, 4).join(", ")}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: C.blueLight, color: C.blue }}>
-                          {group.leads.length} leads
-                        </span>
-                        {group.profile_id && (
-                          <Link href={`/campaigns/new/${group.profile_id}`}
-                            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
-                            style={{ backgroundColor: gold, color: "#04070d" }}>
-                            <Megaphone size={13} /> Configure Campaign
-                          </Link>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Leads table */}
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                          {["Lead", "Company", "Email / LinkedIn", "Score", "Status", ""].map((h, hi) => (
-                            <th key={hi} className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider"
-                              style={{ color: C.textMuted }}>{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {group.leads.map((lead: any) => (
-                          <tr key={lead.id} className="table-row-hover" style={{ borderBottom: `1px solid ${C.border}` }}>
-                            <td className="px-6 py-3">
-                              <Link href={`/leads/${lead.id}`} className="hover:underline">
-                                <p className="font-medium" style={{ color: C.textPrimary }}>
-                                  {lead.primary_first_name} {lead.primary_last_name}
-                                </p>
-                              </Link>
-                            </td>
-                            <td className="px-6 py-3 text-xs" style={{ color: C.textBody }}>{lead.company_name ?? "—"}</td>
-                            <td className="px-6 py-3">
-                              <div className="flex flex-col gap-0.5">
-                                {lead.primary_work_email && (
-                                  <span className="text-xs truncate max-w-48" style={{ color: C.textMuted }}>{lead.primary_work_email}</span>
-                                )}
-                                {lead.primary_linkedin_url && (
-                                  <span className="text-xs flex items-center gap-1" style={{ color: C.linkedin }}>
-                                    <Share2 size={10} /> LinkedIn
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-6 py-3">
-                              {lead.lead_score ? (
-                                <span className="text-xs font-bold px-2 py-0.5 rounded"
-                                  style={{
-                                    backgroundColor: lead.lead_score >= 80 ? C.redLight : lead.lead_score >= 50 ? C.orangeLight : C.accentLight,
-                                    color: lead.lead_score >= 80 ? C.red : lead.lead_score >= 50 ? C.orange : C.accent,
-                                  }}>
-                                  {lead.lead_score}
-                                </span>
-                              ) : <span style={{ color: C.textDim }}>—</span>}
-                            </td>
-                            <td className="px-6 py-3">
-                              <span className="text-xs font-semibold px-2 py-0.5 rounded-md capitalize"
-                                style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>
-                                {lead.status?.replace("_", " ") ?? "new"}
-                              </span>
-                            </td>
-                            <td className="px-6 py-3">
-                              <Link href={`/campaigns/new/lead/${lead.id}`}
-                                className="inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all hover:opacity-80"
-                                style={{ backgroundColor: `${gold}18`, color: gold, border: `1px solid ${gold}30` }}>
-                                <Megaphone size={11} /> Target Lead
-                              </Link>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <ReadyToLaunchGroup
+                    key={key}
+                    profileId={group.profile_id}
+                    profileName={profile?.profile_name ?? null}
+                    profileDetail={profile ? [...(profile.target_industries ?? []), ...(profile.target_roles ?? [])].slice(0, 4).join(", ") : null}
+                    leads={group.leads}
+                  />
                 );
               })}
             </div>
