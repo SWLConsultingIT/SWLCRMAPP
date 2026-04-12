@@ -25,8 +25,28 @@ export async function POST(req: NextRequest) {
 
   const prompts = request.message_prompts ?? {};
   const sequence: { channel: string; daysAfter: number }[] = prompts.sequence ?? [];
-  const messages: { step: number; channel: string; subject?: string | null; body: string }[] = prompts.messages ?? [];
   const channels: string[] = request.channels ?? [...new Set(sequence.map((s: any) => s.channel))];
+
+  // Support both old format (messages[]) and new format (channelMessages.steps[])
+  let messages: { step: number; channel: string; subject?: string | null; body: string }[] = [];
+  let autoReplies: { positive?: string; negative?: string } = {};
+
+  if (prompts.channelMessages?.steps?.length > 0) {
+    // New structured format
+    messages = prompts.channelMessages.steps.map((s: any, i: number) => ({
+      step: i + 1,
+      channel: s.channel ?? sequence[i]?.channel ?? "linkedin",
+      subject: s.subject ?? null,
+      body: s.body ?? "",
+    }));
+    autoReplies = {
+      positive: prompts.channelMessages.autoReplies?.positive ?? "",
+      negative: prompts.channelMessages.autoReplies?.negative ?? "",
+    };
+  } else if (prompts.messages?.length > 0) {
+    // Old flat format
+    messages = prompts.messages;
+  }
 
   // 2. Get the leads to create campaigns for
   let leadIds: string[] = [];
@@ -88,6 +108,7 @@ export async function POST(req: NextRequest) {
         status: "active",
         current_step: 0,
         sequence_steps: sequence,
+        auto_replies: autoReplies,
         started_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
       })
