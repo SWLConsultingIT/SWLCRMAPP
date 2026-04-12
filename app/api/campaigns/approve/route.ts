@@ -143,12 +143,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Update lead status to 'contacted' if it's 'new'
+    // Update lead: assign campaign channel + set status to contacted
     await supabase
       .from("leads")
       .update({ status: "contacted", current_channel: primaryChannel })
-      .eq("id", leadId)
-      .eq("status", "new");
+      .eq("id", leadId);
 
     campaignsCreated++;
   }
