@@ -6,14 +6,13 @@ import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import {
   ArrowLeft, ArrowRight, Check, Share2, Mail, Phone,
-  Loader2, Sparkles, Send, Megaphone, Plus, Trash2, Globe,
+  Loader2, Send, Megaphone, Plus, Trash2, Globe,
 } from "lucide-react";
-import MessageAttachments, { type Attachment } from "@/components/MessageAttachments";
+import ChannelMessageConfig, { type ChannelMessages } from "@/components/ChannelMessageConfig";
 
 const gold = C.gold;
 
 type SequenceStep = { channel: string; daysAfter: number };
-type Message = { step: number; channel: string; subject: string | null; body: string; attachments?: Attachment[] };
 
 const languageOptions = [
   { code: "en", label: "English" },
@@ -113,11 +112,10 @@ export default function NewCampaignWizard() {
     { channel: "linkedin", daysAfter: 3 },
   ]);
 
-  // Messages
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [generating, setGenerating] = useState(false);
+  // Channel messages (structured per-channel config)
+  const [channelMessages, setChannelMessages] = useState<ChannelMessages>({ steps: [], autoReplies: { positive: "", negative: "", question: "" } });
   const [submitting, setSubmitting] = useState(false);
-  const [language, setLanguage] = useState("en");
+  const [language, setLanguage] = useState("es");
 
   useEffect(() => {
     async function load() {
@@ -176,45 +174,6 @@ export default function NewCampaignWizard() {
     });
   }
 
-  // Generate messages
-  async function generateMessages() {
-    if (!bio || !profile) return;
-    setGenerating(true);
-    try {
-      const res = await fetch("/api/campaigns/generate-messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sequence,
-          companyBio: bio,
-          icpProfile: profile,
-          language,
-        }),
-      });
-      const data = await res.json();
-      if (data.messages && Array.isArray(data.messages)) {
-        const mapped: Message[] = data.messages.map((msg: any, i: number) => ({
-          step: msg.step ?? i + 1,
-          channel: msg.channel ?? sequence[i]?.channel ?? "linkedin",
-          subject: msg.subject ?? null,
-          body: msg.body ?? "",
-        }));
-        setMessages(mapped);
-      }
-    } catch {
-      // silent
-    }
-    setGenerating(false);
-  }
-
-  function updateMessage(idx: number, field: "subject" | "body", value: string) {
-    setMessages(prev => prev.map((m, i) => i === idx ? { ...m, [field]: value } : m));
-  }
-
-  function updateAttachments(idx: number, attachments: Attachment[]) {
-    setMessages(prev => prev.map((m, i) => i === idx ? { ...m, attachments } : m));
-  }
-
   // Submit
   async function handleSubmit() {
     setSubmitting(true);
@@ -226,7 +185,7 @@ export default function NewCampaignWizard() {
       sequence_length: sequence.length,
       frequency_days: 0,
       target_leads_count: leadsCount,
-      message_prompts: { sequence, messages, selectedLeadIds: isPartialSelection ? selectedLeadIds : null },
+      message_prompts: { sequence, channelMessages, language, selectedLeadIds: isPartialSelection ? selectedLeadIds : null },
       status: "pending_review",
     };
     const { error } = await supabase.from("campaign_requests").insert(insertData);
@@ -298,7 +257,7 @@ export default function NewCampaignWizard() {
             <div className="flex gap-2 flex-wrap">
               {sequenceTemplates.map(tpl => (
                 <button key={tpl.name}
-                  onClick={() => { setSequence(tpl.steps.map(s => ({ ...s }))); setMessages([]); }}
+                  onClick={() => { setSequence(tpl.steps.map(s => ({ ...s }))); setChannelMessages({ steps: [], autoReplies: { positive: "", negative: "", question: "" } }); }}
                   className="rounded-lg border px-4 py-2.5 text-left transition-all hover:shadow-sm"
                   style={{ borderColor: C.border, backgroundColor: C.bg }}>
                   <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{tpl.name}</p>
@@ -439,102 +398,34 @@ export default function NewCampaignWizard() {
         </div>
       )}
 
-      {/* ═══ STEP 1: MESSAGES ═══ */}
-      {wizardStep === 1 && (() => {
-        // Ensure messages array matches sequence length
-        const msgs = sequence.map((s, i) => messages[i] ?? {
-          step: i + 1,
-          channel: s.channel,
-          subject: s.channel === "email" ? "" : null,
-          body: "",
-        });
-        if (msgs.length !== messages.length) setMessages(msgs);
-
-        return (
-          <div className="space-y-5">
-            {/* AI generate bar */}
-            <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <div className="px-5 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Sparkles size={18} style={{ color: gold }} />
-                  <div>
-                    <p className="text-sm font-medium" style={{ color: C.textPrimary }}>AI Message Assistant</p>
-                    <p className="text-xs" style={{ color: C.textMuted }}>Auto-fill all messages based on your Company Bio and Lead Gen profile</p>
-                  </div>
-                </div>
-                <button onClick={generateMessages} disabled={generating}
-                  className="flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-semibold transition-opacity shrink-0"
-                  style={{ backgroundColor: gold, color: "#04070d" }}>
-                  {generating ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                  {generating ? "Generating..." : msgs.some(m => m.body) ? "Regenerate All" : "Generate All"}
-                </button>
-              </div>
-              <div className="px-5 py-3 flex items-center gap-3 border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                <Globe size={13} style={{ color: C.textMuted }} />
-                <span className="text-xs font-medium" style={{ color: C.textMuted }}>Language:</span>
-                <select
-                  value={language}
-                  onChange={e => setLanguage(e.target.value)}
-                  className="rounded-lg border px-2.5 py-1 text-xs font-medium focus:outline-none"
-                  style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}>
-                  {languageOptions.map(l => (
-                    <option key={l.code} value={l.code}>{l.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Message editors */}
-            {msgs.map((msg, i) => {
-              const ch = channelOptions.find(c => c.key === msg.channel)!;
-              const Icon = ch.icon;
-              return (
-                <div key={i} className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                  <div className="px-5 py-3 flex items-center gap-3 border-b" style={{ borderColor: C.border, background: `${ch.color}06` }}>
-                    <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: ch.color }}>
-                      <Icon size={12} color="#fff" />
-                    </div>
-                    <span className="text-sm font-semibold" style={{ color: C.textPrimary }}>
-                      Step {i + 1} — {ch.label}
-                    </span>
-                    <span className="text-xs ml-auto" style={{ color: C.textDim }}>Day {days[i]}</span>
-                  </div>
-                  <div className="px-5 py-4 space-y-3">
-                    {msg.subject !== null && (
-                      <div>
-                        <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>Subject</label>
-                        <input className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
-                          style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
-                          value={msg.subject ?? ""}
-                          placeholder="Email subject line…"
-                          onChange={e => updateMessage(i, "subject", e.target.value)} />
-                      </div>
-                    )}
-                    <div>
-                      <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>Message</label>
-                      <textarea
-                        rows={msg.channel === "email" ? 6 : msg.channel === "call" ? 4 : 3}
-                        className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
-                        style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
-                        value={msg.body}
-                        placeholder={msg.channel === "call" ? "Call script / talking points…" : "Write your message here…"}
-                        onChange={e => updateMessage(i, "body", e.target.value)} />
-                    </div>
-                    <MessageAttachments
-                      attachments={msg.attachments ?? []}
-                      onChange={atts => updateAttachments(i, atts)}
-                      stepNumber={i + 1}
-                    />
-                    <p className="text-xs" style={{ color: C.textDim }}>
-                      Variables: {"{{first_name}}, {{last_name}}, {{company}}, {{role}}"}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
+      {/* ═══ STEP 1: CHANNEL MESSAGE CONFIG ═══ */}
+      {wizardStep === 1 && (
+        <div className="space-y-5">
+          <div className="rounded-xl border px-5 py-3 flex items-center gap-3" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <Globe size={13} style={{ color: C.textMuted }} />
+            <span className="text-xs font-medium" style={{ color: C.textMuted }}>Language:</span>
+            <select value={language} onChange={e => setLanguage(e.target.value)}
+              className="rounded-lg border px-2.5 py-1 text-xs font-medium focus:outline-none"
+              style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}>
+              {languageOptions.map(l => (
+                <option key={l.code} value={l.code}>{l.label}</option>
+              ))}
+            </select>
+            <span className="text-xs flex-1 text-right" style={{ color: C.textDim }}>
+              Configure messages per channel. Use AI to generate or write manually.
+            </span>
           </div>
-        );
-      })()}
+          <p className="text-xs" style={{ color: C.textMuted }}>
+            Variables: {"{{first_name}}, {{last_name}}, {{company}}, {{role}}"} — replaced per lead at send time.
+          </p>
+          <ChannelMessageConfig
+            channelMessages={channelMessages}
+            onChange={setChannelMessages}
+            sequence={sequence}
+            language={language}
+          />
+        </div>
+      )}
 
       {/* ═══ STEP 2: REVIEW ═══ */}
       {wizardStep === 2 && (
@@ -557,31 +448,10 @@ export default function NewCampaignWizard() {
               </div>
             </div>
 
-            {/* Sequence summary */}
-            <div className="space-y-1.5 mb-5">
-              {sequence.map((s, i) => {
-                const ch = channelOptions.find(c => c.key === s.channel)!;
-                const Icon = ch.icon;
-                const msg = messages[i];
-                return (
-                  <div key={i} className="flex items-center gap-3 rounded-lg px-4 py-2.5" style={{ backgroundColor: C.bg }}>
-                    <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: ch.color }}>
-                      <Icon size={10} color="#fff" />
-                    </div>
-                    <span className="text-xs font-semibold w-14 shrink-0" style={{ color: ch.color }}>Day {days[i]}</span>
-                    <span className="text-xs font-medium" style={{ color: C.textPrimary }}>{ch.label}</span>
-                    <span className="text-xs truncate flex-1" style={{ color: C.textMuted }}>
-                      {msg?.body?.slice(0, 60)}…
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-
             <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: C.yellowLight }}>
               <p className="text-sm font-medium" style={{ color: C.textPrimary }}>Review required</p>
               <p className="text-xs mt-0.5" style={{ color: C.textBody }}>
-                After launching, the SWL team will review your campaign before it starts sending. You'll be notified when it's approved.
+                After launching, the SWL team will review your campaign before it starts sending.
               </p>
             </div>
           </div>
@@ -605,7 +475,7 @@ export default function NewCampaignWizard() {
             Next <ArrowRight size={15} />
           </button>
         ) : (
-          <button onClick={handleSubmit} disabled={submitting || messages.length === 0}
+          <button onClick={handleSubmit} disabled={submitting}
             className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50"
             style={{ backgroundColor: C.green, color: "#fff" }}>
             {submitting ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
