@@ -180,10 +180,8 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           body: JSON.stringify({ channel: "linkedin", fieldType: "connectionNote", leadId, language }),
         });
         const crData = await crRes.json();
-        if (crData.content) {
-          connRequest = crData.content;
-          onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
-        }
+        if (crData.content) connRequest = crData.content;
+        onChange({ connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
       }
 
       // Generate each step sequentially
@@ -197,7 +195,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         const data = await res.json();
         if (data.content) {
           allSteps[i] = { ...allSteps[i], body: data.content, subject: data.subject || allSteps[i]?.subject };
-          onChange({ steps: [...allSteps], autoReplies: replies });
+          onChange({ connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
         }
       }
 
@@ -212,7 +210,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         if (data.content) {
           const field = replyType === "replyPositive" ? "positive" : "negative";
           replies = { ...replies, [field]: data.content };
-          onChange({ steps: [...allSteps], autoReplies: replies });
+          onChange({ connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
         }
       }
     } catch (err) {
