@@ -23,10 +23,10 @@ const languageOptions = [
   { code: "it", label: "Italian" },
 ];
 
-const channelOptions = [
-  { key: "linkedin", label: "LinkedIn", icon: Share2, color: C.linkedin, short: "LI" },
-  { key: "email",    label: "Email",    icon: Mail,   color: C.email,    short: "EM" },
-  { key: "call",     label: "Call",     icon: Phone,  color: C.phone,    short: "CA" },
+const allChannelOptions = [
+  { key: "linkedin", label: "LinkedIn", icon: Share2, color: C.linkedin, short: "LI", field: "primary_linkedin_url" },
+  { key: "email",    label: "Email",    icon: Mail,   color: C.email,    short: "EM", field: "primary_work_email" },
+  { key: "call",     label: "Call",     icon: Phone,  color: C.phone,    short: "CA", field: "primary_phone" },
 ];
 
 const sequenceTemplates = [
@@ -141,7 +141,8 @@ export default function NewLeadCampaignWizard() {
   // Sequence helpers
   function addStep() {
     const lastChannel = sequence.length > 0 ? sequence[sequence.length - 1].channel : "linkedin";
-    const nextChannel = channelOptions.find(c => c.key !== lastChannel)?.key ?? lastChannel;
+    const nextChannel = allChannelOptions.find(c => c.key !== lastChannel && lead?.[c.field])?.key
+      ?? allChannelOptions.find(c => lead?.[c.field])?.key ?? "linkedin";
     setSequence(s => [...s, { channel: nextChannel, daysAfter: 3 }]);
   }
 
@@ -168,7 +169,7 @@ export default function NewLeadCampaignWizard() {
     const uniqueChannels = [...new Set(sequence.map(s => s.channel))];
     const leadName = `${lead?.primary_first_name ?? ""} ${lead?.primary_last_name ?? ""}`.trim();
     const { error } = await supabase.from("campaign_requests").insert({
-      name: `${leadName} @ ${lead?.company_name ?? "Unknown"} — ${uniqueChannels.map(c => channelOptions.find(o => o.key === c)?.label).join(" + ")}`,
+      name: `${leadName} @ ${lead?.company_name ?? "Unknown"} — ${uniqueChannels.map(c => allChannelOptions.find(o => o.key === c)?.label).join(" + ")}`,
       icp_profile_id: lead?.icp_profile_id ?? null,
       lead_id: leadId,
       channels: uniqueChannels,
@@ -187,6 +188,13 @@ export default function NewLeadCampaignWizard() {
   const days = cumulativeDays();
   const totalDays = days.length > 0 ? days[days.length - 1] : 0;
   const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() : "";
+
+  // Available channels based on lead data
+  const availableChannels = new Set(
+    allChannelOptions.filter(ch => lead && lead[ch.field]).map(ch => ch.key)
+  );
+  const channelOptions = allChannelOptions.filter(ch => availableChannels.has(ch.key));
+  const disabledChannels = allChannelOptions.filter(ch => !availableChannels.has(ch.key));
   const uniqueChannels = [...new Set(sequence.map(s => s.channel))];
 
   if (loading) {
@@ -259,19 +267,41 @@ export default function NewLeadCampaignWizard() {
       {/* ═══ STEP 0: SEQUENCE BUILDER ═══ */}
       {wizardStep === 0 && (
         <div className="space-y-5">
+          {/* Channel availability warning */}
+          {disabledChannels.length > 0 && (
+            <div className="rounded-lg border px-4 py-3 mb-2 flex items-center gap-2"
+              style={{ borderColor: C.border, backgroundColor: C.bg }}>
+              <p className="text-xs" style={{ color: C.textMuted }}>
+                <span className="font-semibold">Unavailable channels:</span>{" "}
+                {disabledChannels.map(ch => (
+                  <span key={ch.key} className="inline-flex items-center gap-1 mx-1 opacity-50">
+                    <ch.icon size={10} /> {ch.label} (no data)
+                  </span>
+                ))}
+              </p>
+            </div>
+          )}
+
           {/* Templates */}
           <div className="rounded-xl border p-5 mb-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
             <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Start from a template</p>
             <div className="flex gap-2 flex-wrap">
-              {sequenceTemplates.map(tpl => (
+              {sequenceTemplates.map(tpl => {
+                const tplChannels = [...new Set(tpl.steps.map(s => s.channel))];
+                const canUse = tplChannels.every(ch => availableChannels.has(ch));
+                const missingChannels = tplChannels.filter(ch => !availableChannels.has(ch));
+                return (
                 <button key={tpl.name}
-                  onClick={() => { setSequence(tpl.steps.map(s => ({ ...s }))); setChannelMessages({ steps: [], autoReplies: { positive: "", negative: "", question: "" } }); }}
-                  className="rounded-lg border px-4 py-2.5 text-left transition-all hover:shadow-sm"
+                  disabled={!canUse}
+                  title={!canUse ? `Missing: ${missingChannels.join(", ")}` : ""}
+                  onClick={() => { if (canUse) { setSequence(tpl.steps.map(s => ({ ...s }))); setChannelMessages({ steps: [], autoReplies: { positive: "", negative: "", question: "" } }); } }}
+                  className="rounded-lg border px-4 py-2.5 text-left transition-all hover:shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ borderColor: C.border, backgroundColor: C.bg }}>
                   <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{tpl.name}</p>
                   <p className="text-xs" style={{ color: C.textDim }}>{tpl.desc}</p>
                 </button>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -286,18 +316,21 @@ export default function NewLeadCampaignWizard() {
 
             <div className="space-y-2">
               {sequence.map((s, i) => {
-                const ch = channelOptions.find(c => c.key === s.channel)!;
+                const ch = allChannelOptions.find(c => c.key === s.channel)!;
                 return (
                   <div key={i} className="flex items-center gap-3 rounded-lg border px-4 py-3"
                     style={{ borderColor: C.border, backgroundColor: i === 0 ? `${ch.color}06` : "transparent" }}>
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                       style={{ backgroundColor: `${ch.color}15`, color: ch.color }}>{i + 1}</div>
                     <div className="flex items-center gap-2">
-                      {channelOptions.map(opt => {
+                      {allChannelOptions.map(opt => {
                         const OptIcon = opt.icon;
+                        const disabled = !availableChannels.has(opt.key);
                         return (
-                          <button key={opt.key} onClick={() => updateStep(i, "channel", opt.key)}
-                            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
+                          <button key={opt.key} onClick={() => !disabled && updateStep(i, "channel", opt.key)}
+                            disabled={disabled}
+                            title={disabled ? `No ${opt.label} data for this lead` : ""}
+                            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
                             style={s.channel === opt.key ? { backgroundColor: opt.color, color: "#fff" } : { backgroundColor: "#F3F4F6", color: C.textMuted }}>
                             <OptIcon size={12} /> {opt.label}
                           </button>
@@ -345,7 +378,7 @@ export default function NewLeadCampaignWizard() {
               <div className="absolute left-3 top-3 bottom-3 w-0.5" style={{ backgroundColor: C.border }} />
               <div className="space-y-4">
                 {sequence.map((s, i) => {
-                  const ch = channelOptions.find(c => c.key === s.channel)!;
+                  const ch = allChannelOptions.find(c => c.key === s.channel)!;
                   const Icon = ch.icon;
                   return (
                     <div key={i} className="flex items-center gap-4 relative">
@@ -417,7 +450,7 @@ export default function NewLeadCampaignWizard() {
                 <p className="text-xs font-medium mb-1" style={{ color: C.textMuted }}>Channels</p>
                 <div className="flex gap-1.5 flex-wrap">
                   {uniqueChannels.map(ch => {
-                    const conf = channelOptions.find(c => c.key === ch)!;
+                    const conf = allChannelOptions.find(c => c.key === ch)!;
                     const Icon = conf.icon;
                     return (
                       <span key={ch} className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md"
@@ -436,7 +469,7 @@ export default function NewLeadCampaignWizard() {
 
             {/* Messages preview per channel */}
             {uniqueChannels.map(ch => {
-              const conf = channelOptions.find(c => c.key === ch)!;
+              const conf = allChannelOptions.find(c => c.key === ch)!;
               const Icon = conf.icon;
               const msgs = channelMessages[ch as keyof ChannelMessages];
               if (!msgs) return null;
