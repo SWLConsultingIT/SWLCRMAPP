@@ -141,6 +141,42 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
     setAiLoading(null);
   }
 
+  // Generate ALL fields at once
+  async function generateAll() {
+    setAiLoading("all");
+    try {
+      // Generate each step sequentially
+      for (let i = 0; i < classified.length; i++) {
+        const ft = stepToFieldType(classified[i].type);
+        const res = await fetch("/api/campaigns/generate-field", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ channel: classified[i].channel, fieldType: ft, idx: i, leadId, language }),
+        });
+        const data = await res.json();
+        if (data.content) {
+          const newSteps = [...(steps)];
+          newSteps[i] = { ...newSteps[i], body: data.content, subject: data.subject || newSteps[i]?.subject };
+          onChange({ steps: newSteps, autoReplies });
+        }
+      }
+      // Generate auto-replies
+      for (const replyType of ["replyPositive", "replyNegative"] as const) {
+        const res = await fetch("/api/campaigns/generate-field", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ channel: "linkedin", fieldType: replyType, leadId, language }),
+        });
+        const data = await res.json();
+        if (data.content) {
+          const field = replyType === "replyPositive" ? "positive" : "negative";
+          onChange({ steps, autoReplies: { ...autoReplies, [field]: data.content } });
+        }
+      }
+    } catch { /* silent */ }
+    setAiLoading(null);
+  }
+
   // Map step type to AI fieldType
   function stepToFieldType(type: string): string {
     const map: Record<string, string> = {
@@ -165,6 +201,24 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
 
   return (
     <div className="space-y-4">
+      {/* ═══ GENERATE ALL ═══ */}
+      <div className="rounded-xl border px-5 py-4 flex items-center justify-between"
+        style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="flex items-center gap-3">
+          <Sparkles size={18} style={{ color: gold }} />
+          <div>
+            <p className="text-sm font-medium" style={{ color: C.textPrimary }}>AI Message Assistant</p>
+            <p className="text-xs" style={{ color: C.textMuted }}>Auto-fill all outreach messages and auto-replies using company & lead data</p>
+          </div>
+        </div>
+        <button onClick={generateAll} disabled={!!aiLoading}
+          className="flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-semibold transition-opacity shrink-0 disabled:opacity-50"
+          style={{ backgroundColor: gold, color: "#04070d" }}>
+          {aiLoading === "all" ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+          {aiLoading === "all" ? "Generating..." : "Generate All with AI"}
+        </button>
+      </div>
+
       {/* ═══ OUTREACH SEQUENCE (in order) ═══ */}
       <div className="relative">
         {/* Vertical line */}

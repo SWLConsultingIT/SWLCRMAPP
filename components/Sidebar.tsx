@@ -5,14 +5,42 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
-import { LayoutDashboard, Users, Megaphone, Phone, BarChart3, Building2, Target, Shield } from "lucide-react";
+import {
+  LayoutDashboard, Users, Phone, BarChart3, Building2, Shield,
+  Zap, Search, Send, ChevronDown, ChevronRight,
+} from "lucide-react";
 
-const nav = [
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  badgeKey?: string;
+};
+
+type NavGroup = {
+  label: string;
+  icon: React.ElementType;
+  children: NavItem[];
+};
+
+type NavEntry = NavItem | NavGroup;
+
+function isGroup(entry: NavEntry): entry is NavGroup {
+  return "children" in entry;
+}
+
+const nav: NavEntry[] = [
   { href: "/",               label: "Dashboard",    icon: LayoutDashboard },
   { href: "/company-bios",   label: "Company Bio",  icon: Building2 },
-  { href: "/icp",            label: "Lead Gen",     icon: Target },
+  {
+    label: "GrowthEngine",
+    icon: Zap,
+    children: [
+      { href: "/icp",        label: "LeadMiner",     icon: Search },
+      { href: "/campaigns",  label: "OutreachFlow",  icon: Send },
+    ],
+  },
   { href: "/leads",          label: "Leads",        icon: Users },
-  { href: "/campaigns",      label: "Campaigns",    icon: Megaphone },
   { href: "/calls",          label: "Call Queue",   icon: Phone, badgeKey: "calls" },
   { href: "/reports",        label: "Reports",      icon: BarChart3 },
   { href: "/admin",          label: "Admin",        icon: Shield, badgeKey: "pending" },
@@ -22,6 +50,14 @@ export default function Sidebar() {
   const pathname = usePathname();
   const [callCount, setCallCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
+  const [growthOpen, setGrowthOpen] = useState(true);
+
+  useEffect(() => {
+    // Auto-expand GrowthEngine if user is on one of its pages
+    if (pathname.startsWith("/icp") || pathname.startsWith("/campaigns")) {
+      setGrowthOpen(true);
+    }
+  }, [pathname]);
 
   useEffect(() => {
     async function fetchBadges() {
@@ -40,6 +76,33 @@ export default function Sidebar() {
   }, []);
 
   const badges: Record<string, number> = { calls: callCount, pending: pendingCount };
+
+  function renderLink(item: NavItem) {
+    const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
+    const badge = item.badgeKey ? badges[item.badgeKey] : 0;
+    const Icon = item.icon;
+
+    return (
+      <Link key={item.href} href={item.href}
+        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 relative"
+        style={active
+          ? { background: `linear-gradient(90deg, ${C.goldGlow} 0%, rgba(201,168,58,0.04) 100%)`, color: C.gold, borderLeft: `2px solid ${C.gold}`, paddingLeft: "10px" }
+          : { color: "#4e5a72" }
+        }
+        onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = "#9aa3b8"; (e.currentTarget as HTMLElement).style.backgroundColor = "#0d1424"; } }}
+        onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = "#4e5a72"; (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; } }}
+      >
+        <Icon size={15} />
+        <span className="flex-1">{item.label}</span>
+        {badge > 0 && (
+          <span className="flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold"
+            style={{ backgroundColor: C.goldGlow, color: C.gold }}>
+            <span className="pulse-dot inline-block w-2 h-2 rounded-full" style={{ backgroundColor: C.gold }} />
+          </span>
+        )}
+      </Link>
+    );
+  }
 
   return (
     <aside className="w-56 flex flex-col shrink-0 border-r"
@@ -61,29 +124,35 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {nav.map(({ href, label, icon: Icon, badgeKey }) => {
-          const active = pathname === href || (href !== "/" && pathname.startsWith(href));
-          const badge = badgeKey ? badges[badgeKey] : 0;
-          return (
-            <Link key={href} href={href}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 relative"
-              style={active
-                ? { background: `linear-gradient(90deg, ${C.goldGlow} 0%, rgba(201,168,58,0.04) 100%)`, color: C.gold, borderLeft: `2px solid ${C.gold}`, paddingLeft: "10px" }
-                : { color: "#4e5a72" }
-              }
-              onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = "#9aa3b8"; (e.currentTarget as HTMLElement).style.backgroundColor = "#0d1424"; } }}
-              onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = "#4e5a72"; (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; } }}
-            >
-              <Icon size={15} />
-              <span className="flex-1">{label}</span>
-              {badge > 0 && (
-                <span className="flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold"
-                  style={{ backgroundColor: C.goldGlow, color: C.gold }}>
-                  <span className="pulse-dot inline-block w-2 h-2 rounded-full" style={{ backgroundColor: C.gold }} />
-                </span>
-              )}
-            </Link>
-          );
+        {nav.map((entry, idx) => {
+          if (isGroup(entry)) {
+            const GroupIcon = entry.icon;
+            const anyChildActive = entry.children.some(c => pathname === c.href || pathname.startsWith(c.href));
+
+            return (
+              <div key={entry.label}>
+                <button
+                  onClick={() => setGrowthOpen(o => !o)}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full transition-all duration-150"
+                  style={{ color: anyChildActive ? C.gold : "#4e5a72" }}
+                  onMouseEnter={e => { if (!anyChildActive) { (e.currentTarget as HTMLElement).style.color = "#9aa3b8"; (e.currentTarget as HTMLElement).style.backgroundColor = "#0d1424"; } }}
+                  onMouseLeave={e => { if (!anyChildActive) { (e.currentTarget as HTMLElement).style.color = "#4e5a72"; (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; } }}
+                >
+                  <GroupIcon size={15} />
+                  <span className="flex-1 text-left">{entry.label}</span>
+                  {growthOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+                </button>
+
+                {growthOpen && (
+                  <div className="ml-4 mt-0.5 space-y-0.5 border-l pl-2" style={{ borderColor: "#1a2540" }}>
+                    {entry.children.map(child => renderLink(child))}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
+          return renderLink(entry);
         })}
       </nav>
 

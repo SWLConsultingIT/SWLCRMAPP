@@ -112,7 +112,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
     <div className="rounded-xl border mb-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
       <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b" style={{ borderColor: C.border }}>
         <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>
-          {isNew ? "New Lead Gen Profile" : "Edit Profile"}
+          {isNew ? "New LeadMiner Ticket" : "Edit Profile"}
         </h2>
         <button onClick={onCancel} style={{ color: C.textMuted }}><X size={18} /></button>
       </div>
@@ -188,7 +188,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
           <textarea rows={2} className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
             style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
             value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-            placeholder="Additional context, references, similar case studies…" />
+            placeholder="Describe what you're specifically looking for in these leads. Include any personalized info, specific traits, behaviors, or qualifiers that would make a lead ideal for this campaign (e.g., 'recently raised funding', 'hiring for sales roles', 'using competitor X')." />
         </div>
 
         {error && (
@@ -405,7 +405,7 @@ export default function LeadGenPage() {
           <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Setup</p>
           <h1 className="text-2xl font-bold flex items-center gap-2.5" style={{ color: C.textPrimary }}>
             <Target size={22} style={{ color: gold }} />
-            Lead Gen
+            LeadMiner
           </h1>
           <p className="text-sm mt-1" style={{ color: C.textMuted }}>
             Define your ideal prospect profiles. Each profile generates a tailored outreach strategy.
@@ -482,7 +482,7 @@ export default function LeadGenPage() {
               <Target size={28} style={{ color: gold }} />
             </div>
 
-            <h2 className="text-lg font-bold mb-2" style={{ color: C.textPrimary }}>Lead Gen</h2>
+            <h2 className="text-lg font-bold mb-2" style={{ color: C.textPrimary }}>LeadMiner</h2>
             <p className="text-sm leading-relaxed mb-1" style={{ color: C.textBody }}>
               No prospect profiles yet.
             </p>

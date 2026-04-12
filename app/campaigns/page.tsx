@@ -74,8 +74,8 @@ export default async function CampaignsPage() {
   return (
     <div className="p-6 w-full">
       <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Automation</p>
-        <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Campaigns</h1>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>GrowthEngine</p>
+        <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>OutreachFlow</h1>
       </div>
 
       <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
