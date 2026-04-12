@@ -120,24 +120,39 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
     const key = `${fieldType}:${idx ?? ""}`;
     setAiLoading(key);
     try {
+      const ch = idx !== undefined ? classified[idx]?.channel : "linkedin";
       const res = await fetch("/api/campaigns/generate-field", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ channel: classified[idx ?? 0]?.channel || "linkedin", fieldType, idx, leadId, language }),
+        body: JSON.stringify({ channel: ch || "linkedin", fieldType, idx, leadId, language }),
       });
       const data = await res.json();
       if (data.content) {
-        if (fieldType === "introEmail" && idx !== undefined) {
-          const newSteps = [...steps];
-          newSteps[idx] = { ...newSteps[idx], body: data.content, subject: data.subject || newSteps[idx].subject };
-          onChange({ steps: newSteps, autoReplies });
-        } else if (idx !== undefined) {
-          updateStep(idx, "body", data.content);
+        // Build fresh steps from current channelMessages to avoid stale closures
+        const currentSteps = classified.map((cls, i) => channelMessages.steps?.[i] || {
+          type: cls.type, channel: cls.channel, label: cls.label, body: "", subject: cls.hasSubject ? "" : undefined,
+        });
+        const currentReplies = channelMessages.autoReplies || { positive: "", negative: "", question: "" };
+
+        if (idx !== undefined) {
+          currentSteps[idx] = {
+            ...currentSteps[idx],
+            body: data.content,
+            subject: data.subject || currentSteps[idx]?.subject,
+          };
+          onChange({ steps: currentSteps, autoReplies: currentReplies });
         } else {
-          updateAutoReply(fieldType as keyof AutoReplies, data.content);
+          // Auto-reply field
+          const replyMap: Record<string, string> = { replyPositive: "positive", replyNegative: "negative" };
+          const field = replyMap[fieldType];
+          if (field) {
+            onChange({ steps: currentSteps, autoReplies: { ...currentReplies, [field]: data.content } });
+          }
         }
       }
-    } catch { /* silent */ }
+    } catch (err) {
+      console.error("AI generation error:", err);
+    }
     setAiLoading(null);
   }
 
@@ -145,6 +160,12 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   async function generateAll() {
     setAiLoading("all");
     try {
+      // Build working copy of steps
+      const allSteps = classified.map((cls, i) => channelMessages.steps?.[i] || {
+        type: cls.type, channel: cls.channel, label: cls.label, body: "", subject: cls.hasSubject ? "" : undefined,
+      });
+      let replies = { ...(channelMessages.autoReplies || { positive: "", negative: "", question: "" }) };
+
       // Generate each step sequentially
       for (let i = 0; i < classified.length; i++) {
         const ft = stepToFieldType(classified[i].type);
@@ -155,11 +176,11 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         });
         const data = await res.json();
         if (data.content) {
-          const newSteps = [...(steps)];
-          newSteps[i] = { ...newSteps[i], body: data.content, subject: data.subject || newSteps[i]?.subject };
-          onChange({ steps: newSteps, autoReplies });
+          allSteps[i] = { ...allSteps[i], body: data.content, subject: data.subject || allSteps[i]?.subject };
+          onChange({ steps: [...allSteps], autoReplies: replies });
         }
       }
+
       // Generate auto-replies
       for (const replyType of ["replyPositive", "replyNegative"] as const) {
         const res = await fetch("/api/campaigns/generate-field", {
@@ -170,10 +191,13 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         const data = await res.json();
         if (data.content) {
           const field = replyType === "replyPositive" ? "positive" : "negative";
-          onChange({ steps, autoReplies: { ...autoReplies, [field]: data.content } });
+          replies = { ...replies, [field]: data.content };
+          onChange({ steps: [...allSteps], autoReplies: replies });
         }
       }
-    } catch { /* silent */ }
+    } catch (err) {
+      console.error("Generate all error:", err);
+    }
     setAiLoading(null);
   }
 
