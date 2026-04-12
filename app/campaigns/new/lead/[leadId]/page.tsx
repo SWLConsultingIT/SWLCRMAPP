@@ -107,7 +107,7 @@ export default function NewLeadCampaignWizard() {
   ]);
 
   // Channel messages (structured per-channel config)
-  const [channelMessages, setChannelMessages] = useState<ChannelMessages>({});
+  const [channelMessages, setChannelMessages] = useState<ChannelMessages>({ steps: [], autoReplies: { positive: "", negative: "", question: "" } });
   const [submitting, setSubmitting] = useState(false);
   const [language, setLanguage] = useState("es");
 
@@ -265,7 +265,7 @@ export default function NewLeadCampaignWizard() {
             <div className="flex gap-2 flex-wrap">
               {sequenceTemplates.map(tpl => (
                 <button key={tpl.name}
-                  onClick={() => { setSequence(tpl.steps.map(s => ({ ...s }))); setChannelMessages({}); }}
+                  onClick={() => { setSequence(tpl.steps.map(s => ({ ...s }))); setChannelMessages({ steps: [], autoReplies: { positive: "", negative: "", question: "" } }); }}
                   className="rounded-lg border px-4 py-2.5 text-left transition-all hover:shadow-sm"
                   style={{ borderColor: C.border, backgroundColor: C.bg }}>
                   <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{tpl.name}</p>
@@ -392,7 +392,6 @@ export default function NewLeadCampaignWizard() {
           </div>
 
           <ChannelMessageConfig
-            channels={uniqueChannels}
             channelMessages={channelMessages}
             onChange={setChannelMessages}
             sequence={sequence}
