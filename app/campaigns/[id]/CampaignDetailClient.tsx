@@ -326,37 +326,147 @@ export default function CampaignDetailClient({
 
         return (
           <div className="space-y-6">
-            {/* Funnel summary */}
-            <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <h2 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>Campaign Funnel</h2>
-              <div className="grid grid-cols-4 gap-4 mb-4">
+            {/* Visual Funnel */}
+            <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <h2 className="text-sm font-bold mb-6" style={{ color: C.textPrimary }}>Campaign Funnel</h2>
+
+              <div className="flex flex-col items-center gap-1">
+                {/* Connection Request (step 0) */}
+                {(() => {
+                  const crMsg = messages.find(m => m.step_number === 0);
+                  const crSent = crMsg?.status === "sent";
+                  const crSkipped = crMsg?.status === "skipped";
+                  const responded = replyStep !== null && replyStep === 0;
+                  return (
+                    <div className="relative w-full flex flex-col items-center">
+                      <div className="relative flex items-center justify-center py-3"
+                        style={{
+                          width: "100%",
+                          background: crSkipped ? `${C.textDim}15` : crSent || crSkipped ? `${C.linkedin}20` : `${C.border}`,
+                          clipPath: "polygon(5% 0%, 95% 0%, 90% 100%, 10% 100%)",
+                          borderRadius: 8,
+                        }}>
+                        <div className="flex items-center gap-2">
+                          <Share2 size={14} style={{ color: crSkipped ? C.textDim : C.linkedin }} />
+                          <span className="text-xs font-bold" style={{ color: crSkipped ? C.textDim : C.linkedin }}>
+                            Connection Request {crSkipped ? "(Skipped)" : crSent ? "✓" : ""}
+                          </span>
+                        </div>
+                      </div>
+                      {responded && (
+                        <div className="absolute -right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 rounded-full px-2 py-1"
+                          style={{ backgroundColor: C.blue, color: "#fff" }}>
+                          <Inbox size={10} /> <span className="text-xs font-bold">Reply!</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Sequence steps */}
+                {sequence.map((step, i) => {
+                  const msg = messages.find(m => m.step_number === i + 1);
+                  const wasSent = msg?.status === "sent";
+                  const meta = channelMeta[step.channel] ?? channelMeta.linkedin;
+                  const Icon = meta.icon;
+                  const widthPct = 100 - ((i + 1) * (60 / sequence.length));
+                  const responded = replyStep !== null && replyStep === i + 1;
+                  const notReached = !wasSent && (replyStep !== null && i + 1 > replyStep);
+
+                  // Step labels
+                  const stepLabels: Record<number, string> = {};
+                  let liCount = 0;
+                  sequence.forEach((s, idx) => {
+                    if (s.channel === "linkedin") {
+                      liCount++;
+                      if (liCount === 1) stepLabels[idx] = "First DM";
+                      else stepLabels[idx] = `Follow-up ${liCount - 1}`;
+                    } else if (s.channel === "email") {
+                      stepLabels[idx] = "Email";
+                    } else if (s.channel === "call") {
+                      stepLabels[idx] = "Call";
+                    }
+                  });
+
+                  return (
+                    <div key={i} className="relative flex flex-col items-center" style={{ width: "100%" }}>
+                      <div className="relative flex items-center justify-center py-3"
+                        style={{
+                          width: `${widthPct}%`,
+                          background: notReached ? `${C.border}` : wasSent ? `${meta.color}25` : `${meta.color}10`,
+                          clipPath: "polygon(5% 0%, 95% 0%, 90% 100%, 10% 100%)",
+                          borderRadius: 6,
+                          opacity: notReached ? 0.4 : 1,
+                        }}>
+                        <div className="flex items-center gap-2">
+                          <Icon size={13} style={{ color: notReached ? C.textDim : meta.color }} />
+                          <span className="text-xs font-bold" style={{ color: notReached ? C.textDim : meta.color }}>
+                            {stepLabels[i] ?? `Step ${i + 1}`} {wasSent ? "✓" : notReached ? "✗" : ""}
+                          </span>
+                          <span className="text-xs" style={{ color: C.textDim }}>Day {dayPerStep[i]}</span>
+                        </div>
+                      </div>
+                      {responded && (
+                        <div className="absolute -right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 rounded-full px-2.5 py-1 z-10"
+                          style={{ backgroundColor: C.blue, color: "#fff" }}>
+                          <Inbox size={10} /> <span className="text-xs font-bold">Reply!</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Result */}
+                <div className="mt-2 flex items-center justify-center py-3 rounded-lg"
+                  style={{
+                    width: `${Math.max(20, 100 - ((sequence.length + 1) * (60 / sequence.length)))}%`,
+                    background: replies.some(r => ["positive", "meeting_intent"].includes(r.classification))
+                      ? `${C.green}25`
+                      : replies.some(r => ["negative", "unsubscribe"].includes(r.classification))
+                      ? `${C.red}25`
+                      : replies.length > 0
+                      ? `${C.blue}25`
+                      : `${C.textDim}10`,
+                  }}>
+                  <span className="text-xs font-bold" style={{
+                    color: replies.some(r => ["positive", "meeting_intent"].includes(r.classification))
+                      ? C.green
+                      : replies.some(r => ["negative", "unsubscribe"].includes(r.classification))
+                      ? C.red
+                      : replies.length > 0
+                      ? C.blue
+                      : C.textDim,
+                  }}>
+                    {replies.some(r => ["positive", "meeting_intent"].includes(r.classification))
+                      ? "→ Odoo Lead Created"
+                      : replies.some(r => ["negative", "unsubscribe"].includes(r.classification))
+                      ? "→ Closed Lost"
+                      : replies.length > 0
+                      ? "→ Conversation Active"
+                      : "→ No Response Yet"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Stats row */}
+              <div className="grid grid-cols-4 gap-4 mt-6 pt-4 border-t" style={{ borderColor: C.border }}>
                 <div className="text-center">
-                  <p className="text-2xl font-bold" style={{ color: C.textPrimary }}>{totalSteps}</p>
+                  <p className="text-xl font-bold" style={{ color: C.textPrimary }}>{totalSteps}</p>
                   <p className="text-xs" style={{ color: C.textMuted }}>Total Steps</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold" style={{ color: C.green }}>{messages.filter(m => m.status === "sent").length}</p>
-                  <p className="text-xs" style={{ color: C.textMuted }}>Messages Sent</p>
+                  <p className="text-xl font-bold" style={{ color: C.green }}>{messages.filter(m => m.status === "sent").length}</p>
+                  <p className="text-xs" style={{ color: C.textMuted }}>Sent</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold" style={{ color: C.blue }}>{replies.length}</p>
+                  <p className="text-xl font-bold" style={{ color: C.blue }}>{replies.length}</p>
                   <p className="text-xs" style={{ color: C.textMuted }}>Replies</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold" style={{ color: replyStep !== null ? gold : C.textDim }}>
-                    {replyStep !== null ? `Step ${replyStep}` : "—"}
-                  </p>
+                  <p className="text-xl font-bold" style={{ color: gold }}>{replyStep !== null ? `Step ${replyStep}` : "—"}</p>
                   <p className="text-xs" style={{ color: C.textMuted }}>Replied After</p>
                 </div>
               </div>
-              {replyStep !== null && (
-                <div className="rounded-lg p-3" style={{ backgroundColor: `${gold}08`, border: `1px solid ${gold}20` }}>
-                  <p className="text-xs" style={{ color: gold }}>
-                    {leadName} responded after {replyStep} message{replyStep !== 1 ? "s" : ""} were sent.
-                    {replyStep <= 1 ? " Quick responder!" : replyStep >= totalSteps ? " Responded at the end of the sequence." : ""}
-                  </p>
-                </div>
-              )}
             </div>
 
             {/* Timeline */}
