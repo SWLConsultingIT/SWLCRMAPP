@@ -246,9 +246,14 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
             {pendingRequests.map((req: any) => {
               const prompts = req.message_prompts ?? {};
               const sequence: { channel: string; daysAfter: number }[] = prompts.sequence ?? [];
-              const messages: { step: number; channel: string; subject?: string; body: string }[] = prompts.messages ?? [];
               const channels: string[] = req.channels ?? [...new Set(sequence.map((s: any) => s.channel))];
               const isIndividual = !!req.lead_id && req.target_leads_count === 1;
+
+              // Support both old (messages[]) and new (channelMessages) format
+              const cm = prompts.channelMessages ?? {};
+              const connectionRequest: string = cm.connectionRequest ?? "";
+              const steps: any[] = cm.steps ?? prompts.messages ?? [];
+              const autoReplies = cm.autoReplies ?? {};
 
               const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
                 linkedin: { icon: Share2, color: C.linkedin, label: "LinkedIn" },
@@ -256,7 +261,6 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                 call:     { icon: Phone,  color: C.phone,    label: "Call" },
               };
 
-              // Calculate total days
               let totalDays = 0;
               sequence.forEach((s: any, i: number) => { totalDays += i === 0 ? 0 : s.daysAfter; });
 
@@ -280,6 +284,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                         <span>{req.target_leads_count} {req.target_leads_count === 1 ? "lead" : "leads"}</span>
                         <span>·</span>
                         <span>{sequence.length} steps · ~{totalDays} days</span>
+                        {prompts.language && <><span>·</span><span>{prompts.language.toUpperCase()}</span></>}
                       </div>
                     </div>
                     <AdminActions id={req.id} table="campaign_requests" />
@@ -317,16 +322,12 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                                   style={{ backgroundColor: meta.color }}>
                                   <Icon size={10} color="#fff" />
                                 </div>
-                                <span className="text-xs font-medium" style={{ color: C.textPrimary }}>
-                                  {meta.label}
-                                </span>
+                                <span className="text-xs font-medium" style={{ color: C.textPrimary }}>{meta.label}</span>
                                 <span className="text-xs tabular-nums" style={{ color: C.textDim }}>
                                   D{sequence.slice(0, i + 1).reduce((d: number, s: any, j: number) => d + (j === 0 ? 0 : s.daysAfter), 0)}
                                 </span>
                               </div>
-                              {i < sequence.length - 1 && (
-                                <div className="w-4 h-px" style={{ backgroundColor: C.border }} />
-                              )}
+                              {i < sequence.length - 1 && <div className="w-4 h-px" style={{ backgroundColor: C.border }} />}
                             </div>
                           );
                         })}
@@ -334,39 +335,64 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                     </div>
                   )}
 
-                  {/* Message previews */}
-                  {messages.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Messages Preview</p>
-                      {messages.map((msg: any, i: number) => {
-                        const meta = channelMeta[msg.channel];
+                  {/* Connection Request */}
+                  {connectionRequest && (
+                    <div className="rounded-lg border px-4 py-3 mb-3" style={{ borderColor: C.linkedin, backgroundColor: `${C.linkedin}06` }}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Share2 size={12} style={{ color: C.linkedin }} />
+                        <span className="text-xs font-semibold" style={{ color: C.linkedin }}>Connection Request Note</span>
+                      </div>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{connectionRequest}</p>
+                    </div>
+                  )}
+
+                  {/* All Messages */}
+                  {steps.length > 0 && (
+                    <div className="space-y-2 mb-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Messages</p>
+                      {steps.map((msg: any, i: number) => {
+                        const ch = msg.channel ?? sequence[i]?.channel ?? "linkedin";
+                        const meta = channelMeta[ch];
                         if (!meta) return null;
                         const Icon = meta.icon;
                         return (
-                          <div key={i} className="rounded-lg border px-4 py-3 flex items-start gap-3"
-                            style={{ borderColor: C.border, backgroundColor: C.card }}>
-                            <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5"
-                              style={{ backgroundColor: meta.color }}>
-                              <Icon size={10} color="#fff" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-xs font-semibold" style={{ color: meta.color }}>
-                                  Step {msg.step ?? i + 1} — {meta.label}
-                                </span>
-                                {msg.subject && (
-                                  <span className="text-xs truncate" style={{ color: C.textMuted }}>
-                                    Subject: {msg.subject}
-                                  </span>
-                                )}
+                          <div key={i} className="rounded-lg border px-4 py-3" style={{ borderColor: C.border, backgroundColor: C.card }}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: meta.color }}>
+                                <Icon size={10} color="#fff" />
                               </div>
-                              <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>
-                                {msg.body?.length > 200 ? `${msg.body.slice(0, 200)}...` : msg.body}
-                              </p>
+                              <span className="text-xs font-semibold" style={{ color: meta.color }}>
+                                Step {i + 1} — {msg.label || meta.label}
+                              </span>
+                              {msg.subject && (
+                                <span className="text-xs ml-2" style={{ color: C.textMuted }}>Subject: {msg.subject}</span>
+                              )}
                             </div>
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>
+                              {msg.body || "(empty)"}
+                            </p>
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+
+                  {/* Auto-replies */}
+                  {(autoReplies.positive || autoReplies.negative) && (
+                    <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                      <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Auto-Replies</p>
+                      {autoReplies.positive && (
+                        <div className="mb-2">
+                          <p className="text-xs font-semibold mb-1" style={{ color: C.green }}>Positive Response</p>
+                          <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{autoReplies.positive}</p>
+                        </div>
+                      )}
+                      {autoReplies.negative && (
+                        <div>
+                          <p className="text-xs font-semibold mb-1" style={{ color: C.red }}>Negative Response</p>
+                          <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{autoReplies.negative}</p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
