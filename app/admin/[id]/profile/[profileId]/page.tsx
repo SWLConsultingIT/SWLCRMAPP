@@ -148,6 +148,32 @@ export default async function AdminProfileDetailPage({ params }: { params: Promi
           leadsUploaded={profile.leads_uploaded ?? 0}
         />
       )}
+
+      {/* ═══ SHEET SYNC IDs (for uploading leads) ═══ */}
+      <div className="rounded-xl border p-5 mt-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Sheet Sync IDs</h3>
+        <p className="text-xs mb-3" style={{ color: C.textDim }}>Copy these IDs into your Google Sheet when uploading leads for this project.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-lg border px-4 py-3 flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+            <div>
+              <p className="text-xs font-medium" style={{ color: C.textMuted }}>Company Bio ID</p>
+              <p className="text-xs font-mono select-all" style={{ color: C.textPrimary }}>{id}</p>
+            </div>
+            <button onClick={() => {}} className="text-xs font-medium px-2 py-1 rounded" style={{ color: gold }}>
+              Copy
+            </button>
+          </div>
+          <div className="rounded-lg border px-4 py-3 flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+            <div>
+              <p className="text-xs font-medium" style={{ color: C.textMuted }}>ICP Profile ID</p>
+              <p className="text-xs font-mono select-all" style={{ color: C.textPrimary }}>{profileId}</p>
+            </div>
+            <button onClick={() => {}} className="text-xs font-medium px-2 py-1 rounded" style={{ color: gold }}>
+              Copy
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
