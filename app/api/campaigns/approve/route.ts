@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+// Use service key to bypass RLS for admin operations
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_KEY!
+);
 
 export async function POST(req: NextRequest) {
   const { requestId } = await req.json();
@@ -114,7 +120,6 @@ export async function POST(req: NextRequest) {
         status: "active",
         current_step: 0,
         sequence_steps: sequence,
-        auto_replies: autoReplies,
         started_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
       })
@@ -126,15 +131,30 @@ export async function POST(req: NextRequest) {
       continue;
     }
 
-    // Create campaign_messages for each step
-    const messageInserts = messages.map((msg, i) => ({
+    // Create campaign_messages: connection request (if LinkedIn) + all steps
+    const messageInserts: any[] = [];
+
+    // Add connection request as step 0 if LinkedIn and connectionRequest exists
+    const connectionRequest = prompts.channelMessages?.connectionRequest ?? "";
+    if (connectionRequest && channels.includes("linkedin")) {
+      messageInserts.push({
+        campaign_id: campaign.id,
+        lead_id: leadId,
+        step_number: 0,
+        channel: "linkedin",
+        content: connectionRequest,
+        status: "draft",
+        created_at: new Date().toISOString(),
+      });
+    }
+
+    // Add regular step messages (step 1, 2, 3...)
+    messages.forEach((msg, i) => messageInserts.push({
       campaign_id: campaign.id,
       lead_id: leadId,
-      message_number: msg.step ?? i + 1,
-      step_number: msg.step ?? i + 1,
+      step_number: (msg.step ?? i + 1),
       channel: msg.channel ?? sequence[i]?.channel ?? primaryChannel,
       content: msg.body ?? "",
-      subject: msg.subject ?? null,
       status: "draft",
       created_at: new Date().toISOString(),
     }));
