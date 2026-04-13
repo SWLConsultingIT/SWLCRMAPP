@@ -27,7 +27,7 @@ const statusMeta: Record<string, { label: string; color: string; bg: string; ico
 async function getCampaign(id: string) {
   const { data } = await supabase
     .from("campaigns")
-    .select("*, leads(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, company_industry), sellers(name, email)")
+    .select("*, leads(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, company_industry), sellers(name)")
     .eq("id", id)
     .single();
   return data;
