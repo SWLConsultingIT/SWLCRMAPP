@@ -423,58 +423,42 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
             <p className="text-sm" style={{ color: C.textDim }}>No campaigns running yet</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr style={{ borderBottom: `1px solid ${C.border}` }}>
-                {["Lead", "Channel", "Status", "Progress", "Seller", "Last Activity"].map(h => (
-                  <th key={h} className="text-left px-6 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {campaigns.map((c: any) => {
-                const ch = channelIcons[c.channel] ?? channelIcons.email;
-                const ChIcon = ch.icon;
-                const totalSteps = c.sequence_steps?.length ?? 0;
-                const pct = totalSteps > 0 ? Math.round((c.current_step / totalSteps) * 100) : 0;
-                const isActive = c.status === "active";
-                return (
-                  <tr key={c.id} className="table-row-hover" style={{ borderBottom: `1px solid ${C.border}` }}>
-                    <td className="px-6 py-3">
-                      <p className="font-medium" style={{ color: C.textPrimary }}>
-                        {c.leads?.primary_first_name} {c.leads?.primary_last_name}
-                      </p>
-                      <p className="text-xs" style={{ color: C.textMuted }}>{c.leads?.company_name}</p>
-                    </td>
-                    <td className="px-6 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <ChIcon size={13} style={{ color: ch.color }} />
-                        <span className="text-xs font-semibold capitalize" style={{ color: ch.color }}>{c.channel}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-3">
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-md capitalize"
-                        style={{ backgroundColor: isActive ? C.greenLight : "#F3F4F6", color: isActive ? C.green : C.textMuted }}>
-                        {c.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
-                          <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${gold}, #e8c84a)` }} />
-                        </div>
-                        <span className="text-xs tabular-nums" style={{ color: C.textMuted }}>{c.current_step}/{totalSteps}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-3 text-xs" style={{ color: C.textBody }}>{c.sellers?.name ?? "—"}</td>
-                    <td className="px-6 py-3 text-xs tabular-nums" style={{ color: C.textMuted }}>
-                      {c.last_step_at ? timeAgo(c.last_step_at) : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="divide-y" style={{ borderColor: C.border }}>
+            {campaigns.map((c: any) => {
+              const ch = channelIcons[c.channel] ?? channelIcons.email;
+              const ChIcon = ch.icon;
+              const totalSteps = c.sequence_steps?.length ?? 0;
+              const pct = totalSteps > 0 ? Math.round((c.current_step / totalSteps) * 100) : 0;
+              const isActive = c.status === "active";
+              return (
+                <Link key={c.id} href={`/campaigns/${c.id}`} className="flex items-center gap-4 px-6 py-3.5 table-row-hover">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium" style={{ color: C.textPrimary }}>
+                      {c.leads?.primary_first_name} {c.leads?.primary_last_name}
+                    </p>
+                    <p className="text-xs" style={{ color: C.textMuted }}>{c.leads?.company_name}</p>
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <ChIcon size={13} style={{ color: ch.color }} />
+                    <span className="text-xs font-semibold capitalize" style={{ color: ch.color }}>{c.channel}</span>
+                  </div>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-md capitalize shrink-0"
+                    style={{ backgroundColor: isActive ? C.greenLight : "#F3F4F6", color: isActive ? C.green : C.textMuted }}>
+                    {c.status}
+                  </span>
+                  <div className="flex items-center gap-2 w-24 shrink-0">
+                    <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                      <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${gold}, #e8c84a)` }} />
+                    </div>
+                    <span className="text-xs tabular-nums" style={{ color: C.textMuted }}>{c.current_step}/{totalSteps}</span>
+                  </div>
+                  <span className="text-xs shrink-0" style={{ color: C.textBody }}>{c.sellers?.name ?? "—"}</span>
+                  <span className="text-xs tabular-nums shrink-0" style={{ color: C.textMuted }}>{c.last_step_at ? timeAgo(c.last_step_at) : "—"}</span>
+                  <ChevronRight size={14} style={{ color: C.textDim }} />
+                </Link>
+              );
+            })}
+          </div>
         )}
       </div>
     </div>
