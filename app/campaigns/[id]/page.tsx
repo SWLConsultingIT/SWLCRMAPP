@@ -63,6 +63,22 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
     getSiblingCampaigns(campaign.name, id),
   ]);
 
+  // Get replies for this lead
+  const { data: replies } = await supabase
+    .from("lead_replies")
+    .select("*")
+    .eq("lead_id", campaign.lead_id)
+    .order("received_at", { ascending: true });
+
+  // Get auto-replies from campaign request
+  const { data: campRequest } = await supabase
+    .from("campaign_requests")
+    .select("message_prompts")
+    .eq("name", campaign.name)
+    .limit(1)
+    .single();
+  const autoReplies = campRequest?.message_prompts?.channelMessages?.autoReplies ?? {};
+
   const sequence: { channel: string; daysAfter: number }[] = campaign.sequence_steps ?? [];
   const channels = [...new Set(sequence.map((s: any) => s.channel))];
   const totalSteps = sequence.length;
@@ -164,6 +180,9 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         messages={messages}
         dayPerStep={dayPerStep}
         currentStep={campaign.current_step}
+        replies={replies ?? []}
+        autoReplies={autoReplies}
+        leadName={leadName}
       />
 
       {/* ═══ OTHER LEADS IN SAME CAMPAIGN ═══ */}
