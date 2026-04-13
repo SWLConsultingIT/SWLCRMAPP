@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Target, Clock, MapPin, Users, Briefcase } from "lucide-react";
 import AdminActions from "../../../AdminActions";
 import ExecutionActions from "./ExecutionActions";
+import CopyableId from "@/components/CopyableId";
 
 const gold = "#C9A83A";
 
@@ -154,24 +155,8 @@ export default async function AdminProfileDetailPage({ params }: { params: Promi
         <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Sheet Sync IDs</h3>
         <p className="text-xs mb-3" style={{ color: C.textDim }}>Copy these IDs into your Google Sheet when uploading leads for this project.</p>
         <div className="grid grid-cols-2 gap-3">
-          <div className="rounded-lg border px-4 py-3 flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-            <div>
-              <p className="text-xs font-medium" style={{ color: C.textMuted }}>Company Bio ID</p>
-              <p className="text-xs font-mono select-all" style={{ color: C.textPrimary }}>{id}</p>
-            </div>
-            <span className="text-xs font-medium px-2 py-1 rounded" style={{ color: C.textDim }}>
-              Click to select
-            </span>
-          </div>
-          <div className="rounded-lg border px-4 py-3 flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-            <div>
-              <p className="text-xs font-medium" style={{ color: C.textMuted }}>ICP Profile ID</p>
-              <p className="text-xs font-mono select-all" style={{ color: C.textPrimary }}>{profileId}</p>
-            </div>
-            <span className="text-xs font-medium px-2 py-1 rounded" style={{ color: C.textDim }}>
-              Click to select
-            </span>
-          </div>
+          <CopyableId label="Company Bio ID" value={id} />
+          <CopyableId label="ICP Profile ID" value={profileId} />
         </div>
       </div>
     </div>
