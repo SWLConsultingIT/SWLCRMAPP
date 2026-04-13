@@ -145,8 +145,12 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
     linkedin: "LinkedIn", email: "Email", call: "Call",
     whatsapp: "WhatsApp", sms: "SMS", instagram: "Instagram",
   };
-  const rawSteps: string[] = campaign?.sequence_steps ?? [];
-  const steps = rawSteps.map((s: string) => channelStepLabels[s.toLowerCase()] ?? s);
+  const rawSteps: any[] = campaign?.sequence_steps ?? [];
+  const steps = rawSteps.map((s: any) => {
+    if (typeof s === 'string') return channelStepLabels[s.toLowerCase()] ?? s;
+    if (s?.channel) return channelStepLabels[s.channel.toLowerCase()] ?? s.channel;
+    return 'Unknown';
+  });
   const currentStep = campaign?.current_step ?? 0;
   const stepPct = steps.length > 0 ? Math.round((currentStep / steps.length) * 100) : 0;
   const campMsgsForStepper = campaign
