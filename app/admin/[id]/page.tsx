@@ -249,12 +249,6 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
               const channels: string[] = req.channels ?? [...new Set(sequence.map((s: any) => s.channel))];
               const isIndividual = !!req.lead_id && req.target_leads_count === 1;
 
-              // Support both old (messages[]) and new (channelMessages) format
-              const cm = prompts.channelMessages ?? {};
-              const connectionRequest: string = cm.connectionRequest ?? "";
-              const steps: any[] = cm.steps ?? prompts.messages ?? [];
-              const autoReplies = cm.autoReplies ?? {};
-
               const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
                 linkedin: { icon: Share2, color: C.linkedin, label: "LinkedIn" },
                 email:    { icon: Mail,   color: C.email,    label: "Email" },
@@ -291,8 +285,8 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                     <AdminActions id={req.id} table="campaign_requests" />
                   </div>
 
-                  {/* Channels */}
-                  <div className="flex items-center gap-2 mb-4">
+                  {/* Channels summary */}
+                  <div className="flex items-center gap-2">
                     {channels.map((ch: string) => {
                       const meta = channelMeta[ch];
                       if (!meta) return null;
@@ -305,97 +299,6 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                       );
                     })}
                   </div>
-
-                  {/* Sequence timeline */}
-                  {sequence.length > 0 && (
-                    <div className="rounded-lg border p-4 mb-4" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                      <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Sequence</p>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        {sequence.map((step: any, i: number) => {
-                          const meta = channelMeta[step.channel];
-                          if (!meta) return null;
-                          const Icon = meta.icon;
-                          return (
-                            <div key={i} className="flex items-center gap-1.5">
-                              <div className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5"
-                                style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>
-                                <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0"
-                                  style={{ backgroundColor: meta.color }}>
-                                  <Icon size={10} color="#fff" />
-                                </div>
-                                <span className="text-xs font-medium" style={{ color: C.textPrimary }}>{meta.label}</span>
-                                <span className="text-xs tabular-nums" style={{ color: C.textDim }}>
-                                  D{sequence.slice(0, i + 1).reduce((d: number, s: any, j: number) => d + (j === 0 ? 0 : s.daysAfter), 0)}
-                                </span>
-                              </div>
-                              {i < sequence.length - 1 && <div className="w-4 h-px" style={{ backgroundColor: C.border }} />}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Connection Request */}
-                  {connectionRequest && (
-                    <div className="rounded-lg border px-4 py-3 mb-3" style={{ borderColor: C.linkedin, backgroundColor: `${C.linkedin}06` }}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Share2 size={12} style={{ color: C.linkedin }} />
-                        <span className="text-xs font-semibold" style={{ color: C.linkedin }}>Connection Request Note</span>
-                      </div>
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{connectionRequest}</p>
-                    </div>
-                  )}
-
-                  {/* All Messages */}
-                  {steps.length > 0 && (
-                    <div className="space-y-2 mb-4">
-                      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Messages</p>
-                      {steps.map((msg: any, i: number) => {
-                        const ch = msg.channel ?? sequence[i]?.channel ?? "linkedin";
-                        const meta = channelMeta[ch];
-                        if (!meta) return null;
-                        const Icon = meta.icon;
-                        return (
-                          <div key={i} className="rounded-lg border px-4 py-3" style={{ borderColor: C.border, backgroundColor: C.card }}>
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: meta.color }}>
-                                <Icon size={10} color="#fff" />
-                              </div>
-                              <span className="text-xs font-semibold" style={{ color: meta.color }}>
-                                Step {i + 1} — {msg.label || meta.label}
-                              </span>
-                              {msg.subject && (
-                                <span className="text-xs ml-2" style={{ color: C.textMuted }}>Subject: {msg.subject}</span>
-                              )}
-                            </div>
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>
-                              {msg.body || "(empty)"}
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Auto-replies */}
-                  {(autoReplies.positive || autoReplies.negative) && (
-                    <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                      <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Auto-Replies</p>
-                      {autoReplies.positive && (
-                        <div className="mb-2">
-                          <p className="text-xs font-semibold mb-1" style={{ color: C.green }}>Positive Response</p>
-                          <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{autoReplies.positive}</p>
-                        </div>
-                      )}
-                      {autoReplies.negative && (
-                        <div>
-                          <p className="text-xs font-semibold mb-1" style={{ color: C.red }}>Negative Response</p>
-                          <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{autoReplies.negative}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               );
             })}
