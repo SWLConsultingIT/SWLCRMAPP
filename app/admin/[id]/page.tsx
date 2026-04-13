@@ -268,7 +268,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                 <div key={req.id} className="px-6 py-5">
                   {/* Header row */}
                   <div className="flex items-start justify-between mb-4">
-                    <div>
+                    <Link href={`/admin/review/${req.id}`} className="flex-1 hover:opacity-80 transition-opacity">
                       <div className="flex items-center gap-2 mb-1">
                         {isIndividual && (
                           <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md"
@@ -277,6 +277,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                           </span>
                         )}
                         <h3 className="text-sm font-semibold" style={{ color: C.textPrimary }}>{req.name}</h3>
+                        <span className="text-xs" style={{ color: gold }}>View details →</span>
                       </div>
                       <div className="flex items-center gap-3 text-xs" style={{ color: C.textMuted }}>
                         <span>{timeAgo(req.created_at)}</span>
@@ -286,7 +287,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                         <span>{sequence.length} steps · ~{totalDays} days</span>
                         {prompts.language && <><span>·</span><span>{prompts.language.toUpperCase()}</span></>}
                       </div>
-                    </div>
+                    </Link>
                     <AdminActions id={req.id} table="campaign_requests" />
                   </div>
 
