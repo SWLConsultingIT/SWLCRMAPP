@@ -159,18 +159,18 @@ export default async function AdminProfileDetailPage({ params }: { params: Promi
               <p className="text-xs font-medium" style={{ color: C.textMuted }}>Company Bio ID</p>
               <p className="text-xs font-mono select-all" style={{ color: C.textPrimary }}>{id}</p>
             </div>
-            <button onClick={() => {}} className="text-xs font-medium px-2 py-1 rounded" style={{ color: gold }}>
-              Copy
-            </button>
+            <span className="text-xs font-medium px-2 py-1 rounded" style={{ color: C.textDim }}>
+              Click to select
+            </span>
           </div>
           <div className="rounded-lg border px-4 py-3 flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.bg }}>
             <div>
               <p className="text-xs font-medium" style={{ color: C.textMuted }}>ICP Profile ID</p>
               <p className="text-xs font-mono select-all" style={{ color: C.textPrimary }}>{profileId}</p>
             </div>
-            <button onClick={() => {}} className="text-xs font-medium px-2 py-1 rounded" style={{ color: gold }}>
-              Copy
-            </button>
+            <span className="text-xs font-medium px-2 py-1 rounded" style={{ color: C.textDim }}>
+              Click to select
+            </span>
           </div>
         </div>
       </div>
