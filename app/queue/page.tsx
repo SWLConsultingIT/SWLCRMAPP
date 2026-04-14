@@ -1,17 +1,19 @@
 import { supabase } from "@/lib/supabase";
 import QueueClient from "./QueueClient";
 
-export type OverdueStep = {
+export type PendingCall = {
   id: string;
   campaignId: string;
   campaignName: string;
-  channel: string;
   currentStep: number;
   totalSteps: number;
-  dueAt: string;
   leadId: string | null;
   leadName: string;
   company: string | null;
+  role: string | null;
+  phone: string | null;
+  email: string | null;
+  lastStepAt: string | null;
 };
 
 export type ReplyReview = {
@@ -36,21 +38,19 @@ export type PendingReview = {
 };
 
 async function getQueueData() {
-  const now = new Date().toISOString();
-
   const [
-    { data: overdueCampaigns },
+    { data: activeCampaigns },
     { data: pendingReplies },
     { data: pendingCampaigns },
     { data: pendingProfiles },
   ] = await Promise.all([
+    // Active campaigns — we'll filter for call steps client-side
     supabase
       .from("campaigns")
-      .select("id, name, channel, next_step_due_at, current_step, sequence_steps, lead_id, leads(primary_first_name, primary_last_name, company_name)")
+      .select("id, name, channel, current_step, sequence_steps, last_step_at, lead_id, leads(primary_first_name, primary_last_name, company_name, primary_title_role, primary_phone, primary_work_email)")
       .eq("status", "active")
-      .lte("next_step_due_at", now)
-      .order("next_step_due_at", { ascending: true })
-      .limit(50),
+      .order("last_step_at", { ascending: true })
+      .limit(200),
     supabase
       .from("lead_replies")
       .select("id, classification, received_at, channel, reply_text, lead_id, campaign_id, leads(primary_first_name, primary_last_name, company_name), campaigns(name)")
@@ -70,22 +70,31 @@ async function getQueueData() {
       .order("created_at", { ascending: true }),
   ]);
 
-  const overdueSteps: OverdueStep[] = (overdueCampaigns ?? []).map(c => {
-    const lead = c.leads as any;
-    const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
-    return {
-      id: c.id,
-      campaignId: c.id,
-      campaignName: c.name,
-      channel: c.channel,
-      currentStep: c.current_step ?? 0,
-      totalSteps: Array.isArray(c.sequence_steps) ? c.sequence_steps.length : 0,
-      dueAt: c.next_step_due_at,
-      leadId: c.lead_id,
-      leadName,
-      company: (lead as any)?.company_name ?? null,
-    };
-  });
+  // Pending Calls: active campaigns where the CURRENT step is a "call" channel
+  const pendingCalls: PendingCall[] = [];
+  for (const c of activeCampaigns ?? []) {
+    const steps = Array.isArray(c.sequence_steps) ? c.sequence_steps : [];
+    const currentStepIdx = c.current_step ?? 0;
+    const currentStepDef = steps[currentStepIdx];
+    if (currentStepDef?.channel === "call") {
+      const lead = c.leads as any;
+      const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
+      pendingCalls.push({
+        id: c.id,
+        campaignId: c.id,
+        campaignName: c.name,
+        currentStep: currentStepIdx,
+        totalSteps: steps.length,
+        leadId: c.lead_id,
+        leadName,
+        company: lead?.company_name ?? null,
+        role: lead?.primary_title_role ?? null,
+        phone: lead?.primary_phone ?? null,
+        email: lead?.primary_work_email ?? null,
+        lastStepAt: c.last_step_at,
+      });
+    }
+  }
 
   const replyReviews: ReplyReview[] = (pendingReplies ?? []).map(r => {
     const lead = r.leads as any;
@@ -122,7 +131,7 @@ async function getQueueData() {
     })),
   ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-  return { overdueSteps, replyReviews, pendingReviews };
+  return { pendingCalls, replyReviews, pendingReviews };
 }
 
 export default async function QueuePage() {

@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import Link from "next/link";
 import {
-  Target, Plus, X, CheckCircle, AlertCircle, Clock, Loader2,
+  Target, Plus, X, CheckCircle, AlertCircle, Clock, Loader2, ArrowLeft,
   Pencil, Trash2, ChevronRight, Users, MapPin, Briefcase, Megaphone, ExternalLink,
 } from "lucide-react";
 
@@ -255,7 +255,17 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
   }, [profile.id]);
 
   return (
-    <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+    <div>
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-xs mb-5" style={{ color: C.textMuted }}>
+        <button onClick={onClose} className="hover:underline flex items-center gap-1">
+          <ArrowLeft size={12} /> Lead Miner
+        </button>
+        <span>/</span>
+        <span style={{ color: C.textBody }}>{profile.profile_name}</span>
+      </div>
+
+      <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
       <div className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg, ${gold}, #e8c84a, ${gold})` }} />
 
       {/* Header */}
@@ -267,26 +277,6 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
               style={{ backgroundColor: st.bg, color: st.color }}>
               <Clock size={11} /> {st.label}
             </span>
-            {!loadingLeads && leads.length > 0 && (() => {
-              const withCampaign = leads.filter((l: any) => l.campaign);
-              const firstCampaign = withCampaign[0]?.campaign;
-              if (withCampaign.length > 0 && firstCampaign) {
-                return (
-                  <Link href={`/campaigns/${firstCampaign.id}`}
-                    className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all hover:shadow-md"
-                    style={{ backgroundColor: C.green, color: "#fff" }}>
-                    <Megaphone size={12} /> View Campaign <ExternalLink size={10} />
-                  </Link>
-                );
-              }
-              return (
-                <Link href="/campaigns"
-                  className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all hover:shadow-md"
-                  style={{ backgroundColor: gold, color: "#04070d" }}>
-                  <Megaphone size={12} /> Create Campaign <ChevronRight size={10} />
-                </Link>
-              );
-            })()}
           </div>
           <p className="text-xs" style={{ color: C.textMuted }}>
             Created {new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
@@ -300,7 +290,6 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
               <Pencil size={12} /> Edit
             </button>
           )}
-          <button onClick={onClose} style={{ color: C.textMuted }}><X size={18} /></button>
         </div>
       </div>
 
@@ -452,6 +441,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
         )}
       </div>
     </div>
+    </div>
   );
 }
 
@@ -510,28 +500,31 @@ export default function LeadGenPage() {
 
   return (
     <div className="p-6 w-full">
-      {/* Header */}
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Setup</p>
-          <h1 className="text-2xl font-bold flex items-center gap-2.5" style={{ color: C.textPrimary }}>
-            <Target size={22} style={{ color: gold }} />
-            LeadMiner
-          </h1>
-          <p className="text-sm mt-1" style={{ color: C.textMuted }}>
-            Define your ideal prospect profiles. Each profile generates a tailored outreach strategy.
-          </p>
-        </div>
-        {!showForm && !editingId && !selectedId && profiles.length > 0 && (
-          <button onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-opacity hover:opacity-80"
-            style={{ backgroundColor: gold, color: "#04070d" }}>
-            <Plus size={15} /> New Profile
-          </button>
-        )}
-      </div>
-
-      <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
+      {/* Header — hidden when viewing a profile detail */}
+      {!selectedId && (
+        <>
+          <div className="mb-6 flex items-start justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Setup</p>
+              <h1 className="text-2xl font-bold flex items-center gap-2.5" style={{ color: C.textPrimary }}>
+                <Target size={22} style={{ color: gold }} />
+                LeadMiner
+              </h1>
+              <p className="text-sm mt-1" style={{ color: C.textMuted }}>
+                Define your ideal prospect profiles. Each profile generates a tailored outreach strategy.
+              </p>
+            </div>
+            {!showForm && !editingId && profiles.length > 0 && (
+              <button onClick={() => setShowForm(true)}
+                className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-opacity hover:opacity-80"
+                style={{ backgroundColor: gold, color: "#04070d" }}>
+                <Plus size={15} /> New Profile
+              </button>
+            )}
+          </div>
+          <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
+        </>
+      )}
 
       {/* Success message */}
       {savedMsg && (

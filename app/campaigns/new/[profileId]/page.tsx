@@ -105,6 +105,8 @@ export default function NewCampaignWizard() {
   const [bio, setBio] = useState<any>(null);
   const [leadsCount, setLeadsCount] = useState(0);
   const [selectedLeadNames, setSelectedLeadNames] = useState<string[]>([]);
+  const [sellers, setSellers] = useState<{ id: string; name: string }[]>([]);
+  const [selectedSeller, setSelectedSeller] = useState<string>("");
 
   // Sequence builder
   const [sequence, setSequence] = useState<SequenceStep[]>([
@@ -123,10 +125,13 @@ export default function NewCampaignWizard() {
 
   useEffect(() => {
     async function load() {
-      const [{ data: p }, { data: b }] = await Promise.all([
+      const [{ data: p }, { data: b }, { data: sellerList }] = await Promise.all([
         supabase.from("icp_profiles").select("*").eq("id", profileId).single(),
         supabase.from("company_bios").select("*").order("created_at", { ascending: false }).limit(1).single(),
+        supabase.from("sellers").select("id, name").order("name"),
       ]);
+      setSellers(sellerList ?? []);
+      if (sellerList?.length === 1) setSelectedSeller(sellerList[0].id);
 
       // Count leads: either selected or all in profile
       let count = 0;
@@ -190,7 +195,7 @@ export default function NewCampaignWizard() {
       sequence_length: sequence.length,
       frequency_days: 0,
       target_leads_count: leadsCount,
-      message_prompts: { sequence, channelMessages, language, selectedLeadIds: isPartialSelection ? selectedLeadIds : null },
+      message_prompts: { sequence, channelMessages, language, selectedLeadIds: isPartialSelection ? selectedLeadIds : null, sellerId: selectedSeller || null },
       status: "pending_review",
     };
     const { error } = await supabase.from("campaign_requests").insert(insertData);
@@ -256,19 +261,51 @@ export default function NewCampaignWizard() {
         ))}
       </div>
 
-      {/* ═══ STEP 0: CAMPAIGN NAME ═══ */}
+      {/* ═══ STEP 0: CAMPAIGN NAME + SELLER + LANGUAGE ═══ */}
       {wizardStep === 0 && (
-        <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-          <h2 className="text-sm font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Campaign Name</h2>
-          <p className="text-xs mb-4" style={{ color: C.textDim }}>Give your campaign a name so you can identify it later.</p>
-          <input
-            type="text"
-            value={campaignName}
-            onChange={e => setCampaignName(e.target.value)}
-            placeholder="e.g. LATAM SaaS Leaders — LinkedIn + Email"
-            className="w-full rounded-lg px-4 py-3 text-base font-semibold focus:outline-none"
-            style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}
-          />
+        <div className="rounded-xl border p-6 space-y-5" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+          {/* Name */}
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Campaign Name</h2>
+            <p className="text-xs mb-3" style={{ color: C.textDim }}>Give your campaign a name so you can identify it later.</p>
+            <input
+              type="text"
+              value={campaignName}
+              onChange={e => setCampaignName(e.target.value)}
+              placeholder="e.g. LATAM SaaS Leaders — LinkedIn + Email"
+              className="w-full rounded-lg px-4 py-3 text-base font-semibold focus:outline-none"
+              style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}
+            />
+          </div>
+
+          {/* Seller + Language row */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>Seller</label>
+              <p className="text-xs mb-3" style={{ color: C.textDim }}>Who will send the messages.</p>
+              <select
+                value={selectedSeller}
+                onChange={e => setSelectedSeller(e.target.value)}
+                className="w-full rounded-lg px-4 py-3 text-sm focus:outline-none"
+                style={{ color: selectedSeller ? C.textPrimary : C.textDim, backgroundColor: C.bg, border: `1px solid ${C.border}` }}
+              >
+                <option value="">Select a seller…</option>
+                {sellers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>Language</label>
+              <p className="text-xs mb-3" style={{ color: C.textDim }}>Language for AI-generated messages.</p>
+              <select
+                value={language}
+                onChange={e => setLanguage(e.target.value)}
+                className="w-full rounded-lg px-4 py-3 text-sm focus:outline-none"
+                style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}
+              >
+                {languageOptions.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+              </select>
+            </div>
+          </div>
         </div>
       )}
 

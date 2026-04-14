@@ -1,299 +1,499 @@
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
-import { TrendingUp, Users, MessageSquare, Target } from "lucide-react";
+import {
+  TrendingUp, MessageSquare, Target, Zap,
+  Share2, Mail, Phone, Trophy,
+} from "lucide-react";
 
 const gold = "#C9A83A";
-const goldLight = "rgba(201,168,58,0.08)";
 
 async function getReportData() {
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const since = thirtyDaysAgo.toISOString();
-
   const [
-    { data: repliesByClass },
-    { data: leadsByStatus },
-    { data: campaignsByChannel },
-    { data: recentQualified },
-    { data: qualifiedWithSeller },
-    { data: qualifiedByDay },
-    { data: qualifiedTimes },
-    { data: campaignsWithChannel },
-    { data: repliesWithLead },
+    { data: allLeads },
+    { data: allCampaigns },
+    { data: allReplies },
+    { data: allMessages },
+    { data: allProfiles },
   ] = await Promise.all([
-    supabase.from("lead_replies").select("classification").gte("received_at", since),
-    supabase.from("leads").select("status"),
-    supabase.from("campaigns").select("channel, status"),
-    supabase.from("leads").select("id, primary_first_name, primary_last_name, company_name, primary_title_role, assigned_seller, created_at").eq("status", "qualified").order("created_at", { ascending: false }).limit(20),
-    supabase.from("leads").select("assigned_seller").eq("status", "qualified").not("assigned_seller", "is", null),
-    supabase.from("leads").select("created_at").eq("status", "qualified").gte("created_at", since).order("created_at", { ascending: true }),
-    supabase.from("leads").select("created_at, updated_at").eq("status", "qualified").not("updated_at", "is", null).limit(200),
-    supabase.from("campaigns").select("lead_id, channel").limit(500),
-    supabase.from("lead_replies").select("lead_id, classification"),
+    supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at"),
+    supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, created_at"),
+    supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, channel, received_at"),
+    supabase.from("campaign_messages").select("id, campaign_id, step_number, status, sent_at"),
+    supabase.from("icp_profiles").select("id, profile_name").eq("status", "approved"),
   ]);
 
-  const replyBreakdown = (repliesByClass ?? []).reduce<Record<string, number>>((acc, r) => { acc[r.classification] = (acc[r.classification] ?? 0) + 1; return acc; }, {});
-  const leadBreakdown = (leadsByStatus ?? []).reduce<Record<string, number>>((acc, l) => { acc[l.status] = (acc[l.status] ?? 0) + 1; return acc; }, {});
-  const channelBreakdown = (campaignsByChannel ?? []).reduce<Record<string, number>>((acc, c) => { acc[c.channel] = (acc[c.channel] ?? 0) + 1; return acc; }, {});
-  const sellerBreakdown = (qualifiedWithSeller ?? []).reduce<Record<string, number>>((acc, l) => { if (l.assigned_seller) acc[l.assigned_seller] = (acc[l.assigned_seller] ?? 0) + 1; return acc; }, {});
+  const leads = allLeads ?? [];
+  const campaigns = allCampaigns ?? [];
+  const replies = allReplies ?? [];
+  const messages = allMessages ?? [];
+  const profiles = allProfiles ?? [];
 
-  const weeklyData: Record<string, number> = {};
-  for (let i = 3; i >= 0; i--) { weeklyData[`Week ${4 - i}`] = 0; }
-  for (const q of qualifiedByDay ?? []) {
-    const weeksAgo = Math.floor((Date.now() - new Date(q.created_at).getTime()) / (7 * 86400000));
-    const key = `Week ${4 - weeksAgo}`;
-    if (key in weeklyData) weeklyData[key]++;
+  const profileMap: Record<string, string> = {};
+  for (const p of profiles) profileMap[p.id] = p.profile_name;
+
+  // ── Global KPIs ──
+  const totalLeads = leads.length;
+  const leadsWithCampaign = new Set(campaigns.map(c => c.lead_id).filter(Boolean));
+  const contactedLeads = leadsWithCampaign.size;
+  const repliedLeadIds = new Set(replies.map(r => r.lead_id));
+  const repliedCount = repliedLeadIds.size;
+  const positiveReplies = replies.filter(r => r.classification === "positive" || r.classification === "meeting_intent");
+  const positiveLeadIds = new Set(positiveReplies.map(r => r.lead_id));
+  const positiveCount = positiveLeadIds.size;
+
+  const responseRate = contactedLeads > 0 ? Math.round((repliedCount / contactedLeads) * 100) : 0;
+  const conversionRate = contactedLeads > 0 ? Math.round((positiveCount / contactedLeads) * 100) : 0;
+
+  // Avg steps to convert
+  const stepsToConvert: number[] = [];
+  for (const c of campaigns) {
+    if (positiveLeadIds.has(c.lead_id)) {
+      stepsToConvert.push(c.current_step ?? 0);
+    }
+  }
+  const avgSteps = stepsToConvert.length > 0 ? Math.round(stepsToConvert.reduce((a, b) => a + b, 0) / stepsToConvert.length * 10) / 10 : 0;
+
+  // ── Campaign comparison ──
+  const campGroups: Record<string, {
+    name: string; channels: Set<string>; leads: Set<string>;
+    replied: Set<string>; positive: Set<string>; msgsSent: number;
+    totalSteps: number; stepSum: number;
+  }> = {};
+
+  for (const c of campaigns) {
+    if (!campGroups[c.name]) campGroups[c.name] = { name: c.name, channels: new Set(), leads: new Set(), replied: new Set(), positive: new Set(), msgsSent: 0, totalSteps: 0, stepSum: 0 };
+    const g = campGroups[c.name];
+    g.channels.add(c.channel);
+    if (c.lead_id) g.leads.add(c.lead_id);
+    if (c.lead_id && repliedLeadIds.has(c.lead_id)) g.replied.add(c.lead_id);
+    if (c.lead_id && positiveLeadIds.has(c.lead_id)) g.positive.add(c.lead_id);
+    const ts = Array.isArray(c.sequence_steps) ? c.sequence_steps.length : 0;
+    g.totalSteps = Math.max(g.totalSteps, ts);
+    g.stepSum += c.current_step ?? 0;
   }
 
-  const total = Object.values(leadBreakdown).reduce((a, b) => a + b, 0);
-  const qualified = leadBreakdown.qualified ?? 0;
-  const totalReplies = Object.values(replyBreakdown).reduce((a, b) => a + b, 0);
-  const conversionRate = total > 0 ? ((qualified / total) * 100).toFixed(1) : "0";
-  const positiveRate = totalReplies > 0 ? (((replyBreakdown.positive ?? 0) / totalReplies) * 100).toFixed(1) : "0";
-
-  const times = (qualifiedTimes ?? []).map((l: any) => (new Date(l.updated_at).getTime() - new Date(l.created_at).getTime()) / 86400000).filter((d: number) => d > 0 && d < 365);
-  const avgDaysToQualify = times.length > 0 ? Math.round(times.reduce((a: number, b: number) => a + b, 0) / times.length) : null;
-
-  const repliedLeads = new Set((repliesWithLead ?? []).map((r: any) => r.lead_id));
-  const channelTotal: Record<string, number> = {};
-  const channelReplied: Record<string, number> = {};
-  for (const c of campaignsWithChannel ?? []) {
-    channelTotal[c.channel] = (channelTotal[c.channel] ?? 0) + 1;
-    if (repliedLeads.has(c.lead_id)) channelReplied[c.channel] = (channelReplied[c.channel] ?? 0) + 1;
-  }
-  const channelResponseRate: Record<string, { total: number; replied: number; rate: number }> = {};
-  for (const ch of Object.keys(channelTotal)) {
-    const t = channelTotal[ch]; const r = channelReplied[ch] ?? 0;
-    channelResponseRate[ch] = { total: t, replied: r, rate: t > 0 ? Math.round((r / t) * 100) : 0 };
+  // Count sent messages per campaign name
+  const campIdToName: Record<string, string> = {};
+  for (const c of campaigns) campIdToName[c.id] = c.name;
+  for (const m of messages) {
+    if (m.sent_at && campIdToName[m.campaign_id]) {
+      const name = campIdToName[m.campaign_id];
+      if (campGroups[name]) campGroups[name].msgsSent++;
+    }
   }
 
-  return { replyBreakdown, leadBreakdown, channelBreakdown, sellerBreakdown, recentQualified: recentQualified ?? [], conversionRate, positiveRate, total, totalReplies, qualified, weeklyData, avgDaysToQualify, channelResponseRate };
+  const campaignComparison = Object.values(campGroups).map(g => ({
+    name: g.name,
+    channels: [...g.channels],
+    leads: g.leads.size,
+    msgsSent: g.msgsSent,
+    replied: g.replied.size,
+    positive: g.positive.size,
+    responseRate: g.leads.size > 0 ? Math.round((g.replied.size / g.leads.size) * 100) : 0,
+    conversionRate: g.leads.size > 0 ? Math.round((g.positive.size / g.leads.size) * 100) : 0,
+    totalSteps: g.totalSteps,
+  })).sort((a, b) => b.conversionRate - a.conversionRate);
+
+  // Best campaign
+  const bestCampaign = campaignComparison.length > 0 ? campaignComparison[0] : null;
+
+  // ── ICP Profile performance ──
+  const profileGroups: Record<string, { name: string; leads: number; contacted: number; replied: number; positive: number }> = {};
+  for (const l of leads) {
+    if (!l.icp_profile_id) continue;
+    const name = profileMap[l.icp_profile_id] ?? "Unknown";
+    if (!profileGroups[l.icp_profile_id]) profileGroups[l.icp_profile_id] = { name, leads: 0, contacted: 0, replied: 0, positive: 0 };
+    const g = profileGroups[l.icp_profile_id];
+    g.leads++;
+    if (leadsWithCampaign.has(l.id)) g.contacted++;
+    if (repliedLeadIds.has(l.id)) g.replied++;
+    if (positiveLeadIds.has(l.id)) g.positive++;
+  }
+  const profilePerformance = Object.values(profileGroups).sort((a, b) => b.positive - a.positive);
+
+  // ── Channel analysis ──
+  const channelStats: Record<string, { contacted: Set<string>; replied: Set<string>; positive: Set<string> }> = {};
+  for (const c of campaigns) {
+    if (!channelStats[c.channel]) channelStats[c.channel] = { contacted: new Set(), replied: new Set(), positive: new Set() };
+    if (c.lead_id) {
+      channelStats[c.channel].contacted.add(c.lead_id);
+      if (repliedLeadIds.has(c.lead_id)) channelStats[c.channel].replied.add(c.lead_id);
+      if (positiveLeadIds.has(c.lead_id)) channelStats[c.channel].positive.add(c.lead_id);
+    }
+  }
+  const channelAnalysis = Object.entries(channelStats).map(([ch, s]) => ({
+    channel: ch,
+    contacted: s.contacted.size,
+    replied: s.replied.size,
+    positive: s.positive.size,
+    responseRate: s.contacted.size > 0 ? Math.round((s.replied.size / s.contacted.size) * 100) : 0,
+    conversionRate: s.contacted.size > 0 ? Math.round((s.positive.size / s.contacted.size) * 100) : 0,
+  })).sort((a, b) => b.responseRate - a.responseRate);
+
+  const bestChannel = channelAnalysis.length > 0 ? channelAnalysis[0] : null;
+
+  // ── Reply classification breakdown ──
+  const replyBreakdown: Record<string, number> = {};
+  for (const r of replies) {
+    const cls = r.classification ?? "unclassified";
+    replyBreakdown[cls] = (replyBreakdown[cls] ?? 0) + 1;
+  }
+
+  // ── Response by step number ──
+  const replyByCampId: Record<string, string> = {};
+  for (const r of replies) {
+    if (r.campaign_id) replyByCampId[r.campaign_id] = r.classification;
+  }
+  const stepReplies: Record<number, { total: number; replied: number }> = {};
+  for (const c of campaigns) {
+    const step = c.current_step ?? 0;
+    if (!stepReplies[step]) stepReplies[step] = { total: 0, replied: 0 };
+    stepReplies[step].total++;
+    if (c.lead_id && repliedLeadIds.has(c.lead_id)) stepReplies[step].replied++;
+  }
+
+  // ── Weekly trend (last 8 weeks) ──
+  const weeklyReplies: { week: string; replies: number; positive: number }[] = [];
+  for (let i = 7; i >= 0; i--) {
+    const weekStart = new Date(Date.now() - (i + 1) * 7 * 86400000);
+    const weekEnd = new Date(Date.now() - i * 7 * 86400000);
+    const weekLabel = weekStart.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+    const weekReps = replies.filter(r => {
+      const d = new Date(r.received_at);
+      return d >= weekStart && d < weekEnd;
+    });
+    weeklyReplies.push({
+      week: weekLabel,
+      replies: weekReps.length,
+      positive: weekReps.filter(r => r.classification === "positive" || r.classification === "meeting_intent").length,
+    });
+  }
+
+  return {
+    totalLeads, contactedLeads, repliedCount, positiveCount,
+    responseRate, conversionRate, avgSteps,
+    bestCampaign, bestChannel,
+    campaignComparison, profilePerformance, channelAnalysis,
+    replyBreakdown, stepReplies, weeklyReplies,
+  };
 }
 
-function HBarChart({ data, colorMap, labelMap }: { data: Record<string, number>; colorMap: Record<string, string>; labelMap: Record<string, string> }) {
-  const total = Object.values(data).reduce((a, b) => a + b, 1);
-  return (
-    <div className="space-y-3.5">
-      {Object.entries(data).sort(([, a], [, b]) => b - a).map(([key, value]) => {
-        const pct = Math.round((value / total) * 100);
-        const color = colorMap[key] ?? C.textMuted;
-        return (
-          <div key={key}>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-sm font-medium" style={{ color: C.textBody }}>{labelMap[key] ?? key}</span>
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-bold tabular-nums" style={{ color }}>{value}</span>
-                <span className="text-xs tabular-nums w-8 text-right" style={{ color: C.textMuted }}>{pct}%</span>
-              </div>
-            </div>
-            <div className="w-full rounded-full h-2" style={{ backgroundColor: "#E5E7EB" }}>
-              <div className="h-2 rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
+  linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
+  email:    { icon: Mail,   color: "#7C3AED", label: "Email" },
+  call:     { icon: Phone,  color: "#F97316", label: "Call" },
+};
 
-function LineChart({ data }: { data: Record<string, number> }) {
-  const entries = Object.entries(data);
-  const values = entries.map(([, v]) => v);
-  const max = Math.max(...values, 1);
-  const W = 800, H = 90, PAD = 16;
-  const pts = entries.map(([, v], i) => ({ x: PAD + (i / (entries.length - 1)) * (W - 2 * PAD), y: H - PAD - ((v / max) * (H - 2 * PAD)), v, label: entries[i][0] }));
-  const pathD = pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
-  const areaD = `M ${pts[0].x} ${H} ${pts.map(p => `L ${p.x} ${p.y}`).join(" ")} L ${pts[pts.length - 1].x} ${H} Z`;
-
-  return (
-    <svg width="100%" viewBox={`0 0 ${W} ${H + 24}`}>
-      <defs>
-        <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={gold} stopOpacity="0.2" />
-          <stop offset="100%" stopColor={gold} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {[0, 0.5, 1].map((p, i) => (
-        <line key={i} x1={PAD} y1={PAD + (1 - p) * (H - 2 * PAD)} x2={W - PAD} y2={PAD + (1 - p) * (H - 2 * PAD)} stroke="#E5E7EB" strokeWidth="1" strokeDasharray="6 6" />
-      ))}
-      <path d={areaD} fill="url(#areaGrad)" />
-      <path d={pathD} fill="none" stroke={gold} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-      {pts.map((p, i) => (
-        <g key={i}>
-          <circle cx={p.x} cy={p.y} r="5" fill={gold} stroke="white" strokeWidth="2.5" />
-          <text x={p.x} y={H + 20} textAnchor="middle" fontSize="13" fill={C.textMuted}>{p.label}</text>
-          {p.v > 0 && <text x={p.x} y={p.y - 10} textAnchor="middle" fontSize="13" fill={gold} fontWeight="600">{p.v}</text>}
-        </g>
-      ))}
-    </svg>
-  );
-}
-
-function Funnel({ data }: { data: Record<string, number> }) {
-  const stages = [
-    { key: "new",       label: "Imported",     color: C.blue },
-    { key: "contacted", label: "Contacted",    color: gold },
-    { key: "qualified", label: "Qualified",    color: C.green },
-    { key: "nurturing", label: "Nurturing",    color: C.textMuted },
-  ];
-  const top = Math.max(...stages.map(s => data[s.key] ?? 0), 1);
-  return (
-    <div className="space-y-3">
-      {stages.map((s, i) => {
-        const val = data[s.key] ?? 0;
-        const pct = Math.round((val / top) * 100);
-        const prevVal = i > 0 ? (data[stages[i - 1].key] ?? 0) : null;
-        const conv = prevVal != null && prevVal > 0 ? Math.round((val / prevVal) * 100) : null;
-        return (
-          <div key={s.key}>
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-sm font-medium" style={{ color: C.textBody }}>{s.label}</span>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold tabular-nums" style={{ color: s.color }}>{val}</span>
-                {conv !== null && <span className="text-xs px-1.5 py-0.5 rounded tabular-nums" style={{ backgroundColor: "#F3F4F6", color: C.textMuted }}>{conv}% conv.</span>}
-              </div>
-            </div>
-            <div className="w-full rounded-full h-2" style={{ backgroundColor: "#E5E7EB" }}>
-              <div className="h-2 rounded-full" style={{ width: `${pct}%`, backgroundColor: s.color }} />
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-const statusLabels: Record<string, string> = { new: "New", contacted: "Contacted", connected: "Connected", responded: "Responded", qualified: "Qualified", proposal_sent: "Proposal", closed_won: "Won", closed_lost: "Lost", nurturing: "Nurturing" };
-const statusColors: Record<string, string> = { new: C.blue, contacted: gold, connected: C.accent, responded: C.green, qualified: C.green, proposal_sent: C.accent, closed_won: C.green, closed_lost: C.red, nurturing: C.textMuted };
-const classLabels: Record<string, string> = { positive: "Positive", meeting_intent: "Meeting Intent", needs_info: "Needs Info", not_now: "Not Now", negative: "Negative", unsubscribe: "Unsubscribe" };
-const classColors: Record<string, string> = { positive: C.green, meeting_intent: C.green, needs_info: C.blue, not_now: C.orange, negative: C.red, unsubscribe: C.red };
-const channelColors: Record<string, string> = { linkedin: C.linkedin, email: C.email, whatsapp: "#22c55e", call: C.phone };
+const classColors: Record<string, { color: string; label: string }> = {
+  positive:       { color: C.green,   label: "Positive" },
+  meeting_intent: { color: "#059669", label: "Meeting Intent" },
+  negative:       { color: C.red,     label: "Negative" },
+  question:       { color: "#D97706", label: "Question" },
+  unclassified:   { color: C.textMuted, label: "Unclassified" },
+};
 
 export default async function ReportsPage() {
-  const { replyBreakdown, leadBreakdown, sellerBreakdown, recentQualified, conversionRate, positiveRate, total, totalReplies, qualified, weeklyData, avgDaysToQualify, channelResponseRate } = await getReportData();
+  const data = await getReportData();
 
-  const kpis = [
-    { label: "Total Leads",       value: total,                                              icon: Users,         color: gold },
-    { label: "Qualified",         value: qualified,                                           icon: Target,        color: C.green },
-    { label: "Conversion Rate",   value: `${conversionRate}%`,                                icon: TrendingUp,    color: C.accent },
-    { label: "Positive Rate",     value: `${positiveRate}%`,                                  icon: MessageSquare, color: gold },
-    { label: "Avg Days to Qualify",value: avgDaysToQualify != null ? `${avgDaysToQualify}d` : "—", icon: TrendingUp, color: C.orange },
-  ];
+  const maxWeeklyReplies = Math.max(...data.weeklyReplies.map(w => w.replies), 1);
 
   return (
-    <div className="p-8 w-full">
+    <div className="p-6 w-full">
+      {/* Header */}
       <div className="mb-6">
         <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Analytics</p>
-        <div className="flex items-end justify-between">
-          <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Reports</h1>
-          <span className="text-sm" style={{ color: C.textMuted }}>Last 30 days</span>
-        </div>
+        <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Reports</h1>
+        <p className="text-sm mt-1" style={{ color: C.textMuted }}>Performance analytics across all campaigns and profiles.</p>
       </div>
+      <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
 
-      <div className="h-px mb-8" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
-
-      {/* KPIs */}
+      {/* ═══ KPI CARDS ═══ */}
       <div className="grid grid-cols-5 gap-4 mb-8">
-        {kpis.map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${color}` }}>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs uppercase tracking-wider font-semibold" style={{ color: C.textMuted }}>{label}</span>
-              <Icon size={14} style={{ color }} />
+        {[
+          { label: "Response Rate", value: `${data.responseRate}%`, sub: `${data.repliedCount}/${data.contactedLeads} replied`, color: C.blue, icon: MessageSquare },
+          { label: "Conversion Rate", value: `${data.conversionRate}%`, sub: `${data.positiveCount} positive of ${data.contactedLeads}`, color: C.green, icon: TrendingUp },
+          { label: "Avg Steps to Convert", value: data.avgSteps > 0 ? `${data.avgSteps}` : "—", sub: data.avgSteps > 0 ? "steps until positive reply" : "no conversions yet", color: gold, icon: Zap },
+          { label: "Best Campaign", value: data.bestCampaign ? `${data.bestCampaign.conversionRate}%` : "—", sub: data.bestCampaign?.name ?? "no data", color: "#7C3AED", icon: Trophy },
+          { label: "Best Channel", value: data.bestChannel ? `${data.bestChannel.responseRate}%` : "—", sub: data.bestChannel?.channel ?? "no data", color: "#F97316", icon: Target },
+        ].map(({ label, value, sub, color, icon: Icon }) => (
+          <div key={label} className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${color}` }}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{label}</span>
+              <div className="rounded-lg p-1.5" style={{ backgroundColor: `${color}15` }}>
+                <Icon size={13} style={{ color }} />
+              </div>
             </div>
-            <p className="text-3xl font-bold tabular-nums" style={{ color }}>{value}</p>
+            <p className="text-2xl font-bold tabular-nums" style={{ color }}>{value}</p>
+            <p className="text-[10px] mt-1 truncate" style={{ color: C.textDim }}>{sub}</p>
           </div>
         ))}
       </div>
 
-      {/* Line chart */}
-      <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <h2 className="text-sm font-semibold mb-5" style={{ color: C.textPrimary }}>Qualified per Week (last 4 weeks)</h2>
-        <LineChart data={weeklyData} />
-      </div>
-
-      {/* Funnel */}
-      <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <h2 className="text-sm font-semibold mb-5" style={{ color: C.textPrimary }}>Conversion Funnel</h2>
-        <Funnel data={leadBreakdown} />
-      </div>
-
-      {/* Charts row */}
-      <div className="grid grid-cols-3 gap-6 mb-6">
-        <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <h2 className="text-sm font-semibold mb-5" style={{ color: C.textPrimary }}>Leads by Status</h2>
-          <HBarChart data={leadBreakdown} colorMap={statusColors} labelMap={statusLabels} />
+      {/* ═══ CAMPAIGN COMPARISON TABLE ═══ */}
+      <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
+          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Campaign Comparison</h2>
+          <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Performance breakdown by campaign</p>
         </div>
-        <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>Replies</h2>
-            <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: goldLight, color: gold }}>{totalReplies} total</span>
+        {data.campaignComparison.length === 0 ? (
+          <div className="px-5 py-8 text-center">
+            <p className="text-sm" style={{ color: C.textDim }}>No campaigns yet</p>
           </div>
-          {totalReplies > 0 ? <HBarChart data={replyBreakdown} colorMap={classColors} labelMap={classLabels} /> : <p className="text-sm" style={{ color: C.textDim }}>No replies</p>}
-        </div>
-        <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <h2 className="text-sm font-semibold mb-5" style={{ color: C.textPrimary }}>Response Rate by Channel</h2>
-          {Object.keys(channelResponseRate).length === 0
-            ? <p className="text-sm" style={{ color: C.textDim }}>No data</p>
-            : <div className="space-y-3.5">
-                {Object.entries(channelResponseRate).sort(([,a],[,b]) => b.rate - a.rate).map(([ch, { total: t, replied, rate }]) => (
-                  <div key={ch}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-sm font-medium" style={{ color: C.textBody }}>{{ linkedin: "LinkedIn", email: "Email", whatsapp: "WhatsApp", call: "Call" }[ch] ?? ch}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs tabular-nums" style={{ color: C.textMuted }}>{replied}/{t}</span>
-                        <span className="text-sm font-bold tabular-nums" style={{ color: channelColors[ch] ?? C.textMuted }}>{rate}%</span>
-                      </div>
-                    </div>
-                    <div className="w-full rounded-full h-2" style={{ backgroundColor: "#E5E7EB" }}>
-                      <div className="h-2 rounded-full" style={{ width: `${rate}%`, backgroundColor: channelColors[ch] ?? C.textMuted }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-          }
-        </div>
-      </div>
-
-      {/* Seller performance */}
-      {Object.keys(sellerBreakdown).length > 0 && (
-        <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <h2 className="text-sm font-semibold mb-5" style={{ color: C.textPrimary }}>Performance by Seller</h2>
-          <HBarChart data={sellerBreakdown} colorMap={{}} labelMap={{}} />
-        </div>
-      )}
-
-      {/* Qualified leads table */}
-      <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <div className="px-5 py-4 border-b flex items-center justify-between"
-          style={{ borderColor: C.border, background: `linear-gradient(90deg, ${goldLight} 0%, transparent 50%)` }}>
-          <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>Recent Qualified Leads</h2>
-          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: C.greenLight, color: C.green }}>{recentQualified.length}</span>
-        </div>
-        {recentQualified.length === 0 ? (
-          <div className="py-10 text-center"><p className="text-sm" style={{ color: C.textDim }}>No qualified leads yet</p></div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-left">
             <thead>
-              <tr style={{ borderBottom: `1px solid ${C.border}`, backgroundColor: "#F9FAFB" }}>
-                {["Name", "Company", "Role", "Seller", "Date"].map(h => (
-                  <th key={h} className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{h}</th>
-                ))}
+              <tr style={{ backgroundColor: C.bg }}>
+                <th className="px-5 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Campaign</th>
+                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Channels</th>
+                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Leads</th>
+                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Replied</th>
+                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Positive</th>
+                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Response %</th>
+                <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Conversion %</th>
               </tr>
             </thead>
             <tbody>
-              {recentQualified.map((lead: any) => (
-                <tr key={lead.id} className="table-row-hover" style={{ borderBottom: `1px solid ${C.border}` }}>
-                  <td className="px-5 py-3 font-medium" style={{ color: C.textPrimary }}>{lead.primary_first_name} {lead.primary_last_name}</td>
-                  <td className="px-5 py-3" style={{ color: C.textBody }}>{lead.company_name}</td>
-                  <td className="px-5 py-3 text-xs" style={{ color: C.textMuted }}>{lead.primary_title_role}</td>
-                  <td className="px-5 py-3 text-sm font-medium" style={{ color: gold }}>{lead.assigned_seller ?? "—"}</td>
-                  <td className="px-5 py-3 text-xs tabular-nums" style={{ color: C.textMuted }}>{new Date(lead.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "2-digit" })}</td>
+              {data.campaignComparison.map((c, i) => (
+                <tr key={c.name} className="border-t" style={{ borderColor: C.border }}>
+                  <td className="px-5 py-3">
+                    <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{c.name}</p>
+                    <p className="text-[10px]" style={{ color: C.textDim }}>{c.totalSteps} steps</p>
+                  </td>
+                  <td className="px-3 py-3 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      {c.channels.map(ch => {
+                        const meta = channelMeta[ch] ?? channelMeta.email;
+                        const Icon = meta.icon;
+                        return <Icon key={ch} size={12} style={{ color: meta.color }} />;
+                      })}
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 text-center text-xs font-semibold" style={{ color: C.textBody }}>{c.leads}</td>
+                  <td className="px-3 py-3 text-center text-xs font-semibold" style={{ color: C.blue }}>{c.replied}</td>
+                  <td className="px-3 py-3 text-center text-xs font-semibold" style={{ color: C.green }}>{c.positive}</td>
+                  <td className="px-3 py-3">
+                    <div className="flex items-center gap-2 justify-center">
+                      <div className="w-14 h-2 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                        <div className="h-2 rounded-full" style={{ width: `${c.responseRate}%`, backgroundColor: C.blue }} />
+                      </div>
+                      <span className="text-xs font-bold tabular-nums" style={{ color: C.blue }}>{c.responseRate}%</span>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3">
+                    <div className="flex items-center gap-2 justify-center">
+                      <div className="w-14 h-2 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                        <div className="h-2 rounded-full" style={{ width: `${c.conversionRate}%`, backgroundColor: C.green }} />
+                      </div>
+                      <span className="text-xs font-bold tabular-nums" style={{ color: C.green }}>{c.conversionRate}%</span>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
+
+      {/* ═══ TWO COLUMNS: ICP Performance + Channel Analysis ═══ */}
+      <div className="grid grid-cols-2 gap-6 mb-6">
+        {/* ICP Profile Performance */}
+        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
+            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>ICP Profile Performance</h2>
+            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Which profiles generate the best results</p>
+          </div>
+          {data.profilePerformance.length === 0 ? (
+            <div className="px-5 py-8 text-center"><p className="text-sm" style={{ color: C.textDim }}>No data yet</p></div>
+          ) : (
+            <div className="p-5 space-y-4">
+              {data.profilePerformance.map(p => {
+                const respRate = p.contacted > 0 ? Math.round((p.replied / p.contacted) * 100) : 0;
+                const convRate = p.contacted > 0 ? Math.round((p.positive / p.contacted) * 100) : 0;
+                return (
+                  <div key={p.name}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>{p.name}</span>
+                      <span className="text-[10px]" style={{ color: C.textMuted }}>{p.leads} leads</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[10px]" style={{ color: C.blue }}>Response</span>
+                          <span className="text-[10px] font-bold" style={{ color: C.blue }}>{respRate}%</span>
+                        </div>
+                        <div className="h-2 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                          <div className="h-2 rounded-full" style={{ width: `${respRate}%`, backgroundColor: C.blue }} />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[10px]" style={{ color: C.green }}>Conversion</span>
+                          <span className="text-[10px] font-bold" style={{ color: C.green }}>{convRate}%</span>
+                        </div>
+                        <div className="h-2 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                          <div className="h-2 rounded-full" style={{ width: `${convRate}%`, backgroundColor: C.green }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Channel Analysis */}
+        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
+            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Channel Analysis</h2>
+            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Performance by outreach channel</p>
+          </div>
+          {data.channelAnalysis.length === 0 ? (
+            <div className="px-5 py-8 text-center"><p className="text-sm" style={{ color: C.textDim }}>No data yet</p></div>
+          ) : (
+            <div className="p-5 space-y-5">
+              {data.channelAnalysis.map(ch => {
+                const meta = channelMeta[ch.channel] ?? channelMeta.email;
+                const Icon = meta.icon;
+                return (
+                  <div key={ch.channel}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${meta.color}12` }}>
+                        <Icon size={15} style={{ color: meta.color }} />
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>{meta.label}</span>
+                        <p className="text-[10px]" style={{ color: C.textMuted }}>{ch.contacted} contacted · {ch.replied} replied · {ch.positive} positive</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[10px]" style={{ color: C.textDim }}>Response</span>
+                          <span className="text-[10px] font-bold" style={{ color: meta.color }}>{ch.responseRate}%</span>
+                        </div>
+                        <div className="h-2.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                          <div className="h-2.5 rounded-full" style={{ width: `${ch.responseRate}%`, backgroundColor: meta.color }} />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[10px]" style={{ color: C.textDim }}>Conversion</span>
+                          <span className="text-[10px] font-bold" style={{ color: C.green }}>{ch.conversionRate}%</span>
+                        </div>
+                        <div className="h-2.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                          <div className="h-2.5 rounded-full" style={{ width: `${ch.conversionRate}%`, backgroundColor: C.green }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ═══ TWO COLUMNS: Reply Breakdown + Weekly Trend ═══ */}
+      <div className="grid grid-cols-2 gap-6 mb-6">
+        {/* Reply classification breakdown */}
+        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
+            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Reply Classification</h2>
+            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>How leads are responding</p>
+          </div>
+          <div className="p-5">
+            {Object.keys(data.replyBreakdown).length === 0 ? (
+              <p className="text-sm text-center py-4" style={{ color: C.textDim }}>No replies yet</p>
+            ) : (
+              <div className="space-y-3">
+                {Object.entries(data.replyBreakdown)
+                  .sort(([, a], [, b]) => b - a)
+                  .map(([cls, count]) => {
+                    const meta = classColors[cls] ?? classColors.unclassified;
+                    const totalReplies = Object.values(data.replyBreakdown).reduce((a, b) => a + b, 0);
+                    const pct = totalReplies > 0 ? Math.round((count / totalReplies) * 100) : 0;
+                    return (
+                      <div key={cls}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-semibold" style={{ color: meta.color }}>{meta.label}</span>
+                          <span className="text-xs tabular-nums" style={{ color: C.textBody }}>{count} <span style={{ color: C.textDim }}>({pct}%)</span></span>
+                        </div>
+                        <div className="h-2.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                          <div className="h-2.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: meta.color }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Weekly trend */}
+        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
+            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Weekly Trend</h2>
+            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Replies over the last 8 weeks</p>
+          </div>
+          <div className="p-5">
+            <div className="flex items-end gap-2" style={{ height: 140 }}>
+              {data.weeklyReplies.map((w, i) => {
+                const h = maxWeeklyReplies > 0 ? (w.replies / maxWeeklyReplies) * 120 : 0;
+                const ph = maxWeeklyReplies > 0 ? (w.positive / maxWeeklyReplies) * 120 : 0;
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                    <span className="text-[9px] font-bold tabular-nums" style={{ color: w.replies > 0 ? C.textBody : C.textDim }}>
+                      {w.replies > 0 ? w.replies : ""}
+                    </span>
+                    <div className="w-full relative rounded-t" style={{ height: Math.max(h, 2), backgroundColor: `${C.blue}30` }}>
+                      {ph > 0 && (
+                        <div className="absolute bottom-0 left-0 right-0 rounded-t" style={{ height: ph, backgroundColor: C.green }} />
+                      )}
+                    </div>
+                    <span className="text-[8px]" style={{ color: C.textDim }}>{w.week}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center justify-center gap-4 mt-3">
+              <span className="flex items-center gap-1 text-[10px]" style={{ color: C.textMuted }}>
+                <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: `${C.blue}30` }} /> All replies
+              </span>
+              <span className="flex items-center gap-1 text-[10px]" style={{ color: C.textMuted }}>
+                <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: C.green }} /> Positive
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══ RESPONSE BY STEP NUMBER ═══ */}
+      {Object.keys(data.stepReplies).length > 0 && (
+        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
+            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Response by Sequence Step</h2>
+            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Which step in the sequence generates the most replies</p>
+          </div>
+          <div className="p-5 flex items-end gap-6 justify-center" style={{ minHeight: 120 }}>
+            {Object.entries(data.stepReplies)
+              .sort(([a], [b]) => Number(a) - Number(b))
+              .map(([step, { total, replied }]) => {
+                const rate = total > 0 ? Math.round((replied / total) * 100) : 0;
+                return (
+                  <div key={step} className="flex flex-col items-center gap-2">
+                    <span className="text-xs font-bold tabular-nums" style={{ color: rate > 0 ? gold : C.textDim }}>{rate}%</span>
+                    <div className="w-12 rounded-t" style={{ height: Math.max(rate * 0.8, 4), backgroundColor: gold }} />
+                    <div>
+                      <p className="text-xs font-semibold text-center" style={{ color: C.textPrimary }}>Step {Number(step) + 1}</p>
+                      <p className="text-[9px] text-center" style={{ color: C.textDim }}>{replied}/{total}</p>
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
