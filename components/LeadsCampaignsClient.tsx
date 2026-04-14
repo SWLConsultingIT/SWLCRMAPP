@@ -199,7 +199,7 @@ function LostLeadCard({ lead }: { lead: LostLead }) {
   const progress = lead.steps_total > 0 ? Math.round((lead.steps_completed / lead.steps_total) * 100) : 0;
 
   return (
-    <Link href={`/leads/${lead.id}`}
+    <Link href={`/leads/lost/${lead.id}`}
       className="rounded-xl border overflow-hidden transition-shadow hover:shadow-md group"
       style={{ backgroundColor: C.card, borderColor: C.border, borderLeftWidth: 3, borderLeftColor: lead.reason === "negative" ? C.red : C.textDim }}>
       <div className="p-4">
