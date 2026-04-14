@@ -10,6 +10,7 @@ import { LinkedInIcon } from "@/components/SocialIcons";
 import CompanyTabs from "@/components/CompanyTabs";
 import ActivityTimeline from "@/components/ActivityTimeline";
 import CampaignJourney from "@/components/CampaignJourney";
+import DeleteLeadButton from "@/components/DeleteLeadButton";
 
 const gold = "#C9A83A";
 const goldLight = "rgba(201,168,58,0.08)";
@@ -312,6 +313,9 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             {lead.lead_score > 0 && (
               <ScoreRing score={lead.lead_score} color={score.color} />
             )}
+
+            {/* Delete */}
+            <DeleteLeadButton leadId={id} leadName={contactName} />
           </div>
         </div>
 
@@ -753,7 +757,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         <CampaignJourney campaign={campaign as any} messages={messages as any} replies={replies as any} />
 
         {/* ── TAB 3: Recent Activity ── */}
-        <ActivityTimeline activities={activityItems as any} notes={teamNotes} />
+        <ActivityTimeline activities={activityItems as any} notes={teamNotes} leadId={id} />
 
         {/* ── TAB 4: Social & Content ── */}
         <div className="space-y-5">

@@ -1,14 +1,18 @@
 // SWL Brand tokens — single source of truth
-// Sidebar: dark navy theme (unchanged)
+// Sidebar: light theme
 // Content: clean light theme that complements the sidebar
 
 export const C = {
-  // ── Sidebar (dark) ──
-  sidebarBg:      "#050810",
-  sidebarBorder:  "#1a2540",
+  // ── Sidebar (light) ──
+  sidebarBg:      "#FFFFFF",
+  sidebarBorder:  "#F0F0F5",
   gold:           "#c9a83a",
   goldDim:        "#8c7225",
-  goldGlow:       "rgba(201,168,58,0.15)",
+  goldGlow:       "rgba(201,168,58,0.12)",
+  goldSoft:       "rgba(201,168,58,0.08)",
+  sidebarText:    "#6B7280",
+  sidebarTextActive: "#1F2937",
+  sidebarSection: "#9CA3AF",
 
   // ── Content area (light) ──
   bg:             "#F7F8FB",

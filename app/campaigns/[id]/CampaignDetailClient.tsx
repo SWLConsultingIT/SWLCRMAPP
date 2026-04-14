@@ -4,121 +4,136 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
+import Link from "next/link";
 import {
   Share2, Mail, Phone, Check, Pencil, X, Save,
   PlayCircle, Loader2, Pause, Play, Trash2, Send,
-  MessageCircle, Inbox, GitBranch, ThumbsUp, ThumbsDown, HelpCircle,
+  Users, UserPlus, Megaphone, Target, CheckCircle2,
+  MessageSquare,
 } from "lucide-react";
 
 const gold = "#C9A83A";
 
 const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-  linkedin: { icon: Share2, color: C.linkedin, label: "LinkedIn" },
-  email:    { icon: Mail,   color: C.email,    label: "Email" },
-  whatsapp: { icon: Mail,   color: "#22c55e",  label: "WhatsApp" },
-  call:     { icon: Phone,  color: C.phone,    label: "Call" },
+  linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
+  email:    { icon: Mail,   color: "#7C3AED", label: "Email" },
+  whatsapp: { icon: Mail,   color: "#22c55e", label: "WhatsApp" },
+  call:     { icon: Phone,  color: "#F97316", label: "Call" },
 };
 
-type Message = {
-  id: string; campaign_id: string; lead_id: string; step_number: number;
-  channel: string; content: string; status: string; sent_at: string | null; created_at: string;
+const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
+  active:    { label: "Active",    color: C.green,    bg: C.greenLight },
+  paused:    { label: "Paused",    color: "#D97706",  bg: "#FFFBEB" },
+  completed: { label: "Completed", color: C.textMuted, bg: "#F3F4F6" },
+  failed:    { label: "Failed",    color: C.red,      bg: C.redLight },
 };
 
-type Reply = {
-  id: string; lead_id: string; campaign_id: string; channel: string;
-  reply_text: string; classification: string; received_at: string;
-  ai_confidence?: number; requires_human_review?: boolean;
-};
-
-const classificationMeta: Record<string, { label: string; color: string; icon: React.ElementType }> = {
-  positive: { label: "Positive", color: C.green, icon: ThumbsUp },
-  meeting_intent: { label: "Meeting Intent", color: C.green, icon: ThumbsUp },
-  needs_info: { label: "Question", color: C.blue, icon: HelpCircle },
-  not_now: { label: "Not Now", color: "#D97706", icon: Pause },
-  negative: { label: "Negative", color: C.red, icon: ThumbsDown },
-  unsubscribe: { label: "Unsubscribe", color: C.red, icon: X },
-};
+type Message = { id: string; step_number: number; channel: string; content: string; status: string; sent_at: string | null };
+type GroupCampaign = { id: string; status: string; channel?: string; current_step: number; sequence_steps: any[] | null; leads: any; sellers: any; _isCurrent?: boolean };
+type UnlinkedLead = { id: string; primary_first_name: string | null; primary_last_name: string | null; company_name: string | null; primary_title_role: string | null; lead_score: number | null; allow_linkedin: boolean; allow_email: boolean; allow_call: boolean };
+type LeadGroup = { profileName: string; leads: UnlinkedLead[] };
 
 export default function CampaignDetailClient({
-  campaignId, campaignStatus, sequence, messages, dayPerStep, currentStep,
-  replies, autoReplies, leadName,
+  campaignId, campaignName, campaignStatus, campaignIcpId, sellerName, sequence, messages, dayPerStep, currentStep,
+  allCampaigns, leadGroups, channels, autoReplies, connectionNote, messageTemplates,
 }: {
-  campaignId: string; campaignStatus: string;
+  campaignId: string;
+  campaignName: string;
+  campaignStatus: string;
+  campaignIcpId: string | null;
+  sellerName: string;
   sequence: { channel: string; daysAfter: number }[];
-  messages: Message[]; dayPerStep: number[]; currentStep: number;
-  replies: Reply[]; autoReplies: { positive?: string; negative?: string };
-  leadName: string;
+  messages: Message[];
+  dayPerStep: number[];
+  currentStep: number;
+  allCampaigns: GroupCampaign[];
+  leadGroups: LeadGroup[];
+  channels: string[];
+  autoReplies: { positive?: string; negative?: string; question?: string };
+  connectionNote: string;
+  messageTemplates: { channel: string; body: string; subject?: string }[];
 }) {
   const router = useRouter();
   const [tab, setTab] = useState(0);
+  const [acting, setActing] = useState<string | null>(null);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
+  const [expandedStep, setExpandedStep] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
   const [saving, setSaving] = useState(false);
-  const [acting, setActing] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [addSelected, setAddSelected] = useState<Set<string>>(new Set());
+  const [adding, setAdding] = useState(false);
 
-  function startEdit(msg: Message) {
-    setEditingIdx(msg.step_number);
-    setEditContent(msg.content ?? "");
-  }
+  const isEditable = campaignStatus === "active" || campaignStatus === "paused";
 
-  async function saveEdit(msg: Message) {
-    setSaving(true);
-    const res = await fetch(`/api/messages/${msg.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: editContent }),
-    });
-    if (res.ok) { setEditingIdx(null); router.refresh(); }
-    setSaving(false);
-  }
-
-  async function handleCampaignAction(action: "pause" | "resume" | "cancel") {
-    setActing(action);
-    const newStatus = action === "pause" ? "paused" : action === "resume" ? "active" : "completed";
-    await supabase.from("campaigns").update({ status: newStatus }).eq("id", campaignId);
+  async function act(campId: string, action: "pause" | "resume" | "cancel") {
+    setActing(`${campId}:${action}`);
+    if (action === "cancel") {
+      await supabase.from("campaigns").delete().eq("id", campId);
+    } else {
+      await supabase.from("campaigns").update({ status: action === "pause" ? "paused" : "active" }).eq("id", campId);
+    }
     setActing(null);
     router.refresh();
   }
 
-  const isEditable = campaignStatus === "active" || campaignStatus === "paused";
+  async function bulkAct(action: "pause" | "resume" | "cancel") {
+    const ids = selected.size > 0 ? Array.from(selected) : visibleCampaigns.filter(c => ["active", "paused"].includes(c.status)).map(c => c.id);
+    if (ids.length === 0) return;
+    setActing(`bulk:${action}`);
+    if (action === "cancel") {
+      await supabase.from("campaigns").delete().in("id", ids);
+    } else {
+      await supabase.from("campaigns").update({ status: action === "pause" ? "paused" : "active" }).in("id", ids);
+    }
+    setActing(null);
+    setSelected(new Set());
+    router.refresh();
+  }
+
+  async function addLeadsToCampaign(leadIds: string[]) {
+    if (leadIds.length === 0) return;
+    setAdding(true);
+    // Get seller from first campaign in group
+    const firstCamp = allCampaigns[0];
+    for (const leadId of leadIds) {
+      await supabase.from("campaigns").insert({
+        lead_id: leadId,
+        seller_id: firstCamp?.sellers?.id ?? null,
+        name: campaignName,
+        channel: sequence[0]?.channel ?? "linkedin",
+        status: "active",
+        current_step: 0,
+        sequence_steps: sequence,
+        started_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+      });
+      await supabase.from("leads").update({ status: "contacted", current_channel: sequence[0]?.channel ?? "linkedin" }).eq("id", leadId);
+    }
+    setAdding(false);
+    setAddSelected(new Set());
+    router.refresh();
+  }
+
+  async function saveMsg(msgId: string) {
+    setSaving(true);
+    await fetch(`/api/messages/${msgId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: editContent }) });
+    setEditingIdx(null);
+    setSaving(false);
+    router.refresh();
+  }
+
+  const visibleCampaigns = allCampaigns.filter(c => c.status !== "completed" && c.status !== "failed");
+
   const tabs = [
-    { label: "Sent Messages", icon: Send, count: messages.filter(m => m.status === "sent").length },
-    { label: "Received", icon: Inbox, count: replies.length },
-    { label: "Funnel", icon: GitBranch, count: 0 },
+    { label: "Leads", icon: Users, count: visibleCampaigns.length },
+    { label: "Sequence", icon: Megaphone, count: sequence.length },
+    { label: "Add Leads", icon: UserPlus, count: leadGroups.reduce((s, g) => s + g.leads.length, 0) },
   ];
 
   return (
     <div>
-      {/* Campaign actions bar */}
-      {isEditable && (
-        <div className="rounded-xl border px-5 py-3 mb-6 flex items-center gap-3"
-          style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Campaign Actions</span>
-          <div className="flex-1" />
-          {campaignStatus === "active" ? (
-            <button onClick={() => handleCampaignAction("pause")} disabled={!!acting}
-              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50"
-              style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}>
-              {acting === "pause" ? <Loader2 size={12} className="animate-spin" /> : <Pause size={12} />} Pause
-            </button>
-          ) : (
-            <button onClick={() => handleCampaignAction("resume")} disabled={!!acting}
-              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50"
-              style={{ backgroundColor: C.greenLight, color: C.green }}>
-              {acting === "resume" ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />} Resume
-            </button>
-          )}
-          <button onClick={() => { if (confirm("Cancel this campaign?")) handleCampaignAction("cancel"); }}
-            disabled={!!acting}
-            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50"
-            style={{ backgroundColor: C.redLight, color: C.red }}>
-            {acting === "cancel" ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />} Cancel
-          </button>
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div className="flex items-center gap-1 mb-6 border-b" style={{ borderColor: C.border }}>
+      <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
         {tabs.map((t, i) => {
           const active = tab === i;
           const Icon = t.icon;
@@ -126,137 +141,344 @@ export default function CampaignDetailClient({
             <button key={t.label} onClick={() => setTab(i)}
               className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all relative"
               style={{ color: active ? gold : C.textMuted }}>
-              <Icon size={15} />
-              {t.label}
-              {t.count > 0 && (
-                <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: active ? `${gold}15` : "#F3F4F6", color: active ? gold : C.textDim }}>
-                  {t.count}
-                </span>
-              )}
+              <Icon size={15} /> {t.label}
+              <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+                style={{ backgroundColor: active ? `${gold}15` : "#F3F4F6", color: active ? gold : C.textDim }}>{t.count}</span>
               {active && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: gold }} />}
             </button>
           );
         })}
       </div>
 
-      {/* ═══ TAB 0: SENT MESSAGES ═══ */}
+      {/* ═══ TAB 0: LEADS ═══ */}
       {tab === 0 && (
         <div>
-          <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-            <div className="px-6 py-4 border-b" style={{ borderColor: C.border }}>
-              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Outreach Messages</h2>
-              <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Messages sent to {leadName}</p>
-            </div>
-            <div className="relative">
-              <div className="absolute left-9 top-0 bottom-0 w-0.5" style={{ backgroundColor: C.border }} />
-              {sequence.map((step, i) => {
-                const meta = channelMeta[step.channel] ?? channelMeta.linkedin;
-                const Icon = meta.icon;
-                const msg = messages.find(m => m.step_number === i);
-                const isSent = msg?.status === "sent";
-                const isSkipped = msg?.status === "skipped";
-                const isCurrent = i === currentStep;
-                const isPast = i < currentStep;
-                const isEditing = editingIdx === i;
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <span className="text-xs font-medium" style={{ color: C.textMuted }}>{selected.size > 0 ? `${selected.size} selected` : "All"}:</span>
+            <Link href={`/campaigns/${campaignId}/edit`} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold hover:opacity-80" style={{ backgroundColor: `${gold}15`, color: gold, border: `1px solid ${gold}30` }}><Pencil size={11} /> Edit</Link>
+            {campaignStatus === "active" ? (
+              <button onClick={() => bulkAct("pause")} disabled={!!acting} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}><Pause size={11} /> Pause</button>
+            ) : campaignStatus === "paused" ? (
+              <button onClick={() => bulkAct("resume")} disabled={!!acting} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: C.greenLight, color: C.green }}><Play size={11} /> Resume</button>
+            ) : null}
+            <button onClick={() => { if (confirm("Cancel this campaign for " + (selected.size > 0 ? "selected leads" : "all leads") + "?")) bulkAct("cancel"); }} disabled={!!acting} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: C.redLight, color: C.red }}><Trash2 size={11} /> Cancel</button>
+            {selected.size > 0 && <button onClick={() => setSelected(new Set())} className="text-xs underline ml-1" style={{ color: C.textMuted }}>Clear</button>}
+          </div>
+          <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <table className="w-full text-sm">
+              <thead>
+                <tr style={{ background: `rgba(201,168,58,0.04)` }}>
+                  <th className="w-10 px-4 py-3"><input type="checkbox" checked={selected.size === visibleCampaigns.length && visibleCampaigns.length > 0} onChange={() => selected.size === visibleCampaigns.length ? setSelected(new Set()) : setSelected(new Set(visibleCampaigns.map(c => c.id)))} style={{ accentColor: gold }} /></th>
+                  {["Lead", "Company", "Role", "Status", "Progress", "Seller", ""].map(h => (
+                    <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted, borderBottom: `1px solid ${C.border}` }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {visibleCampaigns.map(c => {
+                  const l = c.leads; if (!l) return null;
+                  const nm = `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || "Unknown";
+                  const cst = statusConfig[c.status] ?? statusConfig.active;
+                  const ts = c.sequence_steps?.length ?? 0;
+                  const p = ts > 0 ? Math.round((c.current_step / ts) * 100) : 0;
+                  const ck = selected.has(c.id);
+                  return (
+                    <tr key={c.id} className="table-row-hover" style={{ borderBottom: `1px solid ${C.border}`, backgroundColor: ck ? `${gold}06` : "transparent" }}>
+                      <td className="px-4 py-3"><input type="checkbox" checked={ck} onChange={() => { const n = new Set(selected); ck ? n.delete(c.id) : n.add(c.id); setSelected(n); }} style={{ accentColor: gold }} /></td>
+                      <td className="px-4 py-3"><Link href={`/leads/${l.id}`} className="hover:underline"><p className="font-medium" style={{ color: C.textPrimary }}>{nm}</p></Link></td>
+                      <td className="px-4 py-3 text-xs" style={{ color: C.textBody }}>{l.company_name ?? "—"}</td>
+                      <td className="px-4 py-3 text-xs" style={{ color: C.textMuted }}>{l.primary_title_role ?? "—"}</td>
+                      <td className="px-4 py-3"><span className="rounded-md px-2 py-0.5 text-xs font-semibold" style={{ backgroundColor: cst.bg, color: cst.color }}>{cst.label}</span></td>
+                      <td className="px-4 py-3"><div className="flex items-center gap-2"><div className="w-16 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}><div className="h-1.5 rounded-full" style={{ width: `${p}%`, background: `linear-gradient(90deg, ${gold}, #e8c84a)` }} /></div><span className="text-xs tabular-nums" style={{ color: C.textMuted }}>{c.current_step}/{ts}</span></div></td>
+                      <td className="px-4 py-3 text-xs" style={{ color: C.textBody }}>{c.sellers?.name ?? "—"}</td>
+                      <td className="px-4 py-3"><div className="flex gap-1">
+                        {c.status === "active" && <button onClick={() => act(c.id, "pause")} disabled={!!acting} className="rounded-md px-2 py-1 text-xs disabled:opacity-50" style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}><Pause size={10} /></button>}
+                        {c.status === "paused" && <button onClick={() => act(c.id, "resume")} disabled={!!acting} className="rounded-md px-2 py-1 text-xs disabled:opacity-50" style={{ backgroundColor: C.greenLight, color: C.green }}><Play size={10} /></button>}
+                        {["active","paused"].includes(c.status) && <>
+                          <button onClick={() => { if (confirm(`Remove ${nm}?`)) act(c.id, "cancel"); }} disabled={!!acting} className="rounded-md px-2 py-1 text-xs disabled:opacity-50" style={{ backgroundColor: "#F3F4F6", color: C.textMuted }}><Trash2 size={10} /></button>
+                        </>}
+                      </div></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
-                return (
-                  <div key={i} className="relative px-6 py-5" style={{ borderBottom: i < sequence.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                    <div className="flex items-start gap-4">
-                      <div className="relative z-10 shrink-0">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center"
-                          style={{
-                            backgroundColor: isSkipped ? C.bg : isPast ? meta.color : isCurrent ? gold : C.bg,
-                            border: isPast || isCurrent ? "none" : `2px solid ${C.border}`,
-                          }}>
-                          {isSkipped ? <X size={13} style={{ color: C.textDim }} /> :
-                           isPast ? <Check size={13} color="#fff" /> :
-                           isCurrent ? <PlayCircle size={13} color="#fff" /> :
-                           <span className="text-xs font-bold" style={{ color: C.textDim }}>{i}</span>}
-                        </div>
+      {/* ═══ TAB 1: SEQUENCE ═══ */}
+      {tab === 1 && (
+        <div className="space-y-5">
+
+          {/* Actions row */}
+          <div className="flex items-center gap-2">
+            <Link href={`/campaigns/${campaignId}/edit`}
+              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold hover:opacity-80"
+              style={{ backgroundColor: `${gold}15`, color: gold, border: `1px solid ${gold}30` }}>
+              <Pencil size={11} /> Edit Flow
+            </Link>
+            {sellerName && sellerName !== "Unassigned" && (
+              <span className="text-xs" style={{ color: C.textMuted }}>Seller: <strong style={{ color: C.textBody }}>{sellerName}</strong></span>
+            )}
+            <div className="flex-1" />
+            {isEditable && (
+              <div className="flex items-center gap-2">
+                {campaignStatus === "active" ? (
+                  <button onClick={() => act(campaignId, "pause")} disabled={!!acting} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}><Pause size={11} /> Pause</button>
+                ) : (
+                  <button onClick={() => act(campaignId, "resume")} disabled={!!acting} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: C.greenLight, color: C.green }}><Play size={11} /> Resume</button>
+                )}
+                <button onClick={() => { if (confirm("Cancel campaign?")) act(campaignId, "cancel"); }} disabled={!!acting} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: C.redLight, color: C.red }}><Trash2 size={11} /> Cancel</button>
+              </div>
+            )}
+          </div>
+
+          {/* ── FUNNEL + STATUS 50/50 ── */}
+          {(() => {
+            const stColor = campaignStatus === "active" ? C.green : campaignStatus === "paused" ? "#D97706" : campaignStatus === "completed" ? C.blue : C.textMuted;
+            const stBg    = campaignStatus === "active" ? `${C.green}08` : campaignStatus === "paused" ? "#D9770608" : campaignStatus === "completed" ? `${C.blue}08` : C.bg;
+            const stBorder= campaignStatus === "active" ? `${C.green}25` : campaignStatus === "paused" ? "#D9770625" : campaignStatus === "completed" ? `${C.blue}25` : C.border;
+            const curMeta = sequence[currentStep] ? (channelMeta[sequence[currentStep].channel] ?? channelMeta.linkedin) : null;
+
+            return (
+              <div className="rounded-xl border overflow-hidden" style={{ borderColor: C.border }}>
+                <div className="grid grid-cols-2" style={{ minHeight: "200px" }}>
+
+                  {/* ── LEFT: Funnel ── */}
+                  <div className="flex flex-col justify-center gap-0 p-6" style={{ borderRight: `1px solid ${C.border}`, background: `linear-gradient(160deg, ${C.bg} 60%, ${stBg} 100%)` }}>
+                    <p className="text-[10px] font-bold uppercase tracking-widest mb-5 text-center" style={{ color: C.textDim }}>Outreach Funnel</p>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
+                      {sequence.map((step, i) => {
+                        const meta = channelMeta[step.channel] ?? channelMeta.linkedin;
+                        const Icon = meta.icon;
+                        const isPast  = i < currentStep;
+                        const isCur   = i === currentStep && currentStep < sequence.length;
+                        const isFuture= i > currentStep;
+                        const n = sequence.length;
+                        const w = Math.max(14, 100 - i * (86 / Math.max(n - 1, 1)));
+                        const bg = isPast ? meta.color : isCur ? gold : "#94A3B8";
+                        return (
+                          <div key={i} style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                            <div style={{
+                              width: `${w}%`, height: "32px", backgroundColor: bg,
+                              borderRadius: i === 0 ? "8px 8px 0 0" : i === n-1 ? "0 0 8px 8px" : "0",
+                              opacity: isFuture ? 0.25 : 1,
+                              display: "flex", alignItems: "center", justifyContent: "center", gap: "5px", overflow: "hidden",
+                              boxShadow: (isPast || isCur) ? `0 2px 8px ${bg}40` : "none",
+                            }}>
+                              <Icon size={11} color="#fff" />
+                              {w > 50 && <span style={{ color: "#fff", fontSize: "10px", fontWeight: 700, letterSpacing: "0.02em" }}>{meta.label}</span>}
+                              {isPast && w > 42 && <Check size={10} color="rgba(255,255,255,0.9)" />}
+                              {isCur && <span style={{ fontSize: "8px", fontWeight: 800, color: "#fff", backgroundColor: "rgba(255,255,255,0.28)", padding: "1px 5px", borderRadius: "99px", whiteSpace: "nowrap" }}>Now</span>}
+                            </div>
+                            {i < n - 1 && (
+                              <div style={{ width: 0, height: 0, borderLeft: "9px solid transparent", borderRight: "9px solid transparent", borderTop: `7px solid ${bg}`, opacity: isFuture ? 0.25 : 1 }} />
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Completion line */}
+                    {currentStep >= sequence.length && (
+                      <div className="mt-4 flex items-center justify-center gap-1.5">
+                        <CheckCircle2 size={12} style={{ color: C.green }} />
+                        <span style={{ fontSize: "10px", fontWeight: 700, color: C.green }}>All steps completed</span>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-md"
-                            style={{ backgroundColor: `${meta.color}12`, color: meta.color }}>
-                            <Icon size={11} /> {meta.label}
-                          </span>
-                          <span className="text-xs tabular-nums" style={{ color: C.textDim }}>Day {dayPerStep[i] ?? 0}</span>
-                          {isSkipped && <span className="text-xs" style={{ color: C.textDim }}>Skipped</span>}
-                          {isSent && msg?.sent_at && (
-                            <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md"
-                              style={{ backgroundColor: C.greenLight, color: C.green }}>
-                              <Send size={10} /> Sent {new Date(msg.sent_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    )}
+                  </div>
+
+                  {/* ── RIGHT: Status ── */}
+                  <div className="flex flex-col gap-4 p-6" style={{ backgroundColor: C.card }}>
+                    {/* Status pill */}
+                    <div className="flex items-center gap-2">
+                      <div className="rounded-full px-3 py-1 flex items-center gap-1.5 text-xs font-bold"
+                        style={{ backgroundColor: stBg, color: stColor, border: `1px solid ${stBorder}` }}>
+                        {campaignStatus === "active" && <><span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: stColor }} /> Running</>}
+                        {campaignStatus === "paused" && <><Pause size={10} /> Paused</>}
+                        {campaignStatus === "completed" && currentStep < sequence.length && <><MessageSquare size={10} /> Lead Replied</>}
+                        {currentStep >= sequence.length && <><CheckCircle2 size={10} /> Completed</>}
+                      </div>
+                      <span className="text-xs" style={{ color: C.textDim }}>Step {Math.min(currentStep + 1, sequence.length)} / {sequence.length}</span>
+                    </div>
+
+                    {/* Main message */}
+                    <div>
+                      {campaignStatus === "active" && curMeta && (
+                        <>
+                          <p className="text-sm font-bold mb-0.5" style={{ color: C.textPrimary }}>
+                            Sending via {curMeta.label} on Day {dayPerStep[currentStep] ?? 0}
+                          </p>
+                          <p className="text-xs" style={{ color: C.textMuted }}>Waiting for the scheduled send window</p>
+                        </>
+                      )}
+                      {campaignStatus === "paused" && curMeta && (
+                        <>
+                          <p className="text-sm font-bold mb-0.5" style={{ color: C.textPrimary }}>
+                            Paused before {curMeta.label} · Day {dayPerStep[currentStep] ?? 0}
+                          </p>
+                          <p className="text-xs" style={{ color: C.textMuted }}>Resume to continue from step {currentStep + 1}</p>
+                        </>
+                      )}
+                      {campaignStatus === "completed" && currentStep < sequence.length && (
+                        <>
+                          <p className="text-sm font-bold mb-0.5" style={{ color: C.textPrimary }}>
+                            Stopped at step {currentStep + 1}
+                          </p>
+                          <p className="text-xs" style={{ color: C.textMuted }}>Lead replied — moved to pipeline</p>
+                        </>
+                      )}
+                      {currentStep >= sequence.length && (
+                        <>
+                          <p className="text-sm font-bold mb-0.5" style={{ color: C.textPrimary }}>
+                            All {sequence.length} steps delivered
+                          </p>
+                          <p className="text-xs" style={{ color: C.textMuted }}>Campaign ran for {dayPerStep[sequence.length - 1] ?? 0} days</p>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Step timeline */}
+                    <div className="space-y-2 mt-auto">
+                      {sequence.map((step, i) => {
+                        const meta = channelMeta[step.channel] ?? channelMeta.linkedin;
+                        const Icon = meta.icon;
+                        const isPast  = i < currentStep;
+                        const isCur   = i === currentStep && currentStep < sequence.length;
+                        return (
+                          <div key={i} className="flex items-center gap-2.5">
+                            {/* Step dot */}
+                            <div style={{ width: "18px", height: "18px", borderRadius: "50%", flexShrink: 0, backgroundColor: isPast ? meta.color : isCur ? gold : "#E2E8F0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              {isPast ? <Check size={9} color="#fff" /> : isCur ? <PlayCircle size={9} color="#fff" /> : <span style={{ fontSize: "8px", color: "#94A3B8", fontWeight: 700 }}>{i + 1}</span>}
+                            </div>
+                            {/* Channel badge */}
+                            <span style={{ display: "flex", alignItems: "center", gap: "3px", fontSize: "10px", fontWeight: 700, color: meta.color, backgroundColor: `${meta.color}12`, padding: "1px 6px", borderRadius: "4px" }}>
+                              <Icon size={9} /> {meta.label}
                             </span>
+                            <span style={{ fontSize: "10px", color: C.textDim }}>Day {dayPerStep[i] ?? 0}</span>
+                            <div style={{ flex: 1 }} />
+                            <span style={{ fontSize: "10px", fontWeight: 600, color: isPast ? C.green : isCur ? gold : C.textDim }}>
+                              {isPast ? "Sent" : isCur ? "Up next" : "Pending"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── STEPS ACCORDION ── */}
+          <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            {sequence.map((step, i) => {
+              const meta = channelMeta[step.channel] ?? channelMeta.linkedin;
+              const Icon = meta.icon;
+              const msg = messages.find(m => m.step_number === i) ?? messages.find(m => m.step_number === i + 1) ?? null;
+              const tmpl = messageTemplates[i] ?? null;
+              // displayBody: prefer sent/tracked message, fall back to wizard template
+              const displayBody: string | null = msg?.content ?? tmpl?.body ?? null;
+              const displaySubject: string | null = msg ? null : (tmpl?.subject ?? null);
+              const isSent = msg?.status === "sent" || msg?.status === "skipped";
+              const isPending = msg?.status === "draft";
+              const isPast = i < currentStep;
+              const isCurrent = i === currentStep;
+              const isOpen = expandedStep === i;
+              const isEditing = editingIdx === i;
+              // Show connection note inside first LinkedIn step
+              const showConnNote = i === 0 && step.channel === "linkedin" && !!connectionNote;
+
+              return (
+                <div key={i} style={{ borderBottom: i < sequence.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                  <button onClick={() => setExpandedStep(isOpen ? null : i)}
+                    className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-gray-50">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: isPast ? meta.color : isCurrent ? gold : "#E5E7EB" }}>
+                      {isPast ? <Check size={12} color="#fff" /> : isCurrent ? <PlayCircle size={12} color="#fff" /> : <span className="text-[10px] font-bold text-white">{i + 1}</span>}
+                    </div>
+                    <span className="flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: `${meta.color}12`, color: meta.color }}><Icon size={11} /> {meta.label}</span>
+                    <span className="text-xs" style={{ color: C.textDim }}>Day {dayPerStep[i] ?? 0}{i > 0 ? ` (+${step.daysAfter}d)` : ""}</span>
+                    {showConnNote && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: "#0A66C212", color: "#0A66C2" }}>+ connection note</span>}
+                    <div className="flex-1" />
+                    {isSent && <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: C.greenLight, color: C.green }}><Send size={10} /> Sent</span>}
+                    {isPending && <span className="text-xs px-2 py-0.5 rounded-md" style={{ backgroundColor: isCurrent ? `${gold}15` : "#F3F4F6", color: isCurrent ? gold : C.textMuted }}>{isCurrent ? "Up Next" : "Pending"}</span>}
+                  </button>
+
+                  {isOpen && (
+                    <div className="px-5 pb-4 pt-1 fade-in space-y-3">
+                      {/* Connection request note — only in first LinkedIn step */}
+                      {showConnNote && (
+                        <div className="rounded-lg border p-4" style={{ borderColor: "#0A66C220", backgroundColor: "#0A66C206" }}>
+                          <div className="flex items-center gap-2 mb-2">
+                            <Share2 size={12} style={{ color: "#0A66C2" }} />
+                            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#0A66C2" }}>LinkedIn — Connection Request Note</span>
+                          </div>
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{connectionNote}</p>
+                        </div>
+                      )}
+                      {/* Step message (from campaign_messages or wizard template) */}
+                      {displayBody && !isEditing && (
+                        <div className="rounded-lg border p-4 relative" style={{ borderColor: isSent ? `${C.green}30` : isCurrent ? `${gold}30` : C.border, backgroundColor: isSent ? `${C.green}04` : isCurrent ? `${gold}04` : C.bg }}>
+                          {displaySubject && (
+                            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Subject: {displaySubject}</p>
                           )}
-                          <div className="flex-1" />
-                          {msg && !isSkipped && !isEditing && isEditable && msg.status !== "sent" && (
-                            <button onClick={() => startEdit(msg)}
-                              className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md"
+                          {!msg && tmpl && (
+                            <p className="text-[10px] font-medium mb-2 px-2 py-0.5 rounded inline-block" style={{ backgroundColor: `${gold}12`, color: gold }}>Template — not yet sent</p>
+                          )}
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{displayBody}</p>
+                          {(isPending || (!msg && tmpl)) && isEditable && msg && (
+                            <button onClick={() => { setEditingIdx(i); setEditContent(msg.content ?? ""); }}
+                              className="absolute top-3 right-3 flex items-center gap-1 text-xs px-2 py-1 rounded-md hover:opacity-80"
                               style={{ backgroundColor: `${gold}15`, color: gold }}>
-                              <Pencil size={11} /> Edit
+                              <Pencil size={10} /> Edit
                             </button>
                           )}
                         </div>
-                        {msg && !isEditing && !isSkipped && (
-                          <div className="rounded-lg border p-4" style={{
-                            borderColor: isSent ? `${C.green}30` : isCurrent ? `${gold}30` : C.border,
-                            backgroundColor: isSent ? `${C.green}04` : isCurrent ? `${gold}04` : C.bg,
-                          }}>
-                            <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{msg.content}</p>
+                      )}
+                      {isEditing && msg && (
+                        <div className="rounded-lg border p-4 space-y-3" style={{ borderColor: gold, backgroundColor: `${gold}04` }}>
+                          <textarea rows={5} className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none" style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }} value={editContent} onChange={e => setEditContent(e.target.value)} />
+                          <div className="flex gap-2">
+                            <button onClick={() => saveMsg(msg.id)} disabled={saving} className="flex items-center gap-1 rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: C.green, color: "#fff" }}>{saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save</button>
+                            <button onClick={() => setEditingIdx(null)} className="flex items-center gap-1 rounded-lg px-4 py-2 text-xs" style={{ backgroundColor: "#F3F4F6", color: C.textBody }}><X size={12} /> Cancel</button>
                           </div>
-                        )}
-                        {isEditing && msg && (
-                          <div className="rounded-lg border p-4 space-y-3" style={{ borderColor: gold, backgroundColor: `${gold}04` }}>
-                            <textarea rows={5} className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
-                              style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
-                              value={editContent} onChange={e => setEditContent(e.target.value)} />
-                            <div className="flex items-center gap-2">
-                              <button onClick={() => saveEdit(msg)} disabled={saving}
-                                className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50"
-                                style={{ backgroundColor: C.green, color: "#fff" }}>
-                                {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
-                              </button>
-                              <button onClick={() => setEditingIdx(null)}
-                                className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-medium"
-                                style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>
-                                <X size={12} /> Cancel
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
+                      {!displayBody && !showConnNote && (
+                        <div className="rounded-lg border border-dashed p-4 text-center" style={{ borderColor: C.border }}>
+                          <p className="text-xs" style={{ color: C.textDim }}>No message for this step</p>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {/* Auto-replies */}
-          {(autoReplies?.positive || autoReplies?.negative) && (
-            <div className="rounded-xl border overflow-hidden mt-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <div className="px-6 py-4 border-b" style={{ borderColor: C.border }}>
-                <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Auto-Replies</h2>
-                <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Automatic responses when lead replies</p>
-              </div>
-              <div className="p-5 space-y-3">
+          {(autoReplies.positive || autoReplies.negative || autoReplies.question) && (
+            <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Auto-Reply Templates</p>
+              <div className="space-y-3">
                 {autoReplies.positive && (
-                  <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: `${C.green}04` }}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <ThumbsUp size={13} style={{ color: C.green }} />
-                      <span className="text-xs font-semibold" style={{ color: C.green }}>Positive Response</span>
-                    </div>
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{autoReplies.positive}</p>
+                  <div className="rounded-lg border p-3" style={{ borderColor: `${C.green}30`, backgroundColor: `${C.green}04` }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.green }}>Positive Reply</p>
+                    <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{autoReplies.positive}</p>
                   </div>
                 )}
                 {autoReplies.negative && (
-                  <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: `${C.red}04` }}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <ThumbsDown size={13} style={{ color: C.red }} />
-                      <span className="text-xs font-semibold" style={{ color: C.red }}>Negative Response</span>
-                    </div>
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{autoReplies.negative}</p>
+                  <div className="rounded-lg border p-3" style={{ borderColor: `${C.red}30`, backgroundColor: `${C.red}04` }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.red }}>Negative Reply</p>
+                    <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{autoReplies.negative}</p>
+                  </div>
+                )}
+                {autoReplies.question && (
+                  <div className="rounded-lg border p-3" style={{ borderColor: `${C.blue}30`, backgroundColor: `${C.blue}04` }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.blue }}>Question Reply</p>
+                    <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{autoReplies.question}</p>
                   </div>
                 )}
               </div>
@@ -265,260 +487,153 @@ export default function CampaignDetailClient({
         </div>
       )}
 
-      {/* ═══ TAB 1: RECEIVED ═══ */}
-      {tab === 1 && (
-        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${C.blue}` }}>
-          <div className="px-6 py-4 border-b" style={{ borderColor: C.border }}>
-            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Received Messages</h2>
-            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Replies from {leadName}</p>
-          </div>
-          {replies.length === 0 ? (
-            <div className="py-12 text-center">
-              <Inbox size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-              <p className="text-sm" style={{ color: C.textDim }}>No replies received yet</p>
-            </div>
-          ) : (
-            <div className="divide-y" style={{ borderColor: C.border }}>
-              {replies.map((r) => {
-                const cls = classificationMeta[r.classification] ?? { label: r.classification, color: C.textMuted, icon: MessageCircle };
-                const ClsIcon = cls.icon;
-                return (
-                  <div key={r.id} className="px-6 py-4">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-xs tabular-nums" style={{ color: C.textMuted }}>
-                        {new Date(r.received_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
-                      </span>
-                      <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md"
-                        style={{ backgroundColor: `${cls.color}15`, color: cls.color }}>
-                        <ClsIcon size={11} /> {cls.label}
-                      </span>
-                      {r.channel && (
-                        <span className="text-xs" style={{ color: C.textMuted }}>via {r.channel}</span>
-                      )}
-                      {r.ai_confidence && (
-                        <span className="text-xs" style={{ color: C.textDim }}>{Math.round(r.ai_confidence * 100)}% confidence</span>
-                      )}
-                    </div>
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{r.reply_text}</p>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ═══ TAB 2: FUNNEL ═══ */}
+      {/* ═══ TAB 2: ADD LEADS ═══ */}
       {tab === 2 && (() => {
-        // Build funnel: merge sent messages + replies in chronological order
-        const events: { type: "sent" | "reply"; timestamp: string; step?: number; channel: string; content: string; classification?: string }[] = [];
+        const sameIcpLeads = campaignIcpId
+          ? leadGroups.flatMap((g: LeadGroup) => g.leads.filter((l: UnlinkedLead) => (l as any).icp_profile_id === campaignIcpId))
+          : [];
+        const otherLeads = campaignIcpId
+          ? leadGroups.flatMap((g: LeadGroup) => g.leads.filter((l: UnlinkedLead) => (l as any).icp_profile_id !== campaignIcpId))
+          : leadGroups.flatMap((g: LeadGroup) => g.leads);
+        const totalAvailable = leadGroups.reduce((s: number, g: LeadGroup) => s + g.leads.length, 0);
 
-        messages.filter(m => m.status === "sent" && m.sent_at).forEach(m => {
-          events.push({ type: "sent", timestamp: m.sent_at!, step: m.step_number, channel: m.channel, content: m.content });
-        });
-        replies.forEach(r => {
-          events.push({ type: "reply", timestamp: r.received_at, channel: r.channel, content: r.reply_text, classification: r.classification });
-        });
-        events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        const sameIcpProfileName = (() => {
+          if (!campaignIcpId) return "Same Mining Ticket";
+          const found = leadGroups.find((g: LeadGroup) => g.leads.some((l: UnlinkedLead) => (l as any).icp_profile_id === campaignIcpId));
+          return found?.profileName ?? "Same Mining Ticket";
+        })();
 
-        const totalSteps = sequence.length;
-        const replyStep = replies.length > 0 ? messages.filter(m => m.status === "sent" && m.sent_at && new Date(m.sent_at) < new Date(replies[0].received_at)).length : null;
+        const sameCompatCount = sameIcpLeads.filter((l: UnlinkedLead) => channels.every(ch => ch === "linkedin" ? l.allow_linkedin : ch === "email" ? l.allow_email : ch === "call" ? l.allow_call : true)).length;
+        const otherCompatCount = otherLeads.filter((l: UnlinkedLead) => channels.every(ch => ch === "linkedin" ? l.allow_linkedin : ch === "email" ? l.allow_email : ch === "call" ? l.allow_call : true)).length;
+
+        function renderLeadRow(lead: UnlinkedLead, showTicketName?: string) {
+          const nm = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
+          const ok = channels.every(ch => ch === "linkedin" ? lead.allow_linkedin : ch === "email" ? lead.allow_email : ch === "call" ? lead.allow_call : true);
+          const isChecked = addSelected.has(lead.id);
+          return (
+            <div key={lead.id} className="flex items-center gap-4 px-5 py-2.5 cursor-pointer hover:bg-gray-50"
+              style={{ opacity: ok ? 1 : 0.5, backgroundColor: isChecked ? `${gold}06` : "transparent" }}
+              onClick={() => { if (ok) { const n = new Set(addSelected); isChecked ? n.delete(lead.id) : n.add(lead.id); setAddSelected(n); } }}>
+              {ok && <input type="checkbox" checked={isChecked} readOnly style={{ accentColor: gold }} />}
+              <div className="flex-1 min-w-0">
+                <Link href={`/leads/${lead.id}`} onClick={e => e.stopPropagation()}
+                  className="text-sm font-medium hover:underline" style={{ color: C.textPrimary }}>{nm}</Link>
+                <p className="text-xs" style={{ color: C.textMuted }}>
+                  {lead.primary_title_role ?? ""}{lead.company_name ? ` · ${lead.company_name}` : ""}
+                  {showTicketName && <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ backgroundColor: "#F3F4F6", color: C.textMuted }}>{showTicketName}</span>}
+                </p>
+              </div>
+              {lead.lead_score != null && (
+                <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ backgroundColor: lead.lead_score >= 80 ? C.redLight : lead.lead_score >= 50 ? C.orangeLight : C.accentLight, color: lead.lead_score >= 80 ? C.red : lead.lead_score >= 50 ? C.orange : C.accent }}>{lead.lead_score}</span>
+              )}
+              {ok ? (
+                <button onClick={(e) => { e.stopPropagation(); addLeadsToCampaign([lead.id]); }} disabled={adding}
+                  className="text-xs font-medium px-2 py-1 rounded-md disabled:opacity-50 hover:opacity-80" style={{ backgroundColor: `${C.green}12`, color: C.green }}>+ Add</button>
+              ) : (
+                <span className="text-xs" style={{ color: C.textDim }}>Missing channel</span>
+              )}
+            </div>
+          );
+        }
 
         return (
-          <div className="space-y-6">
-            {/* Visual Funnel */}
-            <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <h2 className="text-sm font-bold mb-6" style={{ color: C.textPrimary }}>Campaign Funnel</h2>
-
-              <div className="flex flex-col items-center gap-1">
-                {/* Connection Request (step 0) */}
-                {(() => {
-                  const crMsg = messages.find(m => m.step_number === 0);
-                  const crSent = crMsg?.status === "sent";
-                  const crSkipped = crMsg?.status === "skipped";
-                  const responded = replyStep !== null && replyStep === 0;
-                  return (
-                    <div className="relative w-full flex flex-col items-center">
-                      <div className="relative flex items-center justify-center py-3"
-                        style={{
-                          width: "100%",
-                          background: crSkipped ? `${C.textDim}15` : crSent || crSkipped ? `${C.linkedin}20` : `${C.border}`,
-                          clipPath: "polygon(5% 0%, 95% 0%, 90% 100%, 10% 100%)",
-                          borderRadius: 8,
-                        }}>
-                        <div className="flex items-center gap-2">
-                          <Share2 size={14} style={{ color: crSkipped ? C.textDim : C.linkedin }} />
-                          <span className="text-xs font-bold" style={{ color: crSkipped ? C.textDim : C.linkedin }}>
-                            Connection Request {crSkipped ? "(Skipped)" : crSent ? "✓" : ""}
-                          </span>
-                        </div>
-                      </div>
-                      {responded && (
-                        <div className="absolute -right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 rounded-full px-2 py-1"
-                          style={{ backgroundColor: C.blue, color: "#fff" }}>
-                          <Inbox size={10} /> <span className="text-xs font-bold">Reply!</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-
-                {/* Sequence steps */}
-                {sequence.map((step, i) => {
-                  const msg = messages.find(m => m.step_number === i + 1);
-                  const wasSent = msg?.status === "sent";
-                  const meta = channelMeta[step.channel] ?? channelMeta.linkedin;
-                  const Icon = meta.icon;
-                  const widthPct = 100 - ((i + 1) * (60 / sequence.length));
-                  const responded = replyStep !== null && replyStep === i + 1;
-                  const notReached = !wasSent && (replyStep !== null && i + 1 > replyStep);
-
-                  // Step labels
-                  const stepLabels: Record<number, string> = {};
-                  let liCount = 0;
-                  sequence.forEach((s, idx) => {
-                    if (s.channel === "linkedin") {
-                      liCount++;
-                      if (liCount === 1) stepLabels[idx] = "First DM";
-                      else stepLabels[idx] = `Follow-up ${liCount - 1}`;
-                    } else if (s.channel === "email") {
-                      stepLabels[idx] = "Email";
-                    } else if (s.channel === "call") {
-                      stepLabels[idx] = "Call";
-                    }
-                  });
-
-                  return (
-                    <div key={i} className="relative flex flex-col items-center" style={{ width: "100%" }}>
-                      <div className="relative flex items-center justify-center py-3"
-                        style={{
-                          width: `${widthPct}%`,
-                          background: notReached ? `${C.border}` : wasSent ? `${meta.color}25` : `${meta.color}10`,
-                          clipPath: "polygon(5% 0%, 95% 0%, 90% 100%, 10% 100%)",
-                          borderRadius: 6,
-                          opacity: notReached ? 0.4 : 1,
-                        }}>
-                        <div className="flex items-center gap-2">
-                          <Icon size={13} style={{ color: notReached ? C.textDim : meta.color }} />
-                          <span className="text-xs font-bold" style={{ color: notReached ? C.textDim : meta.color }}>
-                            {stepLabels[i] ?? `Step ${i + 1}`} {wasSent ? "✓" : notReached ? "✗" : ""}
-                          </span>
-                          <span className="text-xs" style={{ color: C.textDim }}>Day {dayPerStep[i]}</span>
-                        </div>
-                      </div>
-                      {responded && (
-                        <div className="absolute -right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 rounded-full px-2.5 py-1 z-10"
-                          style={{ backgroundColor: C.blue, color: "#fff" }}>
-                          <Inbox size={10} /> <span className="text-xs font-bold">Reply!</span>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-                {/* Result */}
-                <div className="mt-2 flex items-center justify-center py-3 rounded-lg"
-                  style={{
-                    width: `${Math.max(20, 100 - ((sequence.length + 1) * (60 / sequence.length)))}%`,
-                    background: replies.some(r => ["positive", "meeting_intent"].includes(r.classification))
-                      ? `${C.green}25`
-                      : replies.some(r => ["negative", "unsubscribe"].includes(r.classification))
-                      ? `${C.red}25`
-                      : replies.length > 0
-                      ? `${C.blue}25`
-                      : `${C.textDim}10`,
-                  }}>
-                  <span className="text-xs font-bold" style={{
-                    color: replies.some(r => ["positive", "meeting_intent"].includes(r.classification))
-                      ? C.green
-                      : replies.some(r => ["negative", "unsubscribe"].includes(r.classification))
-                      ? C.red
-                      : replies.length > 0
-                      ? C.blue
-                      : C.textDim,
-                  }}>
-                    {replies.some(r => ["positive", "meeting_intent"].includes(r.classification))
-                      ? "→ Odoo Lead Created"
-                      : replies.some(r => ["negative", "unsubscribe"].includes(r.classification))
-                      ? "→ Closed Lost"
-                      : replies.length > 0
-                      ? "→ Conversation Active"
-                      : "→ No Response Yet"}
-                  </span>
-                </div>
+          <div>
+            {/* Loading / selection bar */}
+            {adding && (
+              <div className="rounded-lg border px-4 py-3 mb-4 flex items-center gap-2" style={{ borderColor: gold, backgroundColor: `${gold}08` }}>
+                <Loader2 size={14} className="animate-spin" style={{ color: gold }} />
+                <span className="text-sm font-medium" style={{ color: gold }}>Adding leads to campaign...</span>
               </div>
-
-              {/* Stats row */}
-              <div className="grid grid-cols-4 gap-4 mt-6 pt-4 border-t" style={{ borderColor: C.border }}>
-                <div className="text-center">
-                  <p className="text-xl font-bold" style={{ color: C.textPrimary }}>{totalSteps}</p>
-                  <p className="text-xs" style={{ color: C.textMuted }}>Total Steps</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xl font-bold" style={{ color: C.green }}>{messages.filter(m => m.status === "sent").length}</p>
-                  <p className="text-xs" style={{ color: C.textMuted }}>Sent</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xl font-bold" style={{ color: C.blue }}>{replies.length}</p>
-                  <p className="text-xs" style={{ color: C.textMuted }}>Replies</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xl font-bold" style={{ color: gold }}>{replyStep !== null ? `Step ${replyStep}` : "—"}</p>
-                  <p className="text-xs" style={{ color: C.textMuted }}>Replied After</p>
-                </div>
+            )}
+            {addSelected.size > 0 && (
+              <div className="flex items-center gap-2 mb-4 rounded-lg border px-4 py-3" style={{ borderColor: gold, backgroundColor: `${gold}06` }}>
+                <span className="text-xs font-bold" style={{ color: gold }}>{addSelected.size} selected</span>
+                <button onClick={() => addLeadsToCampaign(Array.from(addSelected))} disabled={adding}
+                  className="flex items-center gap-1 rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: C.green, color: "#fff" }}>
+                  <UserPlus size={11} /> Add Selected to Campaign
+                </button>
+                <button onClick={() => setAddSelected(new Set())} className="text-xs underline" style={{ color: C.textMuted }}>Clear</button>
               </div>
-            </div>
+            )}
 
-            {/* Timeline */}
-            <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <div className="px-6 py-4 border-b" style={{ borderColor: C.border }}>
-                <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Conversation Timeline</h2>
+            {totalAvailable === 0 ? (
+              <div className="rounded-xl border py-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                <p className="text-sm" style={{ color: C.textDim }}>All leads already have active campaigns</p>
               </div>
-              <div className="relative">
-                <div className="absolute left-9 top-0 bottom-0 w-0.5" style={{ backgroundColor: C.border }} />
-                {events.map((ev, i) => {
-                  const isSent = ev.type === "sent";
-                  const cls = ev.classification ? classificationMeta[ev.classification] : null;
-                  return (
-                    <div key={i} className="relative px-6 py-4" style={{ borderBottom: i < events.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                      <div className="flex items-start gap-4">
-                        <div className="relative z-10 shrink-0">
-                          <div className="w-7 h-7 rounded-full flex items-center justify-center"
-                            style={{ backgroundColor: isSent ? gold : C.blue }}>
-                            {isSent ? <Send size={12} color="#fff" /> : <Inbox size={12} color="#fff" />}
-                          </div>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-semibold" style={{ color: isSent ? gold : C.blue }}>
-                              {isSent ? "Sent" : "Reply from " + leadName}
-                            </span>
-                            {ev.step !== undefined && <span className="text-xs" style={{ color: C.textDim }}>Step {ev.step}</span>}
-                            {cls && (
-                              <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md"
-                                style={{ backgroundColor: `${cls.color}15`, color: cls.color }}>
-                                {cls.label}
-                              </span>
-                            )}
-                            <span className="text-xs tabular-nums ml-auto" style={{ color: C.textDim }}>
-                              {new Date(ev.timestamp).toLocaleDateString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                          </div>
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>
-                            {ev.content.length > 200 ? `${ev.content.slice(0, 200)}...` : ev.content}
-                          </p>
-                        </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-5 items-start">
+
+                {/* ── CARD 1: Same Mining Ticket ── */}
+                <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: `${C.green}40` }}>
+                  {/* Card header */}
+                  <div className="px-5 py-4 border-b" style={{ borderColor: `${C.green}20`, background: `linear-gradient(135deg, ${C.green}08 0%, ${C.green}04 100%)` }}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <Target size={14} style={{ color: C.green }} />
+                        <span className="text-sm font-bold" style={{ color: C.green }}>Same Mining Ticket</span>
                       </div>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${C.green}15`, color: C.green }}>{sameIcpLeads.length}</span>
                     </div>
-                  );
-                })}
-                {events.length === 0 && (
-                  <div className="py-12 text-center">
-                    <p className="text-sm" style={{ color: C.textDim }}>No activity yet</p>
+                    <p className="text-xs truncate" style={{ color: C.textMuted }}>{sameIcpProfileName}</p>
+                    <div className="flex items-center justify-between mt-3">
+                      <span className="text-xs" style={{ color: C.textDim }}>{sameCompatCount} compatible with this flow</span>
+                      <button
+                        onClick={() => addLeadsToCampaign(sameIcpLeads.filter((l: UnlinkedLead) => channels.every(ch => ch === "linkedin" ? l.allow_linkedin : ch === "email" ? l.allow_email : ch === "call" ? l.allow_call : true)).map((l: UnlinkedLead) => l.id))}
+                        disabled={adding || sameCompatCount === 0}
+                        className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-40 hover:opacity-80"
+                        style={{ backgroundColor: C.green, color: "#fff" }}>
+                        <UserPlus size={11} /> Add All ({sameCompatCount})
+                      </button>
+                    </div>
                   </div>
-                )}
+                  {/* Lead rows */}
+                  <div className="divide-y max-h-[420px] overflow-y-auto" style={{ borderColor: C.border }}>
+                    {sameIcpLeads.length === 0 ? (
+                      <div className="py-10 text-center">
+                        <p className="text-xs" style={{ color: C.textDim }}>No leads from this mining ticket</p>
+                      </div>
+                    ) : sameIcpLeads.map((l: UnlinkedLead) => renderLeadRow(l))}
+                  </div>
+                </div>
+
+                {/* ── CARD 2: Other Available Leads ── */}
+                <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                  {/* Card header */}
+                  <div className="px-5 py-4 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <Users size={14} style={{ color: C.textMuted }} />
+                        <span className="text-sm font-bold" style={{ color: C.textBody }}>Other Available Leads</span>
+                      </div>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#F3F4F6", color: C.textMuted }}>{otherLeads.length}</span>
+                    </div>
+                    <p className="text-xs" style={{ color: C.textDim }}>From different mining tickets</p>
+                    <div className="flex items-center justify-between mt-3">
+                      <span className="text-xs" style={{ color: C.textDim }}>{otherCompatCount} compatible with this flow</span>
+                      <button
+                        onClick={() => addLeadsToCampaign(otherLeads.filter((l: UnlinkedLead) => channels.every(ch => ch === "linkedin" ? l.allow_linkedin : ch === "email" ? l.allow_email : ch === "call" ? l.allow_call : true)).map((l: UnlinkedLead) => l.id))}
+                        disabled={adding || otherCompatCount === 0}
+                        className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-40 hover:opacity-80"
+                        style={{ backgroundColor: C.textBody, color: "#fff" }}>
+                        <UserPlus size={11} /> Add All ({otherCompatCount})
+                      </button>
+                    </div>
+                  </div>
+                  {/* Lead rows with ticket name badge */}
+                  <div className="divide-y max-h-[420px] overflow-y-auto" style={{ borderColor: C.border }}>
+                    {otherLeads.length === 0 ? (
+                      <div className="py-10 text-center">
+                        <p className="text-xs" style={{ color: C.textDim }}>No other leads available</p>
+                      </div>
+                    ) : otherLeads.map((l: UnlinkedLead) => {
+                      const ticketName = leadGroups.find((g: LeadGroup) => g.leads.some((gl: UnlinkedLead) => gl.id === l.id))?.profileName;
+                      return renderLeadRow(l, ticketName);
+                    })}
+                  </div>
+                </div>
+
               </div>
-            </div>
+            )}
           </div>
         );
       })()}

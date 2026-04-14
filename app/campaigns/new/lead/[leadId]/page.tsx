@@ -86,7 +86,7 @@ const sequenceTemplates = [
   },
 ];
 
-const WIZARD_STEPS = ["Sequence", "Messages", "Review"];
+const WIZARD_STEPS = ["Name", "Sequence", "Messages", "Review"];
 
 export default function NewLeadCampaignWizard() {
   const router = useRouter();
@@ -95,6 +95,7 @@ export default function NewLeadCampaignWizard() {
 
   const [wizardStep, setWizardStep] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [campaignName, setCampaignName] = useState("");
   const [lead, setLead] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [bio, setBio] = useState<any>(null);
@@ -109,6 +110,9 @@ export default function NewLeadCampaignWizard() {
   // Channel messages (structured per-channel config)
   const [channelMessages, setChannelMessages] = useState<ChannelMessages>({ steps: [], autoReplies: { positive: "", negative: "", question: "" } });
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [messagesWarning, setMessagesWarning] = useState<string | null>(null);
   const [language, setLanguage] = useState("es");
 
   useEffect(() => {
@@ -166,23 +170,27 @@ export default function NewLeadCampaignWizard() {
   // Submit
   async function handleSubmit() {
     setSubmitting(true);
+    setSubmitError(null);
     const uniqueChannels = [...new Set(sequence.map(s => s.channel))];
     const leadName = `${lead?.primary_first_name ?? ""} ${lead?.primary_last_name ?? ""}`.trim();
     const { error } = await supabase.from("campaign_requests").insert({
-      name: `${leadName} @ ${lead?.company_name ?? "Unknown"} — ${uniqueChannels.map(c => allChannelOptions.find(o => o.key === c)?.label).join(" + ")}`,
+      name: campaignName.trim() || `${leadName} @ ${lead?.company_name ?? "Unknown"} — ${uniqueChannels.map(c => allChannelOptions.find(o => o.key === c)?.label).join(" + ")}`,
       icp_profile_id: lead?.icp_profile_id ?? null,
       lead_id: leadId,
       channels: uniqueChannels,
       sequence_length: sequence.length,
       frequency_days: 0,
       target_leads_count: 1,
-      message_prompts: { sequence, channelMessages, language },
+      message_prompts: { sequence, channelMessages, language, selectedLeadIds: [leadId] },
       status: "pending_review",
     });
-    if (!error) {
-      router.push("/campaigns?submitted=1");
+    if (error) {
+      setSubmitError(error.message);
+      setSubmitting(false);
+    } else {
+      setSubmitted(true);
+      setSubmitting(false);
     }
-    setSubmitting(false);
   }
 
   const days = cumulativeDays();
@@ -264,8 +272,24 @@ export default function NewLeadCampaignWizard() {
         ))}
       </div>
 
-      {/* ═══ STEP 0: SEQUENCE BUILDER ═══ */}
+      {/* ═══ STEP 0: CAMPAIGN NAME ═══ */}
       {wizardStep === 0 && (
+        <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+          <h2 className="text-sm font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Campaign Name</h2>
+          <p className="text-xs mb-4" style={{ color: C.textDim }}>Give your campaign a name so you can identify it later.</p>
+          <input
+            type="text"
+            value={campaignName}
+            onChange={e => setCampaignName(e.target.value)}
+            placeholder={`e.g. ${leadName || "Lead"} — LinkedIn Outreach`}
+            className="w-full rounded-lg px-4 py-3 text-base font-semibold focus:outline-none"
+            style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}
+          />
+        </div>
+      )}
+
+      {/* ═══ STEP 1: SEQUENCE BUILDER ═══ */}
+      {wizardStep === 1 && (
         <div className="space-y-5">
           {/* Channel availability warning */}
           {disabledChannels.length > 0 && (
@@ -405,8 +429,8 @@ export default function NewLeadCampaignWizard() {
         </div>
       )}
 
-      {/* ═══ STEP 1: CHANNEL MESSAGE CONFIG ═══ */}
-      {wizardStep === 1 && (
+      {/* ═══ STEP 2: CHANNEL MESSAGE CONFIG ═══ */}
+      {wizardStep === 2 && (
         <div className="space-y-5">
           {/* Language selector */}
           <div className="rounded-xl border px-5 py-3 flex items-center gap-3" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -434,8 +458,8 @@ export default function NewLeadCampaignWizard() {
         </div>
       )}
 
-      {/* ═══ STEP 2: REVIEW ═══ */}
-      {wizardStep === 2 && (
+      {/* ═══ STEP 3: REVIEW ═══ */}
+      {wizardStep === 3 && (
         <div className="space-y-5">
           <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
             <h2 className="text-sm font-semibold uppercase tracking-wider mb-5" style={{ color: C.textMuted }}>Campaign Summary</h2>
@@ -510,13 +534,52 @@ export default function NewLeadCampaignWizard() {
               );
             })}
 
-            <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: C.yellowLight }}>
-              <p className="text-sm font-medium" style={{ color: C.textPrimary }}>Review required</p>
-              <p className="text-xs mt-0.5" style={{ color: C.textBody }}>
-                After launching, the SWL team will review your campaign before it starts sending.
-              </p>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ POST-SUBMIT SUCCESS SCREEN ═══ */}
+      {submitted && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+          <div className="rounded-2xl border p-8 w-full max-w-md shadow-2xl text-center fade-in"
+            style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
+              style={{ backgroundColor: C.greenLight }}>
+              <Check size={32} style={{ color: C.green }} />
+            </div>
+            <h2 className="text-xl font-bold mb-2" style={{ color: C.textPrimary }}>Campaign Submitted</h2>
+            <p className="text-sm mb-1" style={{ color: C.textBody }}>
+              Your campaign has been submitted for review.
+            </p>
+            <p className="text-sm mb-6" style={{ color: C.textMuted }}>
+              The SWL team will review your campaign and you will be notified in your <strong>Queue</strong> once it is approved.
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <button onClick={() => router.push("/leads")}
+                className="rounded-lg px-5 py-2.5 text-sm font-medium"
+                style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>
+                Back to Leads
+              </button>
+              <button onClick={() => router.push("/campaigns")}
+                className="rounded-lg px-5 py-2.5 text-sm font-semibold"
+                style={{ backgroundColor: gold, color: "#04070d" }}>
+                View Campaigns
+              </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Warnings & errors */}
+      {messagesWarning && (
+        <div className="mt-4 rounded-lg border px-4 py-3" style={{ borderColor: "#D97706", backgroundColor: "#FFFBEB" }}>
+          <p className="text-sm font-medium" style={{ color: "#D97706" }}>{messagesWarning}</p>
+        </div>
+      )}
+      {submitError && (
+        <div className="mt-4 rounded-lg border px-4 py-3" style={{ borderColor: C.red, backgroundColor: C.redLight }}>
+          <p className="text-sm font-medium" style={{ color: C.red }}>Failed to create campaign</p>
+          <p className="text-xs mt-0.5" style={{ color: C.textBody }}>{submitError}</p>
         </div>
       )}
 
@@ -530,8 +593,22 @@ export default function NewLeadCampaignWizard() {
 
         {wizardStep < WIZARD_STEPS.length - 1 ? (
           <button
-            onClick={() => setWizardStep(s => s + 1)}
-            disabled={wizardStep === 0 && sequence.length === 0}
+            onClick={() => {
+              if (wizardStep === 0 && !campaignName.trim()) {
+                setMessagesWarning("Please enter a campaign name.");
+                return;
+              }
+              if (wizardStep === 2) {
+                const hasAnyContent = channelMessages.steps?.some((s: any) => s.body?.trim());
+                if (!hasAnyContent) {
+                  setMessagesWarning("Please write or generate at least one message before continuing.");
+                  return;
+                }
+              }
+              setMessagesWarning(null);
+              setWizardStep(s => s + 1);
+            }}
+            disabled={wizardStep === 1 && sequence.length === 0}
             className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-40"
             style={{ backgroundColor: gold, color: "#04070d" }}>
             Next <ArrowRight size={15} />

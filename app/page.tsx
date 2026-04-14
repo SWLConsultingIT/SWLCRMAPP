@@ -2,6 +2,8 @@ import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import { Users, Phone, MessageSquare, RefreshCw, AlertTriangle, Share2, Mail, PhoneCall } from "lucide-react";
 import AutoRefresh from "@/components/AutoRefresh";
+import DashboardTabs from "@/components/DashboardTabs";
+import ReportsView from "@/components/ReportsView";
 import Link from "next/link";
 
 // Gold accent
@@ -115,136 +117,141 @@ export default async function DashboardPage() {
 
       <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
 
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        {[
-          { label: "Active Leads", value: stats.activeLeads, color: gold, border: gold, icon: Users },
-          { label: "Calls Today", value: stats.callsToday, color: C.phone, border: C.phone, icon: Phone, sub: "Goal: 15" },
-          { label: "Responses This Week", value: stats.responsesWeek, color: C.green, border: C.green, icon: MessageSquare },
-          { label: "Passed to CRM", value: stats.passedToOdoo, color: C.accent, border: C.accent, icon: RefreshCw },
-        ].map(({ label, value, color, border, icon: Icon, sub }) => (
-          <div key={label} className="rounded-xl border p-5 relative overflow-hidden"
-            style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${border}` }}>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{label}</span>
-              <div className="rounded-lg p-2" style={{ backgroundColor: `${color}15` }}>
-                <Icon size={15} style={{ color }} />
+      <DashboardTabs>
+        {/* ═══ TAB 0: OVERVIEW ═══ */}
+        <div>
+          {/* Stats */}
+          <div className="grid grid-cols-4 gap-4 mb-8">
+            {[
+              { label: "Active Leads", value: stats.activeLeads, color: gold, border: gold, icon: Users },
+              { label: "Calls Today", value: stats.callsToday, color: C.phone, border: C.phone, icon: Phone, sub: "Goal: 15" },
+              { label: "Responses This Week", value: stats.responsesWeek, color: C.green, border: C.green, icon: MessageSquare },
+              { label: "Passed to CRM", value: stats.passedToOdoo, color: C.accent, border: C.accent, icon: RefreshCw },
+            ].map(({ label, value, color, border, icon: Icon, sub }) => (
+              <div key={label} className="rounded-xl border p-5 relative overflow-hidden"
+                style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${border}` }}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{label}</span>
+                  <div className="rounded-lg p-2" style={{ backgroundColor: `${color}15` }}>
+                    <Icon size={15} style={{ color }} />
+                  </div>
+                </div>
+                <p className="text-3xl font-bold tabular-nums" style={{ color }}>{value}</p>
+                {sub && <p className="text-xs mt-1.5" style={{ color: C.textDim }}>{sub}</p>}
+              </div>
+            ))}
+          </div>
+
+          {/* Bottom grid */}
+          <div className="grid grid-cols-3 gap-6">
+            {/* Recent Leads */}
+            <div className="col-span-2 rounded-xl border overflow-hidden fade-in"
+              style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+              <div className="px-6 py-4 flex items-center justify-between border-b"
+                style={{ borderColor: C.border, background: `linear-gradient(90deg, ${goldLight} 0%, transparent 50%)` }}>
+                <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>Recent Leads</h2>
+                <Link href="/leads" className="text-xs font-semibold" style={{ color: gold }}>View All</Link>
+              </div>
+              <div className="grid grid-cols-[1fr_80px_100px_120px] px-6 py-3 border-b text-xs font-semibold uppercase tracking-wider"
+                style={{ borderColor: C.border, color: C.textMuted }}>
+                <span>Company / Contact</span><span>Score</span><span>Channel</span><span>Stage</span>
+              </div>
+              {leads.length === 0 ? (
+                <div className="px-6 py-12 text-center"><p className="text-sm" style={{ color: C.textDim }}>No active leads yet</p></div>
+              ) : (
+                leads.map((lead: any) => {
+                  const s = scoreBadge(lead.lead_score, lead.is_priority);
+                  const c = chIcon[lead.current_channel] ?? chIcon.email;
+                  const CI = c.icon;
+                  return (
+                    <Link key={lead.id} href={`/leads/${lead.id}`}
+                      className="grid grid-cols-[1fr_80px_100px_120px] px-6 py-3.5 items-center border-b table-row-hover"
+                      style={{ borderColor: C.border }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                          style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                          {(lead.company_name ?? "?")[0].toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{lead.company_name ?? "Unknown"}</p>
+                          <p className="text-xs truncate" style={{ color: C.textMuted }}>{lead.primary_first_name} {lead.primary_last_name}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-1 h-6 rounded-full" style={{ backgroundColor: s.color }} />
+                        <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ color: s.color, backgroundColor: s.bg }}>{s.label}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <CI size={14} style={{ color: c.color }} />
+                        <span className="text-xs capitalize" style={{ color: C.textBody }}>{lead.current_channel ?? "—"}</span>
+                      </div>
+                      <span className="text-xs font-medium px-2.5 py-1 rounded-md" style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>
+                        {stageLabel[lead.status] ?? lead.status}
+                      </span>
+                    </Link>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Activity Feed */}
+            <div className="rounded-xl border overflow-hidden fade-in"
+              style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+              <div className="px-5 py-4 border-b"
+                style={{ borderColor: C.border, background: `linear-gradient(90deg, ${goldLight} 0%, transparent 60%)` }}>
+                <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>Recent Activity</h2>
+              </div>
+              <div className="p-5">
+                {activities.length === 0 ? (
+                  <p className="text-sm text-center py-8" style={{ color: C.textDim }}>No recent activity</p>
+                ) : (
+                  <div className="space-y-4">
+                    {activities.map((a) => (
+                      <div key={a.id} className="flex items-start gap-3">
+                        <div className="w-2.5 h-2.5 rounded-full shrink-0 mt-1.5" style={{ backgroundColor: a.color }} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{a.title}</p>
+                          <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{a.detail}</p>
+                          <p className="text-xs mt-1" style={{ color: C.textDim }}>{timeAgo(a.time)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
-            <p className="text-3xl font-bold tabular-nums" style={{ color }}>{value}</p>
-            {sub && <p className="text-xs mt-1.5" style={{ color: C.textDim }}>{sub}</p>}
-          </div>
-        ))}
-      </div>
-
-      {/* Bottom grid */}
-      <div className="grid grid-cols-3 gap-6">
-
-        {/* Recent Leads */}
-        <div className="col-span-2 rounded-xl border overflow-hidden fade-in"
-          style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-          <div className="px-6 py-4 flex items-center justify-between border-b"
-            style={{ borderColor: C.border, background: `linear-gradient(90deg, ${goldLight} 0%, transparent 50%)` }}>
-            <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>Recent Leads</h2>
-            <Link href="/leads" className="text-xs font-semibold" style={{ color: gold }}>View All</Link>
           </div>
 
-          <div className="grid grid-cols-[1fr_80px_100px_120px] px-6 py-3 border-b text-xs font-semibold uppercase tracking-wider"
-            style={{ borderColor: C.border, color: C.textMuted }}>
-            <span>Company / Contact</span><span>Score</span><span>Channel</span><span>Stage</span>
-          </div>
-
-          {leads.length === 0 ? (
-            <div className="px-6 py-12 text-center"><p className="text-sm" style={{ color: C.textDim }}>No active leads yet</p></div>
-          ) : (
-            leads.map((lead: any) => {
-              const s = scoreBadge(lead.lead_score, lead.is_priority);
-              const c = chIcon[lead.current_channel] ?? chIcon.email;
-              const CI = c.icon;
-              return (
-                <Link key={lead.id} href={`/leads/${lead.id}`}
-                  className="grid grid-cols-[1fr_80px_100px_120px] px-6 py-3.5 items-center border-b table-row-hover"
-                  style={{ borderColor: C.border }}>
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                      style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
-                      {(lead.company_name ?? "?")[0].toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{lead.company_name ?? "Unknown"}</p>
-                      <p className="text-xs truncate" style={{ color: C.textMuted }}>{lead.primary_first_name} {lead.primary_last_name}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-1 h-6 rounded-full" style={{ backgroundColor: s.color }} />
-                    <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ color: s.color, backgroundColor: s.bg }}>{s.label}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <CI size={14} style={{ color: c.color }} />
-                    <span className="text-xs capitalize" style={{ color: C.textBody }}>{lead.current_channel ?? "—"}</span>
-                  </div>
-                  <span className="text-xs font-medium px-2.5 py-1 rounded-md" style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>
-                    {stageLabel[lead.status] ?? lead.status}
-                  </span>
-                </Link>
-              );
-            })
+          {/* Alerts */}
+          {alerts.length > 0 && (
+            <div className="mt-8 rounded-xl border overflow-hidden fade-in"
+              style={{ backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }}>
+              <div className="px-6 py-4 flex items-start gap-4">
+                <div className="rounded-full p-2 shrink-0 mt-0.5" style={{ backgroundColor: "#FEF3C7" }}>
+                  <AlertTriangle size={18} style={{ color: gold }} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold" style={{ color: C.textPrimary }}>Requires Attention</p>
+                  <p className="text-sm mt-0.5" style={{ color: C.textBody }}>Issues detected in the current workflow.</p>
+                </div>
+              </div>
+              <div className="px-6 pb-5 flex flex-wrap gap-3">
+                {alerts.map((alert, i) => (
+                  <Link key={i} href={alert.href}
+                    className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full border transition-colors hover:bg-orange-50"
+                    style={{ borderColor: "#FBBF24", color: "#B45309", backgroundColor: "#FFFDF5" }}>
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: gold }} />
+                    {alert.count} {alert.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Activity Feed */}
-        <div className="rounded-xl border overflow-hidden fade-in"
-          style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-          <div className="px-5 py-4 border-b"
-            style={{ borderColor: C.border, background: `linear-gradient(90deg, ${goldLight} 0%, transparent 60%)` }}>
-            <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>Recent Activity</h2>
-          </div>
-          <div className="p-5">
-            {activities.length === 0 ? (
-              <p className="text-sm text-center py-8" style={{ color: C.textDim }}>No recent activity</p>
-            ) : (
-              <div className="space-y-4">
-                {activities.map((a) => (
-                  <div key={a.id} className="flex items-start gap-3">
-                    <div className="w-2.5 h-2.5 rounded-full shrink-0 mt-1.5" style={{ backgroundColor: a.color }} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{a.title}</p>
-                      <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{a.detail}</p>
-                      <p className="text-xs mt-1" style={{ color: C.textDim }}>{timeAgo(a.time)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Alerts */}
-      {alerts.length > 0 && (
-        <div className="mt-8 rounded-xl border overflow-hidden fade-in"
-          style={{ backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }}>
-          <div className="px-6 py-4 flex items-start gap-4">
-            <div className="rounded-full p-2 shrink-0 mt-0.5" style={{ backgroundColor: "#FEF3C7" }}>
-              <AlertTriangle size={18} style={{ color: gold }} />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-bold" style={{ color: C.textPrimary }}>Requires Attention</p>
-              <p className="text-sm mt-0.5" style={{ color: C.textBody }}>Issues detected in the current workflow.</p>
-            </div>
-          </div>
-          <div className="px-6 pb-5 flex flex-wrap gap-3">
-            {alerts.map((alert, i) => (
-              <Link key={i} href={alert.href}
-                className="inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-full border transition-colors hover:bg-orange-50"
-                style={{ borderColor: "#FBBF24", color: "#B45309", backgroundColor: "#FFFDF5" }}>
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: gold }} />
-                {alert.count} {alert.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
+        {/* ═══ TAB 1: REPORTS ═══ */}
+        <ReportsView />
+      </DashboardTabs>
     </div>
   );
 }

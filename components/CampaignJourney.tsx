@@ -14,7 +14,7 @@ type Campaign = {
   channel: string | null;
   status: string | null;
   current_step: number | null;
-  sequence_steps: string[] | null;
+  sequence_steps: any[] | null;
   started_at: string | null;
   next_step_due_at: string | null;
   paused_until: string | null;
@@ -96,7 +96,9 @@ function CampaignBlock({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [saving, setSaving] = useState(false);
-  const steps = campaign.sequence_steps ?? [];
+  // Normalize: sequence_steps can be ["linkedin", ...] or [{channel: "linkedin", daysAfter: 0}, ...]
+  const rawSteps = campaign.sequence_steps ?? [];
+  const steps: string[] = rawSteps.map((s: any) => typeof s === "string" ? s : s?.channel ?? "unknown");
   const currentStep = campaign.current_step ?? 0;
   const st = statusBadge(campaign.status);
 

@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
+import Link from "next/link";
 import {
   Target, Plus, X, CheckCircle, AlertCircle, Clock, Loader2,
-  Pencil, Trash2, ChevronRight, Users, MapPin, Briefcase,
+  Pencil, Trash2, ChevronRight, Users, MapPin, Briefcase, Megaphone, ExternalLink,
 } from "lucide-react";
 
 const gold = C.gold;
@@ -223,6 +224,35 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
 }) {
   const st = statusConfig[profile.status] ?? statusConfig.pending;
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [leads, setLeads] = useState<any[]>([]);
+  const [loadingLeads, setLoadingLeads] = useState(true);
+  const [leadsOpen, setLeadsOpen] = useState(false);
+
+  useEffect(() => {
+    async function fetchLeads() {
+      const { data: profileLeads } = await supabase
+        .from("leads")
+        .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, status, lead_score")
+        .eq("icp_profile_id", profile.id)
+        .order("created_at", { ascending: false });
+
+      if (!profileLeads || profileLeads.length === 0) { setLeads([]); setLoadingLeads(false); return; }
+
+      const leadIds = profileLeads.map(l => l.id);
+      const { data: campaigns } = await supabase
+        .from("campaigns")
+        .select("id, lead_id, name, status")
+        .in("lead_id", leadIds)
+        .in("status", ["active", "paused", "completed"]);
+
+      const campByLead: Record<string, any> = {};
+      for (const c of campaigns ?? []) { campByLead[c.lead_id] = c; }
+
+      setLeads(profileLeads.map(l => ({ ...l, campaign: campByLead[l.id] ?? null })));
+      setLoadingLeads(false);
+    }
+    fetchLeads();
+  }, [profile.id]);
 
   return (
     <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -237,17 +267,39 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
               style={{ backgroundColor: st.bg, color: st.color }}>
               <Clock size={11} /> {st.label}
             </span>
+            {!loadingLeads && leads.length > 0 && (() => {
+              const withCampaign = leads.filter((l: any) => l.campaign);
+              const firstCampaign = withCampaign[0]?.campaign;
+              if (withCampaign.length > 0 && firstCampaign) {
+                return (
+                  <Link href={`/campaigns/${firstCampaign.id}`}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all hover:shadow-md"
+                    style={{ backgroundColor: C.green, color: "#fff" }}>
+                    <Megaphone size={12} /> View Campaign <ExternalLink size={10} />
+                  </Link>
+                );
+              }
+              return (
+                <Link href="/campaigns"
+                  className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all hover:shadow-md"
+                  style={{ backgroundColor: gold, color: "#04070d" }}>
+                  <Megaphone size={12} /> Create Campaign <ChevronRight size={10} />
+                </Link>
+              );
+            })()}
           </div>
           <p className="text-xs" style={{ color: C.textMuted }}>
             Created {new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={onEdit}
-            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
-            style={{ backgroundColor: goldLight, color: gold, border: `1px solid rgba(201,168,58,0.3)` }}>
-            <Pencil size={12} /> Edit
-          </button>
+          {leads.length === 0 && (
+            <button onClick={onEdit}
+              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+              style={{ backgroundColor: goldLight, color: gold, border: `1px solid rgba(201,168,58,0.3)` }}>
+              <Pencil size={12} /> Edit
+            </button>
+          )}
           <button onClick={onClose} style={{ color: C.textMuted }}><X size={18} /></button>
         </div>
       </div>
@@ -320,6 +372,65 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
           </div>
         </div>
       )}
+
+      {/* Leads linked to this ticket */}
+      <div className="px-6 pb-5">
+        <div className="rounded-xl border overflow-hidden" style={{ borderColor: C.border }}>
+          <button onClick={() => setLeadsOpen(!leadsOpen)}
+            className="w-full px-5 py-3 flex items-center gap-2 border-b text-left transition-colors hover:bg-gray-50"
+            style={{ borderColor: C.border, backgroundColor: C.bg }}>
+            <Users size={13} style={{ color: C.textMuted }} />
+            <span className="text-sm font-bold" style={{ color: C.textPrimary }}>Leads</span>
+            {!loadingLeads && <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: goldLight, color: gold }}>{leads.length}</span>}
+            <div className="flex-1" />
+            <ChevronRight size={14} style={{ color: C.textDim, transform: leadsOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
+          </button>
+          {leadsOpen && loadingLeads && (
+            <div className="px-5 py-6 text-center"><Loader2 size={16} className="animate-spin mx-auto" style={{ color: C.textDim }} /></div>
+          )}
+          {leadsOpen && !loadingLeads && leads.length === 0 && (
+            <div className="px-5 py-6 text-center">
+              <p className="text-sm" style={{ color: C.textDim }}>No leads uploaded yet for this ticket.</p>
+            </div>
+          )}
+          {leadsOpen && !loadingLeads && leads.length > 0 && (
+            <div className="divide-y" style={{ borderColor: C.border }}>
+              {leads.map((lead: any) => {
+                const nm = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
+                const hasCampaign = !!lead.campaign;
+                return (
+                  <div key={lead.id} className="flex items-center gap-3 px-5 py-2.5 table-row-hover">
+                    <Link href={`/leads/${lead.id}`} className="flex-1 min-w-0 hover:underline">
+                      <p className="text-sm font-medium" style={{ color: C.textPrimary }}>{nm}</p>
+                      <p className="text-xs" style={{ color: C.textMuted }}>{lead.primary_title_role ?? ""}{lead.company_name ? ` · ${lead.company_name}` : ""}</p>
+                    </Link>
+                    {lead.lead_score != null && (
+                      <span className="text-xs font-bold px-2 py-0.5 rounded" style={{
+                        backgroundColor: lead.lead_score >= 80 ? C.redLight : lead.lead_score >= 50 ? C.orangeLight : C.accentLight,
+                        color: lead.lead_score >= 80 ? C.red : lead.lead_score >= 50 ? C.orange : C.accent,
+                      }}>{lead.lead_score}</span>
+                    )}
+                    {hasCampaign ? (
+                      <Link href={`/campaigns/${lead.campaign.id}`}
+                        className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-md transition-opacity hover:opacity-80"
+                        style={{ backgroundColor: C.greenLight, color: C.green }}>
+                        <Megaphone size={10} /> {lead.campaign.status === "active" ? "Active Campaign" : lead.campaign.status === "paused" ? "Paused" : "Completed"}
+                        <ExternalLink size={9} />
+                      </Link>
+                    ) : (
+                      <Link href="/campaigns?tab=ready"
+                        className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md transition-opacity hover:opacity-80"
+                        style={{ backgroundColor: C.blueLight, color: C.blue }}>
+                        No Campaign <ChevronRight size={10} />
+                      </Link>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Delete */}
       <div className="px-6 pb-5 flex justify-end">

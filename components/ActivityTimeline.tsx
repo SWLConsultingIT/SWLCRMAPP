@@ -73,9 +73,13 @@ function timeAgo(iso: string) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-export default function ActivityTimeline({ activities, notes }: { activities: ActivityItem[]; notes: Note[] }) {
+export default function ActivityTimeline({ activities, notes: initialNotes, leadId }: { activities: ActivityItem[]; notes: Note[]; leadId?: string }) {
   const [filter, setFilter] = useState<"all" | "messages" | "replies" | "calls">("all");
   const [contactFilter, setContactFilter] = useState("all");
+  const [noteText, setNoteText] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+  const [notes, setNotes] = useState(initialNotes);
+  const [noteError, setNoteError] = useState("");
 
   const contacts = [...new Set(activities.map(a => a.contactName))];
   const needsReviewCount = activities.filter(a => a.requiresReview).length;
@@ -267,15 +271,43 @@ export default function ActivityTimeline({ activities, notes }: { activities: Ac
 
           <div className="mb-4">
             <textarea
-              placeholder="Add a note about this company..."
+              value={noteText}
+              onChange={e => setNoteText(e.target.value)}
+              placeholder="Add a note about this lead..."
               rows={3}
               className="w-full text-sm px-3 py-2 rounded-lg border resize-none"
               style={{ borderColor: C.border, color: C.textBody }}
             />
+            {noteError && <p className="text-xs mt-1" style={{ color: C.red }}>{noteError}</p>}
             <div className="flex items-center justify-end gap-2 mt-2">
-              <button className="text-xs font-semibold px-4 py-2 rounded-lg text-white"
+              <button
+                disabled={savingNote || !noteText.trim() || !leadId}
+                onClick={async () => {
+                  if (!leadId || !noteText.trim()) return;
+                  setSavingNote(true);
+                  setNoteError("");
+                  try {
+                    const res = await fetch(`/api/leads/${leadId}/notes`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ content: noteText.trim() }),
+                    });
+                    if (res.ok) {
+                      setNotes(prev => [...prev, { author: "Team", text: noteText.trim(), time: "Just now" }]);
+                      setNoteText("");
+                    } else {
+                      const data = await res.json();
+                      setNoteError(data.error ?? "Failed to save");
+                    }
+                  } catch {
+                    setNoteError("Network error");
+                  } finally {
+                    setSavingNote(false);
+                  }
+                }}
+                className="text-xs font-semibold px-4 py-2 rounded-lg text-white disabled:opacity-40"
                 style={{ backgroundColor: "#C9A83A" }}>
-                Add Note
+                {savingNote ? "Saving..." : "Add Note"}
               </button>
             </div>
           </div>

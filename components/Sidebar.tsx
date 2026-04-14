@@ -6,58 +6,49 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import {
-  LayoutDashboard, Users, Phone, BarChart3, Building2, Shield,
-  Zap, Search, Send, ChevronDown, ChevronRight,
+  LayoutDashboard, Users, Megaphone,
+  Building2, Target, Shield, ChevronDown, Zap, Bell, Trophy,
 } from "lucide-react";
 
 type NavItem = {
   href: string;
   label: string;
   icon: React.ElementType;
-  badgeKey?: string;
+  tag?: string;
+  badgeKey?: "calls" | "pending";
 };
 
-type NavGroup = {
-  label: string;
-  icon: React.ElementType;
-  children: NavItem[];
-};
-
-type NavEntry = NavItem | NavGroup;
-
-function isGroup(entry: NavEntry): entry is NavGroup {
-  return "children" in entry;
-}
-
-const nav: NavEntry[] = [
-  { href: "/",               label: "Dashboard",    icon: LayoutDashboard },
-  { href: "/company-bios",   label: "Company Bio",  icon: Building2 },
+const sections: { label: string; items: NavItem[] }[] = [
   {
-    label: "GrowthEngine",
-    icon: Zap,
-    children: [
-      { href: "/icp",        label: "LeadMiner",     icon: Search },
-      { href: "/campaigns",  label: "OutreachFlow",  icon: Send },
+    label: "MAIN",
+    items: [
+      { href: "/", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/company-bios", label: "Company Bio", icon: Building2 },
     ],
   },
-  { href: "/leads",          label: "Leads",        icon: Users },
-  { href: "/calls",          label: "Call Queue",   icon: Phone, badgeKey: "calls" },
-  { href: "/reports",        label: "Reports",      icon: BarChart3 },
-  { href: "/admin",          label: "Admin",        icon: Shield, badgeKey: "pending" },
+  {
+    label: "GROWTH ENGINE",
+    items: [
+      { href: "/icp", label: "Lead Miner\u2122", icon: Target, tag: "AI" },
+      { href: "/campaigns", label: "Outreach Flow\u2122", icon: Megaphone, tag: "AI" },
+    ],
+  },
+  {
+    label: "OPERATIONS",
+    items: [
+      { href: "/leads", label: "Leads & Campaigns", icon: Users },
+      { href: "/opportunities", label: "Opportunities", icon: Trophy },
+      { href: "/queue", label: "Queue", icon: Bell, badgeKey: "calls" },
+      { href: "/admin", label: "Admin", icon: Shield, badgeKey: "pending" },
+    ],
+  },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [callCount, setCallCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
-  const [growthOpen, setGrowthOpen] = useState(true);
-
-  useEffect(() => {
-    // Auto-expand GrowthEngine if user is on one of its pages
-    if (pathname.startsWith("/icp") || pathname.startsWith("/campaigns")) {
-      setGrowthOpen(true);
-    }
-  }, [pathname]);
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     async function fetchBadges() {
@@ -77,88 +68,178 @@ export default function Sidebar() {
 
   const badges: Record<string, number> = { calls: callCount, pending: pendingCount };
 
-  function renderLink(item: NavItem) {
-    const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
-    const badge = item.badgeKey ? badges[item.badgeKey] : 0;
-    const Icon = item.icon;
-
-    return (
-      <Link key={item.href} href={item.href}
-        className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 relative"
-        style={active
-          ? { background: `linear-gradient(90deg, ${C.goldGlow} 0%, rgba(201,168,58,0.04) 100%)`, color: C.gold, borderLeft: `2px solid ${C.gold}`, paddingLeft: "10px" }
-          : { color: "#4e5a72" }
-        }
-        onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = "#9aa3b8"; (e.currentTarget as HTMLElement).style.backgroundColor = "#0d1424"; } }}
-        onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.color = "#4e5a72"; (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; } }}
-      >
-        <Icon size={15} />
-        <span className="flex-1">{item.label}</span>
-        {badge > 0 && (
-          <span className="flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold"
-            style={{ backgroundColor: C.goldGlow, color: C.gold }}>
-            <span className="pulse-dot inline-block w-2 h-2 rounded-full" style={{ backgroundColor: C.gold }} />
-          </span>
-        )}
-      </Link>
-    );
-  }
+  const toggleSection = (label: string) => {
+    setCollapsed(prev => ({ ...prev, [label]: !prev[label] }));
+  };
 
   return (
-    <aside className="w-56 flex flex-col shrink-0 border-r"
-      style={{ backgroundColor: C.sidebarBg, borderColor: C.sidebarBorder }}>
-
+    <aside
+      className="w-60 flex flex-col shrink-0 border-r"
+      style={{
+        backgroundColor: C.sidebarBg,
+        borderColor: C.sidebarBorder,
+        boxShadow: "1px 0 8px rgba(0,0,0,0.03)",
+      }}
+    >
       {/* Logo */}
       <div className="px-5 py-5 border-b" style={{ borderColor: C.sidebarBorder }}>
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black"
-            style={{ background: `linear-gradient(135deg, ${C.gold}, #e8c84a)`, color: "#04070d" }}>
-            S
+        <div className="flex items-center gap-3">
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{
+              background: `linear-gradient(135deg, ${C.gold}, #e8c84a)`,
+              boxShadow: `0 2px 8px rgba(201,168,58,0.3)`,
+            }}
+          >
+            <Zap size={18} color="#FFFFFF" strokeWidth={2.5} />
           </div>
           <div>
-            <p className="text-sm font-bold tracking-wide" style={{ color: C.textOnDark }}>SWL CRM</p>
-            <p className="text-xs leading-none mt-0.5" style={{ color: "#4e5a72" }}>Sales Intelligence</p>
+            <p className="text-sm font-bold tracking-wide" style={{ color: C.sidebarTextActive }}>
+              GrowthAI
+            </p>
+            <p className="text-[10px] font-semibold tracking-widest uppercase" style={{ color: C.gold }}>
+              Sales Engine
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {nav.map((entry, idx) => {
-          if (isGroup(entry)) {
-            const GroupIcon = entry.icon;
-            const anyChildActive = entry.children.some(c => pathname === c.href || pathname.startsWith(c.href));
-
-            return (
-              <div key={entry.label}>
-                <button
-                  onClick={() => setGrowthOpen(o => !o)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium w-full transition-all duration-150"
-                  style={{ color: anyChildActive ? C.gold : "#4e5a72" }}
-                  onMouseEnter={e => { if (!anyChildActive) { (e.currentTarget as HTMLElement).style.color = "#9aa3b8"; (e.currentTarget as HTMLElement).style.backgroundColor = "#0d1424"; } }}
-                  onMouseLeave={e => { if (!anyChildActive) { (e.currentTarget as HTMLElement).style.color = "#4e5a72"; (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; } }}
+      {/* Navigation */}
+      <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+        {sections.map((section) => {
+          const isCollapsed = collapsed[section.label];
+          return (
+            <div key={section.label}>
+              {/* Section header */}
+              <button
+                onClick={() => toggleSection(section.label)}
+                className="flex items-center justify-between w-full px-3 mb-1.5"
+              >
+                <span
+                  className="text-[10px] font-bold tracking-[0.12em] uppercase"
+                  style={{
+                    color: section.label === "GROWTH ENGINE" ? C.gold : C.sidebarSection,
+                    ...(section.label === "GROWTH ENGINE"
+                      ? {
+                          backgroundColor: C.goldGlow,
+                          padding: "3px 8px",
+                          borderRadius: "4px",
+                        }
+                      : {}),
+                  }}
                 >
-                  <GroupIcon size={15} />
-                  <span className="flex-1 text-left">{entry.label}</span>
-                  {growthOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-                </button>
+                  {section.label}
+                </span>
+                <ChevronDown
+                  size={12}
+                  style={{
+                    color: C.sidebarSection,
+                    transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
+                    transition: "transform 0.2s ease",
+                  }}
+                />
+              </button>
 
-                {growthOpen && (
-                  <div className="ml-4 mt-0.5 space-y-0.5 border-l pl-2" style={{ borderColor: "#1a2540" }}>
-                    {entry.children.map(child => renderLink(child))}
-                  </div>
-                )}
-              </div>
-            );
-          }
+              {/* Items */}
+              {!isCollapsed &&
+                section.items.map(({ href, label, icon: Icon, tag, badgeKey }) => {
+                  const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+                  const badge = badgeKey ? badges[badgeKey] : 0;
 
-          return renderLink(entry);
+                  return (
+                    <Link
+                      key={href}
+                      href={href}
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 group"
+                      style={
+                        active
+                          ? {
+                              backgroundColor: C.goldGlow,
+                              color: C.gold,
+                              borderLeft: `2.5px solid ${C.gold}`,
+                              paddingLeft: "10px",
+                            }
+                          : { color: C.sidebarText }
+                      }
+                      onMouseEnter={(e) => {
+                        if (!active) {
+                          e.currentTarget.style.backgroundColor = "#F9FAFB";
+                          e.currentTarget.style.color = C.sidebarTextActive;
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!active) {
+                          e.currentTarget.style.backgroundColor = "transparent";
+                          e.currentTarget.style.color = C.sidebarText;
+                        }
+                      }}
+                    >
+                      <Icon
+                        size={16}
+                        style={{
+                          color: active ? C.gold : C.sidebarSection,
+                          transition: "color 0.15s ease",
+                        }}
+                      />
+                      <span className="flex-1">{label}</span>
+
+                      {/* AI tag */}
+                      {tag && (
+                        <span
+                          className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                          style={{
+                            backgroundColor: C.goldGlow,
+                            color: C.gold,
+                          }}
+                        >
+                          {tag}
+                        </span>
+                      )}
+
+                      {/* Badge count */}
+                      {badge > 0 && (
+                        <span className="flex items-center justify-center">
+                          <span
+                            className="pulse-dot inline-block w-2 h-2 rounded-full"
+                            style={{ backgroundColor: C.gold }}
+                          />
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+            </div>
+          );
         })}
       </nav>
 
+      {/* AI Status */}
+      <div className="mx-4 mb-3 px-3 py-2 rounded-lg" style={{ backgroundColor: "#F0FDF4" }}>
+        <div className="flex items-center gap-2">
+          <span
+            className="inline-block w-2 h-2 rounded-full pulse-dot"
+            style={{ backgroundColor: "#22C55E" }}
+          />
+          <span className="text-[11px] font-medium" style={{ color: "#15803D" }}>
+            AI Models Active
+          </span>
+        </div>
+      </div>
+
       {/* Footer */}
       <div className="px-5 py-4 border-t" style={{ borderColor: C.sidebarBorder }}>
-        <p className="text-xs" style={{ color: "#2a3348" }}>SWL Consulting © 2026</p>
+        <div className="flex items-center gap-2.5">
+          <div
+            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+            style={{ backgroundColor: C.goldGlow, color: C.gold }}
+          >
+            GE
+          </div>
+          <div>
+            <p className="text-xs font-semibold" style={{ color: C.sidebarTextActive }}>Growth Engine</p>
+            <p className="text-[10px]" style={{ color: C.sidebarSection }}>SWL Consulting</p>
+          </div>
+        </div>
       </div>
     </aside>
   );

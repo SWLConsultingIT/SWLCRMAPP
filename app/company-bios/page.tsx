@@ -7,7 +7,7 @@ import { C } from "@/lib/design";
 import {
   Building2, Save, AlertCircle, Plus, X, Pencil, Globe, Loader2,
   MapPin, Award, Briefcase, Trash2, Upload, Image as ImageIcon,
-  FileText, Download, File,
+  FileText, Download, File, ChevronDown,
 } from "lucide-react";
 
 const gold = C.gold;
@@ -139,28 +139,51 @@ function TagList({ values, onChange, placeholder }: { values: string[]; onChange
 
 // ─── VIEW MODE (leads detail style) ─────────────────────
 type LeadSummary = { id: string; primary_first_name: string; primary_last_name: string; company_name: string; status: string; current_channel: string; lead_score: number | null };
+type CampaignGroup = { name: string; channel: string; status: string; leads: (LeadSummary & { campaign_status?: string })[] };
 
 function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
-  const [leads, setLeads] = useState<LeadSummary[]>([]);
+  const [campaignGroups, setCampaignGroups] = useState<CampaignGroup[]>([]);
+  const [uncampaignedLeads, setUncampaignedLeads] = useState<LeadSummary[]>([]);
   const [leadStats, setLeadStats] = useState({ total: 0, active: 0, responded: 0, qualified: 0 });
+  const [expandedGroup, setExpandedGroup] = useState<string | null>(null);
 
   useEffect(() => {
     if (!bio.id) return;
     async function fetchLeads() {
-      const { data, count } = await supabase
-        .from("leads")
-        .select("id, primary_first_name, primary_last_name, company_name, status, current_channel, lead_score", { count: "exact" })
-        .eq("company_bio_id", bio.id)
-        .order("updated_at", { ascending: false })
-        .limit(8);
-      const all = data ?? [];
-      setLeads(all);
+      const [{ data: allLeads, count }, { data: campaigns }] = await Promise.all([
+        supabase.from("leads")
+          .select("id, primary_first_name, primary_last_name, company_name, status, current_channel, lead_score", { count: "exact" })
+          .eq("company_bio_id", bio.id).order("updated_at", { ascending: false }),
+        supabase.from("campaigns")
+          .select("id, name, channel, status, lead_id")
+          .in("status", ["active", "paused", "completed"]),
+      ]);
+      const leads = allLeads ?? [];
       setLeadStats({
         total: count ?? 0,
-        active: all.filter(l => ["new", "contacted", "connected"].includes(l.status)).length,
-        responded: all.filter(l => l.status === "responded").length,
-        qualified: all.filter(l => ["qualified", "proposal_sent", "closed_won"].includes(l.status)).length,
+        active: leads.filter(l => ["new", "contacted", "connected"].includes(l.status)).length,
+        responded: leads.filter(l => l.status === "responded").length,
+        qualified: leads.filter(l => ["qualified", "proposal_sent", "closed_won"].includes(l.status)).length,
       });
+
+      // Group leads by campaign
+      const campByLead: Record<string, any> = {};
+      for (const c of campaigns ?? []) { campByLead[c.lead_id] = c; }
+
+      const groups: Record<string, CampaignGroup> = {};
+      const noCamp: LeadSummary[] = [];
+      for (const lead of leads) {
+        const camp = campByLead[lead.id];
+        if (camp) {
+          const key = camp.name ?? "Unnamed";
+          if (!groups[key]) groups[key] = { name: key, channel: camp.channel, status: camp.status, leads: [] };
+          groups[key].leads.push({ ...lead, campaign_status: camp.status });
+        } else {
+          noCamp.push(lead);
+        }
+      }
+      setCampaignGroups(Object.values(groups));
+      setUncampaignedLeads(noCamp);
     }
     fetchLeads();
   }, [bio.id]);
@@ -438,12 +461,12 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
         </div>
       )}
 
-      {/* ═══ Leads Overview ═══ */}
+      {/* ═══ Leads by Campaign ═══ */}
       <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="px-6 py-4 flex items-center justify-between border-b"
           style={{ borderColor: C.border, background: `linear-gradient(90deg, rgba(201,168,58,0.08) 0%, transparent 50%)` }}>
           <div className="flex items-center gap-2.5">
-            <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Leads</h3>
+            <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Leads & Campaigns</h3>
             {leadStats.total > 0 && (
               <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: goldLight, color: gold }}>
                 {leadStats.total}
@@ -453,7 +476,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
           <Link href="/leads" className="text-xs font-semibold" style={{ color: gold }}>View All</Link>
         </div>
 
-        {leads.length === 0 ? (
+        {campaignGroups.length === 0 && uncampaignedLeads.length === 0 ? (
           <div className="px-6 py-10 text-center">
             <p className="text-sm" style={{ color: C.textDim }}>No leads linked to this company yet.</p>
             <p className="text-xs mt-1" style={{ color: C.textDim }}>
@@ -477,30 +500,100 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               ))}
             </div>
 
-            {/* Lead rows */}
-            {leads.map(lead => {
-              const st = statusColors[lead.status] ?? { color: C.textMuted, bg: "#F3F4F6" };
+            {/* Campaign groups */}
+            {campaignGroups.map(group => {
+              const isOpen = expandedGroup === group.name;
+              const chColors: Record<string, string> = { linkedin: "#0A66C2", email: "#7C3AED", call: "#F97316" };
+              const chColor = chColors[group.channel] ?? gold;
+              const campSt = group.status === "active" ? { color: C.green, bg: C.greenLight, label: "Active" }
+                : group.status === "paused" ? { color: "#D97706", bg: "#FFFBEB", label: "Paused" }
+                : { color: C.textMuted, bg: "#F3F4F6", label: group.status };
               return (
-                <Link key={lead.id} href={`/leads/${lead.id}`}
-                  className="flex items-center gap-4 px-6 py-3 border-b table-row-hover"
-                  style={{ borderColor: C.border }}>
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
-                    {(lead.primary_first_name?.[0] ?? "?").toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>
-                      {lead.primary_first_name} {lead.primary_last_name}
-                    </p>
-                    <p className="text-xs truncate" style={{ color: C.textMuted }}>{lead.company_name}</p>
-                  </div>
-                  <span className="text-xs font-semibold px-2 py-0.5 rounded-md capitalize"
-                    style={{ backgroundColor: st.bg, color: st.color }}>
-                    {lead.status?.replace("_", " ")}
-                  </span>
-                </Link>
+                <div key={group.name}>
+                  <button onClick={() => setExpandedGroup(isOpen ? null : group.name)}
+                    className="flex items-center gap-3 w-full px-6 py-3 border-b text-left transition-colors hover:bg-gray-50"
+                    style={{ borderColor: C.border }}>
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: `${chColor}12` }}>
+                      <span className="text-xs font-bold" style={{ color: chColor }}>{group.channel?.[0]?.toUpperCase()}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate" style={{ color: C.textPrimary }}>{group.name}</p>
+                    </div>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: campSt.bg, color: campSt.color }}>
+                      {campSt.label}
+                    </span>
+                    <span className="text-xs" style={{ color: C.textMuted }}>{group.leads.length} leads</span>
+                    <ChevronDown size={14} style={{ color: C.textDim, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+                  </button>
+                  {isOpen && group.leads.map(lead => {
+                    const st = statusColors[lead.status] ?? { color: C.textMuted, bg: "#F3F4F6" };
+                    return (
+                      <Link key={lead.id} href={`/leads/${lead.id}`}
+                        className="flex items-center gap-4 px-6 pl-16 py-2.5 border-b table-row-hover"
+                        style={{ borderColor: C.border }}>
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                          style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                          {(lead.primary_first_name?.[0] ?? "?").toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>
+                            {lead.primary_first_name} {lead.primary_last_name}
+                          </p>
+                          <p className="text-xs truncate" style={{ color: C.textMuted }}>{lead.company_name}</p>
+                        </div>
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-md capitalize"
+                          style={{ backgroundColor: st.bg, color: st.color }}>
+                          {lead.status?.replace("_", " ")}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </div>
               );
             })}
+
+            {/* Uncampaigned leads */}
+            {uncampaignedLeads.length > 0 && (
+              <div>
+                <button onClick={() => setExpandedGroup(expandedGroup === "__none" ? null : "__none")}
+                  className="flex items-center gap-3 w-full px-6 py-3 border-b text-left transition-colors hover:bg-gray-50"
+                  style={{ borderColor: C.border }}>
+                  <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: `${C.blue}12` }}>
+                    <span className="text-xs font-bold" style={{ color: C.blue }}>?</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>No Campaign Assigned</p>
+                  </div>
+                  <span className="text-xs" style={{ color: C.textMuted }}>{uncampaignedLeads.length} leads</span>
+                  <ChevronDown size={14} style={{ color: C.textDim, transform: expandedGroup === "__none" ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+                </button>
+                {expandedGroup === "__none" && uncampaignedLeads.map(lead => {
+                  const st = statusColors[lead.status] ?? { color: C.textMuted, bg: "#F3F4F6" };
+                  return (
+                    <Link key={lead.id} href={`/leads/${lead.id}`}
+                      className="flex items-center gap-4 px-6 pl-16 py-2.5 border-b table-row-hover"
+                      style={{ borderColor: C.border }}>
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                        style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                        {(lead.primary_first_name?.[0] ?? "?").toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>
+                          {lead.primary_first_name} {lead.primary_last_name}
+                        </p>
+                        <p className="text-xs truncate" style={{ color: C.textMuted }}>{lead.company_name}</p>
+                      </div>
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-md capitalize"
+                        style={{ backgroundColor: st.bg, color: st.color }}>
+                        {lead.status?.replace("_", " ")}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
       </div>
