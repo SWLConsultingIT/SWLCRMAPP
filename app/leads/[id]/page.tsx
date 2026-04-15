@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Mail, Phone, Building2,
-  ExternalLink,
+  ExternalLink, CheckCircle2,
 } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
 import CompanyTabs from "@/components/CompanyTabs";
@@ -135,6 +135,9 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   });
   const currentStep = campaign?.current_step ?? 0;
   const stepPct = steps.length > 0 ? Math.round((currentStep / steps.length) * 100) : 0;
+  const campMsgsForStepper = campaign
+    ? messages.filter((m: any) => m.campaign_id === campaign.id).sort((a: any, b: any) => (a.step_number ?? 0) - (b.step_number ?? 0))
+    : [];
 
   // Build activity items scoped to this lead only
   type ActivityItem = {
@@ -314,105 +317,124 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      {/* ═══ CAMPAIGN + CONVERSATION ═══ */}
-      <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        {/* Campaign header */}
-        <div className="p-5 flex items-center justify-between border-b" style={{ borderColor: C.border }}>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${gold}15` }}>
-              <Mail size={18} style={{ color: gold }} />
-            </div>
+      {/* ═══ CAMPAIGN STEP PROGRESS (horizontal stepper) ═══ */}
+      {steps.length > 0 ? (
+        <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <p className="text-sm font-bold" style={{ color: C.textPrimary }}>
-                {campaign ? campaign.name : "No campaign assigned"}
+              <p className="text-sm font-bold uppercase tracking-wider" style={{ color: C.textPrimary, letterSpacing: "0.08em" }}>
+                Campaign Step Progress
               </p>
-              <div className="flex items-center gap-3 mt-0.5 text-xs" style={{ color: C.textMuted }}>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-xs" style={{ color: C.textMuted }}>
+                  {campaign!.name ?? "Outreach Campaign"}
+                </p>
                 {campaign && (
-                  <>
-                    <span>Step {currentStep}/{steps.length}</span>
-                    <span>·</span>
-                    <span className="capitalize">{campaign.status}</span>
-                    {(campaign as any).sellers?.name && <><span>·</span><span>Seller: {(campaign as any).sellers.name}</span></>}
-                  </>
+                  <Link href={`/campaigns/${campaign.id}`}
+                    className="text-[10px] font-semibold hover:underline flex items-center gap-1" style={{ color: gold }}>
+                    View campaign <ExternalLink size={10} />
+                  </Link>
                 )}
               </div>
             </div>
+            <span className="text-base font-bold italic" style={{ color: gold }}>
+              {stepPct}% Complete
+            </span>
           </div>
-          <div className="flex items-center gap-3">
-            {steps.length > 0 && (
-              <div className="flex items-center gap-2">
-                <div className="w-20 h-2 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
-                  <div className="h-2 rounded-full" style={{ width: `${stepPct}%`, background: `linear-gradient(90deg, ${gold}, #e8c84a)` }} />
-                </div>
-                <span className="text-xs font-bold tabular-nums" style={{ color: gold }}>{stepPct}%</span>
-              </div>
-            )}
-            {campaign && (
-              <Link href={`/campaigns/${campaign.id}`}
-                className="text-[10px] font-semibold hover:underline flex items-center gap-1" style={{ color: gold }}>
-                View campaign <ExternalLink size={10} />
-              </Link>
-            )}
-          </div>
-        </div>
 
-        {/* Conversation timeline */}
-        <div className="p-5">
-          <p className="text-[10px] font-semibold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Conversation</p>
-          {activityItems.filter(a => a.type === "message_sent" || a.type === "reply").length === 0 ? (
-            <p className="text-xs py-4 text-center" style={{ color: C.textDim }}>No messages or replies yet</p>
-          ) : (
-            <div className="space-y-3">
-              {activityItems
-                .filter(a => a.type === "message_sent" || a.type === "reply")
-                .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-                .map(item => {
-                  const isReply = item.type === "reply";
-                  const clsColors: Record<string, { color: string; bg: string }> = {
-                    positive: { color: C.green, bg: C.greenLight },
-                    meeting_intent: { color: C.green, bg: C.greenLight },
-                    negative: { color: C.red, bg: C.redLight },
-                    needs_info: { color: "#D97706", bg: "#FFFBEB" },
-                    not_now: { color: C.textMuted, bg: "#F3F4F6" },
-                  };
-                  const cls = isReply ? (clsColors[item.classification ?? ""] ?? { color: C.blue, bg: C.blueLight }) : null;
-                  const chLabel = channelStepLabels[item.channel] ?? item.channel;
+          {/* Horizontal stepper */}
+          <div className="relative flex items-start justify-between px-4">
+            {steps.map((stepLabel: string, idx: number) => {
+              const stepNum = idx + 1;
+              const isCurrent = stepNum === currentStep;
+              const isCompleted = stepNum < currentStep;
+              const msg = campMsgsForStepper.find((m: any) => m.step_number === stepNum);
 
-                  return (
-                    <div key={item.id} className={`flex ${isReply ? "justify-end" : "justify-start"}`}>
-                      <div className="max-w-[80%] rounded-lg px-4 py-3"
-                        style={{
-                          backgroundColor: isReply ? cls!.bg : C.bg,
-                          border: `1px solid ${isReply ? cls!.color + "25" : C.border}`,
-                        }}>
-                        <div className="flex items-center gap-2 mb-1">
-                          {!isReply && (
-                            <span className="text-[10px] font-semibold" style={{ color: gold }}>
-                              Step {item.stepNumber ?? "?"} · {chLabel}
-                            </span>
-                          )}
-                          {isReply && (
-                            <span className="text-[10px] font-semibold" style={{ color: cls!.color }}>
-                              {contactName} · {item.classification ?? "Reply"}
-                            </span>
-                          )}
-                          <span className="text-[9px] ml-auto" style={{ color: C.textDim }}>
-                            {new Date(item.timestamp).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
-                          </span>
-                        </div>
-                        {item.content && (
-                          <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>
-                            {isReply ? `"${item.content}"` : item.content}
-                          </p>
-                        )}
+              return (
+                <div key={idx} className="flex flex-col items-center relative" style={{ flex: 1, minWidth: 100 }}>
+                  {/* Connector line */}
+                  {idx > 0 && (
+                    <div className="absolute"
+                      style={{
+                        top: 33,
+                        height: 4,
+                        borderRadius: 2,
+                        backgroundColor: stepNum <= currentStep ? gold : "#D1D5DB",
+                        left: "-50%",
+                        width: "100%",
+                        zIndex: 0,
+                      }} />
+                  )}
+
+                  {/* Node */}
+                  <div className="relative z-10 mb-3 flex items-center justify-center" style={{ height: 68 }}>
+                    {isCompleted ? (
+                      <div className="rounded-full flex items-center justify-center"
+                        style={{ width: 48, height: 48, backgroundColor: "#DCFCE7" }}>
+                        <CheckCircle2 size={26} style={{ color: "#22C55E" }} />
                       </div>
-                    </div>
-                  );
-                })}
-            </div>
-          )}
+                    ) : isCurrent ? (
+                      <div className="rounded-full flex items-center justify-center"
+                        style={{ width: 68, height: 68, border: `3.5px solid ${gold}`, backgroundColor: "rgba(201,168,58,0.05)" }}>
+                        <div className="rounded-full flex items-center justify-center font-bold"
+                          style={{ width: 44, height: 44, border: `2.5px solid ${gold}`, color: "#5A4A1E", backgroundColor: "#fff", fontSize: 18 }}>
+                          {String(stepNum).padStart(2, "0")}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-full"
+                        style={{ width: 40, height: 40, backgroundColor: "#D1D5DB" }} />
+                    )}
+                  </div>
+
+                  {/* Label */}
+                  <p className="text-center leading-tight px-1"
+                    style={{
+                      color: isCurrent ? C.textPrimary : isCompleted ? C.textBody : "#9CA3AF",
+                      fontWeight: isCurrent ? 700 : isCompleted ? 500 : 400,
+                      fontSize: isCurrent ? 13 : 12,
+                    }}>
+                    {stepLabel}
+                  </p>
+
+                  {/* Date under current step */}
+                  {isCurrent && (
+                    <p className="text-xs text-center mt-1" style={{ color: C.textMuted }}>
+                      {msg?.sent_at
+                        ? new Date(msg.sent_at).toLocaleDateString("en-GB", { month: "short", day: "numeric" })
+                        : "In progress"}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Progress bar */}
+          <div className="mt-6 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+            <div className="h-1.5 rounded-full transition-all" style={{ width: `${stepPct}%`, backgroundColor: gold }} />
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-wider" style={{ color: C.textPrimary, letterSpacing: "0.08em" }}>
+                Campaign Step Progress
+              </p>
+              <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
+                {campaign
+                  ? `${campaign.name ?? "Campaign"} — no sequence steps defined yet`
+                  : "No campaign assigned to this contact yet"}
+              </p>
+            </div>
+            <span className="text-base font-bold italic" style={{ color: C.textDim }}>
+              0% Complete
+            </span>
+          </div>
+          <div className="mt-5 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }} />
+        </div>
+      )}
 
       {/* ═══ TABS ═══ */}
       <CompanyTabs tabs={[

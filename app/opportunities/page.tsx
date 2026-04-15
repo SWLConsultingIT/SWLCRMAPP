@@ -43,7 +43,7 @@ async function getOpportunities() {
     if (!replyByLead[r.lead_id]) replyByLead[r.lead_id] = r;
   }
 
-  const opportunityLeads = (leads ?? []).map(l => {
+  const opportunityLeads = (leads ?? []).filter(l => campByLead[l.id]).map(l => {
     const camp = campByLead[l.id];
     const reply = replyByLead[l.id];
     const steps = Array.isArray(camp?.sequence_steps) ? camp.sequence_steps.length : 0;
