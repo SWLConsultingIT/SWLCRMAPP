@@ -392,11 +392,20 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
         <Link href="/opportunities" className="text-xs font-medium hover:underline flex items-center gap-1" style={{ color: C.textMuted }}>
           <ArrowLeft size={12} /> Back to Opportunities
         </Link>
-        <Link href={`/campaigns/${data.campaignId}`}
-          className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
-          style={{ backgroundColor: gold, color: "#04070d" }}>
-          <Megaphone size={12} /> View Campaign Detail
-        </Link>
+        <div className="flex items-center gap-2">
+          {data.convertedLeads[0] && (
+            <Link href={`/leads/${(data.convertedLeads[0] as any).id}`}
+              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+              style={{ backgroundColor: C.blueLight, color: C.blue, border: `1px solid ${C.blue}30` }}>
+              <Star size={12} /> View Lead Detail
+            </Link>
+          )}
+          <Link href={`/campaigns/${data.campaignId}`}
+            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+            style={{ backgroundColor: gold, color: "#04070d" }}>
+            <Megaphone size={12} /> View Campaign Detail
+          </Link>
+        </div>
       </div>
     </div>
   );
