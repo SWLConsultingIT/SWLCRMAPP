@@ -1,82 +1,39 @@
 import { supabase } from "@/lib/supabase";
 import QueueClient from "./QueueClient";
 
-export type PendingCall = {
-  id: string;
-  campaignId: string;
-  campaignName: string;
-  currentStep: number;
-  totalSteps: number;
-  leadId: string | null;
-  leadName: string;
-  company: string | null;
-  role: string | null;
-  phone: string | null;
-  email: string | null;
-  lastStepAt: string | null;
-};
-
-export type ReplyReview = {
-  id: string;
-  leadId: string;
-  leadName: string;
-  company: string | null;
-  channel: string;
-  classification: string | null;
-  replyText: string | null;
-  receivedAt: string;
-  campaignName: string | null;
-};
-
-export type PendingReview = {
-  id: string;
-  type: "campaign" | "profile";
-  name: string;
-  subtitle: string;
-  createdAt: string;
-  href: string;
-};
-
 async function getQueueData() {
   const [
     { data: activeCampaigns },
-    { data: pendingReplies },
+    { data: recentReplies },
     { data: pendingCampaigns },
     { data: pendingProfiles },
   ] = await Promise.all([
-    // Active campaigns — we'll filter for call steps client-side
-    supabase
-      .from("campaigns")
+    supabase.from("campaigns")
       .select("id, name, channel, current_step, sequence_steps, last_step_at, lead_id, leads(primary_first_name, primary_last_name, company_name, primary_title_role, primary_phone, primary_work_email)")
       .eq("status", "active")
       .order("last_step_at", { ascending: true })
       .limit(200),
-    supabase
-      .from("lead_replies")
+    // New Replies: last 30 replies regardless of review status
+    supabase.from("lead_replies")
       .select("id, classification, received_at, channel, reply_text, lead_id, campaign_id, leads(primary_first_name, primary_last_name, company_name), campaigns(name)")
-      .eq("requires_human_review", true)
-      .eq("review_status", "pending")
-      .order("received_at", { ascending: true })
-      .limit(50),
-    supabase
-      .from("campaign_requests")
+      .order("received_at", { ascending: false })
+      .limit(30),
+    supabase.from("campaign_requests")
       .select("id, name, target_leads_count, created_at")
       .eq("status", "pending_review")
       .order("created_at", { ascending: true }),
-    supabase
-      .from("icp_profiles")
+    supabase.from("icp_profiles")
       .select("id, profile_name, created_at")
       .eq("status", "pending")
       .order("created_at", { ascending: true }),
   ]);
 
-  // Pending Calls: active campaigns where the CURRENT step is a "call" channel
-  const pendingCalls: PendingCall[] = [];
+  // Pending Calls
+  const pendingCalls: any[] = [];
   for (const c of activeCampaigns ?? []) {
     const steps = Array.isArray(c.sequence_steps) ? c.sequence_steps : [];
     const currentStepIdx = c.current_step ?? 0;
-    const currentStepDef = steps[currentStepIdx];
-    if (currentStepDef?.channel === "call") {
+    if (steps[currentStepIdx]?.channel === "call") {
       const lead = c.leads as any;
       const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
       pendingCalls.push({
@@ -96,8 +53,9 @@ async function getQueueData() {
     }
   }
 
-  const replyReviews: ReplyReview[] = (pendingReplies ?? []).map(r => {
-    const lead = r.leads as any;
+  // New Replies
+  const newReplies = (recentReplies ?? []).map((r: any) => {
+    const lead = r.leads;
     const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
     return {
       id: r.id,
@@ -112,7 +70,8 @@ async function getQueueData() {
     };
   });
 
-  const pendingReviews: PendingReview[] = [
+  // Pending Reviews
+  const pendingReviews = [
     ...(pendingCampaigns ?? []).map(req => ({
       id: `camp-${req.id}`,
       type: "campaign" as const,
@@ -131,7 +90,7 @@ async function getQueueData() {
     })),
   ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-  return { pendingCalls, replyReviews, pendingReviews };
+  return { pendingCalls, newReplies, pendingReviews };
 }
 
 export default async function QueuePage() {
