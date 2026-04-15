@@ -3,8 +3,8 @@ import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, Mail, Phone, Share2, Building2, MapPin, Globe,
-  Star, ExternalLink, Calendar, FileText, UserCheck, CheckCircle2,
+  ArrowLeft, Mail, Phone, Building2,
+  ExternalLink,
 } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
 import CompanyTabs from "@/components/CompanyTabs";
@@ -71,25 +71,6 @@ const statusMap: Record<string, { label: string; color: string; bg: string }> = 
   nurturing:     { label: "Nurturing",     color: C.textMuted, bg: "#F3F4F6" },
 };
 
-function formatRevenue(val: number | null) {
-  if (!val) return null;
-  if (val >= 1_000_000) return `£${(val / 1_000_000).toFixed(1)}M`;
-  if (val >= 1_000)     return `£${(val / 1_000).toFixed(0)}K`;
-  return `£${val}`;
-}
-
-function StarRating({ rating }: { rating: number }) {
-  return (
-    <div className="flex items-center gap-0.5">
-      {Array.from({ length: 5 }, (_, i) => (
-        <Star key={i} size={12} fill={i < Math.floor(rating) ? "#F59E0B" : "none"}
-          style={{ color: i < Math.floor(rating) ? "#F59E0B" : "#D1D5DB" }} />
-      ))}
-      <span className="text-xs font-medium ml-1" style={{ color: C.textBody }}>{rating}</span>
-    </div>
-  );
-}
-
 // Score ring SVG
 function ScoreRing({ score, color }: { score: number; color: string }) {
   const r = 22;
@@ -154,9 +135,6 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   });
   const currentStep = campaign?.current_step ?? 0;
   const stepPct = steps.length > 0 ? Math.round((currentStep / steps.length) * 100) : 0;
-  const campMsgsForStepper = campaign
-    ? messages.filter((m: any) => m.campaign_id === campaign.id).sort((a: any, b: any) => (a.step_number ?? 0) - (b.step_number ?? 0))
-    : [];
 
   // Build activity items scoped to this lead only
   type ActivityItem = {
@@ -336,118 +314,69 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      {/* ═══ CAMPAIGN STEP PROGRESS (always visible) ═══ */}
-      {steps.length > 0 ? (
-        <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <p className="text-sm font-bold uppercase tracking-wider" style={{ color: C.textPrimary, letterSpacing: "0.08em" }}>
-                Campaign Step Progress
-              </p>
-              <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
-                {campaign!.name ?? "Outreach Campaign"}
-              </p>
-            </div>
-            <span className="text-base font-bold italic" style={{ color: gold }}>
-              {stepPct}% Complete
-            </span>
+      {/* ═══ CAMPAIGN FUNNEL ═══ */}
+      <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: gold }}>Campaign Progress</p>
+            <p className="text-sm font-bold mt-0.5" style={{ color: C.textPrimary }}>
+              {campaign ? campaign.name : "No campaign assigned"}
+            </p>
           </div>
+          {campaign && (
+            <Link href={`/campaigns/${campaign.id}`}
+              className="text-[10px] font-medium hover:underline flex items-center gap-1" style={{ color: gold }}>
+              View campaign <ExternalLink size={10} />
+            </Link>
+          )}
+        </div>
 
-          {/* Stepper */}
-          <div className="relative flex items-start justify-between px-4">
-            {steps.map((stepLabel: string, idx: number) => {
-              const stepNum = idx + 1;
-              const isCurrent = stepNum === currentStep;
-              const isCompleted = stepNum < currentStep;
-              const msg = campMsgsForStepper.find((m: any) => m.step_number === stepNum);
-
-              return (
-                <div key={idx} className="flex flex-col items-center relative" style={{ flex: 1, minWidth: 100 }}>
-                  {/* Connector line — centered at 34px (half of 68px container) */}
-                  {idx > 0 && (
-                    <div className="absolute"
-                      style={{
-                        top: 33,
-                        height: 4,
-                        borderRadius: 2,
-                        backgroundColor: stepNum <= currentStep ? gold : "#D1D5DB",
-                        left: "-50%",
-                        width: "100%",
-                        zIndex: 0,
-                      }} />
-                  )}
-
-                  {/* Node container — 68px tall to fit the large current node */}
-                  <div className="relative z-10 mb-3 flex items-center justify-center" style={{ height: 68 }}>
-                    {isCompleted ? (
-                      <div className="rounded-full flex items-center justify-center"
-                        style={{ width: 48, height: 48, backgroundColor: "#DCFCE7" }}>
-                        <CheckCircle2 size={26} style={{ color: "#22C55E" }} />
-                      </div>
-                    ) : isCurrent ? (
-                      <div className="rounded-full flex items-center justify-center"
-                        style={{ width: 68, height: 68, border: `3.5px solid ${gold}`, backgroundColor: "rgba(201,168,58,0.05)" }}>
-                        <div className="rounded-full flex items-center justify-center font-bold"
-                          style={{ width: 44, height: 44, border: `2.5px solid ${gold}`, color: "#5A4A1E", backgroundColor: "#fff", fontSize: 18 }}>
-                          {String(stepNum).padStart(2, "0")}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="rounded-full"
-                        style={{ width: 40, height: 40, backgroundColor: "#D1D5DB" }} />
-                    )}
+        {steps.length > 0 ? (
+          <div>
+            {/* Funnel bars */}
+            <div className="space-y-2 mb-4">
+              {[
+                { label: "Steps Completed", value: currentStep, max: steps.length, color: C.blue },
+                { label: "Messages Sent",   value: totalMsgsSent, max: Math.max(totalMsgsSent, steps.length), color: gold },
+                { label: "Replies",          value: totalReplies,  max: Math.max(totalReplies, steps.length, 1), color: totalReplies > 0 ? "#D97706" : C.textDim },
+                { label: "Positive",         value: positiveReplies, max: Math.max(positiveReplies, steps.length, 1), color: positiveReplies > 0 ? C.green : C.textDim },
+              ].map(row => (
+                <div key={row.label} className="flex items-center gap-3">
+                  <span className="text-[10px] w-[110px] shrink-0 text-right" style={{ color: C.textMuted }}>{row.label}</span>
+                  <div className="flex-1 h-2.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                    <div className="h-2.5 rounded-full transition-all" style={{ width: `${row.max > 0 ? (row.value / row.max) * 100 : 0}%`, backgroundColor: row.color }} />
                   </div>
-
-                  {/* Label */}
-                  <p className="text-center leading-tight px-1"
-                    style={{
-                      color: isCurrent ? C.textPrimary : isCompleted ? C.textBody : "#9CA3AF",
-                      fontWeight: isCurrent ? 700 : isCompleted ? 500 : 400,
-                      fontSize: isCurrent ? 13 : 12,
-                    }}>
-                    {stepLabel}
-                  </p>
-
-                  {/* Date under current step */}
-                  {isCurrent && (
-                    <p className="text-xs text-center mt-1" style={{ color: C.textMuted }}>
-                      {msg?.sent_at
-                        ? `${new Date(msg.sent_at).toLocaleDateString("en-GB", { month: "short", day: "numeric" })} — Today`
-                        : "Today"}
-                    </p>
-                  )}
+                  <span className="text-xs font-bold w-8 tabular-nums" style={{ color: row.color }}>{row.value}</span>
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Progress bar */}
-          <div className="mt-6 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
-            <div className="h-1.5 rounded-full transition-all" style={{ width: `${stepPct}%`, backgroundColor: gold }} />
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-bold uppercase tracking-wider" style={{ color: C.textPrimary, letterSpacing: "0.08em" }}>
-                Campaign Step Progress
-              </p>
-              <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
-                {campaign
-                  ? `${campaign.name ?? "Campaign"} — no sequence steps defined yet`
-                  : "No campaign assigned to this contact yet"}
-              </p>
+              ))}
             </div>
-            <span className="text-base font-bold italic" style={{ color: C.textDim }}>
-              0% Complete
-            </span>
-          </div>
 
-          {/* Empty progress bar */}
-          <div className="mt-5 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }} />
-        </div>
-      )}
+            {/* Step indicator */}
+            <div className="flex items-center gap-2 px-[calc(110px+12px)]">
+              {steps.map((stepLabel: string, idx: number) => {
+                const done = idx < currentStep;
+                const active = idx === currentStep;
+                return (
+                  <div key={idx} className="flex items-center gap-1.5">
+                    <div className="rounded-full" style={{
+                      width: active ? 10 : 7, height: active ? 10 : 7,
+                      backgroundColor: done ? gold : active ? `${gold}80` : "#D1D5DB",
+                    }} />
+                    <span className="text-[9px]" style={{ color: done ? C.textBody : active ? gold : C.textDim }}>
+                      {stepLabel}
+                    </span>
+                  </div>
+                );
+              })}
+              <span className="text-[10px] font-bold ml-auto tabular-nums" style={{ color: gold }}>{stepPct}%</span>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs" style={{ color: C.textDim }}>
+            {campaign ? "No sequence steps defined yet" : "Assign a campaign to see progress"}
+          </p>
+        )}
+      </div>
 
       {/* ═══ TABS ═══ */}
       <CompanyTabs tabs={[
