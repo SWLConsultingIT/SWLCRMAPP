@@ -604,33 +604,36 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               </div>
             )}
 
-            {/* Technologies */}
-            {technologies.length > 0 && (
+            {/* Tech Stack & Keywords */}
+            {(technologies.length > 0 || keywords.length > 0) && (
               <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Tech Stack</h3>
-                <div className="flex flex-wrap gap-2">
-                  {technologies.map((t: string) => (
-                    <span key={t} className="text-xs font-medium px-2.5 py-1 rounded-lg"
-                      style={{ backgroundColor: C.blueLight, color: C.blue }}>
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Keywords */}
-            {keywords.length > 0 && (
-              <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Keywords & Topics</h3>
-                <div className="flex flex-wrap gap-2">
-                  {keywords.map((k: string) => (
-                    <span key={k} className="text-xs font-medium px-2.5 py-1 rounded-lg"
-                      style={{ backgroundColor: `${gold}15`, color: gold }}>
-                      {k}
-                    </span>
-                  ))}
-                </div>
+                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Tech Stack & Keywords</h3>
+                {technologies.length > 0 && (
+                  <div className={keywords.length > 0 ? "mb-4" : ""}>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>Technologies</p>
+                    <div className="flex flex-wrap gap-2">
+                      {technologies.map((t: string) => (
+                        <span key={t} className="text-xs font-medium px-2.5 py-1 rounded-lg"
+                          style={{ backgroundColor: C.blueLight, color: C.blue }}>
+                          {t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {keywords.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>Keywords & Topics</p>
+                    <div className="flex flex-wrap gap-2">
+                      {keywords.map((k: string) => (
+                        <span key={k} className="text-xs font-medium px-2.5 py-1 rounded-lg"
+                          style={{ backgroundColor: `${gold}15`, color: gold }}>
+                          {k}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -684,38 +687,6 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               </div>
             )}
 
-            {/* Tech Stack & Keywords */}
-            {(keywords.length > 0 || technologies.length > 0) && (
-              <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Tech Stack & Keywords</h3>
-                {technologies.length > 0 && (
-                  <div className="mb-3">
-                    <p className="text-xs font-medium mb-2" style={{ color: C.textDim }}>Technologies</p>
-                    <div className="flex flex-wrap gap-2">
-                      {technologies.map((t: string) => (
-                        <span key={t} className="text-xs px-2.5 py-1 rounded-full border"
-                          style={{ borderColor: "#BFDBFE", color: C.blue, backgroundColor: C.blueLight }}>
-                          {t}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {keywords.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium mb-2" style={{ color: C.textDim }}>Keywords</p>
-                    <div className="flex flex-wrap gap-2">
-                      {keywords.map((kw: string) => (
-                        <span key={kw} className="text-xs px-2.5 py-1 rounded-full border"
-                          style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
-                          {kw}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
 
           </div>
 
