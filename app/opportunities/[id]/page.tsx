@@ -42,16 +42,93 @@ function scoreBadge(score: number | null, priority: boolean) {
   return { label: "NURTURE", color: C.nurture, bg: C.nurtureBg };
 }
 
-async function getOpportunityData(campaignId: string) {
-  // Get campaign to find name
-  const { data: pivot } = await supabase.from("campaigns").select("name").eq("id", campaignId).single();
-  if (!pivot) return null;
+async function getOpportunityData(id: string) {
+  // Try as campaign ID first, then as lead ID
+  let pivotName: string | null = null;
+  let campaignId = id;
+  let isLeadOnly = false;
 
-  // All campaigns with this name
+  const { data: pivot } = await supabase.from("campaigns").select("id, name").eq("id", id).single();
+  if (pivot) {
+    pivotName = pivot.name;
+  } else {
+    // Fallback: id might be a lead_id — find their campaign
+    const { data: leadCamp } = await supabase
+      .from("campaigns")
+      .select("id, name")
+      .eq("lead_id", id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (leadCamp) {
+      pivotName = leadCamp.name;
+      campaignId = leadCamp.id;
+    } else {
+      // No campaign at all — check if lead exists with positive reply
+      const { data: lead } = await supabase.from("leads").select("id").eq("id", id).single();
+      if (!lead) return null;
+      isLeadOnly = true;
+    }
+  }
+  if (!pivotName && !isLeadOnly) return null;
+
+  // Lead-only path: lead has positive reply but no campaign
+  if (isLeadOnly) {
+    const [{ data: lead }, { data: replies }] = await Promise.all([
+      supabase.from("leads")
+        .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, lead_score, is_priority, current_channel, transferred_to_odoo_at, icp_profile_id")
+        .eq("id", id).single(),
+      supabase.from("lead_replies")
+        .select("id, lead_id, classification, channel, reply_text, received_at")
+        .eq("lead_id", id)
+        .order("received_at", { ascending: true }),
+    ]);
+    if (!lead) return null;
+    const winReply = (replies ?? []).find((r: any) => r.classification === "positive" || r.classification === "meeting_intent");
+    const leadName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
+
+    const profileId = lead.icp_profile_id;
+    const { data: profile } = profileId
+      ? await supabase.from("icp_profiles").select("id, profile_name").eq("id", profileId).single()
+      : { data: null };
+
+    return {
+      name: `${leadName} — ${lead.company_name ?? "Direct"}`,
+      campaignId: null,
+      totalLeads: 1,
+      converted: winReply ? 1 : 0,
+      transferred: lead.transferred_to_odoo_at ? 1 : 0,
+      conversionRate: winReply ? 100 : 0,
+      avgSteps: 0,
+      channelBreakdown: winReply ? [{ channel: winReply.channel, total: 1, converted: 1, rate: 100 }] : [],
+      sequence: [],
+      connectionNote: null,
+      convertedLeads: [{
+        id: lead.id,
+        name: leadName,
+        company: lead.company_name,
+        role: lead.primary_title_role,
+        score: lead.lead_score,
+        is_priority: lead.is_priority,
+        channel: winReply?.channel ?? "email",
+        transferred: !!lead.transferred_to_odoo_at,
+        winReplyText: winReply?.reply_text ?? null,
+        winReplyDate: winReply?.received_at ?? null,
+        winClassification: winReply?.classification ?? "positive",
+        stepsToConvert: 0,
+        totalSteps: 0,
+        allReplies: replies ?? [],
+      }],
+      profile: profile ?? null,
+      seller: null,
+    };
+  }
+
+  // Campaign path: normal flow grouped by campaign name
   const { data: allCampaigns } = await supabase
     .from("campaigns")
     .select("id, name, status, channel, current_step, sequence_steps, last_step_at, created_at, lead_id, sellers(name)")
-    .eq("name", pivot.name)
+    .eq("name", pivotName!)
     .order("created_at", { ascending: false });
 
   const leadIds = (allCampaigns ?? []).map(c => c.lead_id).filter(Boolean);
@@ -67,7 +144,7 @@ async function getOpportunityData(campaignId: string) {
       .order("received_at", { ascending: true }),
     supabase.from("campaign_requests")
       .select("name, message_prompts")
-      .eq("name", pivot.name)
+      .eq("name", pivotName!)
       .limit(1)
       .maybeSingle(),
   ]);
@@ -152,7 +229,7 @@ async function getOpportunityData(campaignId: string) {
     : 0;
 
   return {
-    name: pivot.name,
+    name: pivotName,
     campaignId,
     totalLeads,
     converted: convertedLeads.length,
@@ -400,11 +477,13 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
               <Star size={12} /> View Lead Detail
             </Link>
           )}
-          <Link href={`/campaigns/${data.campaignId}`}
-            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
-            style={{ backgroundColor: gold, color: "#04070d" }}>
-            <Megaphone size={12} /> View Campaign Detail
-          </Link>
+          {data.campaignId && (
+            <Link href={`/campaigns/${data.campaignId}`}
+              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+              style={{ backgroundColor: gold, color: "#04070d" }}>
+              <Megaphone size={12} /> View Campaign Detail
+            </Link>
+          )}
         </div>
       </div>
     </div>
