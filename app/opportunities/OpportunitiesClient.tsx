@@ -4,23 +4,35 @@ import { useState } from "react";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import {
-  Trophy, ChevronRight, Share2, Mail, Phone,
-  ExternalLink, Search, X,
+  Trophy, Share2, Mail, Phone, Star,
+  ExternalLink, Search, X, ChevronRight,
 } from "lucide-react";
 
 const gold = "#C9A83A";
 
-type CampaignGroupData = {
-  name: string;
-  firstId: string;
+type OpportunityLead = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  company: string | null;
+  role: string | null;
+  score: number | null;
+  is_priority: boolean;
+  transferred: boolean;
+  profile_name: string | null;
+  campaign_name: string | null;
+  campaign_id: string | null;
+  win_channel: string | null;
+  win_text: string | null;
+  win_classification: string;
+  win_date: string | null;
   channels: string[];
-  converted: number;
-  totalLeads: number;
-  transferred: number;
-  avgStepsToConversion: number;
+  steps_to_convert: number;
+  total_steps: number;
+  days_to_convert: number | null;
 };
 
-type Props = { groups: CampaignGroupData[] };
+type Props = { leads: OpportunityLead[] };
 
 const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
   linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
@@ -28,114 +40,180 @@ const channelMeta: Record<string, { icon: typeof Share2; color: string; label: s
   call:     { icon: Phone,  color: "#F97316", label: "Call" },
 };
 
-// ─── Campaign Card (links to /opportunities/[id]) ─────────────────────────────
-function OpportunityCard({ group }: { group: CampaignGroupData }) {
-  const rate      = group.totalLeads > 0 ? Math.round((group.converted / group.totalLeads) * 100) : 0;
-  const pending   = group.converted - group.transferred;
-
-  return (
-    <Link
-      href={`/opportunities/${group.firstId}`}
-      className="rounded-xl border overflow-hidden flex flex-col transition-all hover:shadow-md group"
-      style={{ backgroundColor: C.card, borderColor: C.border }}
-    >
-      <div className="px-4 pt-4 pb-3 flex-1">
-        <div className="flex items-start gap-3">
-          {/* Conversion ring */}
-          <div className="shrink-0 relative" style={{ width: 44, height: 44 }}>
-            <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-              <circle cx="18" cy="18" r="15.5" fill="none" stroke="#E5E7EB" strokeWidth="3" />
-              <circle cx="18" cy="18" r="15.5" fill="none"
-                stroke={rate >= 20 ? C.green : rate > 0 ? "#D97706" : C.textDim}
-                strokeWidth="3" strokeLinecap="round"
-                strokeDasharray={`${rate * 0.975} 100`} />
-            </svg>
-            <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold"
-              style={{ color: rate >= 20 ? C.green : rate > 0 ? "#D97706" : C.textDim }}>
-              {rate}%
-            </span>
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-bold mb-0.5 group-hover:underline" style={{ color: C.textPrimary }}>{group.name}</h3>
-            <div className="flex items-center gap-2 text-xs" style={{ color: C.textMuted }}>
-              <span><span className="font-bold" style={{ color: C.green }}>{group.converted}</span>/{group.totalLeads} converted</span>
-              {group.avgStepsToConversion > 0 && <span>· {group.avgStepsToConversion} steps avg</span>}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="px-4 py-2.5 border-t flex items-center justify-between"
-        style={{ borderColor: C.border, backgroundColor: C.bg }}>
-        <div className="flex items-center gap-3 text-[10px]">
-          {group.channels.map(ch => {
-            const meta = channelMeta[ch] ?? channelMeta.email;
-            const Icon = meta.icon;
-            return <Icon key={ch} size={11} style={{ color: meta.color }} />;
-          })}
-          {group.transferred > 0 && (
-            <span className="flex items-center gap-1" style={{ color: C.green }}>
-              <ExternalLink size={9} /> {group.transferred} in CRM
-            </span>
-          )}
-          {pending > 0 && (
-            <span style={{ color: "#D97706" }}>{pending} pending</span>
-          )}
-        </div>
-        <ChevronRight size={13} style={{ color: C.textDim }} className="transition-transform group-hover:translate-x-0.5" />
-      </div>
-    </Link>
-  );
+function scoreBadge(score: number | null, priority: boolean) {
+  if (priority || (score && score >= 80)) return { label: "HOT", color: C.hot, bg: C.hotBg };
+  if (score && score >= 50) return { label: "WARM", color: C.warm, bg: C.warmBg };
+  return { label: "NURTURE", color: C.nurture, bg: C.nurtureBg };
 }
 
-// ─── Main ──────────────────────────────────────────────────────────────────────
-export default function OpportunitiesClient({ groups }: Props) {
+export default function OpportunitiesClient({ leads }: Props) {
   const [search, setSearch] = useState("");
+  const [profileFilter, setProfileFilter] = useState("all");
+  const [channelFilter, setChannelFilter] = useState("all");
+  const [transferFilter, setTransferFilter] = useState("all");
 
-  const totalOpps        = groups.reduce((s, g) => s + g.converted, 0);
-  const totalTransferred = groups.reduce((s, g) => s + g.transferred, 0);
+  const totalTransferred = leads.filter(l => l.transferred).length;
+  const profileNames = [...new Set(leads.map(l => l.profile_name).filter(Boolean))] as string[];
+  const allChannels = [...new Set(leads.flatMap(l => l.channels))];
 
-  const filtered = !search
-    ? groups
-    : groups.filter(g => g.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = leads.filter(l => {
+    if (search) {
+      const q = search.toLowerCase();
+      if (!`${l.first_name} ${l.last_name} ${l.company} ${l.campaign_name}`.toLowerCase().includes(q)) return false;
+    }
+    if (profileFilter !== "all" && l.profile_name !== profileFilter) return false;
+    if (channelFilter !== "all" && l.win_channel !== channelFilter) return false;
+    if (transferFilter === "yes" && !l.transferred) return false;
+    if (transferFilter === "no" && l.transferred) return false;
+    return true;
+  });
+
+  const selectStyle = { color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` };
 
   return (
     <div className="p-6 w-full">
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Operations</p>
-          <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Opportunities</h1>
-          <p className="text-sm mt-1" style={{ color: C.textMuted }}>
-            <span className="font-bold" style={{ color: C.green }}>{totalOpps}</span> leads converted
-            {totalTransferred > 0 && (
-              <> · <span className="font-bold" style={{ color: C.green }}>{totalTransferred}</span> transferred to CRM</>
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5"
-          style={{ borderColor: C.border, backgroundColor: C.card }}>
-          <Search size={14} style={{ color: C.textDim }} />
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search..." className="bg-transparent text-sm outline-none w-40"
-            style={{ color: C.textPrimary }} />
-          {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
-        </div>
+      {/* Header */}
+      <div className="mb-6">
+        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Operations</p>
+        <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Opportunities</h1>
+        <p className="text-sm mt-1" style={{ color: C.textMuted }}>
+          <span className="font-bold" style={{ color: C.green }}>{leads.length}</span> leads converted
+          {totalTransferred > 0 && <> · <span className="font-bold" style={{ color: C.green }}>{totalTransferred}</span> transferred to CRM</>}
+        </p>
       </div>
 
       <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
 
+      {/* Filters */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5 flex-1 min-w-[200px] max-w-md"
+          style={{ borderColor: C.border, backgroundColor: C.card }}>
+          <Search size={14} style={{ color: C.textDim }} />
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search opportunities..." className="bg-transparent text-sm outline-none flex-1"
+            style={{ color: C.textPrimary }} />
+          {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
+        </div>
+        {profileNames.length > 1 && (
+          <select value={profileFilter} onChange={e => setProfileFilter(e.target.value)}
+            className="rounded-lg px-3 py-1.5 text-xs" style={selectStyle}>
+            <option value="all">All Profiles</option>
+            {profileNames.map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        )}
+        {allChannels.length > 1 && (
+          <select value={channelFilter} onChange={e => setChannelFilter(e.target.value)}
+            className="rounded-lg px-3 py-1.5 text-xs" style={selectStyle}>
+            <option value="all">All Channels</option>
+            {allChannels.map(ch => <option key={ch} value={ch}>{channelMeta[ch]?.label ?? ch}</option>)}
+          </select>
+        )}
+        <select value={transferFilter} onChange={e => setTransferFilter(e.target.value)}
+          className="rounded-lg px-3 py-1.5 text-xs" style={selectStyle}>
+          <option value="all">All Status</option>
+          <option value="yes">Transferred</option>
+          <option value="no">Pending Transfer</option>
+        </select>
+        <span className="text-xs" style={{ color: C.textMuted }}>{filtered.length} results</span>
+      </div>
+
+      {/* Table */}
       {filtered.length === 0 ? (
         <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
           <Trophy size={32} className="mx-auto mb-3" style={{ color: C.textDim }} />
           <p className="text-sm font-medium" style={{ color: C.textBody }}>
-            {search ? "No opportunities match your search" : "No opportunities yet"}
+            {search || profileFilter !== "all" || channelFilter !== "all" ? "No opportunities match your filters" : "No opportunities yet"}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map(g => <OpportunityCard key={g.name} group={g} />)}
+        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <table className="w-full text-left">
+            <thead>
+              <tr style={{ backgroundColor: C.bg }}>
+                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Lead</th>
+                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden md:table-cell" style={{ color: C.textMuted }}>Company</th>
+                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden lg:table-cell" style={{ color: C.textMuted }}>Campaign</th>
+                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Channel</th>
+                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center hidden sm:table-cell" style={{ color: C.textMuted }}>Days</th>
+                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Status</th>
+                <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden xl:table-cell" style={{ color: C.textMuted }}>Reply</th>
+                <th className="px-4 py-2.5" />
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(lead => {
+                const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Unknown";
+                const badge = scoreBadge(lead.score, lead.is_priority);
+                const chMeta = channelMeta[lead.win_channel ?? "email"] ?? channelMeta.email;
+                const ChIcon = chMeta.icon;
+                return (
+                  <tr key={lead.id} className="border-t transition-colors hover:bg-black/[0.015]" style={{ borderColor: C.border }}>
+                    <td className="px-4 py-3">
+                      <Link href={`/opportunities/${lead.campaign_id ?? lead.id}`} className="flex items-center gap-2.5 group/row">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                          style={{ background: `linear-gradient(135deg, ${C.green}, #34D399)`, color: "#fff" }}>
+                          {(lead.first_name ?? "?")[0]?.toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-semibold group-hover/row:underline truncate" style={{ color: C.textPrimary }}>{name}</span>
+                            {lead.is_priority && <Star size={9} fill={gold} stroke={gold} />}
+                            <span className="text-[9px] font-bold px-1 py-0.5 rounded" style={{ backgroundColor: badge.bg, color: badge.color }}>{badge.label}</span>
+                          </div>
+                          <span className="text-[10px] block truncate md:hidden" style={{ color: C.textMuted }}>{lead.company ?? "—"}</span>
+                        </div>
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 hidden md:table-cell">
+                      <span className="text-xs truncate block max-w-[130px]" style={{ color: C.textMuted }}>{lead.company ?? "—"}</span>
+                      {lead.role && <span className="text-[10px] truncate block max-w-[130px]" style={{ color: C.textDim }}>{lead.role}</span>}
+                    </td>
+                    <td className="px-4 py-3 hidden lg:table-cell">
+                      <span className="text-[10px] truncate block max-w-[150px]" style={{ color: C.textDim }}>{lead.campaign_name ?? "—"}</span>
+                      {lead.profile_name && <span className="text-[9px] truncate block max-w-[150px]" style={{ color: C.textDim }}>{lead.profile_name}</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: chMeta.color }}>
+                        <ChIcon size={10} /> {chMeta.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center hidden sm:table-cell">
+                      <span className="text-xs font-bold tabular-nums" style={{ color: gold }}>
+                        {lead.days_to_convert ?? "—"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {lead.transferred ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md"
+                          style={{ backgroundColor: C.greenLight, color: C.green }}>
+                          <ExternalLink size={9} /> In CRM
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md"
+                          style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}>Pending</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 hidden xl:table-cell">
+                      {lead.win_text ? (
+                        <p className="text-[10px] line-clamp-1 max-w-[200px]" style={{ color: C.textDim }}>
+                          &ldquo;{lead.win_text}&rdquo;
+                        </p>
+                      ) : (
+                        <span className="text-[10px]" style={{ color: C.textDim }}>—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Link href={`/opportunities/${lead.campaign_id ?? lead.id}`}
+                        className="text-[10px] font-medium hover:underline flex items-center gap-0.5 justify-end"
+                        style={{ color: gold }}>
+                        Detail <ChevronRight size={10} />
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

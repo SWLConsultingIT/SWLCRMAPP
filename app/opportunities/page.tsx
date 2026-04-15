@@ -4,8 +4,9 @@ import OpportunitiesClient from "./OpportunitiesClient";
 async function getOpportunities() {
   const { data: positiveReplies } = await supabase
     .from("lead_replies")
-    .select("lead_id, classification")
-    .in("classification", ["positive", "meeting_intent"]);
+    .select("lead_id, classification, channel, reply_text, received_at")
+    .in("classification", ["positive", "meeting_intent"])
+    .order("received_at", { ascending: false });
 
   const { data: odooLeads } = await supabase
     .from("leads")
@@ -16,81 +17,71 @@ async function getOpportunities() {
     ...(positiveReplies ?? []).map(r => r.lead_id),
     ...(odooLeads ?? []).map(l => l.id),
   ]);
-  if (wonLeadIds.size === 0) return { groups: [] };
+  if (wonLeadIds.size === 0) return { leads: [] };
   const idArr = Array.from(wonLeadIds);
 
-  const [{ data: leads }, { data: wonCampaigns }] = await Promise.all([
+  const [{ data: leads }, { data: campaigns }, { data: profiles }] = await Promise.all([
     supabase.from("leads")
-      .select("id, current_channel, transferred_to_odoo_at")
+      .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, lead_score, is_priority, transferred_to_odoo_at, icp_profile_id, created_at")
       .in("id", idArr),
     supabase.from("campaigns")
-      .select("id, name, channel, lead_id, current_step, sequence_steps")
+      .select("id, name, channel, lead_id, current_step, sequence_steps, created_at")
       .in("lead_id", idArr),
+    supabase.from("icp_profiles").select("id, profile_name").eq("status", "approved"),
   ]);
 
-  // All campaigns with same names (for total counts)
-  const campaignNames = [...new Set((wonCampaigns ?? []).map(c => c.name))];
-  const { data: allCampaigns } = campaignNames.length > 0
-    ? await supabase.from("campaigns").select("id, name, channel, lead_id").in("name", campaignNames)
-    : { data: [] };
+  const profileMap: Record<string, string> = {};
+  for (const p of profiles ?? []) profileMap[p.id] = p.profile_name;
 
   const campByLead: Record<string, any> = {};
-  for (const c of wonCampaigns ?? []) {
+  for (const c of campaigns ?? []) {
     if (!campByLead[c.lead_id]) campByLead[c.lead_id] = c;
   }
 
-  const totalLeadsByCampName: Record<string, Set<string>> = {};
-  const channelsByCampName: Record<string, Set<string>> = {};
-  for (const c of allCampaigns ?? []) {
-    if (!totalLeadsByCampName[c.name]) totalLeadsByCampName[c.name] = new Set();
-    if (!channelsByCampName[c.name]) channelsByCampName[c.name] = new Set();
-    if (c.lead_id) {
-      totalLeadsByCampName[c.name].add(c.lead_id);
-      channelsByCampName[c.name].add(c.channel);
-    }
+  const replyByLead: Record<string, any> = {};
+  for (const r of positiveReplies ?? []) {
+    if (!replyByLead[r.lead_id]) replyByLead[r.lead_id] = r;
   }
 
-  // Build groups
-  const groupMap: Record<string, {
-    firstId: string | null;
-    converted: number;
-    transferred: number;
-    stepsToConvert: number[];
-  }> = {};
+  const opportunityLeads = (leads ?? []).map(l => {
+    const camp = campByLead[l.id];
+    const reply = replyByLead[l.id];
+    const steps = Array.isArray(camp?.sequence_steps) ? camp.sequence_steps.length : 0;
+    const channels = camp ? [...new Set([camp.channel, ...(Array.isArray(camp.sequence_steps) ? camp.sequence_steps.map((s: any) => s.channel) : [])])] : [];
+    const daysToConvert = reply?.received_at && l.created_at
+      ? Math.max(1, Math.round((new Date(reply.received_at).getTime() - new Date(l.created_at).getTime()) / 86400000))
+      : null;
 
-  for (const lead of leads ?? []) {
-    const camp = campByLead[lead.id];
-    const campName = camp?.name ?? "Direct / No Campaign";
-    if (!groupMap[campName]) groupMap[campName] = { firstId: camp?.id ?? null, converted: 0, transferred: 0, stepsToConvert: [] };
-    groupMap[campName].converted++;
-    if (lead.transferred_to_odoo_at) groupMap[campName].transferred++;
-    if (camp?.current_step) groupMap[campName].stepsToConvert.push(camp.current_step);
-  }
+    return {
+      id: l.id,
+      first_name: l.primary_first_name,
+      last_name: l.primary_last_name,
+      company: l.company_name,
+      role: l.primary_title_role,
+      score: l.lead_score,
+      is_priority: l.is_priority,
+      transferred: !!l.transferred_to_odoo_at,
+      profile_name: l.icp_profile_id ? (profileMap[l.icp_profile_id] ?? null) : null,
+      campaign_name: camp?.name ?? null,
+      campaign_id: camp?.id ?? null,
+      win_channel: reply?.channel ?? camp?.channel ?? null,
+      win_text: reply?.reply_text ?? null,
+      win_classification: reply?.classification ?? "positive",
+      win_date: reply?.received_at ?? null,
+      channels,
+      steps_to_convert: camp?.current_step ?? 0,
+      total_steps: steps,
+      days_to_convert: daysToConvert,
+    };
+  }).sort((a, b) => {
+    if (a.win_date && b.win_date) return new Date(b.win_date).getTime() - new Date(a.win_date).getTime();
+    return 0;
+  });
 
-  const groups = Object.entries(groupMap)
-    .map(([name, data]) => {
-      const totalInCampaign = totalLeadsByCampName[name]?.size ?? data.converted;
-      const channels = [...(channelsByCampName[name] ?? new Set())];
-      const avgSteps = data.stepsToConvert.length > 0
-        ? Math.round(data.stepsToConvert.reduce((s, v) => s + v, 0) / data.stepsToConvert.length * 10) / 10
-        : 0;
-
-      return {
-        name,
-        firstId: data.firstId ?? name,
-        channels,
-        converted: data.converted,
-        totalLeads: totalInCampaign,
-        transferred: data.transferred,
-        avgStepsToConversion: avgSteps,
-      };
-    })
-    .sort((a, b) => b.converted - a.converted);
-
-  return { groups };
+  return { leads: opportunityLeads };
 }
 
 export default async function OpportunitiesPage() {
-  const { groups } = await getOpportunities();
-  return <OpportunitiesClient groups={JSON.parse(JSON.stringify(groups))} />;
+  const { leads } = await getOpportunities();
+  return <OpportunitiesClient leads={JSON.parse(JSON.stringify(leads))} />;
 }
