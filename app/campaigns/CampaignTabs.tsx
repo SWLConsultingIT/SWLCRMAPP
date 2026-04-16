@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 import { C } from "@/lib/design";
-import Link from "next/link";
-import { Rocket, Megaphone, Plus } from "lucide-react";
+import { Megaphone, PlusCircle } from "lucide-react";
 
 const gold = "#C9A83A";
 
@@ -16,7 +15,7 @@ export default function CampaignTabs({ readyCount, activeCount, children }: {
 
   const tabs = [
     { label: "Active Campaigns", icon: Megaphone, count: activeCount, color: gold },
-    { label: "Ready to Launch", icon: Rocket, count: readyCount, color: C.blue },
+    { label: "New Campaign", icon: PlusCircle, count: readyCount, color: C.blue },
   ];
 
   return (
@@ -43,17 +42,6 @@ export default function CampaignTabs({ readyCount, activeCount, children }: {
             </button>
           );
         })}
-        {/* New Flow only visible on Ready to Launch tab */}
-        {tab === 1 && (
-          <>
-            <div className="flex-1" />
-            <Link href="/campaigns/new"
-              className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-80 mb-1"
-              style={{ backgroundColor: gold, color: "#04070d" }}>
-              <Plus size={15} /> New Flow
-            </Link>
-          </>
-        )}
       </div>
 
       {Array.isArray(children) && children[tab]}

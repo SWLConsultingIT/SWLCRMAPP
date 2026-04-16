@@ -7,6 +7,7 @@ import {
   Trophy, Share2, Mail, Phone, Star,
   ExternalLink, Search, X, ChevronRight,
 } from "lucide-react";
+import PageHero from "@/components/PageHero";
 
 const gold = "#C9A83A";
 
@@ -52,7 +53,6 @@ export default function OpportunitiesClient({ leads }: Props) {
   const [channelFilter, setChannelFilter] = useState("all");
   const [transferFilter, setTransferFilter] = useState("all");
 
-  const totalTransferred = leads.filter(l => l.transferred).length;
   const profileNames = [...new Set(leads.map(l => l.profile_name).filter(Boolean))] as string[];
   const allChannels = [...new Set(leads.flatMap(l => l.channels))];
 
@@ -72,17 +72,14 @@ export default function OpportunitiesClient({ leads }: Props) {
 
   return (
     <div className="p-6 w-full">
-      {/* Header */}
-      <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Operations</p>
-        <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Opportunities</h1>
-        <p className="text-sm mt-1" style={{ color: C.textMuted }}>
-          <span className="font-bold" style={{ color: C.green }}>{leads.length}</span> leads converted
-          {totalTransferred > 0 && <> · <span className="font-bold" style={{ color: C.green }}>{totalTransferred}</span> transferred to CRM</>}
-        </p>
-      </div>
-
-      <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
+      <PageHero
+        icon={Trophy}
+        section="Operations"
+        title="Opportunities"
+        description="Track qualified leads and deals moving through your sales pipeline."
+        accentColor={C.green}
+        status={{ label: `${leads.length} converted`, active: leads.length > 0 }}
+      />
 
       {/* Filters */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">

@@ -7,6 +7,7 @@ import {
   ArrowLeft, Star, Clock, ChevronRight, Megaphone,
   PlayCircle, CheckCircle, PauseCircle, XCircle,
 } from "lucide-react";
+import { LeadFilterBar, type LeadFilterState } from "@/components/LeadFilters";
 
 const gold = "#C9A83A";
 
@@ -24,6 +25,9 @@ type LeadInfo = {
   channel: string | null;
   reply_count: number;
   has_positive: boolean;
+  campaign_name: string | null;
+  campaign_status: string | null;
+  has_campaign: boolean;
 };
 
 type CampaignGroup = {
@@ -81,15 +85,14 @@ function CampaignCard({ camp }: { camp: CampaignGroup }) {
 
   return (
     <Link
-      href={`/campaigns/${camp.firstId}`}
+      href={`/campaigns/${camp.firstId}/overview`}
       className="rounded-xl border overflow-hidden flex flex-col transition-shadow hover:shadow-md group/card"
       style={{ backgroundColor: C.card, borderColor: C.border }}
     >
       <div className="px-4 pt-4 pb-3 flex-1">
-        {/* Outreach Flow label */}
         <div className="flex items-center gap-1.5 mb-2">
           <Megaphone size={11} style={{ color: gold }} />
-          <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: gold }}>Outreach Campaign</span>
+          <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: gold }}>Outreach Flow</span>
           <div className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md" style={{ backgroundColor: st.bg }}>
             <StIcon size={10} style={{ color: st.color }} />
             <span className="text-[10px] font-semibold" style={{ color: st.color }}>{st.label}</span>
@@ -100,7 +103,6 @@ function CampaignCard({ camp }: { camp: CampaignGroup }) {
           {camp.name}
         </h3>
 
-        {/* Stats grid */}
         <div className="grid grid-cols-3 gap-2 mb-3">
           {[
             { label: "Leads", value: camp.totalLeads, color: C.textBody },
@@ -121,7 +123,6 @@ function CampaignCard({ camp }: { camp: CampaignGroup }) {
         </div>
       </div>
 
-      {/* Progress footer */}
       <div className="px-4 py-2.5 border-t flex items-center gap-2"
         style={{ borderColor: C.border, backgroundColor: C.bg }}>
         <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
@@ -134,10 +135,32 @@ function CampaignCard({ camp }: { camp: CampaignGroup }) {
   );
 }
 
-// ─── Leads table ──────────────────────────────────────────────────────────────
+// ─── Leads table with filters ────────────────────────────────────────────────
+const PAGE_SIZE = 25;
+
 function LeadsTable({ leads }: { leads: LeadInfo[] }) {
-  // Build a map of lead campaigns for the "Campaign" column
-  // We don't have lead→campaign mapping here, so we show the profile's campaigns
+  const [showCount, setShowCount] = useState(PAGE_SIZE);
+  const [filters, setFilters] = useState<LeadFilterState>({ search: "", score: "all", campaign: "all", reply: "all", profile: "all" });
+
+  const filtered = leads.filter(l => {
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      if (!`${l.first_name} ${l.last_name} ${l.company} ${l.email}`.toLowerCase().includes(q)) return false;
+    }
+    if (filters.score === "hot" && !(l.is_priority || (l.score && l.score >= 80))) return false;
+    if (filters.score === "warm" && !(l.score && l.score >= 50 && l.score < 80 && !l.is_priority)) return false;
+    if (filters.score === "nurture" && !(!l.score || l.score < 50) && !l.is_priority) return false;
+    if (filters.campaign === "yes" && !l.has_campaign) return false;
+    if (filters.campaign === "no" && l.has_campaign) return false;
+    if (filters.reply === "replied" && !(l.reply_count > 0)) return false;
+    if (filters.reply === "positive" && !l.has_positive) return false;
+    if (filters.reply === "none" && l.reply_count > 0) return false;
+    return true;
+  });
+
+  const visible = filtered.slice(0, showCount);
+  const hasMore = showCount < filtered.length;
+
   if (leads.length === 0) {
     return (
       <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -147,65 +170,80 @@ function LeadsTable({ leads }: { leads: LeadInfo[] }) {
   }
 
   return (
-    <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
-      <table className="w-full text-left">
-        <thead>
-          <tr style={{ backgroundColor: C.bg }}>
-            <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Lead</th>
-            <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden md:table-cell" style={{ color: C.textMuted }}>Company</th>
-            <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden lg:table-cell" style={{ color: C.textMuted }}>Role</th>
-            <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Score</th>
-            <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Status</th>
-            <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Reply</th>
-            <th className="px-4 py-2.5" />
-          </tr>
-        </thead>
-        <tbody>
-          {leads.map(lead => {
-            const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Unknown";
-            const badge = scoreBadge(lead.score, lead.is_priority);
-            const hasReply = (lead.reply_count ?? 0) > 0;
-            const replyColor = lead.has_positive ? C.green : hasReply ? "#D97706" : C.textDim;
-            const replyLabel = lead.has_positive ? "Positive" : hasReply ? "Replied" : "Awaiting";
+    <div>
+      <LeadFilterBar
+        filters={filters}
+        onChange={f => { setFilters(f); setShowCount(PAGE_SIZE); }}
+        resultCount={filtered.length}
+        totalCount={leads.length}
+        showProfileFilter={false}
+      />
 
-            return (
-              <tr key={lead.id} className="border-t transition-colors hover:bg-black/[0.015]" style={{ borderColor: C.border }}>
-                <td className="px-4 py-3">
-                  <Link href={`/leads/${lead.id}`} className="flex items-center gap-2.5 group/row">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                      style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
-                      {((lead.company ?? name)[0] ?? "?").toUpperCase()}
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-xs font-semibold group-hover/row:underline block truncate" style={{ color: C.textPrimary }}>{name}</span>
-                      <span className="text-[10px] block truncate md:hidden" style={{ color: C.textMuted }}>{lead.company ?? "—"}</span>
-                    </div>
-                    {lead.is_priority && <Star size={10} fill={gold} stroke={gold} className="shrink-0" />}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 hidden md:table-cell">
-                  <span className="text-xs truncate block max-w-[160px]" style={{ color: C.textMuted }}>{lead.company ?? "—"}</span>
-                </td>
-                <td className="px-4 py-3 hidden lg:table-cell">
-                  <span className="text-xs truncate block max-w-[160px]" style={{ color: C.textMuted }}>{lead.role ?? "—"}</span>
-                </td>
-                <td className="px-4 py-3 text-center">
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded inline-block" style={{ backgroundColor: badge.bg, color: badge.color }}>{badge.label}</span>
-                </td>
-                <td className="px-4 py-3">
-                  <span className="text-[10px]" style={{ color: C.textMuted }}>{lead.status ?? "new"}</span>
-                </td>
-                <td className="px-4 py-3">
-                  <span className="text-[10px] font-semibold" style={{ color: replyColor }}>{replyLabel}</span>
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <Link href={`/leads/${lead.id}`} className="text-[10px] font-medium hover:underline" style={{ color: gold }}>View</Link>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <table className="w-full text-left">
+          <thead>
+            <tr style={{ backgroundColor: C.bg }}>
+              {["Lead", "Company", "Role", "Score", "Campaign", "Reply", ""].map(h => (
+                <th key={h} className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {visible.length === 0 ? (
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-sm" style={{ color: C.textDim }}>No leads match your filters</td></tr>
+            ) : visible.map(lead => {
+              const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Unknown";
+              const badge = scoreBadge(lead.score, lead.is_priority);
+              const hasReply = lead.reply_count > 0;
+              const replyColor = lead.has_positive ? C.green : hasReply ? "#D97706" : C.textDim;
+              const replyLabel = lead.has_positive ? "Positive" : hasReply ? "Replied" : "—";
+              const campSt = lead.campaign_status ? (statusMeta[lead.campaign_status] ?? null) : null;
+
+              return (
+                <tr key={lead.id} className="border-t transition-colors hover:bg-black/[0.015]" style={{ borderColor: C.border }}>
+                  <td className="px-4 py-3">
+                    <Link href={`/leads/${lead.id}`} className="flex items-center gap-2.5 group/row">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                        style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                        {((lead.company ?? name)[0] ?? "?").toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="text-xs font-semibold group-hover/row:underline block truncate" style={{ color: C.textPrimary }}>{name}</span>
+                      </div>
+                      {lead.is_priority && <Star size={10} fill={gold} stroke={gold} className="shrink-0" />}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3"><span className="text-xs truncate block max-w-[140px]" style={{ color: C.textMuted }}>{lead.company ?? "—"}</span></td>
+                  <td className="px-4 py-3"><span className="text-xs truncate block max-w-[140px]" style={{ color: C.textMuted }}>{lead.role ?? "—"}</span></td>
+                  <td className="px-4 py-3">
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded inline-block" style={{ backgroundColor: badge.bg, color: badge.color }}>{badge.label}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {lead.has_campaign && campSt ? (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: campSt.bg, color: campSt.color }}>{campSt.label}</span>
+                    ) : lead.has_campaign ? (
+                      <span className="text-[10px]" style={{ color: C.textMuted }}>{lead.campaign_name ?? "Yes"}</span>
+                    ) : (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>No Campaign</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3"><span className="text-[10px] font-semibold" style={{ color: replyColor }}>{replyLabel}</span></td>
+                  <td className="px-4 py-3 text-right">
+                    <Link href={`/leads/${lead.id}`} className="text-[10px] font-medium hover:underline" style={{ color: gold }}>View</Link>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {hasMore && (
+          <div className="border-t px-4 py-2.5 text-center" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+            <button onClick={() => setShowCount(c => c + PAGE_SIZE)} className="text-xs font-medium hover:underline" style={{ color: gold }}>
+              Show more ({filtered.length - showCount} remaining)
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -218,10 +256,11 @@ export default function TicketDetailClient({ ticketName, campaigns, leads }: Pro
   const totalCamps    = campaigns.length;
   const positiveCount = leads.filter(l => l.has_positive).length;
   const replyCount    = leads.reduce((s, l) => s + l.reply_count, 0);
+  const noCampaignCount = leads.filter(l => !l.has_campaign).length;
 
   const tabs = [
-    { label: "Outreach Campaigns", count: totalCamps,  color: gold },
-    { label: "Leads",              count: totalLeads,  color: C.blue },
+    { label: "Leads",          count: totalLeads, color: C.blue },
+    { label: "Outreach Flows", count: totalCamps, color: gold },
   ];
 
   return (
@@ -242,10 +281,11 @@ export default function TicketDetailClient({ ticketName, campaigns, leads }: Pro
           <h1 className="text-2xl font-bold mb-5" style={{ color: C.textPrimary }}>{ticketName}</h1>
           <div className="flex items-center gap-6 flex-wrap">
             {[
-              { label: "Leads",     value: totalLeads,    color: C.textBody },
-              { label: "Campaigns", value: totalCamps,    color: gold },
-              { label: "Replies",   value: replyCount,    color: C.blue },
-              { label: "Positive",  value: positiveCount, color: C.green },
+              { label: "Leads",       value: totalLeads,      color: C.textBody },
+              { label: "Flows",       value: totalCamps,      color: gold },
+              { label: "Replies",     value: replyCount,      color: C.blue },
+              { label: "Positive",    value: positiveCount,   color: C.green },
+              { label: "No Campaign", value: noCampaignCount, color: "#92400E" },
             ].map((s, i, arr) => (
               <div key={s.label} className="flex items-center gap-5">
                 <div>
@@ -280,11 +320,14 @@ export default function TicketDetailClient({ ticketName, campaigns, leads }: Pro
         })}
       </div>
 
-      {/* Tab 0: Outreach Campaigns */}
-      {tab === 0 && (
+      {/* Tab 0: Leads (with filters) */}
+      {tab === 0 && <LeadsTable leads={leads} />}
+
+      {/* Tab 1: Outreach Flows */}
+      {tab === 1 && (
         campaigns.length === 0 ? (
           <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <p className="text-sm" style={{ color: C.textDim }}>No campaigns for this profile yet</p>
+            <p className="text-sm" style={{ color: C.textDim }}>No outreach flows for this profile yet</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -292,9 +335,6 @@ export default function TicketDetailClient({ ticketName, campaigns, leads }: Pro
           </div>
         )
       )}
-
-      {/* Tab 1: Leads */}
-      {tab === 1 && <LeadsTable leads={leads} />}
     </div>
   );
 }

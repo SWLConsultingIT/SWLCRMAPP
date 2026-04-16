@@ -13,6 +13,14 @@ import {
 const gold = C.gold;
 const goldLight = C.goldGlow;
 
+const LANGUAGES = [
+  { code: "EN", flag: "🇺🇸" },
+  { code: "IT", flag: "🇮🇹" },
+  { code: "ES", flag: "🇪🇸" },
+  { code: "FR", flag: "🇫🇷" },
+  { code: "DE", flag: "🇩🇪" },
+];
+
 type CaseStudy = { title: string; description: string; url?: string; file_url?: string };
 type Resource = { name: string; file_url: string; type: string };
 
@@ -1097,6 +1105,7 @@ export default function CompanyBiosPage() {
   const [scrapeUrl, setScrapeUrl] = useState("");
   const [scraping, setScraping] = useState(false);
   const [scrapeError, setScrapeError] = useState<string | null>(null);
+  const [scanLang, setScanLang] = useState("EN");
   const [prefilled, setPrefilled] = useState<CompanyBio | null>(null);
 
   async function handleScrape() {
@@ -1109,7 +1118,7 @@ export default function CompanyBiosPage() {
       const res = await fetch("/api/company-bios/scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: finalUrl }),
+        body: JSON.stringify({ url: finalUrl, lang: scanLang }),
       });
       const data = await res.json();
       if (!res.ok) { setScrapeError(data.error ?? "Failed to scrape"); return; }
@@ -1143,16 +1152,92 @@ export default function CompanyBiosPage() {
   const hasBio = bio && bio.id;
 
   return (
-    <div className="p-6 w-full">
-      {/* Breadcrumb (view), header (editing), or nothing (empty state) */}
-      {hasBio && !editing ? (
-        <div className="flex items-center gap-2 text-xs mb-4" style={{ color: C.textMuted }}>
-          <span>Company Bio</span>
-          <span>/</span>
-          <span style={{ color: C.textBody }}>{bio?.company_name ?? "Company"}</span>
+    <div className="p-6 w-full space-y-6">
+
+      {/* ── Scanner Hero — always visible except when editing ── */}
+      {!editing && (
+        <div className="rounded-2xl overflow-hidden" style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.12)" }}>
+          {/* Dark banner */}
+          <div className="px-8 py-6 flex items-center justify-between gap-6"
+            style={{ background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)" }}>
+            <div className="flex items-center gap-5">
+              <span className="text-4xl select-none">🌐</span>
+              <div>
+                <h2 className="text-xl font-bold text-white">Company Bio Scanner</h2>
+                <p className="text-sm mt-1 leading-relaxed" style={{ color: "#94A3B8" }}>
+                  Scan a client's website in real-time to generate a comprehensive AI company breakdown and contact strategy.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2.5 shrink-0">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+                style={{ backgroundColor: "rgba(255,255,255,0.08)" }}>
+                <span className="w-2 h-2 rounded-full pulse-dot" style={{ backgroundColor: "#22C55E" }} />
+                <span className="text-sm font-medium text-white">Ready</span>
+              </div>
+              <span className="text-xs px-3 py-1.5 rounded-full font-medium"
+                style={{ backgroundColor: "rgba(255,255,255,0.08)", color: "#94A3B8" }}>
+                AI Web Indexer
+              </span>
+            </div>
+          </div>
+
+          {/* Scan controls */}
+          <div className="p-6" style={{ backgroundColor: C.card, borderLeft: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, borderRadius: "0 0 16px 16px" }}>
+            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: C.textMuted }}>Target Website</p>
+
+            {/* Language pills */}
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-[10px] font-bold uppercase tracking-widest shrink-0" style={{ color: C.textDim }}>
+                Scan Language
+              </span>
+              <div className="flex gap-1.5">
+                {LANGUAGES.map(l => (
+                  <button key={l.code}
+                    onClick={() => setScanLang(l.code)}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all"
+                    style={scanLang === l.code
+                      ? { backgroundColor: gold, color: "#04070d" }
+                      : { backgroundColor: "#F3F4F6", color: C.textMuted, border: `1px solid ${C.border}` }
+                    }>
+                    <span>{l.flag}</span> {l.code}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* URL + button */}
+            <div className="flex gap-3">
+              <input
+                className="flex-1 rounded-lg border px-4 py-3 text-sm focus:outline-none"
+                style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
+                value={scrapeUrl}
+                onChange={e => setScrapeUrl(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && handleScrape()}
+                placeholder="e.g. https://www.acme-corp.com"
+                disabled={scraping}
+              />
+              <button
+                onClick={handleScrape}
+                disabled={scraping || !scrapeUrl.trim()}
+                className="flex items-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold transition-all disabled:opacity-40 shrink-0 hover:opacity-90"
+                style={{ background: "linear-gradient(135deg, #0F172A, #1E293B)", color: "#fff" }}>
+                {scraping ? <Loader2 size={15} className="animate-spin" /> : <Globe size={15} />}
+                {scraping ? "Scanning..." : "Scan Web"}
+              </button>
+            </div>
+            {scrapeError && (
+              <p className="text-xs mt-2" style={{ color: C.red }}>
+                <AlertCircle size={11} className="inline mr-1" />{scrapeError}
+              </p>
+            )}
+          </div>
         </div>
-      ) : editing ? (
-        <div className="mb-6">
+      )}
+
+      {/* ── Edit header ── */}
+      {editing && (
+        <div>
           <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>
             {hasBio ? "Editing" : "New Company"}
           </p>
@@ -1165,86 +1250,46 @@ export default function CompanyBiosPage() {
           </p>
           <div className="h-px mt-5" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
         </div>
-      ) : null}
+      )}
 
+      {/* ── Content ── */}
       {hasBio && !editing ? (
-        <BioView bio={bio} onEdit={() => setEditing(true)} />
+        <>
+          <div className="flex items-center gap-2 text-xs -mt-2" style={{ color: C.textMuted }}>
+            <span>Company Bio</span>
+            <span>/</span>
+            <span style={{ color: C.textBody }}>{bio.company_name}</span>
+          </div>
+          <BioView bio={bio} onEdit={() => setEditing(true)} />
+        </>
       ) : !hasBio && !editing ? (
-        /* Empty state — welcome screen */
-        <div className="flex flex-col items-center justify-center py-16">
-          <div className="rounded-2xl border p-10 max-w-lg w-full text-center relative overflow-hidden"
+        <div className="flex flex-col items-center justify-center py-8">
+          <div className="rounded-2xl border p-8 max-w-md w-full text-center relative overflow-hidden"
             style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <div className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg, ${gold}, #e8c84a, ${gold})` }} />
-
-            <div className="w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-5"
+            <div className="absolute inset-x-0 top-0 h-1"
+              style={{ background: `linear-gradient(90deg, ${gold}, #e8c84a, ${gold})` }} />
+            <div className="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4"
               style={{ background: `linear-gradient(135deg, ${gold}20, ${gold}08)`, border: `1px solid ${gold}30` }}>
-              <Building2 size={28} style={{ color: gold }} />
+              <Building2 size={24} style={{ color: gold }} />
             </div>
-
-            <h2 className="text-lg font-bold mb-2" style={{ color: C.textPrimary }}>Company Bio</h2>
-            <p className="text-sm leading-relaxed mb-1" style={{ color: C.textBody }}>
-              No company profile yet.
+            <h2 className="text-base font-bold mb-1.5" style={{ color: C.textPrimary }}>No company profile yet</h2>
+            <p className="text-xs mb-5" style={{ color: C.textMuted }}>
+              Scan a website above or create your profile manually. This info personalizes your AI outreach.
             </p>
-            <p className="text-xs mb-6" style={{ color: C.textMuted }}>
-              This information is used to personalize outreach messages with AI.
-            </p>
-
-            {/* Auto-fill from URL */}
-            <div className="rounded-xl border p-4 mb-4 text-left" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-              <p className="text-xs font-semibold mb-2" style={{ color: C.textBody }}>
-                <Globe size={12} className="inline mr-1.5" style={{ color: C.accent }} />
-                Auto-fill from website
-              </p>
-              <div className="flex gap-2">
-                <input
-                  className="flex-1 rounded-lg border px-3 py-2.5 text-sm focus:outline-none"
-                  style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
-                  value={scrapeUrl}
-                  onChange={e => setScrapeUrl(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleScrape()}
-                  placeholder="https://yourcompany.com"
-                  disabled={scraping}
-                />
-                <button
-                  onClick={handleScrape}
-                  disabled={scraping || !scrapeUrl.trim()}
-                  className="flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-xs font-semibold transition-opacity disabled:opacity-40 shrink-0"
-                  style={{ backgroundColor: C.accent, color: "#fff" }}>
-                  {scraping ? <Loader2 size={13} className="animate-spin" /> : <Globe size={13} />}
-                  {scraping ? "Scanning..." : "Scan"}
-                </button>
-              </div>
-              {scrapeError && (
-                <p className="text-xs mt-2" style={{ color: C.red }}>
-                  <AlertCircle size={11} className="inline mr-1" />{scrapeError}
-                </p>
-              )}
-              <p className="text-xs mt-2" style={{ color: C.textDim }}>
-                AI will extract company info from the website automatically.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex-1 h-px" style={{ backgroundColor: C.border }} />
-              <span className="text-xs font-medium" style={{ color: C.textDim }}>or</span>
-              <div className="flex-1 h-px" style={{ backgroundColor: C.border }} />
-            </div>
-
             <button
               onClick={() => setEditing(true)}
-              className="inline-flex items-center gap-2 rounded-lg px-8 py-3 text-sm font-semibold transition-all hover:shadow-lg hover:opacity-95"
+              className="inline-flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-all hover:shadow-lg hover:opacity-95"
               style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#04070d" }}>
-              <Plus size={16} /> Create Manually
+              <Plus size={15} /> Create Manually
             </button>
-
-            <div className="mt-8 pt-6 border-t grid grid-cols-3 gap-4" style={{ borderColor: C.border }}>
+            <div className="mt-6 pt-5 border-t grid grid-cols-3 gap-3" style={{ borderColor: C.border }}>
               {[
                 { icon: "1", label: "Enter your company info" },
                 { icon: "2", label: "AI personalizes messages" },
                 { icon: "3", label: "Better outreach, more replies" },
               ].map(step => (
                 <div key={step.icon} className="text-center">
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center mx-auto mb-1.5 text-xs font-bold"
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center mx-auto mb-1 text-xs font-bold"
                     style={{ backgroundColor: goldLight, color: gold, border: `1px solid ${gold}30` }}>
                     {step.icon}
                   </div>
@@ -1259,7 +1304,7 @@ export default function CompanyBiosPage() {
           bio={prefilled ?? bio ?? empty}
           isNew={!hasBio}
           onSave={(saved) => { setBio(saved); setEditing(false); setPrefilled(null); }}
-          onCancel={() => { if (hasBio) setEditing(false); else setEditing(false); setPrefilled(null); }}
+          onCancel={() => { setEditing(false); setPrefilled(null); }}
           onDelete={() => { setBio(null); setEditing(false); setPrefilled(null); }}
         />
       )}

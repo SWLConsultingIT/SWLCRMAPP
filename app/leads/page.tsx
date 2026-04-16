@@ -1,8 +1,9 @@
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
+import { Users } from "lucide-react";
 import LeadsCampaignsClient from "@/components/LeadsCampaignsClient";
+import PageHero from "@/components/PageHero";
 
-const gold = "#C9A83A";
 
 async function getData() {
   const { data: profiles } = await supabase
@@ -181,31 +182,90 @@ async function getData() {
   const positiveCount = groupList.reduce((s, g) => s + g.positiveCount, 0);
   const responseRate = contactedCount > 0 ? Math.round((Object.keys(repliesByLead).length / contactedCount) * 100) : 0;
 
+  // ── Campaign groups for Campaigns view ──
+  const campGroupsMap: Record<string, any[]> = {};
+  for (const c of campaigns ?? []) {
+    const key = c.name || "Unnamed";
+    if (!campGroupsMap[key]) campGroupsMap[key] = [];
+    campGroupsMap[key].push(c);
+  }
+
+  const campaignGroups = Object.entries(campGroupsMap).map(([name, camps]) => {
+    const channels = [...new Set(camps.flatMap((c: any) => {
+      const steps = c.sequence_steps ?? [];
+      return steps.map((s: any) => typeof s === "string" ? s : s?.channel).filter(Boolean);
+    }))];
+    if (channels.length === 0) channels.push(...new Set(camps.map((c: any) => c.channel)));
+    const active = camps.filter((c: any) => c.status === "active").length;
+    const completed = camps.filter((c: any) => c.status === "completed").length;
+    const paused = camps.filter((c: any) => c.status === "paused").length;
+    const progressValues = camps.map((c: any) => {
+      const total = c.sequence_steps?.length ?? 0;
+      return total > 0 ? c.current_step / total : 0;
+    });
+    const avgProgress = progressValues.length > 0 ? Math.round((progressValues.reduce((a: number, b: number) => a + b, 0) / progressValues.length) * 100) : 0;
+    const sellers = [...new Set(camps.map((c: any) => (c.sellers as any)?.name).filter(Boolean))] as string[];
+    const lastActivity = camps.map((c: any) => c.last_step_at).filter(Boolean)
+      .sort((a: string, b: string) => new Date(b).getTime() - new Date(a).getTime())[0] ?? null;
+    const totalReplies = camps.reduce((s: number, c: any) => s + ((msgsByCamp[c.id]?.sent ?? 0) > 0 ? (repliesByLead[c.lead_id]?.length ?? 0) : 0), 0);
+    const groupStatus = active > 0 ? "active" : paused > 0 ? "paused" : completed > 0 ? "completed" : "failed";
+
+    return { name, firstId: camps[0].id, channels: [...new Set(channels)], totalLeads: camps.length, active, completed, avgProgress, totalReplies, sellers, lastActivity, status: groupStatus };
+  }).sort((a, b) => b.active - a.active || b.totalLeads - a.totalLeads);
+
+  // ── Uncampaigned leads (pending) ──
+  const activeLids = new Set((campaigns ?? []).filter((c: any) => c.status === "active" || c.status === "paused").map((c: any) => c.lead_id).filter(Boolean));
+  const uncampaignedLeads = (allLeads ?? []).filter(l => !activeLids.has(l.id));
+  const uncampaignedByProfile: Record<string, { profileId: string | null; profileName: string | null; leads: any[] }> = {};
+  for (const lead of uncampaignedLeads) {
+    const key = lead.icp_profile_id ?? "__none";
+    if (!uncampaignedByProfile[key]) {
+      uncampaignedByProfile[key] = {
+        profileId: lead.icp_profile_id,
+        profileName: lead.icp_profile_id ? (icpMap[lead.icp_profile_id]?.profile_name ?? null) : null,
+        leads: [],
+      };
+    }
+    uncampaignedByProfile[key].leads.push({
+      id: lead.id,
+      first_name: lead.primary_first_name,
+      last_name: lead.primary_last_name,
+      company: lead.company_name,
+      role: lead.primary_title_role,
+      email: lead.primary_work_email,
+      score: lead.lead_score,
+    });
+  }
+
   return {
     profileGroups: groupList,
     allLeads: allLeadsList,
     lostLeads,
     icpMap,
-    stats: { activeProfiles: groupList.filter(g => (g.statusCounts.active ?? 0) > 0).length, totalLeads, responseRate, positiveReplies: positiveCount },
+    campaignGroups,
+    uncampaignedGroups: Object.values(uncampaignedByProfile),
+    stats: { activeProfiles: groupList.filter(g => (g.statusCounts.active ?? 0) > 0).length, totalLeads, responseRate, positiveReplies: positiveCount, activeCampaigns: campaignGroups.filter(g => g.status === "active").length },
   };
 }
 
 export default async function LeadsCampaignsPage() {
-  const { profileGroups, allLeads, lostLeads, icpMap, stats } = await getData();
+  const { profileGroups, allLeads, lostLeads, stats } = await getData();
 
   return (
     <div className="p-6 w-full">
-      <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>GrowthEngine</p>
-        <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Leads & Campaigns</h1>
-      </div>
-      <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
+      <PageHero
+        icon={Users}
+        section="Operations"
+        title="Leads & Campaigns"
+        description="Manage your full prospect pipeline and track outreach progress across all channels."
+        accentColor={C.blue}
+        status={{ label: "Active", active: true }}
+      />
 
       <LeadsCampaignsClient
         profileGroups={JSON.parse(JSON.stringify(profileGroups))}
         allLeads={JSON.parse(JSON.stringify(allLeads))}
         lostLeads={JSON.parse(JSON.stringify(lostLeads))}
-        icpMap={icpMap}
         stats={stats}
       />
     </div>

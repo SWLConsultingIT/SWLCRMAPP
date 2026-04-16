@@ -6,9 +6,9 @@ import { C } from "@/lib/design";
 import {
   Phone, Share2, Mail, Megaphone, Target,
   ChevronRight, CheckCircle, Search, X,
-  PhoneCall, User,
-  PhoneOff,
+  PhoneCall, User, PhoneOff, Bell,
 } from "lucide-react";
+import PageHero from "@/components/PageHero";
 
 const gold = "#C9A83A";
 
@@ -100,36 +100,16 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews }
 
   return (
     <div className="p-6 w-full">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Operations</p>
-          <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Queue</h1>
-          <p className="text-sm mt-1" style={{ color: C.textMuted }}>
-            {totalCount > 0 ? (
-              <>
-                {pendingCalls.length > 0 && <><span className="font-bold" style={{ color: "#F97316" }}>{pendingCalls.length}</span> calls pending</>}
-                {pendingCalls.length > 0 && newReplies.length > 0 && " · "}
-                {newReplies.length > 0 && <><span className="font-bold" style={{ color: C.blue }}>{newReplies.length}</span> new replies</>}
-                {(pendingCalls.length > 0 || newReplies.length > 0) && pendingReviews.length > 0 && " · "}
-                {pendingReviews.length > 0 && <><span className="font-bold" style={{ color: gold }}>{pendingReviews.length}</span> pending reviews</>}
-              </>
-            ) : "All clear — no pending tasks."}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5"
-          style={{ borderColor: C.border, backgroundColor: C.card }}>
-          <Search size={14} style={{ color: C.textDim }} />
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search..." className="bg-transparent text-sm outline-none w-40"
-            style={{ color: C.textPrimary }} />
-          {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
-        </div>
-      </div>
+      <PageHero
+        icon={Bell}
+        section="Operations"
+        title="Queue"
+        description="Review pending calls, new replies, and campaigns awaiting action."
+        accentColor={C.orange}
+        status={{ label: totalCount > 0 ? `${totalCount} pending` : "All Clear", active: totalCount > 0 }}
+      />
 
-      <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
-
-      {/* Tabs */}
+      {/* Tabs + search */}
       <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
         {tabs.map((t, i) => {
           const isActive = tab === i;
@@ -148,6 +128,15 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews }
             </button>
           );
         })}
+        <div className="flex-1" />
+        <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5 mb-1"
+          style={{ borderColor: C.border, backgroundColor: C.card }}>
+          <Search size={13} style={{ color: C.textDim }} />
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search..." className="bg-transparent text-sm outline-none w-36"
+            style={{ color: C.textPrimary }} />
+          {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
+        </div>
       </div>
 
       {/* ═══ Tab 0: Pending Calls ═══ */}

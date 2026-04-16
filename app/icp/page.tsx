@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import PageHero from "@/components/PageHero";
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import Link from "next/link";
@@ -500,29 +501,28 @@ export default function LeadGenPage() {
 
   return (
     <div className="p-6 w-full">
-      {/* Header — hidden when viewing a profile detail */}
+      {/* Hero — hidden when viewing a profile detail */}
       {!selectedId && (
         <>
-          <div className="mb-6 flex items-start justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Setup</p>
-              <h1 className="text-2xl font-bold flex items-center gap-2.5" style={{ color: C.textPrimary }}>
-                <Target size={22} style={{ color: gold }} />
-                LeadMiner
-              </h1>
-              <p className="text-sm mt-1" style={{ color: C.textMuted }}>
-                Define your ideal prospect profiles. Each profile generates a tailored outreach strategy.
-              </p>
-            </div>
-            {!showForm && !editingId && profiles.length > 0 && (
-              <button onClick={() => setShowForm(true)}
+          <PageHero
+            icon={Target}
+            section="Growth Engine"
+            title="Lead Miner™"
+            description="Define your ideal prospect profiles. Each profile generates a tailored outreach strategy."
+            accentColor={C.aiAccent}
+            status={{ label: "AI Active", active: true }}
+            badge="Lead Intelligence"
+          />
+          {!showForm && !editingId && profiles.length > 0 && (
+            <div className="flex justify-end -mt-3 mb-4">
+              <button
+                onClick={() => setShowForm(true)}
                 className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-opacity hover:opacity-80"
-                style={{ backgroundColor: gold, color: "#04070d" }}>
+                style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#04070d" }}>
                 <Plus size={15} /> New Profile
               </button>
-            )}
-          </div>
-          <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
+            </div>
+          )}
         </>
       )}
 

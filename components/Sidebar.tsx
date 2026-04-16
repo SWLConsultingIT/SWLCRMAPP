@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import {
   LayoutDashboard, Users, Megaphone,
-  Building2, Target, Shield, ChevronDown, Zap, Bell, Trophy,
+  Building2, Target, Shield, ChevronDown, Zap, Bell, Trophy, UserCircle,
 } from "lucide-react";
 
 type NavItem = {
@@ -37,6 +37,7 @@ const sections: { label: string; items: NavItem[] }[] = [
     label: "OPERATIONS",
     items: [
       { href: "/leads", label: "Leads & Campaigns", icon: Users },
+      { href: "/accounts", label: "Accounts", icon: UserCircle },
       { href: "/opportunities", label: "Opportunities", icon: Trophy },
       { href: "/queue", label: "Queue", icon: Bell, badgeKey: "calls" },
       { href: "/admin", label: "Admin", icon: Shield, badgeKey: "pending" },
@@ -78,7 +79,7 @@ export default function Sidebar() {
       style={{
         backgroundColor: C.sidebarBg,
         borderColor: C.sidebarBorder,
-        boxShadow: "1px 0 8px rgba(0,0,0,0.03)",
+        boxShadow: "2px 0 20px rgba(0,0,0,0.07)",
       }}
     >
       {/* Logo */}
@@ -143,7 +144,12 @@ export default function Sidebar() {
               {/* Items */}
               {!isCollapsed &&
                 section.items.map(({ href, label, icon: Icon, tag, badgeKey }) => {
-                  const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+                  const isOverviewPage = pathname.includes("/overview");
+                  const active = href === "/leads"
+                    ? (pathname.startsWith("/leads") || (pathname.startsWith("/campaigns/") && isOverviewPage))
+                    : href === "/campaigns"
+                      ? (pathname.startsWith("/campaigns") && !isOverviewPage)
+                      : pathname === href || (href !== "/" && pathname.startsWith(href));
                   const badge = badgeKey ? badges[badgeKey] : 0;
 
                   return (

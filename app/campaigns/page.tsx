@@ -1,9 +1,10 @@
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
-import { CheckCircle, Megaphone, TrendingUp, MessageSquare, Users } from "lucide-react";
+import { Megaphone, TrendingUp, MessageSquare, Users } from "lucide-react";
+import PageHero from "@/components/PageHero";
 import CampaignTabs from "./CampaignTabs";
 import ActiveCampaignsView from "@/components/ActiveCampaignsView";
-import ReadyToLaunchGroup from "@/components/ReadyToLaunchGroup";
+import NewCampaignView from "@/components/NewCampaignView";
 
 const gold = "#C9A83A";
 
@@ -90,12 +91,15 @@ export default async function CampaignsPage() {
 
   return (
     <div className="p-6 w-full">
-      <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>GrowthEngine</p>
-        <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>OutreachFlow</h1>
-      </div>
-
-      <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
+      <PageHero
+        icon={Megaphone}
+        section="Growth Engine"
+        title="Outreach Flow™"
+        description="Build and launch multi-step outreach sequences across LinkedIn and email."
+        accentColor={C.aiAccent}
+        status={{ label: "AI Active", active: true }}
+        badge="Outreach Engine"
+      />
 
       {/* 4 stat cards */}
       <div className="grid grid-cols-4 gap-4 mb-6">
@@ -105,7 +109,7 @@ export default async function CampaignsPage() {
           { label: "Positive Replies", value: stats.positiveCount, color: C.green, icon: TrendingUp },
           { label: "Ready to Launch", value: stats.readyToLaunch, color: gold, icon: Users },
         ].map(({ label, value, color, icon: Icon }) => (
-          <div key={label} className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${color}` }}>
+          <div key={label} className="rounded-xl border p-4 card-lift" style={{ background: `linear-gradient(135deg, #FFFFFF 0%, ${color}09 100%)`, borderColor: C.border, borderTop: `2px solid ${color}` }}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{label}</span>
               <div className="rounded-lg p-1.5" style={{ backgroundColor: `${color}15` }}>
@@ -125,31 +129,19 @@ export default async function CampaignsPage() {
         {/* ═══ TAB 0: ACTIVE CAMPAIGNS ═══ */}
         <ActiveCampaignsView campaigns={JSON.parse(JSON.stringify(campaigns))} />
 
-        {/* ═══ TAB 1: READY TO LAUNCH ═══ */}
-        <div>
-          {totalUncampaigned === 0 ? (
-            <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <CheckCircle size={28} className="mx-auto mb-3" style={{ color: C.green }} />
-              <p className="text-sm font-medium" style={{ color: C.textBody }}>All leads have active campaigns</p>
-              <p className="text-xs mt-1" style={{ color: C.textMuted }}>New leads will appear here when uploaded via Lead Gen</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {Object.entries(uncampaignedGroups).map(([key, group]) => {
-                const profile = group.profile_id ? icpMap[group.profile_id] : null;
-                return (
-                  <ReadyToLaunchGroup
-                    key={key}
-                    profileId={group.profile_id}
-                    profileName={profile?.profile_name ?? null}
-                    profileDetail={profile ? [...(profile.target_industries ?? []), ...(profile.target_roles ?? [])].slice(0, 4).join(", ") : null}
-                    leads={group.leads}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </div>
+        {/* ═══ TAB 1: NEW CAMPAIGN ═══ */}
+        <NewCampaignView
+          groups={Object.entries(uncampaignedGroups).map(([key, group]) => {
+            const profile = group.profile_id ? icpMap[group.profile_id] : null;
+            return {
+              profileId: group.profile_id,
+              profileName: profile?.profile_name ?? null,
+              profileDetail: profile ? [...(profile.target_industries ?? []), ...(profile.target_roles ?? [])].slice(0, 4).join(", ") : null,
+              leads: group.leads,
+            };
+          })}
+          totalUncampaigned={totalUncampaigned}
+        />
       </CampaignTabs>
     </div>
   );

@@ -6,9 +6,10 @@ import { C } from "@/lib/design";
 import {
   Building2, Users, Megaphone, Clock, ChevronRight,
   Target, Search, X, AlertTriangle, CheckCircle,
-  ArrowRight, Loader2, Play,
+  ArrowRight, Loader2, Play, Shield,
 } from "lucide-react";
 import AdminActions from "./AdminActions";
+import PageHero from "@/components/PageHero";
 
 const gold = "#C9A83A";
 
@@ -105,26 +106,14 @@ export default function AdminClient({ clients, pendingApprovals, executionItems,
 
   return (
     <div className="p-6 w-full">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Internal</p>
-          <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Admin Panel</h1>
-          <p className="text-sm mt-1" style={{ color: C.textMuted }}>
-            Manage clients, review tickets, and monitor activity.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5"
-          style={{ borderColor: C.border, backgroundColor: C.card }}>
-          <Search size={14} style={{ color: C.textDim }} />
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search..." className="bg-transparent text-sm outline-none w-40"
-            style={{ color: C.textPrimary }} />
-          {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
-        </div>
-      </div>
-
-      <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
+      <PageHero
+        icon={Shield}
+        section="Internal"
+        title="Admin Panel"
+        description="Manage clients, review tickets, and monitor execution pipeline."
+        accentColor={C.textMuted}
+        status={{ label: "Internal", active: true }}
+      />
 
       {/* Stat cards */}
       <div className="grid grid-cols-5 gap-4 mb-6">
@@ -169,6 +158,15 @@ export default function AdminClient({ clients, pendingApprovals, executionItems,
             </button>
           );
         })}
+        <div className="flex-1" />
+        <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5 mb-1"
+          style={{ borderColor: C.border, backgroundColor: C.card }}>
+          <Search size={13} style={{ color: C.textDim }} />
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search..." className="bg-transparent text-sm outline-none w-36"
+            style={{ color: C.textPrimary }} />
+          {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
+        </div>
       </div>
 
       {/* ═══ Tab 0: Clients ═══ */}

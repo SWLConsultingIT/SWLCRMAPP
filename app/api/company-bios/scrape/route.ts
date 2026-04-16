@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
+const LANG_MAP: Record<string, string> = {
+  EN: "English", IT: "Italian", ES: "Spanish", FR: "French", DE: "German",
+};
+
 export async function POST(req: NextRequest) {
-  const { url } = await req.json();
+  const { url, lang = "EN" } = await req.json();
+  const language = LANG_MAP[lang] ?? "English";
 
   if (!url) {
     return NextResponse.json({ error: "URL is required" }, { status: 400 });
@@ -82,7 +87,7 @@ export async function POST(req: NextRequest) {
 - location: string (city, country)
 - tone_of_voice: string (describe the communication style: professional, casual, technical, etc.)
 
-Be concise and factual. Extract only what's clearly stated on the website.`,
+Be concise and factual. Extract only what's clearly stated on the website. Respond with all text fields in ${language}.`,
           },
           {
             role: "user",

@@ -2,8 +2,9 @@ import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import {
   Users, MessageSquare, Share2, Mail, Phone, TrendingUp,
-  Megaphone, AlertTriangle, CheckCircle,
+  Megaphone, AlertTriangle, CheckCircle, LayoutDashboard,
 } from "lucide-react";
+import PageHero from "@/components/PageHero";
 import Link from "next/link";
 import DashboardTabs from "@/components/DashboardTabs";
 import ReportsPage from "@/app/reports/page";
@@ -128,12 +129,14 @@ export default async function DashboardPage() {
 
   return (
     <div className="p-6 w-full">
-      {/* Header */}
-      <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>GrowthEngine</p>
-        <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Dashboard</h1>
-      </div>
-      <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
+      <PageHero
+        icon={LayoutDashboard}
+        section="Main"
+        title="Dashboard"
+        description="Pipeline overview — active campaigns, replies, and key performance metrics."
+        accentColor={gold}
+        status={{ label: "Live", active: true }}
+      />
 
       <DashboardTabs>
         {/* ═══ TAB 0: OVERVIEW ═══ */}
@@ -147,7 +150,7 @@ export default async function DashboardPage() {
               { label: "Positive This Week", value: data.weekPositive, color: C.green, icon: TrendingUp },
               { label: "Transferred to CRM", value: data.transferred, color: C.accent, icon: CheckCircle },
             ].map(({ label, value, color, icon: Icon }) => (
-              <div key={label} className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${color}` }}>
+              <div key={label} className="rounded-xl border p-4 card-lift" style={{ background: `linear-gradient(135deg, #FFFFFF 0%, ${color}09 100%)`, borderColor: C.border, borderTop: `2px solid ${color}` }}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{label}</span>
                   <div className="rounded-lg p-1.5" style={{ backgroundColor: `${color}15` }}>
@@ -181,7 +184,7 @@ export default async function DashboardPage() {
           {/* Two columns: Active Campaigns + Recent Replies */}
           <div className="grid grid-cols-2 gap-6">
             {/* Active Campaigns */}
-            <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <div className="rounded-xl border overflow-hidden card-shadow" style={{ backgroundColor: C.card, borderColor: C.border }}>
               <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
                 <div>
                   <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Active Campaigns</h2>
@@ -224,7 +227,7 @@ export default async function DashboardPage() {
             </div>
 
             {/* Recent Replies */}
-            <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <div className="rounded-xl border overflow-hidden card-shadow" style={{ backgroundColor: C.card, borderColor: C.border }}>
               <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
                 <div>
                   <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Recent Replies</h2>

@@ -7,6 +7,7 @@ import {
   Megaphone, ChevronRight, Target,
   Search, X, CheckCircle, Star,
 } from "lucide-react";
+import { LeadFilterBar, type LeadFilterState } from "@/components/LeadFilters";
 
 const gold = "#C9A83A";
 
@@ -28,6 +29,7 @@ type LeadInfo = {
   profile_name?: string | null;
   created_at?: string;
 };
+
 
 type CampaignInfo = {
   id: string;
@@ -78,8 +80,7 @@ type Props = {
   profileGroups: ProfileGroup[];
   allLeads: LeadInfo[];
   lostLeads: LostLead[];
-  icpMap: Record<string, { id: string; profile_name: string; target_industries?: string[]; target_roles?: string[] }>;
-  stats: { activeProfiles: number; totalLeads: number; responseRate: number; positiveReplies: number };
+  stats: { totalLeads: number; responseRate: number; positiveReplies: number; activeCampaigns: number };
 };
 
 function scoreBadge(score: number | null, priority: boolean) {
@@ -104,93 +105,6 @@ const classColors: Record<string, { color: string; bg: string; label: string }> 
   negative:       { color: C.red,     bg: C.redLight,   label: "Negative" },
   question:       { color: "#D97706", bg: "#FFFBEB",    label: "Question" },
 };
-
-// ─── Profile Card ─────────────────────────────────────────────────────────────
-function ProfileCard({ group }: { group: ProfileGroup }) {
-  const totalLeads    = group.leads.length;
-  const campaignNames = [...new Set(group.campaigns.map(c => c.name))];
-  const replyRate     = group.contactedCount > 0 ? Math.round((group.totalReplies / group.contactedCount) * 100) : 0;
-
-  const contacted = group.contactedCount;
-  const replied   = group.totalReplies;
-  const positive  = group.positiveCount;
-  const funnelMax = Math.max(contacted, 1);
-
-  return (
-    <Link
-      href={`/leads/ticket/${group.profileId}`}
-      className="rounded-xl border overflow-hidden flex flex-col transition-all hover:shadow-md group"
-      style={{ backgroundColor: C.card, borderColor: C.border }}
-    >
-      <div className="px-4 pt-4 pb-3 flex-1">
-        {/* Lead Miner label */}
-        <div className="flex items-center gap-1.5 mb-2">
-          <Target size={11} style={{ color: gold }} />
-          <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: gold }}>Lead Miner Profile</span>
-        </div>
-
-        <h3 className="text-sm font-bold mb-0.5 group-hover:underline" style={{ color: C.textPrimary }}>
-          {group.profileName}
-        </h3>
-        {campaignNames.length > 0 && (
-          <p className="text-[10px] mb-3 line-clamp-1" style={{ color: C.textDim }}>
-            {campaignNames.join(" · ")}
-          </p>
-        )}
-
-        {/* Lead funnel */}
-        <div className="space-y-1.5 mb-3">
-          {[
-            { label: "Contacted", value: contacted, color: C.blue },
-            { label: "Replied",   value: replied,   color: gold },
-            { label: "Positive",  value: positive,  color: C.green },
-          ].map(row => (
-            <div key={row.label} className="flex items-center gap-2">
-              <span className="text-[10px] w-[70px] shrink-0" style={{ color: C.textMuted }}>{row.label}</span>
-              <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
-                <div className="h-2 rounded-full" style={{ width: `${(row.value / funnelMax) * 100}%`, backgroundColor: row.color }} />
-              </div>
-              <span className="text-[10px] font-bold w-6 text-right tabular-nums" style={{ color: row.color }}>{row.value}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-3 text-[10px]" style={{ color: C.textMuted }}>
-          <span><span className="font-bold" style={{ color: C.textBody }}>{totalLeads}</span> leads</span>
-          <span><span className="font-bold" style={{ color: C.blue }}>{replyRate}%</span> reply rate</span>
-          {group.hotCount > 0 && (
-            <span className="font-bold" style={{ color: C.hot }}>🔥 {group.hotCount} hot</span>
-          )}
-        </div>
-      </div>
-
-      {/* Last reply */}
-      <div className="px-4 py-2.5 border-t flex items-center gap-2"
-        style={{ borderColor: C.border, backgroundColor: C.bg }}>
-        {group.lastReply ? (
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <span className="text-[10px] font-semibold" style={{ color: C.textBody }}>{group.lastReply.leadName}</span>
-              {classColors[group.lastReply.classification] && (
-                <span className="text-[8px] font-bold px-1 py-0.5 rounded"
-                  style={{ backgroundColor: classColors[group.lastReply.classification].bg, color: classColors[group.lastReply.classification].color }}>
-                  {classColors[group.lastReply.classification].label}
-                </span>
-              )}
-              <span className="text-[9px] ml-auto shrink-0" style={{ color: C.textDim }}>{timeAgo(group.lastReply.receivedAt)}</span>
-            </div>
-            {group.lastReply.text && (
-              <p className="text-[10px] line-clamp-1" style={{ color: C.textDim }}>&ldquo;{group.lastReply.text}&rdquo;</p>
-            )}
-          </div>
-        ) : (
-          <span className="text-[10px]" style={{ color: C.textDim }}>No replies yet</span>
-        )}
-        <ChevronRight size={13} style={{ color: C.textDim }} className="shrink-0 transition-transform group-hover:translate-x-0.5" />
-      </div>
-    </Link>
-  );
-}
 
 // ─── Lost Lead Card (detailed report style) ──────────────────────────────────
 function LostLeadCard({ lead }: { lead: LostLead }) {
@@ -344,76 +258,41 @@ const PAGE_SIZE = 25;
 
 function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
   const [showCount, setShowCount] = useState(PAGE_SIZE);
-  const [scoreFilter, setScoreFilter] = useState<string>("all");
-  const [replyFilter, setReplyFilter] = useState<string>("all");
-  const [campaignFilter, setCampaignFilter] = useState<string>("all");
-  const [profileFilter, setProfileFilter] = useState<string>("all");
-  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState<LeadFilterState>({ search: "", score: "all", campaign: "all", reply: "all", profile: "all" });
 
   const profileNames = [...new Set(leads.map(l => l.profile_name).filter(Boolean))] as string[];
 
   const filtered = leads.filter(l => {
-    if (search) {
-      const q = search.toLowerCase();
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
       if (!`${l.first_name} ${l.last_name} ${l.company} ${l.email}`.toLowerCase().includes(q)) return false;
     }
-    if (scoreFilter === "hot" && !(l.is_priority || (l.score && l.score >= 80))) return false;
-    if (scoreFilter === "warm" && !(l.score && l.score >= 50 && l.score < 80 && !l.is_priority)) return false;
-    if (scoreFilter === "nurture" && !(!l.score || l.score < 50) && !l.is_priority) return false;
-    if (replyFilter === "replied" && !(l.reply_count && l.reply_count > 0)) return false;
-    if (replyFilter === "positive" && !l.has_positive) return false;
-    if (replyFilter === "none" && (l.reply_count ?? 0) > 0) return false;
-    if (campaignFilter === "yes" && !l.has_campaign) return false;
-    if (campaignFilter === "no" && l.has_campaign) return false;
-    if (profileFilter !== "all" && l.profile_name !== profileFilter) return false;
+    if (filters.score === "hot" && !(l.is_priority || (l.score && l.score >= 80))) return false;
+    if (filters.score === "warm" && !(l.score && l.score >= 50 && l.score < 80 && !l.is_priority)) return false;
+    if (filters.score === "nurture" && !(!l.score || l.score < 50) && !l.is_priority) return false;
+    if (filters.reply === "replied" && !(l.reply_count && l.reply_count > 0)) return false;
+    if (filters.reply === "positive" && !l.has_positive) return false;
+    if (filters.reply === "none" && (l.reply_count ?? 0) > 0) return false;
+    if (filters.campaign === "yes" && !l.has_campaign) return false;
+    if (filters.campaign === "no" && l.has_campaign) return false;
+    if (filters.profile !== "all" && l.profile_name !== filters.profile) return false;
     return true;
   });
 
   const visible = filtered.slice(0, showCount);
   const hasMore = showCount < filtered.length;
-  const selectStyle = { color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` };
 
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5 flex-1 min-w-[200px]"
-          style={{ borderColor: C.border, backgroundColor: C.card }}>
-          <Search size={14} style={{ color: C.textDim }} />
-          <input type="text" value={search} onChange={e => { setSearch(e.target.value); setShowCount(PAGE_SIZE); }}
-            placeholder="Search leads..." className="bg-transparent text-sm outline-none flex-1" style={{ color: C.textPrimary }} />
-          {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
-        </div>
-        <select value={scoreFilter} onChange={e => { setScoreFilter(e.target.value); setShowCount(PAGE_SIZE); }}
-          className="rounded-lg px-3 py-1.5 text-xs" style={selectStyle}>
-          <option value="all">All Scores</option>
-          <option value="hot">🔥 Hot</option>
-          <option value="warm">Warm</option>
-          <option value="nurture">Nurture</option>
-        </select>
-        <select value={replyFilter} onChange={e => { setReplyFilter(e.target.value); setShowCount(PAGE_SIZE); }}
-          className="rounded-lg px-3 py-1.5 text-xs" style={selectStyle}>
-          <option value="all">All Replies</option>
-          <option value="replied">Replied</option>
-          <option value="positive">Positive</option>
-          <option value="none">No Reply</option>
-        </select>
-        <select value={campaignFilter} onChange={e => { setCampaignFilter(e.target.value); setShowCount(PAGE_SIZE); }}
-          className="rounded-lg px-3 py-1.5 text-xs" style={selectStyle}>
-          <option value="all">All Campaigns</option>
-          <option value="yes">Has Campaign</option>
-          <option value="no">No Campaign</option>
-        </select>
-        {profileNames.length > 1 && (
-          <select value={profileFilter} onChange={e => { setProfileFilter(e.target.value); setShowCount(PAGE_SIZE); }}
-            className="rounded-lg px-3 py-1.5 text-xs" style={selectStyle}>
-            <option value="all">All Profiles</option>
-            {profileNames.map(n => <option key={n} value={n}>{n}</option>)}
-          </select>
-        )}
-        <span className="text-xs" style={{ color: C.textMuted }}>{filtered.length} results</span>
-      </div>
+      <LeadFilterBar
+        filters={filters}
+        onChange={f => { setFilters(f); setShowCount(PAGE_SIZE); }}
+        resultCount={filtered.length}
+        totalCount={leads.length}
+        profileNames={profileNames}
+      />
 
-      <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="rounded-xl border overflow-hidden card-shadow" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <table className="w-full text-left">
           <thead>
             <tr style={{ backgroundColor: C.bg }}>
@@ -464,7 +343,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                     {lead.has_campaign ? (
                       <span className="text-[10px] font-semibold" style={{ color: C.green }}>Active</span>
                     ) : (
-                      <span className="text-[10px]" style={{ color: C.textDim }}>None</span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>No Campaign</span>
                     )}
                   </td>
                   <td className="px-4 py-2.5">
@@ -490,9 +369,96 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
   );
 }
 
+// ─── Profile Card (ICP ticket) ───────────────────────────────────────────────
+function ProfileCard({ group }: { group: ProfileGroup }) {
+  const totalLeads    = group.leads.length;
+  const campaignNames = [...new Set(group.campaigns.map(c => c.name))];
+  const replyRate     = group.contactedCount > 0 ? Math.round((group.totalReplies / group.contactedCount) * 100) : 0;
+
+  const contacted = group.contactedCount;
+  const replied   = group.totalReplies;
+  const positive  = group.positiveCount;
+  const funnelMax = Math.max(contacted, 1);
+
+  return (
+    <Link
+      href={`/leads/ticket/${group.profileId}`}
+      className="rounded-xl border overflow-hidden flex flex-col card-lift group"
+      style={{ backgroundColor: C.card, borderColor: C.border }}
+    >
+      <div className="px-4 pt-4 pb-3 flex-1">
+        <div className="flex items-center gap-1.5 mb-2">
+          <Target size={11} style={{ color: gold }} />
+          <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: gold }}>Lead Miner Profile</span>
+        </div>
+
+        <h3 className="text-sm font-bold mb-0.5 group-hover:underline" style={{ color: C.textPrimary }}>
+          {group.profileName}
+        </h3>
+        {campaignNames.length > 0 && (
+          <p className="text-[10px] mb-3 line-clamp-1" style={{ color: C.textDim }}>
+            {campaignNames.join(" · ")}
+          </p>
+        )}
+
+        {/* Lead funnel */}
+        <div className="space-y-1.5 mb-3">
+          {[
+            { label: "Contacted", value: contacted, color: C.blue },
+            { label: "Replied",   value: replied,   color: gold },
+            { label: "Positive",  value: positive,  color: C.green },
+          ].map(row => (
+            <div key={row.label} className="flex items-center gap-2">
+              <span className="text-[10px] w-[70px] shrink-0" style={{ color: C.textMuted }}>{row.label}</span>
+              <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                <div className="h-2 rounded-full" style={{ width: `${(row.value / funnelMax) * 100}%`, backgroundColor: row.color }} />
+              </div>
+              <span className="text-[10px] font-bold w-6 text-right tabular-nums" style={{ color: row.color }}>{row.value}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-3 text-[10px]" style={{ color: C.textMuted }}>
+          <span><span className="font-bold" style={{ color: C.textBody }}>{totalLeads}</span> leads</span>
+          <span><span className="font-bold" style={{ color: C.blue }}>{replyRate}%</span> reply rate</span>
+          {group.hotCount > 0 && (
+            <span className="font-bold" style={{ color: C.hot }}>🔥 {group.hotCount} hot</span>
+          )}
+        </div>
+      </div>
+
+      {/* Last reply */}
+      <div className="px-4 py-2.5 border-t flex items-center gap-2"
+        style={{ borderColor: C.border, backgroundColor: C.bg }}>
+        {group.lastReply ? (
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className="text-[10px] font-semibold" style={{ color: C.textBody }}>{group.lastReply.leadName}</span>
+              {classColors[group.lastReply.classification] && (
+                <span className="text-[8px] font-bold px-1 py-0.5 rounded"
+                  style={{ backgroundColor: classColors[group.lastReply.classification].bg, color: classColors[group.lastReply.classification].color }}>
+                  {classColors[group.lastReply.classification].label}
+                </span>
+              )}
+              <span className="text-[9px] ml-auto shrink-0" style={{ color: C.textDim }}>{timeAgo(group.lastReply.receivedAt)}</span>
+            </div>
+            {group.lastReply.text && (
+              <p className="text-[10px] line-clamp-1" style={{ color: C.textDim }}>&ldquo;{group.lastReply.text}&rdquo;</p>
+            )}
+          </div>
+        ) : (
+          <span className="text-[10px]" style={{ color: C.textDim }}>No replies yet</span>
+        )}
+        <ChevronRight size={13} style={{ color: C.textDim }} className="shrink-0 transition-transform group-hover:translate-x-0.5" />
+      </div>
+    </Link>
+  );
+}
+
 // ─── Main ──────────────────────────────────────────────────────────────────────
-export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLeads, icpMap, stats }: Props) {
-  const [tab, setTab] = useState(0);
+export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLeads, stats }: Props) {
+  const [mainView, setMainView] = useState<"leads" | "campaigns">("leads");
+  const [leadsTab, setLeadsTab] = useState(0);
   const [search, setSearch] = useState("");
 
   const activeGroups = profileGroups.filter(g => (g.statusCounts.active ?? 0) + (g.statusCounts.paused ?? 0) > 0);
@@ -504,22 +470,16 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
       g.leads.some(l => `${l.first_name} ${l.last_name} ${l.company}`.toLowerCase().includes(search.toLowerCase()))
     );
 
-  const tabs = [
-    { label: "Active",      count: activeGroups.length,  color: gold },
-    { label: "Lost Leads",  count: lostLeads.length,     color: C.red },
-    { label: "All Leads",   count: allLeads.length,      color: C.blue },
-  ];
-
   return (
     <div>
       {/* Stat bar */}
       <div className="flex items-center gap-6 mb-6 px-5 py-3 rounded-xl border"
         style={{ backgroundColor: C.card, borderColor: C.border }}>
         {[
-          { label: "Active Profiles",  value: stats.activeProfiles, color: gold },
-          { label: "Total Leads",      value: stats.totalLeads,     color: C.textBody },
+          { label: "Total Leads",      value: stats.totalLeads,        color: C.textBody },
+          { label: "Active Campaigns", value: stats.activeCampaigns,   color: gold },
           { label: "Response Rate",    value: `${stats.responseRate}%`, color: C.blue },
-          { label: "Positive Replies", value: stats.positiveReplies, color: C.green },
+          { label: "Positive Replies", value: stats.positiveReplies,   color: C.green },
         ].map((s, i, arr) => (
           <div key={s.label} className="flex items-center gap-4">
             <div>
@@ -531,59 +491,95 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
         ))}
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
-        {tabs.map((t, i) => {
-          const isActive = tab === i;
+      {/* ═══ Main view toggle: Leads / Campaigns ═══ */}
+      <div className="flex items-center gap-1 mb-5">
+        {([
+          { key: "leads" as const,     label: "Leads",     count: allLeads.length },
+          { key: "campaigns" as const, label: "Campaigns", count: activeGroups.length },
+        ]).map(v => {
+          const isActive = mainView === v.key;
           return (
-            <button key={t.label} onClick={() => { setTab(i); setSearch(""); }}
-              className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all relative"
-              style={{ color: isActive ? t.color : C.textMuted }}>
-              {t.label}
-              {t.count > 0 && (
-                <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: isActive ? `${t.color}15` : "#F3F4F6", color: isActive ? t.color : C.textDim }}>
-                  {t.count}
-                </span>
-              )}
-              {isActive && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: t.color }} />}
+            <button key={v.key} onClick={() => { setMainView(v.key); setSearch(""); }}
+              className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all"
+              style={{
+                backgroundColor: isActive ? gold : C.bg,
+                color: isActive ? "#fff" : C.textMuted,
+                border: `1px solid ${isActive ? gold : C.border}`,
+              }}>
+              {v.label}
+              <span className="ml-2 text-xs font-bold px-1.5 py-0.5 rounded-full"
+                style={{ backgroundColor: isActive ? "rgba(255,255,255,0.2)" : "#F3F4F6", color: isActive ? "#fff" : C.textDim }}>
+                {v.count}
+              </span>
             </button>
           );
         })}
-        {tab === 0 && (
-          <div className="flex-1 flex justify-end">
-            <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5 mb-1"
-              style={{ borderColor: C.border, backgroundColor: C.card }}>
-              <Search size={14} style={{ color: C.textDim }} />
-              <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..."
-                className="bg-transparent text-sm outline-none w-40" style={{ color: C.textPrimary }} />
-              {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Tab 0: Active */}
-      {tab === 0 && (
-        filterGroups(activeGroups).length === 0 ? (
-          <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <Megaphone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-            <p className="text-sm font-medium" style={{ color: C.textBody }}>
-              {search ? "No profiles match your search" : "No active campaigns yet"}
-            </p>
+      {/* ═══ LEADS VIEW ═══ */}
+      {mainView === "leads" && (
+        <div>
+          <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
+            {[
+              { label: "All Leads",  count: allLeads.length,  color: gold },
+              { label: "Lost Leads", count: lostLeads.length, color: C.red },
+            ].map((t, i) => {
+              const isActive = leadsTab === i;
+              return (
+                <button key={t.label} onClick={() => setLeadsTab(i)}
+                  className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all relative"
+                  style={{ color: isActive ? t.color : C.textMuted }}>
+                  {t.label}
+                  {t.count > 0 && (
+                    <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+                      style={{ backgroundColor: isActive ? `${t.color}15` : "#F3F4F6", color: isActive ? t.color : C.textDim }}>
+                      {t.count}
+                    </span>
+                  )}
+                  {isActive && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: t.color }} />}
+                </button>
+              );
+            })}
           </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filterGroups(activeGroups).map(g => <ProfileCard key={g.profileId} group={g} />)}
-          </div>
-        )
+
+          {leadsTab === 0 && <AllLeadsTable leads={allLeads} />}
+          {leadsTab === 1 && <LostLeadsView leads={lostLeads} />}
+        </div>
       )}
 
-      {/* Tab 1: Lost Leads */}
-      {tab === 1 && <LostLeadsView leads={lostLeads} />}
+      {/* ═══ CAMPAIGNS VIEW ═══ */}
+      {mainView === "campaigns" && (
+        <div>
+          <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
+            <div className="flex items-center gap-2 px-5 py-3 text-sm font-medium relative" style={{ color: gold }}>
+              Active Campaigns
+              <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${gold}15`, color: gold }}>{activeGroups.length}</span>
+              <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: gold }} />
+            </div>
+            <div className="flex-1 flex justify-end">
+              <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5 mb-1" style={{ borderColor: C.border, backgroundColor: C.card }}>
+                <Search size={14} style={{ color: C.textDim }} />
+                <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..."
+                  className="bg-transparent text-sm outline-none w-40" style={{ color: C.textPrimary }} />
+                {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
+              </div>
+            </div>
+          </div>
 
-      {/* Tab 2: All Leads */}
-      {tab === 2 && <AllLeadsTable leads={allLeads} />}
+          {filterGroups(activeGroups).length === 0 ? (
+            <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <Megaphone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
+              <p className="text-sm font-medium" style={{ color: C.textBody }}>
+                {search ? "No profiles match your search" : "No active campaigns yet"}
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filterGroups(activeGroups).map(g => <ProfileCard key={g.profileId} group={g} />)}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

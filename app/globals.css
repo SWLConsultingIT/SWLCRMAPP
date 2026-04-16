@@ -15,6 +15,26 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Outfit for headings — adds premium feel */
+h1, h2, h3 {
+  font-family: var(--font-outfit), system-ui, sans-serif;
+}
+
+/* Card shadow — elevates cards off the page background */
+.card-shadow {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.07);
+}
+
+/* Interactive card — shadow + lift on hover */
+.card-lift {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.07);
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.05);
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }

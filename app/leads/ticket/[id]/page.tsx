@@ -101,9 +101,19 @@ async function getProfileData(profileId: string) {
     avgProgress: g.totalLeads > 0 ? Math.round((g.progressSum / g.totalLeads) * 100) : 0,
   }));
 
+  // Build lead → campaign lookup
+  const campsByLeadId: Record<string, { name: string; status: string; channel: string }[]> = {};
+  for (const c of campaigns ?? []) {
+    if (!c.lead_id) continue;
+    if (!campsByLeadId[c.lead_id]) campsByLeadId[c.lead_id] = [];
+    campsByLeadId[c.lead_id].push({ name: c.name, status: c.status, channel: c.channel });
+  }
+
   // Build lead list
   const leadList = (leads ?? []).map(l => {
     const leadReplies = repliesByLead[l.id] ?? [];
+    const leadCamps = campsByLeadId[l.id] ?? [];
+    const activeCamp = leadCamps.find(c => c.status === "active" || c.status === "paused");
     return {
       id: l.id,
       first_name: l.primary_first_name,
@@ -118,6 +128,9 @@ async function getProfileData(profileId: string) {
       channel: l.current_channel,
       reply_count: leadReplies.length,
       has_positive: leadReplies.some((r: any) => r.classification === "positive" || r.classification === "meeting_intent"),
+      campaign_name: activeCamp?.name ?? (leadCamps[0]?.name ?? null),
+      campaign_status: activeCamp?.status ?? (leadCamps[0]?.status ?? null),
+      has_campaign: leadCamps.length > 0,
     };
   });
 

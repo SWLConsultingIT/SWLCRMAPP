@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import {
   ArrowLeft, ArrowRight, Check, Share2, Mail, Phone,
-  Loader2, Send, Megaphone, Plus, Trash2, User, Globe,
+  Loader2, Send, Megaphone, Plus, Trash2, User, Globe, Settings,
 } from "lucide-react";
 import ChannelMessageConfig, { type ChannelMessages } from "@/components/ChannelMessageConfig";
 
@@ -86,7 +86,7 @@ const sequenceTemplates = [
   },
 ];
 
-const WIZARD_STEPS = ["Name", "Sequence", "Messages", "Review"];
+const WIZARD_STEPS = ["Sequence", "Settings", "Messages", "Review"];
 
 export default function NewLeadCampaignWizard() {
   const router = useRouter();
@@ -99,7 +99,7 @@ export default function NewLeadCampaignWizard() {
   const [lead, setLead] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [bio, setBio] = useState<any>(null);
-  const [sellers, setSellers] = useState<{ id: string; name: string }[]>([]);
+  const [sellers, setSellers] = useState<{ id: string; name: string; unipile_account_id: string | null; email_account: string | null; linkedin_daily_limit: number | null; email_daily_limit: number | null }[]>([]);
   const [selectedSeller, setSelectedSeller] = useState<string>("");
 
   // Sequence builder
@@ -135,7 +135,7 @@ export default function NewLeadCampaignWizard() {
         leadData.company_bio_id
           ? supabase.from("company_bios").select("*").eq("id", leadData.company_bio_id).single()
           : supabase.from("company_bios").select("*").order("created_at", { ascending: false }).limit(1).single(),
-        supabase.from("sellers").select("id, name").order("name"),
+        supabase.from("sellers").select("id, name, unipile_account_id, email_account, linkedin_daily_limit, email_daily_limit").eq("active", true).order("name"),
       ]);
 
       setProfile(profileData);
@@ -225,9 +225,9 @@ export default function NewLeadCampaignWizard() {
         <ArrowLeft size={13} /> Back
       </button>
       <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Individual Campaign</p>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>New Flow</p>
         <h1 className="text-2xl font-bold flex items-center gap-2.5" style={{ color: C.textPrimary }}>
-          <Megaphone size={22} style={{ color: gold }} /> Campaign for {leadName}
+          <Megaphone size={22} style={{ color: gold }} /> Flow for {leadName}
         </h1>
         <p className="text-sm mt-1" style={{ color: C.textMuted }}>
           {lead.primary_title_role ? `${lead.primary_title_role} at ` : ""}{lead.company_name ?? "Unknown Company"}
@@ -277,12 +277,12 @@ export default function NewLeadCampaignWizard() {
         ))}
       </div>
 
-      {/* ═══ STEP 0: CAMPAIGN NAME + SELLER + LANGUAGE ═══ */}
+      {/* ═══ STEP 0: SEQUENCE BUILDER (with flow name) ═══ */}
       {wizardStep === 0 && (
-        <div className="rounded-xl border p-6 space-y-5" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-          <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Campaign Name</h2>
-            <p className="text-xs mb-3" style={{ color: C.textDim }}>Give your campaign a name so you can identify it later.</p>
+        <div className="space-y-5">
+          {/* Flow name */}
+          <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <h2 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>Flow Name</h2>
             <input
               type="text"
               value={campaignName}
@@ -292,39 +292,7 @@ export default function NewLeadCampaignWizard() {
               style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>Seller</label>
-              <p className="text-xs mb-3" style={{ color: C.textDim }}>Who will send the messages.</p>
-              <select
-                value={selectedSeller}
-                onChange={e => setSelectedSeller(e.target.value)}
-                className="w-full rounded-lg px-4 py-3 text-sm focus:outline-none"
-                style={{ color: selectedSeller ? C.textPrimary : C.textDim, backgroundColor: C.bg, border: `1px solid ${C.border}` }}
-              >
-                <option value="">Select a seller…</option>
-                {sellers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>Language</label>
-              <p className="text-xs mb-3" style={{ color: C.textDim }}>Language for AI-generated messages.</p>
-              <select
-                value={language}
-                onChange={e => setLanguage(e.target.value)}
-                className="w-full rounded-lg px-4 py-3 text-sm focus:outline-none"
-                style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}
-              >
-                {languageOptions.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
-              </select>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* ═══ STEP 1: SEQUENCE BUILDER ═══ */}
-      {wizardStep === 1 && (
-        <div className="space-y-5">
           {/* Channel availability warning */}
           {disabledChannels.length > 0 && (
             <div className="rounded-lg border px-4 py-3 mb-2 flex items-center gap-2"
@@ -457,11 +425,128 @@ export default function NewLeadCampaignWizard() {
               </div>
             </div>
             <p className="text-xs mt-4 pt-3 border-t" style={{ borderColor: C.border, color: C.textMuted }}>
-              1 lead · {sequence.length} steps · {totalDays} day campaign · {uniqueChannels.length} channels
+              1 lead · {sequence.length} steps · {totalDays} days · {uniqueChannels.length} channels
             </p>
           </div>
         </div>
       )}
+
+      {/* ═══ STEP 1: SETTINGS (Seller + Channel Accounts) ═══ */}
+      {wizardStep === 1 && (() => {
+        const usedChannels = [...new Set(sequence.map(s => s.channel))];
+        const selectedSellerObj = sellers.find(s => s.id === selectedSeller);
+
+        return (
+          <div className="space-y-5">
+            <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+              <div className="flex items-center gap-2 mb-1">
+                <Settings size={15} style={{ color: gold }} />
+                <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Flow Settings</h2>
+              </div>
+              <p className="text-xs mb-6" style={{ color: C.textDim }}>
+                Choose who will run this outreach flow and which accounts to use for each channel.
+              </p>
+
+              {/* Seller selection */}
+              <div className="mb-6">
+                <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>Assigned Seller</label>
+                <p className="text-xs mb-3" style={{ color: C.textDim }}>This person will handle follow-ups and conversations for this flow.</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {sellers.map(s => {
+                    const isActive = selectedSeller === s.id;
+                    const hasLinkedin = !!s.unipile_account_id;
+                    const hasEmail = !!s.email_account;
+                    return (
+                      <button key={s.id} onClick={() => setSelectedSeller(s.id)}
+                        className="rounded-xl border p-4 text-left transition-all hover:shadow-sm"
+                        style={{
+                          borderColor: isActive ? gold : C.border,
+                          backgroundColor: isActive ? `${gold}06` : "transparent",
+                          boxShadow: isActive ? `0 0 0 1px ${gold}` : "none",
+                        }}>
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
+                            style={{ background: isActive ? `linear-gradient(135deg, ${gold}, #e8c84a)` : C.bg, color: isActive ? "#fff" : C.textMuted }}>
+                            {s.name[0]}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{s.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {hasLinkedin && <span className="text-[9px] flex items-center gap-0.5" style={{ color: C.linkedin }}><Share2 size={8} /> LinkedIn</span>}
+                              {hasEmail && <span className="text-[9px] flex items-center gap-0.5" style={{ color: C.email }}><Mail size={8} /> Email</span>}
+                              {!hasLinkedin && !hasEmail && <span className="text-[9px]" style={{ color: C.textDim }}>No accounts</span>}
+                            </div>
+                          </div>
+                        </div>
+                        {isActive && <div className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: gold }}><Check size={10} /> Selected</div>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Channel accounts */}
+              {selectedSeller && (
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>Channel Accounts</label>
+                  <p className="text-xs mb-4" style={{ color: C.textDim }}>These accounts will be used to send messages for each channel in your sequence.</p>
+                  <div className="space-y-3">
+                    {usedChannels.map(ch => {
+                      const meta = allChannelOptions.find(c => c.key === ch);
+                      if (!meta) return null;
+                      const Icon = meta.icon;
+                      let accountLabel = "Not configured";
+                      let isConfigured = false;
+                      if (ch === "linkedin" && selectedSellerObj?.unipile_account_id) {
+                        accountLabel = `Unipile — ${selectedSellerObj.name}`;
+                        isConfigured = true;
+                      } else if (ch === "email" && selectedSellerObj?.email_account) {
+                        accountLabel = `Instantly — ${selectedSellerObj.email_account}`;
+                        isConfigured = true;
+                      } else if (ch === "call") {
+                        accountLabel = "Manual / Aircall (coming soon)";
+                        isConfigured = true;
+                      }
+                      return (
+                        <div key={ch} className="flex items-center gap-4 rounded-xl border p-4"
+                          style={{ borderColor: isConfigured ? `${meta.color}30` : C.red + "30", backgroundColor: isConfigured ? `${meta.color}04` : `${C.red}04` }}>
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${meta.color}15` }}>
+                            <Icon size={18} style={{ color: meta.color }} />
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{meta.label}</p>
+                            <p className="text-xs" style={{ color: isConfigured ? C.textMuted : C.red }}>{accountLabel}</p>
+                          </div>
+                          {isConfigured ? (
+                            <span className="text-[10px] font-semibold flex items-center gap-1 px-2.5 py-1 rounded-full" style={{ backgroundColor: C.greenLight, color: C.green }}><Check size={10} /> Ready</span>
+                          ) : (
+                            <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: C.redLight, color: C.red }}>Missing</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {selectedSellerObj && (
+                    <div className="mt-4 rounded-lg px-4 py-3 flex items-center gap-3" style={{ backgroundColor: C.bg }}>
+                      <span className="text-xs" style={{ color: C.textMuted }}>Daily limits for {selectedSellerObj.name}:</span>
+                      {usedChannels.includes("linkedin") && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${C.linkedin}12`, color: C.linkedin }}>
+                          LinkedIn: {selectedSellerObj.linkedin_daily_limit ?? 15}/day
+                        </span>
+                      )}
+                      {usedChannels.includes("email") && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `${C.email}12`, color: C.email }}>
+                          Email: {selectedSellerObj.email_daily_limit ?? "∞"}/day
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ═══ STEP 2: CHANNEL MESSAGE CONFIG ═══ */}
       {wizardStep === 2 && (
@@ -496,7 +581,7 @@ export default function NewLeadCampaignWizard() {
       {wizardStep === 3 && (
         <div className="space-y-5">
           <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-            <h2 className="text-sm font-semibold uppercase tracking-wider mb-5" style={{ color: C.textMuted }}>Campaign Summary</h2>
+            <h2 className="text-sm font-semibold uppercase tracking-wider mb-5" style={{ color: C.textMuted }}>Flow Summary</h2>
 
             <div className="grid grid-cols-3 gap-4 mb-5">
               <div className="rounded-lg border p-4" style={{ borderColor: C.border }}>
@@ -581,12 +666,12 @@ export default function NewLeadCampaignWizard() {
               style={{ backgroundColor: C.greenLight }}>
               <Check size={32} style={{ color: C.green }} />
             </div>
-            <h2 className="text-xl font-bold mb-2" style={{ color: C.textPrimary }}>Campaign Submitted</h2>
+            <h2 className="text-xl font-bold mb-2" style={{ color: C.textPrimary }}>Flow Submitted</h2>
             <p className="text-sm mb-1" style={{ color: C.textBody }}>
-              Your campaign has been submitted for review.
+              Your outreach flow has been submitted for review.
             </p>
             <p className="text-sm mb-6" style={{ color: C.textMuted }}>
-              The SWL team will review your campaign and you will be notified in your <strong>Queue</strong> once it is approved.
+              The SWL team will review your flow and you will be notified in your <strong>Queue</strong> once it is approved.
             </p>
             <div className="flex items-center justify-center gap-3">
               <button onClick={() => router.push("/leads")}
@@ -629,7 +714,15 @@ export default function NewLeadCampaignWizard() {
           <button
             onClick={() => {
               if (wizardStep === 0 && !campaignName.trim()) {
-                setMessagesWarning("Please enter a campaign name.");
+                setMessagesWarning("Please enter a flow name.");
+                return;
+              }
+              if (wizardStep === 0 && sequence.length === 0) {
+                setMessagesWarning("Please add at least one step to the sequence.");
+                return;
+              }
+              if (wizardStep === 1 && !selectedSeller) {
+                setMessagesWarning("Please select a seller before continuing.");
                 return;
               }
               if (wizardStep === 2) {
@@ -642,7 +735,7 @@ export default function NewLeadCampaignWizard() {
               setMessagesWarning(null);
               setWizardStep(s => s + 1);
             }}
-            disabled={wizardStep === 1 && sequence.length === 0}
+            disabled={false}
             className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-40"
             style={{ backgroundColor: gold, color: "#04070d" }}>
             Next <ArrowRight size={15} />
@@ -652,7 +745,7 @@ export default function NewLeadCampaignWizard() {
             className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50"
             style={{ backgroundColor: C.green, color: "#fff" }}>
             {submitting ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-            {submitting ? "Submitting..." : "Launch Campaign"}
+            {submitting ? "Submitting..." : "Launch Flow"}
           </button>
         )}
       </div>

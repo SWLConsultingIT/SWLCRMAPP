@@ -19,8 +19,17 @@ export const C = {
   surface:        "#FFFFFF",
   card:           "#FFFFFF",
   cardHov:        "#F9FAFB",
-  border:         "#E2E5EB",
-  border2:        "#D1D5DB",
+  border:         "#E8EBF3",
+  border2:        "#D4D8E4",
+
+  // ── Shadow system ──
+  shadow:         "0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.07)",
+  shadowMd:       "0 4px 20px rgba(0,0,0,0.09), 0 2px 6px rgba(0,0,0,0.04)",
+  shadowLg:       "0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)",
+
+  // ── AI accent (purple — distinct from gold for AI-powered features) ──
+  aiAccent:       "#7C3AED",
+  aiAccentLight:  "#F5F3FF",
 
   // ── Brand accent (teal — bridges sidebar navy to content) ──
   accent:         "#1A7F74",
