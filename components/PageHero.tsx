@@ -22,55 +22,84 @@ export default function PageHero({
   return (
     <div
       className="rounded-2xl overflow-hidden mb-6"
-      style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.12)" }}
+      style={{ boxShadow: "0 4px 28px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08)" }}
     >
       <div
-        className="px-8 py-6 flex items-center justify-between gap-6"
-        style={{ background: `radial-gradient(ellipse at 85% 40%, ${accentColor}28 0%, transparent 55%), linear-gradient(135deg, #0F172A 0%, #1A2540 100%)` }}
+        className="px-7 py-5 flex items-center justify-between gap-6 relative"
+        style={{
+          background: `
+            radial-gradient(ellipse 55% 70% at 90% 50%, ${accentColor}30 0%, transparent 60%),
+            radial-gradient(ellipse 30% 50% at 5%  80%, rgba(255,255,255,0.06) 0%, transparent 50%),
+            linear-gradient(135deg, #0D1524 0%, #172035 55%, #1A2640 100%)
+          `,
+        }}
       >
+        {/* Subtle grid overlay */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)`,
+            backgroundSize: "32px 32px",
+          }}
+        />
+
         {/* Left: icon + text */}
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-4 relative z-10">
           <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+            className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
             style={{
-              backgroundColor: `${accentColor}22`,
-              border: `1px solid ${accentColor}44`,
+              backgroundColor: `${accentColor}1E`,
+              border: `1px solid ${accentColor}40`,
+              boxShadow: `0 0 20px ${accentColor}25`,
             }}
           >
-            <Icon size={24} style={{ color: accentColor }} />
+            <Icon size={22} style={{ color: accentColor }} />
           </div>
           <div>
             <p
-              className="text-[10px] font-bold uppercase tracking-widest mb-1"
-              style={{ color: accentColor }}
+              className="text-[9px] font-bold uppercase tracking-[0.15em] mb-0.5"
+              style={{ color: accentColor, opacity: 0.9 }}
             >
               {section}
             </p>
-            <h1 className="text-xl font-bold text-white leading-tight">{title}</h1>
-            <p className="text-sm mt-0.5 leading-relaxed" style={{ color: "#94A3B8" }}>
+            <h1
+              className="text-[19px] font-bold text-white leading-tight"
+              style={{ letterSpacing: "-0.02em" }}
+            >
+              {title}
+            </h1>
+            <p className="text-[12px] mt-0.5 leading-relaxed" style={{ color: "#8EA3BE" }}>
               {description}
             </p>
           </div>
         </div>
 
         {/* Right: status + badge */}
-        <div className="flex items-center gap-2.5 shrink-0">
+        <div className="flex items-center gap-2.5 shrink-0 relative z-10">
           {status && (
             <div
               className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-              style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
+              style={{
+                backgroundColor: "rgba(255,255,255,0.07)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                backdropFilter: "blur(8px)",
+              }}
             >
               <span
-                className="w-2 h-2 rounded-full pulse-dot"
+                className="w-1.5 h-1.5 rounded-full pulse-dot"
                 style={{ backgroundColor: status.active !== false ? "#22C55E" : "#F59E0B" }}
               />
-              <span className="text-sm font-medium text-white">{status.label}</span>
+              <span className="text-[12px] font-medium text-white">{status.label}</span>
             </div>
           )}
           {badge && (
             <span
               className="text-xs px-3 py-1.5 rounded-full font-medium"
-              style={{ backgroundColor: "rgba(255,255,255,0.08)", color: "#94A3B8" }}
+              style={{
+                backgroundColor: "rgba(255,255,255,0.07)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                color: "#94A3B8",
+              }}
             >
               {badge}
             </span>

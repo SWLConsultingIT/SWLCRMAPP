@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Bell, HelpCircle, Search, ChevronRight, LogOut } from "lucide-react";
 import Link from "next/link";
 import { C } from "@/lib/design";
@@ -25,6 +26,19 @@ function getPageName(pathname: string): string {
   return "";
 }
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(" ").filter(Boolean);
+  if (parts.length === 0) return "??";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function getUserColor(name: string): { from: string; to: string } {
+  if (name === "Admin") return { from: "#7C3AED", to: "#9F67FF" };
+  if (name.startsWith("Francisco")) return { from: "#0A66C2", to: "#2D8AE8" };
+  return { from: C.gold, to: "#e8c84a" };
+}
+
 function openCommandPalette() {
   document.dispatchEvent(
     new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true })
@@ -35,16 +49,32 @@ export default function TopHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const pageName = getPageName(pathname);
+  const [user, setUser] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then(r => r.json())
+      .then(d => setUser(d.user ?? null))
+      .catch(() => {});
+  }, []);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
   }
 
+  const initials = user ? getInitials(user) : "…";
+  const userColor = user ? getUserColor(user) : { from: C.gold, to: "#e8c84a" };
+  const firstName = user ? user.split(" ")[0] : "";
+
   return (
     <header
       className="flex items-center px-6 h-14 border-b shrink-0 z-10"
-      style={{ backgroundColor: "#FFFFFF", borderColor: C.border }}
+      style={{
+        backgroundColor: "#FFFFFF",
+        borderColor: C.border,
+        boxShadow: "0 1px 0 rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.03)",
+      }}
     >
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-sm w-56 min-w-0">
@@ -80,17 +110,19 @@ export default function TopHeader() {
       </div>
 
       {/* Right: actions + user */}
-      <div className="flex items-center gap-2 w-56 justify-end">
+      <div className="flex items-center gap-1 w-56 justify-end">
         <Link
           href="/queue"
           className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
           style={{ color: C.textMuted }}
+          title="Queue"
         >
           <Bell size={16} />
         </Link>
         <button
           className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
           style={{ color: C.textMuted }}
+          title="Help"
         >
           <HelpCircle size={16} />
         </button>
@@ -102,24 +134,27 @@ export default function TopHeader() {
         >
           <LogOut size={16} />
         </button>
+
+        {/* User chip */}
         <div
-          className="flex items-center gap-2.5 pl-3 ml-1"
-          style={{ borderLeft: `1px solid ${C.border}` }}
+          className="flex items-center gap-2 ml-2 pl-2 border-l"
+          style={{ borderColor: C.border }}
         >
           <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 select-none"
             style={{
-              background: `linear-gradient(135deg, ${C.gold}, #e8c84a)`,
-              color: "#1A1A2E",
+              background: `linear-gradient(135deg, ${userColor.from}, ${userColor.to})`,
+              color: "#fff",
+              boxShadow: `0 1px 6px ${userColor.from}50`,
             }}
           >
-            GE
+            {initials}
           </div>
-          <div>
-            <p className="text-xs font-semibold leading-tight" style={{ color: C.textPrimary }}>
-              Growth Engine
+          <div className="leading-none">
+            <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>
+              {firstName || "—"}
             </p>
-            <p className="text-[10px] leading-tight" style={{ color: C.textMuted }}>
+            <p className="text-[9px] mt-0.5 font-medium uppercase tracking-wider" style={{ color: C.textDim }}>
               SWL Consulting
             </p>
           </div>

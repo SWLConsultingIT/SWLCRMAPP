@@ -4,6 +4,7 @@ import { C } from "@/lib/design";
 import Link from "next/link";
 import OpenAI from "openai";
 import Breadcrumb from "@/components/Breadcrumb";
+import LostLeadActions from "@/components/LostLeadActions";
 import {
   ArrowLeft, Share2, Mail, Phone, Star, Send,
   MessageSquare, XCircle, AlertTriangle, Target, Megaphone,
@@ -469,11 +470,14 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
         <Link href="/leads" className="text-xs font-medium hover:underline flex items-center gap-1" style={{ color: C.textMuted }}>
           <ArrowLeft size={12} /> Back to Leads & Campaigns
         </Link>
-        <Link href={`/leads/${lead.id}`}
-          className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
-          style={{ backgroundColor: gold, color: "#04070d" }}>
-          <User size={12} /> View Full Lead Profile
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href={`/leads/${lead.id}`}
+            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80 border"
+            style={{ backgroundColor: C.card, color: C.textBody, borderColor: C.border }}>
+            <User size={12} /> View Full Profile
+          </Link>
+          <LostLeadActions leadId={lead.id} />
+        </div>
       </div>
     </div>
   );

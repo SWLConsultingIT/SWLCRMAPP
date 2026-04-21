@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const AIRCALL_AUTH = Buffer.from(
-  "8c83e900880b297862e8f1c2908e396d:9b45754754a13870faca95c779710a07"
+  `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`
 ).toString("base64");
-const AIRCALL_NUMBER_ID = 1254866;
-const SB_URL = "https://uljoengwmmwdqpcxnbjs.supabase.co/rest/v1";
-const SB_KEY = "sb_secret_o15e9PpjyvsiXJU77YyTxg_lJg60eXs";
+const DEFAULT_NUMBER_ID = Number(process.env.AIRCALL_DEFAULT_NUMBER_ID);
+const SB_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1`;
+const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
 
 export async function POST(req: NextRequest) {
-  const { phone, leadId, sellerId, aircallUserId } = await req.json();
+  const { phone, leadId, sellerId, aircallUserId, numberId } = await req.json();
   if (!phone) return NextResponse.json({ error: "Phone number required" }, { status: 400 });
 
   const payload: Record<string, unknown> = {
-    number_id: AIRCALL_NUMBER_ID,
+    number_id: numberId ?? DEFAULT_NUMBER_ID,
     to: phone,
   };
   if (aircallUserId) payload.user_id = Number(aircallUserId);

@@ -12,6 +12,9 @@ import ActivityTimeline from "@/components/ActivityTimeline";
 import CampaignJourney from "@/components/CampaignJourney";
 import DeleteLeadButton from "@/components/DeleteLeadButton";
 import Breadcrumb from "@/components/Breadcrumb";
+import SyncAircallButton from "@/components/SyncAircallButton";
+import CallButton from "@/components/CallButton";
+import CallClassifier from "@/components/CallClassifier";
 
 const gold = "#C9A83A";
 const goldLight = "rgba(201,168,58,0.08)";
@@ -26,7 +29,7 @@ async function getLead(id: string) {
 async function getCampaign(leadId: string) {
   const { data } = await supabase
     .from("campaigns")
-    .select("id, name, channel, status, current_step, sequence_steps, started_at, next_step_due_at, paused_until, completed_at, sellers(name)")
+    .select("id, name, channel, status, current_step, sequence_steps, started_at, next_step_due_at, paused_until, completed_at, aircall_number_id, sellers(name)")
     .eq("lead_id", leadId)
     .order("started_at", { ascending: false })
     .limit(1)
@@ -53,12 +56,14 @@ async function getReplies(leadId: string) {
 }
 
 async function getCalls(leadId: string) {
-  const { data } = await supabase
-    .from("calls")
-    .select("id, aircall_call_id, direction, status, duration, phone_number, recording_url, transcript, notes, started_at, ended_at")
-    .eq("lead_id", leadId)
-    .order("started_at", { ascending: false });
-  return data ?? [];
+  const key = process.env.SUPABASE_SERVICE_KEY!;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const res = await fetch(
+    `${url}/rest/v1/calls?lead_id=eq.${leadId}&order=started_at.desc&select=id,aircall_call_id,direction,status,duration,phone_number,recording_url,transcript,notes,started_at,ended_at,classification,ai_confidence,ai_summary`,
+    { headers: { apikey: key, Authorization: `Bearer ${key}` }, cache: "no-store" }
+  );
+  const data = await res.json().catch(() => []);
+  return Array.isArray(data) ? data : [];
 }
 
 // ── Helpers ──
@@ -296,6 +301,11 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             {/* Score ring */}
             {lead.lead_score > 0 && (
               <ScoreRing score={lead.lead_score} color={score.color} />
+            )}
+
+            {/* Call */}
+            {lead.primary_phone && (
+              <CallButton phone={lead.primary_phone} leadId={id} size="sm" defaultNumberId={campaign?.aircall_number_id ?? null} />
             )}
 
             {/* Delete */}
@@ -905,12 +915,23 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
         {/* ── TAB 5: Calls ── */}
         <div className="space-y-3">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs" style={{ color: C.textMuted }}>
+              {calls.length > 0 ? `${calls.length} call${calls.length === 1 ? "" : "s"} recorded` : "No calls yet"}
+            </p>
+            <div className="flex items-center gap-2">
+              {lead.primary_phone && (
+                <CallButton phone={lead.primary_phone} leadId={id} size="sm" defaultNumberId={campaign?.aircall_number_id ?? null} />
+              )}
+              <SyncAircallButton />
+            </div>
+          </div>
           {calls.length === 0 ? (
             <div className="rounded-xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
               <Phone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
               <p className="text-sm font-medium" style={{ color: C.textBody }}>No calls recorded yet</p>
               <p className="text-xs mt-1" style={{ color: C.textMuted }}>
-                Calls made via Aircall from the Queue will appear here.
+                Calls made via Aircall from the Queue will appear here. Click &ldquo;Sync from Aircall&rdquo; above to pull recent calls.
               </p>
             </div>
           ) : (
@@ -978,6 +999,12 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                       <audio controls src={call.recording_url} className="w-full h-8" />
                     </div>
                   )}
+                  <CallClassifier
+                    callId={call.id}
+                    current={call.classification ?? null}
+                    aiConfidence={call.ai_confidence ?? null}
+                    aiSummary={call.ai_summary ?? null}
+                  />
                 </div>
               );
             })

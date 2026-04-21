@@ -237,14 +237,7 @@ export default async function ReportsPage() {
   const maxWeeklyReplies = Math.max(...data.weeklyReplies.map(w => w.replies), 1);
 
   return (
-    <div className="p-6 w-full">
-      {/* Header */}
-      <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Analytics</p>
-        <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Reports</h1>
-        <p className="text-sm mt-1" style={{ color: C.textMuted }}>Performance analytics across all campaigns and profiles.</p>
-      </div>
-      <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
+    <div>
 
       {/* ═══ KPI CARDS ═══ */}
       <div className="grid grid-cols-5 gap-4 mb-8">
@@ -292,7 +285,7 @@ export default async function ReportsPage() {
               </tr>
             </thead>
             <tbody>
-              {data.campaignComparison.map((c, i) => (
+              {data.campaignComparison.map((c) => (
                 <tr key={c.name} className="border-t" style={{ borderColor: C.border }}>
                   <td className="px-5 py-3">
                     <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{c.name}</p>

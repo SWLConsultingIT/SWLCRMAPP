@@ -4,27 +4,117 @@ import { UserCircle } from "lucide-react";
 import AccountsClient from "./AccountsClient";
 import PageHero from "@/components/PageHero";
 
-async function getData() {
-  // Get all active sellers with their accounts
-  const { data: sellers } = await supabase
-    .from("sellers")
-    .select("id, name, unipile_account_id, email_account, linkedin_daily_limit, email_daily_limit, active")
-    .eq("active", true)
-    .order("name");
+const INSTANTLY_KEY = process.env.INSTANTLY_API_KEY!;
+const AIRCALL_AUTH = Buffer.from(`${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`).toString("base64");
 
-  // Get today's start (UTC)
+async function getInstantlyPool() {
+  try {
+    const res = await fetch("https://api.instantly.ai/api/v2/accounts?limit=100", {
+      headers: { Authorization: `Bearer ${INSTANTLY_KEY}` },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const accounts = (data.items || []).map((a: any) => ({
+      email: a.email,
+      dailyLimit: a.daily_limit ?? 0,
+      warmupStatus: a.warmup_status,
+      setupPending: !!a.setup_pending,
+      warmupScore: a.stat_warmup_score ?? 0,
+    }));
+    const totalLimit = accounts.reduce((s: number, a: any) => s + a.dailyLimit, 0);
+    const warmupPending = accounts.filter((a: any) => a.setupPending).length;
+    const ready = accounts.length - warmupPending;
+    return {
+      accounts,
+      total: accounts.length,
+      ready,
+      warmupPending,
+      totalDailyLimit: totalLimit,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function getAircallUsage() {
+  try {
+    const monthStart = new Date();
+    monthStart.setUTCDate(1);
+    monthStart.setUTCHours(0, 0, 0, 0);
+    const fromTs = Math.floor(monthStart.getTime() / 1000);
+
+    const [numbersRes, callsRes] = await Promise.all([
+      fetch("https://api.aircall.io/v1/numbers", {
+        headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
+        cache: "no-store",
+      }),
+      fetch(`https://api.aircall.io/v1/calls?from=${fromTs}&per_page=50&order=desc`, {
+        headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
+        cache: "no-store",
+      }),
+    ]);
+
+    const numbers = numbersRes.ok ? (await numbersRes.json()).numbers ?? [] : [];
+    const calls = callsRes.ok ? (await callsRes.json()).calls ?? [] : [];
+
+    const byNumber: Record<string, { seconds: number; calls: number }> = {};
+    for (const c of calls) {
+      const nid = c.number?.id ?? c.number_id;
+      if (!nid) continue;
+      if (!byNumber[nid]) byNumber[nid] = { seconds: 0, calls: 0 };
+      byNumber[nid].seconds += c.duration ?? 0;
+      byNumber[nid].calls++;
+    }
+
+    const numberCards = numbers.map((n: any) => {
+      const usage = byNumber[n.id] ?? { seconds: 0, calls: 0 };
+      return {
+        id: n.id,
+        name: n.name ?? n.digits,
+        digits: n.digits,
+        country: n.country ?? "—",
+        availability: n.availability_status ?? "unknown",
+        is_active: n.is_active !== false,
+        minutes: Math.round(usage.seconds / 60),
+        calls: usage.calls,
+      };
+    });
+
+    return {
+      numbers: numberCards,
+      totalMinutes: numberCards.reduce((s: number, n: any) => s + n.minutes, 0),
+      totalCalls: numberCards.reduce((s: number, n: any) => s + n.calls, 0),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function getData() {
+  const [
+    { data: sellers },
+    instantly,
+    aircall,
+  ] = await Promise.all([
+    supabase.from("sellers")
+      .select("id, name, unipile_account_id, linkedin_daily_limit, active")
+      .eq("active", true)
+      .order("name"),
+    getInstantlyPool(),
+    getAircallUsage(),
+  ]);
+
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
   const todayISO = todayStart.toISOString();
 
-  // Get all campaign_messages sent today, joined with campaigns to get seller_id + channel
   const { data: todayMessages } = await supabase
     .from("campaign_messages")
     .select("id, campaign_id, channel, sent_at, campaigns(seller_id)")
     .gte("sent_at", todayISO)
     .not("sent_at", "is", null);
 
-  // Count messages per seller per channel today
   const usageToday: Record<string, { linkedin: number; email: number; call: number }> = {};
   for (const msg of todayMessages ?? []) {
     const sellerId = (msg.campaigns as any)?.seller_id;
@@ -34,7 +124,7 @@ async function getData() {
     if (ch in usageToday[sellerId]) usageToday[sellerId][ch]++;
   }
 
-  // Get last 30 days of messages for history
+  // Last 30 days history
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const thirtyDaysISO = thirtyDaysAgo.toISOString();
@@ -47,7 +137,6 @@ async function getData() {
     .order("sent_at", { ascending: false })
     .limit(5000);
 
-  // Aggregate by date + seller + channel
   const historyMap: Record<string, { date: string; sellerId: string; sellerName: string; channel: string; count: number }> = {};
   const sellerNameMap: Record<string, string> = {};
   for (const s of sellers ?? []) sellerNameMap[s.id] = s.name;
@@ -55,7 +144,7 @@ async function getData() {
   for (const msg of historyMessages ?? []) {
     const sellerId = (msg.campaigns as any)?.seller_id;
     if (!sellerId) continue;
-    const date = msg.sent_at!.slice(0, 10); // YYYY-MM-DD
+    const date = msg.sent_at!.slice(0, 10);
     const ch = msg.channel ?? "unknown";
     const key = `${date}:${sellerId}:${ch}`;
     if (!historyMap[key]) {
@@ -66,47 +155,41 @@ async function getData() {
 
   const history = Object.values(historyMap).sort((a, b) => b.date.localeCompare(a.date));
 
-  // Build seller cards data
+  // Sellers with LinkedIn only (email pulled out to Instantly pool section)
   const sellerCards = (sellers ?? []).map(s => {
     const usage = usageToday[s.id] ?? { linkedin: 0, email: 0, call: 0 };
     const linkedinLimit = s.linkedin_daily_limit ?? 15;
-    const emailLimit = s.email_daily_limit ?? 50;
     const linkedinPct = linkedinLimit > 0 ? Math.round((usage.linkedin / linkedinLimit) * 100) : 0;
-    const emailPct = emailLimit > 0 ? Math.round((usage.email / emailLimit) * 100) : 0;
 
     return {
       id: s.id,
       name: s.name,
       hasLinkedin: !!s.unipile_account_id,
-      hasEmail: !!s.email_account,
-      emailAccount: s.email_account,
       unipileId: s.unipile_account_id,
       linkedin: { sent: usage.linkedin, limit: linkedinLimit, pct: Math.min(linkedinPct, 100) },
-      email: { sent: usage.email, limit: emailLimit, pct: Math.min(emailPct, 100) },
       calls: usage.call,
     };
   });
 
-  // Team totals
   const totalLinkedinSent = sellerCards.reduce((s, c) => s + c.linkedin.sent, 0);
   const totalLinkedinLimit = sellerCards.reduce((s, c) => s + (c.hasLinkedin ? c.linkedin.limit : 0), 0);
-  const totalEmailSent = sellerCards.reduce((s, c) => s + c.email.sent, 0);
-  const totalEmailLimit = sellerCards.reduce((s, c) => s + (c.hasEmail ? c.email.limit : 0), 0);
+  const totalEmailSent = Object.values(usageToday).reduce((s, u) => s + u.email, 0);
 
   return {
     sellers: sellerCards,
     history,
+    instantly,
+    aircall,
     totals: {
       linkedinSent: totalLinkedinSent,
       linkedinLimit: totalLinkedinLimit,
       emailSent: totalEmailSent,
-      emailLimit: totalEmailLimit,
     },
   };
 }
 
 export default async function AccountsPage() {
-  const { sellers, history, totals } = await getData();
+  const data = await getData();
 
   return (
     <div className="p-6 w-full">
@@ -114,15 +197,17 @@ export default async function AccountsPage() {
         icon={UserCircle}
         section="Operations"
         title="Accounts & Usage"
-        description="Monitor daily sending limits and account health across your team."
+        description="Monitor daily sending limits and account health across channels."
         accentColor={C.gold}
         status={{ label: "Active", active: true }}
       />
 
       <AccountsClient
-        sellers={JSON.parse(JSON.stringify(sellers))}
-        history={JSON.parse(JSON.stringify(history))}
-        totals={totals}
+        sellers={JSON.parse(JSON.stringify(data.sellers))}
+        history={JSON.parse(JSON.stringify(data.history))}
+        instantly={JSON.parse(JSON.stringify(data.instantly))}
+        aircall={JSON.parse(JSON.stringify(data.aircall))}
+        totals={data.totals}
       />
     </div>
   );

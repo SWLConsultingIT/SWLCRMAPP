@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const SB_URL = "https://uljoengwmmwdqpcxnbjs.supabase.co/rest/v1";
-const SB_KEY = "sb_secret_o15e9PpjyvsiXJU77YyTxg_lJg60eXs";
+const SB_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1`;
+const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
 
 export async function GET(
   _req: NextRequest,

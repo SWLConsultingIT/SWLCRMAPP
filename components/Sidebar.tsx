@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import {
   LayoutDashboard, Users, Megaphone,
-  Building2, Target, Shield, ChevronDown, Zap, Bell, Trophy, UserCircle,
+  Building2, Target, Shield, ChevronDown, Zap, Bell, Trophy, UserCircle, Settings,
 } from "lucide-react";
 
 type NavItem = {
@@ -40,6 +40,7 @@ const sections: { label: string; items: NavItem[] }[] = [
       { href: "/accounts", label: "Accounts", icon: UserCircle },
       { href: "/opportunities", label: "Opportunities", icon: Trophy },
       { href: "/queue", label: "Queue", icon: Bell, badgeKey: "calls" },
+      { href: "/settings", label: "Settings", icon: Settings },
       { href: "/admin", label: "Admin", icon: Shield, badgeKey: "pending" },
     ],
   },
@@ -79,26 +80,27 @@ export default function Sidebar() {
       style={{
         backgroundColor: C.sidebarBg,
         borderColor: C.sidebarBorder,
-        boxShadow: "2px 0 20px rgba(0,0,0,0.07)",
+        boxShadow: "2px 0 24px rgba(0,0,0,0.08), 1px 0 0 rgba(0,0,0,0.04)",
+        background: "linear-gradient(180deg, #FFFFFF 0%, #FDFCFB 100%)",
       }}
     >
       {/* Logo */}
       <div className="px-5 py-5 border-b" style={{ borderColor: C.sidebarBorder }}>
         <div className="flex items-center gap-3">
           <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center"
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
             style={{
-              background: `linear-gradient(135deg, ${C.gold}, #e8c84a)`,
-              boxShadow: `0 2px 8px rgba(201,168,58,0.3)`,
+              background: `linear-gradient(135deg, ${C.gold} 0%, #e8c84a 100%)`,
+              boxShadow: `0 3px 10px rgba(201,168,58,0.4), 0 1px 3px rgba(0,0,0,0.1)`,
             }}
           >
-            <Zap size={18} color="#FFFFFF" strokeWidth={2.5} />
+            <Zap size={19} color="#FFFFFF" strokeWidth={2.5} />
           </div>
           <div>
-            <p className="text-sm font-bold tracking-wide" style={{ color: C.sidebarTextActive }}>
+            <p className="text-sm font-extrabold tracking-wide" style={{ color: C.sidebarTextActive, letterSpacing: "-0.01em" }}>
               GrowthAI
             </p>
-            <p className="text-[10px] font-semibold tracking-widest uppercase" style={{ color: C.gold }}>
+            <p className="text-[9px] font-bold tracking-widest uppercase" style={{ color: C.gold, opacity: 0.85 }}>
               Sales Engine
             </p>
           </div>
@@ -160,10 +162,11 @@ export default function Sidebar() {
                       style={
                         active
                           ? {
-                              backgroundColor: C.goldGlow,
+                              background: `linear-gradient(90deg, rgba(201,168,58,0.14) 0%, rgba(201,168,58,0.04) 100%)`,
                               color: C.gold,
-                              borderLeft: `2.5px solid ${C.gold}`,
+                              borderLeft: `3px solid ${C.gold}`,
                               paddingLeft: "10px",
+                              boxShadow: "inset 0 1px 0 rgba(201,168,58,0.08), inset 0 -1px 0 rgba(201,168,58,0.06)",
                             }
                           : { color: C.sidebarText }
                       }

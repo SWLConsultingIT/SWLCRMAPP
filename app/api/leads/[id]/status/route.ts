@@ -1,7 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { NextRequest, NextResponse } from "next/server";
 
-const VALID = ["new", "contacted", "qualified", "cold", "closed_lost"];
+const VALID = ["new", "contacted", "qualified", "cold", "closed_lost", "closed_won"];
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
