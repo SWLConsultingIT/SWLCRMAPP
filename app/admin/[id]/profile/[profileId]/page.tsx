@@ -144,7 +144,6 @@ export default async function AdminProfileDetailPage({ params }: { params: Promi
       {(profile.status === "approved" || profile.execution_status !== "not_started") && (
         <ExecutionActions
           id={profile.id}
-          companyBioId={id}
           currentStatus={profile.execution_status ?? "not_started"}
           leadsUploaded={profile.leads_uploaded ?? 0}
         />

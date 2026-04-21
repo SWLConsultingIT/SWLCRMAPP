@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
-import { Clock, Upload, CheckCircle, Loader2, Copy, Check } from "lucide-react";
+import { Clock, Upload, CheckCircle, Loader2 } from "lucide-react";
 
 const steps = [
   { key: "not_started",  label: "Not Started",    color: C.textMuted, bg: "#F3F4F6",    icon: Clock },
@@ -13,9 +13,8 @@ const steps = [
   { key: "completed",    label: "Completed",       color: C.green,     bg: C.greenLight, icon: CheckCircle },
 ];
 
-export default function ExecutionActions({ id, companyBioId, currentStatus, leadsUploaded }: {
+export default function ExecutionActions({ id, currentStatus, leadsUploaded }: {
   id: string;
-  companyBioId: string;
   currentStatus: string;
   leadsUploaded: number;
 }) {
@@ -23,7 +22,6 @@ export default function ExecutionActions({ id, companyBioId, currentStatus, lead
   const [acting, setActing] = useState(false);
   const [count, setCount] = useState(leadsUploaded);
   const [showCountInput, setShowCountInput] = useState(false);
-  const [copied, setCopied] = useState<string | null>(null);
 
   async function updateStatus(status: string, extras?: Record<string, any>) {
     setActing(true);
@@ -35,12 +33,6 @@ export default function ExecutionActions({ id, companyBioId, currentStatus, lead
     router.refresh();
     setActing(false);
     setShowCountInput(false);
-  }
-
-  function copyToClipboard(text: string, label: string) {
-    navigator.clipboard.writeText(text);
-    setCopied(label);
-    setTimeout(() => setCopied(null), 2000);
   }
 
   const currentIdx = steps.findIndex(s => s.key === currentStatus);
@@ -123,35 +115,6 @@ export default function ExecutionActions({ id, companyBioId, currentStatus, lead
         )}
       </div>
 
-      {/* Sheet Sync IDs — for when uploading leads via Sheet */}
-      {(currentStatus === "not_started" || currentStatus === "in_progress") && (
-        <div className="mt-5 pt-4 border-t" style={{ borderColor: C.border }}>
-          <p className="text-xs font-semibold mb-3" style={{ color: C.textMuted }}>
-            Sheet Sync Parameters
-          </p>
-          <p className="text-xs mb-3" style={{ color: C.textDim }}>
-            Include these IDs when calling the Sheet Sync webhook so leads get linked to this client and profile.
-          </p>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
-              <span className="text-xs font-medium shrink-0" style={{ color: C.textMuted }}>company_bio_id:</span>
-              <code className="text-xs flex-1 truncate" style={{ color: C.textPrimary }}>{companyBioId}</code>
-              <button onClick={() => copyToClipboard(companyBioId, "bio")}
-                className="shrink-0" style={{ color: copied === "bio" ? C.green : C.textDim }}>
-                {copied === "bio" ? <Check size={13} /> : <Copy size={13} />}
-              </button>
-            </div>
-            <div className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
-              <span className="text-xs font-medium shrink-0" style={{ color: C.textMuted }}>icp_profile_id:</span>
-              <code className="text-xs flex-1 truncate" style={{ color: C.textPrimary }}>{id}</code>
-              <button onClick={() => copyToClipboard(id, "icp")}
-                className="shrink-0" style={{ color: copied === "icp" ? C.green : C.textDim }}>
-                {copied === "icp" ? <Check size={13} /> : <Copy size={13} />}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

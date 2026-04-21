@@ -27,7 +27,7 @@ const statusMeta: Record<string, { label: string; color: string; bg: string; ico
 async function getCampaign(id: string) {
   const { data } = await supabase
     .from("campaigns")
-    .select("*, leads(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, company_industry), sellers(name)")
+    .select("*, leads(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, company_industry, icp_profile_id), sellers(name)")
     .eq("id", id)
     .single();
   return data;
@@ -45,7 +45,7 @@ async function getMessages(campaignId: string) {
 async function getSiblingCampaigns(campaignName: string, excludeId: string) {
   const { data } = await supabase
     .from("campaigns")
-    .select("id, status, current_step, sequence_steps, channel, last_step_at, seller_id, leads(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, lead_score, is_priority), sellers(name)")
+    .select("id, status, current_step, sequence_steps, channel, last_step_at, seller_id, leads(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_phone, lead_score, is_priority), sellers(name)")
     .eq("name", campaignName)
     .neq("id", excludeId)
     .order("created_at", { ascending: false })

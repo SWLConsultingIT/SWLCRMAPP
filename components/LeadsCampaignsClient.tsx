@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { C } from "@/lib/design";
+import { supabase } from "@/lib/supabase";
 import {
   Megaphone, ChevronRight, Target,
-  Search, X, CheckCircle, Star,
+  Search, X, CheckCircle, Star, RefreshCw, Trash2, Square, CheckSquare,
 } from "lucide-react";
 import { LeadFilterBar, type LeadFilterState } from "@/components/LeadFilters";
 
@@ -76,10 +77,18 @@ type LostLead = {
   messages_sent: number;
 };
 
+type RenurturingLead = LostLead & {
+  new_campaign_name: string | null;
+  new_campaign_status: string;
+  new_campaign_step: number | null;
+  new_campaign_total_steps: number | null;
+};
+
 type Props = {
   profileGroups: ProfileGroup[];
   allLeads: LeadInfo[];
   lostLeads: LostLead[];
+  renurturingLeads: RenurturingLead[];
   stats: { totalLeads: number; responseRate: number; positiveReplies: number; activeCampaigns: number };
 };
 
@@ -107,16 +116,28 @@ const classColors: Record<string, { color: string; bg: string; label: string }> 
 };
 
 // ─── Lost Lead Card (detailed report style) ──────────────────────────────────
-function LostLeadCard({ lead }: { lead: LostLead }) {
+function LostLeadCard({ lead, selected, onToggle }: { lead: LostLead; selected: boolean; onToggle: (id: string) => void }) {
   const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Unknown";
   const badge = scoreBadge(lead.score, lead.is_priority);
   const progress = lead.steps_total > 0 ? Math.round((lead.steps_completed / lead.steps_total) * 100) : 0;
 
   return (
-    <Link href={`/leads/lost/${lead.id}`}
-      className="rounded-xl border overflow-hidden transition-shadow hover:shadow-md group"
-      style={{ backgroundColor: C.card, borderColor: C.border, borderLeftWidth: 3, borderLeftColor: lead.reason === "negative" ? C.red : C.textDim }}>
-      <div className="p-4">
+    <div className="rounded-xl border overflow-hidden transition-shadow hover:shadow-md group/card"
+      style={{
+        backgroundColor: C.card,
+        borderLeftWidth: 3, borderLeftColor: lead.reason === "negative" ? C.red : C.textDim,
+        boxShadow: selected ? `0 0 0 2px ${C.red}` : undefined,
+      }}>
+      {/* Checkbox */}
+      <div className="flex items-center px-4 pt-3 pb-0">
+        <button onClick={() => onToggle(lead.id)}
+          className="flex items-center gap-1.5 text-[10px] font-medium transition-opacity opacity-0 group-hover/card:opacity-100"
+          style={{ color: selected ? C.red : C.textDim, opacity: selected ? 1 : undefined }}>
+          {selected ? <CheckSquare size={13} /> : <Square size={13} />}
+          {selected ? "Selected" : "Select"}
+        </button>
+      </div>
+      <Link href={`/leads/lost/${lead.id}`} className="block p-4 group">
         {/* Lead info */}
         <div className="flex items-start gap-3 mb-3">
           <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
@@ -181,8 +202,147 @@ function LostLeadCard({ lead }: { lead: LostLead }) {
             <span className="text-[9px] tabular-nums" style={{ color: C.textDim }}>{progress}% completed</span>
           </div>
         </div>
+      </Link>
+
+      {/* Renurture action */}
+      <div className="px-4 pb-4">
+        <Link
+          href={`/campaigns/new/lead/${lead.id}`}
+          className="flex items-center justify-center gap-2 w-full rounded-lg py-2 text-xs font-semibold transition-all hover:opacity-80"
+          style={{ backgroundColor: `${gold}15`, color: gold, border: `1px solid ${gold}30` }}
+        >
+          <RefreshCw size={12} />
+          Renurture — Create New Campaign
+        </Link>
       </div>
-    </Link>
+    </div>
+  );
+}
+
+// ─── Re-nurturing Lead Card ───────────────────────────────────────────────────
+function RenurturingLeadCard({ lead }: { lead: RenurturingLead }) {
+  const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Unknown";
+  const badge = scoreBadge(lead.score, lead.is_priority);
+  const isPendingReview = lead.new_campaign_status === "pending_review";
+  const newProgress = lead.new_campaign_total_steps && lead.new_campaign_step != null
+    ? Math.round((lead.new_campaign_step / lead.new_campaign_total_steps) * 100)
+    : 0;
+
+  const statusLabel = isPendingReview ? "Pending Approval"
+    : lead.new_campaign_status === "approved" || lead.new_campaign_status === "active" ? "Running"
+    : lead.new_campaign_status === "paused" ? "Paused"
+    : lead.new_campaign_status === "cancelled" ? "Cancelled"
+    : lead.new_campaign_status ?? "Active";
+  const statusColor = isPendingReview ? "#D97706"
+    : lead.new_campaign_status === "cancelled" ? C.red
+    : lead.new_campaign_status === "paused" ? "#D97706" : C.green;
+  const statusBg = isPendingReview ? "#FFFBEB"
+    : lead.new_campaign_status === "cancelled" ? C.redLight
+    : lead.new_campaign_status === "paused" ? "#FFFBEB" : C.greenLight;
+
+  return (
+    <div className="rounded-xl border overflow-hidden transition-shadow hover:shadow-md"
+      style={{ backgroundColor: C.card, borderColor: C.border, borderLeftWidth: 3, borderLeftColor: C.green }}>
+      <Link href={`/leads/lost/${lead.id}`} className="block p-4 group">
+        {/* Lead info */}
+        <div className="flex items-start gap-3 mb-3">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+            style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+            {((lead.company ?? name)[0] ?? "?").toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-bold group-hover:underline" style={{ color: C.textPrimary }}>{name}</span>
+              {lead.is_priority && <Star size={10} fill={gold} stroke={gold} />}
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: badge.bg, color: badge.color }}>{badge.label}</span>
+            </div>
+            <p className="text-xs" style={{ color: C.textMuted }}>
+              {lead.role ? `${lead.role} · ` : ""}{lead.company ?? "—"}
+            </p>
+          </div>
+          <span className="text-[10px] font-bold px-2.5 py-1 rounded-md shrink-0"
+            style={{ backgroundColor: statusBg, color: statusColor }}>
+            {statusLabel}
+          </span>
+        </div>
+
+        {/* Previous reply */}
+        {lead.reply_text && (
+          <div className="rounded-lg px-3 py-2.5 mb-3 border" style={{ backgroundColor: C.redLight, borderColor: C.red + "20" }}>
+            <p className="text-[10px] font-semibold mb-0.5" style={{ color: C.red }}>Previous response:</p>
+            <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>&ldquo;{lead.reply_text}&rdquo;</p>
+            {lead.reply_date && (
+              <p className="text-[9px] mt-1" style={{ color: C.textDim }}>{timeAgo(lead.reply_date)}</p>
+            )}
+          </div>
+        )}
+
+        {/* New campaign info */}
+        <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: C.greenLight + "80", borderColor: C.green + "30" }}>
+          <p className="text-[10px] font-semibold mb-1.5" style={{ color: C.green }}>New Campaign</p>
+          <div className="flex items-center gap-3 text-[10px] flex-wrap mb-1" style={{ color: C.textMuted }}>
+            {lead.new_campaign_name && (
+              <span><span className="font-semibold" style={{ color: C.textBody }}>{lead.new_campaign_name}</span></span>
+            )}
+            {lead.profile_name && (
+              <span>Profile: <span className="font-semibold" style={{ color: C.textBody }}>{lead.profile_name}</span></span>
+            )}
+          </div>
+          {!isPendingReview && lead.new_campaign_step != null && lead.new_campaign_total_steps != null && (
+            <div className="flex items-center gap-2 mt-1.5">
+              <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                <div className="h-1.5 rounded-full" style={{ width: `${newProgress}%`, backgroundColor: C.green }} />
+              </div>
+              <span className="text-[9px] tabular-nums" style={{ color: C.textDim }}>
+                {lead.new_campaign_step}/{lead.new_campaign_total_steps} steps
+              </span>
+            </div>
+          )}
+          {isPendingReview && (
+            <p className="text-[10px]" style={{ color: "#D97706" }}>Awaiting admin approval before launch</p>
+          )}
+        </div>
+      </Link>
+    </div>
+  );
+}
+
+// ─── Re-nurturing View ────────────────────────────────────────────────────────
+function RenurturingView({ leads }: { leads: RenurturingLead[] }) {
+  const [search, setSearch] = useState("");
+
+  const filtered = leads.filter(l => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return `${l.first_name} ${l.last_name} ${l.company} ${l.new_campaign_name}`.toLowerCase().includes(q);
+  });
+
+  if (leads.length === 0) {
+    return (
+      <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <RefreshCw size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
+        <p className="text-sm font-medium" style={{ color: C.textBody }}>No re-nurturing leads</p>
+        <p className="text-xs mt-1" style={{ color: C.textMuted }}>Leads you start a new campaign for will appear here.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5 flex-1 min-w-[200px] max-w-sm"
+          style={{ borderColor: C.border, backgroundColor: C.card }}>
+          <Search size={14} style={{ color: C.textDim }} />
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search re-nurturing leads..." className="bg-transparent text-sm outline-none flex-1" style={{ color: C.textPrimary }} />
+          {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
+        </div>
+        <span className="text-xs" style={{ color: C.textMuted }}>{filtered.length} results</span>
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {filtered.map(l => <RenurturingLeadCard key={l.id} lead={l} />)}
+      </div>
+    </div>
   );
 }
 
@@ -190,6 +350,8 @@ function LostLeadCard({ lead }: { lead: LostLead }) {
 function LostLeadsView({ leads }: { leads: LostLead[] }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   const filtered = leads.filter(l => {
     if (filter === "negative" && l.reason !== "negative") return false;
@@ -203,6 +365,30 @@ function LostLeadsView({ leads }: { leads: LostLead[] }) {
 
   const negativeCount = leads.filter(l => l.reason === "negative").length;
   const noReplyCount = leads.filter(l => l.reason === "no_reply").length;
+  const filteredIds = filtered.map(l => l.id);
+  const allSelected = filteredIds.length > 0 && filteredIds.every(id => selected.has(id));
+
+  function toggleOne(id: string) {
+    setSelected(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  }
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelected(prev => { const next = new Set(prev); filteredIds.forEach(id => next.delete(id)); return next; });
+    } else {
+      setSelected(prev => new Set([...prev, ...filteredIds]));
+    }
+  }
+
+  async function deleteSelected() {
+    if (!window.confirm(`Delete ${selected.size} lead${selected.size > 1 ? "s" : ""} permanently? This cannot be undone.`)) return;
+    setDeleting(true);
+    const ids = [...selected];
+    await supabase.from("leads").delete().in("id", ids);
+    setDeleting(false);
+    setSelected(new Set());
+    window.location.reload();
+  }
 
   if (leads.length === 0) {
     return (
@@ -243,11 +429,27 @@ function LostLeadsView({ leads }: { leads: LostLead[] }) {
           ))}
         </div>
         <span className="text-xs" style={{ color: C.textMuted }}>{filtered.length} results</span>
+
+        {/* Select all + delete toolbar */}
+        <button onClick={toggleAll} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-semibold transition-colors"
+          style={{ borderColor: C.border, backgroundColor: C.card, color: allSelected ? C.textPrimary : C.textMuted }}>
+          {allSelected ? <CheckSquare size={12} /> : <Square size={12} />}
+          {allSelected ? "Deselect all" : "Select all"}
+        </button>
+
+        {selected.size > 0 && (
+          <button onClick={deleteSelected} disabled={deleting}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
+            style={{ backgroundColor: C.red, color: "#fff", opacity: deleting ? 0.6 : 1 }}>
+            <Trash2 size={12} />
+            {deleting ? "Deleting..." : `Delete ${selected.size} lead${selected.size > 1 ? "s" : ""}`}
+          </button>
+        )}
       </div>
 
       {/* Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {filtered.map(l => <LostLeadCard key={l.id} lead={l} />)}
+        {filtered.map(l => <LostLeadCard key={l.id} lead={l} selected={selected.has(l.id)} onToggle={toggleOne} />)}
       </div>
     </div>
   );
@@ -456,7 +658,7 @@ function ProfileCard({ group }: { group: ProfileGroup }) {
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
-export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLeads, stats }: Props) {
+export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLeads, renurturingLeads, stats }: Props) {
   const [mainView, setMainView] = useState<"leads" | "campaigns">("leads");
   const [leadsTab, setLeadsTab] = useState(0);
   const [search, setSearch] = useState("");
@@ -521,8 +723,9 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
         <div>
           <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
             {[
-              { label: "All Leads",  count: allLeads.length,  color: gold },
-              { label: "Lost Leads", count: lostLeads.length, color: C.red },
+              { label: "All Leads",    count: allLeads.length,        color: gold },
+              { label: "Lost Leads",   count: lostLeads.length,       color: C.red },
+              { label: "Re-nurturing", count: renurturingLeads.length, color: C.green },
             ].map((t, i) => {
               const isActive = leadsTab === i;
               return (
@@ -544,6 +747,7 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
 
           {leadsTab === 0 && <AllLeadsTable leads={allLeads} />}
           {leadsTab === 1 && <LostLeadsView leads={lostLeads} />}
+          {leadsTab === 2 && <RenurturingView leads={renurturingLeads} />}
         </div>
       )}
 

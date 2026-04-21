@@ -2,10 +2,12 @@ import { supabase } from "@/lib/supabase";
 import { notFound } from "next/navigation";
 import { C } from "@/lib/design";
 import Link from "next/link";
+import OpenAI from "openai";
+import Breadcrumb from "@/components/Breadcrumb";
 import {
   ArrowLeft, Share2, Mail, Phone, Star, Send,
   MessageSquare, XCircle, AlertTriangle, Target, Megaphone,
-  User, TrendingDown,
+  User, TrendingDown, Sparkles,
 } from "lucide-react";
 
 const gold = "#C9A83A";
@@ -32,6 +34,37 @@ function scoreBadge(score: number | null, priority: boolean) {
 function formatDate(iso: string | null) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+async function getAIAnalysis(params: {
+  name: string; company: string | null; role: string | null;
+  lossReason: string; channels: string[]; stepsCompleted: number;
+  totalSteps: number; totalCampaigns: number; negReplyText?: string | null;
+}): Promise<{ analysis: string; recommendations: string[] } | null> {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const client = new OpenAI({ apiKey });
+    const prompt = `You are a B2B sales analyst. Analyze why this lead was lost and give re-engagement advice.
+
+Lead: ${params.name}${params.role ? `, ${params.role}` : ""}${params.company ? ` at ${params.company}` : ""}
+Loss reason: ${params.lossReason === "negative" ? "Negative reply received" : "No reply after full sequence"}
+Campaigns run: ${params.totalCampaigns} · Steps completed: ${params.stepsCompleted}/${params.totalSteps} · Channels: ${params.channels.join(", ")}
+${params.negReplyText ? `Negative reply: "${params.negReplyText}"` : ""}
+
+Respond ONLY with valid JSON (no markdown): {"analysis":"2-3 sentence analysis","recommendations":["rec1","rec2","rec3"]}`;
+
+    const res = await client.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 400,
+      temperature: 0.7,
+    });
+    const text = res.choices[0]?.message?.content ?? "";
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
 }
 
 async function getLostLeadData(leadId: string) {
@@ -154,22 +187,26 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
   const data = await getLostLeadData(id);
   if (!data) notFound();
 
-  const { lead, profile, campaigns, timeline, lossReason, stats } = data;
+  const { lead, profile, campaigns, replies, timeline, lossReason, stats } = data;
+
+  const negReply = replies.find((r: any) => r.classification === "negative");
+  const aiAnalysis = await getAIAnalysis({
+    name: `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim(),
+    company: lead.company,
+    role: lead.role,
+    lossReason,
+    channels: stats.channels,
+    stepsCompleted: stats.stepsCompleted,
+    totalSteps: stats.totalSteps,
+    totalCampaigns: stats.totalCampaigns,
+    negReplyText: negReply?.reply_text ?? null,
+  });
   const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Unknown";
   const badge = scoreBadge(lead.lead_score, lead.is_priority);
 
   return (
     <div className="p-6 w-full max-w-4xl mx-auto">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs mb-5" style={{ color: C.textMuted }}>
-        <Link href="/leads" className="hover:underline flex items-center gap-1">
-          <ArrowLeft size={12} /> Leads &amp; Campaigns
-        </Link>
-        <span>/</span>
-        <span style={{ color: C.textDim }}>Lost Leads</span>
-        <span>/</span>
-        <span style={{ color: C.textBody }}>{name}</span>
-      </div>
+      <Breadcrumb crumbs={[{ label: "Leads & Campaigns", href: "/leads" }, { label: "Lost Leads" }, { label: name }]} />
 
       {/* ═══ HEADER CARD ═══ */}
       <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border, borderLeftWidth: 4, borderLeftColor: C.red }}>
@@ -310,11 +347,31 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
                 </p>
               </div>
             )}
-            {/* Future AI recommendations */}
-            <div className="mt-3 rounded-lg px-3 py-2.5 border border-dashed" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-              <p className="text-[10px] font-semibold" style={{ color: C.textDim }}>🤖 AI Recommendations</p>
-              <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>Coming soon — AI-powered re-engagement suggestions based on this lead's profile and response history.</p>
-            </div>
+            {/* AI recommendations */}
+            {aiAnalysis ? (
+              <div className="mt-3 rounded-lg border overflow-hidden" style={{ borderColor: "#7C3AED30", backgroundColor: "#F5F3FF" }}>
+                <div className="flex items-center gap-1.5 px-3 py-2 border-b" style={{ borderColor: "#7C3AED20", backgroundColor: "#EDE9FE" }}>
+                  <Sparkles size={11} style={{ color: "#7C3AED" }} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#7C3AED" }}>AI Analysis</span>
+                </div>
+                <div className="px-3 py-2.5 space-y-2.5">
+                  <p className="text-[11px] leading-relaxed" style={{ color: "#4C1D95" }}>{aiAnalysis.analysis}</p>
+                  <div className="space-y-1.5">
+                    {aiAnalysis.recommendations.map((rec, i) => (
+                      <div key={i} className="flex gap-2 text-[11px]" style={{ color: "#5B21B6" }}>
+                        <span className="shrink-0 font-bold" style={{ color: "#7C3AED" }}>{i + 1}.</span>
+                        <span>{rec}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-3 rounded-lg px-3 py-2.5 border border-dashed" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                <p className="text-[10px] font-semibold" style={{ color: C.textDim }}>AI Recommendations</p>
+                <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>Add OPENAI_API_KEY to .env.local to enable AI analysis.</p>
+              </div>
+            )}
           </div>
         </div>
 

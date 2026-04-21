@@ -9,8 +9,13 @@ import {
   Share2, Mail, Phone, Check, Pencil, X, Save,
   PlayCircle, Loader2, Pause, Play, Trash2, Send,
   Users, UserPlus, Megaphone, Target, CheckCircle2,
-  MessageSquare,
+  MessageSquare, PhoneCall, Clock, AlertTriangle, ChevronRight,
 } from "lucide-react";
+
+const AIRCALL_USERS = [
+  { id: 1916199, name: "Francisco Fontana" },
+  { id: 1917522, name: "Sales Team" },
+];
 
 const gold = "#C9A83A";
 
@@ -63,6 +68,24 @@ export default function CampaignDetailClient({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [addSelected, setAddSelected] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
+  const [callingId, setCallingId] = useState<string | null>(null);
+  const [calledIds, setCalledIds] = useState<Set<string>>(new Set());
+  const [selectedUserId, setSelectedUserId] = useState<number>(AIRCALL_USERS[0].id);
+
+  async function handleDial(leadId: string, phone: string) {
+    if (!phone || callingId) return;
+    setCallingId(leadId);
+    try {
+      const res = await fetch("/api/aircall/dial", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, leadId, aircallUserId: selectedUserId }),
+      });
+      if (res.ok) setCalledIds(prev => new Set(prev).add(leadId));
+    } finally {
+      setCallingId(null);
+    }
+  }
 
   const isEditable = campaignStatus === "active" || campaignStatus === "paused";
 
@@ -125,6 +148,43 @@ export default function CampaignDetailClient({
 
   const visibleCampaigns = allCampaigns.filter(c => c.status !== "completed" && c.status !== "failed");
 
+  // ── Next Actions: for every active campaign in the group, compute the next step + urgency ──
+  const now = Date.now();
+  const nextActions = allCampaigns
+    .filter(c => c.status === "active")
+    .map(c => {
+      const steps = Array.isArray(c.sequence_steps) ? c.sequence_steps : [];
+      const nextIdx = c.current_step ?? 0;
+      const nextStep = steps[nextIdx];
+      if (!nextStep) return null;
+      const daysAfter = nextStep.daysAfter ?? 0;
+      const lastStepAt = (c as any).last_step_at as string | null;
+      const dueAt = lastStepAt ? new Date(lastStepAt).getTime() + daysAfter * 86400000 : null;
+      const isOverdue = dueAt !== null && now > dueAt;
+      const overdueDays = isOverdue && dueAt ? Math.floor((now - dueAt) / 86400000) : 0;
+      return {
+        campaignId: c.id,
+        leadId: c.leads?.id as string | undefined,
+        leadName: `${c.leads?.primary_first_name ?? ""} ${c.leads?.primary_last_name ?? ""}`.trim() || "Unknown",
+        company: c.leads?.company_name as string | null,
+        phone: c.leads?.primary_phone as string | null,
+        channel: nextStep.channel as string,
+        stepNumber: nextIdx + 1,
+        totalSteps: steps.length,
+        dueAt,
+        isOverdue,
+        overdueDays,
+      };
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null)
+    .sort((a, b) => {
+      if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1;
+      return (a.dueAt ?? 0) - (b.dueAt ?? 0);
+    });
+
+  const pendingCalls = nextActions.filter(a => a.channel === "call");
+  const overdueCount = nextActions.filter(a => a.isOverdue).length;
+
   const tabs = [
     { label: "Leads", icon: Users, count: visibleCampaigns.length },
     { label: "Sequence", icon: Megaphone, count: sequence.length },
@@ -133,6 +193,113 @@ export default function CampaignDetailClient({
 
   return (
     <div>
+      {/* ═══ NEXT ACTIONS ═══ */}
+      {nextActions.length > 0 && (
+        <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+            <div className="flex items-center gap-2">
+              <Clock size={14} style={{ color: C.textMuted }} />
+              <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
+                Next Actions
+              </h3>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${gold}15`, color: gold }}>
+                {nextActions.length}
+              </span>
+              {overdueCount > 0 && (
+                <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: C.redLight, color: C.red }}>
+                  <AlertTriangle size={10} /> {overdueCount} overdue
+                </span>
+              )}
+            </div>
+            {pendingCalls.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-medium" style={{ color: C.textMuted }}>Call as:</span>
+                <div className="flex gap-1">
+                  {AIRCALL_USERS.map(u => (
+                    <button key={u.id} onClick={() => setSelectedUserId(u.id)}
+                      className="text-[10px] px-2 py-0.5 rounded-full font-medium transition-all"
+                      style={{
+                        backgroundColor: selectedUserId === u.id ? "#F97316" : "#F3F4F6",
+                        color: selectedUserId === u.id ? "#fff" : C.textMuted,
+                      }}>
+                      {u.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div>
+            {nextActions.slice(0, 8).map((a, i) => {
+              const meta = channelMeta[a.channel] ?? channelMeta.linkedin;
+              const Icon = meta.icon;
+              const isCalling = callingId === a.leadId;
+              const wasCalled = a.leadId && calledIds.has(a.leadId);
+              const dueLabel = a.isOverdue
+                ? `OVERDUE ${a.overdueDays > 0 ? `${a.overdueDays}d` : ""}`
+                : a.dueAt
+                  ? `Due ${new Date(a.dueAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}`
+                  : "Ready";
+
+              return (
+                <div key={a.campaignId} className="flex items-center gap-3 px-5 py-3"
+                  style={{ borderTop: i > 0 ? `1px solid ${C.border}` : "none" }}>
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: `${meta.color}15` }}>
+                    <Icon size={14} style={{ color: meta.color }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link href={a.leadId ? `/leads/${a.leadId}` : "#"}
+                        className="text-sm font-semibold hover:underline" style={{ color: C.textPrimary }}>
+                        {a.leadName}
+                      </Link>
+                      {a.company && <span className="text-xs" style={{ color: C.textMuted }}>· {a.company}</span>}
+                    </div>
+                    <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>
+                      <span style={{ color: meta.color }}>{meta.label}</span> · Step {a.stepNumber}/{a.totalSteps} · {dueLabel}
+                    </p>
+                  </div>
+                  {a.channel === "call" ? (
+                    a.phone ? (
+                      wasCalled ? (
+                        <span className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold"
+                          style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>
+                          <Check size={12} /> Called
+                        </span>
+                      ) : (
+                        <button onClick={() => a.leadId && handleDial(a.leadId, a.phone!)}
+                          disabled={!!callingId}
+                          className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
+                          style={{ backgroundColor: "#F97316", color: "#fff" }}>
+                          {isCalling
+                            ? <><Loader2 size={12} className="animate-spin" /> Calling…</>
+                            : <><PhoneCall size={12} /> Call</>}
+                        </button>
+                      )
+                    ) : (
+                      <span className="text-[10px]" style={{ color: C.textDim }}>No phone</span>
+                    )
+                  ) : (
+                    <span className="text-[10px] font-medium" style={{ color: C.textMuted }}>
+                      {a.isOverdue ? "Run next cycle" : "Queued"}
+                    </span>
+                  )}
+                  <ChevronRight size={14} style={{ color: C.textDim }} className="shrink-0" />
+                </div>
+              );
+            })}
+            {nextActions.length > 8 && (
+              <div className="px-5 py-2 border-t text-center text-[10px]"
+                style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textMuted }}>
+                +{nextActions.length - 8} more actions — see Leads tab
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
         {tabs.map((t, i) => {
           const active = tab === i;
@@ -373,22 +540,27 @@ export default function CampaignDetailClient({
 
           {/* ── STEPS ACCORDION ── */}
           <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            {sequence.map((step, i) => {
+            {(() => {
+              // If step_number 0 exists (connection request slot), sequence steps are offset by 1
+              const hasConnReqSlot = messages.some(m => m.step_number === 0);
+              const stepOffset = hasConnReqSlot ? 1 : 0;
+              const connReqMsg = messages.find(m => m.step_number === 0) ?? null;
+              return sequence.map((step, i) => {
               const meta = channelMeta[step.channel] ?? channelMeta.linkedin;
               const Icon = meta.icon;
-              const msg = messages.find(m => m.step_number === i) ?? messages.find(m => m.step_number === i + 1) ?? null;
+              const msg = messages.find(m => m.step_number === i + stepOffset) ?? null;
               const tmpl = messageTemplates[i] ?? null;
               // displayBody: prefer sent/tracked message, fall back to wizard template
               const displayBody: string | null = msg?.content ?? tmpl?.body ?? null;
               const displaySubject: string | null = msg ? null : (tmpl?.subject ?? null);
-              const isSent = msg?.status === "sent" || msg?.status === "skipped";
+              const isSent = msg?.status === "sent";
               const isPending = msg?.status === "draft";
               const isPast = i < currentStep;
               const isCurrent = i === currentStep;
               const isOpen = expandedStep === i;
               const isEditing = editingIdx === i;
-              // Show connection note inside first LinkedIn step
-              const showConnNote = i === 0 && step.channel === "linkedin" && !!connectionNote;
+              // Show connection note inside first LinkedIn step (with its skipped/sent status)
+              const showConnNote = i === 0 && step.channel === "linkedin" && (!!connectionNote || !!connReqMsg);
 
               return (
                 <div key={i} style={{ borderBottom: i < sequence.length - 1 ? `1px solid ${C.border}` : "none" }}>
@@ -414,11 +586,17 @@ export default function CampaignDetailClient({
                           <div className="flex items-center gap-2 mb-2">
                             <Share2 size={12} style={{ color: "#0A66C2" }} />
                             <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#0A66C2" }}>LinkedIn — Connection Request Note</span>
+                            {connReqMsg?.status === "skipped" && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ backgroundColor: "#F3F4F6", color: C.textMuted }}>Skipped — already connected</span>
+                            )}
+                            {connReqMsg?.status === "sent" && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ backgroundColor: C.greenLight, color: C.green }}>Sent</span>
+                            )}
                           </div>
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{connectionNote}</p>
+                          <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{connectionNote || connReqMsg?.content}</p>
                         </div>
                       )}
-                      {/* Step message (from campaign_messages or wizard template) */}
+                      {/* Step message */}
                       {displayBody && !isEditing && (
                         <div className="rounded-lg border p-4 relative" style={{ borderColor: isSent ? `${C.green}30` : isCurrent ? `${gold}30` : C.border, backgroundColor: isSent ? `${C.green}04` : isCurrent ? `${gold}04` : C.bg }}>
                           {displaySubject && (
@@ -455,7 +633,8 @@ export default function CampaignDetailClient({
                   )}
                 </div>
               );
-            })}
+            });
+          })()}
           </div>
 
           {/* Auto-replies */}

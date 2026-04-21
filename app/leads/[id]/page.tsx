@@ -3,7 +3,7 @@ import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, Mail, Phone, Building2,
+  Mail, Phone, Building2,
   ExternalLink, CheckCircle2,
 } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
@@ -11,6 +11,7 @@ import CompanyTabs from "@/components/CompanyTabs";
 import ActivityTimeline from "@/components/ActivityTimeline";
 import CampaignJourney from "@/components/CampaignJourney";
 import DeleteLeadButton from "@/components/DeleteLeadButton";
+import Breadcrumb from "@/components/Breadcrumb";
 
 const gold = "#C9A83A";
 const goldLight = "rgba(201,168,58,0.08)";
@@ -48,6 +49,15 @@ async function getReplies(leadId: string) {
     .select("id, campaign_id, channel, reply_text, received_at, classification, ai_confidence, requires_human_review")
     .eq("lead_id", leadId)
     .order("received_at", { ascending: false });
+  return data ?? [];
+}
+
+async function getCalls(leadId: string) {
+  const { data } = await supabase
+    .from("calls")
+    .select("id, aircall_call_id, direction, status, duration, phone_number, recording_url, transcript, notes, started_at, ended_at")
+    .eq("lead_id", leadId)
+    .order("started_at", { ascending: false });
   return data ?? [];
 }
 
@@ -108,10 +118,11 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   const lead = await getLead(id);
   if (!lead) notFound();
 
-  const [campaign, messages, replies] = await Promise.all([
+  const [campaign, messages, replies, calls] = await Promise.all([
     getCampaign(id),
     getMessages(id),
     getReplies(id),
+    getCalls(id),
   ]);
 
   const score = scoreBadge(lead.lead_score, lead.is_priority);
@@ -134,7 +145,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
     return 'Unknown';
   });
   const currentStep = campaign?.current_step ?? 0;
-  const stepPct = steps.length > 0 ? Math.round((currentStep / steps.length) * 100) : 0;
+  const campDone = campaign?.status === 'completed' || campaign?.status === 'failed';
+  const stepPct = campDone ? 100 : steps.length > 0 ? Math.round((currentStep / steps.length) * 100) : 0;
   const campMsgsForStepper = campaign
     ? messages.filter((m: any) => m.campaign_id === campaign.id).sort((a: any, b: any) => (a.step_number ?? 0) - (b.step_number ?? 0))
     : [];
@@ -154,7 +166,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       id: m.id, type: "message_sent",
       contactName,
       channel: m.channel ?? campaign?.channel ?? "email",
-      content: m.content?.substring(0, 100) ?? null,
+      content: m.content ?? null,
       timestamp: m.sent_at,
       stepNumber: m.step_number,
     });
@@ -197,16 +209,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   return (
     <div className="p-6 w-full fade-in">
 
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs mb-4" style={{ color: C.textMuted }}>
-        <Link href="/leads" className="hover:underline flex items-center gap-1">
-          <ArrowLeft size={12} /> Leads
-        </Link>
-        <span>/</span>
-        <span style={{ color: C.textBody }}>{lead.company_name ?? "Contact"}</span>
-        <span>/</span>
-        <span style={{ color: C.textPrimary }}>{contactName}</span>
-      </div>
+      <Breadcrumb crumbs={[{ label: "Leads & Campaigns", href: "/leads" }, { label: lead.company_name ?? "Contact" }, { label: contactName }]} />
 
       {/* ═══ CONTACT HEADER ═══ */}
       <div className="rounded-xl border mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -442,6 +445,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         { label: "Campaign" },
         { label: "Recent Activity",  count: activityItems.length },
         { label: "Social & Content" },
+        { label: "Calls", count: calls.length || undefined },
       ]}>
 
         {/* ── TAB 1: Profile Overview ── */}
@@ -896,6 +900,87 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             <div className="rounded-xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
               <p className="text-sm" style={{ color: C.textDim }}>No social content scraped for this contact yet.</p>
             </div>
+          )}
+        </div>
+
+        {/* ── TAB 5: Calls ── */}
+        <div className="space-y-3">
+          {calls.length === 0 ? (
+            <div className="rounded-xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <Phone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
+              <p className="text-sm font-medium" style={{ color: C.textBody }}>No calls recorded yet</p>
+              <p className="text-xs mt-1" style={{ color: C.textMuted }}>
+                Calls made via Aircall from the Queue will appear here.
+              </p>
+            </div>
+          ) : (
+            calls.map((call: any) => {
+              const mins = call.duration ? Math.floor(call.duration / 60) : null;
+              const secs = call.duration ? call.duration % 60 : null;
+              const durLabel = mins !== null ? `${mins}m ${secs}s` : null;
+              const statusColor: Record<string, string> = {
+                answered:  C.green,
+                initiated: C.orange,
+                missed:    C.red,
+                voicemail: C.textMuted,
+              };
+              const statusBg: Record<string, string> = {
+                answered:  C.greenLight,
+                initiated: C.orangeLight,
+                missed:    C.redLight,
+                voicemail: "#F3F4F6",
+              };
+              const sc = call.status ?? "initiated";
+              return (
+                <div key={call.id} className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                        style={{ background: "linear-gradient(135deg, #F97316, #FB923C)", color: "#fff" }}>
+                        <Phone size={16} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>
+                          {call.phone_number ?? "—"}
+                        </p>
+                        <p className="text-xs" style={{ color: C.textMuted }}>
+                          {call.direction === "outbound" ? "Outbound" : "Inbound"} call
+                          {call.started_at && <> · {new Date(call.started_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</>}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {durLabel && (
+                        <span className="text-xs px-2 py-0.5 rounded font-medium" style={{ backgroundColor: "#F3F4F6", color: C.textMuted }}>
+                          {durLabel}
+                        </span>
+                      )}
+                      <span className="text-xs font-bold px-2.5 py-0.5 rounded capitalize"
+                        style={{ backgroundColor: statusBg[sc] ?? "#F3F4F6", color: statusColor[sc] ?? C.textMuted }}>
+                        {sc}
+                      </span>
+                    </div>
+                  </div>
+                  {call.transcript && (
+                    <div className="rounded-lg p-3 mt-2" style={{ backgroundColor: C.bg }}>
+                      <p className="text-[10px] uppercase tracking-wider mb-1.5 font-semibold" style={{ color: C.textDim }}>Transcript</p>
+                      <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>{call.transcript}</p>
+                    </div>
+                  )}
+                  {call.notes && (
+                    <div className="rounded-lg p-3 mt-2 border" style={{ backgroundColor: C.bg, borderColor: C.border }}>
+                      <p className="text-[10px] uppercase tracking-wider mb-1.5 font-semibold" style={{ color: C.textDim }}>Notes</p>
+                      <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>{call.notes}</p>
+                    </div>
+                  )}
+                  {call.recording_url && (
+                    <div className="mt-3">
+                      <audio controls src={call.recording_url} className="w-full h-8" />
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
 

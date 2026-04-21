@@ -21,9 +21,10 @@ async function getData() {
       .in("status", ["active", "paused", "completed", "failed"])
       .order("created_at", { ascending: false }).limit(200),
     supabase.from("lead_replies").select("lead_id, classification, campaign_id"),
-    supabase.from("campaigns").select("lead_id").in("status", ["active", "paused"]),
+    supabase.from("campaigns").select("lead_id").in("status", ["active", "paused", "completed"]),
     supabase.from("leads")
       .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, status, lead_score, icp_profile_id, company_bio_id, created_at")
+      .not("status", "in", "(closed_lost,qualified)")
       .order("created_at", { ascending: false }),
     supabase.from("icp_profiles").select("id, profile_name, target_industries, target_roles").eq("status", "approved"),
   ]);
@@ -124,10 +125,10 @@ export default async function CampaignsPage() {
       {/* Tabs */}
       <CampaignTabs
         readyCount={totalUncampaigned}
-        activeCount={campaigns.length}
+        activeCount={campaigns.filter(c => c.status === "active" || c.status === "paused").length}
       >
         {/* ═══ TAB 0: ACTIVE CAMPAIGNS ═══ */}
-        <ActiveCampaignsView campaigns={JSON.parse(JSON.stringify(campaigns))} />
+        <ActiveCampaignsView campaigns={JSON.parse(JSON.stringify(campaigns.filter(c => c.status === "active" || c.status === "paused")))} />
 
         {/* ═══ TAB 1: NEW CAMPAIGN ═══ */}
         <NewCampaignView

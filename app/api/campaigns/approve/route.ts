@@ -94,28 +94,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ approved: true, campaignsCreated: 0, message: "No eligible leads found" });
   }
 
-  // 3. Get all sellers for lookup
-  const { data: allSellers } = await supabase
-    .from("sellers")
-    .select("id, name")
-    .eq("active", true);
-  const sellersByName: Record<string, string> = {};
-  (allSellers ?? []).forEach((s: any) => { sellersByName[s.name?.toLowerCase()] = s.id; });
-  const fallbackSellerId = allSellers?.[0]?.id ?? null;
+  // 3. Resolve the seller chosen at campaign creation (stored in message_prompts.sellerId)
+  const chosenSellerId: string | null = prompts.sellerId ?? null;
+  let sellerId: string | null = chosenSellerId;
+  if (!sellerId) {
+    const { data: firstSeller } = await supabase
+      .from("sellers")
+      .select("id")
+      .eq("active", true)
+      .order("name", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    sellerId = firstSeller?.id ?? null;
+  }
 
   // 4. Create campaigns and messages for each lead
   let campaignsCreated = 0;
   const errors: string[] = [];
 
   for (const leadId of leadIds) {
-    // Get the lead's assigned seller
-    const { data: leadData } = await supabase
-      .from("leads")
-      .select("assigned_seller")
-      .eq("id", leadId)
-      .single();
-    const assignedName = leadData?.assigned_seller?.toLowerCase() ?? "";
-    const sellerId = sellersByName[assignedName] ?? fallbackSellerId;
 
     // Determine the primary channel (first channel in sequence)
     const primaryChannel = sequence[0]?.channel ?? channels[0] ?? "linkedin";

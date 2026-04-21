@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import {
-  ArrowLeft, Star, Clock, ChevronRight, Megaphone,
+  ArrowLeft, Star, Clock, ChevronRight, ChevronDown, ChevronUp, Megaphone,
   PlayCircle, CheckCircle, PauseCircle, XCircle,
 } from "lucide-react";
 import { LeadFilterBar, type LeadFilterState } from "@/components/LeadFilters";
@@ -42,6 +42,7 @@ type CampaignGroup = {
   positiveCount: number;
   lastActivity: string | null;
   avgProgress: number;
+  is_renurturing: boolean;
 };
 
 type Props = {
@@ -87,8 +88,18 @@ function CampaignCard({ camp }: { camp: CampaignGroup }) {
     <Link
       href={`/campaigns/${camp.firstId}/overview`}
       className="rounded-xl border overflow-hidden flex flex-col transition-shadow hover:shadow-md group/card"
-      style={{ backgroundColor: C.card, borderColor: C.border }}
+      style={{
+        backgroundColor: C.card,
+        borderColor: camp.is_renurturing ? C.green : C.border,
+        borderLeftWidth: camp.is_renurturing ? 3 : 1,
+        borderLeftColor: camp.is_renurturing ? C.green : C.border,
+      }}
     >
+      {camp.is_renurturing && (
+        <div className="px-4 pt-2 pb-0 flex items-center gap-1.5">
+          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: C.green }}>Re-nurturing</span>
+        </div>
+      )}
       <div className="px-4 pt-4 pb-3 flex-1">
         <div className="flex items-center gap-1.5 mb-2">
           <Megaphone size={11} style={{ color: gold }} />
@@ -132,6 +143,88 @@ function CampaignCard({ camp }: { camp: CampaignGroup }) {
         <ChevronRight size={13} style={{ color: C.textDim }} className="shrink-0 transition-transform group-hover/card:translate-x-0.5" />
       </div>
     </Link>
+  );
+}
+
+// ─── Outreach Flows Tab ───────────────────────────────────────────────────────
+function OutreachFlowsTab({ campaigns }: { campaigns: CampaignGroup[] }) {
+  const [pastOpen, setPastOpen] = useState(false);
+
+  const activeCamps = campaigns.filter(c => (c.statuses.active ?? 0) > 0 || (c.statuses.paused ?? 0) > 0);
+  const pastCamps   = campaigns.filter(c => (c.statuses.active ?? 0) === 0 && (c.statuses.paused ?? 0) === 0);
+
+  if (campaigns.length === 0) {
+    return (
+      <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <p className="text-sm" style={{ color: C.textDim }}>No outreach flows for this profile yet</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Active / Paused flows */}
+      {activeCamps.length > 0 && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {activeCamps.map(c => <CampaignCard key={c.firstId} camp={c} />)}
+        </div>
+      )}
+
+      {activeCamps.length === 0 && pastCamps.length > 0 && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {pastCamps.map(c => <CampaignCard key={c.firstId} camp={c} />)}
+        </div>
+      )}
+
+      {/* Past Flows — collapsible compact list */}
+      {activeCamps.length > 0 && pastCamps.length > 0 && (
+        <div>
+          <button
+            onClick={() => setPastOpen(o => !o)}
+            className="flex items-center gap-2 mb-3 group"
+          >
+            <span className="text-xs font-bold uppercase tracking-wider" style={{ color: C.textMuted }}>
+              Past Flows ({pastCamps.length})
+            </span>
+            {pastOpen
+              ? <ChevronUp size={13} style={{ color: C.textDim }} />
+              : <ChevronDown size={13} style={{ color: C.textDim }} />}
+          </button>
+
+          {pastOpen && (
+            <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              {pastCamps.map((c, i) => {
+                const failed = (c.statuses.failed ?? 0) > 0 && (c.statuses.completed ?? 0) === 0;
+                const st = failed ? statusMeta.failed : statusMeta.completed;
+                const StIcon = st.icon;
+                const responseRate = c.totalLeads > 0 ? Math.round((c.totalReplies / c.totalLeads) * 100) : 0;
+                return (
+                  <Link
+                    key={c.firstId}
+                    href={`/campaigns/${c.firstId}/overview`}
+                    className="flex items-center gap-4 px-5 py-3 hover:bg-black/[0.015] transition-colors"
+                    style={{ borderBottom: i < pastCamps.length - 1 ? `1px solid ${C.border}` : "none" }}
+                  >
+                    <div className="flex items-center gap-1.5 shrink-0 px-2 py-0.5 rounded-md" style={{ backgroundColor: st.bg }}>
+                      <StIcon size={10} style={{ color: st.color }} />
+                      <span className="text-[10px] font-semibold" style={{ color: st.color }}>{st.label}</span>
+                    </div>
+                    <span className="text-sm font-semibold flex-1 truncate" style={{ color: C.textBody }}>{c.name}</span>
+                    <div className="flex items-center gap-4 shrink-0 text-xs" style={{ color: C.textMuted }}>
+                      <span>{c.totalLeads} leads</span>
+                      <span>{c.totalReplies} replies</span>
+                      {responseRate > 0 && <span style={{ color: C.blue }}>{responseRate}% resp.</span>}
+                      {c.lastActivity && <span>{timeAgo(c.lastActivity)}</span>}
+                    </div>
+                    <ChevronRight size={13} style={{ color: C.textDim }} className="shrink-0" />
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -324,17 +417,7 @@ export default function TicketDetailClient({ ticketName, campaigns, leads }: Pro
       {tab === 0 && <LeadsTable leads={leads} />}
 
       {/* Tab 1: Outreach Flows */}
-      {tab === 1 && (
-        campaigns.length === 0 ? (
-          <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <p className="text-sm" style={{ color: C.textDim }}>No outreach flows for this profile yet</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {campaigns.map(c => <CampaignCard key={c.firstId} camp={c} />)}
-          </div>
-        )
-      )}
+      {tab === 1 && <OutreachFlowsTab campaigns={campaigns} />}
     </div>
   );
 }

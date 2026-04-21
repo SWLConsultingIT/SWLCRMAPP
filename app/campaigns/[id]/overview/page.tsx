@@ -1,4 +1,6 @@
 import { supabase } from "@/lib/supabase";
+
+export const dynamic = "force-dynamic";
 import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";

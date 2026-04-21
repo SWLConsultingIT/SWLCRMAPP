@@ -6,9 +6,14 @@ import { C } from "@/lib/design";
 import {
   Phone, Share2, Mail, Megaphone, Target,
   ChevronRight, CheckCircle, Search, X,
-  PhoneCall, User, PhoneOff, Bell,
+  PhoneCall, User, PhoneOff, Bell, Loader2, CheckCheck,
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
+
+const AIRCALL_USERS = [
+  { id: 1916199, name: "Francisco Fontana" },
+  { id: 1917522, name: "Sales Team" },
+];
 
 const gold = "#C9A83A";
 
@@ -25,6 +30,8 @@ type PendingCall = {
   phone: string | null;
   email: string | null;
   lastStepAt: string | null;
+  isOverdue?: boolean;
+  overdueDays?: number;
 };
 
 type NewReply = {
@@ -82,6 +89,28 @@ function timeAgo(iso: string | null) {
 export default function QueueClient({ pendingCalls, newReplies, pendingReviews }: Props) {
   const [tab, setTab] = useState(0);
   const [search, setSearch] = useState("");
+  const [callingId, setCallingId] = useState<string | null>(null);
+  const [calledIds, setCalledIds] = useState<Set<string>>(new Set());
+  const [selectedUserId, setSelectedUserId] = useState<number>(AIRCALL_USERS[0].id);
+
+  async function handleDial(call: PendingCall) {
+    if (!call.phone || callingId) return;
+    setCallingId(call.id);
+    try {
+      const res = await fetch("/api/aircall/dial", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: call.phone,
+          leadId: call.leadId,
+          aircallUserId: selectedUserId,
+        }),
+      });
+      if (res.ok) setCalledIds(prev => new Set(prev).add(call.id));
+    } finally {
+      setCallingId(null);
+    }
+  }
 
   const totalCount = pendingCalls.length + newReplies.length + pendingReviews.length;
 
@@ -150,67 +179,108 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews }
             <p className="text-xs mt-1" style={{ color: C.textMuted }}>Calls appear when a campaign sequence reaches a call step.</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {filteredCalls.map(call => (
-              <div key={call.id} className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <div className="flex items-center gap-4 px-5 py-4">
-                  {/* Avatar */}
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
-                    style={{ background: "linear-gradient(135deg, #F97316, #FB923C)", color: "#fff" }}>
-                    <PhoneCall size={22} />
-                  </div>
-
-                  {/* Lead info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <Link href={call.leadId ? `/leads/${call.leadId}` : "#"}
-                        className="text-sm font-bold hover:underline" style={{ color: C.textPrimary }}>
-                        {call.leadName}
-                      </Link>
-                      {call.company && <span className="text-xs" style={{ color: C.textMuted }}>· {call.company}</span>}
-                    </div>
-                    {call.role && <p className="text-xs" style={{ color: C.textMuted }}>{call.role}</p>}
-                    <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
-                      {call.campaignName} · Step {call.currentStep + 1}/{call.totalSteps}
-                      {call.lastStepAt && <> · Last activity {timeAgo(call.lastStepAt)}</>}
-                    </p>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    {call.phone ? (
-                      <a href={`tel:${call.phone}`}
-                        className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-opacity hover:opacity-80"
-                        style={{ backgroundColor: "#F97316", color: "#fff" }}>
-                        <Phone size={14} /> Call {call.phone}
-                      </a>
-                    ) : (
-                      <span className="flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-xs"
-                        style={{ backgroundColor: "#F3F4F6", color: C.textDim }}>
-                        <PhoneOff size={12} /> No phone number
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Call actions bar (prepared for Aircall) */}
-                <div className="border-t px-5 py-3 flex items-center gap-4"
-                  style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                  <Link href={call.leadId ? `/leads/${call.leadId}` : "#"}
-                    className="text-[10px] font-medium hover:underline flex items-center gap-1" style={{ color: gold }}>
-                    <User size={10} /> Lead Profile
-                  </Link>
-                  <Link href={`/campaigns/${call.campaignId}`}
-                    className="text-[10px] font-medium hover:underline flex items-center gap-1" style={{ color: gold }}>
-                    <Megaphone size={10} /> Campaign
-                  </Link>
-                  {call.email && (
-                    <span className="text-[10px] ml-auto" style={{ color: C.textDim }}>{call.email}</span>
-                  )}
-                </div>
+          <>
+            {/* Caller selector */}
+            <div className="flex items-center gap-3 mb-4 px-1">
+              <span className="text-xs font-medium" style={{ color: C.textMuted }}>Calling as:</span>
+              <div className="flex gap-1">
+                {AIRCALL_USERS.map(u => (
+                  <button key={u.id} onClick={() => setSelectedUserId(u.id)}
+                    className="text-xs px-3 py-1 rounded-full font-medium transition-all"
+                    style={{
+                      backgroundColor: selectedUserId === u.id ? "#F97316" : "#F3F4F6",
+                      color: selectedUserId === u.id ? "#fff" : C.textMuted,
+                    }}>
+                    {u.name}
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+
+            <div className="space-y-3">
+              {filteredCalls.map(call => {
+                const isCalling = callingId === call.id;
+                const wasCalled = calledIds.has(call.id);
+                return (
+                  <div key={call.id} className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: call.isOverdue ? C.red + "50" : C.border }}>
+                    <div className="flex items-center gap-4 px-5 py-4">
+                      {/* Avatar */}
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
+                        style={{ background: "linear-gradient(135deg, #F97316, #FB923C)", color: "#fff" }}>
+                        <PhoneCall size={22} />
+                      </div>
+
+                      {/* Lead info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                          <Link href={call.leadId ? `/leads/${call.leadId}` : "#"}
+                            className="text-sm font-bold hover:underline" style={{ color: C.textPrimary }}>
+                            {call.leadName}
+                          </Link>
+                          {call.company && <span className="text-xs" style={{ color: C.textMuted }}>· {call.company}</span>}
+                          {call.isOverdue && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                              style={{ backgroundColor: C.redLight, color: C.red }}>
+                              OVERDUE {call.overdueDays && call.overdueDays > 0 ? `${call.overdueDays}d` : ""}
+                            </span>
+                          )}
+                        </div>
+                        {call.role && <p className="text-xs" style={{ color: C.textMuted }}>{call.role}</p>}
+                        <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
+                          {call.campaignName} · Step {call.currentStep + 1}/{call.totalSteps}
+                          {call.lastStepAt && <> · Last activity {timeAgo(call.lastStepAt)}</>}
+                        </p>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {call.phone ? (
+                          wasCalled ? (
+                            <span className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold"
+                              style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>
+                              <CheckCheck size={14} /> Call initiated
+                            </span>
+                          ) : (
+                            <button
+                              disabled={!!callingId}
+                              onClick={() => handleDial(call)}
+                              className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
+                              style={{ backgroundColor: "#F97316", color: "#fff" }}>
+                              {isCalling
+                                ? <><Loader2 size={14} className="animate-spin" /> Calling…</>
+                                : <><Phone size={14} /> Call {call.phone}</>
+                              }
+                            </button>
+                          )
+                        ) : (
+                          <span className="flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-xs"
+                            style={{ backgroundColor: "#F3F4F6", color: C.textDim }}>
+                            <PhoneOff size={12} /> No phone number
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Footer bar */}
+                    <div className="border-t px-5 py-3 flex items-center gap-4"
+                      style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                      <Link href={call.leadId ? `/leads/${call.leadId}` : "#"}
+                        className="text-[10px] font-medium hover:underline flex items-center gap-1" style={{ color: gold }}>
+                        <User size={10} /> Lead Profile
+                      </Link>
+                      <Link href={`/campaigns/${call.campaignId}`}
+                        className="text-[10px] font-medium hover:underline flex items-center gap-1" style={{ color: gold }}>
+                        <Megaphone size={10} /> Campaign
+                      </Link>
+                      {call.email && (
+                        <span className="text-[10px] ml-auto" style={{ color: C.textDim }}>{call.email}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )
       )}
 

@@ -1,7 +1,7 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { Bell, HelpCircle, Search, ChevronRight } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Bell, HelpCircle, Search, ChevronRight, LogOut } from "lucide-react";
 import Link from "next/link";
 import { C } from "@/lib/design";
 
@@ -33,7 +33,13 @@ function openCommandPalette() {
 
 export default function TopHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   const pageName = getPageName(pathname);
+
+  async function handleLogout() {
+    await fetch("/api/auth/logout", { method: "POST" });
+    router.push("/login");
+  }
 
   return (
     <header
@@ -87,6 +93,14 @@ export default function TopHeader() {
           style={{ color: C.textMuted }}
         >
           <HelpCircle size={16} />
+        </button>
+        <button
+          onClick={handleLogout}
+          className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
+          style={{ color: C.textMuted }}
+          title="Sign out"
+        >
+          <LogOut size={16} />
         </button>
         <div
           className="flex items-center gap-2.5 pl-3 ml-1"

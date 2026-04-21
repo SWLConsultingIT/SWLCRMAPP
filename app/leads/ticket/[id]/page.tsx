@@ -54,6 +54,16 @@ async function getProfileData(profileId: string) {
     if (m.sent_at) msgsByCamp[m.campaign_id].sent++;
   }
 
+  // Detect re-nurturing leads: leads that have a completed/failed campaign AND an active/paused one
+  const leadHasCompleted = new Set<string>();
+  const leadHasActive = new Set<string>();
+  for (const c of campaigns ?? []) {
+    if (!c.lead_id) continue;
+    if (c.status === "completed" || c.status === "failed") leadHasCompleted.add(c.lead_id);
+    if (c.status === "active" || c.status === "paused") leadHasActive.add(c.lead_id);
+  }
+  const renurturingLeadIds = new Set([...leadHasCompleted].filter(id => leadHasActive.has(id)));
+
   // Build campaign entries (grouped by name)
   const campGroups: Record<string, any> = {};
   for (const c of campaigns ?? []) {
@@ -71,12 +81,16 @@ async function getProfileData(profileId: string) {
         positiveCount: 0,
         lastActivity: null as string | null,
         progressSum: 0,
+        is_renurturing: false,
       };
     }
     const g = campGroups[key];
     g.channels.add(c.channel);
     g.statuses[c.status] = (g.statuses[c.status] ?? 0) + 1;
     g.totalLeads++;
+    if (c.lead_id && renurturingLeadIds.has(c.lead_id) && (c.status === "active" || c.status === "paused")) {
+      g.is_renurturing = true;
+    }
     const msgs = msgsByCamp[c.id] ?? { sent: 0, total: 0 };
     g.totalMsgsSent += msgs.sent;
     const leadReplies = c.lead_id ? (repliesByLead[c.lead_id] ?? []) : [];
@@ -99,6 +113,7 @@ async function getProfileData(profileId: string) {
     positiveCount: g.positiveCount,
     lastActivity: g.lastActivity,
     avgProgress: g.totalLeads > 0 ? Math.round((g.progressSum / g.totalLeads) * 100) : 0,
+    is_renurturing: g.is_renurturing ?? false,
   }));
 
   // Build lead → campaign lookup

@@ -1,6 +1,8 @@
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import Link from "next/link";
+
+export const dynamic = "force-dynamic";
 import { Target, User, ArrowLeft, AlertTriangle, Upload, Megaphone } from "lucide-react";
 import NewFlowClient from "./NewFlowClient";
 
@@ -45,15 +47,16 @@ async function getIcpProfiles() {
 
 async function getLeadsWithoutCampaign() {
   const { data: campaignLeadIds } = await supabase
-    .from("campaigns").select("lead_id").in("status", ["active", "paused"]);
-  const activeLids = new Set((campaignLeadIds ?? []).map(c => c.lead_id).filter(Boolean));
+    .from("campaigns").select("lead_id").in("status", ["active", "paused", "completed"]);
+  const excludedLids = new Set((campaignLeadIds ?? []).map(c => c.lead_id).filter(Boolean));
 
   const { data: allLeads } = await supabase
     .from("leads")
     .select("id, primary_first_name, primary_last_name, primary_title_role, company_name, icp_profile_id")
+    .not("status", "in", '("closed_lost","qualified")')
     .order("created_at", { ascending: false }).limit(100);
 
-  return (allLeads ?? []).filter(l => !activeLids.has(l.id));
+  return (allLeads ?? []).filter(l => !excludedLids.has(l.id));
 }
 
 export default async function NewFlowPage() {

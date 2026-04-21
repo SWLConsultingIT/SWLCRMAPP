@@ -14,6 +14,28 @@ const gold = C.gold;
 
 type SequenceStep = { channel: string; daysAfter: number };
 
+const timezoneOptions = [
+  { value: "America/Argentina/La_Rioja", label: "Buenos Aires (UTC-3)" },
+  { value: "America/Sao_Paulo", label: "São Paulo (UTC-3)" },
+  { value: "America/Mexico_City", label: "Mexico City (UTC-6)" },
+  { value: "America/Santiago", label: "Santiago (UTC-4)" },
+  { value: "America/Bogota", label: "Bogotá (UTC-5)" },
+  { value: "America/Lima", label: "Lima (UTC-5)" },
+  { value: "America/New_York", label: "New York (UTC-5)" },
+  { value: "America/Chicago", label: "Chicago (UTC-6)" },
+  { value: "America/Denver", label: "Denver (UTC-7)" },
+  { value: "America/Los_Angeles", label: "Los Angeles (UTC-8)" },
+  { value: "Europe/London", label: "London (UTC+0)" },
+  { value: "Europe/Madrid", label: "Madrid (UTC+1)" },
+  { value: "Europe/Paris", label: "Paris (UTC+1)" },
+  { value: "Europe/Berlin", label: "Berlin (UTC+1)" },
+  { value: "Asia/Dubai", label: "Dubai (UTC+4)" },
+  { value: "Asia/Kolkata", label: "Mumbai (UTC+5:30)" },
+  { value: "Asia/Singapore", label: "Singapore (UTC+8)" },
+  { value: "Asia/Tokyo", label: "Tokyo (UTC+9)" },
+  { value: "Australia/Sydney", label: "Sydney (UTC+10)" },
+];
+
 const languageOptions = [
   { code: "en", label: "English" },
   { code: "es", label: "Spanish" },
@@ -122,6 +144,7 @@ export default function NewCampaignWizard() {
   const [submitted, setSubmitted] = useState(false);
   const [messagesWarning, setMessagesWarning] = useState<string | null>(null);
   const [language, setLanguage] = useState("es");
+  const [timezone, setTimezone] = useState("America/Argentina/La_Rioja");
 
   useEffect(() => {
     async function load() {
@@ -195,7 +218,7 @@ export default function NewCampaignWizard() {
       sequence_length: sequence.length,
       frequency_days: 0,
       target_leads_count: leadsCount,
-      message_prompts: { sequence, channelMessages, language, selectedLeadIds: isPartialSelection ? selectedLeadIds : null, sellerId: selectedSeller || null },
+      message_prompts: { sequence, channelMessages, language, timezone, selectedLeadIds: isPartialSelection ? selectedLeadIds : null, sellerId: selectedSeller || null },
       status: "pending_review",
     };
     const { error } = await supabase.from("campaign_requests").insert(insertData);
@@ -497,9 +520,9 @@ export default function NewCampaignWizard() {
                         accountValue = selectedSellerObj.unipile_account_id;
                         accountLabel = `Unipile — ${selectedSellerObj.name}`;
                         isConfigured = true;
-                      } else if (ch === "email" && selectedSellerObj?.email_account) {
-                        accountValue = selectedSellerObj.email_account;
-                        accountLabel = `Instantly — ${selectedSellerObj.email_account}`;
+                      } else if (ch === "email") {
+                        accountValue = "instantly_pool";
+                        accountLabel = "Instantly — Shared pool";
                         isConfigured = true;
                       } else if (ch === "call") {
                         accountLabel = "Manual / Aircall (coming soon)";
@@ -565,6 +588,14 @@ export default function NewCampaignWizard() {
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}>
               {languageOptions.map(l => (
                 <option key={l.code} value={l.code}>{l.label}</option>
+              ))}
+            </select>
+            <span className="text-xs font-medium" style={{ color: C.textMuted }}>Timezone:</span>
+            <select value={timezone} onChange={e => setTimezone(e.target.value)}
+              className="rounded-lg border px-2.5 py-1 text-xs font-medium focus:outline-none"
+              style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}>
+              {timezoneOptions.map(t => (
+                <option key={t.value} value={t.value}>{t.label}</option>
               ))}
             </select>
             <span className="text-xs flex-1 text-right" style={{ color: C.textDim }}>

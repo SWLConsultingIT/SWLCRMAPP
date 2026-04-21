@@ -29,6 +29,7 @@ async function getQueueData() {
   ]);
 
   // Pending Calls
+  const now = Date.now();
   const pendingCalls: any[] = [];
   for (const c of activeCampaigns ?? []) {
     const steps = Array.isArray(c.sequence_steps) ? c.sequence_steps : [];
@@ -36,6 +37,15 @@ async function getQueueData() {
     if (steps[currentStepIdx]?.channel === "call") {
       const lead = c.leads as any;
       const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
+
+      // Overdue if last_step_at + daysAfter has passed
+      const daysAfter = steps[currentStepIdx]?.daysAfter ?? 0;
+      const dueAt = c.last_step_at
+        ? new Date(c.last_step_at).getTime() + daysAfter * 86400000
+        : null;
+      const isOverdue = dueAt !== null && now > dueAt;
+      const overdueDays = isOverdue && dueAt ? Math.floor((now - dueAt) / 86400000) : 0;
+
       pendingCalls.push({
         id: c.id,
         campaignId: c.id,
@@ -49,6 +59,8 @@ async function getQueueData() {
         phone: lead?.primary_phone ?? null,
         email: lead?.primary_work_email ?? null,
         lastStepAt: c.last_step_at,
+        isOverdue,
+        overdueDays,
       });
     }
   }

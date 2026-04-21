@@ -23,6 +23,28 @@ const languageOptions = [
   { code: "it", label: "Italian" },
 ];
 
+const timezoneOptions = [
+  { value: "America/Argentina/La_Rioja", label: "Buenos Aires (UTC-3)" },
+  { value: "America/Sao_Paulo", label: "São Paulo (UTC-3)" },
+  { value: "America/Mexico_City", label: "Mexico City (UTC-6)" },
+  { value: "America/Santiago", label: "Santiago (UTC-4)" },
+  { value: "America/Bogota", label: "Bogotá (UTC-5)" },
+  { value: "America/Lima", label: "Lima (UTC-5)" },
+  { value: "America/New_York", label: "New York (UTC-5)" },
+  { value: "America/Chicago", label: "Chicago (UTC-6)" },
+  { value: "America/Denver", label: "Denver (UTC-7)" },
+  { value: "America/Los_Angeles", label: "Los Angeles (UTC-8)" },
+  { value: "Europe/London", label: "London (UTC+0)" },
+  { value: "Europe/Madrid", label: "Madrid (UTC+1)" },
+  { value: "Europe/Paris", label: "Paris (UTC+1)" },
+  { value: "Europe/Berlin", label: "Berlin (UTC+1)" },
+  { value: "Asia/Dubai", label: "Dubai (UTC+4)" },
+  { value: "Asia/Kolkata", label: "Mumbai (UTC+5:30)" },
+  { value: "Asia/Singapore", label: "Singapore (UTC+8)" },
+  { value: "Asia/Tokyo", label: "Tokyo (UTC+9)" },
+  { value: "Australia/Sydney", label: "Sydney (UTC+10)" },
+];
+
 const allChannelOptions = [
   { key: "linkedin", label: "LinkedIn", icon: Share2, color: C.linkedin, short: "LI", field: "primary_linkedin_url" },
   { key: "email",    label: "Email",    icon: Mail,   color: C.email,    short: "EM", field: "primary_work_email" },
@@ -98,7 +120,6 @@ export default function NewLeadCampaignWizard() {
   const [campaignName, setCampaignName] = useState("");
   const [lead, setLead] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
-  const [bio, setBio] = useState<any>(null);
   const [sellers, setSellers] = useState<{ id: string; name: string; unipile_account_id: string | null; email_account: string | null; linkedin_daily_limit: number | null; email_daily_limit: number | null }[]>([]);
   const [selectedSeller, setSelectedSeller] = useState<string>("");
 
@@ -116,6 +137,7 @@ export default function NewLeadCampaignWizard() {
   const [submitted, setSubmitted] = useState(false);
   const [messagesWarning, setMessagesWarning] = useState<string | null>(null);
   const [language, setLanguage] = useState("es");
+  const [timezone, setTimezone] = useState("America/Argentina/La_Rioja");
 
   useEffect(() => {
     async function load() {
@@ -128,18 +150,14 @@ export default function NewLeadCampaignWizard() {
       if (!leadData) { setLoading(false); return; }
       setLead(leadData);
 
-      const [{ data: profileData }, { data: bioData }, { data: sellerList }] = await Promise.all([
+      const [{ data: profileData }, { data: sellerList }] = await Promise.all([
         leadData.icp_profile_id
           ? supabase.from("icp_profiles").select("*").eq("id", leadData.icp_profile_id).single()
           : { data: null },
-        leadData.company_bio_id
-          ? supabase.from("company_bios").select("*").eq("id", leadData.company_bio_id).single()
-          : supabase.from("company_bios").select("*").order("created_at", { ascending: false }).limit(1).single(),
         supabase.from("sellers").select("id, name, unipile_account_id, email_account, linkedin_daily_limit, email_daily_limit").eq("active", true).order("name"),
       ]);
 
       setProfile(profileData);
-      setBio(bioData);
       setSellers(sellerList ?? []);
       if (sellerList?.length === 1) setSelectedSeller(sellerList[0].id);
       setLoading(false);
@@ -181,12 +199,13 @@ export default function NewLeadCampaignWizard() {
     const { error } = await supabase.from("campaign_requests").insert({
       name: campaignName.trim() || `${leadName} @ ${lead?.company_name ?? "Unknown"} — ${uniqueChannels.map(c => allChannelOptions.find(o => o.key === c)?.label).join(" + ")}`,
       icp_profile_id: lead?.icp_profile_id ?? null,
+      company_bio_id: lead?.company_bio_id ?? null,
       lead_id: leadId,
       channels: uniqueChannels,
       sequence_length: sequence.length,
       frequency_days: 0,
       target_leads_count: 1,
-      message_prompts: { sequence, channelMessages, language, selectedLeadIds: [leadId], sellerId: selectedSeller || null },
+      message_prompts: { sequence, channelMessages, language, timezone, selectedLeadIds: [leadId], sellerId: selectedSeller || null },
       status: "pending_review",
     });
     if (error) {
@@ -206,7 +225,6 @@ export default function NewLeadCampaignWizard() {
   const availableChannels = new Set(
     allChannelOptions.filter(ch => lead && lead[ch.field]).map(ch => ch.key)
   );
-  const channelOptions = allChannelOptions.filter(ch => availableChannels.has(ch.key));
   const disabledChannels = allChannelOptions.filter(ch => !availableChannels.has(ch.key));
   const uniqueChannels = [...new Set(sequence.map(s => s.channel))];
 
@@ -500,8 +518,8 @@ export default function NewLeadCampaignWizard() {
                       if (ch === "linkedin" && selectedSellerObj?.unipile_account_id) {
                         accountLabel = `Unipile — ${selectedSellerObj.name}`;
                         isConfigured = true;
-                      } else if (ch === "email" && selectedSellerObj?.email_account) {
-                        accountLabel = `Instantly — ${selectedSellerObj.email_account}`;
+                      } else if (ch === "email") {
+                        accountLabel = "Instantly — Shared pool";
                         isConfigured = true;
                       } else if (ch === "call") {
                         accountLabel = "Manual / Aircall (coming soon)";
@@ -562,6 +580,14 @@ export default function NewLeadCampaignWizard() {
                 <option key={l.code} value={l.code}>{l.label}</option>
               ))}
             </select>
+            <span className="text-xs font-medium" style={{ color: C.textMuted }}>Timezone:</span>
+            <select value={timezone} onChange={e => setTimezone(e.target.value)}
+              className="rounded-lg border px-2.5 py-1 text-xs font-medium focus:outline-none"
+              style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}>
+              {timezoneOptions.map(t => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
             <span className="text-xs flex-1 text-right" style={{ color: C.textDim }}>
               Configure messages per channel. Use AI to generate or write manually.
             </span>
@@ -583,11 +609,21 @@ export default function NewLeadCampaignWizard() {
           <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
             <h2 className="text-sm font-semibold uppercase tracking-wider mb-5" style={{ color: C.textMuted }}>Flow Summary</h2>
 
-            <div className="grid grid-cols-3 gap-4 mb-5">
+            <div className="grid grid-cols-4 gap-4 mb-5">
               <div className="rounded-lg border p-4" style={{ borderColor: C.border }}>
                 <p className="text-xs font-medium mb-1" style={{ color: C.textMuted }}>Lead</p>
                 <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{leadName}</p>
                 <p className="text-xs" style={{ color: C.textDim }}>{lead.company_name}</p>
+              </div>
+              <div className="rounded-lg border p-4" style={{ borderColor: C.border }}>
+                <p className="text-xs font-medium mb-1" style={{ color: C.textMuted }}>Seller</p>
+                {selectedSeller ? (
+                  <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>
+                    {sellers.find(s => s.id === selectedSeller)?.name ?? "—"}
+                  </p>
+                ) : (
+                  <p className="text-sm font-semibold" style={{ color: C.red }}>Not selected</p>
+                )}
               </div>
               <div className="rounded-lg border p-4" style={{ borderColor: C.border }}>
                 <p className="text-xs font-medium mb-1" style={{ color: C.textMuted }}>Channels</p>

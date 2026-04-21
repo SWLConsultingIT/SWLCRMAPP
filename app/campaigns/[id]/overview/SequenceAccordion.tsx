@@ -45,7 +45,7 @@ export default function SequenceAccordion({
       {sequence.map((step, i) => {
         const meta = channelMeta[step.channel] ?? channelMeta.linkedin;
         const Icon = meta.icon;
-        const msg = messages.find(m => m.step_number === i) ?? messages.find(m => m.step_number === i + 1) ?? null;
+        const msg = messages.find(m => m.step_number === i + 1) ?? null;
         const tmpl = messageTemplates[i] ?? null;
         const displayBody: string | null = msg?.content ?? tmpl?.body ?? null;
         const displaySubject: string | null = msg ? null : (tmpl?.subject ?? null);

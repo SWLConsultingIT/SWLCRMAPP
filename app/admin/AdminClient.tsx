@@ -5,8 +5,7 @@ import Link from "next/link";
 import { C } from "@/lib/design";
 import {
   Building2, Users, Megaphone, Clock, ChevronRight,
-  Target, Search, X, AlertTriangle, CheckCircle,
-  ArrowRight, Loader2, Play, Shield,
+  Target, Search, X, CheckCircle, ArrowRight, Shield,
 } from "lucide-react";
 import AdminActions from "./AdminActions";
 import PageHero from "@/components/PageHero";
@@ -37,34 +36,17 @@ type PendingApproval = {
   href: string;
 };
 
-type ExecutionItem = {
-  id: string;
-  profileName: string;
-  clientName: string;
-  clientId: string;
-  status: string;
-  leadsUploaded: number | null;
-  createdAt: string;
-  href: string;
-};
-
 type Props = {
   clients: ClientData[];
   pendingApprovals: PendingApproval[];
-  executionItems: ExecutionItem[];
+  executionItems?: unknown[];
   stats: {
     totalClients: number;
     totalLeads: number;
     pendingApprovals: number;
     activeCampaigns: number;
-    executionPending: number;
+    executionPending?: number;
   };
-};
-
-const execStatusMeta: Record<string, { label: string; color: string; bg: string }> = {
-  not_started:  { label: "Not Started",     color: C.textMuted, bg: "#F3F4F6" },
-  in_progress:  { label: "In Progress",     color: "#D97706",   bg: "#FFFBEB" },
-  uploaded:     { label: "Leads Uploaded",   color: C.blue,      bg: C.blueLight },
 };
 
 function timeAgo(iso: string | null) {
@@ -76,7 +58,7 @@ function timeAgo(iso: string | null) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-export default function AdminClient({ clients, pendingApprovals, executionItems, stats }: Props) {
+export default function AdminClient({ clients, pendingApprovals, stats }: Props) {
   const [tab, setTab] = useState(0);
   const [search, setSearch] = useState("");
 
@@ -92,16 +74,9 @@ export default function AdminClient({ clients, pendingApprovals, executionItems,
         `${a.name} ${a.clientName} ${a.subtitle}`.toLowerCase().includes(search.toLowerCase())
       );
 
-  const filteredExecution = !search
-    ? executionItems
-    : executionItems.filter(e =>
-        `${e.profileName} ${e.clientName}`.toLowerCase().includes(search.toLowerCase())
-      );
-
   const tabs = [
-    { label: "Clients",            count: clients.length,          color: gold },
-    { label: "Pending Approvals",  count: pendingApprovals.length, color: "#D97706" },
-    { label: "Execution Pipeline", count: executionItems.length,   color: C.blue },
+    { label: "Clients",           count: clients.length,          color: gold },
+    { label: "Pending Approvals", count: pendingApprovals.length, color: "#D97706" },
   ];
 
   return (
@@ -110,19 +85,18 @@ export default function AdminClient({ clients, pendingApprovals, executionItems,
         icon={Shield}
         section="Internal"
         title="Admin Panel"
-        description="Manage clients, review tickets, and monitor execution pipeline."
+        description="Manage clients, review tickets, and approve campaign requests."
         accentColor={C.textMuted}
         status={{ label: "Internal", active: true }}
       />
 
       {/* Stat cards */}
-      <div className="grid grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-4 gap-4 mb-6">
         {[
-          { label: "Clients",           value: stats.totalClients,     color: gold,     icon: Building2 },
-          { label: "Total Leads",       value: stats.totalLeads,       color: C.blue,   icon: Users },
+          { label: "Clients",           value: stats.totalClients,     color: gold,      icon: Building2 },
+          { label: "Total Leads",       value: stats.totalLeads,       color: C.blue,    icon: Users },
           { label: "Pending Approvals", value: stats.pendingApprovals, color: "#D97706", icon: Clock },
-          { label: "Active Campaigns",  value: stats.activeCampaigns,  color: C.green,  icon: Megaphone },
-          { label: "Execution Queue",   value: stats.executionPending, color: C.accent, icon: Play },
+          { label: "Active Campaigns",  value: stats.activeCampaigns,  color: C.green,   icon: Megaphone },
         ].map(({ label, value, color, icon: Icon }) => (
           <div key={label} className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${color}` }}>
             <div className="flex items-center justify-between mb-2">
@@ -147,10 +121,7 @@ export default function AdminClient({ clients, pendingApprovals, executionItems,
               {t.label}
               {t.count > 0 && (
                 <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
-                  style={{
-                    backgroundColor: isActive ? `${t.color}15` : "#F3F4F6",
-                    color: isActive ? t.color : C.textDim,
-                  }}>
+                  style={{ backgroundColor: isActive ? `${t.color}15` : "#F3F4F6", color: isActive ? t.color : C.textDim }}>
                   {t.count}
                 </span>
               )}
@@ -242,7 +213,6 @@ export default function AdminClient({ clients, pendingApprovals, executionItems,
 
         return (
           <div className="space-y-6">
-            {/* Profiles pending */}
             {profiles.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-3">
@@ -253,8 +223,7 @@ export default function AdminClient({ clients, pendingApprovals, executionItems,
                 </div>
                 <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
                   {profiles.map((item, i) => (
-                    <div key={item.id}
-                      className="flex items-center gap-4 px-5 py-4"
+                    <div key={item.id} className="flex items-center gap-4 px-5 py-4"
                       style={{ borderBottom: i < profiles.length - 1 ? `1px solid ${C.border}` : "none" }}>
                       <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
                         style={{ backgroundColor: `${C.blue}12` }}>
@@ -275,7 +244,6 @@ export default function AdminClient({ clients, pendingApprovals, executionItems,
               </div>
             )}
 
-            {/* Campaigns pending */}
             {campaigns.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-3">
@@ -286,8 +254,7 @@ export default function AdminClient({ clients, pendingApprovals, executionItems,
                 </div>
                 <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
                   {campaigns.map((item, i) => (
-                    <div key={item.id}
-                      className="flex items-center gap-4 px-5 py-4"
+                    <div key={item.id} className="flex items-center gap-4 px-5 py-4"
                       style={{ borderBottom: i < campaigns.length - 1 ? `1px solid ${C.border}` : "none" }}>
                       <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
                         style={{ backgroundColor: `${gold}12` }}>
@@ -312,76 +279,6 @@ export default function AdminClient({ clients, pendingApprovals, executionItems,
                 </div>
               </div>
             )}
-          </div>
-        );
-      })()}
-
-      {/* ═══ Tab 2: Execution Pipeline ═══ */}
-      {tab === 2 && (() => {
-        if (filteredExecution.length === 0) return (
-          <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <CheckCircle size={28} className="mx-auto mb-3" style={{ color: C.green }} />
-            <p className="text-sm font-medium" style={{ color: C.textBody }}>
-              {search ? "No items match your search" : "No profiles in execution pipeline"}
-            </p>
-          </div>
-        );
-
-        // Group by status
-        const grouped: Record<string, typeof filteredExecution> = {};
-        for (const item of filteredExecution) {
-          if (!grouped[item.status]) grouped[item.status] = [];
-          grouped[item.status].push(item);
-        }
-
-        const statusOrder = ["not_started", "in_progress", "uploaded"];
-
-        return (
-          <div className="space-y-6">
-            {statusOrder.map(status => {
-              const items = grouped[status];
-              if (!items || items.length === 0) return null;
-              const meta = execStatusMeta[status] ?? execStatusMeta.not_started;
-
-              return (
-                <div key={status}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: meta.color }} />
-                    <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-                      {meta.label} ({items.length})
-                    </h3>
-                  </div>
-                  <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                    {items.map((item, i) => (
-                      <Link key={item.id} href={item.href}
-                        className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-black/[0.015]"
-                        style={{ borderBottom: i < items.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                        <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                          style={{ backgroundColor: `${meta.color}12` }}>
-                          <Target size={15} style={{ color: meta.color }} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{item.profileName}</p>
-                          <p className="text-xs" style={{ color: C.textMuted }}>{item.clientName}</p>
-                        </div>
-                        {item.leadsUploaded != null && item.leadsUploaded > 0 && (
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded-md shrink-0"
-                            style={{ backgroundColor: C.blueLight, color: C.blue }}>
-                            {item.leadsUploaded} leads uploaded
-                          </span>
-                        )}
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded shrink-0"
-                          style={{ backgroundColor: meta.bg, color: meta.color }}>
-                          {meta.label}
-                        </span>
-                        <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{timeAgo(item.createdAt)}</span>
-                        <ChevronRight size={13} style={{ color: C.textDim }} className="shrink-0" />
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
           </div>
         );
       })()}

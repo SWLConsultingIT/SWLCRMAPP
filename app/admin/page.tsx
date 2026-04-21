@@ -1,6 +1,8 @@
 import { supabase } from "@/lib/supabase";
 import AdminClient from "./AdminClient";
 
+export const dynamic = "force-dynamic";
+
 export type ClientData = {
   id: string;
   company_name: string;
@@ -46,7 +48,7 @@ async function getData() {
   // 2) All ICP profiles
   const { data: allProfiles } = await supabase
     .from("icp_profiles")
-    .select("id, profile_name, company_bio_id, status, execution_status, leads_uploaded_count, created_at");
+    .select("id, profile_name, company_bio_id, status, execution_status, leads_uploaded, created_at");
 
   // 3) All campaign requests pending
   const { data: pendingCampRequests } = await supabase
@@ -151,7 +153,7 @@ async function getData() {
       clientName: bioMap[p.company_bio_id] ?? "Unknown",
       clientId: p.company_bio_id,
       status: p.execution_status ?? "not_started",
-      leadsUploaded: p.leads_uploaded_count,
+      leadsUploaded: p.leads_uploaded,
       createdAt: p.created_at,
       href: `/admin/${p.company_bio_id}/profile/${p.id}`,
     }))

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { C } from "@/lib/design";
-import { Mail, Phone, AlertTriangle, MessageSquare, Send, UserPlus, Zap, PlusCircle } from "lucide-react";
+import { Mail, PlusCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
 
 type ActivityItem = {
@@ -76,6 +76,7 @@ function timeAgo(iso: string) {
 export default function ActivityTimeline({ activities, notes: initialNotes, leadId }: { activities: ActivityItem[]; notes: Note[]; leadId?: string }) {
   const [filter, setFilter] = useState<"all" | "messages" | "replies" | "calls">("all");
   const [contactFilter, setContactFilter] = useState("all");
+  const [expandedMsgs, setExpandedMsgs] = useState<Set<string>>(new Set());
   const [noteText, setNoteText] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [notes, setNotes] = useState(initialNotes);
@@ -240,18 +241,36 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                     }
 
                     // message_sent (default)
+                    const isExpanded = expandedMsgs.has(item.id);
+                    const toggleExpand = () => setExpandedMsgs(prev => {
+                      const next = new Set(prev);
+                      if (next.has(item.id)) next.delete(item.id); else next.add(item.id);
+                      return next;
+                    });
                     return (
-                      <div key={item.id} className="flex items-center gap-3 px-4 py-3 rounded-lg border"
+                      <div key={item.id} className="rounded-lg border overflow-hidden"
                         style={{ backgroundColor: C.card, borderColor: C.border }}>
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: ch.bg }}>
-                          <ChannelIcon channel={item.channel} />
+                        <div className="flex items-center gap-3 px-4 py-3">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: ch.bg }}>
+                            <ChannelIcon channel={item.channel} />
+                          </div>
+                          <p className="text-sm flex-1" style={{ color: C.textBody }}>
+                            {item.channel === "call" ? "Call to" : item.channel === "email" ? "Email sent to" : "DM sent to"}{" "}
+                            <span className="font-semibold" style={{ color: C.textPrimary }}>{item.contactName}</span>
+                            {item.stepNumber !== undefined ? ` (Step ${item.stepNumber})` : ""}
+                          </p>
+                          <span className="text-xs shrink-0 mr-2" style={{ color: C.textDim }}>{formatTime(item.timestamp)}</span>
+                          {item.content && (
+                            <button onClick={toggleExpand} className="shrink-0 p-1 rounded hover:bg-black/5 transition-colors">
+                              {isExpanded ? <ChevronUp size={14} style={{ color: C.textDim }} /> : <ChevronDown size={14} style={{ color: C.textDim }} />}
+                            </button>
+                          )}
                         </div>
-                        <p className="text-sm flex-1" style={{ color: C.textBody }}>
-                          {item.channel === "call" ? "Call to" : item.channel === "email" ? "Email sent to" : "DM sent to"}{" "}
-                          <span className="font-semibold" style={{ color: C.textPrimary }}>{item.contactName}</span>
-                          {item.stepNumber !== undefined ? ` (Step ${item.stepNumber})` : ""}
-                        </p>
-                        <span className="text-xs shrink-0" style={{ color: C.textDim }}>{formatTime(item.timestamp)}</span>
+                        {isExpanded && item.content && (
+                          <div className="px-4 pb-4 pt-1 border-t" style={{ borderColor: C.border }}>
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{item.content}</p>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

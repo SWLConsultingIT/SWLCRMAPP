@@ -14,12 +14,14 @@ async function getReportData() {
     { data: allReplies },
     { data: allMessages },
     { data: allProfiles },
+    { data: allSellers },
   ] = await Promise.all([
     supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at"),
-    supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, created_at"),
+    supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, created_at"),
     supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, channel, received_at"),
     supabase.from("campaign_messages").select("id, campaign_id, step_number, status, sent_at"),
     supabase.from("icp_profiles").select("id, profile_name").eq("status", "approved"),
+    supabase.from("sellers").select("id, name, active"),
   ]);
 
   const leads = allLeads ?? [];
@@ -152,6 +154,42 @@ async function getReportData() {
     if (c.lead_id && repliedLeadIds.has(c.lead_id)) stepReplies[step].replied++;
   }
 
+  // ── Seller performance ──
+  const sellerMap: Record<string, string> = {};
+  for (const s of allSellers ?? []) sellerMap[s.id] = s.name;
+  const sellerGroups: Record<string, { name: string; contacted: Set<string>; replied: Set<string>; positive: Set<string>; activeCampaigns: number }> = {};
+  for (const c of campaigns) {
+    if (!c.seller_id) continue;
+    const sName = sellerMap[c.seller_id] ?? "Unassigned";
+    if (!sellerGroups[c.seller_id]) sellerGroups[c.seller_id] = { name: sName, contacted: new Set(), replied: new Set(), positive: new Set(), activeCampaigns: 0 };
+    const g = sellerGroups[c.seller_id];
+    if (c.lead_id) {
+      g.contacted.add(c.lead_id);
+      if (repliedLeadIds.has(c.lead_id)) g.replied.add(c.lead_id);
+      if (positiveLeadIds.has(c.lead_id)) g.positive.add(c.lead_id);
+    }
+    if (c.status === "active") g.activeCampaigns++;
+  }
+  const sellerPerformance = Object.values(sellerGroups).map(g => ({
+    name: g.name,
+    contacted: g.contacted.size,
+    replied: g.replied.size,
+    positive: g.positive.size,
+    active: g.activeCampaigns,
+    conversionRate: g.contacted.size > 0 ? Math.round((g.positive.size / g.contacted.size) * 100) : 0,
+    responseRate: g.contacted.size > 0 ? Math.round((g.replied.size / g.contacted.size) * 100) : 0,
+  })).sort((a, b) => b.positive - a.positive);
+  const topSeller = sellerPerformance[0] ?? null;
+
+  // ── Forecast (projected positive conversions this month) ──
+  const thirtyDaysAgo = Date.now() - 30 * 86400000;
+  const last30Positive = positiveReplies.filter(r => new Date(r.received_at).getTime() >= thirtyDaysAgo).length;
+  const dailyRate = last30Positive / 30;
+  const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
+  const forecastMonthly = Math.round(dailyRate * daysInMonth);
+  const activeLeadCount = campaigns.filter(c => c.status === "active").length;
+  const forecastFromPipeline = Math.round(activeLeadCount * (conversionRate / 100));
+
   // ── Weekly trend (last 8 weeks) ──
   const weeklyReplies: { week: string; replies: number; positive: number }[] = [];
   for (let i = 7; i >= 0; i--) {
@@ -172,9 +210,10 @@ async function getReportData() {
   return {
     totalLeads, contactedLeads, repliedCount, positiveCount,
     responseRate, conversionRate, avgSteps,
-    bestCampaign, bestChannel,
-    campaignComparison, profilePerformance, channelAnalysis,
+    bestCampaign, bestChannel, topSeller,
+    campaignComparison, profilePerformance, channelAnalysis, sellerPerformance,
     replyBreakdown, stepReplies, weeklyReplies,
+    forecastMonthly, forecastFromPipeline, dailyRate, activeLeadCount,
   };
 }
 
@@ -463,6 +502,110 @@ export default async function ReportsPage() {
               <span className="flex items-center gap-1 text-[10px]" style={{ color: C.textMuted }}>
                 <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: C.green }} /> Positive
               </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══ SELLER PERFORMANCE + FORECAST ═══ */}
+      <div className="grid grid-cols-3 gap-6 mb-6">
+        {/* Seller Performance (2 cols) */}
+        <div className="col-span-2 rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
+            <div>
+              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Seller Performance</h2>
+              <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Conversions and response by seller</p>
+            </div>
+            {data.topSeller && (
+              <div className="flex items-center gap-2 rounded-lg px-3 py-1.5" style={{ backgroundColor: `${gold}12`, color: gold }}>
+                <Trophy size={12} />
+                <span className="text-[10px] font-bold uppercase tracking-wider">Top: {data.topSeller.name}</span>
+              </div>
+            )}
+          </div>
+          {data.sellerPerformance.length === 0 ? (
+            <div className="px-5 py-8 text-center"><p className="text-sm" style={{ color: C.textDim }}>No seller data yet</p></div>
+          ) : (
+            <table className="w-full text-left">
+              <thead>
+                <tr style={{ backgroundColor: C.bg }}>
+                  <th className="px-5 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Seller</th>
+                  <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Active</th>
+                  <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Contacted</th>
+                  <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Replied</th>
+                  <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Won</th>
+                  <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Conv %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.sellerPerformance.map(s => (
+                  <tr key={s.name} className="border-t" style={{ borderColor: C.border }}>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                          style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                          {s.name.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()}
+                        </div>
+                        <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>{s.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 text-center text-xs font-semibold" style={{ color: C.green }}>{s.active}</td>
+                    <td className="px-3 py-3 text-center text-xs font-semibold" style={{ color: C.textBody }}>{s.contacted}</td>
+                    <td className="px-3 py-3 text-center text-xs font-semibold" style={{ color: C.blue }}>{s.replied}</td>
+                    <td className="px-3 py-3 text-center text-xs font-semibold" style={{ color: C.green }}>{s.positive}</td>
+                    <td className="px-3 py-3">
+                      <div className="flex items-center gap-2 justify-center">
+                        <div className="w-14 h-2 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                          <div className="h-2 rounded-full" style={{ width: `${s.conversionRate}%`, backgroundColor: C.green }} />
+                        </div>
+                        <span className="text-xs font-bold tabular-nums" style={{ color: C.green }}>{s.conversionRate}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        {/* Forecast */}
+        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+          <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
+            <div className="flex items-center gap-2">
+              <TrendingUp size={14} style={{ color: gold }} />
+              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Forecast</h2>
+            </div>
+            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Proyección a fin de mes</p>
+          </div>
+          <div className="p-5 space-y-5">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: C.textDim }}>Based on velocity</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-bold tabular-nums" style={{ color: gold }}>{data.forecastMonthly}</span>
+                <span className="text-xs" style={{ color: C.textMuted }}>positive / month</span>
+              </div>
+              <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
+                {data.dailyRate.toFixed(1)} positives/day × 30d
+              </p>
+            </div>
+
+            <div className="h-px" style={{ backgroundColor: C.border }} />
+
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: C.textDim }}>Based on pipeline</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-bold tabular-nums" style={{ color: C.green }}>{data.forecastFromPipeline}</span>
+                <span className="text-xs" style={{ color: C.textMuted }}>expected</span>
+              </div>
+              <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
+                {data.activeLeadCount} active × {data.conversionRate}% conv
+              </p>
+            </div>
+
+            <div className="rounded-lg px-3 py-2" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
+              <p className="text-[10px] font-medium" style={{ color: C.textMuted }}>
+                <b style={{ color: C.textBody }}>Tip:</b> si la velocity y el pipeline no coinciden, o te faltan leads, o la conversion bajó
+              </p>
             </div>
           </div>
         </div>

@@ -6,6 +6,8 @@ import {
   ArrowLeft, Share2, Mail, Phone, Star, ExternalLink,
   Target, Megaphone,
 } from "lucide-react";
+import OpportunityStagePanel from "@/components/OpportunityStagePanel";
+import Breadcrumb from "@/components/Breadcrumb";
 
 const gold = "#C9A83A";
 
@@ -76,7 +78,7 @@ async function getOpportunityData(id: string) {
   if (isLeadOnly) {
     const [{ data: lead }, { data: replies }] = await Promise.all([
       supabase.from("leads")
-        .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, lead_score, is_priority, current_channel, transferred_to_odoo_at, icp_profile_id")
+        .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, lead_score, is_priority, current_channel, transferred_to_odoo_at, icp_profile_id, opportunity_stage, opportunity_notes, opportunity_next_action")
         .eq("id", id).single(),
       supabase.from("lead_replies")
         .select("id, lead_id, classification, channel, reply_text, received_at")
@@ -121,6 +123,10 @@ async function getOpportunityData(id: string) {
       }],
       profile: profile ?? null,
       seller: null,
+      stageLeadId: lead.id,
+      opportunityStage: (lead as any).opportunity_stage ?? null,
+      opportunityNotes: (lead as any).opportunity_notes ?? null,
+      opportunityNextAction: (lead as any).opportunity_next_action ?? null,
     };
   }
 
@@ -136,7 +142,7 @@ async function getOpportunityData(id: string) {
 
   const [{ data: leads }, { data: allReplies }, { data: campRequests }] = await Promise.all([
     supabase.from("leads")
-      .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, lead_score, is_priority, current_channel, transferred_to_odoo_at, icp_profile_id")
+      .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, lead_score, is_priority, current_channel, transferred_to_odoo_at, icp_profile_id, opportunity_stage, opportunity_notes, opportunity_next_action")
       .in("id", leadIds),
     supabase.from("lead_replies")
       .select("id, lead_id, classification, channel, reply_text, received_at")
@@ -228,6 +234,7 @@ async function getOpportunityData(id: string) {
     ? Math.round(convertedLeads.reduce((s, l: any) => s + l.stepsToConvert, 0) / convertedLeads.length * 10) / 10
     : 0;
 
+  const firstConverted = convertedLeads[0] as any;
   return {
     name: pivotName,
     campaignId,
@@ -242,6 +249,10 @@ async function getOpportunityData(id: string) {
     convertedLeads,
     profile: profile ?? null,
     seller: ((allCampaigns ?? [])[0]?.sellers as any)?.name ?? null,
+    stageLeadId: firstConverted?.id ?? null,
+    opportunityStage: firstConverted ? (leadsMap[firstConverted.id]?.opportunity_stage ?? null) : null,
+    opportunityNotes: firstConverted ? (leadsMap[firstConverted.id]?.opportunity_notes ?? null) : null,
+    opportunityNextAction: firstConverted ? (leadsMap[firstConverted.id]?.opportunity_next_action ?? null) : null,
   };
 }
 
@@ -252,14 +263,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
 
   return (
     <div className="p-6 w-full max-w-5xl mx-auto">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs mb-5" style={{ color: C.textMuted }}>
-        <Link href="/opportunities" className="hover:underline flex items-center gap-1">
-          <ArrowLeft size={12} /> Opportunities
-        </Link>
-        <span>/</span>
-        <span style={{ color: C.textBody }}>{data.name}</span>
-      </div>
+      <Breadcrumb crumbs={[{ label: "Opportunities", href: "/opportunities" }, { label: data.name ?? "Detail" }]} />
 
       {/* ═══ HEADER ═══ */}
       <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -295,8 +299,16 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
       {/* ═══ TWO COLUMNS ═══ */}
       <div className="grid grid-cols-5 gap-6 mb-6">
 
-        {/* LEFT: Channel + Sequence (2 cols) */}
+        {/* LEFT: Stage + Channel + Sequence (2 cols) */}
         <div className="col-span-2 space-y-6">
+          {data.stageLeadId && (
+            <OpportunityStagePanel
+              leadId={data.stageLeadId}
+              initialStage={data.opportunityStage}
+              initialNotes={data.opportunityNotes}
+              initialNextAction={data.opportunityNextAction}
+            />
+          )}
           {/* Channel breakdown */}
           <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
             <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Conversion by Channel</h2>

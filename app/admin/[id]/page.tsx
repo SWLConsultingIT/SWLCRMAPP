@@ -44,6 +44,7 @@ async function getCampaigns(bioId: string) {
     .from("campaigns")
     .select("id, name, channel, status, current_step, sequence_steps, last_step_at, leads(primary_first_name, primary_last_name, company_name), sellers(name)", { count: "exact" })
     .in("lead_id", ids)
+    .in("status", ["active", "paused"])
     .order("created_at", { ascending: false })
     .limit(20);
   return { campaigns: data ?? [], total: count ?? 0 };

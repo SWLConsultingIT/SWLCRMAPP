@@ -37,6 +37,7 @@ const emptyForm = {
   pain_points: "",
   solutions_offered: "",
   notes: "",
+  leads_requested: null as number | null,
 };
 
 const statusConfig: Record<string, { label: string; color: string; bg: string; message: string }> = {
@@ -191,6 +192,50 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
             style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
             value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
             placeholder="Describe what you're specifically looking for in these leads. Include any personalized info, specific traits, behaviors, or qualifiers that would make a lead ideal for this campaign (e.g., 'recently raised funding', 'hiring for sales roles', 'using competitor X')." />
+        </div>
+
+        {/* Leads Requested */}
+        <div className="rounded-xl border p-4" style={{ borderColor: `${gold}40`, backgroundColor: `${gold}06` }}>
+          <label className="block text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>
+            How many leads do you need?
+          </label>
+          <div className="flex items-center gap-2 flex-wrap">
+            {[25, 50, 100, 200, 500].map(n => {
+              const active = form.leads_requested === n;
+              return (
+                <button key={n} type="button"
+                  onClick={() => setForm(f => ({ ...f, leads_requested: active ? null : n }))}
+                  className="px-4 py-2 rounded-lg text-sm font-bold transition-all"
+                  style={{
+                    backgroundColor: active ? gold : C.card,
+                    color: active ? "#04070d" : C.textMuted,
+                    border: `1.5px solid ${active ? gold : C.border}`,
+                    boxShadow: active ? `0 2px 8px ${gold}40` : "none",
+                  }}>
+                  {n}
+                </button>
+              );
+            })}
+            <div className="flex items-center gap-2 ml-1">
+              <span className="text-xs font-medium" style={{ color: C.textDim }}>or</span>
+              <input
+                type="number" min={1} max={5000}
+                placeholder="Custom"
+                value={form.leads_requested !== null && ![25, 50, 100, 200, 500].includes(form.leads_requested) ? form.leads_requested : ""}
+                onChange={e => {
+                  const v = e.target.value === "" ? null : parseInt(e.target.value);
+                  setForm(f => ({ ...f, leads_requested: v }));
+                }}
+                className="w-24 rounded-lg border px-3 py-2 text-sm font-bold focus:outline-none text-center"
+                style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
+              />
+            </div>
+          </div>
+          {form.leads_requested !== null && (
+            <p className="text-xs mt-2.5 font-medium" style={{ color: C.textMuted }}>
+              Requesting <span style={{ color: gold, fontWeight: 700 }}>{form.leads_requested} leads</span> for this profile
+            </p>
+          )}
         </div>
 
         {error && (
@@ -468,11 +513,15 @@ export default function LeadGenPage() {
 
   async function handleCreate(form: typeof emptyForm) {
     const { data: bio } = await supabase
-      .from("company_bios").select("id").order("created_at", { ascending: false }).limit(1).single();
+      .from("company_bios").select("id").order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+    if (!bio?.id) {
+      throw new Error("No Company Bio found. Please create one first at /company-bios before submitting a ticket.");
+    }
 
     const { error } = await supabase
       .from("icp_profiles")
-      .insert({ ...form, company_bio_id: bio?.id ?? null, status: "pending" });
+      .insert({ ...form, company_bio_id: bio.id, status: "pending" });
 
     if (error) throw error;
     setShowForm(false);
@@ -551,6 +600,7 @@ export default function LeadGenPage() {
             pain_points: editingProfile.pain_points ?? "",
             solutions_offered: editingProfile.solutions_offered ?? "",
             notes: editingProfile.notes ?? "",
+            leads_requested: (editingProfile as any).leads_requested ?? null,
           }}
           isNew={false}
           onSave={(form) => handleUpdate(editingId, form)}

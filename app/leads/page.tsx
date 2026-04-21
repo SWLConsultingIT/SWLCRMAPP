@@ -33,9 +33,17 @@ async function getData() {
     : { data: [] };
 
   const campIds = (campaigns ?? []).map(c => c.id);
-  const { data: messages } = campIds.length > 0
-    ? await supabase.from("campaign_messages").select("campaign_id, sent_at").in("campaign_id", campIds)
-    : { data: [] };
+  const [{ data: messages }, { data: pendingRequests }] = await Promise.all([
+    campIds.length > 0
+      ? supabase.from("campaign_messages").select("campaign_id, sent_at").in("campaign_id", campIds)
+      : Promise.resolve({ data: [] }),
+    supabase.from("campaign_requests").select("lead_id, name, status, created_at").eq("status", "pending_review"),
+  ]);
+
+  const pendingRequestsByLead: Record<string, { name: string; status: string }> = {};
+  for (const r of pendingRequests ?? []) {
+    if (r.lead_id) pendingRequestsByLead[r.lead_id] = { name: r.name, status: r.status };
+  }
 
   // Lookups
   const repliesByLead: Record<string, any[]> = {};
@@ -138,41 +146,62 @@ async function getData() {
     }
   }
 
-  // Build lost leads: campaign completed/failed, no positive reply
+  // Build lost leads + re-nurturing leads
   const lostLeads: any[] = [];
+  const renurturingLeads: any[] = [];
+
   for (const lead of allLeads ?? []) {
     const leadCamps = campsByLead[lead.id] ?? [];
     const leadReplies = repliesByLead[lead.id] ?? [];
     const hasPositive = leadReplies.some((r: any) => r.classification === "positive" || r.classification === "meeting_intent");
-    if (hasPositive) continue; // not lost
+    if (hasPositive) continue;
+
     const hasCompletedCampaign = leadCamps.some((c: any) => c.status === "completed" || c.status === "failed");
     const hasNegativeReply = leadReplies.some((r: any) => r.classification === "negative");
-    if (hasCompletedCampaign || hasNegativeReply) {
-      const negReply = leadReplies.find((r: any) => r.classification === "negative");
-      const mainCamp = leadCamps[0];
-      const channels = [...new Set(leadCamps.map((c: any) => c.channel))];
-      const totalStepsDone = leadCamps.reduce((s: number, c: any) => s + (c.current_step ?? 0), 0);
-      const totalStepsMax = leadCamps.reduce((s: number, c: any) => s + (c.total_steps ?? 0), 0);
-      const totalMsgsSent = leadCamps.reduce((s: number, c: any) => s + (c.messages_sent ?? 0), 0);
-      lostLeads.push({
-        id: lead.id,
-        first_name: lead.primary_first_name,
-        last_name: lead.primary_last_name,
-        company: lead.company_name,
-        role: lead.primary_title_role,
-        email: lead.primary_work_email,
-        score: lead.lead_score,
-        is_priority: lead.is_priority,
-        profile_name: lead.icp_profile_id ? (icpMap[lead.icp_profile_id]?.profile_name ?? null) : null,
-        reason: hasNegativeReply ? "negative" : "no_reply",
-        reply_text: negReply?.reply_text ?? null,
-        reply_date: negReply?.received_at ?? null,
-        campaign_name: mainCamp?.name ?? null,
-        channels,
-        steps_completed: totalStepsDone,
-        steps_total: totalStepsMax,
-        messages_sent: totalMsgsSent,
+    if (!hasCompletedCampaign && !hasNegativeReply) continue;
+
+    const negReply = leadReplies.find((r: any) => r.classification === "negative");
+    // Use only completed/failed camps for history metrics
+    const pastCamps = leadCamps.filter((c: any) => c.status === "completed" || c.status === "failed");
+    const channels = [...new Set(pastCamps.map((c: any) => c.channel))];
+    const totalStepsDone = pastCamps.reduce((s: number, c: any) => s + (c.current_step ?? 0), 0);
+    const totalStepsMax = pastCamps.reduce((s: number, c: any) => s + (c.total_steps ?? 0), 0);
+    const totalMsgsSent = pastCamps.reduce((s: number, c: any) => s + (c.messages_sent ?? 0), 0);
+    const mainCamp = pastCamps[0] ?? leadCamps[0];
+
+    const baseData = {
+      id: lead.id,
+      first_name: lead.primary_first_name,
+      last_name: lead.primary_last_name,
+      company: lead.company_name,
+      role: lead.primary_title_role,
+      email: lead.primary_work_email,
+      score: lead.lead_score,
+      is_priority: lead.is_priority,
+      profile_name: lead.icp_profile_id ? (icpMap[lead.icp_profile_id]?.profile_name ?? null) : null,
+      reason: (hasNegativeReply ? "negative" : "no_reply") as "negative" | "no_reply",
+      reply_text: negReply?.reply_text ?? null,
+      reply_date: negReply?.received_at ?? null,
+      campaign_name: mainCamp?.name ?? null,
+      channels,
+      steps_completed: totalStepsDone,
+      steps_total: totalStepsMax,
+      messages_sent: totalMsgsSent,
+    };
+
+    const activeCamp = leadCamps.find((c: any) => c.status === "active" || c.status === "paused");
+    const pendingReq = pendingRequestsByLead[lead.id];
+
+    if (activeCamp || pendingReq) {
+      renurturingLeads.push({
+        ...baseData,
+        new_campaign_name: activeCamp?.name ?? pendingReq?.name ?? null,
+        new_campaign_status: activeCamp?.status ?? pendingReq?.status ?? "pending_review",
+        new_campaign_step: activeCamp?.current_step ?? null,
+        new_campaign_total_steps: activeCamp?.total_steps ?? null,
       });
+    } else {
+      lostLeads.push(baseData);
     }
   }
 
@@ -241,6 +270,7 @@ async function getData() {
     profileGroups: groupList,
     allLeads: allLeadsList,
     lostLeads,
+    renurturingLeads,
     icpMap,
     campaignGroups,
     uncampaignedGroups: Object.values(uncampaignedByProfile),
@@ -249,7 +279,7 @@ async function getData() {
 }
 
 export default async function LeadsCampaignsPage() {
-  const { profileGroups, allLeads, lostLeads, stats } = await getData();
+  const { profileGroups, allLeads, lostLeads, renurturingLeads, stats } = await getData();
 
   return (
     <div className="p-6 w-full">
@@ -266,6 +296,7 @@ export default async function LeadsCampaignsPage() {
         profileGroups={JSON.parse(JSON.stringify(profileGroups))}
         allLeads={JSON.parse(JSON.stringify(allLeads))}
         lostLeads={JSON.parse(JSON.stringify(lostLeads))}
+        renurturingLeads={JSON.parse(JSON.stringify(renurturingLeads))}
         stats={stats}
       />
     </div>
