@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import CallButton from "@/components/CallButton";
+import { classifyUrgency } from "@/lib/overdue";
 
 const gold = "#C9A83A";
 
@@ -179,8 +180,11 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
           <>
             <div className="space-y-3">
               {filteredCalls.map(call => {
+                const urgency = classifyUrgency(call.isOverdue ? call.overdueDays ?? 0 : null);
+                const UIcon = urgency.icon;
+                const isEscalated = urgency.level === "critical" || urgency.level === "stuck";
                 return (
-                  <div key={call.id} className="rounded-xl border" style={{ backgroundColor: C.card, borderColor: call.isOverdue ? C.red + "50" : C.border }}>
+                  <div key={call.id} className="rounded-xl border" style={{ backgroundColor: C.card, borderColor: isEscalated ? urgency.border : C.border, borderLeftWidth: isEscalated ? 3 : 1, borderLeftColor: isEscalated ? urgency.color : undefined }}>
                     <div className="flex items-center gap-4 px-5 py-4">
                       {/* Avatar */}
                       <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
@@ -197,9 +201,9 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                           </Link>
                           {call.company && <span className="text-xs" style={{ color: C.textMuted }}>· {call.company}</span>}
                           {call.isOverdue && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                              style={{ backgroundColor: C.redLight, color: C.red }}>
-                              OVERDUE {call.overdueDays && call.overdueDays > 0 ? `${call.overdueDays}d` : ""}
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                              style={{ backgroundColor: urgency.bg, color: urgency.color, border: `1px solid ${urgency.border}` }}>
+                              <UIcon size={9} /> {urgency.label}
                             </span>
                           )}
                         </div>
@@ -207,6 +211,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                         <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
                           {call.campaignName} · Step {call.currentStep + 1}/{call.totalSteps}
                           {call.lastStepAt && <> · Last activity {timeAgo(call.lastStepAt)}</>}
+                          {call.isOverdue && <> · {urgency.hint}</>}
                         </p>
                       </div>
 

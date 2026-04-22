@@ -1,14 +1,17 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseService } from "@/lib/supabase-service";
 import { notFound } from "next/navigation";
 import { C } from "@/lib/design";
 import Link from "next/link";
 import Anthropic from "@anthropic-ai/sdk";
 import Breadcrumb from "@/components/Breadcrumb";
 import LostLeadActions from "@/components/LostLeadActions";
+import RegenerateLossAnalysis from "@/components/RegenerateLossAnalysis";
+import CopyTemplateButton from "@/components/CopyTemplateButton";
 import {
   ArrowLeft, Share2, Mail, Phone, Star, Send,
   MessageSquare, XCircle, AlertTriangle, Target, Megaphone,
-  User, TrendingDown, Sparkles,
+  User, TrendingDown, Sparkles, Clock, Gauge,
 } from "lucide-react";
 
 const gold = "#C9A83A";
@@ -37,31 +40,82 @@ function formatDate(iso: string | null) {
   return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-async function getAIAnalysis(params: {
-  name: string; company: string | null; role: string | null;
-  lossReason: string; channels: string[]; stepsCompleted: number;
-  totalSteps: number; totalCampaigns: number; negReplyText?: string | null;
-}): Promise<{ analysis: string; recommendations: string[] } | null> {
+type LossAnalysis = {
+  verdict: "lost" | "dormant" | "recoverable";
+  confidence: number;
+  why_lost: string;
+  signals: string[];
+  reengage_viability: "high" | "medium" | "low";
+  next_touchpoint: { channel: "linkedin" | "email" | "call"; timing: string; angle: string };
+  message_template: string;
+  watch_for: string;
+};
+
+async function generateAndCacheAnalysis(
+  leadId: string,
+  lead: any,
+  campaigns: any[],
+  replies: any[],
+  calls: any[],
+): Promise<LossAnalysis | null> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
+
+  const name = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
+  const negReply = replies.find((r: any) => r.classification === "negative");
+  const stepsCompleted = campaigns.reduce((s: number, c: any) => s + (c.current_step ?? 0), 0);
+  const totalSteps = campaigns.reduce((s: number, c: any) => s + (Array.isArray(c.sequence_steps) ? c.sequence_steps.length : 0), 0);
+  const channels = [...new Set(campaigns.map((c: any) => c.channel))];
+  const callTranscripts = calls
+    .filter((c: any) => c.transcript || c.ai_summary)
+    .map((c: any, i: number) => `Call ${i + 1} (${c.status}, ${c.direction}): ${c.ai_summary ?? c.transcript?.slice(0, 400)}`)
+    .join("\n");
+
+  const prompt = `You are a senior B2B sales strategist. A prospect has been marked as lost. Give a focused, actionable recovery plan.
+
+PROSPECT
+- ${name}${lead.primary_title_role ? `, ${lead.primary_title_role}` : ""}${lead.company_name ? ` at ${lead.company_name}` : ""}
+
+OUTREACH HISTORY
+- Campaigns: ${campaigns.length} · Steps completed: ${stepsCompleted}/${totalSteps} · Channels: ${channels.join(", ") || "—"}
+- Replies received: ${replies.length}
+${negReply ? `- Negative reply text: "${negReply.reply_text}"` : "- No reply received"}
+${callTranscripts ? `\nCALLS\n${callTranscripts}` : ""}
+
+TASK
+Output STRICT JSON (no markdown, no code fences) with this exact shape:
+{
+  "verdict": "lost" | "dormant" | "recoverable",
+  "confidence": 0-100,
+  "why_lost": "1-2 sentences with the most likely root cause — be specific",
+  "signals": ["2-4 concrete signals from the data that support the verdict"],
+  "reengage_viability": "high" | "medium" | "low",
+  "next_touchpoint": {
+    "channel": "linkedin" | "email" | "call",
+    "timing": "e.g. 'wait 30 days' or 'try now'",
+    "angle": "what fresh angle or hook to use — be specific"
+  },
+  "message_template": "Ready-to-send message (2-4 sentences). Use {{first_name}} as placeholder. Match the channel chosen in next_touchpoint. No filler.",
+  "watch_for": "1 sentence: what trigger event would make it worth trying again"
+}`;
+
   try {
     const client = new Anthropic({ apiKey });
-    const prompt = `You are a B2B sales analyst. Analyze why this lead was lost and give re-engagement advice.
-
-Lead: ${params.name}${params.role ? `, ${params.role}` : ""}${params.company ? ` at ${params.company}` : ""}
-Loss reason: ${params.lossReason === "negative" ? "Negative reply received" : "No reply after full sequence"}
-Campaigns run: ${params.totalCampaigns} · Steps completed: ${params.stepsCompleted}/${params.totalSteps} · Channels: ${params.channels.join(", ")}
-${params.negReplyText ? `Negative reply: "${params.negReplyText}"` : ""}
-
-Respond ONLY with valid JSON (no markdown): {"analysis":"2-3 sentence analysis","recommendations":["rec1","rec2","rec3"]}`;
-
     const res = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 400,
+      max_tokens: 900,
       messages: [{ role: "user", content: prompt }],
     });
     const text = res.content[0].type === "text" ? res.content[0].text : "";
-    return JSON.parse(text);
+    const parsed = JSON.parse(text) as LossAnalysis;
+
+    // Cache it (service key bypasses RLS)
+    const svc = getSupabaseService();
+    await svc.from("leads")
+      .update({ ai_loss_analysis: parsed, ai_loss_analysis_at: new Date().toISOString() })
+      .eq("id", leadId);
+
+    return parsed;
   } catch {
     return null;
   }
@@ -71,13 +125,13 @@ async function getLostLeadData(leadId: string) {
   const supabase = await getSupabaseServer();
   const { data: lead } = await supabase
     .from("leads")
-    .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at")
+    .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at, ai_loss_analysis, ai_loss_analysis_at")
     .eq("id", leadId)
     .single();
 
   if (!lead) return null;
 
-  const [{ data: campaigns }, { data: replies }, profileResult] = await Promise.all([
+  const [{ data: campaigns }, { data: replies }, profileResult, { data: calls }] = await Promise.all([
     supabase.from("campaigns")
       .select("id, name, status, channel, current_step, sequence_steps, last_step_at, created_at, sellers(name)")
       .eq("lead_id", leadId)
@@ -89,6 +143,10 @@ async function getLostLeadData(leadId: string) {
     lead.icp_profile_id
       ? supabase.from("icp_profiles").select("id, profile_name, target_industries, target_roles").eq("id", lead.icp_profile_id).single()
       : { data: null },
+    supabase.from("calls")
+      .select("direction, status, duration, transcript, ai_summary, classification, started_at")
+      .eq("lead_id", leadId)
+      .order("started_at", { ascending: true }),
   ]);
 
   // Get message templates from campaign_requests
@@ -170,6 +228,7 @@ async function getLostLeadData(leadId: string) {
     profile: profileResult?.data ?? null,
     campaigns: campaigns ?? [],
     replies: replies ?? [],
+    calls: calls ?? [],
     timeline,
     lossReason,
     stats: {
@@ -188,20 +247,14 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
   const data = await getLostLeadData(id);
   if (!data) notFound();
 
-  const { lead, profile, campaigns, replies, timeline, lossReason, stats } = data;
+  const { lead, profile, campaigns, replies, calls, timeline, lossReason, stats } = data;
 
-  const negReply = replies.find((r: any) => r.classification === "negative");
-  const aiAnalysis = await getAIAnalysis({
-    name: `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim(),
-    company: lead.company,
-    role: lead.role,
-    lossReason,
-    channels: stats.channels,
-    stepsCompleted: stats.stepsCompleted,
-    totalSteps: stats.totalSteps,
-    totalCampaigns: stats.totalCampaigns,
-    negReplyText: negReply?.reply_text ?? null,
-  });
+  // Use cached analysis if present; otherwise generate and cache (blocks first render once)
+  let aiAnalysis: LossAnalysis | null = (lead.ai_loss_analysis as LossAnalysis) ?? null;
+  if (!aiAnalysis) {
+    aiAnalysis = await generateAndCacheAnalysis(lead.id, lead, campaigns, replies, calls);
+  }
+  const analyzedAt = lead.ai_loss_analysis_at ? new Date(lead.ai_loss_analysis_at) : null;
   const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Unknown";
   const badge = scoreBadge(lead.lead_score, lead.is_priority);
 
@@ -348,29 +401,13 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
                 </p>
               </div>
             )}
-            {/* AI recommendations */}
+            {/* AI recovery plan */}
             {aiAnalysis ? (
-              <div className="mt-3 rounded-lg border overflow-hidden" style={{ borderColor: "#7C3AED30", backgroundColor: "#F5F3FF" }}>
-                <div className="flex items-center gap-1.5 px-3 py-2 border-b" style={{ borderColor: "#7C3AED20", backgroundColor: "#EDE9FE" }}>
-                  <Sparkles size={11} style={{ color: "#7C3AED" }} />
-                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#7C3AED" }}>AI Analysis</span>
-                </div>
-                <div className="px-3 py-2.5 space-y-2.5">
-                  <p className="text-[11px] leading-relaxed" style={{ color: "#4C1D95" }}>{aiAnalysis.analysis}</p>
-                  <div className="space-y-1.5">
-                    {aiAnalysis.recommendations.map((rec, i) => (
-                      <div key={i} className="flex gap-2 text-[11px]" style={{ color: "#5B21B6" }}>
-                        <span className="shrink-0 font-bold" style={{ color: "#7C3AED" }}>{i + 1}.</span>
-                        <span>{rec}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              <AIRecoveryPanel analysis={aiAnalysis} leadId={lead.id} firstName={lead.first_name} analyzedAt={analyzedAt} />
             ) : (
               <div className="mt-3 rounded-lg px-3 py-2.5 border border-dashed" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                <p className="text-[10px] font-semibold" style={{ color: C.textDim }}>AI Recommendations</p>
-                <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>Add OPENAI_API_KEY to .env.local to enable AI analysis.</p>
+                <p className="text-[10px] font-semibold" style={{ color: C.textDim }}>AI Recovery Plan</p>
+                <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>Add ANTHROPIC_API_KEY to .env.local to enable AI analysis.</p>
               </div>
             )}
           </div>
@@ -478,6 +515,132 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
           </Link>
           <LostLeadActions leadId={lead.id} />
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── AI Recovery Panel ──────────────────────────────────────────────────────
+const viabilityColor = { high: "#16A34A", medium: "#D97706", low: C.red };
+const viabilityBg = { high: "#DCFCE7", medium: "#FFFBEB", low: C.redLight };
+const verdictMeta: Record<LossAnalysis["verdict"], { label: string; color: string; bg: string }> = {
+  recoverable: { label: "Recoverable",  color: "#16A34A", bg: "#DCFCE7" },
+  dormant:     { label: "Dormant",      color: "#D97706", bg: "#FFFBEB" },
+  lost:        { label: "Lost",         color: C.red,     bg: C.redLight },
+};
+const channelIcon: Record<string, { icon: typeof Share2; color: string; label: string }> = {
+  linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
+  email:    { icon: Mail,   color: "#7C3AED", label: "Email" },
+  call:     { icon: Phone,  color: "#F97316", label: "Call" },
+};
+
+function AIRecoveryPanel({
+  analysis, leadId, firstName, analyzedAt,
+}: {
+  analysis: LossAnalysis;
+  leadId: string;
+  firstName: string | null;
+  analyzedAt: Date | null;
+}) {
+  const verdict = verdictMeta[analysis.verdict] ?? verdictMeta.lost;
+  const v = analysis.reengage_viability;
+  const vColor = viabilityColor[v] ?? C.textMuted;
+  const vBg = viabilityBg[v] ?? "#F3F4F6";
+  const tp = analysis.next_touchpoint;
+  const ChMeta = channelIcon[tp?.channel ?? "email"] ?? channelIcon.email;
+  const ChIcon = ChMeta.icon;
+  const filledTemplate = (analysis.message_template ?? "").replace(/\{\{first_name\}\}/g, firstName ?? "there");
+
+  return (
+    <div className="mt-3 rounded-lg border overflow-hidden" style={{ borderColor: "#7C3AED30", backgroundColor: "#F5F3FF" }}>
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b" style={{ borderColor: "#7C3AED20", backgroundColor: "#EDE9FE" }}>
+        <div className="flex items-center gap-1.5">
+          <Sparkles size={11} style={{ color: "#7C3AED" }} />
+          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#7C3AED" }}>AI Recovery Plan</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {analyzedAt && (
+            <span className="text-[9px]" style={{ color: "#7C3AED99" }}>
+              {analyzedAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+            </span>
+          )}
+          <RegenerateLossAnalysis leadId={leadId} />
+        </div>
+      </div>
+
+      <div className="px-3 py-3 space-y-3">
+        {/* Verdict + confidence */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: verdict.bg, color: verdict.color }}>
+            {verdict.label}
+          </span>
+          <span className="text-[10px] font-medium" style={{ color: "#6B7280" }}>
+            <Gauge size={9} className="inline mr-0.5" /> {analysis.confidence}% confidence
+          </span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded ml-auto" style={{ backgroundColor: vBg, color: vColor }}>
+            Re-engage: {v}
+          </span>
+        </div>
+
+        {/* Why lost */}
+        <div>
+          <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: "#7C3AED" }}>Why lost</p>
+          <p className="text-[11px] leading-relaxed" style={{ color: "#4C1D95" }}>{analysis.why_lost}</p>
+        </div>
+
+        {/* Signals */}
+        {analysis.signals?.length > 0 && (
+          <div>
+            <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: "#7C3AED" }}>Signals</p>
+            <div className="space-y-1">
+              {analysis.signals.map((s, i) => (
+                <div key={i} className="flex gap-2 text-[11px]" style={{ color: "#5B21B6" }}>
+                  <span className="shrink-0" style={{ color: "#A78BFA" }}>•</span>
+                  <span>{s}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Next touchpoint */}
+        {tp && (
+          <div className="rounded-lg border p-2.5" style={{ borderColor: "#DDD6FE", backgroundColor: "#FAFAFF" }}>
+            <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#7C3AED" }}>Next Touchpoint</p>
+            <div className="flex items-center gap-2 mb-1.5">
+              <div className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded"
+                style={{ backgroundColor: `${ChMeta.color}15`, color: ChMeta.color }}>
+                <ChIcon size={9} /> {ChMeta.label}
+              </div>
+              <span className="text-[10px] font-medium flex items-center gap-0.5" style={{ color: "#6B7280" }}>
+                <Clock size={9} /> {tp.timing}
+              </span>
+            </div>
+            <p className="text-[11px] leading-relaxed" style={{ color: "#5B21B6" }}><strong>Angle:</strong> {tp.angle}</p>
+          </div>
+        )}
+
+        {/* Message template */}
+        {analysis.message_template && (
+          <div className="rounded-lg border overflow-hidden" style={{ borderColor: "#DDD6FE" }}>
+            <div className="flex items-center justify-between px-2.5 py-1.5" style={{ backgroundColor: "#7C3AED0A" }}>
+              <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "#7C3AED" }}>Ready-to-send message</p>
+              <CopyTemplateButton text={filledTemplate} />
+            </div>
+            <p className="text-[11px] leading-relaxed px-2.5 py-2 whitespace-pre-wrap" style={{ color: "#4C1D95", backgroundColor: "#FAFAFF" }}>
+              {filledTemplate}
+            </p>
+          </div>
+        )}
+
+        {/* Watch for */}
+        {analysis.watch_for && (
+          <div className="flex gap-2 text-[11px] pt-1 border-t" style={{ borderColor: "#DDD6FE", color: "#5B21B6" }}>
+            <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider pt-1" style={{ color: "#7C3AED" }}>Watch for:</span>
+            <span className="pt-0.5">{analysis.watch_for}</span>
+          </div>
+        )}
       </div>
     </div>
   );

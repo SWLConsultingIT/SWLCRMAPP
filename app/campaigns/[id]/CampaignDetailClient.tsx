@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import CampaignKanban from "@/components/CampaignKanban";
 import CampaignCallsTab from "@/components/CampaignCallsTab";
+import { classifyUrgency } from "@/lib/overdue";
 
 const AIRCALL_USERS = [
   { id: 1916199, name: "Francisco Fontana" },
@@ -240,15 +241,13 @@ export default function CampaignDetailClient({
               const Icon = meta.icon;
               const isCalling = callingId === a.leadId;
               const wasCalled = a.leadId && calledIds.has(a.leadId);
-              const dueLabel = a.isOverdue
-                ? `OVERDUE ${a.overdueDays > 0 ? `${a.overdueDays}d` : ""}`
-                : a.dueAt
-                  ? `Due ${new Date(a.dueAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}`
-                  : "Ready";
+              const signedOverdue = a.dueAt ? Math.floor((now - a.dueAt) / 86400000) : null;
+              const urgency = classifyUrgency(signedOverdue);
+              const UIcon = urgency.icon;
 
               return (
                 <div key={a.campaignId} className="flex items-center gap-3 px-5 py-3"
-                  style={{ borderTop: i > 0 ? `1px solid ${C.border}` : "none" }}>
+                  style={{ borderTop: i > 0 ? `1px solid ${C.border}` : "none", borderLeft: urgency.level === "critical" || urgency.level === "stuck" ? `3px solid ${urgency.color}` : "3px solid transparent", paddingLeft: urgency.level === "critical" || urgency.level === "stuck" ? "17px" : "20px" }}>
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                     style={{ backgroundColor: `${meta.color}15` }}>
                     <Icon size={14} style={{ color: meta.color }} />
@@ -260,9 +259,15 @@ export default function CampaignDetailClient({
                         {a.leadName}
                       </Link>
                       {a.company && <span className="text-xs" style={{ color: C.textMuted }}>· {a.company}</span>}
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded"
+                        style={{ backgroundColor: urgency.bg, color: urgency.color, border: `1px solid ${urgency.border}` }}>
+                        <UIcon size={9} /> {urgency.label}
+                      </span>
                     </div>
                     <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>
-                      <span style={{ color: meta.color }}>{meta.label}</span> · Step {a.stepNumber}/{a.totalSteps} · {dueLabel}
+                      <span style={{ color: meta.color }}>{meta.label}</span> · Step {a.stepNumber}/{a.totalSteps}
+                      {a.dueAt && <> · Due {new Date(a.dueAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</>}
+                      {" · "}{urgency.hint}
                     </p>
                   </div>
                   {a.channel === "call" ? (
@@ -276,20 +281,16 @@ export default function CampaignDetailClient({
                         <button onClick={() => a.leadId && handleDial(a.leadId, a.phone!)}
                           disabled={!!callingId}
                           className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
-                          style={{ backgroundColor: "#F97316", color: "#fff" }}>
+                          style={{ backgroundColor: urgency.level === "critical" || urgency.level === "stuck" ? urgency.color : "#F97316", color: "#fff" }}>
                           {isCalling
                             ? <><Loader2 size={12} className="animate-spin" /> Calling…</>
-                            : <><PhoneCall size={12} /> Call</>}
+                            : <><PhoneCall size={12} /> Call now</>}
                         </button>
                       )
                     ) : (
                       <span className="text-[10px]" style={{ color: C.textDim }}>No phone</span>
                     )
-                  ) : (
-                    <span className="text-[10px] font-medium" style={{ color: C.textMuted }}>
-                      {a.isOverdue ? "Run next cycle" : "Queued"}
-                    </span>
-                  )}
+                  ) : null}
                   <ChevronRight size={14} style={{ color: C.textDim }} className="shrink-0" />
                 </div>
               );
