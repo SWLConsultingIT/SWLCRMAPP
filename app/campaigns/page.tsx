@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseServer } from "@/lib/supabase-server";
 import { C } from "@/lib/design";
 import { Megaphone, TrendingUp, MessageSquare, Users } from "lucide-react";
 import PageHero from "@/components/PageHero";
@@ -9,6 +9,7 @@ import NewCampaignView from "@/components/NewCampaignView";
 const gold = "#C9A83A";
 
 async function getData() {
+  const supabase = await getSupabaseServer();
   const [
     { data: campaigns },
     { data: allReplies },

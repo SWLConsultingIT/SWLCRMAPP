@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseServer } from "@/lib/supabase-server";
 import { C } from "@/lib/design";
 import { UserCircle } from "lucide-react";
 import AccountsClient from "./AccountsClient";
@@ -92,6 +92,7 @@ async function getAircallUsage() {
 }
 
 async function getData() {
+  const supabase = await getSupabaseServer();
   const [
     { data: sellers },
     instantly,

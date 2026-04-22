@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
 import {
   ArrowLeft, ArrowRight, Check, Share2, Mail, Phone,
@@ -148,6 +148,7 @@ export default function NewCampaignWizard() {
 
   useEffect(() => {
     async function load() {
+  const supabase = getSupabaseBrowser();
       const [{ data: p }, { data: b }, { data: sellerList }] = await Promise.all([
         supabase.from("icp_profiles").select("*").eq("id", profileId).single(),
         supabase.from("company_bios").select("*").order("created_at", { ascending: false }).limit(1).single(),
@@ -208,6 +209,7 @@ export default function NewCampaignWizard() {
 
   // Submit
   async function handleSubmit() {
+  const supabase = getSupabaseBrowser();
     setSubmitting(true);
     setSubmitError(null);
     const uniqueChannels = [...new Set(sequence.map(s => s.channel))];

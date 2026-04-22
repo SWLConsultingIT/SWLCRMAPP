@@ -26,14 +26,16 @@ function getPageName(pathname: string): string {
   return "";
 }
 
-function getInitials(name: string): string {
+function getInitials(name: unknown): string {
+  if (typeof name !== "string" || !name.trim()) return "??";
   const parts = name.trim().split(" ").filter(Boolean);
   if (parts.length === 0) return "??";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-function getUserColor(name: string): { from: string; to: string } {
+function getUserColor(name: unknown): { from: string; to: string } {
+  if (typeof name !== "string") return { from: C.gold, to: "#e8c84a" };
   if (name === "Admin") return { from: "#7C3AED", to: "#9F67FF" };
   if (name.startsWith("Francisco")) return { from: "#0A66C2", to: "#2D8AE8" };
   return { from: C.gold, to: "#e8c84a" };
@@ -45,11 +47,18 @@ function openCommandPalette() {
   );
 }
 
+type AuthUser = {
+  id: string;
+  email: string;
+  displayName: string;
+  role: string;
+};
+
 export default function TopHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const pageName = getPageName(pathname);
-  const [user, setUser] = useState<string | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -63,9 +72,10 @@ export default function TopHeader() {
     router.push("/login");
   }
 
-  const initials = user ? getInitials(user) : "…";
-  const userColor = user ? getUserColor(user) : { from: C.gold, to: "#e8c84a" };
-  const firstName = user ? user.split(" ")[0] : "";
+  const displayName = user?.displayName ?? "";
+  const initials = displayName ? getInitials(displayName) : "…";
+  const userColor = displayName ? getUserColor(displayName) : { from: C.gold, to: "#e8c84a" };
+  const firstName = displayName ? displayName.split(" ")[0] : "";
 
   return (
     <header

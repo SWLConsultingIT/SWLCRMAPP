@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
 import {
   Building2, Save, AlertCircle, Plus, X, Pencil, Globe, Loader2,
@@ -63,6 +63,7 @@ const empty: CompanyBio = {
 
 // ─── File upload helper ─────────────────────────────────
 async function uploadFile(file: globalThis.File, folder: string): Promise<string | null> {
+  const supabase = getSupabaseBrowser();
   const ext = file.name.split(".").pop();
   const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const { error } = await supabase.storage.from("company-assets").upload(path, file);
@@ -158,6 +159,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
   useEffect(() => {
     if (!bio.id) return;
     async function fetchLeads() {
+  const supabase = getSupabaseBrowser();
       const [{ data: allLeads, count }, { data: campaigns }] = await Promise.all([
         supabase.from("leads")
           .select("id, primary_first_name, primary_last_name, company_name, status, current_channel, lead_score", { count: "exact" })
@@ -653,6 +655,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
   }
 
   async function handleSave() {
+  const supabase = getSupabaseBrowser();
     setSaving(true);
     setError(null);
     const payload = { ...form, updated_at: new Date().toISOString() };
@@ -1076,6 +1079,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
               <span className="text-xs" style={{ color: C.red }}>Are you sure?</span>
               <button onClick={async () => {
                 setDeleting(true);
+                const supabase = getSupabaseBrowser();
                 await supabase.from("company_bios").delete().eq("id", form.id!);
                 onDelete();
               }}
@@ -1133,6 +1137,7 @@ export default function CompanyBiosPage() {
 
   useEffect(() => {
     async function load() {
+      const supabase = getSupabaseBrowser();
       const { data } = await supabase
         .from("company_bios")
         .select("*")

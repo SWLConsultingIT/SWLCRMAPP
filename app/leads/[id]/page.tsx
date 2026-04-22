@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseServer } from "@/lib/supabase-server";
 import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -22,11 +22,13 @@ const goldLight = "rgba(201,168,58,0.08)";
 // ── Data fetchers ──
 
 async function getLead(id: string) {
+  const supabase = await getSupabaseServer();
   const { data } = await supabase.from("leads").select("*").eq("id", id).single();
   return data;
 }
 
 async function getCampaign(leadId: string) {
+  const supabase = await getSupabaseServer();
   const { data } = await supabase
     .from("campaigns")
     .select("id, name, channel, status, current_step, sequence_steps, started_at, next_step_due_at, paused_until, completed_at, aircall_number_id, sellers(name)")
@@ -38,6 +40,7 @@ async function getCampaign(leadId: string) {
 }
 
 async function getMessages(leadId: string) {
+  const supabase = await getSupabaseServer();
   const { data } = await supabase
     .from("campaign_messages")
     .select("id, campaign_id, step_number, channel, content, status, sent_at")
@@ -47,6 +50,7 @@ async function getMessages(leadId: string) {
 }
 
 async function getReplies(leadId: string) {
+  const supabase = await getSupabaseServer();
   const { data } = await supabase
     .from("lead_replies")
     .select("id, campaign_id, channel, reply_text, received_at, classification, ai_confidence, requires_human_review")

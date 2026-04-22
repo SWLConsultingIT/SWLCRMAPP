@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import {
@@ -95,14 +95,15 @@ const SECURITY_PIN = "2026";
 
 // ─── Add Seller Modal (PIN-gated) ───────────────────────────────────────────
 function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [step, setStep] = useState<"pin" | "form">("pin");
+  const [step, setStep] = useState<"pin" | "form" | "connecting" | "connected">("pin");
   const [pin, setPin] = useState(["", "", "", ""]);
   const [pinError, setPinError] = useState(false);
   const [name, setName] = useState("");
-  const [unipileId, setUnipileId] = useState("");
   const [linkedinLimit, setLinkedinLimit] = useState(15);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sellerId, setSellerId] = useState<string | null>(null);
+  const [authWindow, setAuthWindow] = useState<Window | null>(null);
 
   function handlePinChange(idx: number, val: string) {
     if (val.length > 1) return;
@@ -115,31 +116,53 @@ function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; onSucces
     }
   }
 
-  async function handleSave() {
+  async function handleStartConnection() {
     if (!name.trim()) { setError("Name is required"); return; }
     setSaving(true); setError(null);
-    const res = await fetch("/api/sellers", {
+    const res = await fetch("/api/unipile/hosted-link", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: name.trim(),
-        unipile_account_id: unipileId.trim() || null,
-        linkedin_daily_limit: linkedinLimit,
-      }),
+      body: JSON.stringify({ name: name.trim(), linkedin_daily_limit: linkedinLimit }),
     });
+    setSaving(false);
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data.error ?? "Failed to create seller");
-      setSaving(false); return;
+      setError(data.error ?? "Failed to start LinkedIn connection");
+      return;
     }
-    setSaving(false); onSuccess();
+    const { sellerId: sid, authUrl } = await res.json();
+    setSellerId(sid);
+    setStep("connecting");
+    const w = window.open(authUrl, "unipile-auth", "width=720,height=800");
+    setAuthWindow(w);
   }
+
+  // Poll connection status while the popup is open
+  useEffect(() => {
+    if (step !== "connecting" || !sellerId) return;
+    const interval = setInterval(async () => {
+      const res = await fetch(`/api/sellers/${sellerId}/connection-status`, { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (data.connected) {
+        clearInterval(interval);
+        try { authWindow?.close(); } catch { /* ignore */ }
+        setStep("connected");
+        setTimeout(onSuccess, 1200);
+      }
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [step, sellerId, authWindow, onSuccess]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
       <div className="rounded-2xl border p-6 w-full max-w-lg shadow-2xl" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>{step === "pin" ? "Security Verification" : "Add Seller"}</h2>
+          <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>
+            {step === "pin" ? "Security Verification"
+              : step === "connecting" ? "Connecting LinkedIn"
+              : step === "connected" ? "Connected"
+              : "Add Seller"}
+          </h2>
           <button onClick={onClose}><X size={18} style={{ color: C.textMuted }} /></button>
         </div>
 
@@ -172,22 +195,20 @@ function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; onSucces
                   className="w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none" style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }} />
               </div>
               <div className="rounded-xl border p-4" style={{ borderColor: "#0A66C220", backgroundColor: "#0A66C204" }}>
-                <div className="flex items-center gap-2 mb-3">
-                  <Share2 size={14} style={{ color: "#0A66C2" }} />
-                  <span className="text-xs font-semibold" style={{ color: "#0A66C2" }}>LinkedIn (Unipile)</span>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textDim }}>Unipile Account ID</label>
-                    <input type="text" value={unipileId} onChange={e => setUnipileId(e.target.value)} placeholder="Optional"
-                      className="w-full rounded-lg px-3 py-2 text-xs font-mono focus:outline-none" style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }} />
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Share2 size={14} style={{ color: "#0A66C2" }} />
+                    <span className="text-xs font-semibold" style={{ color: "#0A66C2" }}>LinkedIn Connection</span>
                   </div>
-                  <div>
-                    <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textDim }}>Daily Limit</label>
+                  <div className="flex items-center gap-1.5">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>Daily limit:</label>
                     <input type="number" value={linkedinLimit} onChange={e => setLinkedinLimit(Number(e.target.value))}
-                      className="w-full rounded-lg px-3 py-2 text-xs focus:outline-none" style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }} />
+                      className="w-14 rounded px-2 py-1 text-xs text-center focus:outline-none" style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }} />
                   </div>
                 </div>
+                <p className="text-[11px] leading-relaxed" style={{ color: C.textMuted }}>
+                  Your LinkedIn credentials go directly to Unipile (our secure connection partner). SWL never sees your password.
+                </p>
               </div>
               <p className="text-[10px]" style={{ color: C.textDim }}>
                 <b>Note:</b> Email sending uses a shared Instantly pool, not per-seller accounts. Calls use Aircall numbers.
@@ -198,14 +219,37 @@ function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; onSucces
 
             <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t" style={{ borderColor: C.border }}>
               <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>Cancel</button>
-              <button onClick={handleSave} disabled={saving}
+              <button onClick={handleStartConnection} disabled={saving || !name.trim()}
                 className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-50"
-                style={{ backgroundColor: gold, color: "#1A1A2E" }}>
-                {saving ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                {saving ? "Creating..." : "Create Seller"}
+                style={{ backgroundColor: "#0A66C2", color: "#fff" }}>
+                {saving ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
+                {saving ? "Preparing..." : "Connect LinkedIn"}
               </button>
             </div>
           </>
+        )}
+
+        {step === "connecting" && (
+          <div className="py-10 text-center">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: "#0A66C215" }}>
+              <Loader2 size={24} className="animate-spin" style={{ color: "#0A66C2" }} />
+            </div>
+            <p className="text-sm font-medium mb-1" style={{ color: C.textPrimary }}>Waiting for LinkedIn authentication…</p>
+            <p className="text-xs" style={{ color: C.textMuted }}>Complete the login in the Unipile window. This modal will update automatically.</p>
+            <p className="text-[10px] mt-6" style={{ color: C.textDim }}>
+              If you closed the window, <button onClick={() => setStep("form")} className="underline" style={{ color: "#0A66C2" }}>try again</button>.
+            </p>
+          </div>
+        )}
+
+        {step === "connected" && (
+          <div className="py-10 text-center">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: "#DCFCE7" }}>
+              <Shield size={24} style={{ color: "#16A34A" }} />
+            </div>
+            <p className="text-sm font-bold mb-1" style={{ color: "#16A34A" }}>LinkedIn connected ✓</p>
+            <p className="text-xs" style={{ color: C.textMuted }}>{name} is ready to start campaigns.</p>
+          </div>
         )}
       </div>
     </div>
@@ -290,6 +334,110 @@ function EditAccountModal({ seller, onClose, onSuccess }: { seller: SellerCard; 
   );
 }
 
+// ─── Link Existing Unipile Account Modal ────────────────────────────────────
+function LinkUnipileModal({ seller, onClose, onSuccess }: { seller: SellerCard; onClose: () => void; onSuccess: () => void }) {
+  type UnlinkedAccount = { id: string; name: string; created_at: string; status: string };
+  const [accounts, setAccounts] = useState<UnlinkedAccount[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/unipile/unlinked-accounts", { cache: "no-store" })
+      .then(r => r.json())
+      .then(d => { setAccounts(d.accounts ?? []); setLoading(false); })
+      .catch(() => { setError("Couldn't load Unipile accounts"); setLoading(false); });
+  }, []);
+
+  async function handleLink() {
+    if (!selectedId) return;
+    setSaving(true); setError(null);
+    const res = await fetch(`/api/sellers/${seller.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ unipile_account_id: selectedId }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error ?? "Failed to link");
+      return;
+    }
+    onSuccess();
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+      <div className="rounded-2xl border p-6 w-full max-w-lg shadow-2xl" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>Link LinkedIn to {seller.name}</h2>
+          <button onClick={onClose}><X size={18} style={{ color: C.textMuted }} /></button>
+        </div>
+
+        <p className="text-xs mb-4 leading-relaxed" style={{ color: C.textMuted }}>
+          Pick a Unipile account that&apos;s already connected but not linked to any seller yet.
+        </p>
+
+        {loading ? (
+          <div className="py-10 text-center">
+            <Loader2 size={20} className="animate-spin mx-auto mb-2" style={{ color: "#0A66C2" }} />
+            <p className="text-xs" style={{ color: C.textMuted }}>Loading accounts…</p>
+          </div>
+        ) : accounts.length === 0 ? (
+          <div className="py-10 text-center rounded-xl border border-dashed" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+            <Share2 size={20} className="mx-auto mb-2" style={{ color: C.textDim }} />
+            <p className="text-xs font-medium" style={{ color: C.textBody }}>No unlinked LinkedIn accounts in Unipile</p>
+            <p className="text-[10px] mt-1" style={{ color: C.textMuted }}>
+              Connect a LinkedIn account first via &quot;Add Seller → Connect LinkedIn&quot;.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {accounts.map(a => {
+              const isSel = selectedId === a.id;
+              return (
+                <button key={a.id} onClick={() => setSelectedId(a.id)}
+                  className="w-full text-left rounded-lg p-3 border transition-all flex items-center gap-3"
+                  style={{
+                    backgroundColor: isSel ? "#0A66C20D" : C.bg,
+                    borderColor: isSel ? "#0A66C2" : C.border,
+                    borderWidth: isSel ? "2px" : "1px",
+                  }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: "#0A66C215" }}>
+                    <Share2 size={14} style={{ color: "#0A66C2" }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{a.name}</p>
+                    <p className="text-[10px] font-mono" style={{ color: C.textDim }}>{a.id}</p>
+                  </div>
+                  <span className="text-[9px] font-bold px-2 py-0.5 rounded"
+                    style={{ backgroundColor: a.status === "OK" ? "#DCFCE7" : "#FEF3C7", color: a.status === "OK" ? "#16A34A" : "#D97706" }}>
+                    {a.status}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {error && <div className="mt-4 rounded-lg px-3 py-2" style={{ backgroundColor: C.redLight }}><p className="text-xs font-medium" style={{ color: C.red }}>{error}</p></div>}
+
+        <div className="flex items-center justify-end gap-3 mt-5 pt-4 border-t" style={{ borderColor: C.border }}>
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>Cancel</button>
+          <button onClick={handleLink} disabled={!selectedId || saving}
+            className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-40"
+            style={{ backgroundColor: "#0A66C2", color: "#fff" }}>
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Share2 size={14} />}
+            {saving ? "Linking…" : "Link Account"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Delete Confirmation Modal ───────────────────────────────────────────────
 function DeleteModal({ name, onConfirm, onClose, loading }: { name: string; onConfirm: () => void; onClose: () => void; loading: boolean }) {
   const [typedName, setTypedName] = useState("");
@@ -337,6 +485,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
   const [tab, setTab] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editTarget, setEditTarget] = useState<SellerCard | null>(null);
+  const [linkTarget, setLinkTarget] = useState<SellerCard | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -493,6 +642,11 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                       )}
                     </div>
                     <div className="px-5 py-3 border-t flex justify-end gap-2" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                      {!seller.hasLinkedin && (
+                        <button onClick={() => setLinkTarget(seller)}
+                          className="flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-md transition-opacity hover:opacity-80 mr-auto"
+                          style={{ backgroundColor: "#0A66C215", color: "#0A66C2", border: "1px solid #0A66C230" }}><Share2 size={10} /> Link LinkedIn</button>
+                      )}
                       <button onClick={() => setEditTarget(seller)}
                         className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-md transition-opacity hover:opacity-80"
                         style={{ backgroundColor: C.blueLight, color: C.blue }}><Pencil size={10} /> Edit</button>
@@ -769,6 +923,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
 
       {showAddModal && <AddAccountModal onClose={() => setShowAddModal(false)} onSuccess={() => { setShowAddModal(false); router.refresh(); }} />}
       {editTarget && <EditAccountModal seller={editTarget} onClose={() => setEditTarget(null)} onSuccess={() => { setEditTarget(null); router.refresh(); }} />}
+      {linkTarget && <LinkUnipileModal seller={linkTarget} onClose={() => setLinkTarget(null)} onSuccess={() => { setLinkTarget(null); router.refresh(); }} />}
       {deleteTarget && <DeleteModal name={deleteTarget.name} onConfirm={handleDelete} onClose={() => setDeleteTarget(null)} loading={deleting} />}
     </div>
   );

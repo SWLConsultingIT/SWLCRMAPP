@@ -1,10 +1,11 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseService } from "@/lib/supabase-service";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get("q")?.trim() ?? "";
   if (q.length < 2) return NextResponse.json({ leads: [] });
 
+  const supabase = getSupabaseService();
   const { data } = await supabase
     .from("leads")
     .select("id, first_name, last_name, company, role, status, assigned_seller, email")

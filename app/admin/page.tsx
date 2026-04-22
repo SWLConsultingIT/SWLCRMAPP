@@ -1,7 +1,11 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseService } from "@/lib/supabase-service";
 import AdminClient from "./AdminClient";
+import { getSupabaseServer } from "@/lib/supabase-server";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
+
+const supabase = getSupabaseService();
 
 export type ClientData = {
   id: string;
@@ -175,6 +179,18 @@ async function getData() {
 }
 
 export default async function AdminPage() {
+  const sb = await getSupabaseServer();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("user_profiles")
+    .select("role")
+    .eq("user_id", user.id)
+    .single();
+
+  if (profile?.role !== "admin") redirect("/");
+
   const data = await getData();
   return <AdminClient {...JSON.parse(JSON.stringify(data))} />;
 }

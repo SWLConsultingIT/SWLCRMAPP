@@ -1,8 +1,9 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseServer } from "@/lib/supabase-server";
 import PrintTrigger from "./PrintTrigger";
 import PrintActions from "./PrintActions";
 
 async function getReportData() {
+  const supabase = await getSupabaseServer();
   const [
     { data: allLeads },
     { data: allCampaigns },

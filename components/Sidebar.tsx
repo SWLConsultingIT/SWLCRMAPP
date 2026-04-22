@@ -3,12 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import { C } from "@/lib/design";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import {
   LayoutDashboard, Users, Megaphone,
-  Building2, Target, Shield, ChevronDown, Zap, Bell, Trophy, UserCircle, Settings,
+  Building2, Target, Shield, ChevronDown, Bell, Trophy, UserCircle, Settings,
 } from "lucide-react";
+
+const DARK   = "#060c18";
+const BORDER = "rgba(201,168,58,0.14)";
+const GOLD   = "#c9a83a";
+const GOLD_DIM = "rgba(201,168,58,0.75)";
+const TEXT_MUTED = "rgba(255,255,255,0.55)";
+const TEXT_BODY  = "rgba(255,255,255,0.85)";
 
 type NavItem = {
   href: string;
@@ -16,6 +22,7 @@ type NavItem = {
   icon: React.ElementType;
   tag?: string;
   badgeKey?: "calls" | "pending";
+  adminOnly?: boolean;
 };
 
 const sections: { label: string; items: NavItem[] }[] = [
@@ -29,8 +36,8 @@ const sections: { label: string; items: NavItem[] }[] = [
   {
     label: "GROWTH ENGINE",
     items: [
-      { href: "/icp", label: "Lead Miner\u2122", icon: Target, tag: "AI" },
-      { href: "/campaigns", label: "Outreach Flow\u2122", icon: Megaphone, tag: "AI" },
+      { href: "/icp", label: "Lead Miner™", icon: Target, tag: "AI" },
+      { href: "/campaigns", label: "Outreach Flow™", icon: Megaphone, tag: "AI" },
     ],
   },
   {
@@ -41,7 +48,7 @@ const sections: { label: string; items: NavItem[] }[] = [
       { href: "/opportunities", label: "Opportunities", icon: Trophy },
       { href: "/queue", label: "Queue", icon: Bell, badgeKey: "calls" },
       { href: "/settings", label: "Settings", icon: Settings },
-      { href: "/admin", label: "Admin", icon: Shield, badgeKey: "pending" },
+      { href: "/admin", label: "Admin", icon: Shield, badgeKey: "pending", adminOnly: true },
     ],
   },
 ];
@@ -51,14 +58,20 @@ export default function Sidebar() {
   const [callCount, setCallCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [role, setRole] = useState<string>("");
+
+  useEffect(() => {
+    fetch("/api/auth/me").then(r => r.json()).then(d => setRole(d.user?.role ?? "")).catch(() => {});
+  }, []);
 
   useEffect(() => {
     async function fetchBadges() {
+      const sb = getSupabaseBrowser();
       const [{ count: calls }, { count: pendingReview }, { count: pendingExec }, { count: pendingCampaigns }] = await Promise.all([
-        supabase.from("campaigns").select("*", { count: "exact", head: true }).eq("status", "active").eq("channel", "call"),
-        supabase.from("icp_profiles").select("*", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("icp_profiles").select("*", { count: "exact", head: true }).eq("status", "approved").in("execution_status", ["not_started", "in_progress"]),
-        supabase.from("campaign_requests").select("*", { count: "exact", head: true }).eq("status", "pending_review"),
+        sb.from("campaigns").select("*", { count: "exact", head: true }).eq("status", "active").eq("channel", "call"),
+        sb.from("icp_profiles").select("*", { count: "exact", head: true }).eq("status", "pending"),
+        sb.from("icp_profiles").select("*", { count: "exact", head: true }).eq("status", "approved").in("execution_status", ["not_started", "in_progress"]),
+        sb.from("campaign_requests").select("*", { count: "exact", head: true }).eq("status", "pending_review"),
       ]);
       setCallCount(calls ?? 0);
       setPendingCount((pendingReview ?? 0) + (pendingExec ?? 0) + (pendingCampaigns ?? 0));
@@ -68,185 +81,143 @@ export default function Sidebar() {
     return () => clearInterval(interval);
   }, []);
 
-  const badges: Record<string, number> = { calls: callCount, pending: pendingCount };
+  const isAdmin = role === "admin";
+  const visibleSections = sections.map(s => ({
+    ...s,
+    items: s.items.filter(item => !item.adminOnly || isAdmin),
+  })).filter(s => s.items.length > 0);
 
-  const toggleSection = (label: string) => {
-    setCollapsed(prev => ({ ...prev, [label]: !prev[label] }));
-  };
+  const badges: Record<string, number> = { calls: callCount, pending: pendingCount };
+  const toggleSection = (label: string) => setCollapsed(prev => ({ ...prev, [label]: !prev[label] }));
 
   return (
     <aside
-      className="w-60 flex flex-col shrink-0 border-r"
+      className="w-60 flex flex-col shrink-0 border-r relative"
       style={{
-        backgroundColor: C.sidebarBg,
-        borderColor: C.sidebarBorder,
-        boxShadow: "2px 0 24px rgba(0,0,0,0.08), 1px 0 0 rgba(0,0,0,0.04)",
-        background: "linear-gradient(180deg, #FFFFFF 0%, #FDFCFB 100%)",
+        backgroundColor: DARK,
+        borderColor: BORDER,
+        backgroundImage: `
+          linear-gradient(rgba(201,168,58,0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(201,168,58,0.03) 1px, transparent 1px)
+        `,
+        backgroundSize: "40px 40px",
       }}
     >
+      {/* Glow top-left */}
+      <div className="absolute top-0 left-0 w-48 h-48 pointer-events-none"
+        style={{ background: "radial-gradient(circle, rgba(201,168,58,0.07) 0%, transparent 70%)" }} />
+
       {/* Logo */}
-      <div className="px-5 py-5 border-b" style={{ borderColor: C.sidebarBorder }}>
+      <div className="relative px-5 py-5 border-b" style={{ borderColor: BORDER }}>
         <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-            style={{
-              background: `linear-gradient(135deg, ${C.gold} 0%, #e8c84a 100%)`,
-              boxShadow: `0 3px 10px rgba(201,168,58,0.4), 0 1px 3px rgba(0,0,0,0.1)`,
-            }}
-          >
-            <Zap size={19} color="#FFFFFF" strokeWidth={2.5} />
-          </div>
-          <div>
-            <p className="text-sm font-extrabold tracking-wide" style={{ color: C.sidebarTextActive, letterSpacing: "-0.01em" }}>
-              GrowthAI
-            </p>
-            <p className="text-[9px] font-bold tracking-widest uppercase" style={{ color: C.gold, opacity: 0.85 }}>
-              Sales Engine
-            </p>
-          </div>
+          <img
+            src="https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png"
+            alt="SWL Consulting"
+            className="h-7 w-auto object-contain"
+            style={{ filter: "brightness(0) invert(1)" }}
+          />
         </div>
+        <p className="text-[9px] font-bold tracking-[0.18em] uppercase mt-1" style={{ color: GOLD_DIM }}>
+          Growth Platform
+        </p>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
-        {sections.map((section) => {
+      <nav className="relative flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+        {visibleSections.map((section) => {
           const isCollapsed = collapsed[section.label];
           return (
             <div key={section.label}>
-              {/* Section header */}
               <button
                 onClick={() => toggleSection(section.label)}
                 className="flex items-center justify-between w-full px-3 mb-1.5"
               >
-                <span
-                  className="text-[10px] font-bold tracking-[0.12em] uppercase"
-                  style={{
-                    color: section.label === "GROWTH ENGINE" ? C.gold : C.sidebarSection,
-                    ...(section.label === "GROWTH ENGINE"
-                      ? {
-                          backgroundColor: C.goldGlow,
-                          padding: "3px 8px",
-                          borderRadius: "4px",
-                        }
-                      : {}),
-                  }}
-                >
+                <span className="text-[9px] font-bold tracking-[0.16em] uppercase"
+                  style={{ color: section.label === "GROWTH ENGINE" ? GOLD : TEXT_MUTED }}>
                   {section.label}
                 </span>
-                <ChevronDown
-                  size={12}
-                  style={{
-                    color: C.sidebarSection,
-                    transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
-                    transition: "transform 0.2s ease",
-                  }}
-                />
+                <ChevronDown size={11} style={{
+                  color: TEXT_MUTED,
+                  transform: isCollapsed ? "rotate(-90deg)" : "rotate(0deg)",
+                  transition: "transform 0.2s ease",
+                }} />
               </button>
 
-              {/* Items */}
-              {!isCollapsed &&
-                section.items.map(({ href, label, icon: Icon, tag, badgeKey }) => {
-                  const isOverviewPage = pathname.includes("/overview");
-                  const active = href === "/leads"
-                    ? (pathname.startsWith("/leads") || (pathname.startsWith("/campaigns/") && isOverviewPage))
-                    : href === "/campaigns"
-                      ? (pathname.startsWith("/campaigns") && !isOverviewPage)
-                      : pathname === href || (href !== "/" && pathname.startsWith(href));
-                  const badge = badgeKey ? badges[badgeKey] : 0;
+              {!isCollapsed && section.items.map(({ href, label, icon: Icon, tag, badgeKey }) => {
+                const isOverviewPage = pathname.includes("/overview");
+                const active = href === "/leads"
+                  ? (pathname.startsWith("/leads") || (pathname.startsWith("/campaigns/") && isOverviewPage))
+                  : href === "/campaigns"
+                    ? (pathname.startsWith("/campaigns") && !isOverviewPage)
+                    : pathname === href || (href !== "/" && pathname.startsWith(href));
+                const badge = badgeKey ? badges[badgeKey] : 0;
 
-                  return (
-                    <Link
-                      key={href}
-                      href={href}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 group"
-                      style={
-                        active
-                          ? {
-                              background: `linear-gradient(90deg, rgba(201,168,58,0.14) 0%, rgba(201,168,58,0.04) 100%)`,
-                              color: C.gold,
-                              borderLeft: `3px solid ${C.gold}`,
-                              paddingLeft: "10px",
-                              boxShadow: "inset 0 1px 0 rgba(201,168,58,0.08), inset 0 -1px 0 rgba(201,168,58,0.06)",
-                            }
-                          : { color: C.sidebarText }
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150"
+                    style={active ? {
+                      background: `linear-gradient(90deg, rgba(201,168,58,0.15) 0%, rgba(201,168,58,0.04) 100%)`,
+                      color: GOLD,
+                      borderLeft: `2px solid ${GOLD}`,
+                      paddingLeft: "10px",
+                    } : { color: TEXT_BODY }}
+                    onMouseEnter={(e) => {
+                      if (!active) {
+                        e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)";
+                        e.currentTarget.style.color = "#ffffff";
                       }
-                      onMouseEnter={(e) => {
-                        if (!active) {
-                          e.currentTarget.style.backgroundColor = "#F9FAFB";
-                          e.currentTarget.style.color = C.sidebarTextActive;
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!active) {
-                          e.currentTarget.style.backgroundColor = "transparent";
-                          e.currentTarget.style.color = C.sidebarText;
-                        }
-                      }}
-                    >
-                      <Icon
-                        size={16}
-                        style={{
-                          color: active ? C.gold : C.sidebarSection,
-                          transition: "color 0.15s ease",
-                        }}
-                      />
-                      <span className="flex-1">{label}</span>
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!active) {
+                        e.currentTarget.style.backgroundColor = "transparent";
+                        e.currentTarget.style.color = TEXT_BODY;
+                      }
+                    }}
+                  >
+                    <Icon size={15} style={{ color: active ? GOLD : TEXT_MUTED, transition: "color 0.15s" }} />
+                    <span className="flex-1">{label}</span>
 
-                      {/* AI tag */}
-                      {tag && (
-                        <span
-                          className="text-[9px] font-bold px-1.5 py-0.5 rounded"
-                          style={{
-                            backgroundColor: C.goldGlow,
-                            color: C.gold,
-                          }}
-                        >
-                          {tag}
-                        </span>
-                      )}
+                    {tag && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                        style={{ backgroundColor: "rgba(201,168,58,0.15)", color: GOLD }}>
+                        {tag}
+                      </span>
+                    )}
 
-                      {/* Badge count */}
-                      {badge > 0 && (
-                        <span className="flex items-center justify-center">
-                          <span
-                            className="pulse-dot inline-block w-2 h-2 rounded-full"
-                            style={{ backgroundColor: C.gold }}
-                          />
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
+                    {badge > 0 && (
+                      <span className="pulse-dot inline-block w-2 h-2 rounded-full" style={{ backgroundColor: GOLD }} />
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           );
         })}
       </nav>
 
       {/* AI Status */}
-      <div className="mx-4 mb-3 px-3 py-2 rounded-lg" style={{ backgroundColor: "#F0FDF4" }}>
+      <div className="relative mx-4 mb-3 px-3 py-2 rounded-lg"
+        style={{ backgroundColor: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.15)" }}>
         <div className="flex items-center gap-2">
-          <span
-            className="inline-block w-2 h-2 rounded-full pulse-dot"
-            style={{ backgroundColor: "#22C55E" }}
-          />
-          <span className="text-[11px] font-medium" style={{ color: "#15803D" }}>
+          <span className="inline-block w-2 h-2 rounded-full pulse-dot" style={{ backgroundColor: "#22C55E" }} />
+          <span className="text-[11px] font-medium" style={{ color: "rgba(34,197,94,0.9)" }}>
             AI Models Active
           </span>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="px-5 py-4 border-t" style={{ borderColor: C.sidebarBorder }}>
+      <div className="relative px-5 py-4 border-t" style={{ borderColor: BORDER }}>
         <div className="flex items-center gap-2.5">
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-            style={{ backgroundColor: C.goldGlow, color: C.gold }}
-          >
-            GE
+          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+            style={{ background: `linear-gradient(135deg, ${GOLD}, #e8c84a)`, color: "#fff" }}>
+            S
           </div>
           <div>
-            <p className="text-xs font-semibold" style={{ color: C.sidebarTextActive }}>Growth Engine</p>
-            <p className="text-[10px]" style={{ color: C.sidebarSection }}>SWL Consulting</p>
+            <p className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>SWL Consulting</p>
+            <p className="text-[10px]" style={{ color: GOLD_DIM }}>Growth Platform</p>
           </div>
         </div>
       </div>

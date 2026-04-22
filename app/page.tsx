@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseServer } from "@/lib/supabase-server";
 import { C } from "@/lib/design";
 import {
   Users, MessageSquare, Share2, Mail, Phone, TrendingUp,
@@ -34,6 +34,7 @@ function timeAgo(iso: string) {
 }
 
 async function getDashboardData() {
+  const supabase = await getSupabaseServer();
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
 
   const [

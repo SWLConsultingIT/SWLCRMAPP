@@ -1,14 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import {
   Building2, Users, Megaphone, Clock, ChevronRight,
   Target, Search, X, CheckCircle, ArrowRight, Shield,
+  UserCog, Trash2, Loader2,
 } from "lucide-react";
 import AdminActions from "./AdminActions";
 import PageHero from "@/components/PageHero";
+
+type UserRow = {
+  id: string;
+  email: string;
+  role: string | null;
+  company_bio_id: string | null;
+  company_name: string | null;
+  created_at: string;
+};
+
+type Company = { id: string; company_name: string };
 
 const gold = "#C9A83A";
 
@@ -49,6 +61,122 @@ type Props = {
   };
 };
 
+function UsersTab() {
+  const [users, setUsers] = useState<UserRow[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/users")
+      .then(r => r.json())
+      .then(d => { setUsers(d.users ?? []); setCompanies(d.companies ?? []); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function update(userId: string, patch: { role?: string; company_bio_id?: string | null }) {
+    setSaving(userId);
+    await fetch(`/api/admin/users/${userId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+    });
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...patch, company_name: patch.company_bio_id ? (companies.find(c => c.id === patch.company_bio_id)?.company_name ?? null) : null } : u));
+    setSaving(null);
+  }
+
+  async function remove(userId: string) {
+    setSaving(userId);
+    await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
+    setUsers(prev => prev.map(u => u.id === userId ? { ...u, role: null, company_bio_id: null, company_name: null } : u));
+    setSaving(null);
+  }
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <Loader2 size={20} className="animate-spin" style={{ color: C.textDim }} />
+    </div>
+  );
+
+  return (
+    <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      {users.length === 0 && (
+        <div className="py-16 text-center">
+          <Users size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
+          <p className="text-sm" style={{ color: C.textMuted }}>No users found</p>
+        </div>
+      )}
+      {users.map((user, i) => (
+        <div
+          key={user.id}
+          className="flex items-center gap-4 px-5 py-4"
+          style={{ borderBottom: i < users.length - 1 ? `1px solid ${C.border}` : "none" }}
+        >
+          {/* Avatar */}
+          <div
+            className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+            style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}
+          >
+            {user.email[0]?.toUpperCase() ?? "?"}
+          </div>
+
+          {/* Email */}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{user.email}</p>
+            <p className="text-[11px]" style={{ color: C.textDim }}>
+              {user.role ? `${user.role} · joined ${new Date(user.created_at).toLocaleDateString()}` : "No profile assigned"}
+            </p>
+          </div>
+
+          {/* Role selector */}
+          <select
+            value={user.role ?? ""}
+            disabled={saving === user.id}
+            onChange={e => update(user.id, { role: e.target.value })}
+            className="text-xs rounded-lg border px-2.5 py-1.5 outline-none"
+            style={{
+              borderColor: C.border,
+              color: user.role === "admin" ? gold : C.textBody,
+              backgroundColor: user.role === "admin" ? `${gold}12` : C.card,
+            }}
+          >
+            <option value="">— no role —</option>
+            <option value="admin">admin</option>
+            <option value="client">client</option>
+          </select>
+
+          {/* Company selector */}
+          <select
+            value={user.company_bio_id ?? ""}
+            disabled={saving === user.id}
+            onChange={e => update(user.id, { company_bio_id: e.target.value || null })}
+            className="text-xs rounded-lg border px-2.5 py-1.5 outline-none max-w-[180px]"
+            style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}
+          >
+            <option value="">— no company —</option>
+            {companies.map(c => (
+              <option key={c.id} value={c.id}>{c.company_name}</option>
+            ))}
+          </select>
+
+          {/* Save spinner / remove */}
+          {saving === user.id ? (
+            <Loader2 size={14} className="animate-spin shrink-0" style={{ color: C.textDim }} />
+          ) : (
+            <button
+              onClick={() => remove(user.id)}
+              title="Remove profile"
+              className="p-1.5 rounded-lg hover:bg-red-50 transition-colors shrink-0"
+            >
+              <Trash2 size={13} style={{ color: C.textDim }} />
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function timeAgo(iso: string | null) {
   if (!iso) return "";
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -77,6 +205,7 @@ export default function AdminClient({ clients, pendingApprovals, stats }: Props)
   const tabs = [
     { label: "Clients",           count: clients.length,          color: gold },
     { label: "Pending Approvals", count: pendingApprovals.length, color: "#D97706" },
+    { label: "Users",             count: 0,                       color: C.blue },
   ];
 
   return (
@@ -196,6 +325,9 @@ export default function AdminClient({ clients, pendingApprovals, stats }: Props)
           </div>
         )
       )}
+
+      {/* ═══ Tab 2: Users ═══ */}
+      {tab === 2 && <UsersTab />}
 
       {/* ═══ Tab 1: Pending Approvals ═══ */}
       {tab === 1 && (() => {

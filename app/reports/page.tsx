@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseServer } from "@/lib/supabase-server";
 import { C } from "@/lib/design";
 import {
   TrendingUp, MessageSquare, Target, Zap,
@@ -8,6 +8,7 @@ import {
 const gold = "#C9A83A";
 
 async function getReportData() {
+  const supabase = await getSupabaseServer();
   const [
     { data: allLeads },
     { data: allCampaigns },

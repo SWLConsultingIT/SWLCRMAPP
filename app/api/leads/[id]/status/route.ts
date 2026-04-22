@@ -1,9 +1,10 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseService } from "@/lib/supabase-service";
 import { NextRequest, NextResponse } from "next/server";
 
 const VALID = ["new", "contacted", "qualified", "cold", "closed_lost", "closed_won"];
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const supabase = getSupabaseService();
   const { id } = await params;
   const { status } = await req.json();
   if (!VALID.includes(status)) return NextResponse.json({ error: "Invalid status" }, { status: 400 });

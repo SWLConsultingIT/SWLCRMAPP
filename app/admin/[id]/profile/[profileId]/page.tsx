@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseService } from "@/lib/supabase-service";
 import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -8,6 +8,7 @@ import ExecutionActions from "./ExecutionActions";
 import CopyableId from "@/components/CopyableId";
 
 const gold = "#C9A83A";
+const supabase = getSupabaseService();
 
 const statusStyles: Record<string, { label: string; color: string; bg: string }> = {
   pending:  { label: "Pending Review", color: "#D97706", bg: "#FFFBEB" },

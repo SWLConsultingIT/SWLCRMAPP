@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseServer } from "@/lib/supabase-server";
 import { notFound } from "next/navigation";
 import { C } from "@/lib/design";
 import Link from "next/link";
@@ -45,6 +45,7 @@ function scoreBadge(score: number | null, priority: boolean) {
 }
 
 async function getOpportunityData(id: string) {
+  const supabase = await getSupabaseServer();
   // Try as campaign ID first, then as lead ID
   let pivotName: string | null = null;
   let campaignId = id;

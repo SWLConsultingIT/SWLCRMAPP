@@ -6,10 +6,11 @@
 //   created_at timestamptz default now()
 // );
 
-import { supabase } from "@/lib/supabase";
+import { getSupabaseService } from "@/lib/supabase-service";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const supabase = getSupabaseService();
   const { id } = await params;
   const { content } = await req.json();
   if (!content?.trim()) return NextResponse.json({ error: "Content required" }, { status: 400 });
@@ -19,6 +20,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 }
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const supabase = getSupabaseService();
   const { id } = await params;
   const { data, error } = await supabase
     .from("lead_notes")

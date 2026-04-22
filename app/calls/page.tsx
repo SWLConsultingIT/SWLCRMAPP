@@ -1,7 +1,8 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseServer } from "@/lib/supabase-server";
 import CallsClient from "@/components/CallsClient";
 
 async function getCallQueue() {
+  const supabase = await getSupabaseServer();
   const { data } = await supabase
     .from("campaigns")
     .select("id, last_step_at, sequence_steps, current_step, leads(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, n8n_flow), sellers(name)")
@@ -13,6 +14,7 @@ async function getCallQueue() {
 }
 
 async function getCallHistory() {
+  const supabase = await getSupabaseServer();
   const { data } = await supabase
     .from("campaigns")
     .select("id, completed_at, leads(id, primary_first_name, primary_last_name, company_name), sellers(name)")

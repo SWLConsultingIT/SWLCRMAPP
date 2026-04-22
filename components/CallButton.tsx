@@ -4,7 +4,9 @@ import { useState, useEffect } from "react";
 import { Phone, Loader2, CheckCheck, PhoneOff, ChevronDown } from "lucide-react";
 import { C } from "@/lib/design";
 
-const DEFAULT_AIRCALL_USER_ID = 1916199; // Francisco Fontana (fallback caller)
+const DEFAULT_AIRCALL_USER_ID = process.env.NEXT_PUBLIC_AIRCALL_DEFAULT_USER_ID
+  ? Number(process.env.NEXT_PUBLIC_AIRCALL_DEFAULT_USER_ID)
+  : null; // null = let Aircall pick the first available user in the team
 
 type AircallNumber = {
   id: number;

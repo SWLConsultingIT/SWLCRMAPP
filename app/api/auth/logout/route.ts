@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { getSupabaseServer } from "@/lib/supabase-server";
 
 export async function POST() {
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set("crm_auth", "", { path: "/", maxAge: 0 });
-  return res;
+  const supabase = await getSupabaseServer();
+  await supabase.auth.signOut();
+  return NextResponse.json({ ok: true });
 }

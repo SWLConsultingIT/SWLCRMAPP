@@ -1,8 +1,9 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseService } from "@/lib/supabase-service";
 import { NextRequest, NextResponse } from "next/server";
 
 // POST — Create new account (seller)
 export async function POST(req: NextRequest) {
+  const supabase = getSupabaseService();
   const body = await req.json();
   const { name, unipile_account_id, email_account, linkedin_daily_limit, email_daily_limit } = body;
 
@@ -25,6 +26,7 @@ export async function POST(req: NextRequest) {
 
 // DELETE — Deactivate account (soft delete)
 export async function DELETE(req: NextRequest) {
+  const supabase = getSupabaseService();
   const { id } = await req.json();
   if (!id) return NextResponse.json({ error: "ID is required" }, { status: 400 });
 

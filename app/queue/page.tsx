@@ -1,7 +1,8 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseServer } from "@/lib/supabase-server";
 import QueueClient from "./QueueClient";
 
 async function getQueueData() {
+  const supabase = await getSupabaseServer();
   const [
     { data: activeCampaigns },
     { data: recentReplies },

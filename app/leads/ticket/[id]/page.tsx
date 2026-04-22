@@ -1,8 +1,9 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseServer } from "@/lib/supabase-server";
 import { notFound } from "next/navigation";
 import TicketDetailClient from "./TicketDetailClient";
 
 async function getProfileData(profileId: string) {
+  const supabase = await getSupabaseServer();
   // Get the ICP profile
   const { data: profile } = await supabase
     .from("icp_profiles")

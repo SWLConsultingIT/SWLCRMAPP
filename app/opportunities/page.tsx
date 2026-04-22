@@ -1,7 +1,8 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseServer } from "@/lib/supabase-server";
 import OpportunitiesClient from "./OpportunitiesClient";
 
 async function getOpportunities() {
+  const supabase = await getSupabaseServer();
   const { data: positiveReplies } = await supabase
     .from("lead_replies")
     .select("lead_id, classification, channel, reply_text, received_at")

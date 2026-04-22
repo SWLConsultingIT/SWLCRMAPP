@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import PageHero from "@/components/PageHero";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
 import Link from "next/link";
 import {
@@ -276,6 +276,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
 
   useEffect(() => {
     async function fetchLeads() {
+      const supabase = getSupabaseBrowser();
       const { data: profileLeads } = await supabase
         .from("leads")
         .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, status, lead_score")
@@ -501,6 +502,7 @@ export default function LeadGenPage() {
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
 
   async function loadProfiles() {
+    const supabase = getSupabaseBrowser();
     const { data } = await supabase
       .from("icp_profiles")
       .select("*")
@@ -512,6 +514,7 @@ export default function LeadGenPage() {
   useEffect(() => { loadProfiles(); }, []);
 
   async function handleCreate(form: typeof emptyForm) {
+    const supabase = getSupabaseBrowser();
     const { data: bio } = await supabase
       .from("company_bios").select("id").order("created_at", { ascending: false }).limit(1).maybeSingle();
 
@@ -531,6 +534,7 @@ export default function LeadGenPage() {
   }
 
   async function handleUpdate(id: string, form: typeof emptyForm) {
+    const supabase = getSupabaseBrowser();
     const { error } = await supabase.from("icp_profiles").update(form).eq("id", id);
     if (error) throw error;
     setEditingId(null);
@@ -540,6 +544,7 @@ export default function LeadGenPage() {
   }
 
   async function handleDelete(id: string) {
+    const supabase = getSupabaseBrowser();
     await supabase.from("icp_profiles").delete().eq("id", id);
     setSelectedId(null);
     await loadProfiles();

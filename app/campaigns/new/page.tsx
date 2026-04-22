@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseServer } from "@/lib/supabase-server";
 import { C } from "@/lib/design";
 import Link from "next/link";
 
@@ -9,6 +9,7 @@ import NewFlowClient from "./NewFlowClient";
 const gold = "#C9A83A";
 
 async function getIcpProfiles() {
+  const supabase = await getSupabaseServer();
   const { data: profiles } = await supabase
     .from("icp_profiles")
     .select("id, profile_name, target_industries, target_roles, geography, status")
@@ -46,6 +47,7 @@ async function getIcpProfiles() {
 }
 
 async function getLeadsWithoutCampaign() {
+  const supabase = await getSupabaseServer();
   const { data: campaignLeadIds } = await supabase
     .from("campaigns").select("lead_id").in("status", ["active", "paused", "completed"]);
   const excludedLids = new Set((campaignLeadIds ?? []).map(c => c.lead_id).filter(Boolean));
@@ -60,6 +62,7 @@ async function getLeadsWithoutCampaign() {
 }
 
 export default async function NewFlowPage() {
+  const supabase = await getSupabaseServer();
   const [profiles, leads, { count: totalLeads }] = await Promise.all([
     getIcpProfiles(),
     getLeadsWithoutCampaign(),

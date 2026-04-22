@@ -158,7 +158,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews }
             <div className="space-y-3">
               {filteredCalls.map(call => {
                 return (
-                  <div key={call.id} className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: call.isOverdue ? C.red + "50" : C.border }}>
+                  <div key={call.id} className="rounded-xl border" style={{ backgroundColor: C.card, borderColor: call.isOverdue ? C.red + "50" : C.border }}>
                     <div className="flex items-center gap-4 px-5 py-4">
                       {/* Avatar */}
                       <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
@@ -202,7 +202,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews }
                     </div>
 
                     {/* Footer bar */}
-                    <div className="border-t px-5 py-3 flex items-center gap-4"
+                    <div className="border-t px-5 py-3 flex items-center gap-4 rounded-b-xl"
                       style={{ borderColor: C.border, backgroundColor: C.bg }}>
                       <Link href={call.leadId ? `/leads/${call.leadId}` : "#"}
                         className="text-[10px] font-medium hover:underline flex items-center gap-1" style={{ color: gold }}>

@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseServer } from "@/lib/supabase-server";
 import { notFound } from "next/navigation";
 import { C } from "@/lib/design";
 import Link from "next/link";
@@ -69,6 +69,7 @@ Respond ONLY with valid JSON (no markdown): {"analysis":"2-3 sentence analysis",
 }
 
 async function getLostLeadData(leadId: string) {
+  const supabase = await getSupabaseServer();
   const { data: lead } = await supabase
     .from("leads")
     .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at")

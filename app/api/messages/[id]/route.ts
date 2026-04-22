@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseService } from "@/lib/supabase-service";
 import { NextResponse } from "next/server";
 
 export async function PATCH(
@@ -12,6 +12,7 @@ export async function PATCH(
     return NextResponse.json({ error: "Content is required" }, { status: 400 });
   }
 
+  const supabase = getSupabaseService();
   // Only allow editing pending messages (not sent ones)
   const { data: msg } = await supabase
     .from("campaign_messages")

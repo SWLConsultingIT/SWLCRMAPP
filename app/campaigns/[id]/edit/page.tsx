@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
 import Link from "next/link";
 import {
@@ -91,6 +91,7 @@ export default function FlowEditorPage() {
 
   useEffect(() => {
     async function load() {
+  const supabase = getSupabaseBrowser();
       const [{ data: campaign }, { data: sellersList }, { data: emails }, { data: msgs }] = await Promise.all([
         supabase.from("campaigns").select("*, leads(allow_linkedin, allow_email, allow_call, allow_whatsapp), sellers(id, name, email_account, linkedin_account_id, whatsapp_account)").eq("id", campaignId).single(),
         supabase.from("sellers").select("id, name, email_account, linkedin_account_id, whatsapp_account").eq("active", true).order("name"),
@@ -215,6 +216,7 @@ export default function FlowEditorPage() {
   }
 
   async function handleSave() {
+  const supabase = getSupabaseBrowser();
     setSaving(true);
     setError(null);
 

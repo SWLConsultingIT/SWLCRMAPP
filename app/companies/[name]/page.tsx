@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseServer } from "@/lib/supabase-server";
 import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -19,6 +19,7 @@ const goldGlow = "rgba(201,168,58,0.15)";
 // ── Data fetchers ──
 
 async function getCompanyContacts(companyName: string) {
+  const supabase = await getSupabaseServer();
   const { data } = await supabase
     .from("leads")
     .select("id, primary_first_name, primary_last_name, primary_title_role, primary_seniority, status, lead_score, is_priority, allow_linkedin, allow_email, allow_call, primary_work_email, primary_phone, primary_linkedin_url, current_channel")
@@ -28,6 +29,7 @@ async function getCompanyContacts(companyName: string) {
 }
 
 async function getCompanyLead(companyName: string) {
+  const supabase = await getSupabaseServer();
   // Get full data from first/best lead for company-level fields
   const { data } = await supabase
     .from("leads")
@@ -40,6 +42,7 @@ async function getCompanyLead(companyName: string) {
 }
 
 async function getCampaignStats(leadIds: string[]) {
+  const supabase = await getSupabaseServer();
   if (!leadIds.length) return { campaigns: 0, messages: 0, replies: 0 };
   const [{ count: campaigns }, { count: messages }, { count: replies }] = await Promise.all([
     supabase.from("campaigns").select("*", { count: "exact", head: true }).in("lead_id", leadIds),
@@ -81,6 +84,7 @@ function scoreBadge(score: number | null, priority: boolean) {
 // ── Page ──
 
 export default async function CompanyDetailPage({ params }: { params: Promise<{ name: string }> }) {
+  const supabase = await getSupabaseServer();
   const { name } = await params;
   const companyName = decodeURIComponent(name);
 

@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseServer } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 import { C } from "@/lib/design";
@@ -28,6 +28,7 @@ const statusMeta: Record<string, { label: string; color: string; bg: string; ico
 };
 
 async function getData(id: string) {
+  const supabase = await getSupabaseServer();
   const { data: campaign } = await supabase
     .from("campaigns")
     .select("*, leads(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, lead_score, is_priority, icp_profile_id), sellers(name)")

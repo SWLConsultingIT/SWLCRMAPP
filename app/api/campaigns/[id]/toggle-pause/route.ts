@@ -1,7 +1,8 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseService } from "@/lib/supabase-service";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const supabase = getSupabaseService();
   const { id } = await params;
   const { data: campaign } = await supabase.from("campaigns").select("status").eq("id", id).single();
   if (!campaign) return NextResponse.json({ error: "Not found" }, { status: 404 });

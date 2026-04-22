@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
 import {
   ArrowLeft, ArrowRight, Check, Share2, Mail, Phone,
@@ -141,6 +141,7 @@ export default function NewLeadCampaignWizard() {
 
   useEffect(() => {
     async function load() {
+  const supabase = getSupabaseBrowser();
       const { data: leadData } = await supabase
         .from("leads")
         .select("*")
@@ -192,6 +193,7 @@ export default function NewLeadCampaignWizard() {
 
   // Submit
   async function handleSubmit() {
+  const supabase = getSupabaseBrowser();
     setSubmitting(true);
     setSubmitError(null);
     const uniqueChannels = [...new Set(sequence.map(s => s.channel))];

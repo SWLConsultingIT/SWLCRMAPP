@@ -1,22 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-
-const PASSWORD = "SWL2025";
-
-const USERS = ["Admin", "Francisco Fontana", "Sales Team"];
+import { getSupabaseServer } from "@/lib/supabase-server";
 
 export async function POST(req: NextRequest) {
-  const { user, password } = await req.json();
+  const { email, password } = await req.json();
 
-  if (!USERS.includes(user) || password !== PASSWORD) {
+  if (!email || !password) {
+    return NextResponse.json({ error: "Email and password required" }, { status: 400 });
+  }
+
+  const supabase = await getSupabaseServer();
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error || !data.user) {
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
 
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set("crm_auth", user, {
-    httpOnly: true,
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7, // 7 days
-    sameSite: "lax",
+  return NextResponse.json({
+    ok: true,
+    user: {
+      id: data.user.id,
+      email: data.user.email,
+      displayName: data.user.user_metadata?.display_name ?? data.user.email,
+      role: data.user.user_metadata?.role ?? "user",
+    },
   });
-  return res;
 }

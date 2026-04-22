@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseService } from "@/lib/supabase-service";
 import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -9,6 +9,7 @@ import {
 import AdminActions from "../../AdminActions";
 
 const gold = "#C9A83A";
+const supabase = getSupabaseService();
 
 const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {
   linkedin: { icon: Share2, color: C.linkedin, label: "LinkedIn" },

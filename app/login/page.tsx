@@ -1,39 +1,42 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, ChevronRight } from "lucide-react";
+import { Eye, EyeOff, ChevronRight, Mail } from "lucide-react";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 
-const USERS = [
-  { id: "admin",     label: "Admin",            initials: "AD", color: "#b79832" },
-  { id: "francisco", label: "Francisco Fontana", initials: "FF", color: "#1A7F74" },
-  { id: "sales",     label: "Sales Team",        initials: "ST", color: "#2563EB" },
-];
+const REMEMBER_KEY = "crm_last_email";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [user, setUser]       = useState("Admin");
+  const [email, setEmail]     = useState("");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw]   = useState(false);
+  const [remember, setRemember] = useState(true);
   const [error, setError]     = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Restore last email on mount
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem(REMEMBER_KEY) : null;
+    if (saved) setEmail(saved);
+  }, []);
 
   async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user, password }),
-      });
-      if (!res.ok) {
-        setError("Incorrect password. Try again.");
-      } else {
-        router.push("/");
-        router.refresh();
+      const supabase = getSupabaseBrowser();
+      const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      if (authError) {
+        setError("Incorrect credentials. Try again.");
+        return;
       }
+      if (remember) localStorage.setItem(REMEMBER_KEY, email);
+      else localStorage.removeItem(REMEMBER_KEY);
+      router.push("/");
+      router.refresh();
     } catch {
       setError("Connection error. Try again.");
     } finally {
@@ -77,7 +80,7 @@ export default function LoginPage() {
           </div>
 
           {/* Hero text */}
-          <div className="flex-1 flex flex-col justify-center max-w-md">
+          <div className="flex-1 flex flex-col justify-center max-w-2xl">
             <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full border w-fit"
               style={{ borderColor: "rgba(183,152,50,0.3)", backgroundColor: "rgba(183,152,50,0.07)" }}>
               <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#b79832" }} />
@@ -86,25 +89,24 @@ export default function LoginPage() {
               </span>
             </div>
 
-            <h1 className="text-5xl font-bold leading-tight mb-6" style={{
+            <h1 className="text-6xl font-bold leading-[1.1] mb-6" style={{
               color: "#f8fafc",
               fontFamily: "var(--font-outfit)",
               letterSpacing: "-0.02em",
             }}>
-              Negocios<br />
-              más grandes.<br />
-              <span style={{ color: "#b79832" }}>Equipos más<br />fuertes.</span>
+              Bigger deals.{" "}
+              <span style={{ color: "#b79832" }}>Stronger teams.</span>
             </h1>
 
-            <p className="text-base leading-relaxed mb-10" style={{ color: "#d9dee2", opacity: 0.7 }}>
-              Ideas creadas por personas.<br />Sistemas potenciados por IA.
+            <p className="text-lg leading-relaxed mb-10" style={{ color: "#d9dee2", opacity: 0.7 }}>
+              Human ideas. AI-powered systems.
             </p>
 
             {/* Stats */}
             <div className="flex items-center gap-8">
               {[
-                { value: "360°", label: "Consultoría integral" },
-                { value: "AI", label: "Automatización" },
+                { value: "360°", label: "Full consulting" },
+                { value: "AI", label: "Automation" },
                 { value: "SWL", label: "Consulting" },
               ].map(s => (
                 <div key={s.label}>
@@ -117,7 +119,7 @@ export default function LoginPage() {
 
           {/* Footer */}
           <div className="flex items-center gap-1 text-xs" style={{ color: "rgba(217,222,226,0.3)" }}>
-            <span>© 2025 SWL Consulting</span>
+            <span>© 2026 SWL Consulting</span>
             <span className="mx-1">·</span>
             <span>swlconsulting.com</span>
           </div>
@@ -137,7 +139,7 @@ export default function LoginPage() {
           background: "radial-gradient(circle, rgba(183,152,50,0.04) 0%, transparent 70%)",
         }} />
 
-        <div className="w-full max-w-sm relative z-10">
+        <div className="w-full max-w-md relative z-10">
 
           {/* Mobile logo */}
           <div className="flex lg:hidden justify-center mb-8">
@@ -156,60 +158,50 @@ export default function LoginPage() {
               fontFamily: "var(--font-outfit)",
               letterSpacing: "-0.01em",
             }}>
-              Bienvenido de vuelta
+              Welcome back
             </h2>
             <p className="text-sm" style={{ color: "rgba(217,222,226,0.5)" }}>
-              Ingresá a tu panel de GrowthAI
+              Sign in to your GrowthAI dashboard
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
 
-            {/* User selector */}
+            {/* Email */}
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-widest mb-3" style={{ color: "rgba(217,222,226,0.4)" }}>
-                Usuario
+              <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>
+                Email
               </p>
-              <div className="space-y-2">
-                {USERS.map((u) => {
-                  const isActive = user === u.label;
-                  return (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onClick={() => setUser(u.label)}
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left"
-                      style={{
-                        backgroundColor: isActive ? "rgba(183,152,50,0.08)" : "rgba(255,255,255,0.03)",
-                        border: `1px solid ${isActive ? "rgba(183,152,50,0.4)" : "rgba(255,255,255,0.07)"}`,
-                      }}
-                    >
-                      {/* Avatar */}
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center text-[11px] font-bold shrink-0 transition-all"
-                        style={{
-                          backgroundColor: isActive ? u.color : "rgba(255,255,255,0.06)",
-                          color: isActive ? "#04070d" : "rgba(217,222,226,0.5)",
-                        }}>
-                        {u.initials}
-                      </div>
-                      <span className="text-sm font-medium transition-colors" style={{
-                        color: isActive ? "#f8fafc" : "rgba(217,222,226,0.5)",
-                      }}>
-                        {u.label}
-                      </span>
-                      {isActive && (
-                        <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#b79832" }} />
-                      )}
-                    </button>
-                  );
-                })}
+              <div className="relative">
+                <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(217,222,226,0.3)" }} />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="you@company.com"
+                  autoComplete="email"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-all"
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    color: "#f8fafc",
+                  }}
+                  onFocus={e => {
+                    e.currentTarget.style.borderColor = "rgba(183,152,50,0.5)";
+                    e.currentTarget.style.backgroundColor = "rgba(183,152,50,0.04)";
+                  }}
+                  onBlur={e => {
+                    e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+                    e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)";
+                  }}
+                />
               </div>
             </div>
 
             {/* Password */}
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>
-                Contraseña
+                Password
               </p>
               <div className="relative">
                 <input
@@ -256,32 +248,41 @@ export default function LoginPage() {
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading || !password}
+              disabled={loading || !password || !email}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
               style={{
                 backgroundColor: "#b79832",
                 color: "#04070d",
               }}
-              onMouseEnter={e => !loading && password && (e.currentTarget.style.backgroundColor = "#c9aa38")}
+              onMouseEnter={e => !loading && password && email && (e.currentTarget.style.backgroundColor = "#c9aa38")}
               onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#b79832")}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
                   <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                  Ingresando…
+                  Signing in…
                 </span>
               ) : (
                 <>
-                  Ingresar
+                  Sign in
                   <ChevronRight size={15} />
                 </>
               )}
             </button>
           </form>
 
-          {/* Bottom */}
+          {/* Bottom links */}
+          <div className="flex items-center justify-between text-xs mt-6" style={{ color: "rgba(217,222,226,0.4)" }}>
+            <a href="/forgot-password" className="hover:underline" style={{ color: "rgba(217,222,226,0.5)" }}>
+              Forgot password
+            </a>
+            <a href="/signup" className="hover:underline font-semibold" style={{ color: "#b79832" }}>
+              Create account →
+            </a>
+          </div>
+
           <p className="text-center text-xs mt-8" style={{ color: "rgba(217,222,226,0.2)" }}>
-            Plataforma interna · SWL Consulting
+            Internal platform · SWL Consulting
           </p>
         </div>
       </div>

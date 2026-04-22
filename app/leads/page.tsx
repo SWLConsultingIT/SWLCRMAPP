@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseServer } from "@/lib/supabase-server";
 import { C } from "@/lib/design";
 import { Users } from "lucide-react";
 import LeadsCampaignsClient from "@/components/LeadsCampaignsClient";
@@ -6,6 +6,7 @@ import PageHero from "@/components/PageHero";
 
 
 async function getData() {
+  const supabase = await getSupabaseServer();
   const { data: profiles } = await supabase
     .from("icp_profiles")
     .select("id, profile_name, target_industries, target_roles, status")

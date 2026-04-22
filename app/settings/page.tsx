@@ -1,7 +1,6 @@
-import { C } from "@/lib/design";
-import { Phone, Settings } from "lucide-react";
+import { Settings } from "lucide-react";
 import PageHero from "@/components/PageHero";
-import CallClassificationToggle from "@/components/CallClassificationToggle";
+import SettingsLayout from "./SettingsLayout";
 
 async function getSettings() {
   const key = process.env.SUPABASE_SERVICE_KEY!;
@@ -26,48 +25,11 @@ export default async function SettingsPage() {
         icon={Settings}
         section="Operations"
         title="Settings"
-        description="Configure how the CRM handles calls, replies, and automation."
+        description="Configure your account, preferences, integrations and automation rules."
         accentColor="#64748B"
       />
 
-      {/* Section: Calls */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-3 px-1">
-          <Phone size={14} style={{ color: "#F97316" }} />
-          <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: C.textMuted }}>
-            Calls
-          </h2>
-        </div>
-
-        <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <div className="mb-4">
-            <h3 className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>
-              Call outcome classification
-            </h3>
-            <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
-              After each call ends, choose how the outcome (Positive / Negative / Follow-up) is decided.
-              Manual mode requires a salesperson to click the outcome button. Automatic mode uses AI to
-              analyze the call transcript (requires Aircall&apos;s transcription add-on).
-            </p>
-          </div>
-
-          <CallClassificationToggle initialValue={callMode} />
-        </div>
-      </div>
-
-      {/* Placeholder for future sections */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-3 px-1">
-          <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: C.textMuted }}>
-            More settings coming soon
-          </h2>
-        </div>
-        <div className="rounded-xl border p-6 text-center" style={{ backgroundColor: C.bg, borderColor: C.border }}>
-          <p className="text-xs" style={{ color: C.textDim }}>
-            Reply automation, working hours, signatures — all coming here.
-          </p>
-        </div>
-      </div>
+      <SettingsLayout callMode={callMode} />
     </div>
   );
 }

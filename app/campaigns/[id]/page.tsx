@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { getSupabaseServer } from "@/lib/supabase-server";
 import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -25,6 +25,7 @@ const statusMeta: Record<string, { label: string; color: string; bg: string; ico
 };
 
 async function getCampaign(id: string) {
+  const supabase = await getSupabaseServer();
   const { data } = await supabase
     .from("campaigns")
     .select("*, leads(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, company_industry, icp_profile_id), sellers(name)")
@@ -34,6 +35,7 @@ async function getCampaign(id: string) {
 }
 
 async function getMessages(campaignId: string) {
+  const supabase = await getSupabaseServer();
   const { data } = await supabase
     .from("campaign_messages")
     .select("*")
@@ -43,6 +45,7 @@ async function getMessages(campaignId: string) {
 }
 
 async function getSiblingCampaigns(campaignName: string, excludeId: string) {
+  const supabase = await getSupabaseServer();
   const { data } = await supabase
     .from("campaigns")
     .select("id, status, current_step, sequence_steps, channel, last_step_at, seller_id, leads(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_phone, lead_score, is_priority), sellers(name)")
@@ -54,6 +57,7 @@ async function getSiblingCampaigns(campaignName: string, excludeId: string) {
 }
 
 async function getUnlinkedLeadsByProfile() {
+  const supabase = await getSupabaseServer();
   const { data: activeCampLeadIds } = await supabase
     .from("campaigns").select("lead_id").in("status", ["active", "paused"]);
   const activeSet = new Set((activeCampLeadIds ?? []).map(c => c.lead_id).filter(Boolean));
@@ -79,6 +83,7 @@ async function getUnlinkedLeadsByProfile() {
 }
 
 export default async function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const supabase = await getSupabaseServer();
   const { id } = await params;
   const campaign = await getCampaign(id);
   if (!campaign) notFound();
