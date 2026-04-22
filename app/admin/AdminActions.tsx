@@ -2,22 +2,21 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 
 export default function AdminActions({ id, table }: { id: string; table: "icp_profiles" | "campaign_requests" }) {
   const router = useRouter();
   const [acting, setActing] = useState<string | null>(null);
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<{ msg: string; ok: boolean } | null>(null);
 
   async function handleAction(action: "approved" | "rejected") {
     setActing(action);
     setResult(null);
 
-    if (table === "campaign_requests" && action === "approved") {
-      // Call the approve API to create campaigns + messages
-      try {
+    try {
+      if (table === "campaign_requests" && action === "approved") {
+        // Campaign approval creates campaigns + messages via dedicated endpoint
         const res = await fetch("/api/campaigns/approve", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -25,16 +24,26 @@ export default function AdminActions({ id, table }: { id: string; table: "icp_pr
         });
         const data = await res.json();
         if (res.ok) {
-          setResult(`${data.campaignsCreated} campaign${data.campaignsCreated !== 1 ? "s" : ""} created`);
+          setResult({ msg: `${data.campaignsCreated} campaign${data.campaignsCreated !== 1 ? "s" : ""} created`, ok: true });
         } else {
-          setResult(data.error ?? "Failed to approve");
+          setResult({ msg: data.error ?? "Failed to approve", ok: false });
         }
-      } catch {
-        setResult("Network error");
+      } else {
+        // Generic status update for ICP (approve/reject) and campaign (reject)
+        const res = await fetch("/api/admin/reject", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, table, status: action }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setResult({ msg: action === "approved" ? "Approved" : "Rejected", ok: true });
+        } else {
+          setResult({ msg: data.error ?? "Failed", ok: false });
+        }
       }
-    } else {
-      // Simple status update (ICP profiles or campaign rejection)
-      await supabase.from(table).update({ status: action }).eq("id", id);
+    } catch {
+      setResult({ msg: "Network error", ok: false });
     }
 
     router.refresh();
@@ -44,8 +53,11 @@ export default function AdminActions({ id, table }: { id: string; table: "icp_pr
   return (
     <div className="flex items-center gap-2">
       {result && (
-        <span className="text-xs font-medium px-2 py-1 rounded-md" style={{ backgroundColor: C.greenLight, color: C.green }}>
-          {result}
+        <span className="text-xs font-medium px-2 py-1 rounded-md" style={{
+          backgroundColor: result.ok ? C.greenLight : C.redLight,
+          color: result.ok ? C.green : C.red,
+        }}>
+          {result.msg}
         </span>
       )}
       <button onClick={() => handleAction("approved")} disabled={!!acting}

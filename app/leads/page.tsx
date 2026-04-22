@@ -1,4 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { getUserScope } from "@/lib/scope";
 import { C } from "@/lib/design";
 import { Users } from "lucide-react";
 import LeadsCampaignsClient from "@/components/LeadsCampaignsClient";
@@ -7,28 +8,33 @@ import PageHero from "@/components/PageHero";
 
 async function getData() {
   const supabase = await getSupabaseServer();
-  const { data: profiles } = await supabase
+  const scope = await getUserScope();
+  const bioId = scope.isScoped ? scope.companyBioId! : null;
+
+  const profilesQ = supabase
     .from("icp_profiles")
     .select("id, profile_name, target_industries, target_roles, status")
     .eq("status", "approved")
     .order("created_at", { ascending: false });
+  const { data: profiles } = await (bioId ? profilesQ.eq("company_bio_id", bioId) : profilesQ);
 
   const icpMap: Record<string, { id: string; profile_name: string; target_industries?: string[]; target_roles?: string[] }> = {};
   for (const p of profiles ?? []) icpMap[p.id] = p;
 
-  const { data: allLeads } = await supabase
+  const leadsQ = supabase
     .from("leads")
     .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at")
     .order("created_at", { ascending: false });
+  const { data: allLeads } = await (bioId ? leadsQ.eq("company_bio_id", bioId) : leadsQ);
 
-  const { data: campaigns } = await supabase
+  const leadIds = (allLeads ?? []).map(l => l.id);
+  const campaignsQ = supabase
     .from("campaigns")
     .select("id, name, status, channel, current_step, sequence_steps, last_step_at, created_at, lead_id, sellers(name)")
     .in("status", ["active", "paused", "completed", "failed"])
     .order("created_at", { ascending: false })
     .limit(500);
-
-  const leadIds = (allLeads ?? []).map(l => l.id);
+  const { data: campaigns } = await (bioId && leadIds.length > 0 ? campaignsQ.in("lead_id", leadIds) : (bioId ? Promise.resolve({ data: [] as any[] }) : campaignsQ));
   const { data: replies } = leadIds.length > 0
     ? await supabase.from("lead_replies").select("lead_id, classification, received_at, channel, reply_text").in("lead_id", leadIds).order("received_at", { ascending: false })
     : { data: [] };

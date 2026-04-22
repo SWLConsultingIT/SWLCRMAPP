@@ -5,23 +5,25 @@ import { useEffect, useState } from "react";
 import { Bell, HelpCircle, Search, ChevronRight, LogOut } from "lucide-react";
 import Link from "next/link";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
-const ROUTES: Record<string, string> = {
-  "/":              "Dashboard",
-  "/company-bios":  "Company Bio",
-  "/icp":           "Lead Miner™",
-  "/campaigns":     "Outreach Flow™",
-  "/leads":         "Leads & Campaigns",
-  "/accounts":      "Accounts & Usage",
-  "/opportunities": "Opportunities",
-  "/queue":         "Queue",
-  "/admin":         "Admin",
+const ROUTE_KEYS: Record<string, { key: string; brand?: string }> = {
+  "/":              { key: "nav.dashboard" },
+  "/company-bios":  { key: "nav.companyBio" },
+  "/icp":           { key: "", brand: "Lead Miner™" },
+  "/campaigns":     { key: "", brand: "Outreach Flow™" },
+  "/leads":         { key: "nav.leads" },
+  "/accounts":      { key: "nav.accounts" },
+  "/opportunities": { key: "nav.opportunities" },
+  "/queue":         { key: "nav.queue" },
+  "/admin":         { key: "nav.admin" },
 };
 
-function getPageName(pathname: string): string {
-  if (pathname === "/") return "Dashboard";
-  for (const [key, name] of Object.entries(ROUTES)) {
-    if (key !== "/" && pathname.startsWith(key)) return name;
+function usePageName(pathname: string): string {
+  const { t } = useLocale();
+  if (pathname === "/") return t("nav.dashboard");
+  for (const [path, entry] of Object.entries(ROUTE_KEYS)) {
+    if (path !== "/" && pathname.startsWith(path)) return entry.brand ?? t(entry.key);
   }
   return "";
 }
@@ -57,7 +59,8 @@ type AuthUser = {
 export default function TopHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const pageName = getPageName(pathname);
+  const pageName = usePageName(pathname);
+  const { t } = useLocale();
   const [user, setUser] = useState<AuthUser | null>(null);
 
   useEffect(() => {
@@ -81,7 +84,7 @@ export default function TopHeader() {
     <header
       className="flex items-center px-6 h-14 border-b shrink-0 z-10"
       style={{
-        backgroundColor: "#FFFFFF",
+        backgroundColor: C.card,
         borderColor: C.border,
         boxShadow: "0 1px 0 rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.03)",
       }}
@@ -109,7 +112,7 @@ export default function TopHeader() {
           }}
         >
           <Search size={13} style={{ color: C.textDim }} />
-          <span className="flex-1 text-left">Ask anything...</span>
+          <span className="flex-1 text-left">{t("header.search")}</span>
           <kbd
             className="text-[10px] font-bold px-1.5 py-0.5 rounded"
             style={{ backgroundColor: C.border2, color: C.textDim }}
@@ -125,7 +128,7 @@ export default function TopHeader() {
           href="/queue"
           className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
           style={{ color: C.textMuted }}
-          title="Queue"
+          title={t("nav.queue")}
         >
           <Bell size={16} />
         </Link>
@@ -140,7 +143,7 @@ export default function TopHeader() {
           onClick={handleLogout}
           className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
           style={{ color: C.textMuted }}
-          title="Sign out"
+          title={t("header.signOut")}
         >
           <LogOut size={16} />
         </button>

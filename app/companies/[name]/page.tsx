@@ -319,7 +319,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
                 )}
 
                 {lead.company_mission && (
-                  <div className="rounded-lg border p-3 mb-4" style={{ borderColor: C.border, backgroundColor: "#F9FAFB" }}>
+                  <div className="rounded-lg border p-3 mb-4" style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
                     <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Our Mission</p>
                     <p className="text-sm italic" style={{ color: C.textBody }}>"{lead.company_mission}"</p>
                   </div>
@@ -423,7 +423,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
                     ) : (
                       <div key={label}
                         className="flex items-center gap-3 px-3 py-3 rounded-lg border"
-                        style={{ borderColor: "#E5E7EB", backgroundColor: "#F9FAFB" }}>
+                        style={{ borderColor: "#E5E7EB", backgroundColor: C.cardHov }}>
                         <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 grayscale opacity-30" style={{ backgroundColor: "white" }}>
                           {icon}
                         </div>
@@ -479,7 +479,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
                 )}
 
                 {lead.industry_trends && (
-                  <div className="rounded-lg p-3 mb-3" style={{ backgroundColor: "#F9FAFB" }}>
+                  <div className="rounded-lg p-3 mb-3" style={{ backgroundColor: C.cardHov }}>
                     <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>{lead.industry_trends}</p>
                   </div>
                 )}

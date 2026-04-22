@@ -1,4 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseService } from "@/lib/supabase-service";
 import { C } from "@/lib/design";
 import { UserCircle } from "lucide-react";
 import AccountsClient from "./AccountsClient";
@@ -93,18 +94,81 @@ async function getAircallUsage() {
 
 async function getData() {
   const supabase = await getSupabaseServer();
+
+  // Resolve current user's scope
+  const { data: { user } } = await supabase.auth.getUser();
+  let userRole: string | null = null;
+  let userCompanyBioId: string | null = null;
+  let allowedEmails: string[] | null = null;
+  let allowedAircallIds: number[] | null = null;
+
+  if (user) {
+    const svc = getSupabaseService();
+    const { data: profile } = await svc
+      .from("user_profiles")
+      .select("role, company_bio_id")
+      .eq("user_id", user.id)
+      .single();
+    userRole = profile?.role ?? null;
+    userCompanyBioId = profile?.company_bio_id ?? null;
+
+    if (userRole !== "admin" && userCompanyBioId) {
+      const { data: bio } = await svc
+        .from("company_bios")
+        .select("email_accounts, aircall_number_ids")
+        .eq("id", userCompanyBioId)
+        .single();
+      allowedEmails = (bio?.email_accounts as string[] | null) ?? [];
+      allowedAircallIds = (bio?.aircall_number_ids as number[] | null) ?? [];
+    }
+  }
+
+  // Sellers: admin sees all, client only sees sellers of their company
+  let sellersQuery = supabase.from("sellers")
+    .select("id, name, unipile_account_id, linkedin_daily_limit, active, company_bio_id")
+    .eq("active", true)
+    .order("name");
+  if (userRole !== "admin" && userCompanyBioId) {
+    sellersQuery = sellersQuery.eq("company_bio_id", userCompanyBioId);
+  }
+
   const [
     { data: sellers },
     instantly,
     aircall,
   ] = await Promise.all([
-    supabase.from("sellers")
-      .select("id, name, unipile_account_id, linkedin_daily_limit, active")
-      .eq("active", true)
-      .order("name"),
+    sellersQuery,
     getInstantlyPool(),
     getAircallUsage(),
   ]);
+
+  // Filter Instantly accounts + aircall by allowed lists (admin bypasses)
+  const filteredInstantly = instantly && allowedEmails !== null
+    ? (() => {
+        const allowSet = new Set(allowedEmails.map(e => e.toLowerCase()));
+        const filtered = instantly.accounts.filter((a: any) => allowSet.has(String(a.email).toLowerCase()));
+        const readyCount = filtered.filter((a: any) => !a.setupPending).length;
+        return {
+          accounts: filtered,
+          total: filtered.length,
+          ready: readyCount,
+          warmupPending: filtered.length - readyCount,
+          totalDailyLimit: filtered.reduce((s: number, a: any) => s + a.dailyLimit, 0),
+        };
+      })()
+    : instantly;
+
+  const filteredAircall = aircall && allowedAircallIds !== null
+    ? (() => {
+        const allowSet = new Set(allowedAircallIds.map(Number));
+        const filtered = aircall.numbers.filter((n: any) => allowSet.has(Number(n.id)));
+        return {
+          numbers: filtered,
+          totalMinutes: filtered.reduce((s: number, n: any) => s + n.minutes, 0),
+          totalCalls: filtered.reduce((s: number, n: any) => s + n.calls, 0),
+        };
+      })()
+    : aircall;
 
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
@@ -179,8 +243,8 @@ async function getData() {
   return {
     sellers: sellerCards,
     history,
-    instantly,
-    aircall,
+    instantly: filteredInstantly,
+    aircall: filteredAircall,
     totals: {
       linkedinSent: totalLinkedinSent,
       linkedinLimit: totalLinkedinLimit,

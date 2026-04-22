@@ -129,6 +129,8 @@ export default function NewCampaignWizard() {
   const [selectedLeadNames, setSelectedLeadNames] = useState<string[]>([]);
   const [sellers, setSellers] = useState<{ id: string; name: string; unipile_account_id: string | null; email_account: string | null; linkedin_daily_limit: number | null; email_daily_limit: number | null }[]>([]);
   const [selectedSeller, setSelectedSeller] = useState<string>("");
+  const [aircallNumbers, setAircallNumbers] = useState<{ id: number; name: string; digits: string; country: string }[]>([]);
+  const [selectedAircallNumberId, setSelectedAircallNumberId] = useState<number | null>(null);
 
   // Sequence builder
   const [sequence, setSequence] = useState<SequenceStep[]>([
@@ -156,6 +158,14 @@ export default function NewCampaignWizard() {
       ]);
       setSellers(sellerList ?? []);
       if (sellerList?.length === 1) setSelectedSeller(sellerList[0].id);
+
+      // Fetch Aircall numbers
+      try {
+        const r = await fetch("/api/aircall/numbers");
+        const d = await r.json();
+        setAircallNumbers(d.numbers ?? []);
+        if (d.numbers?.length === 1) setSelectedAircallNumberId(d.numbers[0].id);
+      } catch {}
 
       // Count leads: either selected or all in profile
       let count = 0;
@@ -220,7 +230,7 @@ export default function NewCampaignWizard() {
       sequence_length: sequence.length,
       frequency_days: 0,
       target_leads_count: leadsCount,
-      message_prompts: { sequence, channelMessages, language, timezone, selectedLeadIds: isPartialSelection ? selectedLeadIds : null, sellerId: selectedSeller || null },
+      message_prompts: { sequence, channelMessages, language, timezone, selectedLeadIds: isPartialSelection ? selectedLeadIds : null, sellerId: selectedSeller || null, aircallNumberId: selectedAircallNumberId },
       status: "pending_review",
     };
     const { error } = await supabase.from("campaign_requests").insert(insertData);
@@ -468,15 +478,24 @@ export default function NewCampaignWizard() {
               {/* Seller selection */}
               <div className="mb-6">
                 <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>Assigned Seller</label>
-                <p className="text-xs mb-3" style={{ color: C.textDim }}>This person will handle follow-ups and conversations for this flow.</p>
+                <p className="text-xs mb-3" style={{ color: C.textDim }}>
+                  {usedChannels.length === 1 && usedChannels[0] === "call"
+                    ? "Any seller can run a call-only flow (Aircall is shared). This person will own the lead."
+                    : usedChannels.length === 1 && usedChannels[0] === "email"
+                    ? "Any seller can run an email-only flow (Instantly pool is shared)."
+                    : "This person will handle follow-ups and conversations for this flow."}
+                </p>
                 <div className="grid grid-cols-3 gap-3">
                   {sellers.map(s => {
                     const isActive = selectedSeller === s.id;
                     const hasLinkedin = !!s.unipile_account_id;
                     const hasEmail = !!s.email_account;
+                    const needsLinkedin = usedChannels.includes("linkedin");
+                    const missingLinkedin = needsLinkedin && !hasLinkedin;
                     return (
-                      <button key={s.id} onClick={() => setSelectedSeller(s.id)}
-                        className="rounded-xl border p-4 text-left transition-all hover:shadow-sm"
+                      <button key={s.id} onClick={() => !missingLinkedin && setSelectedSeller(s.id)}
+                        disabled={missingLinkedin}
+                        className="rounded-xl border p-4 text-left transition-all hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{
                           borderColor: isActive ? gold : C.border,
                           backgroundColor: isActive ? `${gold}06` : "transparent",
@@ -489,10 +508,11 @@ export default function NewCampaignWizard() {
                           </div>
                           <div>
                             <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{s.name}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                               {hasLinkedin && <span className="text-[9px] flex items-center gap-0.5" style={{ color: C.linkedin }}><Share2 size={8} /> LinkedIn</span>}
                               {hasEmail && <span className="text-[9px] flex items-center gap-0.5" style={{ color: C.email }}><Mail size={8} /> Email</span>}
-                              {!hasLinkedin && !hasEmail && <span className="text-[9px]" style={{ color: C.textDim }}>No accounts</span>}
+                              <span className="text-[9px] flex items-center gap-0.5" style={{ color: C.phone }}><Phone size={8} /> Call</span>
+                              {missingLinkedin && <span className="text-[9px] font-bold" style={{ color: C.red }}>· LinkedIn needed</span>}
                             </div>
                           </div>
                         </div>
@@ -527,7 +547,7 @@ export default function NewCampaignWizard() {
                         accountLabel = "Instantly — Shared pool";
                         isConfigured = true;
                       } else if (ch === "call") {
-                        accountLabel = "Manual / Aircall (coming soon)";
+                        accountLabel = "Aircall — shared SWL number";
                         isConfigured = true;
                       }
 
@@ -556,6 +576,44 @@ export default function NewCampaignWizard() {
                       );
                     })}
                   </div>
+
+                  {usedChannels.includes("call") && (
+                    <div className="mt-4">
+                      <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>Aircall Number</label>
+                      <p className="text-xs mb-3" style={{ color: C.textDim }}>Which outbound number will be used for call steps in this sequence.</p>
+                      {aircallNumbers.length === 0 ? (
+                        <div className="rounded-lg border px-4 py-3 text-xs" style={{ backgroundColor: C.redLight, borderColor: `${C.red}30`, color: C.red }}>
+                          No Aircall numbers available for this account.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                          {aircallNumbers.map(n => {
+                            const isSelected = selectedAircallNumberId === n.id;
+                            const flags: Record<string, string> = { DE: "🇩🇪", US: "🇺🇸", AR: "🇦🇷", BR: "🇧🇷", MX: "🇲🇽", ES: "🇪🇸", FR: "🇫🇷", UK: "🇬🇧", GB: "🇬🇧" };
+                            return (
+                              <button
+                                key={n.id}
+                                onClick={() => setSelectedAircallNumberId(n.id)}
+                                className="rounded-xl border p-4 text-left transition-all hover:shadow-sm flex items-center gap-3"
+                                style={{
+                                  borderColor: isSelected ? C.phone : C.border,
+                                  backgroundColor: isSelected ? `${C.phone}08` : "transparent",
+                                  boxShadow: isSelected ? `0 0 0 1px ${C.phone}` : "none",
+                                }}
+                              >
+                                <span className="text-2xl shrink-0">{flags[n.country] ?? "📞"}</span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{n.name || n.country}</p>
+                                  <p className="text-xs tabular-nums" style={{ color: C.textMuted }}>{n.digits}</p>
+                                </div>
+                                {isSelected && <Check size={14} style={{ color: C.phone }} />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {selectedSellerObj && (
                     <div className="mt-4 rounded-lg px-4 py-3 flex items-center gap-3" style={{ backgroundColor: C.bg }}>

@@ -4,10 +4,13 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   User, SlidersHorizontal, Link2, Phone, Shield, LogOut,
-  Mail, Sparkles, CheckCircle2, AlertCircle, Monitor, Moon, Sun,
+  CheckCircle2, Moon, Sun,
 } from "lucide-react";
 import { C } from "@/lib/design";
+import { useTheme } from "@/lib/theme";
+import { useLocale } from "@/lib/i18n";
 import CallClassificationToggle from "@/components/CallClassificationToggle";
+import ChangePasswordModal from "@/components/ChangePasswordModal";
 
 type AuthUser = {
   id: string;
@@ -18,15 +21,17 @@ type AuthUser = {
 
 type SectionId = "profile" | "preferences" | "operations" | "integrations";
 
-const SECTIONS: { id: SectionId; label: string; icon: typeof User; description: string }[] = [
-  { id: "profile",      label: "Profile",      icon: User,              description: "Your personal info and account" },
-  { id: "preferences",  label: "Preferences",  icon: SlidersHorizontal, description: "Language, theme, display" },
-  { id: "operations",   label: "Operations",   icon: Phone,             description: "Call classification and automation" },
-  { id: "integrations", label: "Integrations", icon: Link2,             description: "LinkedIn, email, calls status" },
+type SectionDef = { id: SectionId; labelKey: string; icon: typeof User };
+const SECTIONS: SectionDef[] = [
+  { id: "profile",      labelKey: "settings.profile",      icon: User },
+  { id: "preferences",  labelKey: "settings.preferences",  icon: SlidersHorizontal },
+  { id: "operations",   labelKey: "settings.operations",   icon: Phone },
+  { id: "integrations", labelKey: "settings.integrations", icon: Link2 },
 ];
 
 export default function SettingsLayout({ callMode }: { callMode: "manual" | "auto" }) {
   const router = useRouter();
+  const { t } = useLocale();
   const [active, setActive] = useState<SectionId>("profile");
   const [user, setUser] = useState<AuthUser | null>(null);
 
@@ -54,7 +59,7 @@ export default function SettingsLayout({ callMode }: { callMode: "manual" | "aut
               }}
             >
               <Icon size={14} style={{ color: isActive ? C.gold : C.textMuted }} />
-              <span className="text-sm font-medium">{s.label}</span>
+              <span className="text-sm font-medium">{t(s.labelKey)}</span>
             </button>
           );
         })}
@@ -76,12 +81,14 @@ export default function SettingsLayout({ callMode }: { callMode: "manual" | "aut
 
 // ─── Section: Profile ───────────────────────────────────────────────────────
 function ProfileSection({ user }: { user: AuthUser | null }) {
-  const roleLabel = user?.role === "admin" ? "Administrator" : user?.role === "client" ? "Client" : "User";
+  const { t } = useLocale();
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const roleLabel = user?.role === "admin" ? t("profile.role.admin") : user?.role === "client" ? t("profile.role.client") : t("profile.role.user");
   const roleColor = user?.role === "admin" ? "#7C3AED" : "#0A66C2";
 
   return (
     <div className="space-y-5">
-      <SectionHeader icon={User} title="Profile" description="Your personal info and how others see you" />
+      <SectionHeader icon={User} title={t("profile.title")} description={t("profile.subtitle")} />
 
       {/* Identity card */}
       <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -104,58 +111,56 @@ function ProfileSection({ user }: { user: AuthUser | null }) {
       {/* Security */}
       <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="flex items-center justify-between mb-1">
-          <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Password</h3>
+          <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("profile.password")}</h3>
         </div>
         <p className="text-xs mb-4" style={{ color: C.textMuted }}>
-          We&apos;ll send a secure link to your email to change your password.
+          {t("profile.passwordHelp")}
         </p>
-        <a href="/forgot-password"
+        <button onClick={() => setPasswordOpen(true)}
           className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg border transition-all hover:opacity-80"
           style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
-          <Shield size={12} /> Change password
-        </a>
+          <Shield size={12} /> {t("profile.changePassword")}
+        </button>
       </div>
+
+      <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} userEmail={user?.email ?? ""} />
     </div>
   );
 }
 
 // ─── Section: Preferences ───────────────────────────────────────────────────
 function PreferencesSection() {
-  const [theme, setTheme] = useState<"light" | "dark" | "system">("light");
+  const { theme, setTheme } = useTheme();
+  const { t } = useLocale();
 
   return (
     <div className="space-y-5">
-      <SectionHeader icon={SlidersHorizontal} title="Preferences" description="Language, theme and display options" />
+      <SectionHeader icon={SlidersHorizontal} title={t("prefs.title")} description={t("prefs.subtitle")} />
 
       <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <h3 className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>Theme</h3>
-        <p className="text-xs mb-4" style={{ color: C.textMuted }}>
-          Choose how the app looks. Dark mode is <span className="font-semibold" style={{ color: "#D97706" }}>coming soon</span>.
-        </p>
-        <div className="grid grid-cols-3 gap-3">
+        <h3 className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>{t("prefs.theme")}</h3>
+        <p className="text-xs mb-4" style={{ color: C.textMuted }}>{t("prefs.themeHelp")}</p>
+        <div className="grid grid-cols-2 gap-3">
           {[
-            { id: "light" as const,  label: "Light",  icon: Sun,     disabled: false },
-            { id: "dark" as const,   label: "Dark",   icon: Moon,    disabled: true },
-            { id: "system" as const, label: "System", icon: Monitor, disabled: true },
+            { id: "light" as const, label: t("prefs.theme.light"), icon: Sun },
+            { id: "dark"  as const, label: t("prefs.theme.dark"),  icon: Moon },
           ].map(opt => {
             const isActive = theme === opt.id;
             const Icon = opt.icon;
             return (
               <button
                 key={opt.id}
-                onClick={() => !opt.disabled && setTheme(opt.id)}
-                disabled={opt.disabled}
-                className="rounded-lg p-4 border-2 transition-all hover:scale-[1.01] disabled:opacity-40 disabled:hover:scale-100"
+                onClick={() => setTheme(opt.id)}
+                className="rounded-lg p-4 border-2 transition-all hover:scale-[1.01]"
                 style={{
                   backgroundColor: isActive ? `${C.gold}0D` : C.bg,
                   borderColor: isActive ? C.gold : C.border,
-                  cursor: opt.disabled ? "not-allowed" : "pointer",
+                  cursor: "pointer",
                 }}
               >
                 <Icon size={20} className="mx-auto mb-2" style={{ color: isActive ? C.gold : C.textDim }} />
                 <p className="text-xs font-semibold" style={{ color: isActive ? C.gold : C.textBody }}>
                   {opt.label}
-                  {opt.disabled && <span className="block text-[9px] font-normal mt-0.5" style={{ color: C.textDim }}>Coming soon</span>}
                 </p>
               </button>
             );
@@ -163,13 +168,47 @@ function PreferencesSection() {
         </div>
       </div>
 
-      <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <h3 className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>Language</h3>
-        <p className="text-xs mb-4" style={{ color: C.textMuted }}>Multi-language support is coming soon.</p>
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
-          <span className="text-xs font-semibold" style={{ color: C.textBody }}>English</span>
-          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>Active</span>
-        </div>
+      <LanguageCard />
+    </div>
+  );
+}
+
+function LanguageCard() {
+  const { locale, setLocale, t } = useLocale();
+  const options: { id: "en" | "es"; label: string; flag: string }[] = [
+    { id: "en", label: "English", flag: "🇺🇸" },
+    { id: "es", label: "Español", flag: "🇦🇷" },
+  ];
+  return (
+    <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <h3 className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>{t("prefs.language")}</h3>
+      <p className="text-xs mb-4" style={{ color: C.textMuted }}>{t("prefs.languageHelp")}</p>
+      <div className="grid grid-cols-2 gap-3">
+        {options.map(opt => {
+          const isActive = locale === opt.id;
+          return (
+            <button
+              key={opt.id}
+              onClick={() => setLocale(opt.id)}
+              className="rounded-lg p-4 border-2 transition-all hover:scale-[1.01] flex items-center gap-3"
+              style={{
+                backgroundColor: isActive ? `${C.gold}0D` : C.bg,
+                borderColor: isActive ? C.gold : C.border,
+                cursor: "pointer",
+              }}
+            >
+              <span className="text-xl">{opt.flag}</span>
+              <span className="text-xs font-semibold" style={{ color: isActive ? C.gold : C.textBody }}>
+                {opt.label}
+              </span>
+              {isActive && (
+                <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>
+                  {t("prefs.active")}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -177,35 +216,28 @@ function PreferencesSection() {
 
 // ─── Section: Operations ────────────────────────────────────────────────────
 function OperationsSection({ callMode }: { callMode: "manual" | "auto" }) {
+  const { t } = useLocale();
   return (
     <div className="space-y-5">
-      <SectionHeader icon={Phone} title="Operations" description="How the CRM handles calls and automation" />
+      <SectionHeader icon={Phone} title={t("ops.title")} description={t("ops.subtitle")} />
 
       <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="mb-4">
-          <h3 className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>Call outcome classification</h3>
+          <h3 className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>{t("ops.callClass")}</h3>
           <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
-            After each call ends, choose how the outcome (Positive / Negative / Follow-up) is decided.
-            Manual requires a salesperson to click. Automatic uses AI on the transcript (requires Aircall&apos;s transcription add-on).
+            {t("ops.callClassHelp")}
           </p>
         </div>
         <CallClassificationToggle initialValue={callMode} />
       </div>
 
-      <div className="rounded-xl border p-6 border-dashed" style={{ backgroundColor: C.bg, borderColor: C.border }}>
-        <p className="text-xs font-semibold" style={{ color: C.textDim }}>Coming soon:</p>
-        <ul className="mt-2 space-y-1 text-xs" style={{ color: C.textMuted }}>
-          <li>• Reply automation rules (auto-pause campaigns on objections)</li>
-          <li>• Working hours (when the AI agent is active)</li>
-          <li>• Default signature for emails</li>
-        </ul>
-      </div>
     </div>
   );
 }
 
 // ─── Section: Integrations ──────────────────────────────────────────────────
 function IntegrationsSection() {
+  const { t } = useLocale();
   const integrations = [
     { name: "LinkedIn (Unipile)", icon: "🔗", status: "connected", color: "#0A66C2", description: "Per-seller LinkedIn accounts via Unipile" },
     { name: "Email (Instantly)",  icon: "✉️", status: "connected", color: "#7C3AED", description: "Shared email pool for outbound campaigns" },
@@ -215,7 +247,7 @@ function IntegrationsSection() {
 
   return (
     <div className="space-y-5">
-      <SectionHeader icon={Link2} title="Integrations" description="External services connected to your CRM" />
+      <SectionHeader icon={Link2} title={t("int.title")} description={t("int.subtitle")} />
 
       <div className="space-y-3">
         {integrations.map(i => (
@@ -230,14 +262,14 @@ function IntegrationsSection() {
                 <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{i.name}</p>
                 <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
                   style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>
-                  <CheckCircle2 size={9} /> Connected
+                  <CheckCircle2 size={9} /> {t("int.connected")}
                 </span>
               </div>
               <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{i.description}</p>
             </div>
             <button className="text-[10px] font-semibold px-3 py-1.5 rounded-lg border"
               style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
-              Manage
+              {t("int.manage")}
             </button>
           </div>
         ))}
@@ -262,6 +294,7 @@ function SectionHeader({ icon: Icon, title, description }: { icon: typeof User; 
 }
 
 function LogoutButton({ router }: { router: ReturnType<typeof useRouter> }) {
+  const { t } = useLocale();
   const [loading, setLoading] = useState(false);
   async function handleLogout() {
     setLoading(true);
@@ -274,7 +307,7 @@ function LogoutButton({ router }: { router: ReturnType<typeof useRouter> }) {
       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all hover:opacity-80"
       style={{ color: C.red, backgroundColor: "transparent" }}>
       <LogOut size={14} />
-      <span className="text-sm font-medium">{loading ? "Signing out…" : "Sign out"}</span>
+      <span className="text-sm font-medium">{loading ? t("settings.signingOut") : t("settings.signOut")}</span>
     </button>
   );
 }

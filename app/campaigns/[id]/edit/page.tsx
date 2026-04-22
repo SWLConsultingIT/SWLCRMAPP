@@ -375,7 +375,7 @@ export default function FlowEditorPage() {
                   {sellers.filter(s => s.linkedin_account_id && !linkedinProfiles.includes(s.id)).map(s => (
                     <button key={s.id} onClick={() => setLinkedinProfiles(prev => [...prev, s.id])}
                       className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium cursor-pointer transition-all hover:shadow-sm"
-                      style={{ backgroundColor: "#F9FAFB", color: C.textMuted, border: `1px solid ${C.border}` }}
+                      style={{ backgroundColor: C.cardHov, color: C.textMuted, border: `1px solid ${C.border}` }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = "#0A66C2"; e.currentTarget.style.color = "#0A66C2"; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMuted; }}>
                       <Plus size={10} /> {s.name}
@@ -421,7 +421,7 @@ export default function FlowEditorPage() {
                   {sellers.filter(s => !callAssignees.includes(s.id)).map(s => (
                     <button key={s.id} onClick={() => setCallAssignees(prev => [...prev, s.id])}
                       className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium cursor-pointer transition-all hover:shadow-sm"
-                      style={{ backgroundColor: "#F9FAFB", color: C.textMuted, border: `1px solid ${C.border}` }}
+                      style={{ backgroundColor: C.cardHov, color: C.textMuted, border: `1px solid ${C.border}` }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = "#F97316"; e.currentTarget.style.color = "#F97316"; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMuted; }}>
                       <Plus size={10} /> {s.name}
@@ -544,7 +544,7 @@ export default function FlowEditorPage() {
                           }
                         }}
                           className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none appearance-none cursor-pointer"
-                          style={{ color: C.textPrimary, backgroundColor: "#FFFFFF", border: `1px solid ${C.border}` }}>
+                          style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }}>
                           {Object.entries(channelConfig).map(([key, c]) => (
                             <option key={key} value={key} disabled={!allowedChannels.has(key)}>
                               {c.label}{!allowedChannels.has(key) ? " (not allowed)" : ""}
@@ -571,7 +571,7 @@ export default function FlowEditorPage() {
                           }
                         }}
                           className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none appearance-none cursor-pointer"
-                          style={{ color: C.textPrimary, backgroundColor: "#FFFFFF", border: `1px solid ${C.border}` }}>
+                          style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }}>
                           {conf.actions.map(a => <option key={a} value={a}>{a}</option>)}
                         </select>
                       </div>
@@ -583,7 +583,7 @@ export default function FlowEditorPage() {
                           <input type="number" min={0} max={30} value={step.wait_days}
                             onChange={e => updateStep(i, { wait_days: parseInt(e.target.value) || 0 })}
                             className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
-                            style={{ color: C.textPrimary, backgroundColor: "#FFFFFF", border: `1px solid ${C.border}` }} />
+                            style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }} />
                           <span className="text-xs shrink-0" style={{ color: C.textMuted }}>days</span>
                         </div>
                       </div>
@@ -621,7 +621,7 @@ export default function FlowEditorPage() {
                           onChange={e => updateMessage(msgKey, "subject", e.target.value)}
                           placeholder="Email subject line (optional — AI will generate if empty)"
                           className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none mb-2"
-                          style={{ color: C.textPrimary, backgroundColor: "#FFFFFF", border: `1px solid ${C.border}` }}
+                          style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }}
                         />
                       )}
                       <textarea
@@ -632,7 +632,7 @@ export default function FlowEditorPage() {
                           : `Message for this step... Leave empty and the AI agent will generate a personalized message based on the lead's profile.`}
                         rows={4}
                         className="w-full rounded-lg px-3 py-2.5 text-sm focus:outline-none resize-none"
-                        style={{ color: C.textPrimary, backgroundColor: "#FFFFFF", border: `1px solid ${C.border}` }}
+                        style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }}
                       />
                       <p className="text-[10px] mt-1 mb-2" style={{ color: C.textDim }}>
                         Leave empty for AI-generated content, or write a template. Use {"{{first_name}}"}, {"{{company}}"}, {"{{role}}"} as placeholders.

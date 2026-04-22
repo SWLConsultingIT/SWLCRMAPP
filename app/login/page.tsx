@@ -228,13 +228,39 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPw(!showPw)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
-                  style={{ color: "rgba(217,222,226,0.3)" }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-100"
+                  style={{ color: "#b79832", zIndex: 10 }}
                 >
                   {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>
             </div>
+
+            {/* Remember me */}
+            <label className="flex items-center gap-2.5 cursor-pointer select-none w-fit">
+              <div className="relative flex items-center">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={e => setRemember(e.target.checked)}
+                  className="sr-only"
+                />
+                <div
+                  className="w-4 h-4 rounded flex items-center justify-center transition-all"
+                  style={{
+                    backgroundColor: remember ? "#b79832" : "rgba(255,255,255,0.06)",
+                    border: remember ? "1px solid #b79832" : "1px solid rgba(255,255,255,0.15)",
+                  }}
+                >
+                  {remember && (
+                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                      <path d="M1 4L3.5 6.5L9 1" stroke="#04070d" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+              <span className="text-xs" style={{ color: "rgba(217,222,226,0.5)" }}>Remember me</span>
+            </label>
 
             {/* Error */}
             {error && (

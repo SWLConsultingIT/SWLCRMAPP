@@ -8,6 +8,7 @@ import {
   TrendingUp, Activity, AlertCircle,
 } from "lucide-react";
 import AdminActions from "../AdminActions";
+import ClientResourcesTabs from "./ClientResourcesTabs";
 
 const gold = "#C9A83A";
 const goldLight = "rgba(201,168,58,0.08)";
@@ -693,6 +694,9 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
           </div>
         )}
       </div>
+
+      {/* ═══ CLIENT RESOURCES (Users, Sellers, Aircall, Emails) ═══ */}
+      <ClientResourcesTabs companyBioId={id} companyName={client.company_name} />
     </div>
   );
 }

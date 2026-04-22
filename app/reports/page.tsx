@@ -1,14 +1,26 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { getUserScope } from "@/lib/scope";
 import { C } from "@/lib/design";
 import {
   TrendingUp, MessageSquare, Target, Zap,
   Share2, Mail, Phone, Trophy,
 } from "lucide-react";
+import PageHero from "@/components/PageHero";
 
 const gold = "#C9A83A";
 
 async function getReportData() {
   const supabase = await getSupabaseServer();
+  const scope = await getUserScope();
+  const bioId = scope.isScoped ? scope.companyBioId! : null;
+
+  const leadsQ = supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at");
+  const campsQ = supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, created_at, leads!inner(company_bio_id)");
+  const repliesQ = supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, channel, received_at, leads!inner(company_bio_id)");
+  const msgsQ = supabase.from("campaign_messages").select("id, campaign_id, step_number, status, sent_at, campaigns!inner(leads!inner(company_bio_id))");
+  const profilesQ = supabase.from("icp_profiles").select("id, profile_name").eq("status", "approved");
+  const sellersQ = supabase.from("sellers").select("id, name, active, company_bio_id");
+
   const [
     { data: allLeads },
     { data: allCampaigns },
@@ -17,13 +29,13 @@ async function getReportData() {
     { data: allProfiles },
     { data: allSellers },
   ] = await Promise.all([
-    supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at"),
-    supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, created_at"),
-    supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, channel, received_at"),
-    supabase.from("campaign_messages").select("id, campaign_id, step_number, status, sent_at"),
-    supabase.from("icp_profiles").select("id, profile_name").eq("status", "approved"),
-    supabase.from("sellers").select("id, name, active"),
-  ]);
+    bioId ? leadsQ.eq("company_bio_id", bioId) : leadsQ,
+    bioId ? campsQ.eq("leads.company_bio_id", bioId) : campsQ,
+    bioId ? repliesQ.eq("leads.company_bio_id", bioId) : repliesQ,
+    bioId ? msgsQ.eq("campaigns.leads.company_bio_id", bioId) : msgsQ,
+    bioId ? profilesQ.eq("company_bio_id", bioId) : profilesQ,
+    bioId ? sellersQ.eq("company_bio_id", bioId) : sellersQ,
+  ]) as any;
 
   const leads = allLeads ?? [];
   const campaigns = allCampaigns ?? [];
@@ -36,12 +48,12 @@ async function getReportData() {
 
   // ── Global KPIs ──
   const totalLeads = leads.length;
-  const leadsWithCampaign = new Set(campaigns.map(c => c.lead_id).filter(Boolean));
+  const leadsWithCampaign = new Set(campaigns.map((c: any) => c.lead_id).filter(Boolean));
   const contactedLeads = leadsWithCampaign.size;
-  const repliedLeadIds = new Set(replies.map(r => r.lead_id));
+  const repliedLeadIds = new Set(replies.map((r: any) => r.lead_id));
   const repliedCount = repliedLeadIds.size;
-  const positiveReplies = replies.filter(r => r.classification === "positive" || r.classification === "meeting_intent");
-  const positiveLeadIds = new Set(positiveReplies.map(r => r.lead_id));
+  const positiveReplies = replies.filter((r: any) => r.classification === "positive" || r.classification === "meeting_intent");
+  const positiveLeadIds = new Set(positiveReplies.map((r: any) => r.lead_id));
   const positiveCount = positiveLeadIds.size;
 
   const responseRate = contactedLeads > 0 ? Math.round((repliedCount / contactedLeads) * 100) : 0;
@@ -184,11 +196,11 @@ async function getReportData() {
 
   // ── Forecast (projected positive conversions this month) ──
   const thirtyDaysAgo = Date.now() - 30 * 86400000;
-  const last30Positive = positiveReplies.filter(r => new Date(r.received_at).getTime() >= thirtyDaysAgo).length;
+  const last30Positive = positiveReplies.filter((r: any) => new Date(r.received_at).getTime() >= thirtyDaysAgo).length;
   const dailyRate = last30Positive / 30;
   const daysInMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
   const forecastMonthly = Math.round(dailyRate * daysInMonth);
-  const activeLeadCount = campaigns.filter(c => c.status === "active").length;
+  const activeLeadCount = campaigns.filter((c: any) => c.status === "active").length;
   const forecastFromPipeline = Math.round(activeLeadCount * (conversionRate / 100));
 
   // ── Weekly trend (last 8 weeks) ──
@@ -197,14 +209,14 @@ async function getReportData() {
     const weekStart = new Date(Date.now() - (i + 1) * 7 * 86400000);
     const weekEnd = new Date(Date.now() - i * 7 * 86400000);
     const weekLabel = weekStart.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
-    const weekReps = replies.filter(r => {
+    const weekReps = replies.filter((r: any) => {
       const d = new Date(r.received_at);
       return d >= weekStart && d < weekEnd;
     });
     weeklyReplies.push({
       week: weekLabel,
       replies: weekReps.length,
-      positive: weekReps.filter(r => r.classification === "positive" || r.classification === "meeting_intent").length,
+      positive: weekReps.filter((r: any) => r.classification === "positive" || r.classification === "meeting_intent").length,
     });
   }
 
@@ -238,7 +250,14 @@ export default async function ReportsPage() {
   const maxWeeklyReplies = Math.max(...data.weeklyReplies.map(w => w.replies), 1);
 
   return (
-    <div>
+    <div className="p-6">
+      <PageHero
+        icon={TrendingUp}
+        section="Operations"
+        title="Reports"
+        description="Full performance breakdown across campaigns, channels, and sellers."
+        accentColor={C.blue}
+      />
 
       {/* ═══ KPI CARDS ═══ */}
       <div className="grid grid-cols-5 gap-4 mb-8">

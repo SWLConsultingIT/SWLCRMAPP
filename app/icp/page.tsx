@@ -386,13 +386,13 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
       {(profile.pain_points || profile.solutions_offered) && (
         <div className="px-6 pb-5 grid grid-cols-2 gap-6">
           {profile.pain_points && (
-            <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: "#F9FAFB" }}>
+            <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
               <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: gold }}>Pain Points</p>
               <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{profile.pain_points}</p>
             </div>
           )}
           {profile.solutions_offered && (
-            <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: "#F9FAFB" }}>
+            <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
               <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: gold }}>Solutions Offered</p>
               <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{profile.solutions_offered}</p>
             </div>
@@ -402,7 +402,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
 
       {profile.notes && (
         <div className="px-6 pb-5">
-          <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: "#F9FAFB" }}>
+          <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
             <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>Notes</p>
             <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{profile.notes}</p>
           </div>

@@ -268,7 +268,7 @@ export default async function ReportsView() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ borderBottom: `1px solid ${C.border}`, backgroundColor: "#F9FAFB" }}>
+              <tr style={{ borderBottom: `1px solid ${C.border}`, backgroundColor: C.cardHov }}>
                 {["Name", "Company", "Role", "Seller", "Date"].map(h => (
                   <th key={h} className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{h}</th>
                 ))}

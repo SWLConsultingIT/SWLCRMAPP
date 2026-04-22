@@ -6,10 +6,11 @@ import { C } from "@/lib/design";
 import {
   Building2, Users, Megaphone, Clock, ChevronRight,
   Target, Search, X, CheckCircle, ArrowRight, Shield,
-  UserCog, Trash2, Loader2,
+  Trash2, Loader2, Share2, AlertTriangle, Phone, Mail,
 } from "lucide-react";
 import AdminActions from "./AdminActions";
 import PageHero from "@/components/PageHero";
+import PendingUsersSection from "./PendingUsersSection";
 
 type UserRow = {
   id: string;
@@ -122,7 +123,15 @@ function UsersTab() {
 
           {/* Email */}
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{user.email}</p>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{user.email}</p>
+              {user.role && !user.company_bio_id && (
+                <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded shrink-0"
+                  style={{ backgroundColor: "#FEF3C7", color: "#D97706" }}>
+                  <AlertTriangle size={9} /> No company
+                </span>
+              )}
+            </div>
             <p className="text-[11px]" style={{ color: C.textDim }}>
               {user.role ? `${user.role} · joined ${new Date(user.created_at).toLocaleDateString()}` : "No profile assigned"}
             </p>
@@ -177,6 +186,412 @@ function UsersTab() {
   );
 }
 
+type SellerRow = {
+  id: string;
+  name: string;
+  active: boolean;
+  company_bio_id: string | null;
+  company_name: string | null;
+  linkedin_status: string | null;
+  linkedin_status_note: string | null;
+};
+
+const linkedinStatusMeta: Record<string, { label: string; color: string; bg: string }> = {
+  active:     { label: "Active",     color: "#16A34A", bg: "#DCFCE7" },
+  restricted: { label: "Restricted", color: "#D97706", bg: "#FFFBEB" },
+  banned:     { label: "Banned",     color: "#DC2626", bg: "#FEE2E2" },
+  warning:    { label: "Warning",    color: "#7C3AED", bg: "#EDE9FE" },
+};
+
+function SellersTab() {
+  const [sellers, setSellers] = useState<SellerRow[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/sellers")
+      .then(r => r.json())
+      .then(d => { setSellers(d.sellers ?? []); setCompanies(d.companies ?? []); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function update(sellerId: string, company_bio_id: string | null) {
+    setSaving(sellerId);
+    await fetch(`/api/admin/sellers/${sellerId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ company_bio_id }),
+    });
+    setSellers(prev => prev.map(s => s.id === sellerId
+      ? { ...s, company_bio_id, company_name: company_bio_id ? (companies.find(c => c.id === company_bio_id)?.company_name ?? null) : null }
+      : s
+    ));
+    setSaving(null);
+  }
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <Loader2 size={20} className="animate-spin" style={{ color: C.textDim }} />
+    </div>
+  );
+
+  return (
+    <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      {sellers.length === 0 && (
+        <div className="py-16 text-center">
+          <Share2 size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
+          <p className="text-sm" style={{ color: C.textMuted }}>No sellers found</p>
+        </div>
+      )}
+      {sellers.map((seller, i) => {
+        const statusMeta = seller.linkedin_status ? linkedinStatusMeta[seller.linkedin_status] : null;
+        return (
+          <div
+            key={seller.id}
+            className="flex items-center gap-4 px-5 py-4"
+            style={{ borderBottom: i < sellers.length - 1 ? `1px solid ${C.border}` : "none" }}
+          >
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+              style={{ background: seller.active ? `linear-gradient(135deg, ${gold}, #e8c84a)` : "#E5E7EB", color: seller.active ? "#fff" : "#9CA3AF" }}
+            >
+              {seller.name[0]?.toUpperCase() ?? "?"}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{seller.name}</p>
+              <p className="text-[11px]" style={{ color: C.textDim }}>
+                {seller.active ? "Active seller" : "Inactive"}{seller.linkedin_status_note ? ` · ${seller.linkedin_status_note}` : ""}
+              </p>
+            </div>
+
+            {statusMeta && (
+              <span className="text-[10px] font-bold px-2 py-1 rounded-full shrink-0"
+                style={{ color: statusMeta.color, backgroundColor: statusMeta.bg }}>
+                {statusMeta.label}
+              </span>
+            )}
+
+            <select
+              value={seller.company_bio_id ?? ""}
+              disabled={saving === seller.id}
+              onChange={e => update(seller.id, e.target.value || null)}
+              className="text-xs rounded-lg border px-2.5 py-1.5 outline-none max-w-[200px]"
+              style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}
+            >
+              <option value="">— no company —</option>
+              {companies.map(c => (
+                <option key={c.id} value={c.id}>{c.company_name}</option>
+              ))}
+            </select>
+
+            {saving === seller.id && (
+              <Loader2 size={14} className="animate-spin shrink-0" style={{ color: C.textDim }} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+type AircallNumber = { id: number; name: string; digits: string; country: string };
+type CompanyWithNumbers = { id: string; company_name: string; aircall_number_ids: number[] | null };
+
+function AircallAccessTab() {
+  const [numbers, setNumbers] = useState<AircallNumber[]>([]);
+  const [companies, setCompanies] = useState<CompanyWithNumbers[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/aircall-access")
+      .then(r => r.json())
+      .then(d => { setNumbers(d.numbers ?? []); setCompanies(d.companies ?? []); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function toggleNumber(companyId: string, numberId: number) {
+    const company = companies.find(c => c.id === companyId);
+    if (!company) return;
+    const current = company.aircall_number_ids ?? [];
+    const next = current.includes(numberId)
+      ? current.filter(id => id !== numberId)
+      : [...current, numberId];
+
+    setSaving(companyId);
+    setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, aircall_number_ids: next } : c));
+    try {
+      await fetch("/api/admin/aircall-access", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyBioId: companyId, aircallNumberIds: next }),
+      });
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  const flags: Record<string, string> = { DE: "🇩🇪", US: "🇺🇸", AR: "🇦🇷", BR: "🇧🇷", MX: "🇲🇽", ES: "🇪🇸", FR: "🇫🇷", UK: "🇬🇧", GB: "🇬🇧" };
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <Loader2 size={20} className="animate-spin" style={{ color: C.textDim }} />
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <p className="text-xs" style={{ color: C.textMuted }}>
+          <span className="font-semibold" style={{ color: C.textBody }}>Click a client</span> to assign which Aircall numbers they can use in their campaigns. If no numbers are selected, the client won&apos;t see any in the campaign creation flow (admins still see all).
+        </p>
+      </div>
+
+      <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        {companies.map((company, i) => {
+          const assigned = company.aircall_number_ids ?? [];
+          const isExpanded = expandedId === company.id;
+          return (
+            <div key={company.id} style={{ borderBottom: i < companies.length - 1 ? `1px solid ${C.border}` : "none" }}>
+              <button
+                onClick={() => setExpandedId(isExpanded ? null : company.id)}
+                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-black/[0.015] text-left transition-colors"
+              >
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: `${C.phone}15` }}>
+                  <Phone size={15} style={{ color: C.phone }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{company.company_name}</p>
+                  <p className="text-[11px]" style={{ color: C.textDim }}>
+                    {assigned.length === 0 ? "No numbers assigned" : `${assigned.length} number${assigned.length > 1 ? "s" : ""} assigned`}
+                  </p>
+                </div>
+                {saving === company.id && <Loader2 size={14} className="animate-spin" style={{ color: C.textDim }} />}
+                <ChevronRight size={14} style={{
+                  color: C.textDim,
+                  transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                  transition: "transform 0.2s ease",
+                }} />
+              </button>
+
+              {isExpanded && (
+                <div className="px-5 pb-5 pt-1">
+                  {numbers.length === 0 ? (
+                    <p className="text-xs italic" style={{ color: C.textDim }}>No Aircall numbers available.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      {numbers.map(n => {
+                        const isAssigned = assigned.includes(n.id);
+                        return (
+                          <button
+                            key={n.id}
+                            onClick={() => toggleNumber(company.id, n.id)}
+                            disabled={saving === company.id}
+                            className="rounded-lg border p-3 flex items-center gap-3 text-left transition-all hover:shadow-sm disabled:opacity-60"
+                            style={{
+                              borderColor: isAssigned ? C.phone : C.border,
+                              backgroundColor: isAssigned ? `${C.phone}08` : C.bg,
+                              borderWidth: isAssigned ? 2 : 1,
+                            }}
+                          >
+                            <span className="text-xl shrink-0">{flags[n.country] ?? "📞"}</span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold truncate" style={{ color: C.textPrimary }}>
+                                {n.name || n.country}
+                              </p>
+                              <p className="text-[10px] tabular-nums" style={{ color: C.textMuted }}>{n.digits}</p>
+                            </div>
+                            {isAssigned && <CheckCircle size={14} style={{ color: C.phone }} />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {companies.length === 0 && (
+          <div className="py-16 text-center">
+            <Phone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
+            <p className="text-sm" style={{ color: C.textMuted }}>No companies found</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type InstantlyEmail = { email: string; dailyLimit: number; warmupScore: number; setupPending: boolean };
+type CompanyWithEmails = { id: string; company_name: string; email_accounts: string[] | null };
+
+function EmailAccessTab() {
+  const [emails, setEmails] = useState<InstantlyEmail[]>([]);
+  const [companies, setCompanies] = useState<CompanyWithEmails[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/admin/email-access")
+      .then(r => r.json())
+      .then(d => { setEmails(d.emails ?? []); setCompanies(d.companies ?? []); })
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function toggleEmail(companyId: string, email: string) {
+    const company = companies.find(c => c.id === companyId);
+    if (!company) return;
+    const current = company.email_accounts ?? [];
+    const next = current.includes(email) ? current.filter(e => e !== email) : [...current, email];
+
+    setSaving(companyId);
+    setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, email_accounts: next } : c));
+    try {
+      await fetch("/api/admin/email-access", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ companyBioId: companyId, emailAccounts: next }),
+      });
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  // Group emails by domain for cleaner UI
+  const emailsByDomain = emails.reduce<Record<string, InstantlyEmail[]>>((acc, e) => {
+    const domain = e.email.split("@")[1] ?? "other";
+    if (!acc[domain]) acc[domain] = [];
+    acc[domain].push(e);
+    return acc;
+  }, {});
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <Loader2 size={20} className="animate-spin" style={{ color: C.textDim }} />
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <p className="text-xs" style={{ color: C.textBody }}>
+          <span className="font-semibold">One shared Instantly account with {emails.length} emails.</span>
+          <span style={{ color: C.textMuted }}> Assign to each client which emails they can use (typically their own domains). If no emails are assigned, the client won&apos;t see any in the Accounts page or campaign creation (admins still see all).</span>
+        </p>
+      </div>
+
+      <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        {companies.map((company, i) => {
+          const assigned = company.email_accounts ?? [];
+          const isExpanded = expandedId === company.id;
+          return (
+            <div key={company.id} style={{ borderBottom: i < companies.length - 1 ? `1px solid ${C.border}` : "none" }}>
+              <button
+                onClick={() => setExpandedId(isExpanded ? null : company.id)}
+                className="w-full flex items-center gap-4 px-5 py-4 hover:bg-black/[0.015] text-left transition-colors"
+              >
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: "#7C3AED15" }}>
+                  <Mail size={15} style={{ color: "#7C3AED" }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{company.company_name}</p>
+                  <p className="text-[11px]" style={{ color: C.textDim }}>
+                    {assigned.length === 0 ? "No emails assigned" : `${assigned.length} email${assigned.length > 1 ? "s" : ""} assigned`}
+                  </p>
+                </div>
+                {saving === company.id && <Loader2 size={14} className="animate-spin" style={{ color: C.textDim }} />}
+                <ChevronRight size={14} style={{
+                  color: C.textDim,
+                  transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
+                  transition: "transform 0.2s ease",
+                }} />
+              </button>
+
+              {isExpanded && (
+                <div className="px-5 pb-5 pt-1 space-y-4">
+                  {Object.keys(emailsByDomain).length === 0 ? (
+                    <p className="text-xs italic" style={{ color: C.textDim }}>No Instantly emails available.</p>
+                  ) : (
+                    Object.entries(emailsByDomain).sort((a, b) => a[0].localeCompare(b[0])).map(([domain, list]) => {
+                      const allAssignedInDomain = list.every(e => assigned.includes(e.email));
+                      const someAssignedInDomain = list.some(e => assigned.includes(e.email));
+                      return (
+                        <div key={domain}>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textMuted }}>
+                              {domain} <span className="font-medium" style={{ color: C.textDim }}>({list.length})</span>
+                            </p>
+                            <button
+                              onClick={() => {
+                                const next = allAssignedInDomain
+                                  ? assigned.filter(e => !list.some(l => l.email === e))
+                                  : [...new Set([...assigned, ...list.map(l => l.email)])];
+                                setSaving(company.id);
+                                setCompanies(prev => prev.map(c => c.id === company.id ? { ...c, email_accounts: next } : c));
+                                fetch("/api/admin/email-access", {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ companyBioId: company.id, emailAccounts: next }),
+                                }).finally(() => setSaving(null));
+                              }}
+                              className="text-[10px] font-semibold"
+                              style={{ color: allAssignedInDomain ? C.red : "#7C3AED" }}
+                            >
+                              {allAssignedInDomain ? "Unassign all" : someAssignedInDomain ? "Assign rest" : "Assign all"}
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {list.map(e => {
+                              const isAssigned = assigned.includes(e.email);
+                              return (
+                                <button
+                                  key={e.email}
+                                  onClick={() => toggleEmail(company.id, e.email)}
+                                  disabled={saving === company.id}
+                                  className="rounded-lg border p-3 flex items-center gap-3 text-left transition-all hover:shadow-sm disabled:opacity-60"
+                                  style={{
+                                    borderColor: isAssigned ? "#7C3AED" : C.border,
+                                    backgroundColor: isAssigned ? "#7C3AED08" : C.bg,
+                                    borderWidth: isAssigned ? 2 : 1,
+                                  }}
+                                >
+                                  <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: "#7C3AED15" }}>
+                                    <Mail size={11} style={{ color: "#7C3AED" }} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[11px] font-semibold truncate" style={{ color: C.textPrimary }}>
+                                      {e.email}
+                                    </p>
+                                    <p className="text-[10px]" style={{ color: C.textMuted }}>
+                                      {e.setupPending ? "Warming up" : `${e.dailyLimit}/d · score ${e.warmupScore}`}
+                                    </p>
+                                  </div>
+                                  {isAssigned && <CheckCircle size={13} style={{ color: "#7C3AED" }} />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function timeAgo(iso: string | null) {
   if (!iso) return "";
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -205,7 +620,6 @@ export default function AdminClient({ clients, pendingApprovals, stats }: Props)
   const tabs = [
     { label: "Clients",           count: clients.length,          color: gold },
     { label: "Pending Approvals", count: pendingApprovals.length, color: "#D97706" },
-    { label: "Users",             count: 0,                       color: C.blue },
   ];
 
   return (
@@ -215,9 +629,12 @@ export default function AdminClient({ clients, pendingApprovals, stats }: Props)
         section="Internal"
         title="Admin Panel"
         description="Manage clients, review tickets, and approve campaign requests."
-        accentColor={C.textMuted}
+        accentColor={C.aiAccent}
         status={{ label: "Internal", active: true }}
       />
+
+      {/* Pending user assignments (hidden when empty) */}
+      <PendingUsersSection />
 
       {/* Stat cards */}
       <div className="grid grid-cols-4 gap-4 mb-6">
@@ -326,8 +743,7 @@ export default function AdminClient({ clients, pendingApprovals, stats }: Props)
         )
       )}
 
-      {/* ═══ Tab 2: Users ═══ */}
-      {tab === 2 && <UsersTab />}
+      {/* Users, Sellers, Aircall Access and Email Access live inside each client detail /admin/[id] */}
 
       {/* ═══ Tab 1: Pending Approvals ═══ */}
       {tab === 1 && (() => {

@@ -322,7 +322,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               {/* Empty slots */}
               {socialLinks.filter(s => !bio[s.key]).map(({ key, label, icon: Icon }) => (
                 <div key={key} className="flex items-center gap-3 px-3 py-3 rounded-lg border"
-                  style={{ borderColor: "#E5E7EB", backgroundColor: "#F9FAFB" }}>
+                  style={{ borderColor: "#E5E7EB", backgroundColor: C.cardHov }}>
                   <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 grayscale opacity-30" style={{ backgroundColor: "white" }}>
                     <Icon size={18} />
                   </div>
@@ -342,7 +342,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
             <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{bio.description}</p>
           )}
           {bio.value_proposition && (
-            <div className="rounded-lg border p-3.5 mt-4" style={{ borderColor: C.border, backgroundColor: "#F9FAFB" }}>
+            <div className="rounded-lg border p-3.5 mt-4" style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
               <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Value Proposition</p>
               <p className="text-sm italic" style={{ color: C.accent }}>"{bio.value_proposition}"</p>
             </div>
@@ -418,7 +418,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
                 <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>Case Studies / Portfolio</p>
                 <div className="grid grid-cols-3 gap-3">
                   {bio.case_studies.map((cs, i) => (
-                    <div key={i} className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: "#F9FAFB" }}>
+                    <div key={i} className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
                       <p className="text-sm font-semibold mb-1" style={{ color: C.textPrimary }}>{cs.title}</p>
                       <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>{cs.description}</p>
                       <div className="flex items-center gap-3 mt-2">
@@ -456,7 +456,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               return (
                 <a key={i} href={r.file_url} target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-3 rounded-lg border px-4 py-3 transition-all hover:shadow-sm"
-                  style={{ borderColor: C.border, backgroundColor: "#F9FAFB" }}>
+                  style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
                   <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: C.accentLight }}>
                     <Icon size={16} style={{ color: C.accent }} />
                   </div>
@@ -496,7 +496,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
         ) : (
           <>
             {/* Stats bar */}
-            <div className="px-6 py-3 flex items-center gap-6 border-b" style={{ borderColor: C.border, backgroundColor: "#F9FAFB" }}>
+            <div className="px-6 py-3 flex items-center gap-6 border-b" style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
               {[
                 { label: "Total", value: leadStats.total, color: C.textPrimary },
                 { label: "Active", value: leadStats.active, color: C.blue },

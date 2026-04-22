@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { C } from "@/lib/design";
 import {
   Share2, Mail, Phone, AlertTriangle,
   Users, Calendar, X, Plus, Trash2, Loader2, Shield, Pencil, Save,
-  Zap, Globe,
+  Zap, Globe, TrendingUp,
 } from "lucide-react";
 
 const gold = "#C9A83A";
@@ -532,7 +533,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
     <div>
       {/* ═══ KPI CARDS ═══ */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="rounded-xl border p-4 card-lift" style={{ background: `linear-gradient(135deg, #FFFFFF 0%, ${gold}09 100%)`, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+        <div className="rounded-xl border p-4 card-lift" style={{ background: `linear-gradient(135deg, var(--c-card) 0%, ${gold}09 100%)`, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Team Members</span>
             <Users size={14} style={{ color: gold }} />
@@ -540,7 +541,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
           <p className="text-2xl font-bold" style={{ color: C.textBody }}>{sellers.length}</p>
         </div>
 
-        <div className="rounded-xl border p-4 card-lift" style={{ background: "linear-gradient(135deg, #FFFFFF 0%, #0A66C209 100%)", borderColor: C.border, borderTop: "2px solid #0A66C2" }}>
+        <div className="rounded-xl border p-4 card-lift" style={{ background: "linear-gradient(135deg, var(--c-card) 0%, #0A66C209 100%)", borderColor: C.border, borderTop: "2px solid #0A66C2" }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>LinkedIn Today</span>
             <Share2 size={14} style={{ color: "#0A66C2" }} />
@@ -550,7 +551,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
           </p>
         </div>
 
-        <div className="rounded-xl border p-4 card-lift" style={{ background: "linear-gradient(135deg, #FFFFFF 0%, #7C3AED09 100%)", borderColor: C.border, borderTop: `2px solid ${usageColor(instantlyPct)}` }}>
+        <div className="rounded-xl border p-4 card-lift" style={{ background: "linear-gradient(135deg, var(--c-card) 0%, #7C3AED09 100%)", borderColor: C.border, borderTop: `2px solid ${usageColor(instantlyPct)}` }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Instantly Pool</span>
             <Mail size={14} style={{ color: usageColor(instantlyPct) }} />
@@ -563,7 +564,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
           </p>
         </div>
 
-        <div className="rounded-xl border p-4 card-lift" style={{ background: "linear-gradient(135deg, #FFFFFF 0%, #F9731609 100%)", borderColor: C.border, borderTop: "2px solid #F97316" }}>
+        <div className="rounded-xl border p-4 card-lift" style={{ background: "linear-gradient(135deg, var(--c-card) 0%, #F9731609 100%)", borderColor: C.border, borderTop: "2px solid #F97316" }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Aircall This Month</span>
             <Phone size={14} style={{ color: "#F97316" }} />
@@ -647,6 +648,9 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                           className="flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-md transition-opacity hover:opacity-80 mr-auto"
                           style={{ backgroundColor: "#0A66C215", color: "#0A66C2", border: "1px solid #0A66C230" }}><Share2 size={10} /> Link LinkedIn</button>
                       )}
+                      <Link href={`/accounts/linkedin/${seller.id}`}
+                        className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-md transition-opacity hover:opacity-80"
+                        style={{ backgroundColor: `${gold}15`, color: gold, border: `1px solid ${gold}30` }}><TrendingUp size={10} /> Details</Link>
                       <button onClick={() => setEditTarget(seller)}
                         className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-md transition-opacity hover:opacity-80"
                         style={{ backgroundColor: C.blueLight, color: C.blue }}><Pencil size={10} /> Edit</button>
@@ -758,7 +762,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {aircall.numbers.map(n => (
-                  <div key={n.id} className="rounded-xl border overflow-hidden card-lift" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: "2px solid #F97316" }}>
+                  <Link key={n.id} href={`/accounts/aircall/${n.id}`} className="rounded-xl border overflow-hidden card-lift block hover:shadow-md transition-shadow" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: "2px solid #F97316" }}>
                     <div className="px-5 py-4 flex items-center gap-3 border-b" style={{ borderColor: C.border }}>
                       <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#F9731615" }}>
                         <Phone size={16} style={{ color: "#F97316" }} />
@@ -792,7 +796,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                       </div>
                       <p className="text-[10px]" style={{ color: C.textDim }}>This month</p>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}

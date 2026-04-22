@@ -106,7 +106,7 @@ export default function ReadyToLaunchGroup({ profileId, profileName, profileDeta
         <Link href={someSelected ? launchUrl : (profileId ? `/campaigns/new/${profileId}` : "#")}
           className="flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-bold transition-all hover:shadow-md"
           style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#1A1A2E" }}>
-          <Megaphone size={13} /> Start Campaign{someSelected ? ` with ${selected.size} ${selected.size === 1 ? "Lead" : "Leads"}` : ` with All ${leads.length} Leads`}
+          <Megaphone size={13} /> Create Outreach Flow{someSelected ? ` with ${selected.size} ${selected.size === 1 ? "Lead" : "Leads"}` : ` with All ${leads.length} Leads`}
         </Link>
       </div>
 

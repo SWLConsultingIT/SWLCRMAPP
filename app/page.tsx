@@ -1,4 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { getUserScope } from "@/lib/scope";
 import { C } from "@/lib/design";
 import {
   Users, MessageSquare, Share2, Mail, Phone, TrendingUp,
@@ -36,6 +37,54 @@ function timeAgo(iso: string) {
 async function getDashboardData() {
   const supabase = await getSupabaseServer();
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+  const scope = await getUserScope();
+  const bioId = scope.isScoped ? scope.companyBioId! : null;
+
+  // Leads scope: direct eq on company_bio_id
+  const leadsCountQ = bioId
+    ? supabase.from("leads").select("*", { count: "exact", head: true }).eq("company_bio_id", bioId)
+    : supabase.from("leads").select("*", { count: "exact", head: true });
+
+  const activeCampsQ = bioId
+    ? supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, last_step_at, leads!inner(company_bio_id)").eq("leads.company_bio_id", bioId).in("status", ["active", "paused"])
+    : supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, last_step_at").in("status", ["active", "paused"]);
+
+  const weekRepliesQ = bioId
+    ? supabase.from("lead_replies").select("id, classification, leads!inner(company_bio_id)").eq("leads.company_bio_id", bioId).gte("received_at", weekAgo)
+    : supabase.from("lead_replies").select("id, classification").gte("received_at", weekAgo);
+
+  const transferredQ = bioId
+    ? supabase.from("leads").select("*", { count: "exact", head: true }).eq("company_bio_id", bioId).not("transferred_to_odoo_at", "is", null)
+    : supabase.from("leads").select("*", { count: "exact", head: true }).not("transferred_to_odoo_at", "is", null);
+
+  const pendingReviewRepliesQ = bioId
+    ? supabase.from("lead_replies").select("*, leads!inner(company_bio_id)", { count: "exact", head: true }).eq("leads.company_bio_id", bioId).eq("requires_human_review", true).eq("review_status", "pending")
+    : supabase.from("lead_replies").select("*", { count: "exact", head: true }).eq("requires_human_review", true).eq("review_status", "pending");
+
+  const pendingProfilesQ = bioId
+    ? supabase.from("icp_profiles").select("*", { count: "exact", head: true }).eq("company_bio_id", bioId).eq("status", "pending")
+    : supabase.from("icp_profiles").select("*", { count: "exact", head: true }).eq("status", "pending");
+
+  // Campaign requests: filter via icp_profile_id if scoped
+  let pendingCampReviewsQ;
+  if (bioId) {
+    const { data: profs } = await supabase.from("icp_profiles").select("id").eq("company_bio_id", bioId);
+    const profIds = (profs ?? []).map(p => p.id);
+    pendingCampReviewsQ = profIds.length > 0
+      ? supabase.from("campaign_requests").select("*", { count: "exact", head: true }).eq("status", "pending_review").in("icp_profile_id", profIds)
+      : Promise.resolve({ count: 0 } as any);
+  } else {
+    pendingCampReviewsQ = supabase.from("campaign_requests").select("*", { count: "exact", head: true }).eq("status", "pending_review");
+  }
+
+  const recentRepliesQ = bioId
+    ? supabase.from("lead_replies")
+        .select("id, lead_id, classification, channel, reply_text, received_at, leads!inner(primary_first_name, primary_last_name, company_name, company_bio_id), campaigns(name)")
+        .eq("leads.company_bio_id", bioId)
+        .order("received_at", { ascending: false }).limit(8)
+    : supabase.from("lead_replies")
+        .select("id, lead_id, classification, channel, reply_text, received_at, leads(primary_first_name, primary_last_name, company_name), campaigns(name)")
+        .order("received_at", { ascending: false }).limit(8);
 
   const [
     { count: totalLeads },
@@ -47,21 +96,19 @@ async function getDashboardData() {
     { data: pendingProfiles },
     { data: recentReplies },
   ] = await Promise.all([
-    supabase.from("leads").select("*", { count: "exact", head: true }),
-    supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, last_step_at").in("status", ["active", "paused"]),
-    supabase.from("lead_replies").select("id, classification").gte("received_at", weekAgo),
-    supabase.from("leads").select("*", { count: "exact", head: true }).not("transferred_to_odoo_at", "is", null),
-    supabase.from("lead_replies").select("*", { count: "exact", head: true }).eq("requires_human_review", true).eq("review_status", "pending"),
-    supabase.from("campaign_requests").select("*", { count: "exact", head: true }).eq("status", "pending_review"),
-    supabase.from("icp_profiles").select("*", { count: "exact", head: true }).eq("status", "pending"),
-    supabase.from("lead_replies")
-      .select("id, lead_id, classification, channel, reply_text, received_at, leads(primary_first_name, primary_last_name, company_name), campaigns(name)")
-      .order("received_at", { ascending: false }).limit(8),
-  ]);
+    leadsCountQ,
+    activeCampsQ,
+    weekRepliesQ,
+    transferredQ,
+    pendingReviewRepliesQ,
+    pendingCampReviewsQ,
+    pendingProfilesQ,
+    recentRepliesQ,
+  ]) as any;
 
   // Pipeline stats
-  const activeLeadIds = new Set((activeCampaigns ?? []).map(c => c.lead_id).filter(Boolean));
-  const weekPositive = (weekReplies ?? []).filter(r => r.classification === "positive" || r.classification === "meeting_intent").length;
+  const activeLeadIds = new Set((activeCampaigns ?? []).map((c: any) => c.lead_id).filter(Boolean));
+  const weekPositive = (weekReplies ?? []).filter((r: any) => r.classification === "positive" || r.classification === "meeting_intent").length;
 
   // Campaign summary (group by name, top 5)
   const campGroups: Record<string, { name: string; firstId: string; channels: Set<string>; leads: number; active: number; totalSteps: number; progressSum: number; lastActivity: string | null }> = {};
@@ -115,7 +162,7 @@ async function getDashboardData() {
   return {
     totalLeads: totalLeads ?? 0,
     leadsInCampaign: activeLeadIds.size,
-    activeCampaignCount: (activeCampaigns ?? []).filter(c => c.status === "active").length,
+    activeCampaignCount: (activeCampaigns ?? []).filter((c: any) => c.status === "active").length,
     weekRepliesCount: (weekReplies ?? []).length,
     weekPositive,
     transferred: transferredCount ?? 0,
@@ -151,7 +198,7 @@ export default async function DashboardPage() {
               { label: "Positive This Week", value: data.weekPositive, color: C.green, icon: TrendingUp },
               { label: "Transferred to CRM", value: data.transferred, color: C.accent, icon: CheckCircle },
             ].map(({ label, value, color, icon: Icon }) => (
-              <div key={label} className="rounded-xl border p-4 card-lift" style={{ background: `linear-gradient(135deg, #FFFFFF 0%, ${color}09 100%)`, borderColor: C.border, borderTop: `2px solid ${color}` }}>
+              <div key={label} className="rounded-xl border p-4 card-lift" style={{ background: `linear-gradient(135deg, var(--c-card) 0%, ${color}09 100%)`, borderColor: C.border, borderTop: `2px solid ${color}` }}>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{label}</span>
                   <div className="rounded-lg p-1.5" style={{ backgroundColor: `${color}15` }}>
@@ -241,7 +288,7 @@ export default async function DashboardPage() {
                   <p className="text-sm" style={{ color: C.textDim }}>No replies yet</p>
                 </div>
               ) : (
-                data.recentReplies.map((r, i) => {
+                data.recentReplies.map((r: any, i: number) => {
                   const cls = classColors[r.classification] ?? { color: C.textMuted, bg: "#F3F4F6", label: r.classification ?? "Reply" };
                   const chMeta = channelMeta[r.channel] ?? channelMeta.email;
                   const ChIcon = chMeta.icon;

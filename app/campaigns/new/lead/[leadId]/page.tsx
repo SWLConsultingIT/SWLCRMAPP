@@ -524,7 +524,7 @@ export default function NewLeadCampaignWizard() {
                         accountLabel = "Instantly — Shared pool";
                         isConfigured = true;
                       } else if (ch === "call") {
-                        accountLabel = "Manual / Aircall (coming soon)";
+                        accountLabel = "Aircall — shared SWL number";
                         isConfigured = true;
                       }
                       return (

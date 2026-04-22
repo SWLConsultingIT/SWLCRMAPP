@@ -2,7 +2,7 @@ import { getSupabaseServer } from "@/lib/supabase-server";
 import { notFound } from "next/navigation";
 import { C } from "@/lib/design";
 import Link from "next/link";
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import Breadcrumb from "@/components/Breadcrumb";
 import LostLeadActions from "@/components/LostLeadActions";
 import {
@@ -42,10 +42,10 @@ async function getAIAnalysis(params: {
   lossReason: string; channels: string[]; stepsCompleted: number;
   totalSteps: number; totalCampaigns: number; negReplyText?: string | null;
 }): Promise<{ analysis: string; recommendations: string[] } | null> {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return null;
   try {
-    const client = new OpenAI({ apiKey });
+    const client = new Anthropic({ apiKey });
     const prompt = `You are a B2B sales analyst. Analyze why this lead was lost and give re-engagement advice.
 
 Lead: ${params.name}${params.role ? `, ${params.role}` : ""}${params.company ? ` at ${params.company}` : ""}
@@ -55,13 +55,12 @@ ${params.negReplyText ? `Negative reply: "${params.negReplyText}"` : ""}
 
 Respond ONLY with valid JSON (no markdown): {"analysis":"2-3 sentence analysis","recommendations":["rec1","rec2","rec3"]}`;
 
-    const res = await client.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [{ role: "user", content: prompt }],
+    const res = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 400,
-      temperature: 0.7,
+      messages: [{ role: "user", content: prompt }],
     });
-    const text = res.choices[0]?.message?.content ?? "";
+    const text = res.content[0].type === "text" ? res.content[0].text : "";
     return JSON.parse(text);
   } catch {
     return null;

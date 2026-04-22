@@ -6,7 +6,7 @@ import { C } from "@/lib/design";
 import {
   Phone, Share2, Mail, Megaphone, Target,
   ChevronRight, CheckCircle, Search, X,
-  PhoneCall, User, PhoneOff, Bell,
+  PhoneCall, User, PhoneOff, Bell, AlertTriangle, XCircle, Sparkles,
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import CallButton from "@/components/CallButton";
@@ -41,6 +41,7 @@ type NewReply = {
   replyText: string | null;
   receivedAt: string;
   campaignName: string | null;
+  requiresHumanReview?: boolean;
 };
 
 type PendingReview = {
@@ -52,10 +53,21 @@ type PendingReview = {
   href: string;
 };
 
+type Update = {
+  id: string;
+  kind: "campaign" | "profile";
+  name: string;
+  status: "approved" | "rejected";
+  subtitle: string;
+  createdAt: string;
+  href: string;
+};
+
 type Props = {
   pendingCalls: PendingCall[];
   newReplies: NewReply[];
   pendingReviews: PendingReview[];
+  updates: Update[];
 };
 
 const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
@@ -83,11 +95,12 @@ function timeAgo(iso: string | null) {
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
-export default function QueueClient({ pendingCalls, newReplies, pendingReviews }: Props) {
+export default function QueueClient({ pendingCalls, newReplies, pendingReviews, updates }: Props) {
   const [tab, setTab] = useState(0);
   const [search, setSearch] = useState("");
 
-  const totalCount = pendingCalls.length + newReplies.length + pendingReviews.length;
+  const totalCount = pendingCalls.length + newReplies.length + pendingReviews.length + updates.length;
+  const needsReviewCount = newReplies.filter(r => r.requiresHumanReview).length;
 
   const filteredCalls = !search ? pendingCalls
     : pendingCalls.filter(c => `${c.leadName} ${c.company} ${c.campaignName}`.toLowerCase().includes(search.toLowerCase()));
@@ -95,11 +108,14 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews }
     : newReplies.filter(r => `${r.leadName} ${r.company} ${r.campaignName} ${r.replyText}`.toLowerCase().includes(search.toLowerCase()));
   const filteredReviews = !search ? pendingReviews
     : pendingReviews.filter(r => `${r.name} ${r.subtitle}`.toLowerCase().includes(search.toLowerCase()));
+  const filteredUpdates = !search ? updates
+    : updates.filter(u => `${u.name} ${u.subtitle}`.toLowerCase().includes(search.toLowerCase()));
 
   const tabs = [
-    { label: "Pending Calls",    count: pendingCalls.length,    color: "#F97316" },
-    { label: "New Replies",      count: newReplies.length,      color: C.blue },
-    { label: "Pending Reviews",  count: pendingReviews.length,  color: gold },
+    { label: "Pending Calls",   count: pendingCalls.length,   color: "#F97316",  reviewCount: 0 },
+    { label: "New Replies",     count: newReplies.length,     color: C.blue,     reviewCount: needsReviewCount },
+    { label: "Pending Reviews", count: pendingReviews.length, color: gold,       reviewCount: 0 },
+    { label: "Updates",         count: updates.length,        color: "#7C3AED",  reviewCount: 0 },
   ];
 
   return (
@@ -126,6 +142,12 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews }
                 <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
                   style={{ backgroundColor: isActive ? `${t.color}15` : "#F3F4F6", color: isActive ? t.color : C.textDim }}>
                   {t.count}
+                </span>
+              )}
+              {t.reviewCount > 0 && (
+                <span className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                  style={{ backgroundColor: "#FEF3C7", color: "#D97706" }}>
+                  <AlertTriangle size={9} /> {t.reviewCount}
                 </span>
               )}
               {isActive && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: t.color }} />}
@@ -234,52 +256,72 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews }
             </p>
           </div>
         ) : (
-          <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            {filteredReplies.map((r, i) => {
-              const cls = classificationMeta[r.classification ?? ""] ?? { color: C.textMuted, bg: "#F3F4F6", label: r.classification ?? "Reply" };
-              const chMeta = channelMeta[r.channel] ?? channelMeta.email;
-              const ChIcon = chMeta.icon;
+          <>
+            {needsReviewCount > 0 && !search && (
+              <div className="flex items-center gap-3 rounded-xl border px-4 py-3 mb-4"
+                style={{ backgroundColor: "#FFFBEB", borderColor: "#FCD34D" }}>
+                <AlertTriangle size={16} style={{ color: "#D97706" }} className="shrink-0" />
+                <p className="text-sm font-medium" style={{ color: "#92400E" }}>
+                  {needsReviewCount} {needsReviewCount === 1 ? "reply needs" : "replies need"} your attention — the AI answered but flagged these for human review.
+                </p>
+              </div>
+            )}
+            <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              {filteredReplies.map((r, i) => {
+                const cls = classificationMeta[r.classification ?? ""] ?? { color: C.textMuted, bg: "#F3F4F6", label: r.classification ?? "Reply" };
+                const chMeta = channelMeta[r.channel] ?? channelMeta.email;
+                const ChIcon = chMeta.icon;
 
-              return (
-                <Link key={r.id} href={`/leads/${r.leadId}`}
-                  className="flex gap-4 px-5 py-4 transition-colors hover:bg-black/[0.015] group"
-                  style={{ borderTop: i > 0 ? `1px solid ${C.border}` : "none" }}>
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5"
-                    style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
-                    {(r.leadName[0] ?? "?").toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-sm font-semibold group-hover:underline" style={{ color: C.textPrimary }}>{r.leadName}</span>
-                      {r.company && <span className="text-xs" style={{ color: C.textMuted }}>· {r.company}</span>}
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: cls.bg, color: cls.color }}>
-                        {cls.label}
-                      </span>
+                return (
+                  <Link key={r.id} href={`/leads/${r.leadId}`}
+                    className="flex gap-4 px-5 py-4 transition-colors hover:bg-black/[0.015] group"
+                    style={{
+                      borderTop: i > 0 ? `1px solid ${C.border}` : "none",
+                      borderLeft: r.requiresHumanReview ? "3px solid #F59E0B" : "3px solid transparent",
+                    }}>
+                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5"
+                      style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                      {(r.leadName[0] ?? "?").toUpperCase()}
                     </div>
-                    <div className="flex items-center gap-2 mb-2 text-[10px]" style={{ color: C.textMuted }}>
-                      <span className="flex items-center gap-1" style={{ color: chMeta.color }}>
-                        <ChIcon size={10} /> {chMeta.label}
-                      </span>
-                      {r.campaignName && <span>· {r.campaignName}</span>}
-                    </div>
-                    {r.replyText ? (
-                      <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: cls.bg, borderColor: cls.color + "20" }}>
-                        <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>
-                          &ldquo;{r.replyText}&rdquo;
-                        </p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="text-sm font-semibold group-hover:underline" style={{ color: C.textPrimary }}>{r.leadName}</span>
+                        {r.company && <span className="text-xs" style={{ color: C.textMuted }}>· {r.company}</span>}
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: cls.bg, color: cls.color }}>
+                          {cls.label}
+                        </span>
+                        {r.requiresHumanReview && (
+                          <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded"
+                            style={{ backgroundColor: "#FEF3C7", color: "#D97706" }}>
+                            <AlertTriangle size={9} /> Review
+                          </span>
+                        )}
                       </div>
-                    ) : (
-                      <p className="text-[10px] italic" style={{ color: C.textDim }}>No reply text</p>
-                    )}
-                  </div>
-                  <div className="flex flex-col items-end shrink-0 gap-1">
-                    <span className="text-[10px]" style={{ color: C.textDim }}>{timeAgo(r.receivedAt)}</span>
-                    <ChevronRight size={13} style={{ color: C.textDim }} />
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+                      <div className="flex items-center gap-2 mb-2 text-[10px]" style={{ color: C.textMuted }}>
+                        <span className="flex items-center gap-1" style={{ color: chMeta.color }}>
+                          <ChIcon size={10} /> {chMeta.label}
+                        </span>
+                        {r.campaignName && <span>· {r.campaignName}</span>}
+                      </div>
+                      {r.replyText ? (
+                        <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: cls.bg, borderColor: cls.color + "20" }}>
+                          <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>
+                            &ldquo;{r.replyText}&rdquo;
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] italic" style={{ color: C.textDim }}>No reply text</p>
+                      )}
+                    </div>
+                    <div className="flex flex-col items-end shrink-0 gap-1">
+                      <span className="text-[10px]" style={{ color: C.textDim }}>{timeAgo(r.receivedAt)}</span>
+                      <ChevronRight size={13} style={{ color: C.textDim }} />
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </>
         )
       )}
 
@@ -355,6 +397,62 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews }
           </div>
         );
       })()}
+
+      {/* ═══ Tab 3: Updates (approved / rejected) ═══ */}
+      {tab === 3 && (
+        filteredUpdates.length === 0 ? (
+          <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <CheckCircle size={28} className="mx-auto mb-3" style={{ color: C.green }} />
+            <p className="text-sm font-medium" style={{ color: C.textBody }}>
+              {search ? "No updates match your search" : "No recent updates"}
+            </p>
+            <p className="text-xs mt-1" style={{ color: C.textMuted }}>
+              Updates from the last 14 days will appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            {filteredUpdates.map((u, i) => {
+              const isApproved = u.status === "approved";
+              const color = isApproved ? C.green : C.red;
+              const bg = isApproved ? C.greenLight : C.redLight;
+              const StatusIcon = isApproved ? Sparkles : XCircle;
+              const KindIcon = u.kind === "campaign" ? Megaphone : Target;
+              const message = isApproved
+                ? (u.kind === "campaign" ? "Campaign approved — leads are now in sequence" : "ICP profile approved — you can use it in campaigns")
+                : (u.kind === "campaign" ? "Campaign rejected" : "ICP profile rejected");
+
+              return (
+                <Link key={u.id} href={u.href}
+                  className="flex items-start gap-4 px-5 py-4 transition-colors hover:bg-black/[0.015]"
+                  style={{
+                    borderTop: i > 0 ? `1px solid ${C.border}` : "none",
+                    borderLeft: `3px solid ${color}`,
+                  }}>
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
+                    style={{ backgroundColor: bg }}>
+                    <StatusIcon size={15} style={{ color }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="text-sm font-semibold" style={{ color: C.textPrimary }}>{u.name}</span>
+                      <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: bg, color }}>
+                        <KindIcon size={9} /> {u.kind === "campaign" ? "Outreach Flow" : "ICP Profile"} · {isApproved ? "APPROVED" : "REJECTED"}
+                      </span>
+                    </div>
+                    <p className="text-xs" style={{ color: C.textBody }}>{message}</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>{u.subtitle}</p>
+                  </div>
+                  <div className="flex flex-col items-end shrink-0 gap-1">
+                    <span className="text-[10px]" style={{ color: C.textDim }}>{timeAgo(u.createdAt)}</span>
+                    <ChevronRight size={13} style={{ color: C.textDim }} />
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )
+      )}
     </div>
   );
 }

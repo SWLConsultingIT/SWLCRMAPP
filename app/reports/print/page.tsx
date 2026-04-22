@@ -1,4 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { C } from "@/lib/design";
 import PrintTrigger from "./PrintTrigger";
 import PrintActions from "./PrintActions";
 
@@ -261,7 +262,7 @@ export default async function ReportsPrintPage() {
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
               <thead>
-                <tr style={{ backgroundColor: "#F9FAFB" }}>
+                <tr style={{ backgroundColor: C.cardHov }}>
                   {["Channel", "Contacted", "Replied", "Positive", "Response", "Conv."].map(h => (
                     <th key={h} style={{ padding: "6px 10px", textAlign: h === "Channel" ? "left" : "center", fontSize: 9, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", borderBottom: "1px solid #E5E7EB" }}>{h}</th>
                   ))}

@@ -74,7 +74,7 @@ export default function CallClassificationToggle({ initialValue }: { initialValu
               <div
                 className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
                 style={{
-                  backgroundColor: selected ? `${opt.accent}20` : "#FFFFFF",
+                  backgroundColor: selected ? `${opt.accent}20` : C.card,
                   border: `1px solid ${selected ? opt.accent + "40" : C.border}`,
                 }}
               >

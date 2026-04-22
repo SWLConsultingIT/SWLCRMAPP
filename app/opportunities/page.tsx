@@ -1,25 +1,28 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { getUserScope } from "@/lib/scope";
 import OpportunitiesClient from "./OpportunitiesClient";
 
 async function getOpportunities() {
   const supabase = await getSupabaseServer();
-  const { data: positiveReplies } = await supabase
+  const scope = await getUserScope();
+  const bioId = scope.isScoped ? scope.companyBioId! : null;
+
+  const repliesQ = supabase
     .from("lead_replies")
-    .select("lead_id, classification, channel, reply_text, received_at")
+    .select("lead_id, classification, channel, reply_text, received_at, leads!inner(company_bio_id)")
     .in("classification", ["positive", "meeting_intent"])
     .order("received_at", { ascending: false });
+  const { data: positiveReplies } = await (bioId ? repliesQ.eq("leads.company_bio_id", bioId) : repliesQ) as any;
 
-  const { data: odooLeads } = await supabase
-    .from("leads")
-    .select("id")
-    .not("transferred_to_odoo_at", "is", null);
+  const odooQ = supabase.from("leads").select("id").not("transferred_to_odoo_at", "is", null);
+  const { data: odooLeads } = await (bioId ? odooQ.eq("company_bio_id", bioId) : odooQ);
 
   const wonLeadIds = new Set([
-    ...(positiveReplies ?? []).map(r => r.lead_id),
-    ...(odooLeads ?? []).map(l => l.id),
+    ...(positiveReplies ?? []).map((r: any) => r.lead_id),
+    ...(odooLeads ?? []).map((l: any) => l.id),
   ]);
   if (wonLeadIds.size === 0) return { leads: [] };
-  const idArr = Array.from(wonLeadIds);
+  const idArr = Array.from(wonLeadIds) as string[];
 
   const [{ data: leads }, { data: campaigns }, { data: profiles }] = await Promise.all([
     supabase.from("leads")

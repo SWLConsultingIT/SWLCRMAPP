@@ -1,52 +1,52 @@
 // SWL Brand tokens — single source of truth
-// Sidebar: light theme
-// Content: clean light theme that complements the sidebar
+// Structural colors use CSS variables (var(--c-*)) so dark mode switches automatically.
+// Brand/semantic colors stay as hex — they're used with string concatenation (e.g. `${C.gold}15`).
 
 export const C = {
-  // ── Sidebar (light) ──
-  sidebarBg:      "#FFFFFF",
-  sidebarBorder:  "#F0F0F5",
-  gold:           "#c9a83a",
-  goldDim:        "#8c7225",
-  goldGlow:       "rgba(201,168,58,0.12)",
-  goldSoft:       "rgba(201,168,58,0.08)",
-  sidebarText:    "#6B7280",
-  sidebarTextActive: "#1F2937",
-  sidebarSection: "#9CA3AF",
+  // ── Sidebar ──
+  sidebarBg:          "var(--c-sidebarBg)",
+  sidebarBorder:      "var(--c-sidebarBorder)",
+  gold:               "#c9a83a",
+  goldDim:            "#8c7225",
+  goldGlow:           "rgba(201,168,58,0.12)",
+  goldSoft:           "rgba(201,168,58,0.08)",
+  sidebarText:        "var(--c-sidebarText)",
+  sidebarTextActive:  "var(--c-sidebarTextActive)",
+  sidebarSection:     "var(--c-sidebarSection)",
 
-  // ── Content area (light) ──
-  bg:             "#F7F8FB",
-  surface:        "#FFFFFF",
-  card:           "#FFFFFF",
-  cardHov:        "#F9FAFB",
-  border:         "#E8EBF3",
-  border2:        "#D4D8E4",
+  // ── Content area ──
+  bg:             "var(--c-bg)",
+  surface:        "var(--c-surface)",
+  card:           "var(--c-card)",
+  cardHov:        "var(--c-cardHov)",
+  border:         "var(--c-border)",
+  border2:        "var(--c-border2)",
 
   // ── Shadow system ──
-  shadow:         "0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.07)",
-  shadowMd:       "0 4px 20px rgba(0,0,0,0.09), 0 2px 6px rgba(0,0,0,0.04)",
-  shadowLg:       "0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)",
+  shadow:         "var(--c-shadow)",
+  shadowMd:       "var(--c-shadowMd)",
+  shadowLg:       "var(--c-shadowLg)",
 
   // ── AI accent (purple — distinct from gold for AI-powered features) ──
   aiAccent:       "#7C3AED",
-  aiAccentLight:  "#F5F3FF",
+  aiAccentLight:  "var(--c-aiAccentLight)",
 
   // ── Brand accent (teal — bridges sidebar navy to content) ──
   accent:         "#1A7F74",
-  accentLight:    "#E6F5F3",
+  accentLight:    "var(--c-accentLight)",
   accentDark:     "#145F56",
 
   // ── Semantic ──
   green:          "#059669",
-  greenLight:     "#ECFDF5",
+  greenLight:     "var(--c-greenLight)",
   red:            "#DC2626",
-  redLight:       "#FEF2F2",
+  redLight:       "var(--c-redLight)",
   orange:         "#EA580C",
-  orangeLight:    "#FFF7ED",
+  orangeLight:    "var(--c-orangeLight)",
   blue:           "#2563EB",
-  blueLight:      "#EFF6FF",
+  blueLight:      "var(--c-blueLight)",
   yellow:         "#D97706",
-  yellowLight:    "#FFFBEB",
+  yellowLight:    "var(--c-yellowLight)",
 
   // ── Score badges ──
   hot:            "#DC2626",
@@ -57,11 +57,11 @@ export const C = {
   nurtureBg:      "#E6F5F3",
 
   // ── Text ──
-  textPrimary:    "#111827",
-  textBody:       "#374151",
-  textMuted:      "#6B7280",
-  textDim:        "#9CA3AF",
-  textOnDark:     "#E6EAF4",
+  textPrimary:    "var(--c-textPrimary)",
+  textBody:       "var(--c-textBody)",
+  textMuted:      "var(--c-textMuted)",
+  textDim:        "var(--c-textDim)",
+  textOnDark:     "var(--c-textOnDark)",
 
   // ── Channel icons ──
   linkedin:       "#0A66C2",

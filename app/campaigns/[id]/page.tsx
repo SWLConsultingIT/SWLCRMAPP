@@ -52,7 +52,7 @@ async function getSiblingCampaigns(campaignName: string, excludeId: string) {
     .eq("name", campaignName)
     .neq("id", excludeId)
     .order("created_at", { ascending: false })
-    .limit(50);
+    .limit(500);
   return data ?? [];
 }
 

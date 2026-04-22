@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { useLocale } from "@/lib/i18n";
 import {
   LayoutDashboard, Users, Megaphone,
   Building2, Target, Shield, ChevronDown, Bell, Trophy, UserCircle, Settings,
@@ -18,43 +19,45 @@ const TEXT_BODY  = "rgba(255,255,255,0.85)";
 
 type NavItem = {
   href: string;
-  label: string;
+  labelKey: string;
   icon: React.ElementType;
+  brandLabel?: string;
   tag?: string;
   badgeKey?: "calls" | "pending";
   adminOnly?: boolean;
 };
 
-const sections: { label: string; items: NavItem[] }[] = [
+const sections: { labelKey: string; items: NavItem[] }[] = [
   {
-    label: "MAIN",
+    labelKey: "nav.section.main",
     items: [
-      { href: "/", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/company-bios", label: "Company Bio", icon: Building2 },
+      { href: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
+      { href: "/company-bios", labelKey: "nav.companyBio", icon: Building2 },
     ],
   },
   {
-    label: "GROWTH ENGINE",
+    labelKey: "nav.section.growth",
     items: [
-      { href: "/icp", label: "Lead Miner™", icon: Target, tag: "AI" },
-      { href: "/campaigns", label: "Outreach Flow™", icon: Megaphone, tag: "AI" },
+      { href: "/icp", labelKey: "", brandLabel: "Lead Miner™", icon: Target, tag: "AI" },
+      { href: "/campaigns", labelKey: "", brandLabel: "Outreach Flow™", icon: Megaphone, tag: "AI" },
     ],
   },
   {
-    label: "OPERATIONS",
+    labelKey: "nav.section.operations",
     items: [
-      { href: "/leads", label: "Leads & Campaigns", icon: Users },
-      { href: "/accounts", label: "Accounts", icon: UserCircle },
-      { href: "/opportunities", label: "Opportunities", icon: Trophy },
-      { href: "/queue", label: "Queue", icon: Bell, badgeKey: "calls" },
-      { href: "/settings", label: "Settings", icon: Settings },
-      { href: "/admin", label: "Admin", icon: Shield, badgeKey: "pending", adminOnly: true },
+      { href: "/leads", labelKey: "nav.leads", icon: Users },
+      { href: "/accounts", labelKey: "nav.accounts", icon: UserCircle },
+      { href: "/opportunities", labelKey: "nav.opportunities", icon: Trophy },
+      { href: "/queue", labelKey: "nav.queue", icon: Bell, badgeKey: "calls" },
+      { href: "/settings", labelKey: "nav.settings", icon: Settings },
+      { href: "/admin", labelKey: "nav.admin", icon: Shield, badgeKey: "pending", adminOnly: true },
     ],
   },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { t } = useLocale();
   const [callCount, setCallCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -125,16 +128,16 @@ export default function Sidebar() {
       {/* Navigation */}
       <nav className="relative flex-1 px-3 py-4 space-y-5 overflow-y-auto">
         {visibleSections.map((section) => {
-          const isCollapsed = collapsed[section.label];
+          const isCollapsed = collapsed[section.labelKey];
           return (
-            <div key={section.label}>
+            <div key={section.labelKey}>
               <button
-                onClick={() => toggleSection(section.label)}
+                onClick={() => toggleSection(section.labelKey)}
                 className="flex items-center justify-between w-full px-3 mb-1.5"
               >
                 <span className="text-[9px] font-bold tracking-[0.16em] uppercase"
-                  style={{ color: section.label === "GROWTH ENGINE" ? GOLD : TEXT_MUTED }}>
-                  {section.label}
+                  style={{ color: section.labelKey === "nav.section.growth" ? GOLD : TEXT_MUTED }}>
+                  {t(section.labelKey)}
                 </span>
                 <ChevronDown size={11} style={{
                   color: TEXT_MUTED,
@@ -143,7 +146,7 @@ export default function Sidebar() {
                 }} />
               </button>
 
-              {!isCollapsed && section.items.map(({ href, label, icon: Icon, tag, badgeKey }) => {
+              {!isCollapsed && section.items.map(({ href, labelKey, brandLabel, icon: Icon, tag, badgeKey }) => {
                 const isOverviewPage = pathname.includes("/overview");
                 const active = href === "/leads"
                   ? (pathname.startsWith("/leads") || (pathname.startsWith("/campaigns/") && isOverviewPage))
@@ -177,7 +180,7 @@ export default function Sidebar() {
                     }}
                   >
                     <Icon size={15} style={{ color: active ? GOLD : TEXT_MUTED, transition: "color 0.15s" }} />
-                    <span className="flex-1">{label}</span>
+                    <span className="flex-1">{brandLabel ?? t(labelKey)}</span>
 
                     {tag && (
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
@@ -203,7 +206,7 @@ export default function Sidebar() {
         <div className="flex items-center gap-2">
           <span className="inline-block w-2 h-2 rounded-full pulse-dot" style={{ backgroundColor: "#22C55E" }} />
           <span className="text-[11px] font-medium" style={{ color: "rgba(34,197,94,0.9)" }}>
-            AI Models Active
+            {t("nav.aiActive")}
           </span>
         </div>
       </div>

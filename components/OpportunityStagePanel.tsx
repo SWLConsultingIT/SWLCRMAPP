@@ -117,7 +117,7 @@ export default function OpportunityStagePanel({ leadId, initialStage, initialNot
             placeholder="e.g. Send proposal by Friday, Follow up next week…"
             className="w-full px-3 py-2 rounded-lg border text-xs outline-none transition-all"
             style={{
-              backgroundColor: "#F9FAFB",
+              backgroundColor: C.cardHov,
               borderColor: C.border,
               color: C.textBody,
             }}
@@ -138,7 +138,7 @@ export default function OpportunityStagePanel({ leadId, initialStage, initialNot
             rows={3}
             className="w-full px-3 py-2 rounded-lg border text-xs outline-none transition-all resize-none"
             style={{
-              backgroundColor: "#F9FAFB",
+              backgroundColor: C.cardHov,
               borderColor: C.border,
               color: C.textBody,
             }}
