@@ -12,6 +12,7 @@ import {
   MessageSquare, PhoneCall, Clock, AlertTriangle, ChevronRight, LayoutGrid,
 } from "lucide-react";
 import CampaignKanban from "@/components/CampaignKanban";
+import CampaignCallsTab from "@/components/CampaignCallsTab";
 
 const AIRCALL_USERS = [
   { id: 1916199, name: "Francisco Fontana" },
@@ -190,6 +191,7 @@ export default function CampaignDetailClient({
     { label: "Pipeline", icon: LayoutGrid, count: visibleCampaigns.length },
     { label: "Leads", icon: Users, count: visibleCampaigns.length },
     { label: "Sequence", icon: Megaphone, count: sequence.length },
+    { label: "Calls", icon: PhoneCall, count: null },
     { label: "Add Leads", icon: UserPlus, count: leadGroups.reduce((s, g) => s + g.leads.length, 0) },
   ];
 
@@ -311,8 +313,10 @@ export default function CampaignDetailClient({
               className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all relative"
               style={{ color: active ? gold : C.textMuted }}>
               <Icon size={15} /> {t.label}
-              <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
-                style={{ backgroundColor: active ? `${gold}15` : "#F3F4F6", color: active ? gold : C.textDim }}>{t.count}</span>
+              {t.count !== null && (
+                <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+                  style={{ backgroundColor: active ? `${gold}15` : "#F3F4F6", color: active ? gold : C.textDim }}>{t.count}</span>
+              )}
               {active && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: gold }} />}
             </button>
           );
@@ -673,8 +677,13 @@ export default function CampaignDetailClient({
         </div>
       )}
 
-      {/* ═══ TAB 3: ADD LEADS ═══ */}
-      {tab === 3 && (() => {
+      {/* ═══ TAB 3: CALLS ═══ */}
+      {tab === 3 && (
+        <CampaignCallsTab leads={allCampaigns.map(c => c.leads).filter(Boolean)} />
+      )}
+
+      {/* ═══ TAB 4: ADD LEADS ═══ */}
+      {tab === 4 && (() => {
         const sameIcpLeads = campaignIcpId
           ? leadGroups.flatMap((g: LeadGroup) => g.leads.filter((l: UnlinkedLead) => (l as any).icp_profile_id === campaignIcpId))
           : [];
