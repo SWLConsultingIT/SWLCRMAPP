@@ -189,121 +189,15 @@ export default function CampaignDetailClient({
   const overdueCount = nextActions.filter(a => a.isOverdue).length;
 
   const tabs = [
-    { label: "Pipeline", icon: LayoutGrid, count: visibleCampaigns.length },
     { label: "Leads", icon: Users, count: visibleCampaigns.length },
     { label: "Sequence", icon: Megaphone, count: sequence.length },
     { label: "Calls", icon: PhoneCall, count: null },
     { label: "Add Leads", icon: UserPlus, count: leadGroups.reduce((s, g) => s + g.leads.length, 0) },
   ];
+  const [leadsView, setLeadsView] = useState<"list" | "kanban">("list");
 
   return (
     <div>
-      {/* ═══ NEXT ACTIONS ═══ */}
-      {nextActions.length > 0 && (
-        <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-            <div className="flex items-center gap-2">
-              <Clock size={14} style={{ color: C.textMuted }} />
-              <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-                Next Actions
-              </h3>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${gold}15`, color: gold }}>
-                {nextActions.length}
-              </span>
-              {overdueCount > 0 && (
-                <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: C.redLight, color: C.red }}>
-                  <AlertTriangle size={10} /> {overdueCount} overdue
-                </span>
-              )}
-            </div>
-            {pendingCalls.length > 0 && (
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-medium" style={{ color: C.textMuted }}>Call as:</span>
-                <div className="flex gap-1">
-                  {AIRCALL_USERS.map(u => (
-                    <button key={u.id} onClick={() => setSelectedUserId(u.id)}
-                      className="text-[10px] px-2 py-0.5 rounded-full font-medium transition-all"
-                      style={{
-                        backgroundColor: selectedUserId === u.id ? "#F97316" : "#F3F4F6",
-                        color: selectedUserId === u.id ? "#fff" : C.textMuted,
-                      }}>
-                      {u.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div>
-            {nextActions.slice(0, 8).map((a, i) => {
-              const meta = channelMeta[a.channel] ?? channelMeta.linkedin;
-              const Icon = meta.icon;
-              const isCalling = callingId === a.leadId;
-              const wasCalled = a.leadId && calledIds.has(a.leadId);
-              const signedOverdue = a.dueAt ? Math.floor((now - a.dueAt) / 86400000) : null;
-              const urgency = classifyUrgency(signedOverdue);
-              const UIcon = urgency.icon;
-
-              return (
-                <div key={a.campaignId} className="flex items-center gap-3 px-5 py-3"
-                  style={{ borderTop: i > 0 ? `1px solid ${C.border}` : "none", borderLeft: urgency.level === "critical" || urgency.level === "stuck" ? `3px solid ${urgency.color}` : "3px solid transparent", paddingLeft: urgency.level === "critical" || urgency.level === "stuck" ? "17px" : "20px" }}>
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: `${meta.color}15` }}>
-                    <Icon size={14} style={{ color: meta.color }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Link href={a.leadId ? `/leads/${a.leadId}` : "#"}
-                        className="text-sm font-semibold hover:underline" style={{ color: C.textPrimary }}>
-                        {a.leadName}
-                      </Link>
-                      {a.company && <span className="text-xs" style={{ color: C.textMuted }}>· {a.company}</span>}
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded"
-                        style={{ backgroundColor: urgency.bg, color: urgency.color, border: `1px solid ${urgency.border}` }}>
-                        <UIcon size={9} /> {urgency.label}
-                      </span>
-                    </div>
-                    <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>
-                      <span style={{ color: meta.color }}>{meta.label}</span> · Step {a.stepNumber}/{a.totalSteps}
-                      {a.dueAt && <> · Due {new Date(a.dueAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</>}
-                      {" · "}{urgency.hint}
-                    </p>
-                  </div>
-                  {a.channel === "call" ? (
-                    a.phone ? (
-                      wasCalled ? (
-                        <span className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold"
-                          style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>
-                          <Check size={12} /> Called
-                        </span>
-                      ) : (
-                        <button onClick={() => a.leadId && handleDial(a.leadId, a.phone!)}
-                          disabled={!!callingId}
-                          className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
-                          style={{ backgroundColor: urgency.level === "critical" || urgency.level === "stuck" ? urgency.color : "#F97316", color: "#fff" }}>
-                          {isCalling
-                            ? <><Loader2 size={12} className="animate-spin" /> Calling…</>
-                            : <><PhoneCall size={12} /> Call now</>}
-                        </button>
-                      )
-                    ) : (
-                      <span className="text-[10px]" style={{ color: C.textDim }}>No phone</span>
-                    )
-                  ) : null}
-                  <ChevronRight size={14} style={{ color: C.textDim }} className="shrink-0" />
-                </div>
-              );
-            })}
-            {nextActions.length > 8 && (
-              <div className="px-5 py-2 border-t text-center text-[10px]"
-                style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textMuted }}>
-                +{nextActions.length - 8} more actions — see Leads tab
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
         {tabs.map((t, i) => {
@@ -324,16 +218,32 @@ export default function CampaignDetailClient({
         })}
       </div>
 
-      {/* ═══ TAB 0: PIPELINE (KANBAN) ═══ */}
+      {/* ═══ TAB 0: LEADS (list ⇄ kanban) ═══ */}
       {tab === 0 && (
-        <CampaignKanban sequence={sequence} campaigns={visibleCampaigns as any} />
-      )}
-
-      {/* ═══ TAB 1: LEADS ═══ */}
-      {tab === 1 && (
         <div>
           <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <span className="text-xs font-medium" style={{ color: C.textMuted }}>{selected.size > 0 ? `${selected.size} selected` : "All"}:</span>
+            {/* View toggle */}
+            <div className="inline-flex rounded-lg border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.card }}>
+              <button onClick={() => setLeadsView("list")}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all"
+                style={{
+                  backgroundColor: leadsView === "list" ? `${gold}15` : "transparent",
+                  color: leadsView === "list" ? gold : C.textMuted,
+                }}>
+                <Users size={11} /> List
+              </button>
+              <button onClick={() => setLeadsView("kanban")}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all border-l"
+                style={{
+                  backgroundColor: leadsView === "kanban" ? `${gold}15` : "transparent",
+                  color: leadsView === "kanban" ? gold : C.textMuted,
+                  borderColor: C.border,
+                }}>
+                <LayoutGrid size={11} /> Pipeline
+              </button>
+            </div>
+
+            <span className="text-xs font-medium ml-2" style={{ color: C.textMuted }}>{selected.size > 0 ? `${selected.size} selected` : "All"}:</span>
             <Link href={`/campaigns/${campaignId}/edit`} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold hover:opacity-80" style={{ backgroundColor: `${gold}15`, color: gold, border: `1px solid ${gold}30` }}><Pencil size={11} /> Edit</Link>
             {campaignStatus === "active" ? (
               <button onClick={() => bulkAct("pause")} disabled={!!acting} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}><Pause size={11} /> Pause</button>
@@ -343,6 +253,10 @@ export default function CampaignDetailClient({
             <button onClick={() => { if (confirm("Cancel this campaign for " + (selected.size > 0 ? "selected leads" : "all leads") + "?")) bulkAct("cancel"); }} disabled={!!acting} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: C.redLight, color: C.red }}><Trash2 size={11} /> Cancel</button>
             {selected.size > 0 && <button onClick={() => setSelected(new Set())} className="text-xs underline ml-1" style={{ color: C.textMuted }}>Clear</button>}
           </div>
+
+          {leadsView === "kanban" ? (
+            <CampaignKanban sequence={sequence} campaigns={visibleCampaigns as any} />
+          ) : (
           <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
             <table className="w-full text-sm">
               <thead>
@@ -383,11 +297,12 @@ export default function CampaignDetailClient({
               </tbody>
             </table>
           </div>
+          )}
         </div>
       )}
 
-      {/* ═══ TAB 2: SEQUENCE ═══ */}
-      {tab === 2 && (
+      {/* ═══ TAB 1: SEQUENCE ═══ */}
+      {tab === 1 && (
         <div className="space-y-5">
 
           {/* Actions row */}
@@ -678,13 +593,13 @@ export default function CampaignDetailClient({
         </div>
       )}
 
-      {/* ═══ TAB 3: CALLS ═══ */}
-      {tab === 3 && (
+      {/* ═══ TAB 2: CALLS ═══ */}
+      {tab === 2 && (
         <CampaignCallsTab leads={allCampaigns.map(c => c.leads).filter(Boolean)} />
       )}
 
-      {/* ═══ TAB 4: ADD LEADS ═══ */}
-      {tab === 4 && (() => {
+      {/* ═══ TAB 3: ADD LEADS ═══ */}
+      {tab === 3 && (() => {
         const sameIcpLeads = campaignIcpId
           ? leadGroups.flatMap((g: LeadGroup) => g.leads.filter((l: UnlinkedLead) => (l as any).icp_profile_id === campaignIcpId))
           : [];
