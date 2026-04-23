@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseService } from "@/lib/supabase-service";
 
 const KEY = process.env.UNIPILE_API_KEY!;
 const DSN = process.env.UNIPILE_DSN!;
@@ -21,6 +23,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Name required" }, { status: 400 });
   }
 
+  // Resolve the acting user's company scope so the seller lands under the right tenant.
+  const authSupabase = await getSupabaseServer();
+  const { data: { user } } = await authSupabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const svc = getSupabaseService();
+  const { data: profile } = await svc
+    .from("user_profiles")
+    .select("role, company_bio_id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const companyBioId: string | null = profile?.company_bio_id ?? null;
+
   // 1. Create the seller in Supabase with unipile_account_id = null (pending)
   const sellerRes = await fetch(`${SB_URL}/rest/v1/sellers`, {
     method: "POST",
@@ -34,6 +49,7 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       linkedin_daily_limit,
       active: true,
+      company_bio_id: companyBioId,
     }),
   });
   if (!sellerRes.ok) {

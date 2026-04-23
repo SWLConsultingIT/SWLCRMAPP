@@ -8,6 +8,7 @@ import Link from "next/link";
 import {
   Target, Plus, X, CheckCircle, AlertCircle, Clock, Loader2, ArrowLeft,
   Pencil, Trash2, ChevronRight, Users, MapPin, Briefcase, Megaphone, ExternalLink,
+  Building2, Lightbulb, BookOpen,
 } from "lucide-react";
 
 const gold = C.gold;
@@ -342,70 +343,73 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
 
       <div className="border-t" style={{ borderColor: C.border }} />
 
-      {/* Metrics */}
-      <div className="px-6 py-4 grid grid-cols-4 gap-4">
+      {/* Overview — category cards with icons */}
+      <div className="px-6 py-5 grid grid-cols-2 gap-3">
         {profile.target_industries?.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>Industries</p>
-            <div className="flex flex-wrap gap-1">
+          <OverviewCard icon={Building2} label="Industries" accent={C.blue} bg={C.blueLight}>
+            <div className="flex flex-wrap gap-1.5">
               {profile.target_industries.map(i => (
-                <span key={i} className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: C.blueLight, color: C.blue }}>{i}</span>
+                <span key={i} className="text-[11px] font-medium px-2 py-0.5 rounded-md"
+                  style={{ backgroundColor: C.blueLight, color: C.blue, border: `1px solid color-mix(in srgb, ${C.blue} 15%, transparent)` }}>{i}</span>
               ))}
             </div>
-          </div>
+          </OverviewCard>
         )}
         {profile.target_roles?.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>Roles</p>
-            <div className="flex flex-wrap gap-1">
+          <OverviewCard icon={Briefcase} label="Target Roles" accent={C.accent} bg={C.accentLight}>
+            <div className="flex flex-wrap gap-1.5">
               {profile.target_roles.map(r => (
-                <span key={r} className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: C.accentLight, color: C.accent }}>{r}</span>
+                <span key={r} className="text-[11px] font-medium px-2 py-0.5 rounded-md"
+                  style={{ backgroundColor: C.accentLight, color: C.accent, border: `1px solid color-mix(in srgb, ${C.accent} 15%, transparent)` }}>{r}</span>
               ))}
             </div>
-          </div>
+          </OverviewCard>
         )}
         {profile.company_size && (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>Company Size</p>
-            <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{profile.company_size} employees</p>
-          </div>
+          <OverviewCard icon={Users} label="Company Size" accent={"#7C3AED"} bg={"#F5F3FF"}>
+            <p className="text-[12px] leading-relaxed" style={{ color: C.textBody }}>
+              {profile.company_size}
+            </p>
+          </OverviewCard>
         )}
         {profile.geography?.length > 0 && (
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>Geography</p>
-            <div className="flex flex-wrap gap-1">
+          <OverviewCard icon={MapPin} label="Geography" accent={C.orange} bg={C.orangeLight}>
+            <div className="flex flex-wrap gap-1.5">
               {profile.geography.map(g => (
-                <span key={g} className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: C.orangeLight, color: C.orange }}>{g}</span>
+                <span key={g} className="text-[11px] font-medium px-2 py-0.5 rounded-md"
+                  style={{ backgroundColor: C.orangeLight, color: C.orange, border: `1px solid color-mix(in srgb, ${C.orange} 15%, transparent)` }}>{g}</span>
               ))}
             </div>
-          </div>
+          </OverviewCard>
         )}
       </div>
 
-      {/* Content grid */}
+      {/* Pain Points + Solutions (color-accented side-by-side) */}
       {(profile.pain_points || profile.solutions_offered) && (
-        <div className="px-6 pb-5 grid grid-cols-2 gap-6">
+        <div className="px-6 pb-5 grid grid-cols-2 gap-4">
           {profile.pain_points && (
-            <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: gold }}>Pain Points</p>
-              <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{profile.pain_points}</p>
-            </div>
+            <AccentBlock icon={AlertCircle} title="Pain Points" accent={C.red} bg={C.redLight}>
+              <p className="text-[13px] leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>
+                {profile.pain_points}
+              </p>
+            </AccentBlock>
           )}
           {profile.solutions_offered && (
-            <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: gold }}>Solutions Offered</p>
-              <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{profile.solutions_offered}</p>
-            </div>
+            <AccentBlock icon={Lightbulb} title="Solutions Offered" accent={C.green} bg={C.greenLight}>
+              <p className="text-[13px] leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>
+                {profile.solutions_offered}
+              </p>
+            </AccentBlock>
           )}
         </div>
       )}
 
+      {/* Classification Rubric (Notes) — parsed + tier badges highlighted */}
       {profile.notes && (
         <div className="px-6 pb-5">
-          <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>Notes</p>
-            <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{profile.notes}</p>
-          </div>
+          <AccentBlock icon={BookOpen} title="Classification Rubric" accent={"#7C3AED"} bg={"#F5F3FF"}>
+            <NotesRenderer text={profile.notes} />
+          </AccentBlock>
         </div>
       )}
 
@@ -760,3 +764,86 @@ export default function LeadGenPage() {
     </div>
   );
 }
+
+// ─── ProfileDetail helpers ──────────────────────────────────────────────────
+
+function OverviewCard({
+  icon: Icon, label, accent, bg, children,
+}: {
+  icon: typeof Target; label: string; accent: string; bg: string; children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border p-3.5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: bg }}>
+          <Icon size={12} style={{ color: accent }} />
+        </div>
+        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textMuted }}>{label}</p>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function AccentBlock({
+  icon: Icon, title, accent, bg, children,
+}: {
+  icon: typeof Target; title: string; accent: string; bg: string; children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderLeft: `3px solid ${accent}` }}>
+      <div className="px-4 py-2.5 flex items-center gap-2 border-b"
+        style={{ borderColor: C.border, background: `linear-gradient(90deg, ${bg}, transparent)` }}>
+        <Icon size={13} style={{ color: accent }} />
+        <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: accent }}>{title}</p>
+      </div>
+      <div className="p-4">{children}</div>
+    </div>
+  );
+}
+
+// Renders ICP notes paragraph-by-paragraph and highlights tier tokens
+// (HOT / WARM / NURTURE / DISCARD) + money figures (£XX) as inline badges.
+function NotesRenderer({ text }: { text: string }) {
+  const paragraphs = text.split(/\n\n+/).filter(p => p.trim());
+
+  return (
+    <div className="space-y-3">
+      {paragraphs.map((para, idx) => (
+        <p key={idx} className="text-[13px] leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>
+          {highlightTokens(para)}
+        </p>
+      ))}
+    </div>
+  );
+}
+
+const TIER_STYLES: Record<string, { color: string; bg: string }> = {
+  HOT:     { color: C.red,     bg: C.redLight },
+  WARM:    { color: "#D97706", bg: C.yellowLight },
+  NURTURE: { color: C.blue,    bg: C.blueLight },
+  DISCARD: { color: C.textMuted, bg: "#F3F4F6" },
+};
+
+function highlightTokens(text: string): React.ReactNode[] {
+  const pattern = /\b(HOT|WARM|NURTURE|DISCARD)\b/g;
+  const nodes: React.ReactNode[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
+  let i = 0;
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > last) nodes.push(text.slice(last, match.index));
+    const tier = match[1];
+    const style = TIER_STYLES[tier];
+    nodes.push(
+      <span key={`t-${i++}`} className="inline-block text-[10px] font-bold px-1.5 py-0.5 rounded align-middle mx-0.5"
+        style={{ backgroundColor: style.bg, color: style.color }}>
+        {tier}
+      </span>
+    );
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+

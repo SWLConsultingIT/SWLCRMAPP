@@ -15,6 +15,8 @@ import Breadcrumb from "@/components/Breadcrumb";
 import SyncAircallButton from "@/components/SyncAircallButton";
 import CallButton from "@/components/CallButton";
 import CallCard from "@/components/CallCard";
+import PersonalizedInfoPanel from "@/components/PersonalizedInfoPanel";
+import LeadSummaryTab from "@/components/LeadSummaryTab";
 
 const gold = "var(--brand, #c9a83a)";
 const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";
@@ -456,6 +458,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       {/* ═══ TABS ═══ */}
       <CompanyTabs tabs={[
         { label: "Profile Overview" },
+        { label: "Summary" },
         { label: "Campaign" },
         { label: "Recent Activity",  count: activityItems.length },
         { label: "Social & Content" },
@@ -572,6 +575,9 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 </div>
               </div>
             </div>
+
+            {/* Personalized Info — client-specific enrichment (Pathway: credit signals) */}
+            <PersonalizedInfoPanel enrichment={lead.enrichment} />
 
             {/* Company Info */}
             {lead.company_name && (
@@ -790,7 +796,14 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           </div>
         </div>
 
-        {/* ── TAB 2: Campaign ── */}
+        {/* ── TAB 2: Summary ── */}
+        <LeadSummaryTab
+          leadId={id}
+          initialSummary={lead.ai_summary ?? null}
+          initialGeneratedAt={lead.ai_summary_at ?? null}
+        />
+
+        {/* ── TAB 3: Campaign ── */}
         <CampaignJourney campaign={campaign as any} messages={messages as any} replies={replies as any} />
 
         {/* ── TAB 3: Recent Activity ── */}

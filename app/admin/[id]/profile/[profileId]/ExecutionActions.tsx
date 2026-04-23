@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import { Clock, Upload, CheckCircle, Loader2 } from "lucide-react";
 
@@ -23,16 +22,21 @@ export default function ExecutionActions({ id, currentStatus, leadsUploaded }: {
   const [count, setCount] = useState(leadsUploaded);
   const [showCountInput, setShowCountInput] = useState(false);
 
-  async function updateStatus(status: string, extras?: Record<string, any>) {
+  async function updateStatus(status: string, extras?: { leads_uploaded?: number }) {
     setActing(true);
-    await supabase.from("icp_profiles").update({
-      execution_status: status,
-      ...(status === "uploaded" || status === "completed" ? { executed_at: new Date().toISOString() } : {}),
-      ...(extras ?? {}),
-    }).eq("id", id);
-    router.refresh();
+    const r = await fetch("/api/icp/execution-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, status, ...(extras ?? {}) }),
+    });
     setActing(false);
     setShowCountInput(false);
+    if (!r.ok) {
+      const { error } = await r.json().catch(() => ({ error: "Request failed" }));
+      alert(`Failed to update status: ${error ?? "unknown error"}`);
+      return;
+    }
+    router.refresh();
   }
 
   const currentIdx = steps.findIndex(s => s.key === currentStatus);

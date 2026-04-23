@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 
 type BrandState = {
   primaryColor: string;   // effective color (either brand or gold fallback)
@@ -10,8 +11,19 @@ type BrandState = {
 const DEFAULT_GOLD = "#c9a83a";
 const BrandContext = createContext<BrandState>({ primaryColor: DEFAULT_GOLD, enabled: false });
 
+// Public/pre-auth routes must always show SWL default branding — never inherit a client's color.
+const PUBLIC_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password"];
+
 export function useBrand() {
   return useContext(BrandContext);
+}
+
+function clearBrandVars() {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  root.style.removeProperty("--brand");
+  root.style.removeProperty("--brand-dark");
+  root.style.removeProperty("--brand-soft");
 }
 
 // Darken a hex color by a percentage (for --brand-dark).
@@ -32,31 +44,75 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${(n >> 16) & 0xff}, ${(n >> 8) & 0xff}, ${n & 0xff}, ${alpha})`;
 }
 
+const BRAND_COOKIE = "swl-brand";
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+
+function applyBrand(color: string) {
+  const root = document.documentElement;
+  root.style.setProperty("--brand", color);
+  root.style.setProperty("--brand-dark", darken(color, 0.12));
+  root.style.setProperty("--brand-soft", hexToRgba(color, 0.15));
+}
+
+// Persist the brand to a cookie so the server can inline it in <head> on the
+// next request — zero flash, no localStorage dependency.
+function writeBrandCookie(enabled: boolean, color: string) {
+  try {
+    const payload = JSON.stringify({
+      enabled,
+      color,
+      dark: darken(color, 0.12),
+      soft: hexToRgba(color, 0.15),
+    });
+    document.cookie = `${BRAND_COOKIE}=${encodeURIComponent(payload)}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
+  } catch { /* ignore */ }
+}
+
+function clearBrandCookie() {
+  try { document.cookie = `${BRAND_COOKIE}=; path=/; max-age=0; SameSite=Lax`; } catch { /* ignore */ }
+}
+
 export function BrandProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<BrandState>({ primaryColor: DEFAULT_GOLD, enabled: false });
+  const pathname = usePathname();
+  const isPublicRoute = PUBLIC_ROUTES.some(r => pathname === r || pathname.startsWith(`${r}/`));
 
   useEffect(() => {
+    // Public routes must always show SWL default — strip any inherited vars and clear cookie.
+    if (isPublicRoute) {
+      clearBrandVars();
+      clearBrandCookie();
+      setState({ primaryColor: DEFAULT_GOLD, enabled: false });
+      return;
+    }
+
+    // Authenticated route: SSR <style> already painted the brand on first byte.
+    // Fetch the authoritative value and update state + cookie for next request.
     fetch("/api/settings/branding")
       .then(r => r.ok ? r.json() : null)
       .then(d => {
-        if (!d) return;
+        if (!d) {
+          clearBrandVars();
+          clearBrandCookie();
+          setState({ primaryColor: DEFAULT_GOLD, enabled: false });
+          return;
+        }
         const color = d.primary_color || DEFAULT_GOLD;
         const enabled = !!d.use_brand_colors && !!d.primary_color;
         setState({ primaryColor: enabled ? color : DEFAULT_GOLD, enabled });
 
-        const root = document.documentElement;
         if (enabled) {
-          root.style.setProperty("--brand", color);
-          root.style.setProperty("--brand-dark", darken(color, 0.12));
-          root.style.setProperty("--brand-soft", hexToRgba(color, 0.15));
+          applyBrand(color);
+          writeBrandCookie(true, color);
         } else {
-          root.style.removeProperty("--brand");
-          root.style.removeProperty("--brand-dark");
-          root.style.removeProperty("--brand-soft");
+          clearBrandVars();
+          clearBrandCookie();
         }
       })
-      .catch(() => {});
-  }, []);
+      .catch(() => {
+        setState({ primaryColor: DEFAULT_GOLD, enabled: false });
+      });
+  }, [isPublicRoute, pathname]);
 
   return <BrandContext.Provider value={state}>{children}</BrandContext.Provider>;
 }

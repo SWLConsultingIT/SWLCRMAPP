@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
+import { cookies } from "next/headers";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
 import { ThemeProvider } from "@/lib/theme";
@@ -16,11 +17,31 @@ export const metadata: Metadata = {
 
 const themeScript = `try{var t=localStorage.getItem('swl-theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}`;
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+// Read the brand cookie (written by BrandProvider after DB fetch) and emit
+// the <style> tag server-side so the brand color is painted on the first byte.
+function getBrandStyle(cookieValue: string | undefined): string | null {
+  if (!cookieValue) return null;
+  try {
+    const b = JSON.parse(decodeURIComponent(cookieValue)) as {
+      enabled?: boolean; color?: string; dark?: string; soft?: string;
+    };
+    if (!b.enabled || !b.color || !b.dark || !b.soft) return null;
+    // Validate hex-ish values to prevent CSS injection via cookie tampering.
+    if (!/^#[0-9A-Fa-f]{6}$/.test(b.color) || !/^#[0-9A-Fa-f]{6}$/.test(b.dark)) return null;
+    if (!/^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*[\d.]+\s*\)$/.test(b.soft)) return null;
+    return `:root{--brand:${b.color};--brand-dark:${b.dark};--brand-soft:${b.soft};}`;
+  } catch { return null; }
+}
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = await cookies();
+  const brandCss = getBrandStyle(cookieStore.get("swl-brand")?.value);
+
   return (
-    <html lang="es" className={`${inter.variable} ${outfit.variable} h-full`}>
+    <html lang="es" className={`${inter.variable} ${outfit.variable} h-full`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {brandCss && <style dangerouslySetInnerHTML={{ __html: brandCss }} />}
       </head>
       <body className="h-full antialiased">
         <ThemeProvider>
