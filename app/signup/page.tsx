@@ -78,15 +78,19 @@ export default function SignupPage() {
       }
 
       if (data.user) {
-        await fetch("/api/auth/signup", {
+        const signupRes = await fetch("/api/auth/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId: data.user.id, role: "client" }),
-        });
+          body: JSON.stringify({ userId: data.user.id, email, role: "client" }),
+        }).then(r => r.json()).catch(() => ({}));
+
         if (!data.session) {
           setDone(true);
         } else {
-          router.push("/onboarding");
+          // If domain matched an existing workspace, go straight to dashboard.
+          // Otherwise, onboarding wizard for new companies.
+          if (signupRes?.companyBioId) router.push("/");
+          else router.push("/onboarding");
           router.refresh();
         }
       }

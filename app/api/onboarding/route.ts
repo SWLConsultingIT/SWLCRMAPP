@@ -20,6 +20,20 @@ export async function POST(req: NextRequest) {
 
   const svc = getSupabaseService();
 
+  // Derive email_domain from the user's email (skip personal domains so workspaces don't merge strangers)
+  const PERSONAL = new Set([
+    "gmail.com", "googlemail.com", "yahoo.com", "yahoo.co.uk", "yahoo.es",
+    "hotmail.com", "hotmail.es", "hotmail.co.uk", "outlook.com", "live.com",
+    "icloud.com", "me.com", "mac.com", "aol.com", "proton.me", "protonmail.com",
+  ]);
+  let emailDomain: string | null = null;
+  const emailLower = (user.email ?? "").toLowerCase();
+  const at = emailLower.lastIndexOf("@");
+  if (at > 0) {
+    const dom = emailLower.slice(at + 1);
+    if (dom && dom.includes(".") && !PERSONAL.has(dom)) emailDomain = dom;
+  }
+
   // Create company_bio
   const { data: bio, error: bioErr } = await svc
     .from("company_bios")
@@ -36,6 +50,7 @@ export async function POST(req: NextRequest) {
       team_size: team_size || null,
       location: location || null,
       linkedin_url: linkedin_url || null,
+      email_domain: emailDomain,
     })
     .select("id")
     .single();
