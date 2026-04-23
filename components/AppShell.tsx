@@ -10,7 +10,7 @@ import NavigationProgress from "@/components/NavigationProgress";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isPublic = ["/login", "/signup", "/forgot-password"].includes(pathname);
+  const isPublic = ["/login", "/signup", "/forgot-password", "/onboarding"].includes(pathname);
   const isPrint = pathname === "/reports/print";
 
   if (isPublic || isPrint) {

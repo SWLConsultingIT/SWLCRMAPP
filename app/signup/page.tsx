@@ -86,7 +86,7 @@ export default function SignupPage() {
         if (!data.session) {
           setDone(true);
         } else {
-          router.push("/");
+          router.push("/onboarding");
           router.refresh();
         }
       }

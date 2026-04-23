@@ -1,5 +1,6 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getUserScope } from "@/lib/scope";
+import { redirect } from "next/navigation";
 import { C } from "@/lib/design";
 import {
   Users, MessageSquare, Share2, Mail, Phone, TrendingUp,
@@ -173,6 +174,12 @@ async function getDashboardData() {
 }
 
 export default async function DashboardPage() {
+  // Force new clients through onboarding if they haven't completed company_bio yet.
+  const scope = await getUserScope();
+  if (scope.userId && scope.role !== "admin" && !scope.companyBioId) {
+    redirect("/onboarding");
+  }
+
   const data = await getDashboardData();
 
   return (
