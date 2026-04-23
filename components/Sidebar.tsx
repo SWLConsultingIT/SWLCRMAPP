@@ -49,7 +49,6 @@ const sections: { labelKey: string; items: NavItem[] }[] = [
       { href: "/accounts", labelKey: "nav.accounts", icon: UserCircle },
       { href: "/opportunities", labelKey: "nav.opportunities", icon: Trophy },
       { href: "/queue", labelKey: "nav.queue", icon: Bell, badgeKey: "calls" },
-      { href: "/settings", labelKey: "nav.settings", icon: Settings },
       { href: "/admin", labelKey: "nav.admin", icon: Shield, badgeKey: "pending", adminOnly: true },
     ],
   },
@@ -212,17 +211,28 @@ export default function Sidebar() {
       </div>
 
       {/* Footer */}
-      <div className="relative px-5 py-4 border-t" style={{ borderColor: BORDER }}>
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-            style={{ background: `linear-gradient(135deg, ${GOLD}, #e8c84a)`, color: "#fff" }}>
-            S
-          </div>
-          <div>
-            <p className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>SWL Consulting</p>
-            <p className="text-[10px]" style={{ color: GOLD_DIM }}>Growth Platform</p>
-          </div>
+      <div className="relative px-5 py-4 border-t flex items-center gap-2.5" style={{ borderColor: BORDER }}>
+        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+          style={{ background: `linear-gradient(135deg, ${GOLD}, #e8c84a)`, color: "#fff" }}>
+          S
         </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>SWL Consulting</p>
+          <p className="text-[10px]" style={{ color: GOLD_DIM }}>Growth Platform</p>
+        </div>
+        <Link
+          href="/settings"
+          title={t("nav.settings")}
+          className="w-8 h-8 flex items-center justify-center rounded-lg transition-all shrink-0"
+          style={{
+            color: pathname.startsWith("/settings") ? GOLD : TEXT_MUTED,
+            backgroundColor: pathname.startsWith("/settings") ? "rgba(201,168,58,0.12)" : "transparent",
+          }}
+          onMouseEnter={(e) => { if (!pathname.startsWith("/settings")) { e.currentTarget.style.color = "#fff"; e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; } }}
+          onMouseLeave={(e) => { if (!pathname.startsWith("/settings")) { e.currentTarget.style.color = TEXT_MUTED; e.currentTarget.style.backgroundColor = "transparent"; } }}
+        >
+          <Settings size={15} />
+        </Link>
       </div>
     </aside>
   );

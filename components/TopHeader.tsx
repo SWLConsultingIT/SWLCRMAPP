@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Bell, HelpCircle, Search, ChevronRight, LogOut } from "lucide-react";
+import { Bell, HelpCircle, Search, ChevronRight, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
@@ -131,6 +131,14 @@ export default function TopHeader() {
           title={t("nav.queue")}
         >
           <Bell size={16} />
+        </Link>
+        <Link
+          href="/settings"
+          className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
+          style={{ color: pathname.startsWith("/settings") ? C.gold : C.textMuted }}
+          title={t("nav.settings")}
+        >
+          <Settings size={16} />
         </Link>
         <button
           className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
