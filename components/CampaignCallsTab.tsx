@@ -108,7 +108,7 @@ export default function CampaignCallsTab({ leads }: { leads: LeadRef[] }) {
                 onClick={() => setSelectedLeadId(l.id)}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors"
                 style={{
-                  backgroundColor: isActive ? `${C.gold}12` : "transparent",
+                  backgroundColor: isActive ? `color-mix(in srgb, ${C.gold} 7%, transparent)` : "transparent",
                   borderLeft: isActive ? `3px solid ${C.gold}` : "3px solid transparent",
                   borderBottom: `1px solid ${C.border}`,
                   paddingLeft: isActive ? "13px" : "16px",
@@ -129,7 +129,7 @@ export default function CampaignCallsTab({ leads }: { leads: LeadRef[] }) {
                     </span>
                     {hasTranscript && (
                       <span className="flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded"
-                        style={{ backgroundColor: `${C.gold}15`, color: C.gold }}>
+                        style={{ backgroundColor: `color-mix(in srgb, ${C.gold} 8%, transparent)`, color: C.gold }}>
                         <FileText size={8} /> transcript
                       </span>
                     )}

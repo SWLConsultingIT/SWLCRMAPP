@@ -58,7 +58,7 @@ export default function CallsClient({ initialQueue, history }: {
           <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Cola de Llamadas</h1>
           {queue.length > 0 && (
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border"
-              style={{ backgroundColor: C.goldGlow, borderColor: `${C.gold}30` }}>
+              style={{ backgroundColor: C.goldGlow, borderColor: `color-mix(in srgb, ${C.gold} 19%, transparent)` }}>
               <span className="pulse-dot w-2 h-2 rounded-full inline-block" style={{ backgroundColor: C.gold }} />
               <span className="text-xs font-semibold" style={{ color: C.gold }}>
                 {queue.length} pendiente{queue.length !== 1 ? "s" : ""}
@@ -84,9 +84,9 @@ export default function CallsClient({ initialQueue, history }: {
               <div key={c.id} className="rounded-xl border p-5 transition-all"
                 style={{
                   backgroundColor: C.card,
-                  borderColor: i === 0 ? `${C.gold}40` : C.border,
+                  borderColor: i === 0 ? `color-mix(in srgb, ${C.gold} 25%, transparent)` : C.border,
                   borderTop: `2px solid ${i === 0 ? C.gold : C.border}`,
-                  boxShadow: i === 0 ? `0 0 0 1px ${C.gold}15, 0 4px 24px ${C.goldGlow}` : "none",
+                  boxShadow: i === 0 ? `0 0 0 1px color-mix(in srgb, ${C.gold} 8%, transparent), 0 4px 24px ${C.goldGlow}` : "none",
                 }}>
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black shrink-0"

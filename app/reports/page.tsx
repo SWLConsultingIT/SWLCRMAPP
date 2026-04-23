@@ -530,7 +530,7 @@ export default async function ReportsPage() {
               <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Conversions and response by seller</p>
             </div>
             {data.topSeller && (
-              <div className="flex items-center gap-2 rounded-lg px-3 py-1.5" style={{ backgroundColor: `${gold}12`, color: gold }}>
+              <div className="flex items-center gap-2 rounded-lg px-3 py-1.5" style={{ backgroundColor: `color-mix(in srgb, ${gold} 7%, transparent)`, color: gold }}>
                 <Trophy size={12} />
                 <span className="text-[10px] font-bold uppercase tracking-wider">Top: {data.topSeller.name}</span>
               </div>

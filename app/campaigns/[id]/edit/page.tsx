@@ -443,7 +443,7 @@ export default function FlowEditorPage() {
           </div>
           <button onClick={addStep}
             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold cursor-pointer transition-opacity hover:opacity-80"
-            style={{ backgroundColor: `${gold}15`, color: gold, border: `1px solid ${gold}30` }}>
+            style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
             <Plus size={13} /> Add Step
           </button>
         </div>
@@ -610,7 +610,7 @@ export default function FlowEditorPage() {
                           </span>
                         ) : (
                           <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
-                            style={{ backgroundColor: `${gold}15`, color: gold }}>
+                            style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
                             AI will generate
                           </span>
                         )}
@@ -674,7 +674,7 @@ export default function FlowEditorPage() {
         </Link>
         <button onClick={handleSave} disabled={saving || !flowName.trim()}
           className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-all cursor-pointer hover:shadow-sm disabled:opacity-40"
-          style={{ backgroundColor: C.goldGlow, color: gold, border: `1px solid ${gold}30` }}>
+          style={{ backgroundColor: C.goldGlow, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
           {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
           {saving ? "Saving..." : "Save Changes"}
         </button>

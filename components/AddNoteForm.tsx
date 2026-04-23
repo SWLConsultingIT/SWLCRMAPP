@@ -58,7 +58,7 @@ export default function AddNoteForm({ leadId }: { leadId: string }) {
           type="submit"
           disabled={loading || !text.trim()}
           className="mt-2 flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-40"
-          style={{ backgroundColor: C.goldGlow, color: C.gold, border: `1px solid ${C.gold}30` }}
+          style={{ backgroundColor: C.goldGlow, color: C.gold, border: `1px solid color-mix(in srgb, ${C.gold} 19%, transparent)` }}
         >
           {loading ? <Loader size={12} className="animate-spin" /> : null}
           Guardar nota

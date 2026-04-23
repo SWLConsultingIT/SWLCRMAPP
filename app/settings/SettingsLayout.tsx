@@ -52,7 +52,7 @@ export default function SettingsLayout({ callMode }: { callMode: "manual" | "aut
               onClick={() => setActive(s.id)}
               className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all"
               style={{
-                backgroundColor: isActive ? `${C.gold}12` : "transparent",
+                backgroundColor: isActive ? `color-mix(in srgb, ${C.gold} 7%, transparent)` : "transparent",
                 color: isActive ? C.gold : C.textBody,
                 borderLeft: isActive ? `3px solid ${C.gold}` : "3px solid transparent",
                 paddingLeft: isActive ? "9px" : "12px",
@@ -153,7 +153,7 @@ function PreferencesSection() {
                 onClick={() => setTheme(opt.id)}
                 className="rounded-lg p-4 border-2 transition-all hover:scale-[1.01]"
                 style={{
-                  backgroundColor: isActive ? `${C.gold}0D` : C.bg,
+                  backgroundColor: isActive ? `color-mix(in srgb, ${C.gold} 5%, transparent)` : C.bg,
                   borderColor: isActive ? C.gold : C.border,
                   cursor: "pointer",
                 }}
@@ -178,7 +178,6 @@ function BrandingCard() {
   const [primaryColor, setPrimaryColor] = useState<string>("#b79832");
   const [useBrandColors, setUseBrandColors] = useState<boolean>(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
 
@@ -187,7 +186,7 @@ function BrandingCard() {
       if (d.primary_color) setPrimaryColor(d.primary_color);
       setUseBrandColors(!!d.use_brand_colors);
       setLogoUrl(d.logo_url ?? null);
-    }).finally(() => setLoading(false));
+    }).catch(() => {});
   }, []);
 
   async function save(patch: { primary_color?: string; use_brand_colors?: boolean }) {
@@ -205,14 +204,10 @@ function BrandingCard() {
     if (r.ok) setSavedAt(Date.now());
   }
 
-  if (loading) return null;
-
   return (
     <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
       <div className="flex items-center justify-between mb-1">
         <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Branding</h3>
-        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-          style={{ backgroundColor: `${C.gold}15`, color: C.gold }}>BETA</span>
       </div>
       <p className="text-xs mb-4" style={{ color: C.textMuted }}>
         Make the app feel like your brand. Primary color is applied to buttons, accents and highlights across the workspace.
@@ -285,7 +280,7 @@ function LanguageCard() {
               onClick={() => setLocale(opt.id)}
               className="rounded-lg p-4 border-2 transition-all hover:scale-[1.01] flex items-center gap-3"
               style={{
-                backgroundColor: isActive ? `${C.gold}0D` : C.bg,
+                backgroundColor: isActive ? `color-mix(in srgb, ${C.gold} 5%, transparent)` : C.bg,
                 borderColor: isActive ? C.gold : C.border,
                 cursor: "pointer",
               }}
@@ -375,7 +370,7 @@ function IntegrationsSection() {
 function SectionHeader({ icon: Icon, title, description }: { icon: typeof User; title: string; description: string }) {
   return (
     <div className="flex items-start gap-3 pb-4 border-b" style={{ borderColor: C.border }}>
-      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${C.gold}15` }}>
+      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${C.gold} 8%, transparent)` }}>
         <Icon size={16} style={{ color: C.gold }} />
       </div>
       <div>

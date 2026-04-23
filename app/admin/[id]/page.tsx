@@ -518,7 +518,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                       <div className="flex items-center gap-2 mb-1">
                         {isIndividual && (
                           <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md"
-                            style={{ backgroundColor: `${gold}15`, color: gold }}>
+                            style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
                             <User size={10} /> Individual
                           </span>
                         )}

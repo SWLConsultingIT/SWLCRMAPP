@@ -1274,7 +1274,7 @@ export default function CompanyBiosPage() {
             <div className="absolute inset-x-0 top-0 h-1"
               style={{ background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white), ${gold})` }} />
             <div className="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4"
-              style={{ background: `linear-gradient(135deg, ${gold}20, ${gold}08)`, border: `1px solid ${gold}30` }}>
+              style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 13%, transparent), color-mix(in srgb, ${gold} 3%, transparent))`, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
               <Building2 size={24} style={{ color: gold }} />
             </div>
             <h2 className="text-base font-bold mb-1.5" style={{ color: C.textPrimary }}>No company profile yet</h2>
@@ -1295,7 +1295,7 @@ export default function CompanyBiosPage() {
               ].map(step => (
                 <div key={step.icon} className="text-center">
                   <div className="w-7 h-7 rounded-full flex items-center justify-center mx-auto mb-1 text-xs font-bold"
-                    style={{ backgroundColor: goldLight, color: gold, border: `1px solid ${gold}30` }}>
+                    style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
                     {step.icon}
                   </div>
                   <p className="text-xs" style={{ color: C.textMuted }}>{step.label}</p>

@@ -268,7 +268,7 @@ export default function NewCampaignWizard() {
           <div className="mt-2 flex flex-wrap gap-1.5">
             {selectedLeadNames.slice(0, 8).map((name, i) => (
               <span key={i} className="text-xs px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: `${gold}15`, color: gold }}>{name}</span>
+                style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>{name}</span>
             ))}
             {selectedLeadNames.length > 8 && (
               <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: C.bg, color: C.textMuted }}>
@@ -498,7 +498,7 @@ export default function NewCampaignWizard() {
                         className="rounded-xl border p-4 text-left transition-all hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{
                           borderColor: isActive ? gold : C.border,
-                          backgroundColor: isActive ? `${gold}06` : "transparent",
+                          backgroundColor: isActive ? `color-mix(in srgb, ${gold} 2%, transparent)` : "transparent",
                           boxShadow: isActive ? `0 0 0 1px ${gold}` : "none",
                         }}>
                         <div className="flex items-center gap-3 mb-2">

@@ -437,7 +437,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
                       const isMsg = item.type === "message_sent";
                       const chMeta = channelMeta[item.channel] ?? channelMeta.email;
                       const cls = isReply && item.classification ? classColors[item.classification] : null;
-                      const dotBg = isReply ? (cls?.bg ?? "#F3F4F6") : isCampStart ? `${gold}15` : isCampEnd ? "#F3F4F6" : `${chMeta.color}15`;
+                      const dotBg = isReply ? (cls?.bg ?? "#F3F4F6") : isCampStart ? `color-mix(in srgb, ${gold} 8%, transparent)` : isCampEnd ? "#F3F4F6" : `${chMeta.color}15`;
 
                       return (
                         <div key={i} className="flex gap-3 relative">

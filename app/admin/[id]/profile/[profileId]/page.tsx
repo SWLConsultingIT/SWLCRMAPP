@@ -46,7 +46,7 @@ export default async function AdminProfileDetailPage({ params }: { params: Promi
         <div className="p-6 flex items-start justify-between">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-xl flex items-center justify-center"
-              style={{ background: `linear-gradient(135deg, ${gold}20, ${gold}08)`, border: `1px solid ${gold}25` }}>
+              style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 13%, transparent), color-mix(in srgb, ${gold} 3%, transparent))`, border: `1px solid color-mix(in srgb, ${gold} 15%, transparent)` }}>
               <Target size={24} style={{ color: gold }} />
             </div>
             <div>

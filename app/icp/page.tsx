@@ -195,7 +195,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
         </div>
 
         {/* Leads Requested */}
-        <div className="rounded-xl border p-4" style={{ borderColor: `${gold}40`, backgroundColor: `${gold}06` }}>
+        <div className="rounded-xl border p-4" style={{ borderColor: `color-mix(in srgb, ${gold} 25%, transparent)`, backgroundColor: `color-mix(in srgb, ${gold} 2%, transparent)` }}>
           <label className="block text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>
             How many leads do you need?
           </label>
@@ -210,7 +210,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
                     backgroundColor: active ? gold : C.card,
                     color: active ? "#04070d" : C.textMuted,
                     border: `1.5px solid ${active ? gold : C.border}`,
-                    boxShadow: active ? `0 2px 8px ${gold}40` : "none",
+                    boxShadow: active ? `0 2px 8px color-mix(in srgb, ${gold} 25%, transparent)` : "none",
                   }}>
                   {n}
                 </button>
@@ -637,7 +637,7 @@ export default function LeadGenPage() {
             <div className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white), ${gold})` }} />
 
             <div className="w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-5"
-              style={{ background: `linear-gradient(135deg, ${gold}20, ${gold}08)`, border: `1px solid ${gold}30` }}>
+              style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 13%, transparent), color-mix(in srgb, ${gold} 3%, transparent))`, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
               <Target size={28} style={{ color: gold }} />
             </div>
 
@@ -663,7 +663,7 @@ export default function LeadGenPage() {
               ].map(step => (
                 <div key={step.icon} className="text-center">
                   <div className="w-7 h-7 rounded-full flex items-center justify-center mx-auto mb-1.5 text-xs font-bold"
-                    style={{ backgroundColor: goldLight, color: gold, border: `1px solid ${gold}30` }}>
+                    style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
                     {step.icon}
                   </div>
                   <p className="text-xs" style={{ color: C.textMuted }}>{step.label}</p>
@@ -699,7 +699,7 @@ export default function LeadGenPage() {
                 style={{ backgroundColor: C.card, borderColor: C.border }}>
                 <div className="flex items-center gap-4 mb-3">
                   <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${gold}20, ${gold}08)`, border: `1px solid ${gold}25` }}>
+                    style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 13%, transparent), color-mix(in srgb, ${gold} 3%, transparent))`, border: `1px solid color-mix(in srgb, ${gold} 15%, transparent)` }}>
                     <Target size={18} style={{ color: gold }} />
                   </div>
                   <div className="flex-1 min-w-0">

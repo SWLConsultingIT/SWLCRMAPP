@@ -357,7 +357,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                     <Link key={review.id} href={review.href}
                       className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-black/[0.015]"
                       style={{ borderBottom: i < campaigns.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${gold}12` }}>
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${gold} 7%, transparent)` }}>
                         <Megaphone size={15} style={{ color: gold }} />
                       </div>
                       <div className="flex-1 min-w-0">

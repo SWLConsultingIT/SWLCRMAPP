@@ -169,7 +169,7 @@ function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; onSucces
 
         {step === "pin" && (
           <div className="py-8 text-center">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: `${gold}15` }}>
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)` }}>
               <Shield size={24} style={{ color: gold }} />
             </div>
             <p className="text-sm font-medium mb-1" style={{ color: C.textPrimary }}>Enter security PIN</p>
@@ -533,7 +533,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
     <div>
       {/* ═══ KPI CARDS ═══ */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="rounded-xl border p-4 card-lift" style={{ background: `linear-gradient(135deg, var(--c-card) 0%, ${gold}09 100%)`, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+        <div className="rounded-xl border p-4 card-lift" style={{ background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${gold} 4%, transparent) 100%)`, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Team Members</span>
             <Users size={14} style={{ color: gold }} />
@@ -650,7 +650,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                       )}
                       <Link href={`/accounts/linkedin/${seller.id}`}
                         className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-md transition-opacity hover:opacity-80"
-                        style={{ backgroundColor: `${gold}15`, color: gold, border: `1px solid ${gold}30` }}><TrendingUp size={10} /> Details</Link>
+                        style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}><TrendingUp size={10} /> Details</Link>
                       <button onClick={() => setEditTarget(seller)}
                         className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-md transition-opacity hover:opacity-80"
                         style={{ backgroundColor: C.blueLight, color: C.blue }}><Pencil size={10} /> Edit</button>
@@ -878,7 +878,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                     <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.bg }}>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{displayDate}</span>
-                        {isToday && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: `${gold}15`, color: gold }}>Today</span>}
+                        {isToday && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>Today</span>}
                       </div>
                       <span className="text-xs font-bold tabular-nums" style={{ color: C.textMuted }}>{dayTotal} messages</span>
                     </div>

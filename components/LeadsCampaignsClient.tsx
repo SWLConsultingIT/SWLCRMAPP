@@ -209,7 +209,7 @@ function LostLeadCard({ lead, selected, onToggle }: { lead: LostLead; selected: 
         <Link
           href={`/campaigns/new/lead/${lead.id}`}
           className="flex items-center justify-center gap-2 w-full rounded-lg py-2 text-xs font-semibold transition-all hover:opacity-80"
-          style={{ backgroundColor: `${gold}15`, color: gold, border: `1px solid ${gold}30` }}
+          style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}
         >
           <RefreshCw size={12} />
           Renurture — Create New Campaign
@@ -757,7 +757,7 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
           <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
             <div className="flex items-center gap-2 px-5 py-3 text-sm font-medium relative" style={{ color: gold }}>
               Active Campaigns
-              <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${gold}15`, color: gold }}>{activeGroups.length}</span>
+              <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>{activeGroups.length}</span>
               <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: gold }} />
             </div>
             <div className="flex-1 flex justify-end">

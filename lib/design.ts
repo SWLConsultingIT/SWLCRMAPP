@@ -1,6 +1,7 @@
 // SWL Brand tokens — single source of truth
 // Structural colors use CSS variables (var(--c-*)) so dark mode switches automatically.
-// Brand/semantic colors stay as hex — they're used with string concatenation (e.g. `${C.gold}15`).
+// C.gold is var(--brand) so BrandProvider can override per-company at runtime.
+// NEVER concat hex alpha to C.gold (e.g. `${C.gold}15`) — use `color-mix(in srgb, ${C.gold} N%, transparent)` instead.
 
 export const C = {
   // ── Sidebar ──

@@ -127,7 +127,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
           <p className="text-sm mb-5" style={{ color: C.textMuted }}>Upload new leads via Lead Miner to start a new campaign</p>
           <Link href="/icp"
             className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-opacity hover:opacity-80"
-            style={{ backgroundColor: `${gold}15`, color: gold, border: `1px solid ${gold}30` }}>
+            style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
             <Target size={14} /> Go to Lead Miner
           </Link>
         </div>
@@ -174,7 +174,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
                     </span>
                     <button onClick={() => toggleGroup(group.leads)}
                       className="text-[10px] font-semibold px-3 py-1 rounded-md transition-colors"
-                      style={{ backgroundColor: allGroupSelected ? `${gold}15` : "#F3F4F6", color: allGroupSelected ? gold : C.textMuted }}>
+                      style={{ backgroundColor: allGroupSelected ? `color-mix(in srgb, ${gold} 8%, transparent)` : "#F3F4F6", color: allGroupSelected ? gold : C.textMuted }}>
                       {allGroupSelected ? "Deselect all" : someGroupSelected ? `Select all ${group.leads.length}` : `Select all ${group.leads.length}`}
                     </button>
                   </div>
@@ -200,7 +200,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
                                 className="rounded-lg border p-3 cursor-pointer transition-all hover:shadow-sm"
                                 style={{
                                   borderColor: isSelected ? gold : C.border,
-                                  backgroundColor: isSelected ? `${gold}06` : "transparent",
+                                  backgroundColor: isSelected ? `color-mix(in srgb, ${gold} 2%, transparent)` : "transparent",
                                   boxShadow: isSelected ? `0 0 0 1px ${gold}` : "none",
                                 }}>
                                 <div className="flex items-start gap-3">
@@ -252,7 +252,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
       {/* ── Floating action bar ── */}
       {selected.size > 0 && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-4 rounded-2xl border px-6 py-3.5 shadow-xl"
-          style={{ backgroundColor: "#1A1A2E", borderColor: `${gold}40` }}>
+          style={{ backgroundColor: "#1A1A2E", borderColor: `color-mix(in srgb, ${gold} 25%, transparent)` }}>
           <span className="text-sm font-bold" style={{ color: "#fff" }}>
             {selected.size} {selected.size === 1 ? "lead" : "leads"} selected
           </span>

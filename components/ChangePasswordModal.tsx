@@ -79,7 +79,7 @@ export default function ChangePasswordModal({ open, onClose, userEmail }: Props)
         onClick={e => e.stopPropagation()}>
         <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${C.gold}15` }}>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ backgroundColor: `color-mix(in srgb, ${C.gold} 8%, transparent)` }}>
               <Shield size={16} style={{ color: C.gold }} />
             </div>
             <div>

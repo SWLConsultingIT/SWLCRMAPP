@@ -47,14 +47,14 @@ export default function NewFlowClient({ profiles, leads }: { profiles: Profile[]
         <button onClick={() => toggle("icp")}
           className="w-full px-6 py-5 flex items-center gap-4 text-left transition-colors hover:bg-gray-50">
           <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-            style={{ backgroundColor: `${gold}15`, border: `1px solid ${gold}25` }}>
+            style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, border: `1px solid color-mix(in srgb, ${gold} 15%, transparent)` }}>
             <Target size={20} style={{ color: gold }} />
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>From ICP Profile</h2>
             <p className="text-xs" style={{ color: C.textMuted }}>Target leads matching a mining ticket</p>
           </div>
-          <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${gold}15`, color: gold }}>
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
             {profiles.length} tickets
           </span>
           <ChevronDown size={16} style={{ color: C.textDim, transform: expandedSection === "icp" ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
@@ -151,7 +151,7 @@ export default function NewFlowClient({ profiles, leads }: { profiles: Profile[]
             ) : (
               <>
                 {customSelected.size > 0 && (
-                  <div className="px-6 py-3 flex items-center gap-3 border-b" style={{ borderColor: C.border, backgroundColor: `${gold}06` }}>
+                  <div className="px-6 py-3 flex items-center gap-3 border-b" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${gold} 2%, transparent)` }}>
                     <span className="text-xs font-medium" style={{ color: gold }}>{customSelected.size} selected</span>
                     {customSelected.size === 1 ? (
                       <Link href={`/campaigns/new/lead/${Array.from(customSelected)[0]}`}
@@ -185,7 +185,7 @@ export default function NewFlowClient({ profiles, leads }: { profiles: Profile[]
                     const checked = customSelected.has(l.id);
                     return (
                       <div key={l.id} className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
-                        style={{ backgroundColor: checked ? `${gold}06` : "transparent" }}
+                        style={{ backgroundColor: checked ? `color-mix(in srgb, ${gold} 2%, transparent)` : "transparent" }}
                         onClick={() => { const n = new Set(customSelected); checked ? n.delete(l.id) : n.add(l.id); setCustomSelected(n); }}>
                         <input type="checkbox" checked={checked} readOnly style={{ accentColor: gold }} />
                         <div className="flex-1 min-w-0">
@@ -195,7 +195,7 @@ export default function NewFlowClient({ profiles, leads }: { profiles: Profile[]
                           <p className="text-xs" style={{ color: C.textMuted }}>
                             {l.primary_title_role ?? ""}{l.company_name ? ` at ${l.company_name}` : ""}
                             {l.icp_profile_id && profileMap[l.icp_profile_id] ? (
-                              <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ backgroundColor: `${gold}12`, color: gold }}>
+                              <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ backgroundColor: `color-mix(in srgb, ${gold} 7%, transparent)`, color: gold }}>
                                 from: {profileMap[l.icp_profile_id]}
                               </span>
                             ) : null}

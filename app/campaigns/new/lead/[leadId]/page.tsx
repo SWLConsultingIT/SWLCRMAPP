@@ -481,7 +481,7 @@ export default function NewLeadCampaignWizard() {
                         className="rounded-xl border p-4 text-left transition-all hover:shadow-sm"
                         style={{
                           borderColor: isActive ? gold : C.border,
-                          backgroundColor: isActive ? `${gold}06` : "transparent",
+                          backgroundColor: isActive ? `color-mix(in srgb, ${gold} 2%, transparent)` : "transparent",
                           boxShadow: isActive ? `0 0 0 1px ${gold}` : "none",
                         }}>
                         <div className="flex items-center gap-3 mb-2">

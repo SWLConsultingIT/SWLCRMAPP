@@ -28,7 +28,7 @@ export default function PageHero({
         className="px-7 py-5 flex items-center justify-between gap-6 relative"
         style={{
           background: `
-            radial-gradient(ellipse 55% 70% at 90% 50%, ${accentColor}30 0%, transparent 60%),
+            radial-gradient(ellipse 55% 70% at 90% 50%, color-mix(in srgb, ${accentColor} 19%, transparent) 0%, transparent 60%),
             radial-gradient(ellipse 30% 50% at 5%  80%, rgba(255,255,255,0.06) 0%, transparent 50%),
             linear-gradient(135deg, #0D1524 0%, #172035 55%, #1A2640 100%)
           `,
@@ -48,9 +48,9 @@ export default function PageHero({
           <div
             className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
             style={{
-              backgroundColor: `${accentColor}1E`,
-              border: `1px solid ${accentColor}40`,
-              boxShadow: `0 0 20px ${accentColor}25`,
+              backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)`,
+              border: `1px solid color-mix(in srgb, ${accentColor} 25%, transparent)`,
+              boxShadow: `0 0 20px color-mix(in srgb, ${accentColor} 15%, transparent)`,
             }}
           >
             <Icon size={22} style={{ color: accentColor }} />

@@ -175,7 +175,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           </div>
           <Link href={`/campaigns/${id}/edit`}
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
-            style={{ backgroundColor: `${gold}15`, color: gold, border: `1px solid ${gold}30` }}>
+            style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
             <Settings size={12} /> Edit Flow
           </Link>
         </div>

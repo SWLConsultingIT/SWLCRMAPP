@@ -276,7 +276,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
             </div>
             <button onClick={() => generateField("connectionNote", undefined)} disabled={!!aiLoading}
               className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity disabled:opacity-50"
-              style={{ backgroundColor: `${gold}15`, color: gold }}>
+              style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
               {aiLoading === "connectionNote:" ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
               AI
             </button>
@@ -336,7 +336,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                     <span className="text-xs tabular-nums font-medium" style={{ color: C.textDim }}>Day {dayPerStep[i]}</span>
                     <button onClick={() => generateField(fieldType, i)} disabled={!!aiLoading}
                       className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity disabled:opacity-50"
-                      style={{ backgroundColor: `${gold}15`, color: gold }}>
+                      style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
                       {aiLoading === loadingKey ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
                       AI
                     </button>
@@ -398,7 +398,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
               </div>
               <button onClick={() => generateField("replyPositive")} disabled={!!aiLoading}
                 className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold disabled:opacity-50"
-                style={{ backgroundColor: `${gold}15`, color: gold }}>
+                style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
                 {aiLoading === "replyPositive:" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />} AI
               </button>
             </div>
@@ -420,7 +420,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
               </div>
               <button onClick={() => generateField("replyNegative")} disabled={!!aiLoading}
                 className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold disabled:opacity-50"
-                style={{ backgroundColor: `${gold}15`, color: gold }}>
+                style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
                 {aiLoading === "replyNegative:" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />} AI
               </button>
             </div>

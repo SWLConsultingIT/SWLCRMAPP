@@ -72,7 +72,7 @@ export default function SequenceAccordion({
               {showConnNote && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: "#0A66C212", color: "#0A66C2" }}>+ connection note</span>}
               <div className="flex-1" />
               {isSent && <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: C.greenLight, color: C.green }}>Sent</span>}
-              {!isSent && <span className="text-xs px-2 py-0.5 rounded-md" style={{ backgroundColor: isCurrent ? `${gold}15` : "#F3F4F6", color: isCurrent ? gold : C.textMuted }}>{isCurrent ? "Up Next" : "Pending"}</span>}
+              {!isSent && <span className="text-xs px-2 py-0.5 rounded-md" style={{ backgroundColor: isCurrent ? `color-mix(in srgb, ${gold} 8%, transparent)` : "#F3F4F6", color: isCurrent ? gold : C.textMuted }}>{isCurrent ? "Up Next" : "Pending"}</span>}
               {hasContent && (
                 <ChevronDown
                   size={14}
@@ -99,12 +99,12 @@ export default function SequenceAccordion({
                 )}
 
                 {displayBody && (
-                  <div className="rounded-lg border p-4" style={{ borderColor: isSent ? `${C.green}30` : isCurrent ? `${gold}30` : C.border, backgroundColor: isSent ? `${C.green}04` : isCurrent ? `${gold}04` : C.bg }}>
+                  <div className="rounded-lg border p-4" style={{ borderColor: isSent ? `${C.green}30` : isCurrent ? `color-mix(in srgb, ${gold} 19%, transparent)` : C.border, backgroundColor: isSent ? `${C.green}04` : isCurrent ? `color-mix(in srgb, ${gold} 2%, transparent)` : C.bg }}>
                     {displaySubject && (
                       <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Subject: {displaySubject}</p>
                     )}
                     {!msg && tmpl && (
-                      <p className="text-[10px] font-medium mb-2 px-2 py-0.5 rounded inline-block" style={{ backgroundColor: `${gold}12`, color: gold }}>Template</p>
+                      <p className="text-[10px] font-medium mb-2 px-2 py-0.5 rounded inline-block" style={{ backgroundColor: `color-mix(in srgb, ${gold} 7%, transparent)`, color: gold }}>Template</p>
                     )}
                     <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{displayBody}</p>
                     {msg?.sent_at && (

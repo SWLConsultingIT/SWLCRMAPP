@@ -645,7 +645,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                     <div className="flex flex-wrap gap-2">
                       {keywords.map((k: string) => (
                         <span key={k} className="text-xs font-medium px-2.5 py-1 rounded-lg"
-                          style={{ backgroundColor: `${gold}15`, color: gold }}>
+                          style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
                           {k}
                         </span>
                       ))}

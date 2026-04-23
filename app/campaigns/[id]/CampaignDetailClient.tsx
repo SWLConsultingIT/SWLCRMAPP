@@ -215,7 +215,7 @@ export default function CampaignDetailClient({
               <Icon size={15} /> {t.label}
               {t.count !== null && (
                 <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: active ? `${gold}15` : "#F3F4F6", color: active ? gold : C.textDim }}>{t.count}</span>
+                  style={{ backgroundColor: active ? `color-mix(in srgb, ${gold} 8%, transparent)` : "#F3F4F6", color: active ? gold : C.textDim }}>{t.count}</span>
               )}
               {active && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: gold }} />}
             </button>
@@ -232,7 +232,7 @@ export default function CampaignDetailClient({
               <button onClick={() => setLeadsView("list")}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all"
                 style={{
-                  backgroundColor: leadsView === "list" ? `${gold}15` : "transparent",
+                  backgroundColor: leadsView === "list" ? `color-mix(in srgb, ${gold} 8%, transparent)` : "transparent",
                   color: leadsView === "list" ? gold : C.textMuted,
                 }}>
                 <Users size={11} /> List
@@ -240,7 +240,7 @@ export default function CampaignDetailClient({
               <button onClick={() => setLeadsView("kanban")}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all border-l"
                 style={{
-                  backgroundColor: leadsView === "kanban" ? `${gold}15` : "transparent",
+                  backgroundColor: leadsView === "kanban" ? `color-mix(in srgb, ${gold} 8%, transparent)` : "transparent",
                   color: leadsView === "kanban" ? gold : C.textMuted,
                   borderColor: C.border,
                 }}>
@@ -249,7 +249,7 @@ export default function CampaignDetailClient({
             </div>
 
             <span className="text-xs font-medium ml-2" style={{ color: C.textMuted }}>{selected.size > 0 ? `${selected.size} selected` : "All"}:</span>
-            <Link href={`/campaigns/${campaignId}/edit`} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold hover:opacity-80" style={{ backgroundColor: `${gold}15`, color: gold, border: `1px solid ${gold}30` }}><Pencil size={11} /> Edit</Link>
+            <Link href={`/campaigns/${campaignId}/edit`} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold hover:opacity-80" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}><Pencil size={11} /> Edit</Link>
             {campaignStatus === "active" ? (
               <button onClick={() => bulkAct("pause")} disabled={!!acting} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}><Pause size={11} /> Pause</button>
             ) : campaignStatus === "paused" ? (
@@ -281,7 +281,7 @@ export default function CampaignDetailClient({
                   const p = ts > 0 ? Math.round((c.current_step / ts) * 100) : 0;
                   const ck = selected.has(c.id);
                   return (
-                    <tr key={c.id} className="table-row-hover" style={{ borderBottom: `1px solid ${C.border}`, backgroundColor: ck ? `${gold}06` : "transparent" }}>
+                    <tr key={c.id} className="table-row-hover" style={{ borderBottom: `1px solid ${C.border}`, backgroundColor: ck ? `color-mix(in srgb, ${gold} 2%, transparent)` : "transparent" }}>
                       <td className="px-4 py-3"><input type="checkbox" checked={ck} onChange={() => { const n = new Set(selected); ck ? n.delete(c.id) : n.add(c.id); setSelected(n); }} style={{ accentColor: gold }} /></td>
                       <td className="px-4 py-3"><Link href={`/leads/${l.id}`} className="hover:underline"><p className="font-medium" style={{ color: C.textPrimary }}>{nm}</p></Link></td>
                       <td className="px-4 py-3 text-xs" style={{ color: C.textBody }}>{l.company_name ?? "—"}</td>
@@ -314,7 +314,7 @@ export default function CampaignDetailClient({
           <div className="flex items-center gap-2">
             <Link href={`/campaigns/${campaignId}/edit`}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold hover:opacity-80"
-              style={{ backgroundColor: `${gold}15`, color: gold, border: `1px solid ${gold}30` }}>
+              style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
               <Pencil size={11} /> Edit Flow
             </Link>
             {sellerName && sellerName !== "Unassigned" && (
@@ -507,7 +507,7 @@ export default function CampaignDetailClient({
                     {showConnNote && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: "#0A66C212", color: "#0A66C2" }}>+ connection note</span>}
                     <div className="flex-1" />
                     {isSent && <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: C.greenLight, color: C.green }}><Send size={10} /> Sent</span>}
-                    {isPending && <span className="text-xs px-2 py-0.5 rounded-md" style={{ backgroundColor: isCurrent ? `${gold}15` : "#F3F4F6", color: isCurrent ? gold : C.textMuted }}>{isCurrent ? "Up Next" : "Pending"}</span>}
+                    {isPending && <span className="text-xs px-2 py-0.5 rounded-md" style={{ backgroundColor: isCurrent ? `color-mix(in srgb, ${gold} 8%, transparent)` : "#F3F4F6", color: isCurrent ? gold : C.textMuted }}>{isCurrent ? "Up Next" : "Pending"}</span>}
                   </button>
 
                   {isOpen && (
@@ -530,25 +530,25 @@ export default function CampaignDetailClient({
                       )}
                       {/* Step message */}
                       {displayBody && !isEditing && (
-                        <div className="rounded-lg border p-4 relative" style={{ borderColor: isSent ? `${C.green}30` : isCurrent ? `${gold}30` : C.border, backgroundColor: isSent ? `${C.green}04` : isCurrent ? `${gold}04` : C.bg }}>
+                        <div className="rounded-lg border p-4 relative" style={{ borderColor: isSent ? `${C.green}30` : isCurrent ? `color-mix(in srgb, ${gold} 19%, transparent)` : C.border, backgroundColor: isSent ? `${C.green}04` : isCurrent ? `color-mix(in srgb, ${gold} 2%, transparent)` : C.bg }}>
                           {displaySubject && (
                             <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Subject: {displaySubject}</p>
                           )}
                           {!msg && tmpl && (
-                            <p className="text-[10px] font-medium mb-2 px-2 py-0.5 rounded inline-block" style={{ backgroundColor: `${gold}12`, color: gold }}>Template — not yet sent</p>
+                            <p className="text-[10px] font-medium mb-2 px-2 py-0.5 rounded inline-block" style={{ backgroundColor: `color-mix(in srgb, ${gold} 7%, transparent)`, color: gold }}>Template — not yet sent</p>
                           )}
                           <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{displayBody}</p>
                           {(isPending || (!msg && tmpl)) && isEditable && msg && (
                             <button onClick={() => { setEditingIdx(i); setEditContent(msg.content ?? ""); }}
                               className="absolute top-3 right-3 flex items-center gap-1 text-xs px-2 py-1 rounded-md hover:opacity-80"
-                              style={{ backgroundColor: `${gold}15`, color: gold }}>
+                              style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
                               <Pencil size={10} /> Edit
                             </button>
                           )}
                         </div>
                       )}
                       {isEditing && msg && (
-                        <div className="rounded-lg border p-4 space-y-3" style={{ borderColor: gold, backgroundColor: `${gold}04` }}>
+                        <div className="rounded-lg border p-4 space-y-3" style={{ borderColor: gold, backgroundColor: `color-mix(in srgb, ${gold} 2%, transparent)` }}>
                           <textarea rows={5} className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none" style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }} value={editContent} onChange={e => setEditContent(e.target.value)} />
                           <div className="flex gap-2">
                             <button onClick={() => saveMsg(msg.id)} disabled={saving} className="flex items-center gap-1 rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: C.green, color: "#fff" }}>{saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save</button>
@@ -628,7 +628,7 @@ export default function CampaignDetailClient({
           const isChecked = addSelected.has(lead.id);
           return (
             <div key={lead.id} className="flex items-center gap-4 px-5 py-2.5 cursor-pointer hover:bg-gray-50"
-              style={{ opacity: ok ? 1 : 0.5, backgroundColor: isChecked ? `${gold}06` : "transparent" }}
+              style={{ opacity: ok ? 1 : 0.5, backgroundColor: isChecked ? `color-mix(in srgb, ${gold} 2%, transparent)` : "transparent" }}
               onClick={() => { if (ok) { const n = new Set(addSelected); isChecked ? n.delete(lead.id) : n.add(lead.id); setAddSelected(n); } }}>
               {ok && <input type="checkbox" checked={isChecked} readOnly style={{ accentColor: gold }} />}
               <div className="flex-1 min-w-0">
@@ -656,13 +656,13 @@ export default function CampaignDetailClient({
           <div>
             {/* Loading / selection bar */}
             {adding && (
-              <div className="rounded-lg border px-4 py-3 mb-4 flex items-center gap-2" style={{ borderColor: gold, backgroundColor: `${gold}08` }}>
+              <div className="rounded-lg border px-4 py-3 mb-4 flex items-center gap-2" style={{ borderColor: gold, backgroundColor: `color-mix(in srgb, ${gold} 3%, transparent)` }}>
                 <Loader2 size={14} className="animate-spin" style={{ color: gold }} />
                 <span className="text-sm font-medium" style={{ color: gold }}>Adding leads to campaign...</span>
               </div>
             )}
             {addSelected.size > 0 && (
-              <div className="flex items-center gap-2 mb-4 rounded-lg border px-4 py-3" style={{ borderColor: gold, backgroundColor: `${gold}06` }}>
+              <div className="flex items-center gap-2 mb-4 rounded-lg border px-4 py-3" style={{ borderColor: gold, backgroundColor: `color-mix(in srgb, ${gold} 2%, transparent)` }}>
                 <span className="text-xs font-bold" style={{ color: gold }}>{addSelected.size} selected</span>
                 <button onClick={() => addLeadsToCampaign(Array.from(addSelected))} disabled={adding}
                   className="flex items-center gap-1 rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: C.green, color: "#fff" }}>

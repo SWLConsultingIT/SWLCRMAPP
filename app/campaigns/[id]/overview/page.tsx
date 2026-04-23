@@ -402,7 +402,7 @@ export default async function CampaignOverviewPage({ params }: { params: Promise
           <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
             <Users size={12} className="inline mr-1.5" />Leads in Campaign
           </p>
-          <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${gold}15`, color: gold }}>{totalLeadsInGroup}</span>
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>{totalLeadsInGroup}</span>
         </div>
         <table className="w-full text-left">
           <thead>

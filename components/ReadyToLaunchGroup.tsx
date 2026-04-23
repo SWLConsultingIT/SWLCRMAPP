@@ -92,7 +92,7 @@ export default function ReadyToLaunchGroup({ profileId, profileName, profileDeta
       </div>
 
       {/* ── Action bar ── */}
-      <div className="px-5 py-3 flex items-center gap-3 border-b" style={{ borderColor: C.border, backgroundColor: `${gold}04` }}>
+      <div className="px-5 py-3 flex items-center gap-3 border-b" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${gold} 2%, transparent)` }}>
         <button onClick={selectAll} className="flex items-center gap-2 text-xs font-medium" style={{ color: C.textMuted }}>
           <div className="w-4 h-4 rounded border flex items-center justify-center"
             style={{ borderColor: allSelected ? gold : C.border, backgroundColor: allSelected ? gold : "transparent" }}>
@@ -124,7 +124,7 @@ export default function ReadyToLaunchGroup({ profileId, profileName, profileDeta
               className="rounded-lg border p-3 cursor-pointer transition-all hover:shadow-sm"
               style={{
                 borderColor: isSelected ? gold : C.border,
-                backgroundColor: isSelected ? `${gold}06` : "transparent",
+                backgroundColor: isSelected ? `color-mix(in srgb, ${gold} 2%, transparent)` : "transparent",
                 boxShadow: isSelected ? `0 0 0 1px ${gold}` : "none",
               }}
             >
@@ -170,7 +170,7 @@ export default function ReadyToLaunchGroup({ profileId, profileName, profileDeta
 
       {/* ── Selection footer ── */}
       {someSelected && (
-        <div className="px-5 py-3 flex items-center gap-3 border-t" style={{ borderColor: C.border, backgroundColor: `${gold}06` }}>
+        <div className="px-5 py-3 flex items-center gap-3 border-t" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${gold} 2%, transparent)` }}>
           <span className="text-xs font-semibold" style={{ color: gold }}>
             {selected.size} of {leads.length} selected
           </span>

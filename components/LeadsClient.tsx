@@ -177,7 +177,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
             )}
             <button onClick={() => exportCSV(filtered)}
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border"
-              style={{ backgroundColor: C.goldGlow, borderColor: `${C.gold}30`, color: C.gold }}>
+              style={{ backgroundColor: C.goldGlow, borderColor: `color-mix(in srgb, ${C.gold} 19%, transparent)`, color: C.gold }}>
               <Download size={12} /> Export CSV
             </button>
           </div>

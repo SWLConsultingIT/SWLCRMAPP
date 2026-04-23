@@ -146,7 +146,7 @@ function UsersTab() {
             style={{
               borderColor: C.border,
               color: user.role === "admin" ? gold : C.textBody,
-              backgroundColor: user.role === "admin" ? `${gold}12` : C.card,
+              backgroundColor: user.role === "admin" ? `color-mix(in srgb, ${gold} 7%, transparent)` : C.card,
             }}
           >
             <option value="">— no role —</option>
@@ -805,7 +805,7 @@ export default function AdminClient({ clients, pendingApprovals, stats }: Props)
                     <div key={item.id} className="flex items-center gap-4 px-5 py-4"
                       style={{ borderBottom: i < campaigns.length - 1 ? `1px solid ${C.border}` : "none" }}>
                       <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: `${gold}12` }}>
+                        style={{ backgroundColor: `color-mix(in srgb, ${gold} 7%, transparent)` }}>
                         <Megaphone size={15} style={{ color: gold }} />
                       </div>
                       <div className="flex-1 min-w-0">
