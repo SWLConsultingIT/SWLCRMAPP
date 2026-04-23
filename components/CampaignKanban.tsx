@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
 import { Share2, Mail, Phone, CheckCircle, Flag, User, Send, SkipForward, X, AlertTriangle } from "lucide-react";
 import { C } from "@/lib/design";
@@ -163,6 +164,7 @@ type PendingMove = {
 };
 
 export default function CampaignKanban({ sequence, campaigns }: Props) {
+  const router = useRouter();
   const [list, setList] = useState(campaigns);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingMove | null>(null);
@@ -229,6 +231,7 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
       });
       if (!r.ok) throw new Error("update failed");
       setPending(null);
+      router.refresh(); // refresh server data so the Sequence funnel reflects the new state
     } catch {
       setList(prev => prev.map(c => c.id === campId ? { ...c, current_step: fromStep } : c));
     } finally {

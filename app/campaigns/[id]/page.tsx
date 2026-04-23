@@ -125,6 +125,16 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const pausedInGroup = allGroupCampaigns.filter(c => c.status === "paused").length;
   const completedInGroup = allGroupCampaigns.filter(c => c.status === "completed").length;
 
+  // Effective currentStep for the funnel = most-advanced active lead across the group.
+  // Convert from internal current_step (which counts the connection as step 0) to
+  // the 0-indexed sequence_steps index by subtracting 1.
+  const activeLeadSteps = allGroupCampaigns
+    .filter(c => c.status === "active" || c.status === "paused")
+    .map(c => Math.max(0, (c.current_step ?? 0) - 1));
+  const effectiveCurrentStep = activeLeadSteps.length > 0
+    ? Math.min(Math.max(...activeLeadSteps), sequence.length)
+    : (campaign.current_step >= sequence.length + 1 ? sequence.length : Math.max(0, campaign.current_step - 1));
+
   return (
     <div className="p-6 w-full">
       {/* Breadcrumb */}
@@ -201,7 +211,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         sequence={sequence}
         messages={messages}
         dayPerStep={dayPerStep}
-        currentStep={campaign.current_step}
+        currentStep={effectiveCurrentStep}
         allCampaigns={JSON.parse(JSON.stringify(allGroupCampaigns))}
         leadGroups={JSON.parse(JSON.stringify(unlinkedLeads))}
         channels={channels}
