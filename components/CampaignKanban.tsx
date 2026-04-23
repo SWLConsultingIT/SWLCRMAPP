@@ -171,14 +171,17 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
   const [busy, setBusy] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
-  // Step N column = waiting to send the Nth DM. Internal current_step counts the
-  // connection request as step 0, so current_step - 1 = next DM index (0-based).
+  // Step N column = Nth DM has been sent. Orchestrator semantics:
+  //   current_step=0 → nothing sent (still in connection phase)
+  //   current_step=1 → 1st DM sent
+  //   current_step=2 → 2nd DM sent
+  //   current_step=3 → 3rd DM sent (final, orchestrator treats as done)
   const buckets = useMemo(() => {
     const b: Campaign[][] = sequence.map(() => []);
     const done: Campaign[] = [];
     for (const c of list) {
       const cs = c.current_step ?? 0;
-      if (cs >= sequence.length + 1) { done.push(c); continue; }
+      if (cs > sequence.length) { done.push(c); continue; }
       const idx = Math.max(0, Math.min(cs - 1, sequence.length - 1));
       b[idx].push(c);
     }
@@ -202,7 +205,7 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
     const camp = list.find(c => c.id === campId);
     if (!camp) return;
 
-    // Column Step N = "waiting to send Nth DM". Internal current_step = N + 1 (connection offset).
+    // Column Step N = "Nth DM sent". Column 0-indexed, so target current_step = targetStep + 1.
     const newCurrentStep = targetStep + 1;
     if (camp.current_step === newCurrentStep) return;
 
@@ -222,7 +225,9 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
     if (!pending) return;
     setBusy(true);
     const { campId, targetStep, fromStep } = pending;
-    setList(prev => prev.map(c => c.id === campId ? { ...c, current_step: targetStep } : c));
+    // Optimistic: Skip jumps straight to target; Send stays one back (orchestrator will advance it)
+    const optimisticStep = action === "send" ? Math.max(0, targetStep - 1) : targetStep;
+    setList(prev => prev.map(c => c.id === campId ? { ...c, current_step: optimisticStep } : c));
     try {
       const r = await fetch(`/api/campaigns/${campId}/step`, {
         method: "PATCH",
