@@ -158,14 +158,18 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
-  // Group campaigns by current_step (bucketed into sequence index)
+  // Group by messages actually sent (not by internal current_step which counts the
+  // connection-request step too). Step N column = Nth DM has been sent.
+  // current_step semantics: 0-1 = connection phase, 2+ = 1st DM done, 3 = 2nd DM done, etc.
   const buckets = useMemo(() => {
     const b: Campaign[][] = sequence.map(() => []);
     const done: Campaign[] = [];
     for (const c of list) {
-      const idx = Math.min(c.current_step ?? 0, sequence.length - 1);
-      if ((c.current_step ?? 0) >= sequence.length) done.push(c);
-      else if (idx >= 0) b[idx].push(c);
+      const cs = c.current_step ?? 0;
+      const messagesSent = Math.max(0, cs - 1);      // discount the connection step
+      if (messagesSent >= sequence.length + 1) { done.push(c); continue; }
+      const idx = Math.max(0, Math.min(messagesSent - 1, sequence.length - 1));
+      b[idx].push(c);
     }
     return { stepBuckets: b, done };
   }, [list, sequence]);
@@ -185,16 +189,20 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
 
     const campId = String(active.id);
     const camp = list.find(c => c.id === campId);
-    if (!camp || camp.current_step === targetStep) return;
+    if (!camp) return;
+
+    // Column Step N means "Nth DM sent". Internal current_step counts connection too, so +2.
+    const newCurrentStep = targetStep + 2;
+    if (camp.current_step === newCurrentStep) return;
 
     // Optimistic update
-    setList(prev => prev.map(c => c.id === campId ? { ...c, current_step: targetStep } : c));
+    setList(prev => prev.map(c => c.id === campId ? { ...c, current_step: newCurrentStep } : c));
 
     try {
       const r = await fetch(`/api/campaigns/${campId}/step`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentStep: targetStep }),
+        body: JSON.stringify({ currentStep: newCurrentStep }),
       });
       if (!r.ok) throw new Error("update failed");
     } catch {
