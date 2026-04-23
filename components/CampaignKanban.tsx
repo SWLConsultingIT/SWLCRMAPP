@@ -225,9 +225,10 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
     if (!pending) return;
     setBusy(true);
     const { campId, targetStep, fromStep } = pending;
-    // Optimistic: Skip jumps straight to target; Send stays one back (orchestrator will advance it)
-    const optimisticStep = action === "send" ? Math.max(0, targetStep - 1) : targetStep;
-    setList(prev => prev.map(c => c.id === campId ? { ...c, current_step: optimisticStep } : c));
+    // Always move to target column visually for immediate feedback.
+    // For Send the backend actually holds current_step at target-1 (so orchestrator sends
+    // and then advances). The client stays at target until the user reloads.
+    setList(prev => prev.map(c => c.id === campId ? { ...c, current_step: targetStep } : c));
     try {
       const r = await fetch(`/api/campaigns/${campId}/step`, {
         method: "PATCH",
@@ -236,7 +237,9 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
       });
       if (!r.ok) throw new Error("update failed");
       setPending(null);
-      router.refresh(); // refresh server data so the Sequence funnel reflects the new state
+      // Skip → refresh immediately (backend matches UI).
+      // Send → delay refresh so the optimistic target column stays put until orchestrator runs.
+      if (action === "skip") router.refresh();
     } catch {
       setList(prev => prev.map(c => c.id === campId ? { ...c, current_step: fromStep } : c));
     } finally {
