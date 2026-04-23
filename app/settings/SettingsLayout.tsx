@@ -169,6 +169,99 @@ function PreferencesSection() {
       </div>
 
       <LanguageCard />
+      <BrandingCard />
+    </div>
+  );
+}
+
+function BrandingCard() {
+  const [primaryColor, setPrimaryColor] = useState<string>("#b79832");
+  const [useBrandColors, setUseBrandColors] = useState<boolean>(false);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("/api/settings/branding").then(r => r.json()).then(d => {
+      if (d.primary_color) setPrimaryColor(d.primary_color);
+      setUseBrandColors(!!d.use_brand_colors);
+      setLogoUrl(d.logo_url ?? null);
+    }).finally(() => setLoading(false));
+  }, []);
+
+  async function save(patch: { primary_color?: string; use_brand_colors?: boolean }) {
+    setSaving(true);
+    const body = {
+      primary_color: patch.primary_color ?? primaryColor,
+      use_brand_colors: patch.use_brand_colors ?? useBrandColors,
+    };
+    const r = await fetch("/api/settings/branding", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    setSaving(false);
+    if (r.ok) setSavedAt(Date.now());
+  }
+
+  if (loading) return null;
+
+  return (
+    <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Branding</h3>
+        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+          style={{ backgroundColor: `${C.gold}15`, color: C.gold }}>BETA</span>
+      </div>
+      <p className="text-xs mb-4" style={{ color: C.textMuted }}>
+        Make the app feel like your brand. Primary color is applied to buttons, accents and highlights across the workspace.
+      </p>
+
+      <div className="flex items-start gap-5">
+        {/* Logo preview */}
+        <div className="w-20 h-20 rounded-xl border flex items-center justify-center shrink-0"
+          style={{ borderColor: C.border, backgroundColor: "#ffffff" }}>
+          {logoUrl
+            ? <img src={logoUrl} alt="" className="w-full h-full object-contain p-1.5 rounded-xl" />
+            : <span className="text-xs" style={{ color: C.textDim }}>No logo</span>}
+        </div>
+
+        {/* Color picker + toggle */}
+        <div className="flex-1 space-y-4">
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>
+              Primary color
+            </label>
+            <div className="flex items-center gap-3">
+              <input type="color" value={primaryColor}
+                onChange={e => { setPrimaryColor(e.target.value); save({ primary_color: e.target.value }); }}
+                className="w-12 h-10 rounded-lg border cursor-pointer"
+                style={{ borderColor: C.border }} />
+              <input type="text" value={primaryColor}
+                onChange={e => setPrimaryColor(e.target.value)}
+                onBlur={() => /^#[0-9A-Fa-f]{6}$/.test(primaryColor) && save({ primary_color: primaryColor })}
+                className="flex-1 rounded-lg border px-3 py-2 text-sm font-mono outline-none"
+                style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }} />
+            </div>
+          </div>
+
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" checked={useBrandColors}
+              onChange={e => { setUseBrandColors(e.target.checked); save({ use_brand_colors: e.target.checked }); }}
+              style={{ accentColor: primaryColor }} />
+            <div>
+              <p className="text-xs font-semibold" style={{ color: C.textBody }}>Apply brand color to the app</p>
+              <p className="text-[10px]" style={{ color: C.textDim }}>
+                Off by default. Enable once your logo and color are set — the accent color will roll out across buttons and highlights.
+              </p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      {saving && <p className="text-[10px] mt-3" style={{ color: C.textDim }}>Saving…</p>}
+      {savedAt && !saving && <p className="text-[10px] mt-3" style={{ color: C.green }}>Saved ✓</p>}
     </div>
   );
 }

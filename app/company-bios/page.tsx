@@ -225,7 +225,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
         <div className="p-6 flex items-start justify-between gap-6">
           <div className="flex items-start gap-4">
             {bio.logo_url ? (
-              <img src={bio.logo_url} alt="" className="w-16 h-16 rounded-xl object-cover border shrink-0" style={{ borderColor: C.border }} />
+              <img src={bio.logo_url} alt="" className="w-16 h-16 rounded-xl object-contain border shrink-0 p-1.5" style={{ borderColor: C.border, backgroundColor: "#ffffff" }} />
             ) : (
               <div className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold shrink-0"
                 style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
@@ -678,7 +678,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
           {/* Logo upload */}
           <div className="col-span-2 flex items-center gap-5 pb-4 mb-2 border-b" style={{ borderColor: C.border }}>
             {form.logo_url ? (
-              <img src={form.logo_url} alt="" className="w-20 h-20 rounded-xl object-cover border" style={{ borderColor: C.border }} />
+              <img src={form.logo_url} alt="" className="w-20 h-20 rounded-xl object-contain border p-1.5" style={{ borderColor: C.border, backgroundColor: "#ffffff" }} />
             ) : (
               <div className="w-20 h-20 rounded-xl flex items-center justify-center border-2 border-dashed"
                 style={{ borderColor: C.border, backgroundColor: C.bg }}>
