@@ -216,43 +216,43 @@ export default function FlowEditorPage() {
   }
 
   async function handleSave() {
-  const supabase = getSupabaseBrowser();
     setSaving(true);
     setError(null);
 
-    // Update this campaign
-    const { error: err1 } = await supabase.from("campaigns").update({
-      name: flowName,
-      seller_id: flowManagerId,
-      sequence_steps: steps,
-      email_account: emailAccount || null,
-    }).eq("id", campaignId);
-
-    // Also update all campaigns with the same original name (the whole flow group)
-    if (originalName && flowName !== originalName) {
-      await supabase.from("campaigns").update({ name: flowName }).eq("name", originalName);
-    }
-
-    // Save messages (with attachments in metadata)
+    const messagesPayload: Record<number, any> = {};
     for (const [stepNum, msg] of Object.entries(messages)) {
-      if (msg.id) {
-        const stepAtts = attachments[Number(stepNum)] ?? [];
-        const metadata: Record<string, any> = {};
-        if (msg.subject) metadata.subject = msg.subject;
-        if (stepAtts.length > 0) metadata.attachments = stepAtts;
-        await supabase.from("campaign_messages").update({
-          content: msg.content,
-          metadata: Object.keys(metadata).length > 0 ? metadata : null,
-        }).eq("id", msg.id);
-      }
+      if (!msg.id) continue;
+      const stepAtts = attachments[Number(stepNum)] ?? [];
+      messagesPayload[Number(stepNum)] = {
+        id: msg.id,
+        content: msg.content,
+        subject: msg.subject ?? "",
+        attachments: stepAtts,
+      };
     }
 
-    if (err1) {
-      setError(err1.message);
-      setSaving(false);
-    } else {
-      router.push(`/campaigns`);
+    try {
+      const r = await fetch(`/api/campaigns/${campaignId}/edit-flow`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          flowName,
+          flowManagerId,
+          steps,
+          emailAccount: emailAccount || null,
+          originalName,
+          messages: messagesPayload,
+        }),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.error ?? "Save failed");
+      }
+      router.push(`/campaigns/${campaignId}`);
       router.refresh();
+    } catch (e: any) {
+      setError(e?.message ?? "Save failed");
+      setSaving(false);
     }
   }
 

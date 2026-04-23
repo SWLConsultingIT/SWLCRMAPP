@@ -207,7 +207,15 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
 
     // Column Step N = "Nth DM sent". Column 0-indexed, so target current_step = targetStep + 1.
     const newCurrentStep = targetStep + 1;
-    if (camp.current_step === newCurrentStep) return;
+    const currentStep = camp.current_step ?? 0;
+    if (currentStep === newCurrentStep) return;
+
+    // Restrict to adjacent step moves. Multi-step jumps create ambiguity
+    // (send only target vs send all pending vs re-send when going backward).
+    if (Math.abs(newCurrentStep - currentStep) > 1) {
+      alert("Move one step at a time. To skip several, drag twice.");
+      return;
+    }
 
     const leadName = `${camp.leads?.primary_first_name ?? ""} ${camp.leads?.primary_last_name ?? ""}`.trim() || "this lead";
     const targetChannel = sequence[targetStep]?.channel ?? "linkedin";
