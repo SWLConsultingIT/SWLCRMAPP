@@ -4,6 +4,7 @@ import "./globals.css";
 import AppShell from "@/components/AppShell";
 import { ThemeProvider } from "@/lib/theme";
 import { LocaleProvider } from "@/lib/i18n";
+import { BrandProvider } from "@/lib/brand";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const outfit = Outfit({ variable: "--font-outfit", subsets: ["latin"], weight: ["500", "600", "700", "800"] });
@@ -24,7 +25,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="h-full antialiased">
         <ThemeProvider>
           <LocaleProvider>
-            <AppShell>{children}</AppShell>
+            <BrandProvider>
+              <AppShell>{children}</AppShell>
+            </BrandProvider>
           </LocaleProvider>
         </ThemeProvider>
       </body>

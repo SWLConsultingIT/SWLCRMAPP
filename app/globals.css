@@ -5,6 +5,14 @@
   --font-mono: ui-monospace, monospace;
 }
 
+/* Brand color — defaults to SWL gold. BrandProvider overrides at runtime
+   when the user's company_bio.use_brand_colors = true. */
+:root {
+  --brand:       #c9a83a;
+  --brand-dark:  #b79832;
+  --brand-soft:  rgba(201,168,58,0.15);
+}
+
 /* ─── Design tokens — light (default) ─── */
 :root {
   --c-sidebarBg:          #FFFFFF;

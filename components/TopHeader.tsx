@@ -54,6 +54,8 @@ type AuthUser = {
   email: string;
   displayName: string;
   role: string;
+  companyName?: string | null;
+  companyLogoUrl?: string | null;
 };
 
 export default function TopHeader() {
@@ -176,7 +178,7 @@ export default function TopHeader() {
               {firstName || "—"}
             </p>
             <p className="text-[9px] mt-0.5 font-medium uppercase tracking-wider" style={{ color: C.textDim }}>
-              SWL Consulting
+              {user?.companyName || "—"}
             </p>
           </div>
         </div>

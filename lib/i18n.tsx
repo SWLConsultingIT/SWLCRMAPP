@@ -148,13 +148,30 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>("en");
 
   useEffect(() => {
+    // Anti-FOUC cache
     const saved = localStorage.getItem("swl-locale") as Locale | null;
     if (saved === "es" || saved === "en") setLocaleState(saved);
+
+    // Source of truth: DB (per-user)
+    fetch("/api/settings/prefs")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d) return;
+        const dbLocale: Locale = d.locale === "es" ? "es" : "en";
+        setLocaleState(dbLocale);
+        try { localStorage.setItem("swl-locale", dbLocale); } catch {}
+      })
+      .catch(() => {});
   }, []);
 
   function setLocale(l: Locale) {
     setLocaleState(l);
-    localStorage.setItem("swl-locale", l);
+    try { localStorage.setItem("swl-locale", l); } catch {}
+    fetch("/api/settings/prefs", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locale: l }),
+    }).catch(() => {});
   }
 
   function t(key: string) {

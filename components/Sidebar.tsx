@@ -12,8 +12,8 @@ import {
 
 const DARK   = "#060c18";
 const BORDER = "rgba(201,168,58,0.14)";
-const GOLD   = "#c9a83a";
-const GOLD_DIM = "rgba(201,168,58,0.75)";
+const GOLD   = "var(--brand, #c9a83a)";
+const GOLD_DIM = "color-mix(in srgb, var(--brand, #c9a83a) 75%, transparent)";
 const TEXT_MUTED = "rgba(255,255,255,0.55)";
 const TEXT_BODY  = "rgba(255,255,255,0.85)";
 
@@ -160,7 +160,7 @@ export default function Sidebar() {
                     href={href}
                     className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150"
                     style={active ? {
-                      background: `linear-gradient(90deg, rgba(201,168,58,0.15) 0%, rgba(201,168,58,0.04) 100%)`,
+                      background: `linear-gradient(90deg, color-mix(in srgb, ${GOLD} 15%, transparent) 0%, color-mix(in srgb, ${GOLD} 4%, transparent) 100%)`,
                       color: GOLD,
                       borderLeft: `2px solid ${GOLD}`,
                       paddingLeft: "10px",
@@ -183,7 +183,7 @@ export default function Sidebar() {
 
                     {tag && (
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
-                        style={{ backgroundColor: "rgba(201,168,58,0.15)", color: GOLD }}>
+                        style={{ backgroundColor: `color-mix(in srgb, ${GOLD} 15%, transparent)`, color: GOLD }}>
                         {tag}
                       </span>
                     )}
@@ -213,7 +213,7 @@ export default function Sidebar() {
       {/* Footer */}
       <div className="relative px-5 py-4 border-t flex items-center gap-2.5" style={{ borderColor: BORDER }}>
         <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-          style={{ background: `linear-gradient(135deg, ${GOLD}, #e8c84a)`, color: "#fff" }}>
+          style={{ background: `linear-gradient(135deg, ${GOLD}, color-mix(in srgb, ${GOLD} 65%, white))`, color: "#fff" }}>
           S
         </div>
         <div className="flex-1 min-w-0">
@@ -226,7 +226,7 @@ export default function Sidebar() {
           className="w-8 h-8 flex items-center justify-center rounded-lg transition-all shrink-0"
           style={{
             color: pathname.startsWith("/settings") ? GOLD : TEXT_MUTED,
-            backgroundColor: pathname.startsWith("/settings") ? "rgba(201,168,58,0.12)" : "transparent",
+            backgroundColor: pathname.startsWith("/settings") ? `color-mix(in srgb, ${GOLD} 12%, transparent)` : "transparent",
           }}
           onMouseEnter={(e) => { if (!pathname.startsWith("/settings")) { e.currentTarget.style.color = "#fff"; e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; } }}
           onMouseLeave={(e) => { if (!pathname.startsWith("/settings")) { e.currentTarget.style.color = TEXT_MUTED; e.currentTarget.style.backgroundColor = "transparent"; } }}
