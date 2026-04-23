@@ -92,13 +92,22 @@ export default function CampaignDetailClient({
 
   const isEditable = campaignStatus === "active" || campaignStatus === "paused";
 
+  async function callAction(ids: string[], action: "pause" | "resume" | "cancel") {
+    const r = await fetch("/api/campaigns/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids, action }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      console.error("campaign action failed:", err);
+      throw new Error(err.error ?? "action failed");
+    }
+  }
+
   async function act(campId: string, action: "pause" | "resume" | "cancel") {
     setActing(`${campId}:${action}`);
-    if (action === "cancel") {
-      await supabase.from("campaigns").delete().eq("id", campId);
-    } else {
-      await supabase.from("campaigns").update({ status: action === "pause" ? "paused" : "active" }).eq("id", campId);
-    }
+    try { await callAction([campId], action); } catch {}
     setActing(null);
     router.refresh();
   }
@@ -107,11 +116,7 @@ export default function CampaignDetailClient({
     const ids = selected.size > 0 ? Array.from(selected) : visibleCampaigns.filter(c => ["active", "paused"].includes(c.status)).map(c => c.id);
     if (ids.length === 0) return;
     setActing(`bulk:${action}`);
-    if (action === "cancel") {
-      await supabase.from("campaigns").delete().in("id", ids);
-    } else {
-      await supabase.from("campaigns").update({ status: action === "pause" ? "paused" : "active" }).in("id", ids);
-    }
+    try { await callAction(ids, action); } catch {}
     setActing(null);
     setSelected(new Set());
     router.refresh();
