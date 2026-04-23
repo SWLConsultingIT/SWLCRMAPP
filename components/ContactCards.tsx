@@ -71,7 +71,7 @@ export default function ContactCards({ contacts }: { contacts: Contact[] }) {
         return (
           <Link key={contact.id} href={`/leads/${contact.id}`}
             className="rounded-xl border p-5 transition-all hover:shadow-md cursor-pointer relative overflow-hidden"
-            style={{ backgroundColor: C.card, borderColor: C.border, borderLeftWidth: "4px", borderLeftColor: "#C9A83A" }}>
+            style={{ backgroundColor: C.card, borderColor: C.border, borderLeftWidth: "4px", borderLeftColor: "var(--brand, #c9a83a)" }}>
 
             {/* Priority star */}
             {contact.is_priority && (

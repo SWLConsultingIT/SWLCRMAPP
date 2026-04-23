@@ -59,8 +59,8 @@ export default function NavigationProgress() {
         style={{
           height: "100%",
           width: `${Math.min(pct, 100)}%`,
-          background: "linear-gradient(90deg, #C9A83A 0%, #e8c84a 50%, #f0d060 100%)",
-          boxShadow: "0 0 10px rgba(201,168,58,0.65), 0 0 4px rgba(201,168,58,0.4)",
+          background: "linear-gradient(90deg, var(--brand, #c9a83a) 0%, color-mix(in srgb, var(--brand, #c9a83a) 72%, white) 50%, #f0d060 100%)",
+          boxShadow: "0 0 10px color-mix(in srgb, var(--brand, #c9a83a) 65%, transparent), 0 0 4px color-mix(in srgb, var(--brand, #c9a83a) 40%, transparent)",
           borderRadius: "0 3px 3px 0",
           transition: pct === 100
             ? "width 0.15s ease"

@@ -7,7 +7,7 @@ import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, u
 import { Share2, Mail, Phone, CheckCircle, Flag, User, Send, SkipForward, X, AlertTriangle } from "lucide-react";
 import { C } from "@/lib/design";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {
   linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
@@ -69,7 +69,7 @@ function LeadCard({ camp, isDragging }: { camp: Campaign; isDragging?: boolean }
     >
       <div className="flex items-start gap-2.5">
         <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
-          style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+          style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
           {leadInitials(camp.leads)}
         </div>
         <div className="flex-1 min-w-0">
@@ -325,7 +325,7 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
             <div className="rounded-lg border p-3 shadow-xl" style={{ backgroundColor: C.card, borderColor: gold }}>
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold"
-                  style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                  style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
                   {leadInitials(active.leads)}
                 </div>
                 <div>

@@ -113,9 +113,9 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
             <button key={f} onClick={() => setFilter(f)}
               className="text-xs font-medium px-3 py-1.5 rounded-full border transition-all"
               style={{
-                backgroundColor: filter === f ? "#C9A83A" : "transparent",
+                backgroundColor: filter === f ? "var(--brand, #c9a83a)" : "transparent",
                 color: filter === f ? "white" : C.textMuted,
-                borderColor: filter === f ? "#C9A83A" : C.border,
+                borderColor: filter === f ? "var(--brand, #c9a83a)" : C.border,
               }}>
               {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
             </button>
@@ -149,7 +149,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                 {/* Date header */}
                 <div className="flex items-center gap-3 mb-3">
                   <span className="text-xs font-bold px-2 py-0.5 rounded"
-                    style={{ backgroundColor: "#C9A83A", color: "white" }}>
+                    style={{ backgroundColor: "var(--brand, #c9a83a)", color: "white" }}>
                     {formatDateGroup(group.items[0].timestamp)}
                   </span>
                   <div className="flex-1 h-px" style={{ backgroundColor: C.border }} />
@@ -205,7 +205,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
 
                           {item.requiresReview && (
                             <div className="ml-10 mt-2 flex items-center gap-3">
-                              <button className="text-xs font-semibold" style={{ color: "#C9A83A" }}>Reply Now</button>
+                              <button className="text-xs font-semibold" style={{ color: "var(--brand, #c9a83a)" }}>Reply Now</button>
                               <button className="text-xs font-medium" style={{ color: C.textMuted }}>Dismiss</button>
                             </div>
                           )}
@@ -325,7 +325,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                   }
                 }}
                 className="text-xs font-semibold px-4 py-2 rounded-lg text-white disabled:opacity-40"
-                style={{ backgroundColor: "#C9A83A" }}>
+                style={{ backgroundColor: "var(--brand, #c9a83a)" }}>
                 {savingNote ? "Saving..." : "Add Note"}
               </button>
             </div>
@@ -336,7 +336,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
               {notes.map((note, i) => (
                 <div key={i} className="flex items-start gap-3">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-                    style={{ backgroundColor: "#C9A83A" }}>
+                    style={{ backgroundColor: "var(--brand, #c9a83a)" }}>
                     {note.author[0]}
                   </div>
                   <div className="flex-1">

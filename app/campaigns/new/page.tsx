@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 import { Target, User, ArrowLeft, AlertTriangle, Upload, Megaphone } from "lucide-react";
 import NewFlowClient from "./NewFlowClient";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 async function getIcpProfiles() {
   const supabase = await getSupabaseServer();
@@ -100,7 +100,7 @@ export default async function NewFlowPage() {
         <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Create a Campaign</h1>
         <p className="text-sm mt-1" style={{ color: C.textMuted }}>Choose how you want to start your outreach flow.</p>
       </div>
-      <div className="h-px mb-8" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
+      <div className="h-px mb-8" style={{ background: `linear-gradient(90deg, ${gold} 0%, color-mix(in srgb, var(--brand, #c9a83a) 15%, transparent) 40%, transparent 100%)` }} />
 
       <NewFlowClient profiles={JSON.parse(JSON.stringify(profiles))} leads={JSON.parse(JSON.stringify(leads))} />
     </div>

@@ -7,7 +7,7 @@ import AdminActions from "../../../AdminActions";
 import ExecutionActions from "./ExecutionActions";
 import CopyableId from "@/components/CopyableId";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 const supabase = getSupabaseService();
 
 const statusStyles: Record<string, { label: string; color: string; bg: string }> = {

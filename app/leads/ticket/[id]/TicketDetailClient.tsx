@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { LeadFilterBar, type LeadFilterState } from "@/components/LeadFilters";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 type LeadInfo = {
   id: string;
@@ -137,7 +137,7 @@ function CampaignCard({ camp }: { camp: CampaignGroup }) {
       <div className="px-4 py-2.5 border-t flex items-center gap-2"
         style={{ borderColor: C.border, backgroundColor: C.bg }}>
         <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
-          <div className="h-1.5 rounded-full" style={{ width: `${camp.avgProgress}%`, background: `linear-gradient(90deg, ${gold}, #e8c84a)` }} />
+          <div className="h-1.5 rounded-full" style={{ width: `${camp.avgProgress}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} />
         </div>
         <span className="text-[10px] tabular-nums shrink-0" style={{ color: C.textMuted }}>{camp.avgProgress}%</span>
         <ChevronRight size={13} style={{ color: C.textDim }} className="shrink-0 transition-transform group-hover/card:translate-x-0.5" />
@@ -297,7 +297,7 @@ function LeadsTable({ leads }: { leads: LeadInfo[] }) {
                   <td className="px-4 py-3">
                     <Link href={`/leads/${lead.id}`} className="flex items-center gap-2.5 group/row">
                       <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                        style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                        style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
                         {((lead.company ?? name)[0] ?? "?").toUpperCase()}
                       </div>
                       <div className="min-w-0">

@@ -11,9 +11,9 @@ import {
 } from "lucide-react";
 
 const DARK   = "#060c18";
-const BORDER = "rgba(201,168,58,0.14)";
-const GOLD   = "var(--brand, #c9a83a)";
-const GOLD_DIM = "color-mix(in srgb, var(--brand, #c9a83a) 75%, transparent)";
+const BORDER = "color-mix(in srgb, var(--brand, #c9a83a) 14%, transparent)";
+const GOLD   = "var(--brand, var(--brand, #c9a83a))";
+const GOLD_DIM = "color-mix(in srgb, var(--brand, var(--brand, #c9a83a)) 75%, transparent)";
 const TEXT_MUTED = "rgba(255,255,255,0.55)";
 const TEXT_BODY  = "rgba(255,255,255,0.85)";
 
@@ -99,15 +99,15 @@ export default function Sidebar() {
         backgroundColor: DARK,
         borderColor: BORDER,
         backgroundImage: `
-          linear-gradient(rgba(201,168,58,0.03) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(201,168,58,0.03) 1px, transparent 1px)
+          linear-gradient(color-mix(in srgb, var(--brand, #c9a83a) 3%, transparent) 1px, transparent 1px),
+          linear-gradient(90deg, color-mix(in srgb, var(--brand, #c9a83a) 3%, transparent) 1px, transparent 1px)
         `,
         backgroundSize: "40px 40px",
       }}
     >
       {/* Glow top-left */}
       <div className="absolute top-0 left-0 w-48 h-48 pointer-events-none"
-        style={{ background: "radial-gradient(circle, rgba(201,168,58,0.07) 0%, transparent 70%)" }} />
+        style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--brand, #c9a83a) 7%, transparent) 0%, transparent 70%)" }} />
 
       {/* Logo */}
       <div className="relative px-5 py-5 border-b" style={{ borderColor: BORDER }}>

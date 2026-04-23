@@ -294,7 +294,7 @@ export default function FlowEditorPage() {
         </div>
       )}
 
-      <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
+      <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, color-mix(in srgb, var(--brand, #c9a83a) 15%, transparent) 40%, transparent 100%)` }} />
 
       {/* ── Section 1: Flow Name ── */}
       <div className="rounded-xl p-5 mb-5" style={{ backgroundColor: C.card, border: `1px solid ${C.border}` }}>

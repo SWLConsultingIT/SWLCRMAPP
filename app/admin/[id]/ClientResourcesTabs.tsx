@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { C } from "@/lib/design";
 import { Users, Share2, Phone, Mail, Loader2, CheckCircle, AlertTriangle, Trash2 } from "lucide-react";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 type Props = { companyBioId: string; companyName: string };
 
@@ -97,7 +97,7 @@ function ClientUsers({ companyBioId }: { companyBioId: string }) {
       {users.map(user => (
         <div key={user.id} className="flex items-center gap-4 py-3">
           <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-            style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+            style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
             {user.email[0]?.toUpperCase() ?? "?"}
           </div>
           <div className="flex-1 min-w-0">
@@ -145,7 +145,7 @@ function ClientSellers({ companyBioId }: { companyBioId: string }) {
         return (
           <div key={seller.id} className="flex items-center gap-4 py-3">
             <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-              style={{ background: seller.active ? `linear-gradient(135deg, ${gold}, #e8c84a)` : "#E5E7EB", color: seller.active ? "#fff" : "#9CA3AF" }}>
+              style={{ background: seller.active ? `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` : "#E5E7EB", color: seller.active ? "#fff" : "#9CA3AF" }}>
               {seller.name[0]?.toUpperCase() ?? "?"}
             </div>
             <div className="flex-1 min-w-0">

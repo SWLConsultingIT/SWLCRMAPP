@@ -10,8 +10,8 @@ import {
 import AdminActions from "../AdminActions";
 import ClientResourcesTabs from "./ClientResourcesTabs";
 
-const gold = "#C9A83A";
-const goldLight = "rgba(201,168,58,0.08)";
+const gold = "var(--brand, #c9a83a)";
+const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";
 const supabase = getSupabaseService();
 
 function timeAgo(iso: string | null) {
@@ -259,7 +259,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
             <img src={client.logo_url} alt="" className="w-16 h-16 rounded-xl object-cover border shrink-0" style={{ borderColor: C.border }} />
           ) : (
             <div className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold shrink-0"
-              style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
               {client.company_name?.[0]?.toUpperCase() ?? "?"}
             </div>
           )}
@@ -429,7 +429,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                     <div key={i} className="px-5 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                          style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                          style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
                           {seller.name[0]?.toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -620,7 +620,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                 return (
                   <Link key={lead.id} href={`/leads/${lead.id}`} className="flex items-center gap-3 px-6 py-3 table-row-hover">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                      style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                      style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
                       {(lead.primary_first_name?.[0] ?? "?").toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -681,7 +681,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                   </span>
                   <div className="flex items-center gap-2 w-24 shrink-0">
                     <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
-                      <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${gold}, #e8c84a)` }} />
+                      <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} />
                     </div>
                     <span className="text-xs tabular-nums" style={{ color: C.textMuted }}>{c.current_step}/{totalSteps}</span>
                   </div>

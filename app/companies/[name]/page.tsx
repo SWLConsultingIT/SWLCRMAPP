@@ -12,9 +12,9 @@ import CompanyTabs from "@/components/CompanyTabs";
 import ContactCards from "@/components/ContactCards";
 import ActivityTimeline from "@/components/ActivityTimeline";
 
-const gold = "#C9A83A";
-const goldLight = "rgba(201,168,58,0.08)";
-const goldGlow = "rgba(201,168,58,0.15)";
+const gold = "var(--brand, #c9a83a)";
+const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";
+const goldGlow = "color-mix(in srgb, var(--brand, #c9a83a) 15%, transparent)";
 
 // ── Data fetchers ──
 
@@ -204,7 +204,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
               <img src={lead.organization_logo_url} alt="" className="w-16 h-16 rounded-xl object-cover border" style={{ borderColor: C.border }} />
             ) : (
               <div className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold shrink-0"
-                style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
                 {(companyName ?? "?")[0].toUpperCase()}
               </div>
             )}
@@ -269,7 +269,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
         </div>
 
         {/* Outreach stats bar */}
-        <div className="mx-6 mb-4 px-5 py-3 rounded-lg flex items-center gap-8" style={{ backgroundColor: goldLight, border: `1px solid rgba(201,168,58,0.2)` }}>
+        <div className="mx-6 mb-4 px-5 py-3 rounded-lg flex items-center gap-8" style={{ backgroundColor: goldLight, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 20%, transparent)` }}>
           <div className="flex items-center gap-2">
             <span className="text-xl font-bold" style={{ color: C.textPrimary }}>{stats.messages}</span>
             <span className="text-sm" style={{ color: C.textMuted }}>Messages Sent</span>

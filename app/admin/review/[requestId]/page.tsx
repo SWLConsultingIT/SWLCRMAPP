@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 import AdminActions from "../../AdminActions";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 const supabase = getSupabaseService();
 
 const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {

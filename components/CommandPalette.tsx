@@ -109,7 +109,7 @@ export default function CommandPalette() {
                   style={{ backgroundColor: i === cursor ? C.surface : "transparent" }}
                   onMouseEnter={() => setCursor(i)}>
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${C.gold}, #e8c84a)`, color: "#04070d" }}>
+                    style={{ background: `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#04070d" }}>
                     {r.first_name?.[0]}{r.last_name?.[0]}
                   </div>
                   <div className="flex-1 min-w-0">

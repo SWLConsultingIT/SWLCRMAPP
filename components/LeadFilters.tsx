@@ -3,7 +3,7 @@
 import { C } from "@/lib/design";
 import { Search, X, SlidersHorizontal } from "lucide-react";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 type FilterOption = { key: string; label: string; color?: string; count?: number };
 

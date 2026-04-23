@@ -24,7 +24,7 @@ export default function CompanyTabs({
           >
             {tab.label}{tab.count !== undefined ? ` (${tab.count})` : ""}
             {active === i && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full" style={{ backgroundColor: "#C9A83A" }} />
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-full" style={{ backgroundColor: "var(--brand, #c9a83a)" }} />
             )}
           </button>
         ))}

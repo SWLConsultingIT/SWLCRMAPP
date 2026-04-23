@@ -11,7 +11,7 @@ import Link from "next/link";
 import DashboardTabs from "@/components/DashboardTabs";
 import ReportsPage from "@/app/reports/page";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
   linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
@@ -267,7 +267,7 @@ export default async function DashboardPage() {
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
-                          <div className="h-1.5 rounded-full" style={{ width: `${camp.avgProgress}%`, background: `linear-gradient(90deg, ${gold}, #e8c84a)` }} />
+                          <div className="h-1.5 rounded-full" style={{ width: `${camp.avgProgress}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} />
                         </div>
                         <span className="text-[10px] tabular-nums shrink-0" style={{ color: C.textMuted }}>{camp.avgProgress}%</span>
                       </div>
@@ -304,7 +304,7 @@ export default async function DashboardPage() {
                       className="flex gap-3 px-5 py-3.5 transition-colors hover:bg-black/[0.015]"
                       style={{ borderTop: i > 0 ? `1px solid ${C.border}` : "none" }}>
                       <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5"
-                        style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                        style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
                         {(r.leadName[0] ?? "?").toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">

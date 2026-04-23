@@ -255,12 +255,12 @@ export default function NewLeadCampaignWizard() {
         </p>
       </div>
 
-      <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
+      <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, color-mix(in srgb, var(--brand, #c9a83a) 15%, transparent) 40%, transparent 100%)` }} />
 
       {/* Lead context card */}
       <div className="rounded-xl border p-5 mb-6 flex items-center gap-4" style={{ backgroundColor: C.card, borderColor: C.border, borderLeft: `3px solid ${gold}` }}>
         <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
-          style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+          style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
           <User size={20} />
         </div>
         <div className="flex-1 min-w-0">
@@ -486,7 +486,7 @@ export default function NewLeadCampaignWizard() {
                         }}>
                         <div className="flex items-center gap-3 mb-2">
                           <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
-                            style={{ background: isActive ? `linear-gradient(135deg, ${gold}, #e8c84a)` : C.bg, color: isActive ? "#fff" : C.textMuted }}>
+                            style={{ background: isActive ? `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` : C.bg, color: isActive ? "#fff" : C.textMuted }}>
                             {s.name[0]}
                           </div>
                           <div>

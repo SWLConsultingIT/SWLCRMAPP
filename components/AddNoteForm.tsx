@@ -40,7 +40,7 @@ export default function AddNoteForm({ leadId }: { leadId: string }) {
     <form onSubmit={submit} className="rounded-xl border overflow-hidden"
       style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${C.gold}` }}>
       <div className="px-4 py-3 border-b flex items-center gap-2"
-        style={{ borderColor: C.border, background: "linear-gradient(90deg, rgba(201,168,58,0.05) 0%, transparent 60%)" }}>
+        style={{ borderColor: C.border, background: "linear-gradient(90deg, color-mix(in srgb, var(--brand, #c9a83a) 5%, transparent) 0%, transparent 60%)" }}>
         <StickyNote size={13} style={{ color: C.gold }} />
         <span className="text-sm font-semibold" style={{ color: C.textPrimary }}>Agregar nota</span>
       </div>

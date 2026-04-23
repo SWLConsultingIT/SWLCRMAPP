@@ -37,10 +37,10 @@ function getInitials(name: unknown): string {
 }
 
 function getUserColor(name: unknown): { from: string; to: string } {
-  if (typeof name !== "string") return { from: C.gold, to: "#e8c84a" };
+  if (typeof name !== "string") return { from: C.gold, to: "color-mix(in srgb, var(--brand, #c9a83a) 72%, white)" };
   if (name === "Admin") return { from: "#7C3AED", to: "#9F67FF" };
   if (name.startsWith("Francisco")) return { from: "#0A66C2", to: "#2D8AE8" };
-  return { from: C.gold, to: "#e8c84a" };
+  return { from: C.gold, to: "color-mix(in srgb, var(--brand, #c9a83a) 72%, white)" };
 }
 
 function openCommandPalette() {
@@ -79,7 +79,7 @@ export default function TopHeader() {
 
   const displayName = user?.displayName ?? "";
   const initials = displayName ? getInitials(displayName) : "…";
-  const userColor = displayName ? getUserColor(displayName) : { from: C.gold, to: "#e8c84a" };
+  const userColor = displayName ? getUserColor(displayName) : { from: C.gold, to: "color-mix(in srgb, var(--brand, #c9a83a) 72%, white)" };
   const firstName = displayName ? displayName.split(" ")[0] : "";
 
   return (

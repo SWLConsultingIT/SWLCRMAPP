@@ -12,7 +12,7 @@ import PageHero from "@/components/PageHero";
 import CallButton from "@/components/CallButton";
 import { classifyUrgency } from "@/lib/overdue";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 type PendingCall = {
   id: string;
@@ -285,7 +285,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                       borderLeft: r.requiresHumanReview ? "3px solid #F59E0B" : "3px solid transparent",
                     }}>
                     <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5"
-                      style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                      style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
                       {(r.leadName[0] ?? "?").toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">

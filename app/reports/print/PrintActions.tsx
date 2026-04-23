@@ -11,7 +11,7 @@ export default function PrintActions() {
       </button>
       <button
         onClick={() => window.print()}
-        style={{ padding: "8px 20px", borderRadius: 8, backgroundColor: "#C9A83A", color: "#1A1A2E", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600 }}
+        style={{ padding: "8px 20px", borderRadius: 8, backgroundColor: "var(--brand, #c9a83a)", color: "#1A1A2E", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600 }}
       >
         Print / Save PDF
       </button>

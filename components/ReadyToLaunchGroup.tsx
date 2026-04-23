@@ -5,7 +5,7 @@ import Link from "next/link";
 import { C } from "@/lib/design";
 import { Target, Megaphone, Share2, Mail, Check } from "lucide-react";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 type Lead = {
   id: string;
@@ -105,7 +105,7 @@ export default function ReadyToLaunchGroup({ profileId, profileName, profileDeta
 
         <Link href={someSelected ? launchUrl : (profileId ? `/campaigns/new/${profileId}` : "#")}
           className="flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-bold transition-all hover:shadow-md"
-          style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#1A1A2E" }}>
+          style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
           <Megaphone size={13} /> Create Outreach Flow{someSelected ? ` with ${selected.size} ${selected.size === 1 ? "Lead" : "Leads"}` : ` with All ${leads.length} Leads`}
         </Link>
       </div>

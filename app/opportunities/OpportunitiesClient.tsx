@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 type OpportunityLead = {
   id: string;

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { C } from "@/lib/design";
 import { Share2, Mail, Phone, Check, PlayCircle, ChevronDown } from "lucide-react";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {
   linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },

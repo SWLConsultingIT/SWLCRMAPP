@@ -61,7 +61,7 @@ function TagInput({ values, onChange, placeholder }: { values: string[]; onChang
       onClick={e => (e.currentTarget.querySelector("input") as HTMLInputElement)?.focus()}>
       {values.map(v => (
         <span key={v} className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
-          style={{ backgroundColor: goldLight, color: gold, border: `1px solid rgba(201,168,58,0.25)` }}>
+          style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 25%, transparent)` }}>
           {v}
           <button onClick={() => onChange(values.filter(x => x !== v))} className="opacity-60 hover:opacity-100"><X size={10} /></button>
         </span>
@@ -313,7 +313,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
       </div>
 
       <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-      <div className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg, ${gold}, #e8c84a, ${gold})` }} />
+      <div className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white), ${gold})` }} />
 
       {/* Header */}
       <div className="p-6 flex items-start justify-between">
@@ -333,7 +333,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
           {leads.length === 0 && (
             <button onClick={onEdit}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
-              style={{ backgroundColor: goldLight, color: gold, border: `1px solid rgba(201,168,58,0.3)` }}>
+              style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
               <Pencil size={12} /> Edit
             </button>
           )}
@@ -572,7 +572,7 @@ export default function LeadGenPage() {
               <button
                 onClick={() => setShowForm(true)}
                 className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-opacity hover:opacity-80"
-                style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#04070d" }}>
+                style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#04070d" }}>
                 <Plus size={15} /> New Profile
               </button>
             </div>
@@ -634,7 +634,7 @@ export default function LeadGenPage() {
         <div className="flex flex-col items-center justify-center py-16">
           <div className="rounded-2xl border p-10 max-w-lg w-full text-center relative overflow-hidden"
             style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <div className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg, ${gold}, #e8c84a, ${gold})` }} />
+            <div className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white), ${gold})` }} />
 
             <div className="w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-5"
               style={{ background: `linear-gradient(135deg, ${gold}20, ${gold}08)`, border: `1px solid ${gold}30` }}>
@@ -651,7 +651,7 @@ export default function LeadGenPage() {
 
             <button onClick={() => setShowForm(true)}
               className="inline-flex items-center gap-2 rounded-lg px-8 py-3 text-sm font-semibold transition-all hover:shadow-lg hover:opacity-95"
-              style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#04070d" }}>
+              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#04070d" }}>
               <Plus size={16} /> Create First Profile
             </button>
 

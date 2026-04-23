@@ -177,4 +177,4 @@ export default async function AircallNumberDetail({ params }: { params: Promise<
   );
 }
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";

@@ -14,7 +14,7 @@ import {
   User, TrendingDown, Sparkles, Clock, Gauge,
 } from "lucide-react";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
   linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
@@ -267,7 +267,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
         <div className="p-6">
           <div className="flex items-start gap-4">
             <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold shrink-0"
-              style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
               {((lead.company ?? name)[0] ?? "?").toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">

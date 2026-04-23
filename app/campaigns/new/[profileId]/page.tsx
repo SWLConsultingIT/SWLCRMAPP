@@ -279,7 +279,7 @@ export default function NewCampaignWizard() {
         )}
       </div>
 
-      <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
+      <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, color-mix(in srgb, var(--brand, #c9a83a) 15%, transparent) 40%, transparent 100%)` }} />
 
       {/* Step indicator */}
       <div className="flex items-center gap-1 mb-8">
@@ -503,7 +503,7 @@ export default function NewCampaignWizard() {
                         }}>
                         <div className="flex items-center gap-3 mb-2">
                           <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
-                            style={{ background: isActive ? `linear-gradient(135deg, ${gold}, #e8c84a)` : C.bg, color: isActive ? "#fff" : C.textMuted }}>
+                            style={{ background: isActive ? `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` : C.bg, color: isActive ? "#fff" : C.textMuted }}>
                             {s.name[0]}
                           </div>
                           <div>

@@ -16,8 +16,8 @@ import SyncAircallButton from "@/components/SyncAircallButton";
 import CallButton from "@/components/CallButton";
 import CallCard from "@/components/CallCard";
 
-const gold = "#C9A83A";
-const goldLight = "rgba(201,168,58,0.08)";
+const gold = "var(--brand, #c9a83a)";
+const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";
 
 // ── Data fetchers ──
 
@@ -319,7 +319,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
         {/* Stats bar */}
         <div className="mx-5 mb-4 px-5 py-3 rounded-lg grid grid-cols-4 gap-4"
-          style={{ backgroundColor: goldLight, border: `1px solid rgba(201,168,58,0.2)` }}>
+          style={{ backgroundColor: goldLight, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 20%, transparent)` }}>
           {[
             { label: "Messages Sent",  value: totalMsgsSent },
             { label: "Replies",        value: totalReplies },
@@ -392,7 +392,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                       </div>
                     ) : isCurrent ? (
                       <div className="rounded-full flex items-center justify-center"
-                        style={{ width: 68, height: 68, border: `3.5px solid ${gold}`, backgroundColor: "rgba(201,168,58,0.05)" }}>
+                        style={{ width: 68, height: 68, border: `3.5px solid ${gold}`, backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 5%, transparent)" }}>
                         <div className="rounded-full flex items-center justify-center font-bold"
                           style={{ width: 44, height: 44, border: `2.5px solid ${gold}`, color: "#5A4A1E", backgroundColor: "#fff", fontSize: 18 }}>
                           {String(stepNum).padStart(2, "0")}
@@ -579,7 +579,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Company</h3>
                 <div className="flex items-start gap-4 mb-4">
                   <div className="w-11 h-11 rounded-xl flex items-center justify-center text-base font-bold shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                    style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
                     {lead.company_name[0]?.toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">

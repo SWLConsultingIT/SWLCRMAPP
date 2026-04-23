@@ -4,7 +4,7 @@ import { useState } from "react";
 import { C } from "@/lib/design";
 import { LayoutDashboard, BarChart3, Download } from "lucide-react";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 export default function DashboardTabs({ children }: { children: React.ReactNode[] }) {
   const [tab, setTab] = useState(0);

@@ -23,7 +23,7 @@ type UserRow = {
 
 type Company = { id: string; company_name: string };
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 type ClientData = {
   id: string;
@@ -116,7 +116,7 @@ function UsersTab() {
           {/* Avatar */}
           <div
             className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-            style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}
+            style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}
           >
             {user.email[0]?.toUpperCase() ?? "?"}
           </div>
@@ -254,7 +254,7 @@ function SellersTab() {
           >
             <div
               className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-              style={{ background: seller.active ? `linear-gradient(135deg, ${gold}, #e8c84a)` : "#E5E7EB", color: seller.active ? "#fff" : "#9CA3AF" }}
+              style={{ background: seller.active ? `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` : "#E5E7EB", color: seller.active ? "#fff" : "#9CA3AF" }}
             >
               {seller.name[0]?.toUpperCase() ?? "?"}
             </div>
@@ -707,7 +707,7 @@ export default function AdminClient({ clients, pendingApprovals, stats }: Props)
                     <img src={client.logo_url} alt="" className="w-11 h-11 rounded-xl object-cover border shrink-0" style={{ borderColor: C.border }} />
                   ) : (
                     <div className="w-11 h-11 rounded-xl flex items-center justify-center text-base font-bold shrink-0"
-                      style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                      style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
                       {client.company_name?.[0]?.toUpperCase() ?? "?"}
                     </div>
                   )}

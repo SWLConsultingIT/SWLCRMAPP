@@ -4,7 +4,7 @@ import { useState } from "react";
 import { C } from "@/lib/design";
 import { Megaphone, PlusCircle } from "lucide-react";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 export default function CampaignTabs({ readyCount, activeCount, children }: {
   readyCount: number;

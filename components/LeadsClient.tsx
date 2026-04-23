@@ -184,7 +184,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
         </div>
       </div>
 
-      <div className="h-px mb-5" style={{ background: `linear-gradient(90deg, ${C.gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
+      <div className="h-px mb-5" style={{ background: `linear-gradient(90deg, ${C.gold} 0%, color-mix(in srgb, var(--brand, #c9a83a) 15%, transparent) 40%, transparent 100%)` }} />
 
       {/* Status chips */}
       <div className="flex flex-wrap gap-2 mb-5">
@@ -253,7 +253,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
         style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${C.gold}` }}>
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ borderBottom: `1px solid ${C.border}`, background: `linear-gradient(90deg, rgba(201,168,58,0.04) 0%, transparent 50%)` }}>
+            <tr style={{ borderBottom: `1px solid ${C.border}`, background: `linear-gradient(90deg, color-mix(in srgb, var(--brand, #c9a83a) 4%, transparent) 0%, transparent 50%)` }}>
               <th className="px-4 py-3 w-8">
                 <button onClick={toggleSelectAll}>
                   {allPageSelected

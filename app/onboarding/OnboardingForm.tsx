@@ -74,13 +74,13 @@ export default function OnboardingForm({ displayName, email }: { displayName: st
       <div className="flex items-center gap-2.5">
         <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all"
           style={{
-            backgroundColor: done ? "#22C55E" : active ? "#b79832" : "rgba(255,255,255,0.08)",
-            border: active ? "2px solid rgba(183,152,50,0.4)" : "none",
+            backgroundColor: done ? "#22C55E" : active ? "var(--brand-dark, #b79832)" : "rgba(255,255,255,0.08)",
+            border: active ? "2px solid color-mix(in srgb, var(--brand-dark, #b79832) 40%, transparent)" : "none",
           }}>
           {done ? <CheckCircle2 size={14} color="#fff" /> : <Icon size={13} color={active ? "#04070d" : "rgba(255,255,255,0.4)"} />}
         </div>
         <div className="hidden sm:block">
-          <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: active ? "#b79832" : done ? "#22C55E" : "rgba(255,255,255,0.35)" }}>
+          <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: active ? "var(--brand-dark, #b79832)" : done ? "#22C55E" : "rgba(255,255,255,0.35)" }}>
             Step {n}
           </p>
           <p className="text-xs font-semibold" style={{ color: active || done ? "#f8fafc" : "rgba(255,255,255,0.45)" }}>{label}</p>
@@ -100,12 +100,12 @@ export default function OnboardingForm({ displayName, email }: { displayName: st
     <div className="min-h-screen flex items-center justify-center p-8" style={{ backgroundColor: "#04070d", fontFamily: "var(--font-inter)" }}>
       {/* Background grid */}
       <div className="absolute inset-0 pointer-events-none" style={{
-        backgroundImage: `linear-gradient(rgba(183,152,50,0.04) 1px, transparent 1px),
-                          linear-gradient(90deg, rgba(183,152,50,0.04) 1px, transparent 1px)`,
+        backgroundImage: `linear-gradient(color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent) 1px, transparent 1px),
+                          linear-gradient(90deg, color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent) 1px, transparent 1px)`,
         backgroundSize: "56px 56px",
       }} />
       <div className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full pointer-events-none" style={{
-        background: "radial-gradient(circle, rgba(183,152,50,0.08) 0%, transparent 65%)",
+        background: "radial-gradient(circle, color-mix(in srgb, var(--brand-dark, #b79832) 8%, transparent) 0%, transparent 65%)",
       }} />
 
       <div className="relative z-10 w-full max-w-2xl">
@@ -113,7 +113,7 @@ export default function OnboardingForm({ displayName, email }: { displayName: st
         <div className="text-center mb-8">
           <img src="https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png"
             alt="SWL" className="h-7 mx-auto mb-5" style={{ filter: "brightness(0) invert(1)" }} />
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: "#b79832" }}>Welcome, {displayName || email}</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: "var(--brand-dark, #b79832)" }}>Welcome, {displayName || email}</p>
           <h1 className="text-3xl font-bold" style={{ color: "#f8fafc", fontFamily: "var(--font-outfit)" }}>
             Let&apos;s set up your company
           </h1>
@@ -195,7 +195,7 @@ export default function OnboardingForm({ displayName, email }: { displayName: st
                   placeholder="B2B SaaS founders, growth agencies in LatAm, mid-market companies (5-50 employees) looking to scale outbound..." />
               </Field>
               <div className="rounded-xl px-4 py-3 mt-4 text-[11px] leading-relaxed"
-                style={{ backgroundColor: "rgba(183,152,50,0.05)", border: "1px solid rgba(183,152,50,0.15)", color: "rgba(217,222,226,0.7)" }}>
+                style={{ backgroundColor: "color-mix(in srgb, var(--brand-dark, #b79832) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--brand-dark, #b79832) 15%, transparent)", color: "rgba(217,222,226,0.7)" }}>
                 💡 Podés refinar esto más tarde en <strong>Company Bio</strong>. Esta info se usa para el tone-of-voice del AI.
               </div>
             </>
@@ -223,13 +223,13 @@ export default function OnboardingForm({ displayName, email }: { displayName: st
           {step < 3 ? (
             <button onClick={() => setStep((step + 1) as Step)} disabled={step === 1 ? !canGoStep2 : !description.trim()}
               className="flex items-center gap-1.5 text-sm font-semibold px-5 py-2.5 rounded-lg transition-opacity hover:opacity-90 disabled:opacity-40"
-              style={{ backgroundColor: "#b79832", color: "#04070d" }}>
+              style={{ backgroundColor: "var(--brand-dark, #b79832)", color: "#04070d" }}>
               Continue <ChevronRight size={14} />
             </button>
           ) : (
             <button onClick={handleSubmit} disabled={!canSubmit || loading}
               className="flex items-center gap-1.5 text-sm font-semibold px-5 py-2.5 rounded-lg transition-opacity hover:opacity-90 disabled:opacity-40"
-              style={{ backgroundColor: "#b79832", color: "#04070d" }}>
+              style={{ backgroundColor: "var(--brand-dark, #b79832)", color: "#04070d" }}>
               {loading
                 ? <><Loader2 size={14} className="animate-spin" /> Saving…</>
                 : <>Finish setup <CheckCircle2 size={14} /></>}

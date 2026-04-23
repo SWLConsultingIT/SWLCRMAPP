@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 async function getReportData() {
   const supabase = await getSupabaseServer();
@@ -556,7 +556,7 @@ export default async function ReportsPage() {
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                          style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                          style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
                           {s.name.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()}
                         </div>
                         <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>{s.name}</span>

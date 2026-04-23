@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { LeadFilterBar, type LeadFilterState } from "@/components/LeadFilters";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 type LeadInfo = {
   id: string;
@@ -141,7 +141,7 @@ function LostLeadCard({ lead, selected, onToggle }: { lead: LostLead; selected: 
         {/* Lead info */}
         <div className="flex items-start gap-3 mb-3">
           <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-            style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+            style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
             {((lead.company ?? name)[0] ?? "?").toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
@@ -247,7 +247,7 @@ function RenurturingLeadCard({ lead }: { lead: RenurturingLead }) {
         {/* Lead info */}
         <div className="flex items-start gap-3 mb-3">
           <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-            style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+            style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
             {((lead.company ?? name)[0] ?? "?").toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
@@ -522,7 +522,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                   <td className="px-4 py-2.5">
                     <Link href={`/leads/${lead.id}`} className="flex items-center gap-2 group/row">
                       <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                        style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                        style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
                         {((lead.company ?? name)[0] ?? "?").toUpperCase()}
                       </div>
                       <span className="text-xs font-semibold group-hover/row:underline truncate" style={{ color: C.textPrimary }}>{name}</span>

@@ -10,7 +10,7 @@ import {
   Zap, Globe, TrendingUp,
 } from "lucide-react";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 type SellerCard = {
   id: string;
@@ -598,7 +598,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
         <div className="flex-1" />
         <button onClick={() => setShowAddModal(true)}
           className="flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold mb-1 transition-all hover:shadow-md"
-          style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#1A1A2E" }}>
+          style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
           <Plus size={14} /> Add Seller
         </button>
       </div>
@@ -621,7 +621,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                   <div key={seller.id} className="rounded-xl border overflow-hidden card-lift" style={{ backgroundColor: C.card, borderColor: C.border }}>
                     <div className="px-5 py-4 flex items-center gap-3 border-b" style={{ borderColor: C.border }}>
                       <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-                        style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>{seller.name[0]}</div>
+                        style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>{seller.name[0]}</div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{seller.name}</p>
                         {seller.hasLinkedin
@@ -893,7 +893,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                         return (
                           <div key={i} className="px-5 py-3 flex items-center gap-4">
                             <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                              style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
                               {h.sellerName[0]}
                             </div>
                             <div className="flex-1 min-w-0">

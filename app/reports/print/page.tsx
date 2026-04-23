@@ -155,9 +155,9 @@ export default async function ReportsPrintPage() {
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px", fontSize: 13 }}>
 
         {/* ── Header ── */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, paddingBottom: 16, borderBottom: "2px solid #C9A83A" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, paddingBottom: 16, borderBottom: "2px solid var(--brand, #c9a83a)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, #C9A83A, #e8c84a)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, var(--brand, #c9a83a), color-mix(in srgb, var(--brand, #c9a83a) 72%, white))", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <span style={{ color: "#fff", fontWeight: 800, fontSize: 18 }}>⚡</span>
             </div>
             <div>
@@ -175,7 +175,7 @@ export default async function ReportsPrintPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginBottom: 24 }}>
           {[
             { label: "Total Leads",     value: data.totalLeads,       color: "#374151" },
-            { label: "Contacted",       value: data.contactedLeads,   color: "#C9A83A" },
+            { label: "Contacted",       value: data.contactedLeads,   color: "var(--brand, #c9a83a)" },
             { label: "Messages Sent",   value: data.totalMessages,    color: "#0A66C2" },
             { label: "Replied",         value: data.repliedCount,     color: "#2563EB" },
             { label: "Positive",        value: data.positiveCount,    color: "#16A34A" },
@@ -193,7 +193,7 @@ export default async function ReportsPrintPage() {
           {[
             { label: "Response Rate",  value: `${data.responseRate}%`,   sub: `${data.repliedCount} of ${data.contactedLeads} responded`,  color: "#2563EB" },
             { label: "Conversion Rate",value: `${data.conversionRate}%`, sub: `${data.positiveCount} positive of ${data.contactedLeads}`,   color: "#16A34A" },
-            { label: "Monthly Forecast",value: `${data.forecastMonthly}`,sub: `${data.dailyRate} positives/day × 30d`, color: "#C9A83A" },
+            { label: "Monthly Forecast",value: `${data.forecastMonthly}`,sub: `${data.dailyRate} positives/day × 30d`, color: "var(--brand, #c9a83a)" },
           ].map(r => (
             <div key={r.label} style={{ background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: 10, padding: "14px 16px" }}>
               <p style={{ fontSize: 10, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 4px" }}>{r.label}</p>
@@ -330,11 +330,11 @@ export default async function ReportsPrintPage() {
                   <tr key={s.name} style={{ backgroundColor: i % 2 === 0 ? "#fff" : "#F9FAFB" }}>
                     <td style={{ padding: "8px 12px", border: "1px solid #E5E7EB" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ width: 26, height: 26, borderRadius: "50%", background: "linear-gradient(135deg, #C9A83A, #e8c84a)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 9, fontWeight: 800 }}>
+                        <div style={{ width: 26, height: 26, borderRadius: "50%", background: "linear-gradient(135deg, var(--brand, #c9a83a), color-mix(in srgb, var(--brand, #c9a83a) 72%, white))", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 9, fontWeight: 800 }}>
                           {s.name.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()}
                         </div>
                         <span style={{ fontWeight: 600, color: "#111827" }}>{s.name}</span>
-                        {i === 0 && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4, backgroundColor: "#C9A83A20", color: "#C9A83A" }}>TOP</span>}
+                        {i === 0 && <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4, backgroundColor: "var(--brand, #c9a83a)20", color: "var(--brand, #c9a83a)" }}>TOP</span>}
                       </div>
                     </td>
                     <td style={{ padding: "8px 12px", textAlign: "center", fontWeight: 600, color: "#16A34A", border: "1px solid #E5E7EB" }}>{s.active}</td>

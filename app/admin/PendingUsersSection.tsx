@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { C } from "@/lib/design";
 import { UserPlus, AlertTriangle, Loader2 } from "lucide-react";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 type PendingUser = { id: string; email: string; role: string | null; created_at: string };
 type Company = { id: string; company_name: string };
@@ -59,7 +59,7 @@ export default function PendingUsersSection() {
         <div key={user.id} className="flex items-center gap-4 px-5 py-3"
           style={{ borderBottom: i < users.length - 1 ? `1px solid ${C.border}` : "none" }}>
           <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-            style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+            style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
             {user.email[0]?.toUpperCase() ?? "?"}
           </div>
           <div className="flex-1 min-w-0">

@@ -91,7 +91,7 @@ export default function CallsClient({ initialQueue, history }: {
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black shrink-0"
                     style={{
-                      background: i === 0 ? `linear-gradient(135deg, ${C.gold}, #e8c84a)` : C.surface,
+                      background: i === 0 ? `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` : C.surface,
                       color: i === 0 ? "#04070d" : C.textMuted,
                     }}>
                     {i + 1}

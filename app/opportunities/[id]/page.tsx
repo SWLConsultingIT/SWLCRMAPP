@@ -9,7 +9,7 @@ import {
 import OpportunityStagePanel from "@/components/OpportunityStagePanel";
 import Breadcrumb from "@/components/Breadcrumb";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
   linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },

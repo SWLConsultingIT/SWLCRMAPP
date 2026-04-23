@@ -8,7 +8,7 @@ import {
   Share2, Mail, Check,
 } from "lucide-react";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 type Lead = {
   id: string;
@@ -261,7 +261,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
           </span>
           <Link href={launchUrl}
             className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-all hover:shadow-lg"
-            style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#1A1A2E" }}>
+            style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
             <Megaphone size={15} /> Create Outreach Flow
           </Link>
           <button onClick={() => setSelected(new Set())} className="text-xs font-medium underline" style={{ color: "rgba(255,255,255,0.5)" }}>

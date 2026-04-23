@@ -46,8 +46,8 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-8" style={{ backgroundColor: "#04070d", fontFamily: "var(--font-inter)" }}>
       <div className="absolute top-0 left-0 w-full h-full" style={{
-        backgroundImage: `linear-gradient(rgba(183,152,50,0.04) 1px, transparent 1px),
-                          linear-gradient(90deg, rgba(183,152,50,0.04) 1px, transparent 1px)`,
+        backgroundImage: `linear-gradient(color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent) 1px, transparent 1px),
+                          linear-gradient(90deg, color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent) 1px, transparent 1px)`,
         backgroundSize: "56px 56px",
       }} />
 
@@ -66,7 +66,7 @@ export default function ResetPasswordPage() {
             <p className="text-sm mb-6" style={{ color: "rgba(217,222,236,0.6)" }}>
               Request a new link from &quot;Forgot password&quot;.
             </p>
-            <a href="/forgot-password" className="text-xs font-semibold hover:underline" style={{ color: "#b79832" }}>
+            <a href="/forgot-password" className="text-xs font-semibold hover:underline" style={{ color: "var(--brand-dark, #b79832)" }}>
               Request new link →
             </a>
           </div>
@@ -112,7 +112,7 @@ export default function ResetPasswordPage() {
 
               <button type="submit" disabled={loading || !password || !confirm}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
-                style={{ backgroundColor: "#b79832", color: "#04070d" }}>
+                style={{ backgroundColor: "var(--brand-dark, #b79832)", color: "#04070d" }}>
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />

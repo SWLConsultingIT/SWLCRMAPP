@@ -7,7 +7,7 @@ import {
   TrendingUp, Send, MessageSquare, Users, Clock,
 } from "lucide-react";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 const linkedinStatusMeta: Record<string, { label: string; color: string; bg: string }> = {
   active:     { label: "Active",     color: "#16A34A", bg: "#DCFCE7" },
@@ -79,7 +79,7 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
         <div className="p-6 flex items-start justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold shrink-0"
-              style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
               {seller.name[0]?.toUpperCase() ?? "?"}
             </div>
             <div>

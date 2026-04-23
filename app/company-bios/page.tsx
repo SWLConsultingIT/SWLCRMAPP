@@ -125,7 +125,7 @@ function TagList({ values, onChange, placeholder }: { values: string[]; onChange
       <div className="flex flex-wrap gap-1.5 mb-2">
         {values.map(v => (
           <span key={v} className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium"
-            style={{ backgroundColor: goldLight, color: gold, border: `1px solid rgba(201,168,58,0.25)` }}>
+            style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 25%, transparent)` }}>
             {v}
             <button onClick={() => onChange(values.filter(x => x !== v))} className="opacity-60 hover:opacity-100"><X size={10} /></button>
           </span>
@@ -138,7 +138,7 @@ function TagList({ values, onChange, placeholder }: { values: string[]; onChange
           onKeyDown={e => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); add(); } }}
           placeholder={placeholder} />
         <button onClick={add} className="flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-medium transition-opacity hover:opacity-80"
-          style={{ backgroundColor: goldLight, color: gold, border: `1px solid rgba(201,168,58,0.25)` }}>
+          style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 25%, transparent)` }}>
           <Plus size={12} />
         </button>
       </div>
@@ -228,7 +228,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               <img src={bio.logo_url} alt="" className="w-16 h-16 rounded-xl object-contain border shrink-0 p-1.5" style={{ borderColor: C.border, backgroundColor: "#ffffff" }} />
             ) : (
               <div className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold shrink-0"
-                style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
                 {bio.company_name?.[0]?.toUpperCase() ?? "?"}
               </div>
             )}
@@ -255,7 +255,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
           </div>
           <button onClick={onEdit}
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80 shrink-0"
-            style={{ backgroundColor: goldLight, color: gold, border: `1px solid rgba(201,168,58,0.3)` }}>
+            style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
             <Pencil size={12} /> Edit
           </button>
         </div>
@@ -279,7 +279,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
 
         {/* Services bar */}
         {bio.main_services?.length > 0 && (
-          <div className="mx-6 my-4 px-5 py-3 rounded-lg" style={{ backgroundColor: goldLight, border: `1px solid rgba(201,168,58,0.2)` }}>
+          <div className="mx-6 my-4 px-5 py-3 rounded-lg" style={{ backgroundColor: goldLight, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 20%, transparent)` }}>
             <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: gold }}>{bio.main_services.length} Services</p>
             <div className="flex flex-wrap gap-1.5">
               {bio.main_services.map((s, i) => (
@@ -474,7 +474,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
       {/* ═══ Leads by Campaign ═══ */}
       <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="px-6 py-4 flex items-center justify-between border-b"
-          style={{ borderColor: C.border, background: `linear-gradient(90deg, rgba(201,168,58,0.08) 0%, transparent 50%)` }}>
+          style={{ borderColor: C.border, background: `linear-gradient(90deg, color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent) 0%, transparent 50%)` }}>
           <div className="flex items-center gap-2.5">
             <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Leads & Campaigns</h3>
             {leadStats.total > 0 && (
@@ -543,7 +543,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
                         className="flex items-center gap-4 px-6 pl-16 py-2.5 border-b table-row-hover"
                         style={{ borderColor: C.border }}>
                         <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                          style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                          style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
                           {(lead.primary_first_name?.[0] ?? "?").toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -586,7 +586,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
                       className="flex items-center gap-4 px-6 pl-16 py-2.5 border-b table-row-hover"
                       style={{ borderColor: C.border }}>
                       <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                        style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                        style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
                         {(lead.primary_first_name?.[0] ?? "?").toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -689,7 +689,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
               <p className="text-xs font-medium mb-2" style={{ color: C.textBody }}>Company Logo</p>
               <div className="flex items-center gap-2">
                 <label className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
-                  style={{ backgroundColor: goldLight, color: gold, border: `1px solid rgba(201,168,58,0.3)` }}>
+                  style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
                   <Upload size={12} /> Upload
                   <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
                     const file = e.target.files?.[0];
@@ -778,7 +778,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
         <div className="flex flex-wrap gap-2 mb-3">
           {(form.main_services ?? []).map((s, i) => (
             <span key={i} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
-              style={{ backgroundColor: goldLight, color: gold, border: `1px solid rgba(201,168,58,0.3)` }}>
+              style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
               {s}
               <button onClick={() => setForm(f => ({ ...f, main_services: f.main_services.filter((_, idx) => idx !== i) }))} className="ml-0.5 opacity-60 hover:opacity-100"><X size={11} /></button>
             </span>
@@ -792,7 +792,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
             placeholder="Add service…" />
           <button onClick={addService}
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-opacity hover:opacity-80"
-            style={{ backgroundColor: goldLight, color: gold, border: `1px solid rgba(201,168,58,0.3)` }}>
+            style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
             <Plus size={14} /> Add
           </button>
         </div>
@@ -916,7 +916,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
               <label className="block text-xs font-medium" style={{ color: C.textBody }}>Case Studies / Portfolio</label>
               <button onClick={addCaseStudy}
                 className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-80"
-                style={{ backgroundColor: goldLight, color: gold, border: `1px solid rgba(201,168,58,0.25)` }}>
+                style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 25%, transparent)` }}>
                 <Plus size={12} /> Add case
               </button>
             </div>
@@ -994,7 +994,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Resources</h2>
           <label className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
-            style={{ backgroundColor: goldLight, color: gold, border: `1px solid rgba(201,168,58,0.25)` }}>
+            style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 25%, transparent)` }}>
             <Upload size={12} /> Upload file
             <input type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.webp" className="hidden" onChange={async (e) => {
               const file = e.target.files?.[0];
@@ -1253,7 +1253,7 @@ export default function CompanyBiosPage() {
           <p className="text-sm mt-1" style={{ color: C.textMuted }}>
             Only the name is required — everything else can be added later.
           </p>
-          <div className="h-px mt-5" style={{ background: `linear-gradient(90deg, ${gold} 0%, rgba(201,168,58,0.15) 40%, transparent 100%)` }} />
+          <div className="h-px mt-5" style={{ background: `linear-gradient(90deg, ${gold} 0%, color-mix(in srgb, var(--brand, #c9a83a) 15%, transparent) 40%, transparent 100%)` }} />
         </div>
       )}
 
@@ -1272,7 +1272,7 @@ export default function CompanyBiosPage() {
           <div className="rounded-2xl border p-8 max-w-md w-full text-center relative overflow-hidden"
             style={{ backgroundColor: C.card, borderColor: C.border }}>
             <div className="absolute inset-x-0 top-0 h-1"
-              style={{ background: `linear-gradient(90deg, ${gold}, #e8c84a, ${gold})` }} />
+              style={{ background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white), ${gold})` }} />
             <div className="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4"
               style={{ background: `linear-gradient(135deg, ${gold}20, ${gold}08)`, border: `1px solid ${gold}30` }}>
               <Building2 size={24} style={{ color: gold }} />
@@ -1284,7 +1284,7 @@ export default function CompanyBiosPage() {
             <button
               onClick={() => setEditing(true)}
               className="inline-flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-all hover:shadow-lg hover:opacity-95"
-              style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#04070d" }}>
+              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#04070d" }}>
               <Plus size={15} /> Create Manually
             </button>
             <div className="mt-6 pt-5 border-t grid grid-cols-3 gap-3" style={{ borderColor: C.border }}>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { C } from "@/lib/design";
 import { Share2, Mail, Phone, BarChart3, MessageSquare, Clock, CheckCircle } from "lucide-react";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 type Campaign = {
   id: string;
@@ -202,7 +202,7 @@ export default function ActiveCampaignsView({ campaigns }: { campaigns: Campaign
               style={{ borderColor: C.border, backgroundColor: C.bg }}>
               <div className="flex items-center gap-2 flex-1">
                 <div className="flex-1 h-1 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
-                  <div className="h-1 rounded-full" style={{ width: `${group.avgProgress}%`, background: `linear-gradient(90deg, ${gold}, #e8c84a)` }} />
+                  <div className="h-1 rounded-full" style={{ width: `${group.avgProgress}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} />
                 </div>
                 <span className="text-[10px] tabular-nums shrink-0" style={{ color: C.textMuted }}>{group.avgProgress}%</span>
               </div>

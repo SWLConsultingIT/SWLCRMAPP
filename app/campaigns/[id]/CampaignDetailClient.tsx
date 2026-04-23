@@ -20,7 +20,7 @@ const AIRCALL_USERS = [
   { id: 1917522, name: "Sales Team" },
 ];
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {
   linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
@@ -265,7 +265,7 @@ export default function CampaignDetailClient({
           <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ background: `rgba(201,168,58,0.04)` }}>
+                <tr style={{ background: `color-mix(in srgb, var(--brand, #c9a83a) 4%, transparent)` }}>
                   <th className="w-10 px-4 py-3"><input type="checkbox" checked={selected.size === visibleCampaigns.length && visibleCampaigns.length > 0} onChange={() => selected.size === visibleCampaigns.length ? setSelected(new Set()) : setSelected(new Set(visibleCampaigns.map(c => c.id)))} style={{ accentColor: gold }} /></th>
                   {["Lead", "Company", "Role", "Status", "Progress", "Seller", ""].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted, borderBottom: `1px solid ${C.border}` }}>{h}</th>
@@ -287,7 +287,7 @@ export default function CampaignDetailClient({
                       <td className="px-4 py-3 text-xs" style={{ color: C.textBody }}>{l.company_name ?? "—"}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: C.textMuted }}>{l.primary_title_role ?? "—"}</td>
                       <td className="px-4 py-3"><span className="rounded-md px-2 py-0.5 text-xs font-semibold" style={{ backgroundColor: cst.bg, color: cst.color }}>{cst.label}</span></td>
-                      <td className="px-4 py-3"><div className="flex items-center gap-2"><div className="w-16 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}><div className="h-1.5 rounded-full" style={{ width: `${p}%`, background: `linear-gradient(90deg, ${gold}, #e8c84a)` }} /></div><span className="text-xs tabular-nums" style={{ color: C.textMuted }}>{c.current_step}/{ts}</span></div></td>
+                      <td className="px-4 py-3"><div className="flex items-center gap-2"><div className="w-16 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}><div className="h-1.5 rounded-full" style={{ width: `${p}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} /></div><span className="text-xs tabular-nums" style={{ color: C.textMuted }}>{c.current_step}/{ts}</span></div></td>
                       <td className="px-4 py-3 text-xs" style={{ color: C.textBody }}>{c.sellers?.name ?? "—"}</td>
                       <td className="px-4 py-3"><div className="flex gap-1">
                         {c.status === "active" && <button onClick={() => act(c.id, "pause")} disabled={!!acting} className="rounded-md px-2 py-1 text-xs disabled:opacity-50" style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}><Pause size={10} /></button>}

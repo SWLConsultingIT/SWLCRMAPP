@@ -7,7 +7,7 @@ import {
   Target, User, Megaphone, ChevronDown, ChevronRight, ArrowRight,
 } from "lucide-react";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 type Profile = {
   id: string;

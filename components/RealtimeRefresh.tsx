@@ -34,7 +34,7 @@ export default function RealtimeRefresh() {
   return (
     <div
       className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 px-3 py-1.5 rounded-full text-xs font-medium pointer-events-none fade-in"
-      style={{ backgroundColor: "rgba(14,21,32,0.95)", color: "#c9a83a", border: "1px solid rgba(201,168,58,0.25)" }}
+      style={{ backgroundColor: "rgba(14,21,32,0.95)", color: "var(--brand, #c9a83a)", border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 25%, transparent)" }}
     >
       ● Datos actualizados
     </div>

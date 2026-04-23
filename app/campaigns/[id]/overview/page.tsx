@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import SequenceAccordion from "./SequenceAccordion";
 
-const gold = "#C9A83A";
+const gold = "var(--brand, #c9a83a)";
 
 const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {
   linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
@@ -276,7 +276,7 @@ export default async function CampaignOverviewPage({ params }: { params: Promise
             {/* Progress bar */}
             <div className="flex items-center gap-2">
               <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
-                <div className="h-2 rounded-full" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${gold}, #e8c84a)` }} />
+                <div className="h-2 rounded-full" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} />
               </div>
               <span className="text-xs font-bold tabular-nums" style={{ color: gold }}>{pct}%</span>
             </div>
@@ -434,7 +434,7 @@ export default async function CampaignOverviewPage({ params }: { params: Promise
                   <td className="px-4 py-3">
                     <Link href={`/leads/${l.id}`} className="flex items-center gap-2 group/row">
                       <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                        style={{ background: `linear-gradient(135deg, ${gold}, #e8c84a)`, color: "#fff" }}>
+                        style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
                         {((l.company_name ?? nm)[0] ?? "?").toUpperCase()}
                       </div>
                       <span className="text-xs font-semibold group-hover/row:underline truncate" style={{ color: C.textPrimary }}>{nm}</span>
@@ -446,7 +446,7 @@ export default async function CampaignOverviewPage({ params }: { params: Promise
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <div className="w-16 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
-                        <div className="h-1.5 rounded-full" style={{ width: `${p}%`, background: `linear-gradient(90deg, ${gold}, #e8c84a)` }} />
+                        <div className="h-1.5 rounded-full" style={{ width: `${p}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} />
                       </div>
                       <span className="text-xs tabular-nums" style={{ color: C.textMuted }}>{c.current_step}/{ts}</span>
                     </div>

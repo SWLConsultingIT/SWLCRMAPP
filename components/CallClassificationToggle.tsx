@@ -46,7 +46,7 @@ export default function CallClassificationToggle({ initialValue }: { initialValu
       title: "Automatic (AI)",
       description: "AI reads the call transcript and suggests an outcome. Requires Aircall transcription.",
       icon: Sparkles,
-      accent: "#C9A83A",
+      accent: "var(--brand, #c9a83a)",
     },
   ];
 

@@ -2,8 +2,8 @@ import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import { TrendingUp, Users, MessageSquare, Target } from "lucide-react";
 
-const gold = "#C9A83A";
-const goldLight = "rgba(201,168,58,0.08)";
+const gold = "var(--brand, #c9a83a)";
+const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";
 
 async function getReportData() {
   const thirtyDaysAgo = new Date();

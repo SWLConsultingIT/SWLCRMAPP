@@ -171,7 +171,7 @@ export default function ChangePasswordModal({ open, onClose, userEmail }: Props)
               </button>
               <button type="submit" disabled={loading || !currentPassword || !newPassword || !confirm}
                 className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-lg transition-opacity hover:opacity-85 disabled:opacity-50"
-                style={{ background: `linear-gradient(135deg, ${C.gold}, #e8c84a)`, color: "#1A1A2E" }}>
+                style={{ background: `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
                 {loading ? <Loader2 size={12} className="animate-spin" /> : <Shield size={12} />}
                 Update password
               </button>
