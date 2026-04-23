@@ -158,17 +158,15 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
-  // Group by messages actually sent (not by internal current_step which counts the
-  // connection-request step too). Step N column = Nth DM has been sent.
-  // current_step semantics: 0-1 = connection phase, 2+ = 1st DM done, 3 = 2nd DM done, etc.
+  // Step N column = waiting to send the Nth DM. Internal current_step counts the
+  // connection request as step 0, so current_step - 1 = next DM index (0-based).
   const buckets = useMemo(() => {
     const b: Campaign[][] = sequence.map(() => []);
     const done: Campaign[] = [];
     for (const c of list) {
       const cs = c.current_step ?? 0;
-      const messagesSent = Math.max(0, cs - 1);      // discount the connection step
-      if (messagesSent >= sequence.length + 1) { done.push(c); continue; }
-      const idx = Math.max(0, Math.min(messagesSent - 1, sequence.length - 1));
+      if (cs >= sequence.length + 1) { done.push(c); continue; }
+      const idx = Math.max(0, Math.min(cs - 1, sequence.length - 1));
       b[idx].push(c);
     }
     return { stepBuckets: b, done };
@@ -191,9 +189,19 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
     const camp = list.find(c => c.id === campId);
     if (!camp) return;
 
-    // Column Step N means "Nth DM sent". Internal current_step counts connection too, so +2.
-    const newCurrentStep = targetStep + 2;
+    // Column Step N = "waiting to send Nth DM". Internal current_step = N + 1 (connection offset).
+    const newCurrentStep = targetStep + 1;
     if (camp.current_step === newCurrentStep) return;
+
+    // Confirm before moving — especially risky when moving forward (triggers next send).
+    const leadName = `${camp.leads?.primary_first_name ?? ""} ${camp.leads?.primary_last_name ?? ""}`.trim() || "this lead";
+    const movingForward = newCurrentStep > (camp.current_step ?? 0);
+    const stepLabel = `Step ${targetStep + 1}`;
+    const warningMsg = movingForward
+      ? `Move ${leadName} to ${stepLabel}?\n\nThe next DM will be sent automatically on the next orchestrator cycle. This cannot be undone — the message will be delivered to the lead's LinkedIn.`
+      : `Move ${leadName} back to ${stepLabel}?\n\nThis will reset their progress to an earlier step.`;
+
+    if (!window.confirm(warningMsg)) return;
 
     // Optimistic update
     setList(prev => prev.map(c => c.id === campId ? { ...c, current_step: newCurrentStep } : c));
