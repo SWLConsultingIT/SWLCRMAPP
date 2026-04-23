@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
-import { Share2, Mail, Phone, CheckCircle, Flag, User } from "lucide-react";
+import { Share2, Mail, Phone, CheckCircle, Flag, User, Send, SkipForward, X, AlertTriangle } from "lucide-react";
 import { C } from "@/lib/design";
 
 const gold = "#C9A83A";
@@ -153,9 +153,20 @@ function Column({ stepIndex, step, children, count }: { stepIndex: number; step:
 }
 
 // ─── Main kanban ───────────────────────────────────────────
+type PendingMove = {
+  campId: string;
+  targetStep: number;
+  targetChannel: string;
+  fromStep: number;
+  leadName: string;
+  isForward: boolean;
+};
+
 export default function CampaignKanban({ sequence, campaigns }: Props) {
   const [list, setList] = useState(campaigns);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [pending, setPending] = useState<PendingMove | null>(null);
+  const [busy, setBusy] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   // Step N column = waiting to send the Nth DM. Internal current_step counts the
@@ -193,29 +204,35 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
     const newCurrentStep = targetStep + 1;
     if (camp.current_step === newCurrentStep) return;
 
-    // Confirm before moving — especially risky when moving forward (triggers next send).
     const leadName = `${camp.leads?.primary_first_name ?? ""} ${camp.leads?.primary_last_name ?? ""}`.trim() || "this lead";
-    const movingForward = newCurrentStep > (camp.current_step ?? 0);
-    const stepLabel = `Step ${targetStep + 1}`;
-    const warningMsg = movingForward
-      ? `Move ${leadName} to ${stepLabel}?\n\nThe next DM will be sent automatically on the next orchestrator cycle. This cannot be undone — the message will be delivered to the lead's LinkedIn.`
-      : `Move ${leadName} back to ${stepLabel}?\n\nThis will reset their progress to an earlier step.`;
+    const targetChannel = sequence[targetStep]?.channel ?? "linkedin";
+    setPending({
+      campId,
+      targetStep: newCurrentStep,
+      targetChannel,
+      fromStep: camp.current_step ?? 0,
+      leadName,
+      isForward: newCurrentStep > (camp.current_step ?? 0),
+    });
+  }
 
-    if (!window.confirm(warningMsg)) return;
-
-    // Optimistic update
-    setList(prev => prev.map(c => c.id === campId ? { ...c, current_step: newCurrentStep } : c));
-
+  async function commitMove(action: "skip" | "send") {
+    if (!pending) return;
+    setBusy(true);
+    const { campId, targetStep, fromStep } = pending;
+    setList(prev => prev.map(c => c.id === campId ? { ...c, current_step: targetStep } : c));
     try {
       const r = await fetch(`/api/campaigns/${campId}/step`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentStep: newCurrentStep }),
+        body: JSON.stringify({ currentStep: targetStep, action }),
       });
       if (!r.ok) throw new Error("update failed");
+      setPending(null);
     } catch {
-      // Rollback
-      setList(prev => prev.map(c => c.id === campId ? { ...c, current_step: camp.current_step } : c));
+      setList(prev => prev.map(c => c.id === campId ? { ...c, current_step: fromStep } : c));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -282,6 +299,8 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
           </div>
         </div>
 
+        {pending && <MoveModal pending={pending} busy={busy} onCommit={commitMove} onCancel={() => setPending(null)} />}
+
         <DragOverlay>
           {active ? (
             <div className="rounded-lg border p-3 shadow-xl" style={{ backgroundColor: C.card, borderColor: gold }}>
@@ -301,6 +320,129 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
           ) : null}
         </DragOverlay>
       </DndContext>
+    </div>
+  );
+}
+
+// ─── Move confirmation modal ──────────────────────────────────────
+function MoveModal({
+  pending, busy, onCommit, onCancel,
+}: {
+  pending: PendingMove;
+  busy: boolean;
+  onCommit: (action: "skip" | "send") => void;
+  onCancel: () => void;
+}) {
+  const chMeta = channelMeta[pending.targetChannel] ?? channelMeta.linkedin;
+  const ChIcon = chMeta.icon;
+
+  // Channel-specific copy
+  const channelNoun: Record<string, string> = {
+    linkedin: "LinkedIn message",
+    email: "email",
+    call: "call",
+  };
+  const sendVerb: Record<string, string> = {
+    linkedin: "Send LinkedIn message now",
+    email: "Send email now",
+    call: "Make the call now",
+  };
+  const skipVerb: Record<string, string> = {
+    linkedin: "Skip LinkedIn message",
+    email: "Skip email",
+    call: "Skip call",
+  };
+  const noun = channelNoun[pending.targetChannel] ?? "message";
+  const sendLabel = sendVerb[pending.targetChannel] ?? "Send now";
+  const skipLabel = skipVerb[pending.targetChannel] ?? "Skip";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(0,0,0,0.5)" }} onClick={onCancel}>
+      <div className="rounded-2xl border w-full max-w-md overflow-hidden"
+        style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}
+        onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+              style={{ backgroundColor: `${chMeta.color}15` }}>
+              <ChIcon size={15} style={{ color: chMeta.color }} />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>
+                Moving {pending.leadName}
+              </h2>
+              <p className="text-xs" style={{ color: C.textMuted }}>
+                {pending.isForward
+                  ? `Advance to Step ${pending.targetStep}. Decide what happens with the pending ${noun}.`
+                  : `Move back to Step ${pending.targetStep}.`}
+              </p>
+            </div>
+          </div>
+          <button onClick={onCancel} className="p-1.5 rounded-lg hover:bg-black/5">
+            <X size={14} style={{ color: C.textMuted }} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-4 space-y-3">
+          {pending.isForward ? (
+            <>
+              <div className="rounded-lg border p-3" style={{ borderColor: "#FCD34D", backgroundColor: "#FFFBEB" }}>
+                <div className="flex items-start gap-2">
+                  <AlertTriangle size={13} className="shrink-0 mt-0.5" style={{ color: "#D97706" }} />
+                  <p className="text-[11px] leading-relaxed" style={{ color: "#92400E" }}>
+                    <strong>Send</strong> will deliver the {noun} to the lead&apos;s inbox on the next orchestrator cycle (up to 1h).
+                    <br />
+                    <strong>Skip</strong> advances the step without sending — the {noun} is never delivered.
+                  </p>
+                </div>
+              </div>
+
+              <button onClick={() => onCommit("send")} disabled={busy}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-all hover:shadow-sm disabled:opacity-50"
+                style={{ borderColor: `${chMeta.color}50`, backgroundColor: `${chMeta.color}08`, color: chMeta.color }}>
+                <span className="flex items-center gap-2.5">
+                  <Send size={14} />
+                  <span className="text-sm font-semibold">{sendLabel}</span>
+                </span>
+                <span className="text-[10px] font-medium opacity-70">Lead receives it</span>
+              </button>
+
+              <button onClick={() => onCommit("skip")} disabled={busy}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-all hover:shadow-sm disabled:opacity-50"
+                style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textBody }}>
+                <span className="flex items-center gap-2.5">
+                  <SkipForward size={14} style={{ color: C.textMuted }} />
+                  <span className="text-sm font-semibold">{skipLabel}</span>
+                </span>
+                <span className="text-[10px] font-medium" style={{ color: C.textDim }}>Lead gets nothing</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-xs" style={{ color: C.textMuted }}>
+                This rolls back their progress. No messages will be re-sent.
+              </p>
+              <button onClick={() => onCommit("skip")} disabled={busy}
+                className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{ backgroundColor: C.gold, color: "#1A1A2E" }}>
+                Move back to Step {pending.targetStep}
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t flex justify-end" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+          <button onClick={onCancel} disabled={busy}
+            className="text-xs font-semibold px-3 py-1.5 rounded transition-opacity hover:opacity-80"
+            style={{ color: C.textMuted }}>
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
