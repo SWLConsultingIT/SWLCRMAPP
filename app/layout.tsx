@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Outfit } from "next/font/google";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import "./globals.css";
 import AppShell from "@/components/AppShell";
 import { ThemeProvider } from "@/lib/theme";
@@ -16,6 +16,9 @@ export const metadata: Metadata = {
 };
 
 const themeScript = `try{var t=localStorage.getItem('swl-theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}`;
+
+// Public/pre-auth routes must always show SWL default branding — never inherit a tenant's color.
+const PUBLIC_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password", "/auth/callback"];
 
 // Read the brand cookie (written by BrandProvider after DB fetch) and emit
 // the <style> tag server-side so the brand color is painted on the first byte.
@@ -34,8 +37,10 @@ function getBrandStyle(cookieValue: string | undefined): string | null {
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const cookieStore = await cookies();
-  const brandCss = getBrandStyle(cookieStore.get("swl-brand")?.value);
+  const [cookieStore, headerStore] = await Promise.all([cookies(), headers()]);
+  const pathname = headerStore.get("x-pathname") ?? "";
+  const isPublicRoute = PUBLIC_ROUTES.some(r => pathname === r || pathname.startsWith(`${r}/`));
+  const brandCss = isPublicRoute ? null : getBrandStyle(cookieStore.get("swl-brand")?.value);
 
   return (
     <html lang="es" className={`${inter.variable} ${outfit.variable} h-full`} suppressHydrationWarning>

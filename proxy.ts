@@ -11,10 +11,16 @@ export async function proxy(req: NextRequest) {
   const isPublic = PUBLIC_PATHS.some(p => pathname.startsWith(p));
   const isStatic = pathname.startsWith("/_next") || pathname.startsWith("/favicon");
 
-  if (isStatic || isPublic) return NextResponse.next();
+  // Propagate pathname to server components so the root layout can skip
+  // tenant-specific SSR (e.g. brand color) on public routes.
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-pathname", pathname);
 
-  // Build a response up front so we can write Supabase's refreshed cookies into it.
-  const response = NextResponse.next();
+  if (isStatic || isPublic) {
+    return NextResponse.next({ request: { headers: requestHeaders } });
+  }
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
