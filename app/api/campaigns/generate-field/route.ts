@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 // Legacy shape: the UI used to call with { fieldType, idx, leadId, language, signals, icpProfileId }.
 // We translate that into the n8n shape { sequence, lead_id, icp_profile_id, language, signals, target_step }.
 
-const N8N_WEBHOOK_URL = "https://n8n.srv949269.hstgr.cloud/webhook/generate-campaign-messages";
+const N8N_WEBHOOK_URL = "https://n8n.srv949269.hstgr.cloud/webhook/generate-campaign-messages-v2";
 
 type LegacyBody = {
   channel?: string;

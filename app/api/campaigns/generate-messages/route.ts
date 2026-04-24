@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const N8N_WEBHOOK_URL = "https://n8n.srv949269.hstgr.cloud/webhook/generate-campaign-messages";
+const N8N_WEBHOOK_URL = "https://n8n.srv949269.hstgr.cloud/webhook/generate-campaign-messages-v2";
 
 export async function POST(req: NextRequest) {
   const { sequence, companyBio, icpProfile, lead, language, signals } = await req.json();
