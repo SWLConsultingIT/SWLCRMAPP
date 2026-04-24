@@ -415,14 +415,21 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                 <ThumbsUp size={14} style={{ color: C.green }} />
                 <p className="text-xs font-semibold" style={{ color: C.green }}>Positive Response</p>
               </div>
-              <button onClick={() => generateField("replyPositive")} disabled={!!aiLoading}
-                className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold disabled:opacity-50"
-                style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
-                {aiLoading === "replyPositive:" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />} AI
-              </button>
+              <div className="flex items-center gap-1">
+                <button onClick={() => toggleExpand("replyPositive")} title={expanded.has("replyPositive") ? "Collapse" : "Expand"}
+                  className="rounded-md px-2 py-1 text-xs transition-colors hover:bg-black/5"
+                  style={{ color: C.textMuted }}>
+                  {expanded.has("replyPositive") ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+                </button>
+                <button onClick={() => generateField("replyPositive")} disabled={!!aiLoading}
+                  className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold disabled:opacity-50"
+                  style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
+                  {aiLoading === "replyPositive:" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />} AI
+                </button>
+              </div>
             </div>
             <p className="text-xs mb-2" style={{ color: C.textMuted }}>Lead says yes / interested → propose meeting</p>
-            <textarea rows={3}
+            <textarea rows={expanded.has("replyPositive") ? 10 : 3}
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
               value={autoReplies.positive} onChange={e => updateAutoReply("positive", e.target.value)}
@@ -437,14 +444,21 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                 <ThumbsDown size={14} style={{ color: C.red }} />
                 <p className="text-xs font-semibold" style={{ color: C.red }}>Negative Response</p>
               </div>
-              <button onClick={() => generateField("replyNegative")} disabled={!!aiLoading}
-                className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold disabled:opacity-50"
-                style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
-                {aiLoading === "replyNegative:" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />} AI
-              </button>
+              <div className="flex items-center gap-1">
+                <button onClick={() => toggleExpand("replyNegative")} title={expanded.has("replyNegative") ? "Collapse" : "Expand"}
+                  className="rounded-md px-2 py-1 text-xs transition-colors hover:bg-black/5"
+                  style={{ color: C.textMuted }}>
+                  {expanded.has("replyNegative") ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+                </button>
+                <button onClick={() => generateField("replyNegative")} disabled={!!aiLoading}
+                  className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold disabled:opacity-50"
+                  style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
+                  {aiLoading === "replyNegative:" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />} AI
+                </button>
+              </div>
             </div>
             <p className="text-xs mb-2" style={{ color: C.textMuted }}>Lead says no → close respectfully, leave door open</p>
-            <textarea rows={2}
+            <textarea rows={expanded.has("replyNegative") ? 10 : 2}
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
               value={autoReplies.negative} onChange={e => updateAutoReply("negative", e.target.value)}
