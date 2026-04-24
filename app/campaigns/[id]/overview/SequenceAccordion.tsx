@@ -14,7 +14,7 @@ const channelMeta: Record<string, { icon: React.ElementType; color: string; labe
 };
 
 type Step = { channel: string; daysAfter: number };
-type Msg = { id: string; step_number: number; channel: string; content: string; status: string; sent_at: string | null };
+type Msg = { id: string; step_number: number; channel: string; content: string; status: string; sent_at: string | null; metadata?: Record<string, unknown> | null };
 type Tmpl = { channel: string; body: string; subject?: string };
 
 export default function SequenceAccordion({
@@ -48,7 +48,8 @@ export default function SequenceAccordion({
         const msg = messages.find(m => m.step_number === i + 1) ?? null;
         const tmpl = messageTemplates[i] ?? null;
         const displayBody: string | null = msg?.content ?? tmpl?.body ?? null;
-        const displaySubject: string | null = msg ? null : (tmpl?.subject ?? null);
+        const msgSubject = (msg?.metadata as { subject?: string } | null | undefined)?.subject;
+        const displaySubject: string | null = msgSubject ?? tmpl?.subject ?? null;
         const isSent = msg?.status === "sent";
         const isPast = i < currentStep;
         const isCurrent = i === currentStep;

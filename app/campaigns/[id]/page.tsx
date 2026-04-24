@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import CampaignDetailClient from "./CampaignDetailClient";
 
+export const dynamic = "force-dynamic";
+
 const gold = "var(--brand, #c9a83a)";
 
 const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {
@@ -35,13 +37,15 @@ async function getCampaign(id: string) {
 }
 
 async function getMessages(campaignId: string) {
-  const supabase = await getSupabaseServer();
-  const { data } = await supabase
-    .from("campaign_messages")
-    .select("*")
-    .eq("campaign_id", campaignId)
-    .order("step_number", { ascending: true });
-  return data ?? [];
+  // Use direct REST call with no-store so Next/Supabase never caches stale message state.
+  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/campaign_messages?campaign_id=eq.${campaignId}&select=*&order=step_number.asc`;
+  const key = process.env.SUPABASE_SERVICE_KEY!;
+  const res = await fetch(url, {
+    headers: { apikey: key, Authorization: `Bearer ${key}` },
+    cache: "no-store",
+  });
+  if (!res.ok) return [];
+  return (await res.json()) as any[];
 }
 
 async function getSiblingCampaigns(campaignName: string, excludeId: string) {

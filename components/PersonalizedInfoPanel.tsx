@@ -100,13 +100,6 @@ const PRIORITY_KEYS = [
   "vertical",
 ];
 
-// Keys whose values are long text — render across a full row instead of 2-col grid.
-const FULLWIDTH_KEYS = new Set([
-  "rfa_special_events", "rfa_beneficial_owners", "rfa_directors",
-  "ch_charge_lenders", "ch_charge_dates", "ch_charge_status", "ch_director_names",
-  "Reason", "Notes", "Outreach Intelligence", "Employment History (summary)",
-]);
-
 const RATING_COLORS: Record<string, { color: string; bg: string }> = {
   GOLD:            { color: "#B45309", bg: "#FEF3C7" },
   SILVER:          { color: "#4B5563", bg: "#E5E7EB" },
@@ -130,11 +123,28 @@ function RatingBadge({ value }: { value: string }) {
   );
 }
 
+// Title-case a kebab/snake/lowercase phrase: "fully-satisfied" → "Fully Satisfied"
+function titleCase(s: string): string {
+  return s.replace(/[-_]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// Clean up date-ish strings: "2002-08-12 0:00:00" or "2002-08-12T00:00:00" → "Aug 2002".
+function formatDateLabel(s: string, includeDay = false): string | null {
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  const d = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-GB", { year: "numeric", month: "short", ...(includeDay ? { day: "numeric" } : {}) });
+}
+
 function formatValue(key: string, value: unknown): React.ReactNode {
   if (value == null || value === "") return <span style={{ color: C.textDim }}>—</span>;
-  const s = String(value);
+  const s = String(value).trim();
+  if (!s || s === ".") return <span style={{ color: C.textDim }}>—</span>;
 
   if (key === "rfa_rating" || key === "rfa_previous_rating") return <RatingBadge value={s} />;
+
+  if (key === "ICP" || key === "icp_status") return <RatingBadge value={s} />;
 
   if (key === "ch_accounts_overdue" || key === "ch_confirmation_overdue") {
     const isYes = s.toLowerCase() === "yes";
@@ -166,12 +176,36 @@ function formatValue(key: string, value: unknown): React.ReactNode {
     );
   }
 
+  if (key === "ch_charge_status") {
+    // Pipe-separated statuses like "outstanding | fully-satisfied" — render as pills.
+    return (
+      <div className="flex flex-wrap gap-1 justify-end">
+        {s.split("|").map((chunk, i) => {
+          const t = chunk.trim();
+          const isOut = t.toLowerCase() === "outstanding";
+          return (
+            <span key={i} className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: isOut ? "#FEF3C7" : C.greenLight, color: isOut ? "#B45309" : C.green }}>
+              {titleCase(t)}
+            </span>
+          );
+        })}
+      </div>
+    );
+  }
+
   if (key === "date_of_creation") {
-    const d = new Date(s);
-    if (!Number.isNaN(d.getTime())) {
-      const years = Math.floor((Date.now() - d.getTime()) / (365.25 * 86400 * 1000));
-      return `${d.toLocaleDateString("en-GB", { year: "numeric", month: "short" })} · ${years} yrs old`;
+    const label = formatDateLabel(s);
+    if (label) {
+      const m = s.match(/^(\d{4})/);
+      const years = m ? new Date().getFullYear() - Number(m[1]) : null;
+      return years != null ? `${label} · ${years} yrs old` : label;
     }
+  }
+
+  if (key === "Position Start" || key === "position_start_date" || key === "Valid Date" || key === "valid_date" || key === "Last Updated" || key === "last_updated") {
+    const label = formatDateLabel(s);
+    if (label) return <span style={{ fontVariantNumeric: "tabular-nums" }}>{label}</span>;
   }
 
   // Money-like values get tabular numerals
@@ -179,7 +213,7 @@ function formatValue(key: string, value: unknown): React.ReactNode {
     return <span style={{ fontVariantNumeric: "tabular-nums" }}>{s}</span>;
   }
 
-  // Long pipe-separated lists — render as pill row, one per line
+  // Long pipe-separated lists — render as pill row
   if (s.includes(" | ") && s.length > 60) {
     return (
       <div className="flex flex-wrap gap-1">
@@ -193,12 +227,40 @@ function formatValue(key: string, value: unknown): React.ReactNode {
     );
   }
 
-  // Long multi-line text (Recent Events, Notes, etc.) — render as preformatted block
+  // Long multi-line text (Recent Events, etc.) — render as preformatted block
   if (s.includes("\n") || s.length > 120) {
     return <span className="block whitespace-pre-line leading-relaxed" style={{ color: C.textBody }}>{s}</span>;
   }
 
+  // Short lowercase statuses like "outstanding" / "fully-satisfied" → title-case
+  if (/^[a-z][a-z -]+$/.test(s) && s.length < 40) return titleCase(s);
+
   return s;
+}
+
+// ── Section block with colored accent + tinted header ──────────────────────
+function SectionBlock({
+  icon: Icon, title, accent, bg, children,
+}: {
+  icon: typeof Info; title: string; accent: string; bg: string; children: React.ReactNode;
+}) {
+  return (
+    <div className="border-t" style={{ borderColor: C.border, borderLeft: `3px solid ${accent}`, backgroundColor: bg }}>
+      <div className="px-5 py-2.5 flex items-center gap-2 border-b"
+        style={{ borderColor: `color-mix(in srgb, ${accent} 15%, transparent)` }}>
+        <div className="w-5 h-5 rounded-md flex items-center justify-center shrink-0"
+          style={{ backgroundColor: `color-mix(in srgb, ${accent} 18%, transparent)` }}>
+          <Icon size={11} style={{ color: accent }} />
+        </div>
+        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accent }}>
+          {title}
+        </p>
+      </div>
+      <div className="px-5 py-4" style={{ backgroundColor: C.card }}>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 // ── KPI card for priority fields ────────────────────────────────────────────
@@ -251,17 +313,84 @@ function accentFor(key: string): string {
   return "var(--brand, #c9a83a)";
 }
 
+// Preferred field order within each secondary group.
+const RFA_ORDER = [
+  "rfa_credit_limit", "rfa_total_assets", "rfa_tangible_assets", "rfa_shareholders_funds",
+  "rfa_cash", "rfa_ebitda", "rfa_pl_reserve",
+  "rfa_total_current_assets", "rfa_creditors_falling", "rfa_long_term_liabilities",
+  "rfa_liquidity_ratio", "rfa_current_ratio",
+  "rfa_employees", "rfa_vat_number",
+  "rfa_asset_increase_events", "rfa_insolvent_debtors",
+  "rfa_last_rating_change",
+  "rfa_directors", "rfa_beneficial_owners", "rfa_special_events",
+];
+
+const CH_ORDER = [
+  "ch_total_charges", "ch_outstanding_charges",
+  "ch_charge_lenders", "ch_charge_dates", "ch_charge_status",
+  "ch_director_names", "ch_confirmation_overdue",
+];
+
+const OTHER_ORDER = [
+  "company_number", "date_of_creation", "sic_codes",
+  "vertical", "ICP", "Reason",
+  "Management Level", "Department / Function", "Position Start",
+  "Valid Date", "Last Updated",
+  "address_line_1", "locality", "region", "postcode", "country",
+  "rfa_website", "rfa_email",
+  "Direct Phone", "Mobile Phone",
+  "Notes", "Outreach Intelligence", "Employment History (summary)",
+];
+
+// Keys whose values are inherently multi-line / long — render as full-width rows.
+const LONG_VALUE_KEYS = new Set([
+  "rfa_special_events", "rfa_beneficial_owners", "rfa_directors", "rfa_last_rating_change",
+  "ch_charge_lenders", "ch_charge_dates", "ch_charge_status", "ch_director_names",
+  "Reason", "Notes", "Outreach Intelligence", "Employment History (summary)",
+]);
+
+// Strip noisy/duplicate keys before rendering:
+// - Deduplicate suffixed cols ("__1", "__2") from the CSV merge
+// - Collapse synonyms: icp_status/ICP, industry/vertical, company_name (dup)
+// - Drop empty strings and placeholder "."
+function normalizeEnrichment(raw: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (k === "source_file") continue;
+    if (/__\d+$/.test(k)) continue; // drop __1, __2 dupes
+    if (v == null) continue;
+    const s = String(v).trim();
+    if (!s || s === "." || s === "—") continue;
+    out[k] = v;
+  }
+  // Synonym collapse: prefer one canonical key per concept.
+  if (out.icp_status && !out.ICP) { out.ICP = out.icp_status; delete out.icp_status; }
+  else if (out.icp_status && out.ICP) { delete out.icp_status; }
+  if (out.industry && !out.vertical) { out.vertical = out.industry; delete out.industry; }
+  else if (out.industry && out.vertical) { delete out.industry; }
+  delete out.company_name; // duplicate of lead's company_name on the main page
+  return out;
+}
+
+function sortKeys(keys: string[], order: string[]): string[] {
+  const idx = new Map(order.map((k, i) => [k, i]));
+  return [...keys].sort((a, b) => {
+    const ai = idx.has(a) ? idx.get(a)! : 999 + a.localeCompare(b);
+    const bi = idx.has(b) ? idx.get(b)! : 999;
+    return (ai as number) - (bi as number);
+  });
+}
+
 export default function PersonalizedInfoPanel({ enrichment }: Props) {
   if (!enrichment || typeof enrichment !== "object" || Object.keys(enrichment).length === 0) return null;
 
-  const data = { ...enrichment } as Record<string, unknown>;
-  delete data.source_file;
+  const data = normalizeEnrichment(enrichment as Record<string, unknown>);
 
   const present = (k: string) => data[k] != null && data[k] !== "";
   const priorityVisible = PRIORITY_KEYS.filter(present);
-  const rfaExtra = Object.keys(data).filter(k => k.startsWith("rfa_") && !PRIORITY_KEYS.includes(k) && present(k));
-  const chExtra  = Object.keys(data).filter(k => k.startsWith("ch_")  && !PRIORITY_KEYS.includes(k) && present(k));
-  const other    = Object.keys(data).filter(k => !k.startsWith("rfa_") && !k.startsWith("ch_") && !PRIORITY_KEYS.includes(k) && present(k));
+  const rfaExtra = sortKeys(Object.keys(data).filter(k => k.startsWith("rfa_") && !PRIORITY_KEYS.includes(k) && present(k)), RFA_ORDER);
+  const chExtra  = sortKeys(Object.keys(data).filter(k => k.startsWith("ch_")  && !PRIORITY_KEYS.includes(k) && present(k)), CH_ORDER);
+  const other    = sortKeys(Object.keys(data).filter(k => !k.startsWith("rfa_") && !k.startsWith("ch_") && !PRIORITY_KEYS.includes(k) && present(k)), OTHER_ORDER);
 
   if (priorityVisible.length === 0 && rfaExtra.length === 0 && chExtra.length === 0 && other.length === 0) return null;
 
@@ -294,10 +423,7 @@ export default function PersonalizedInfoPanel({ enrichment }: Props) {
 
       {/* Priority KPI cards */}
       {priorityVisible.length > 0 && (
-        <div className="p-5 pb-4">
-          <p className="text-[10px] font-bold uppercase tracking-wider mb-3 flex items-center gap-1.5" style={{ color: C.textMuted }}>
-            <TrendingUp size={11} /> Key Signals
-          </p>
+        <SectionBlock icon={TrendingUp} title="Key Signals" accent={gold} bg={`color-mix(in srgb, ${gold} 6%, transparent)`}>
           <div className="grid grid-cols-3 gap-2.5">
             {priorityVisible.map(key => (
               <StatCard
@@ -308,26 +434,37 @@ export default function PersonalizedInfoPanel({ enrichment }: Props) {
               />
             ))}
           </div>
-        </div>
+        </SectionBlock>
       )}
 
-      {/* Secondary groups */}
+      {/* Secondary groups — split short KV rows from long full-width rows so the grid stays aligned */}
       {[
-        { title: "Credit Rating & Financials", icon: TrendingUp, keys: rfaExtra },
-        { title: "Companies House",             icon: Building2, keys: chExtra },
-        { title: "Additional",                  icon: Info,       keys: other },
-      ].map(group => group.keys.length > 0 && (
-        <div key={group.title} className="px-5 py-4 border-t" style={{ borderColor: C.border }}>
-          <p className="text-[10px] font-bold uppercase tracking-wider mb-3 flex items-center gap-1.5" style={{ color: C.textMuted }}>
-            <group.icon size={11} /> {group.title}
-          </p>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-0">
-            {group.keys.map(key => (
-              <KVRow key={key} keyName={key} value={data[key]} fullwidth={FULLWIDTH_KEYS.has(key)} />
-            ))}
-          </div>
-        </div>
-      ))}
+        { title: "Credit Rating & Financials", icon: TrendingUp, keys: rfaExtra, accent: C.blue,  bg: C.blueLight },
+        { title: "Companies House",             icon: Building2, keys: chExtra,  accent: "#7C3AED", bg: "#F5F3FF" },
+        { title: "Additional",                  icon: Info,       keys: other,    accent: C.textMuted, bg: "#F9FAFB" },
+      ].map(group => {
+        if (group.keys.length === 0) return null;
+        const shortKeys = group.keys.filter(k => !LONG_VALUE_KEYS.has(k));
+        const longKeys  = group.keys.filter(k =>  LONG_VALUE_KEYS.has(k));
+        return (
+          <SectionBlock key={group.title} icon={group.icon} title={group.title} accent={group.accent} bg={group.bg}>
+            {shortKeys.length > 0 && (
+              <div className="grid grid-cols-2 gap-x-6">
+                {shortKeys.map(key => (
+                  <KVRow key={key} keyName={key} value={data[key]} />
+                ))}
+              </div>
+            )}
+            {longKeys.length > 0 && (
+              <div className={`space-y-3 ${shortKeys.length > 0 ? "mt-3 pt-3 border-t" : ""}`} style={{ borderColor: C.border }}>
+                {longKeys.map(key => (
+                  <KVRow key={key} keyName={key} value={data[key]} fullwidth />
+                ))}
+              </div>
+            )}
+          </SectionBlock>
+        );
+      })}
     </div>
   );
 }

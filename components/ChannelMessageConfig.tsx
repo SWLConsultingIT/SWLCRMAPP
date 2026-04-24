@@ -4,7 +4,7 @@ import { useState } from "react";
 import { C } from "@/lib/design";
 import {
   Share2, Mail, Phone, Sparkles, Loader2,
-  ThumbsUp, ThumbsDown,
+  ThumbsUp, ThumbsDown, Maximize2, Minimize2,
 } from "lucide-react";
 
 const gold = C.gold;
@@ -36,7 +36,11 @@ type Props = {
   channelMessages: ChannelMessages;
   onChange: (msgs: ChannelMessages) => void;
   leadId?: string;
+  /** Set for ICP-level generation (no specific lead) so the AI writes reusable templates. */
+  icpProfileId?: string;
   language: string;
+  /** Enrichment keys the rep ticked in SignalPicker — the AI is told to weave these in. */
+  signals?: string[];
 };
 
 // ── Helpers ──
@@ -96,8 +100,14 @@ const typePlaceholders: Record<string, string> = {
 
 // ── Main Component ──
 
-export default function ChannelMessageConfig({ sequence, channelMessages, onChange, leadId, language }: Props) {
+export default function ChannelMessageConfig({ sequence, channelMessages, onChange, leadId, icpProfileId, language, signals }: Props) {
   const [aiLoading, setAiLoading] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpand = (key: string) => setExpanded(prev => {
+    const next = new Set(prev);
+    next.has(key) ? next.delete(key) : next.add(key);
+    return next;
+  });
 
   const classified = classifySteps(sequence);
 
@@ -126,7 +136,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
       const res = await fetch("/api/campaigns/generate-field", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ channel: ch || "linkedin", fieldType, idx, leadId, language }),
+        body: JSON.stringify({ channel: ch || "linkedin", fieldType, idx, leadId, icpProfileId, language, signals }),
       });
       const data = await res.json();
       if (data.content) {
@@ -177,7 +187,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         const crRes = await fetch("/api/campaigns/generate-field", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channel: "linkedin", fieldType: "connectionNote", leadId, language }),
+          body: JSON.stringify({ channel: "linkedin", fieldType: "connectionNote", leadId, icpProfileId, language, signals }),
         });
         const crData = await crRes.json();
         if (crData.content) connRequest = crData.content;
@@ -190,7 +200,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         const res = await fetch("/api/campaigns/generate-field", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channel: classified[i].channel, fieldType: ft, idx: i, leadId, language }),
+          body: JSON.stringify({ channel: classified[i].channel, fieldType: ft, idx: i, leadId, icpProfileId, language, signals }),
         });
         const data = await res.json();
         if (data.content) {
@@ -204,7 +214,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         const res = await fetch("/api/campaigns/generate-field", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channel: "linkedin", fieldType: replyType, leadId, language }),
+          body: JSON.stringify({ channel: "linkedin", fieldType: replyType, leadId, icpProfileId, language, signals }),
         });
         const data = await res.json();
         if (data.content) {
@@ -219,18 +229,15 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
     setAiLoading(null);
   }
 
-  // Map step type to AI fieldType
+  // Map step classification → AI fieldType. Our API expects the uppercase step type
+  // directly (LINKEDIN_INTRO_DM, EMAIL_INTRO, CALL_FIRST, etc.).
   function stepToFieldType(type: string): string {
-    const map: Record<string, string> = {
-      LINKEDIN_INTRO_DM: "introDM",
-      LINKEDIN_FOLLOWUP: "followUp",
-      EMAIL_INTRO: "introEmail",
-      EMAIL_FOLLOWUP_CROSS: "introEmail",
-      EMAIL_FOLLOWUP: "followUp",
-      CALL_FIRST: "callScript",
-      CALL_FOLLOWUP: "callFollowUp",
-    };
-    return map[type] || "followUp";
+    const valid = new Set([
+      "LINKEDIN_INTRO_DM", "LINKEDIN_FOLLOWUP",
+      "EMAIL_INTRO", "EMAIL_FOLLOWUP_CROSS", "EMAIL_FOLLOWUP",
+      "CALL_FIRST", "CALL_FOLLOWUP",
+    ]);
+    return valid.has(type) ? type : "LINKEDIN_FOLLOWUP";
   }
 
   // Cumulative days
@@ -274,17 +281,24 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                 <p className="text-xs" style={{ color: C.textMuted }}>Sent when requesting to connect. The orchestrator skips this if already connected.</p>
               </div>
             </div>
-            <button onClick={() => generateField("connectionNote", undefined)} disabled={!!aiLoading}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity disabled:opacity-50"
-              style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
-              {aiLoading === "connectionNote:" ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
-              AI
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => toggleExpand("conn")} title={expanded.has("conn") ? "Collapse" : "Expand"}
+                className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs transition-opacity hover:opacity-80"
+                style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}>
+                {expanded.has("conn") ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+              </button>
+              <button onClick={() => generateField("connectionNote", undefined)} disabled={!!aiLoading}
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity disabled:opacity-50"
+                style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
+                {aiLoading === "connectionNote:" ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                AI
+              </button>
+            </div>
           </div>
           <div className="px-5 py-4 space-y-2">
             <p className="text-xs" style={{ color: C.textMuted }}>Short note: who you are + why you want to connect. Max 300 characters.</p>
             <textarea
-              rows={2}
+              rows={expanded.has("conn") ? 10 : 2}
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={channelMessages.connectionRequest || ""}
@@ -332,8 +346,13 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                       {cls.label}
                     </span>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <span className="text-xs tabular-nums font-medium" style={{ color: C.textDim }}>Day {dayPerStep[i]}</span>
+                    <button onClick={() => toggleExpand(`step-${i}`)} title={expanded.has(`step-${i}`) ? "Collapse" : "Expand"}
+                      className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs transition-opacity hover:opacity-80"
+                      style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}>
+                      {expanded.has(`step-${i}`) ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+                    </button>
                     <button onClick={() => generateField(fieldType, i)} disabled={!!aiLoading}
                       className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity disabled:opacity-50"
                       style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
@@ -362,7 +381,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                     />
                   )}
                   <textarea
-                    rows={cls.type === "EMAIL_INTRO" ? 7 : cls.type.includes("CALL") ? 6 : cls.type === "LINKEDIN_CONNECTION_REQUEST" ? 2 : 5}
+                    rows={expanded.has(`step-${i}`) ? 18 : (cls.type === "EMAIL_INTRO" ? 7 : cls.type.includes("CALL") ? 6 : cls.type === "LINKEDIN_CONNECTION_REQUEST" ? 2 : 5)}
                     className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
                     style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
                     value={step?.body || ""}

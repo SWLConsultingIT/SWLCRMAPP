@@ -58,8 +58,8 @@ async function getData() {
     }
   }
 
-  // Stats
-  const activeCamps = (campaigns ?? []).filter((c: any) => c.status === "active");
+  // Stats — "Active Campaigns" matches the tab view (active + paused)
+  const activeCamps = (campaigns ?? []).filter((c: any) => c.status === "active" || c.status === "paused");
   const contactedLeadIds = new Set((campaigns ?? []).map((c: any) => c.lead_id).filter(Boolean));
   const contactedCount = contactedLeadIds.size;
   const repliedCount = [...contactedLeadIds].filter(id => repliedLeadIds.has(id)).length;

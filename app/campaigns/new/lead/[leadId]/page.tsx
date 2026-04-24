@@ -9,6 +9,7 @@ import {
   Loader2, Send, Megaphone, Plus, Trash2, User, Globe, Settings,
 } from "lucide-react";
 import ChannelMessageConfig, { type ChannelMessages } from "@/components/ChannelMessageConfig";
+import SignalPicker from "@/components/SignalPicker";
 
 const gold = C.gold;
 
@@ -137,6 +138,7 @@ export default function NewLeadCampaignWizard() {
   const [submitted, setSubmitted] = useState(false);
   const [messagesWarning, setMessagesWarning] = useState<string | null>(null);
   const [language, setLanguage] = useState("es");
+  const [selectedSignals, setSelectedSignals] = useState<string[]>([]);
   const [timezone, setTimezone] = useState("America/Argentina/La_Rioja");
 
   useEffect(() => {
@@ -193,15 +195,25 @@ export default function NewLeadCampaignWizard() {
 
   // Submit
   async function handleSubmit() {
-  const supabase = getSupabaseBrowser();
+    const supabase = getSupabaseBrowser();
     setSubmitting(true);
     setSubmitError(null);
+
+    // Tenant-isolation RLS on campaign_requests requires company_bio_id = the caller's tenant,
+    // not the lead's. Resolve it from the signed-in user.
+    const { data: companyBioId, error: scopeErr } = await supabase.rpc("get_auth_company_bio_id");
+    if (scopeErr || !companyBioId) {
+      setSubmitError(scopeErr?.message ?? "Your account has no company assigned — contact an admin.");
+      setSubmitting(false);
+      return;
+    }
+
     const uniqueChannels = [...new Set(sequence.map(s => s.channel))];
     const leadName = `${lead?.primary_first_name ?? ""} ${lead?.primary_last_name ?? ""}`.trim();
-    const { error } = await supabase.from("campaign_requests").insert({
+    const { data: inserted, error } = await supabase.from("campaign_requests").insert({
       name: campaignName.trim() || `${leadName} @ ${lead?.company_name ?? "Unknown"} — ${uniqueChannels.map(c => allChannelOptions.find(o => o.key === c)?.label).join(" + ")}`,
       icp_profile_id: lead?.icp_profile_id ?? null,
-      company_bio_id: lead?.company_bio_id ?? null,
+      company_bio_id: companyBioId,
       lead_id: leadId,
       channels: uniqueChannels,
       sequence_length: sequence.length,
@@ -209,14 +221,33 @@ export default function NewLeadCampaignWizard() {
       target_leads_count: 1,
       message_prompts: { sequence, channelMessages, language, timezone, selectedLeadIds: [leadId], sellerId: selectedSeller || null },
       status: "pending_review",
-    });
-    if (error) {
-      setSubmitError(error.message);
+    }).select("id").single();
+
+    if (error || !inserted) {
+      setSubmitError(error?.message ?? "Failed to create request");
       setSubmitting(false);
-    } else {
-      setSubmitted(true);
-      setSubmitting(false);
+      return;
     }
+
+    // Auto-approve single-lead requests so the campaign + messages are created immediately.
+    // (The approve route uses the service key and only requires a requestId.)
+    const approveRes = await fetch("/api/campaigns/approve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requestId: inserted.id }),
+    });
+
+    if (!approveRes.ok) {
+      const { error: approveErr } = await approveRes.json().catch(() => ({ error: "Approve failed" }));
+      setSubmitError(`Request created, but auto-approve failed: ${approveErr ?? "unknown error"}`);
+      setSubmitting(false);
+      return;
+    }
+
+    setSubmitted(true);
+    setSubmitting(false);
+    // Jump to the lead detail so the new campaign + messages are visible right away.
+    router.push(`/leads/${leadId}`);
   }
 
   const days = cumulativeDays();
@@ -595,12 +626,19 @@ export default function NewLeadCampaignWizard() {
             </span>
           </div>
 
+          <SignalPicker
+            enrichment={lead?.enrichment}
+            selected={selectedSignals}
+            onChange={setSelectedSignals}
+          />
+
           <ChannelMessageConfig
             channelMessages={channelMessages}
             onChange={setChannelMessages}
             sequence={sequence}
             leadId={leadId}
             language={language}
+            signals={selectedSignals}
           />
         </div>
       )}

@@ -9,6 +9,7 @@ import {
   Loader2, Send, Megaphone, Plus, Trash2, Globe, Settings,
 } from "lucide-react";
 import ChannelMessageConfig, { type ChannelMessages } from "@/components/ChannelMessageConfig";
+import SignalPicker from "@/components/SignalPicker";
 
 const gold = C.gold;
 
@@ -141,6 +142,10 @@ export default function NewCampaignWizard() {
 
   // Channel messages (structured per-channel config)
   const [channelMessages, setChannelMessages] = useState<ChannelMessages>({ steps: [], autoReplies: { positive: "", negative: "", question: "" } });
+  const [selectedSignals, setSelectedSignals] = useState<string[]>([]);
+  // Enrichment from a representative lead in this ICP — drives which signal chips render.
+  // Each tenant has different enrichment keys; for Pathway they're rfa_*/ch_*, for another client they might be something else.
+  const [sampleEnrichment, setSampleEnrichment] = useState<Record<string, unknown> | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -184,6 +189,20 @@ export default function NewCampaignWizard() {
           .eq("icp_profile_id", profileId);
         count = totalCount ?? 0;
       }
+
+      // Grab a representative lead's enrichment so the SignalPicker shows only keys
+      // that actually exist on leads belonging to this ICP (Pathway leads have rfa_*/ch_*;
+      // another client's leads have whatever vocabulary they use).
+      let sampleQuery = supabase
+        .from("leads")
+        .select("enrichment")
+        .eq("icp_profile_id", profileId)
+        .not("enrichment", "is", null)
+        .limit(1);
+      if (isPartialSelection) sampleQuery = sampleQuery.in("id", selectedLeadIds);
+      const { data: sample } = await sampleQuery.maybeSingle();
+      setSampleEnrichment((sample?.enrichment as Record<string, unknown> | null) ?? null);
+
       setProfile(p);
       setBio(b);
       setLeadsCount(count ?? 0);
@@ -219,13 +238,24 @@ export default function NewCampaignWizard() {
 
   // Submit
   async function handleSubmit() {
-  const supabase = getSupabaseBrowser();
+    const supabase = getSupabaseBrowser();
     setSubmitting(true);
     setSubmitError(null);
+
+    // Tenant-isolation RLS on campaign_requests requires company_bio_id = the caller's tenant.
+    // Resolve it from the signed-in user's profile; admins without a tenant can't submit here.
+    const { data: companyBioId, error: scopeErr } = await supabase.rpc("get_auth_company_bio_id");
+    if (scopeErr || !companyBioId) {
+      setSubmitError(scopeErr?.message ?? "Your account has no company assigned — contact an admin.");
+      setSubmitting(false);
+      return;
+    }
+
     const uniqueChannels = [...new Set(sequence.map(s => s.channel))];
     const insertData: Record<string, any> = {
       name: campaignName.trim() || `${profile?.profile_name} — ${uniqueChannels.map(c => channelOptions.find(o => o.key === c)?.label).join(" + ")}`,
       icp_profile_id: profileId,
+      company_bio_id: companyBioId,
       channels: uniqueChannels,
       sequence_length: sequence.length,
       frequency_days: 0,
@@ -663,13 +693,20 @@ export default function NewCampaignWizard() {
             </span>
           </div>
           <p className="text-xs" style={{ color: C.textMuted }}>
-            Variables: {"{{first_name}}, {{last_name}}, {{company}}, {{role}}"} — replaced per lead at send time.
+            Variables: {"{{first_name}}, {{last_name}}, {{company}}, {{role}}"} — replaced per lead at send time. Plus any ICP-specific signals you tick below (e.g. credit rating, trade debtors) will be woven in per lead.
           </p>
+          <SignalPicker
+            enrichment={sampleEnrichment}
+            selected={selectedSignals}
+            onChange={setSelectedSignals}
+          />
           <ChannelMessageConfig
             channelMessages={channelMessages}
             onChange={setChannelMessages}
             sequence={sequence}
             language={language}
+            icpProfileId={profileId}
+            signals={selectedSignals}
           />
         </div>
       )}

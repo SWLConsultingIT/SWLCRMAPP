@@ -36,7 +36,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string }>
   failed:    { label: "Failed",    color: C.red,      bg: C.redLight },
 };
 
-type Message = { id: string; step_number: number; channel: string; content: string; status: string; sent_at: string | null };
+type Message = { id: string; step_number: number; channel: string; content: string; status: string; sent_at: string | null; metadata?: Record<string, unknown> | null };
 type GroupCampaign = { id: string; status: string; channel?: string; current_step: number; sequence_steps: any[] | null; leads: any; sellers: any; _isCurrent?: boolean };
 type UnlinkedLead = { id: string; primary_first_name: string | null; primary_last_name: string | null; company_name: string | null; primary_title_role: string | null; lead_score: number | null; allow_linkedin: boolean; allow_email: boolean; allow_call: boolean };
 type LeadGroup = { profileName: string; leads: UnlinkedLead[] };
@@ -484,7 +484,8 @@ export default function CampaignDetailClient({
               const tmpl = messageTemplates[i] ?? null;
               // displayBody: prefer sent/tracked message, fall back to wizard template
               const displayBody: string | null = msg?.content ?? tmpl?.body ?? null;
-              const displaySubject: string | null = msg ? null : (tmpl?.subject ?? null);
+              const msgSubject = (msg?.metadata as { subject?: string } | null | undefined)?.subject;
+              const displaySubject: string | null = msgSubject ?? tmpl?.subject ?? null;
               const isSent = msg?.status === "sent";
               const isPending = msg?.status === "draft";
               const isPast = i < currentStep;
