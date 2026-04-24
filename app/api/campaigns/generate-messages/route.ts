@@ -3,13 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 const N8N_WEBHOOK_URL = "https://n8n.srv949269.hstgr.cloud/webhook/generate-campaign-messages";
 
 export async function POST(req: NextRequest) {
-  const { sequence, companyBio, icpProfile, lead, language } = await req.json();
+  const { sequence, companyBio, icpProfile, lead, language, signals } = await req.json();
 
   // Build the payload for n8n
   // n8n will fetch fresh data from Supabase using the IDs
   const payload: Record<string, any> = {
     sequence: sequence ?? [],
     language: language ?? "es",
+    signals: Array.isArray(signals) ? signals : [],
   };
 
   // Pass IDs so n8n fetches fresh data from Supabase
