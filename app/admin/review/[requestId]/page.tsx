@@ -1,4 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
+import { requireAdminPage } from "@/lib/auth-admin";
 import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -35,6 +36,7 @@ async function getProfileInfo(profileId: string) {
 }
 
 export default async function ReviewCampaignPage({ params }: { params: Promise<{ requestId: string }> }) {
+  await requireAdminPage();
   const { requestId } = await params;
   const req = await getRequest(requestId);
   if (!req) notFound();

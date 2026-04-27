@@ -1,4 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
+import { requireAdminApi } from "@/lib/auth-admin";
 import { NextRequest, NextResponse } from "next/server";
 
 const AIRCALL_AUTH = Buffer.from(
@@ -8,6 +9,8 @@ const AIRCALL_AUTH = Buffer.from(
 type AircallNumber = { id: number; name: string; digits: string; country: string };
 
 export async function GET() {
+  const guard = await requireAdminApi();
+  if (guard instanceof NextResponse) return guard;
   const supabase = getSupabaseService();
   const [res, { data: bios }] = await Promise.all([
     fetch("https://api.aircall.io/v1/numbers", {
@@ -21,6 +24,8 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
+  const guard = await requireAdminApi();
+  if (guard instanceof NextResponse) return guard;
   const { companyBioId, aircallNumberIds } = await req.json();
   if (!companyBioId) return NextResponse.json({ error: "Missing companyBioId" }, { status: 400 });
   const supabase = getSupabaseService();

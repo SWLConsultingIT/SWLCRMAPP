@@ -1,4 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
+import { requireAdminPage } from "@/lib/auth-admin";
 import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -19,6 +20,7 @@ const statusStyles: Record<string, { label: string; color: string; bg: string }>
 
 
 export default async function AdminProfileDetailPage({ params }: { params: Promise<{ id: string; profileId: string }> }) {
+  await requireAdminPage();
   const { id, profileId } = await params;
 
   const [{ data: profile }, { data: client }] = await Promise.all([

@@ -1,7 +1,10 @@
 import { getSupabaseService } from "@/lib/supabase-service";
+import { requireAdminApi } from "@/lib/auth-admin";
 import { NextResponse } from "next/server";
 
 export async function GET() {
+  const guard = await requireAdminApi();
+  if (guard instanceof NextResponse) return guard;
   const supabase = getSupabaseService();
 
   const [{ data: { users } }, { data: profiles }, { data: bios }] = await Promise.all([

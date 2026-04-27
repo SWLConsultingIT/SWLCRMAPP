@@ -1,4 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
+import { requireAdminPage } from "@/lib/auth-admin";
 import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -224,6 +225,7 @@ const channelMeta: Record<string, { icon: typeof Share2; color: string; label: s
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default async function AdminClientPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdminPage();
   const { id } = await params;
   const client = await getClient(id);
   if (!client) notFound();

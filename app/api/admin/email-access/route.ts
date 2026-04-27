@@ -1,4 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
+import { requireAdminApi } from "@/lib/auth-admin";
 import { NextRequest, NextResponse } from "next/server";
 
 const INSTANTLY_KEY = process.env.INSTANTLY_API_KEY!;
@@ -6,6 +7,8 @@ const INSTANTLY_KEY = process.env.INSTANTLY_API_KEY!;
 type EmailAccount = { email: string; daily_limit?: number; stat_warmup_score?: number; setup_pending?: boolean };
 
 export async function GET() {
+  const guard = await requireAdminApi();
+  if (guard instanceof NextResponse) return guard;
   const supabase = getSupabaseService();
 
   // Fetch all Instantly pool emails + all companies with their assignments
@@ -32,6 +35,8 @@ export async function GET() {
 }
 
 export async function PATCH(req: NextRequest) {
+  const guard = await requireAdminApi();
+  if (guard instanceof NextResponse) return guard;
   const { companyBioId, emailAccounts } = await req.json();
   if (!companyBioId) return NextResponse.json({ error: "Missing companyBioId" }, { status: 400 });
   const supabase = getSupabaseService();
