@@ -12,6 +12,7 @@ const ROUTE_KEYS: Record<string, { key: string; brand?: string }> = {
   "/company-bios":  { key: "nav.companyBio" },
   "/icp":           { key: "", brand: "Lead Miner™" },
   "/campaigns":     { key: "", brand: "Outreach Flow™" },
+  "/templates":     { key: "", brand: "Templates" },
   "/leads":         { key: "nav.leads" },
   "/accounts":      { key: "nav.accounts" },
   "/opportunities": { key: "nav.opportunities" },
