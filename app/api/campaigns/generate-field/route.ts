@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 // Legacy shape: the UI used to call with { fieldType, idx, leadId, language, signals, icpProfileId }.
 // We translate that into the n8n shape { sequence, lead_id, icp_profile_id, language, signals, target_step }.
 
-const N8N_WEBHOOK_URL = "https://n8n.srv949269.hstgr.cloud/webhook/generate-campaign-messages-v2";
+const N8N_WEBHOOK_URL = "https://n8n.srv949269.hstgr.cloud/webhook/generate-campaign-messages-v3";
 
 type LegacyBody = {
   channel?: string;
@@ -21,6 +21,7 @@ type LegacyBody = {
   icpProfileId?: string;
   language?: string;
   signals?: string[];
+  sequence_id?: string | null;
   // New shape pieces (preferred when caller already speaks the n8n contract):
   sequence?: { channel: string; daysAfter: number }[];
   target_step?: number;
@@ -98,6 +99,7 @@ export async function POST(req: NextRequest) {
         icp_profile_id: body.icpProfileId ?? null,
         language: body.language ?? "en",
         signals: [],
+        sequence_id: body.sequence_id ?? null,
       }
     : (() => {
         const sequence = inferSequence(body);
@@ -109,6 +111,7 @@ export async function POST(req: NextRequest) {
           language: body.language ?? "en",
           signals: Array.isArray(body.signals) ? body.signals : [],
           target_step: targetStep,
+          sequence_id: body.sequence_id ?? null,
         };
       })();
 

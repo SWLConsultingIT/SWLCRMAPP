@@ -166,6 +166,7 @@ type Template = {
   industry: string | null; channel: string; step_position: string;
   label: string | null; template_text: string; tone_tags: string[] | null;
   performance_score: number | null; status: "active" | "draft" | "archived";
+  sequence_id: string | null; sequence_order: number | null;
   created_at: string; updated_at: string;
 };
 type IcpOption = { id: string; profile_name: string };
@@ -474,18 +475,384 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// Sequences — ordered groups of templates that tell a coherent story
+// ──────────────────────────────────────────────────────────────────────────────
+
+type Sequence = {
+  id: string;
+  company_bio_id: string;
+  icp_profile_id: string | null;
+  name: string;
+  description: string | null;
+  industry: string | null;
+  channels: string[];
+  status: "active" | "draft" | "archived";
+  is_default: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+type SequenceStep = { step_position: string; template_id: string };
+
+const emptySequence = {
+  name: "",
+  description: "",
+  industry: "",
+  icp_profile_id: null as string | null,
+  channels: ["linkedin"],
+  status: "active" as "active" | "draft" | "archived",
+  steps: [] as SequenceStep[],
+};
+
+function SequencesTab() {
+  const [sequences, setSequences] = useState<Sequence[]>([]);
+  const [allTemplates, setAllTemplates] = useState<Template[]>([]);
+  const [icpOptions, setIcpOptions] = useState<IcpOption[]>([]);
+  const [companyBioId, setCompanyBioId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [editingSteps, setEditingSteps] = useState<SequenceStep[]>([]);
+
+  async function load() {
+    const sb = getSupabaseBrowser();
+    const [meRes, icpRes, tplRes, seqRes] = await Promise.all([
+      fetch("/api/auth/me").then(r => r.json()),
+      sb.from("icp_profiles").select("id, profile_name").order("profile_name"),
+      sb.from("message_templates").select("*").order("step_position"),
+      sb.from("message_sequences").select("*").order("updated_at", { ascending: false }),
+    ]);
+    setCompanyBioId(meRes?.user?.companyBioId ?? null);
+    setIcpOptions((icpRes.data as IcpOption[]) ?? []);
+    setAllTemplates((tplRes.data as Template[]) ?? []);
+    setSequences((seqRes.data as Sequence[]) ?? []);
+    setLoading(false);
+  }
+  useEffect(() => { load(); }, []);
+
+  // For showing each sequence card, compute its steps from templates
+  function stepsOf(seqId: string): Template[] {
+    return allTemplates
+      .filter(t => t.sequence_id === seqId)
+      .sort((a, b) => (a.sequence_order ?? 999) - (b.sequence_order ?? 999));
+  }
+
+  function startEdit(seq: Sequence) {
+    setEditingId(seq.id);
+    const tpls = stepsOf(seq.id);
+    setEditingSteps(tpls.map(t => ({ step_position: t.step_position, template_id: t.id })));
+    setShowForm(true);
+  }
+  function startNew() {
+    setEditingId(null);
+    setEditingSteps([]);
+    setShowForm(true);
+  }
+
+  async function handleSave(form: typeof emptySequence) {
+    const sb = getSupabaseBrowser();
+    const payload = {
+      company_bio_id: companyBioId,
+      icp_profile_id: form.icp_profile_id || null,
+      name: form.name.trim(),
+      description: form.description.trim() || null,
+      industry: form.industry.trim() || null,
+      channels: form.channels,
+      status: form.status,
+    };
+
+    let seqId = editingId;
+    if (editingId) {
+      const { error } = await sb.from("message_sequences").update(payload).eq("id", editingId);
+      if (error) { alert(error.message); return; }
+    } else {
+      const { data, error } = await sb.from("message_sequences").insert(payload).select("id").single();
+      if (error || !data) { alert(error?.message || "Insert failed"); return; }
+      seqId = data.id;
+    }
+
+    if (!seqId) return;
+
+    // Reset steps: clear current, then assign new ones
+    await sb.from("message_templates").update({ sequence_id: null, sequence_order: null }).eq("sequence_id", seqId);
+    for (let i = 0; i < form.steps.length; i++) {
+      const s = form.steps[i];
+      if (!s.template_id) continue;
+      await sb.from("message_templates").update({ sequence_id: seqId, sequence_order: i }).eq("id", s.template_id);
+    }
+
+    setShowForm(false);
+    setEditingId(null);
+    setEditingSteps([]);
+    await load();
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this sequence? Templates that belong to it will become standalone in the library (not deleted).")) return;
+    const sb = getSupabaseBrowser();
+    const { error } = await sb.from("message_sequences").delete().eq("id", id);
+    if (error) { alert(error.message); return; }
+    await load();
+  }
+
+  const editingSeq = editingId ? sequences.find(s => s.id === editingId) : null;
+  const initialForm = editingSeq
+    ? {
+        name: editingSeq.name,
+        description: editingSeq.description ?? "",
+        industry: editingSeq.industry ?? "",
+        icp_profile_id: editingSeq.icp_profile_id,
+        channels: editingSeq.channels ?? ["linkedin"],
+        status: editingSeq.status,
+        steps: editingSteps,
+      }
+    : { ...emptySequence, steps: editingSteps };
+
+  return (
+    <div>
+      <div className="flex items-start justify-between mb-5">
+        <p className="text-sm max-w-xl" style={{ color: C.textMuted }}>
+          Full outreach narratives — an ordered set of templates the AI follows in order so all messages in the campaign tell one coherent story.
+          When creating a campaign, the user can pick a sequence as starting point or skip it and write everything from scratch.
+        </p>
+        <button onClick={startNew}
+          className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold shrink-0"
+          style={{ backgroundColor: gold, color: "#fff" }}>
+          <Plus size={14} /> New Sequence
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12"><Loader2 size={20} className="animate-spin" style={{ color: gold }} /></div>
+      ) : sequences.length === 0 ? (
+        <div className="rounded-xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <BookOpen size={32} className="mx-auto mb-3" style={{ color: C.textDim }} />
+          <p className="text-sm font-medium mb-1" style={{ color: C.textBody }}>No sequences yet</p>
+          <p className="text-xs" style={{ color: C.textMuted }}>
+            Create a sequence to bundle templates into a coherent multi-step narrative — the AI will follow them in order.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {sequences.map(seq => {
+            const steps = stepsOf(seq.id);
+            const statusMeta = STATUS_STYLES[seq.status] ?? STATUS_STYLES.active;
+            return (
+              <div key={seq.id} className="rounded-xl border p-4 flex flex-col gap-2" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{seq.name}</span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ color: statusMeta.color, backgroundColor: statusMeta.bg }}>{statusMeta.label}</span>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button onClick={() => startEdit(seq)} className="p-1.5 rounded hover:bg-black/5"><Pencil size={12} style={{ color: C.textMuted }} /></button>
+                    <button onClick={() => handleDelete(seq.id)} className="p-1.5 rounded hover:bg-red-50"><Trash2 size={12} style={{ color: "#DC2626" }} /></button>
+                  </div>
+                </div>
+                {seq.description && <p className="text-xs" style={{ color: C.textBody }}>{seq.description}</p>}
+                <div className="flex flex-wrap items-center gap-1.5 text-[10px]" style={{ color: C.textMuted }}>
+                  <span className="font-semibold" style={{ color: C.textBody }}>{steps.length} step{steps.length === 1 ? "" : "s"}</span>
+                  {seq.industry && <span>· {seq.industry}</span>}
+                  {seq.icp_profile_id && icpOptions.find(i => i.id === seq.icp_profile_id) &&
+                    <span>· ICP: {icpOptions.find(i => i.id === seq.icp_profile_id)?.profile_name}</span>}
+                </div>
+                {steps.length > 0 && (
+                  <ol className="text-[11px] mt-1 space-y-0.5" style={{ color: C.textBody }}>
+                    {steps.map((t, i) => (
+                      <li key={t.id}>
+                        <span className="font-semibold">{i + 1}.</span> {STEP_POSITIONS.find(s => s.value === t.step_position)?.label ?? t.step_position}
+                        {t.label && <span style={{ color: C.textMuted }}> — {t.label}</span>}
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {showForm && (
+        <SequenceForm
+          initial={initialForm}
+          icpOptions={icpOptions}
+          allTemplates={allTemplates}
+          isEdit={!!editingId}
+          editingSeqId={editingId}
+          onCancel={() => { setShowForm(false); setEditingId(null); setEditingSteps([]); }}
+          onSave={handleSave}
+        />
+      )}
+    </div>
+  );
+}
+
+function SequenceForm({ initial, icpOptions, allTemplates, isEdit, editingSeqId, onSave, onCancel }: {
+  initial: typeof emptySequence;
+  icpOptions: IcpOption[];
+  allTemplates: Template[];
+  isEdit: boolean;
+  editingSeqId: string | null;
+  onSave: (form: typeof emptySequence) => Promise<void>;
+  onCancel: () => void;
+}) {
+  const [form, setForm] = useState(initial);
+  const [saving, setSaving] = useState(false);
+
+  function addStep() {
+    setForm(f => ({ ...f, steps: [...f.steps, { step_position: "first_dm", template_id: "" }] }));
+  }
+  function updateStep(i: number, patch: Partial<SequenceStep>) {
+    setForm(f => ({ ...f, steps: f.steps.map((s, idx) => idx === i ? { ...s, ...patch } : s) }));
+  }
+  function removeStep(i: number) {
+    setForm(f => ({ ...f, steps: f.steps.filter((_, idx) => idx !== i) }));
+  }
+  function moveStep(i: number, dir: -1 | 1) {
+    setForm(f => {
+      const next = [...f.steps];
+      const j = i + dir;
+      if (j < 0 || j >= next.length) return f;
+      [next[i], next[j]] = [next[j], next[i]];
+      return { ...f, steps: next };
+    });
+  }
+  // Templates available for a step_position: those of that step_position AND
+  // (currently in this sequence OR not in any sequence)
+  function templatesForStep(stepPos: string) {
+    return allTemplates.filter(t =>
+      t.step_position === stepPos &&
+      (t.sequence_id === null || t.sequence_id === editingSeqId)
+    );
+  }
+
+  async function submit() {
+    if (!form.name.trim()) { alert("Name is required"); return; }
+    setSaving(true);
+    try { await onSave(form); } finally { setSaving(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+      <div className="rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto" style={{ backgroundColor: C.card }}>
+        <div className="flex items-center justify-between border-b px-5 py-3" style={{ borderColor: C.border }}>
+          <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>{isEdit ? "Edit Sequence" : "New Sequence"}</h2>
+          <button onClick={onCancel} className="p-1 rounded hover:bg-black/5"><X size={16} /></button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <Field label="Name">
+              <input type="text" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder='e.g. "Pathway hot lead — Asset finance"'
+                className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }} />
+            </Field>
+            <Field label="Status">
+              <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value as "active" | "draft" | "archived" }))}
+                className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                <option value="active">Active</option>
+                <option value="draft">Draft</option>
+                <option value="archived">Archived</option>
+              </select>
+            </Field>
+            <Field label="ICP (optional)">
+              <select value={form.icp_profile_id ?? ""} onChange={e => setForm(f => ({ ...f, icp_profile_id: e.target.value || null }))}
+                className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                <option value="">— Any ICP —</option>
+                {icpOptions.map(i => <option key={i.id} value={i.id}>{i.profile_name}</option>)}
+              </select>
+            </Field>
+            <Field label="Industry (optional)">
+              <input type="text" value={form.industry} onChange={e => setForm(f => ({ ...f, industry: e.target.value }))}
+                placeholder="e.g. Asset Finance"
+                className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }} />
+            </Field>
+            <div className="md:col-span-2">
+              <Field label="Description">
+                <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="What this sequence is for, when to use it"
+                  rows={2}
+                  className="w-full text-sm px-3 py-2 rounded-lg border resize-y" style={{ borderColor: C.border, backgroundColor: C.bg }} />
+              </Field>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
+                Steps ({form.steps.length})
+              </span>
+              <button onClick={addStep} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-lg" style={{ backgroundColor: C.goldGlow, color: gold }}>
+                <Plus size={11} /> Add step
+              </button>
+            </div>
+
+            {form.steps.length === 0 ? (
+              <div className="rounded-lg border p-6 text-center text-xs" style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textMuted }}>
+                No steps yet. Add steps in order — connection request, first DM, follow-ups, CTA, breakup.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {form.steps.map((s, i) => {
+                  const opts = templatesForStep(s.step_position);
+                  return (
+                    <div key={i} className="flex items-center gap-2 rounded-lg border p-2" style={{ backgroundColor: C.bg, borderColor: C.border }}>
+                      <span className="w-6 text-center text-xs font-bold" style={{ color: C.textMuted }}>{i + 1}</span>
+                      <select value={s.step_position} onChange={e => updateStep(i, { step_position: e.target.value, template_id: "" })}
+                        className="text-xs px-2 py-1.5 rounded border" style={{ borderColor: C.border, backgroundColor: C.card }}>
+                        {STEP_POSITIONS.map(sp => <option key={sp.value} value={sp.value}>{sp.label}</option>)}
+                      </select>
+                      <select value={s.template_id} onChange={e => updateStep(i, { template_id: e.target.value })}
+                        className="flex-1 text-xs px-2 py-1.5 rounded border" style={{ borderColor: C.border, backgroundColor: C.card }}>
+                        <option value="">— Select template —</option>
+                        {opts.map(t => <option key={t.id} value={t.id}>{t.label || `${t.template_text.slice(0, 50)}…`}</option>)}
+                      </select>
+                      <button onClick={() => moveStep(i, -1)} disabled={i === 0} className="px-1.5 text-xs disabled:opacity-30" title="Move up">↑</button>
+                      <button onClick={() => moveStep(i, 1)} disabled={i === form.steps.length - 1} className="px-1.5 text-xs disabled:opacity-30" title="Move down">↓</button>
+                      <button onClick={() => removeStep(i)} className="p-1 rounded hover:bg-red-50" title="Remove"><Trash2 size={12} style={{ color: "#DC2626" }} /></button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <p className="text-[10px] mt-2" style={{ color: C.textMuted }}>
+              Pick templates from your library for each step. The dropdown only shows templates of the right step_position that aren't already used in another sequence.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t px-5 py-3" style={{ borderColor: C.border }}>
+          <button onClick={onCancel} className="text-sm font-medium px-3 py-1.5 rounded-lg" style={{ color: C.textBody }}>Cancel</button>
+          <button onClick={submit} disabled={saving} className="flex items-center gap-1.5 text-sm font-semibold px-4 py-1.5 rounded-lg disabled:opacity-50" style={{ backgroundColor: gold, color: "#fff" }}>
+            {saving ? <Loader2 size={12} className="animate-spin" /> : null}
+            {isEdit ? "Save Changes" : "Create Sequence"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // Page shell with tabs
 // ──────────────────────────────────────────────────────────────────────────────
+
+type TabKey = "voice" | "templates" | "sequences";
 
 export default function VoicePage() {
   const router = useRouter();
   const params = useSearchParams();
-  const tabParam = params.get("tab") === "templates" ? "templates" : "voice";
-  const [tab, setTab] = useState<"voice" | "templates">(tabParam);
+  const tabParam = ((): TabKey => {
+    const t = params.get("tab");
+    if (t === "templates") return "templates";
+    if (t === "sequences") return "sequences";
+    return "voice";
+  })();
+  const [tab, setTab] = useState<TabKey>(tabParam);
 
-  function selectTab(t: "voice" | "templates") {
+  function selectTab(t: TabKey) {
     setTab(t);
-    const url = t === "templates" ? "/voice?tab=templates" : "/voice";
+    const url = t === "voice" ? "/voice" : `/voice?tab=${t}`;
     router.replace(url);
   }
 
@@ -496,15 +863,16 @@ export default function VoicePage() {
         <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Voice & Templates</h1>
       </div>
       <p className="text-sm mb-6" style={{ color: C.textMuted }}>
-        Brand voice and a library of proven outreach copy. The AI generator references both when creating campaign messages.
+        Brand voice, template library and full outreach sequences. The AI generator references all three when creating campaign messages.
       </p>
 
       <div className="flex items-center gap-1 mb-6 border-b" style={{ borderColor: C.border }}>
         <TabButton active={tab === "voice"} onClick={() => selectTab("voice")} icon={MessageCircle} label="Brand Voice" />
         <TabButton active={tab === "templates"} onClick={() => selectTab("templates")} icon={BookOpen} label="Templates Library" />
+        <TabButton active={tab === "sequences"} onClick={() => selectTab("sequences")} icon={MessageCircle} label="Sequences" />
       </div>
 
-      {tab === "voice" ? <BrandVoiceTab /> : <TemplatesTab />}
+      {tab === "voice" ? <BrandVoiceTab /> : tab === "templates" ? <TemplatesTab /> : <SequencesTab />}
     </div>
   );
 }

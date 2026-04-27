@@ -139,6 +139,8 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   const [aiLoading, setAiLoading] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [activeTemplatesCount, setActiveTemplatesCount] = useState<number | null>(null);
+  const [sequences, setSequences] = useState<{ id: string; name: string; description: string | null }[]>([]);
+  const [selectedSequenceId, setSelectedSequenceId] = useState<string | null>(null);
 
   useEffect(() => {
     const sb = getSupabaseBrowser();
@@ -146,6 +148,11 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
       .select("id", { count: "exact", head: true })
       .eq("status", "active")
       .then(({ count }) => setActiveTemplatesCount(count ?? 0));
+    sb.from("message_sequences")
+      .select("id, name, description")
+      .eq("status", "active")
+      .order("updated_at", { ascending: false })
+      .then(({ data }) => setSequences(data ?? []));
   }, []);
   const toggleExpand = (key: string) => setExpanded(prev => {
     const next = new Set(prev);
@@ -180,7 +187,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
       const res = await fetch("/api/campaigns/generate-field", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ channel: ch || "linkedin", fieldType, idx, leadId, icpProfileId, language, signals }),
+        body: JSON.stringify({ channel: ch || "linkedin", fieldType, idx, leadId, icpProfileId, language, signals, sequence_id: selectedSequenceId }),
       });
       const data = await res.json();
       if (data.content) {
@@ -231,7 +238,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         const crRes = await fetch("/api/campaigns/generate-field", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channel: "linkedin", fieldType: "connectionNote", leadId, icpProfileId, language, signals }),
+          body: JSON.stringify({ channel: "linkedin", fieldType: "connectionNote", leadId, icpProfileId, language, signals, sequence_id: selectedSequenceId }),
         });
         const crData = await crRes.json();
         if (crData.content) connRequest = crData.content;
@@ -244,7 +251,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         const res = await fetch("/api/campaigns/generate-field", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channel: classified[i].channel, fieldType: ft, idx: i, leadId, icpProfileId, language, signals }),
+          body: JSON.stringify({ channel: classified[i].channel, fieldType: ft, idx: i, leadId, icpProfileId, language, signals, sequence_id: selectedSequenceId }),
         });
         const data = await res.json();
         if (data.content) {
@@ -258,7 +265,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         const res = await fetch("/api/campaigns/generate-field", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channel: "linkedin", fieldType: replyType, leadId, icpProfileId, language, signals }),
+          body: JSON.stringify({ channel: "linkedin", fieldType: replyType, leadId, icpProfileId, language, signals, sequence_id: selectedSequenceId }),
         });
         const data = await res.json();
         if (data.content) {
@@ -310,6 +317,21 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
             {aiLoading === "all" ? "Generating..." : "Generate All with AI"}
           </button>
         </div>
+        {sequences.length > 0 && (
+          <div className="mt-3 pt-3 border-t flex items-center gap-2 text-[11px]" style={{ borderColor: C.border }}>
+            <span className="font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Sequence</span>
+            <select value={selectedSequenceId ?? ""}
+              onChange={e => setSelectedSequenceId(e.target.value || null)}
+              className="text-xs px-2 py-1 rounded border outline-none flex-1 max-w-md"
+              style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textBody }}>
+              <option value="">— AI auto-pick (default) —</option>
+              {sequences.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+            <span className="text-[10px]" style={{ color: C.textMuted }}>
+              {selectedSequenceId ? "Following the sequence in order" : "AI mixes templates from library"}
+            </span>
+          </div>
+        )}
         {activeTemplatesCount !== null && (
           <div className="mt-3 pt-3 border-t flex items-center gap-2 text-[11px]" style={{ borderColor: C.border, color: C.textMuted }}>
             <BookOpen size={11} style={{ color: gold }} />
