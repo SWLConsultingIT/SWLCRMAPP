@@ -1,5 +1,4 @@
-// Page redirects to /voice — keep a tiny skeleton so the redirect is invisible.
 import { CardGridSkeleton } from "@/components/PageLoadingSkeleton";
-export default function TemplatesLoading() {
+export default function VoiceLoading() {
   return <CardGridSkeleton count={4} withFilters={false} />;
 }

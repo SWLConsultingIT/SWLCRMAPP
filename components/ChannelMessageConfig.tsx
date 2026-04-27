@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import {
   Share2, Mail, Phone, Sparkles, Loader2,
-  ThumbsUp, ThumbsDown, Maximize2, Minimize2,
+  ThumbsUp, ThumbsDown, Maximize2, Minimize2, BookOpen,
 } from "lucide-react";
 
 const gold = C.gold;
@@ -136,6 +138,15 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   const inlinePlaceholders = inlinePlaceholdersByLocale[placeholderLocale];
   const [aiLoading, setAiLoading] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [activeTemplatesCount, setActiveTemplatesCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    const sb = getSupabaseBrowser();
+    sb.from("message_templates")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "active")
+      .then(({ count }) => setActiveTemplatesCount(count ?? 0));
+  }, []);
   const toggleExpand = (key: string) => setExpanded(prev => {
     const next = new Set(prev);
     next.has(key) ? next.delete(key) : next.add(key);
@@ -283,21 +294,36 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   return (
     <div className="space-y-4">
       {/* ═══ GENERATE ALL ═══ */}
-      <div className="rounded-xl border px-5 py-4 flex items-center justify-between"
-        style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <div className="flex items-center gap-3">
-          <Sparkles size={18} style={{ color: gold }} />
-          <div>
-            <p className="text-sm font-medium" style={{ color: C.textPrimary }}>AI Message Assistant</p>
-            <p className="text-xs" style={{ color: C.textMuted }}>Auto-fill all outreach messages and auto-replies using company & lead data</p>
+      <div className="rounded-xl border px-5 py-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Sparkles size={18} style={{ color: gold }} />
+            <div>
+              <p className="text-sm font-medium" style={{ color: C.textPrimary }}>AI Message Assistant</p>
+              <p className="text-xs" style={{ color: C.textMuted }}>Auto-fill all outreach messages and auto-replies using company & lead data</p>
+            </div>
           </div>
+          <button onClick={generateAll} disabled={!!aiLoading}
+            className="flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-semibold transition-opacity shrink-0 disabled:opacity-50"
+            style={{ backgroundColor: gold, color: "#04070d" }}>
+            {aiLoading === "all" ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+            {aiLoading === "all" ? "Generating..." : "Generate All with AI"}
+          </button>
         </div>
-        <button onClick={generateAll} disabled={!!aiLoading}
-          className="flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-semibold transition-opacity shrink-0 disabled:opacity-50"
-          style={{ backgroundColor: gold, color: "#04070d" }}>
-          {aiLoading === "all" ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-          {aiLoading === "all" ? "Generating..." : "Generate All with AI"}
-        </button>
+        {activeTemplatesCount !== null && (
+          <div className="mt-3 pt-3 border-t flex items-center gap-2 text-[11px]" style={{ borderColor: C.border, color: C.textMuted }}>
+            <BookOpen size={11} style={{ color: gold }} />
+            <span>
+              AI references your brand voice
+              {activeTemplatesCount > 0
+                ? <> + <span className="font-semibold" style={{ color: C.textBody }}>{activeTemplatesCount} active template{activeTemplatesCount === 1 ? "" : "s"}</span> from your library.</>
+                : <>. <span className="font-semibold" style={{ color: C.textBody }}>No templates yet.</span></>}
+            </span>
+            <Link href="/voice" className="ml-auto font-semibold hover:underline" style={{ color: gold }}>
+              {activeTemplatesCount === 0 ? "Add templates →" : "Manage →"}
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* ═══ LINKEDIN CONNECTION REQUEST (always shown if LinkedIn is in sequence) ═══ */}

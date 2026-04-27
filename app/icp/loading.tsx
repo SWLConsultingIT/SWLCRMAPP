@@ -1,2 +1,4 @@
-import PageLoadingSkeleton from "@/components/PageLoadingSkeleton";
-export default PageLoadingSkeleton;
+import { CardGridSkeleton } from "@/components/PageLoadingSkeleton";
+export default function IcpLoading() {
+  return <CardGridSkeleton count={6} />;
+}
