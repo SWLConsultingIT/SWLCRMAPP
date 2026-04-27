@@ -277,6 +277,11 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
               )}
             </div>
           </div>
+          <Link href={`/admin/${id}/voice`}
+            className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-lg shrink-0 hover:opacity-90"
+            style={{ backgroundColor: C.goldGlow, color: gold, border: `1px solid color-mix(in srgb, ${gold} 25%, transparent)` }}>
+            Brand Voice
+          </Link>
         </div>
 
         <div className="border-t" style={{ borderColor: C.border }} />
