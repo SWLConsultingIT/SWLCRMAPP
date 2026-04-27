@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdminApi } from "@/lib/auth-admin";
 
 const KEY = process.env.UNIPILE_API_KEY!;
 const DSN = process.env.UNIPILE_DSN!;
@@ -14,6 +15,12 @@ type UnipileAccount = {
 };
 
 export async function GET() {
+  // The unlinked-accounts list is global to the Unipile workspace (one per SWL),
+  // so any tenant-isolation filter here would leak other clients' connected
+  // LinkedIn accounts. Restrict the endpoint to internal admins; clients add
+  // sellers through /api/unipile/hosted-link, which scopes to their tenant.
+  const guard = await requireAdminApi();
+  if (guard instanceof NextResponse) return guard;
   const [upRes, sbRes] = await Promise.all([
     fetch(`https://${DSN}/api/v1/accounts`, {
       headers: { "X-API-KEY": KEY },

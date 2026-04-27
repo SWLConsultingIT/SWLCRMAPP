@@ -489,6 +489,11 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
   const [linkTarget, setLinkTarget] = useState<SellerCard | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/auth/me").then(r => r.json()).then(d => setIsAdmin(d.user?.role === "admin")).catch(() => {});
+  }, []);
 
   const [historyDate, setHistoryDate] = useState("");
   const [historyChannel, setHistoryChannel] = useState("all");
@@ -643,7 +648,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                       )}
                     </div>
                     <div className="px-5 py-3 border-t flex justify-end gap-2" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                      {!seller.hasLinkedin && (
+                      {!seller.hasLinkedin && isAdmin && (
                         <button onClick={() => setLinkTarget(seller)}
                           className="flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-md transition-opacity hover:opacity-80 mr-auto"
                           style={{ backgroundColor: "#0A66C215", color: "#0A66C2", border: "1px solid #0A66C230" }}><Share2 size={10} /> Link LinkedIn</button>
