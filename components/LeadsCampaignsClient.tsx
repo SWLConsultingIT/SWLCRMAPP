@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import { supabase } from "@/lib/supabase";
 import {
@@ -459,8 +460,11 @@ function LostLeadsView({ leads }: { leads: LostLead[] }) {
 const PAGE_SIZE = 25;
 
 function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
+  const router = useRouter();
   const [showCount, setShowCount] = useState(PAGE_SIZE);
   const [filters, setFilters] = useState<LeadFilterState>({ search: "", score: "all", campaign: "all", reply: "all", profile: "all" });
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   const profileNames = [...new Set(leads.map(l => l.profile_name).filter(Boolean))] as string[];
 
@@ -484,6 +488,46 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
   const visible = filtered.slice(0, showCount);
   const hasMore = showCount < filtered.length;
 
+  const visibleIds = visible.map(v => v.id);
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selected.has(id));
+
+  function toggleOne(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+  function toggleAllVisible() {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (allVisibleSelected) visibleIds.forEach(id => next.delete(id));
+      else visibleIds.forEach(id => next.add(id));
+      return next;
+    });
+  }
+  async function bulkDelete() {
+    if (selected.size === 0 || deleting) return;
+    if (!confirm(`Delete ${selected.size} lead${selected.size === 1 ? "" : "s"}? This will cascade-remove their campaigns, messages, replies and notes. This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/leads/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selected) }),
+      });
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: "Delete failed" }));
+        alert(error || "Delete failed");
+        return;
+      }
+      setSelected(new Set());
+      router.refresh();
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
     <div>
       <LeadFilterBar
@@ -494,10 +538,37 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
         profileNames={profileNames}
       />
 
+      {selected.size > 0 && (
+        <div className="mb-3 rounded-xl border flex items-center justify-between px-4 py-2.5"
+          style={{ backgroundColor: "#FEF2F2", borderColor: "#FECACA" }}>
+          <span className="text-xs font-semibold" style={{ color: "#991B1B" }}>
+            {selected.size} lead{selected.size === 1 ? "" : "s"} selected
+          </span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setSelected(new Set())}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-white/60"
+              style={{ color: "#991B1B" }}>
+              Clear
+            </button>
+            <button onClick={bulkDelete} disabled={deleting}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+              style={{ backgroundColor: "#DC2626", color: "#fff" }}>
+              {deleting ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />}
+              {deleting ? "Deleting…" : `Delete ${selected.size}`}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-xl border overflow-hidden card-shadow" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <table className="w-full text-left">
           <thead>
             <tr style={{ backgroundColor: C.bg }}>
+              <th className="px-3 py-2.5 w-8">
+                <button onClick={toggleAllVisible} className="block" aria-label="Select all visible">
+                  {allVisibleSelected ? <CheckSquare size={14} style={{ color: gold }} /> : <Square size={14} style={{ color: C.textDim }} />}
+                </button>
+              </th>
               <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Lead</th>
               <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden md:table-cell" style={{ color: C.textMuted }}>Company</th>
               <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden lg:table-cell" style={{ color: C.textMuted }}>Role</th>
@@ -510,15 +581,22 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
           </thead>
           <tbody>
             {visible.length === 0 ? (
-              <tr><td colSpan={8} className="px-4 py-10 text-center text-sm" style={{ color: C.textDim }}>No leads match your filters</td></tr>
+              <tr><td colSpan={9} className="px-4 py-10 text-center text-sm" style={{ color: C.textDim }}>No leads match your filters</td></tr>
             ) : visible.map(lead => {
               const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Unknown";
               const badge = scoreBadge(lead.score, lead.is_priority);
               const hasReply = (lead.reply_count ?? 0) > 0;
               const replyColor = lead.has_positive ? C.green : hasReply ? "#D97706" : C.textDim;
               const replyLabel = lead.has_positive ? "Positive" : hasReply ? "Replied" : "—";
+              const isSelected = selected.has(lead.id);
               return (
-                <tr key={lead.id} className="border-t transition-colors hover:bg-black/[0.015]" style={{ borderColor: C.border }}>
+                <tr key={lead.id} className="border-t transition-colors hover:bg-black/[0.015]"
+                  style={{ borderColor: C.border, backgroundColor: isSelected ? "#FEF2F2" : undefined }}>
+                  <td className="px-3 py-2.5">
+                    <button onClick={() => toggleOne(lead.id)} className="block" aria-label="Select lead">
+                      {isSelected ? <CheckSquare size={14} style={{ color: gold }} /> : <Square size={14} style={{ color: C.textDim }} />}
+                    </button>
+                  </td>
                   <td className="px-4 py-2.5">
                     <Link href={`/leads/${lead.id}`} className="flex items-center gap-2 group/row">
                       <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
