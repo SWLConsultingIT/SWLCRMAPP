@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 import {
   Share2, Mail, Phone, Sparkles, Loader2,
   ThumbsUp, ThumbsDown, Maximize2, Minimize2,
@@ -88,19 +89,51 @@ const typeDescriptions: Record<string, string> = {
   CALL_FOLLOWUP: "Follow-up call script. Reference previous contact, new angle, ask for meeting.",
 };
 
-const typePlaceholders: Record<string, string> = {
-  LINKEDIN_INTRO_DM: "Gracias por conectar, [nombre].\n\nSoy [vendedor] de SWL Consulting, donde ayudamos a empresas de [industria] a...\n\n¿Te interesaría coordinar una charla breve?\n\nGracias,\n[vendedor]\nSWL Consulting",
-  LINKEDIN_FOLLOWUP: "[nombre], volviendo a lo que te comenté sobre [tema].\n\n[Nuevo dato/caso/tendencia relevante]\n\n¿Te resulta relevante?\n\nGracias,\n[vendedor]",
-  EMAIL_INTRO: "Hola [nombre],\n\n[Hook sobre su empresa]\n\nSoy [vendedor] de SWL Consulting — [qué hacemos].\n\n[Pain point → Solución]\n\n[Prueba social]\n\n¿Tendría sentido coordinar 15 min?\n\nGracias,\n[vendedor]",
-  EMAIL_FOLLOWUP_CROSS: "Hola [nombre], te contacté por LinkedIn hace unos días sobre [tema]...",
-  EMAIL_FOLLOWUP: "[nombre], siguiendo con mi email anterior...",
-  CALL_FIRST: "• Apertura: Hola [nombre], soy [vendedor] de SWL Consulting...\n• Contexto: ...\n• Preguntas: ...\n• Pitch: ...\n• Cierre: ¿Coordinamos 15 min?",
-  CALL_FOLLOWUP: "• Apertura: [nombre], soy [vendedor] de SWL Consulting, te escribí por [canal]...\n• Nuevo ángulo: ...\n• Cierre: ...",
+const typePlaceholdersByLocale: Record<"es" | "en", Record<string, string>> = {
+  es: {
+    LINKEDIN_INTRO_DM: "Gracias por conectar, [nombre].\n\nSoy [vendedor] de SWL Consulting, donde ayudamos a empresas de [industria] a...\n\n¿Te interesaría coordinar una charla breve?\n\nGracias,\n[vendedor]\nSWL Consulting",
+    LINKEDIN_FOLLOWUP: "[nombre], volviendo a lo que te comenté sobre [tema].\n\n[Nuevo dato/caso/tendencia relevante]\n\n¿Te resulta relevante?\n\nGracias,\n[vendedor]",
+    EMAIL_INTRO: "Hola [nombre],\n\n[Hook sobre su empresa]\n\nSoy [vendedor] de SWL Consulting — [qué hacemos].\n\n[Pain point → Solución]\n\n[Prueba social]\n\n¿Tendría sentido coordinar 15 min?\n\nGracias,\n[vendedor]",
+    EMAIL_FOLLOWUP_CROSS: "Hola [nombre], te contacté por LinkedIn hace unos días sobre [tema]...",
+    EMAIL_FOLLOWUP: "[nombre], siguiendo con mi email anterior...",
+    CALL_FIRST: "• Apertura: Hola [nombre], soy [vendedor] de SWL Consulting...\n• Contexto: ...\n• Preguntas: ...\n• Pitch: ...\n• Cierre: ¿Coordinamos 15 min?",
+    CALL_FOLLOWUP: "• Apertura: [nombre], soy [vendedor] de SWL Consulting, te escribí por [canal]...\n• Nuevo ángulo: ...\n• Cierre: ...",
+  },
+  en: {
+    LINKEDIN_INTRO_DM: "Thanks for connecting, [name].\n\nI'm [seller] from SWL Consulting, where we help [industry] companies to...\n\nWould you be open to a quick chat?\n\nThanks,\n[seller]\nSWL Consulting",
+    LINKEDIN_FOLLOWUP: "[name], following up on what I mentioned about [topic].\n\n[New data point / case / relevant trend]\n\nDoes that resonate?\n\nThanks,\n[seller]",
+    EMAIL_INTRO: "Hi [name],\n\n[Hook about their company]\n\nI'm [seller] from SWL Consulting — [what we do].\n\n[Pain point → Solution]\n\n[Social proof]\n\nWould it make sense to grab 15 min?\n\nThanks,\n[seller]",
+    EMAIL_FOLLOWUP_CROSS: "Hi [name], I reached out on LinkedIn a few days ago about [topic]...",
+    EMAIL_FOLLOWUP: "[name], following up on my previous email...",
+    CALL_FIRST: "• Opener: Hi [name], I'm [seller] from SWL Consulting...\n• Context: ...\n• Questions: ...\n• Pitch: ...\n• Close: Shall we book 15 min?",
+    CALL_FOLLOWUP: "• Opener: [name], I'm [seller] from SWL Consulting, I reached out via [channel]...\n• New angle: ...\n• Close: ...",
+  },
+};
+
+const inlinePlaceholdersByLocale: Record<"es" | "en", Record<string, string>> = {
+  es: {
+    connectionRequest: "Hola [nombre], soy [vendedor] de SWL Consulting. Vi tu trabajo en [tema] y me gustaría conectar para intercambiar ideas.",
+    subject: "Línea de asunto (max 60 caracteres)...",
+    fallback: "Escribí tu mensaje...",
+    replyPositive: "¡Excelente! Me alegra tu interés. Te propongo coordinar una llamada de 15 min...",
+    replyNegative: "Entiendo perfectamente. Gracias por tu tiempo. Si en el futuro...",
+  },
+  en: {
+    connectionRequest: "Hi [name], I'm [seller] from SWL Consulting. I saw your work on [topic] and I'd love to connect to share ideas.",
+    subject: "Subject line (max 60 chars)...",
+    fallback: "Write your message...",
+    replyPositive: "Great! Glad you're interested. How about we book a quick 15-minute call...",
+    replyNegative: "Totally understand. Thanks for your time. If in the future...",
+  },
 };
 
 // ── Main Component ──
 
 export default function ChannelMessageConfig({ sequence, channelMessages, onChange, leadId, icpProfileId, language, signals }: Props) {
+  const { locale } = useLocale();
+  const placeholderLocale: "es" | "en" = locale === "es" ? "es" : "en";
+  const typePlaceholders = typePlaceholdersByLocale[placeholderLocale];
+  const inlinePlaceholders = inlinePlaceholdersByLocale[placeholderLocale];
   const [aiLoading, setAiLoading] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggleExpand = (key: string) => setExpanded(prev => {
@@ -303,7 +336,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={channelMessages.connectionRequest || ""}
               onChange={e => onChange({ ...channelMessages, connectionRequest: e.target.value })}
-              placeholder="Hola [nombre], soy [vendedor] de SWL Consulting. Vi tu trabajo en [tema] y me gustaría conectar para intercambiar ideas."
+              placeholder={inlinePlaceholders.connectionRequest}
             />
             <p className="text-xs text-right" style={{ color: (channelMessages.connectionRequest?.length || 0) > 300 ? C.red : C.textDim }}>
               {channelMessages.connectionRequest?.length || 0}/300
@@ -377,7 +410,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                       style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
                       value={step?.subject || ""}
                       onChange={e => updateStep(i, "subject", e.target.value)}
-                      placeholder="Subject line (max 60 chars)..."
+                      placeholder={inlinePlaceholders.subject}
                     />
                   )}
                   <textarea
@@ -386,7 +419,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                     style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
                     value={step?.body || ""}
                     onChange={e => updateStep(i, "body", e.target.value)}
-                    placeholder={typePlaceholders[cls.type] || "Write your message..."}
+                    placeholder={typePlaceholders[cls.type] || inlinePlaceholders.fallback}
                   />
                   {cls.type === "LINKEDIN_CONNECTION_REQUEST" && (
                     <p className="text-xs text-right" style={{ color: (step?.body?.length || 0) > 300 ? C.red : C.textDim }}>
@@ -433,7 +466,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
               value={autoReplies.positive} onChange={e => updateAutoReply("positive", e.target.value)}
-              placeholder="¡Excelente! Me alegra tu interés. Te propongo coordinar una llamada de 15 min..."
+              placeholder={inlinePlaceholders.replyPositive}
             />
           </div>
 
@@ -462,7 +495,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
               value={autoReplies.negative} onChange={e => updateAutoReply("negative", e.target.value)}
-              placeholder="Entiendo perfectamente. Gracias por tu tiempo. Si en el futuro..."
+              placeholder={inlinePlaceholders.replyNegative}
             />
           </div>
 
