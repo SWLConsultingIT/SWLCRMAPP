@@ -33,7 +33,7 @@ export async function GET() {
     user: {
       id: user.id,
       email: user.email,
-      displayName: user.user_metadata?.display_name ?? user.email,
+      displayName: user.user_metadata?.display_name ?? user.user_metadata?.name ?? user.user_metadata?.full_name ?? user.email,
       role: profile?.role ?? user.user_metadata?.role ?? "client",
       companyBioId: profile?.company_bio_id ?? null,
       companyName,
