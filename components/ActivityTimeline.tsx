@@ -111,7 +111,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
         <div className="flex items-center gap-2 mb-5 flex-wrap px-2">
           {(["all", "messages", "replies", "calls"] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)}
-              className="text-xs font-medium px-3 py-1.5 rounded-full border transition-all"
+              className="text-xs font-medium px-3 py-1.5 rounded-full border transition-[opacity,transform,box-shadow,background-color,border-color]"
               style={{
                 backgroundColor: filter === f ? "var(--brand, #c9a83a)" : "transparent",
                 color: filter === f ? "white" : C.textMuted,
@@ -326,7 +326,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                 }}
                 className="text-xs font-semibold px-4 py-2 rounded-lg text-white disabled:opacity-40"
                 style={{ backgroundColor: "var(--brand, #c9a83a)" }}>
-                {savingNote ? "Saving..." : "Add Note"}
+                {savingNote ? "Saving…" : "Add Note"}
               </button>
             </div>
           </div>

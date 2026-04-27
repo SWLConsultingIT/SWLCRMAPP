@@ -76,7 +76,7 @@ export default function OpportunityStagePanel({ leadId, initialStage, initialNot
                 <button
                   key={s.id}
                   onClick={() => { setStage(s.id); save({ opportunity_stage: s.id }); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
                   style={{
                     backgroundColor: isActive ? `${s.color}15` : "#F3F4F6",
                     color:           isActive ? s.color : C.textMuted,
@@ -93,7 +93,7 @@ export default function OpportunityStagePanel({ leadId, initialStage, initialNot
           {/* Progress bar */}
           <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "#E5E7EB" }}>
             <div
-              className="h-full rounded-full transition-all duration-500"
+              className="h-full rounded-full transition-[opacity,transform,box-shadow,background-color,border-color] duration-500"
               style={{
                 width: `${((STAGES.findIndex(s => s.id === stage) + 1) / STAGES.length) * 100}%`,
                 backgroundColor: currentStage.color,
@@ -115,7 +115,7 @@ export default function OpportunityStagePanel({ leadId, initialStage, initialNot
             onChange={e => setNextAction(e.target.value)}
             onBlur={() => save({ opportunity_next_action: nextAction })}
             placeholder="e.g. Send proposal by Friday, Follow up next week…"
-            className="w-full px-3 py-2 rounded-lg border text-xs outline-none transition-all"
+            className="w-full px-3 py-2 rounded-lg border text-xs outline-none transition-[opacity,transform,box-shadow,background-color,border-color]"
             style={{
               backgroundColor: C.cardHov,
               borderColor: C.border,
@@ -136,7 +136,7 @@ export default function OpportunityStagePanel({ leadId, initialStage, initialNot
             onBlur={() => save({ opportunity_notes: notes })}
             placeholder="Add notes about this opportunity…"
             rows={3}
-            className="w-full px-3 py-2 rounded-lg border text-xs outline-none transition-all resize-none"
+            className="w-full px-3 py-2 rounded-lg border text-xs outline-none transition-[opacity,transform,box-shadow,background-color,border-color] resize-none"
             style={{
               backgroundColor: C.cardHov,
               borderColor: C.border,

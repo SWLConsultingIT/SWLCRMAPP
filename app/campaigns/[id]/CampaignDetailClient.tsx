@@ -210,7 +210,7 @@ export default function CampaignDetailClient({
           const Icon = t.icon;
           return (
             <button key={t.label} onClick={() => setTab(i)}
-              className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all relative"
+              className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-[opacity,transform,box-shadow,background-color,border-color] relative"
               style={{ color: active ? gold : C.textMuted }}>
               <Icon size={15} /> {t.label}
               {t.count !== null && (
@@ -230,7 +230,7 @@ export default function CampaignDetailClient({
             {/* View toggle */}
             <div className="inline-flex rounded-lg border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.card }}>
               <button onClick={() => setLeadsView("list")}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
                 style={{
                   backgroundColor: leadsView === "list" ? `color-mix(in srgb, ${gold} 8%, transparent)` : "transparent",
                   color: leadsView === "list" ? gold : C.textMuted,
@@ -238,7 +238,7 @@ export default function CampaignDetailClient({
                 <Users size={11} /> List
               </button>
               <button onClick={() => setLeadsView("kanban")}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-all border-l"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] border-l"
                 style={{
                   backgroundColor: leadsView === "kanban" ? `color-mix(in srgb, ${gold} 8%, transparent)` : "transparent",
                   color: leadsView === "kanban" ? gold : C.textMuted,

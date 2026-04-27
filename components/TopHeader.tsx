@@ -108,7 +108,7 @@ export default function TopHeader() {
       <div className="flex-1 flex justify-center px-6">
         <button
           onClick={openCommandPalette}
-          className="flex items-center gap-3 rounded-xl px-4 py-2 text-sm w-full max-w-xs transition-all hover:shadow-sm"
+          className="flex items-center gap-3 rounded-xl px-4 py-2 text-sm w-full max-w-xs transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm"
           style={{
             backgroundColor: C.bg,
             border: `1px solid ${C.border}`,

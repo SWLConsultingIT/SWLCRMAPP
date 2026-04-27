@@ -96,7 +96,7 @@ export default function CallClassifier({ callId, current, aiConfidence, aiSummar
             key={c}
             onClick={() => classify(c)}
             disabled={loading !== null}
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all hover:opacity-85 disabled:opacity-50"
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-[opacity,transform,box-shadow,background-color,border-color] hover:opacity-85 disabled:opacity-50"
             style={{
               backgroundColor: m.bg,
               color: m.color,

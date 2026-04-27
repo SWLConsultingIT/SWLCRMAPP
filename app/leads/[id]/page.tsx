@@ -431,7 +431,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
           {/* Progress bar */}
           <div className="mt-6 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
-            <div className="h-1.5 rounded-full transition-all" style={{ width: `${stepPct}%`, backgroundColor: gold }} />
+            <div className="h-1.5 rounded-full transition-[opacity,transform,box-shadow,background-color,border-color]" style={{ width: `${stepPct}%`, backgroundColor: gold }} />
           </div>
         </div>
       ) : (

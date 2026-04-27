@@ -316,7 +316,7 @@ export default function NewCampaignWizard() {
         {WIZARD_STEPS.map((s, i) => (
           <div key={s} className="flex items-center gap-1">
             <button onClick={() => i < wizardStep && setWizardStep(i)} disabled={i > wizardStep}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
               style={i === wizardStep ? { backgroundColor: gold, color: "#04070d" } : i < wizardStep ? { backgroundColor: C.greenLight, color: C.green } : { backgroundColor: "#F3F4F6", color: C.textDim }}>
               {i < wizardStep ? <Check size={12} /> : <span>{i + 1}</span>}
               {s}
@@ -349,7 +349,7 @@ export default function NewCampaignWizard() {
               {sequenceTemplates.map(tpl => (
                 <button key={tpl.name}
                   onClick={() => { setSequence(tpl.steps.map(s => ({ ...s }))); setChannelMessages({ steps: [], autoReplies: { positive: "", negative: "", question: "" } }); }}
-                  className="rounded-lg border px-4 py-2.5 text-left transition-all hover:shadow-sm"
+                  className="rounded-lg border px-4 py-2.5 text-left transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm"
                   style={{ borderColor: C.border, backgroundColor: C.bg }}>
                   <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{tpl.name}</p>
                   <p className="text-xs" style={{ color: C.textDim }}>{tpl.desc}</p>
@@ -391,7 +391,7 @@ export default function NewCampaignWizard() {
                         const selected = s.channel === opt.key;
                         return (
                           <button key={opt.key} onClick={() => updateStep(i, "channel", opt.key)}
-                            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all"
+                            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-[opacity,transform,box-shadow,background-color,border-color]"
                             style={selected
                               ? { backgroundColor: opt.color, color: "#fff" }
                               : { backgroundColor: "#F3F4F6", color: C.textMuted }
@@ -525,7 +525,7 @@ export default function NewCampaignWizard() {
                     return (
                       <button key={s.id} onClick={() => !missingLinkedin && setSelectedSeller(s.id)}
                         disabled={missingLinkedin}
-                        className="rounded-xl border p-4 text-left transition-all hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="rounded-xl border p-4 text-left transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         style={{
                           borderColor: isActive ? gold : C.border,
                           backgroundColor: isActive ? `color-mix(in srgb, ${gold} 2%, transparent)` : "transparent",
@@ -624,7 +624,7 @@ export default function NewCampaignWizard() {
                               <button
                                 key={n.id}
                                 onClick={() => setSelectedAircallNumberId(n.id)}
-                                className="rounded-xl border p-4 text-left transition-all hover:shadow-sm flex items-center gap-3"
+                                className="rounded-xl border p-4 text-left transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm flex items-center gap-3"
                                 style={{
                                   borderColor: isSelected ? C.phone : C.border,
                                   backgroundColor: isSelected ? `${C.phone}08` : "transparent",

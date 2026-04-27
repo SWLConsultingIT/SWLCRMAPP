@@ -329,7 +329,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
             className="flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-semibold transition-opacity shrink-0 disabled:opacity-50"
             style={{ backgroundColor: gold, color: "#04070d" }}>
             {aiLoading === "all" ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-            {aiLoading === "all" ? "Generating..." : "Generate All with AI"}
+            {aiLoading === "all" ? "Generating…" : "Generate All with AI"}
           </button>
         </div>
         {sequences.length > 0 && (

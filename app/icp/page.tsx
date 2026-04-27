@@ -206,7 +206,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
               return (
                 <button key={n} type="button"
                   onClick={() => setForm(f => ({ ...f, leads_requested: active ? null : n }))}
-                  className="px-4 py-2 rounded-lg text-sm font-bold transition-all"
+                  className="px-4 py-2 rounded-lg text-sm font-bold transition-[opacity,transform,box-shadow,background-color,border-color]"
                   style={{
                     backgroundColor: active ? gold : C.card,
                     color: active ? "#04070d" : C.textMuted,
@@ -654,7 +654,7 @@ export default function LeadGenPage() {
             </p>
 
             <button onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 rounded-lg px-8 py-3 text-sm font-semibold transition-all hover:shadow-lg hover:opacity-95"
+              className="inline-flex items-center gap-2 rounded-lg px-8 py-3 text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-lg hover:opacity-95"
               style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#04070d" }}>
               <Plus size={16} /> Create First Profile
             </button>
@@ -699,7 +699,7 @@ export default function LeadGenPage() {
 
             return (
               <button key={p.id} onClick={() => setSelectedId(p.id)}
-                className="w-full text-left rounded-xl border p-5 transition-all hover:shadow-sm"
+                className="w-full text-left rounded-xl border p-5 transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm"
                 style={{ backgroundColor: C.card, borderColor: C.border }}>
                 <div className="flex items-center gap-4 mb-3">
                   <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"

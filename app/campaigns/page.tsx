@@ -140,7 +140,7 @@ export default async function CampaignsPage() {
       {/* Quick-link to Voice & Templates setup — surfaces config state without nesting it under campaigns */}
       <Link
         href="/voice"
-        className="mb-5 flex items-center gap-3 rounded-xl border px-4 py-3 transition-all hover:shadow-sm group"
+        className="mb-5 flex items-center gap-3 rounded-xl border px-4 py-3 transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm group"
         style={{ backgroundColor: C.card, borderColor: C.border }}
       >
         <div className="rounded-lg p-2 shrink-0" style={{ backgroundColor: `${C.aiAccent}12` }}>

@@ -6,8 +6,9 @@ import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
 import {
   MessageCircle, BookOpen, Plus, X, Pencil, Trash2, Loader2,
-  Mail, Phone, Share2, Save,
+  Mail, Phone, Share2, Save, Layers,
 } from "lucide-react";
+import EmptyState from "@/components/EmptyState";
 
 const gold = C.gold;
 
@@ -123,13 +124,12 @@ function BrandVoiceTab() {
       </div>
 
       {examples.length === 0 ? (
-        <div className="rounded-xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <MessageCircle size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-          <p className="text-sm font-medium mb-1" style={{ color: C.textBody }}>No examples yet</p>
-          <p className="text-xs" style={{ color: C.textMuted }}>
-            Add proven outreach messages — the AI will mirror their voice when generating new campaigns.
-          </p>
-        </div>
+        <EmptyState
+          icon={MessageCircle}
+          title="Build your brand voice"
+          description="Add 4–6 messages that capture how you write. The AI uses them as reference every time it generates outreach copy — the more specific, the better."
+          primaryCta={{ label: "+ Add your first example", onClick: addExample }}
+        />
       ) : (
         <div className="space-y-3">
           {examples.map((ex, i) => (
@@ -304,17 +304,21 @@ function TemplatesTab() {
       {loading ? (
         <div className="flex items-center justify-center py-12"><Loader2 size={20} className="animate-spin" style={{ color: gold }} /></div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <BookOpen size={32} className="mx-auto mb-3" style={{ color: C.textDim }} />
-          <p className="text-sm font-medium mb-1" style={{ color: C.textBody }}>
-            {templates.length === 0 ? "No templates yet" : "No templates match the filters"}
-          </p>
-          <p className="text-xs" style={{ color: C.textMuted }}>
-            {templates.length === 0
-              ? "Add your first proven outreach template — the AI will use it as a reference when generating new messages."
-              : "Try changing the channel / step / status filters above."}
-          </p>
-        </div>
+        templates.length === 0 ? (
+          <EmptyState
+            icon={BookOpen}
+            title="Build your template library"
+            description="Save proven outreach copy here. When the AI generates new messages, it picks the top templates for each step as reference — better library, better AI output."
+            primaryCta={{ label: "+ New template", onClick: () => { setEditingId(null); setShowForm(true); } }}
+          />
+        ) : (
+          <EmptyState
+            icon={BookOpen}
+            title="No templates match the filters"
+            description="Try a different channel, step, or status — or clear the filters above to see your full library."
+            primaryCta={{ label: "Clear filters", onClick: () => { setFilterChannel("all"); setFilterStep("all"); setFilterStatus("all"); } }}
+          />
+        )
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map(t => (
@@ -434,7 +438,7 @@ function TemplateForm({ initial, icpOptions, isEdit, onSave, onCancel }: { initi
               <div className="flex flex-wrap gap-1.5">
                 {TONE_OPTIONS.map(tag => (
                   <button key={tag} onClick={() => toggleTone(tag)} type="button"
-                    className="text-xs font-medium px-3 py-1 rounded-full border transition-all"
+                    className="text-xs font-medium px-3 py-1 rounded-full border transition-[opacity,transform,box-shadow,background-color,border-color]"
                     style={{ borderColor: form.tone_tags.includes(tag) ? gold : C.border, backgroundColor: form.tone_tags.includes(tag) ? C.goldGlow : C.bg, color: form.tone_tags.includes(tag) ? gold : C.textBody }}>
                     {tag}
                   </button>
@@ -625,13 +629,13 @@ function SequencesTab() {
       {loading ? (
         <div className="flex items-center justify-center py-12"><Loader2 size={20} className="animate-spin" style={{ color: gold }} /></div>
       ) : sequences.length === 0 ? (
-        <div className="rounded-xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <BookOpen size={32} className="mx-auto mb-3" style={{ color: C.textDim }} />
-          <p className="text-sm font-medium mb-1" style={{ color: C.textBody }}>No sequences yet</p>
-          <p className="text-xs" style={{ color: C.textMuted }}>
-            Create a sequence to bundle templates into a coherent multi-step narrative — the AI will follow them in order.
-          </p>
-        </div>
+        <EmptyState
+          icon={Layers}
+          title="Create your first sequence"
+          description="Bundle templates into an ordered narrative — connection request, first DM, follow-ups, CTA, breakup. The AI follows the sequence in order so all messages tell one coherent story."
+          primaryCta={{ label: "+ New sequence", onClick: startNew }}
+          secondaryCta={{ label: "Browse templates first →", href: "/voice?tab=templates" }}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {sequences.map(seq => {

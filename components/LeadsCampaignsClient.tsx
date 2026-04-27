@@ -209,7 +209,7 @@ function LostLeadCard({ lead, selected, onToggle }: { lead: LostLead; selected: 
       <div className="px-4 pb-4">
         <Link
           href={`/campaigns/new/lead/${lead.id}`}
-          className="flex items-center justify-center gap-2 w-full rounded-lg py-2 text-xs font-semibold transition-all hover:opacity-80"
+          className="flex items-center justify-center gap-2 w-full rounded-lg py-2 text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] hover:opacity-80"
           style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}
         >
           <RefreshCw size={12} />
@@ -440,10 +440,10 @@ function LostLeadsView({ leads }: { leads: LostLead[] }) {
 
         {selected.size > 0 && (
           <button onClick={deleteSelected} disabled={deleting}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
             style={{ backgroundColor: C.red, color: "#fff", opacity: deleting ? 0.6 : 1 }}>
             <Trash2 size={12} />
-            {deleting ? "Deleting..." : `Delete ${selected.size} lead${selected.size > 1 ? "s" : ""}`}
+            {deleting ? "Deleting…" : `Delete ${selected.size} lead${selected.size > 1 ? "s" : ""}`}
           </button>
         )}
       </div>
@@ -551,7 +551,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
               Clear
             </button>
             <button onClick={bulkDelete} disabled={deleting}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all disabled:opacity-50"
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-[opacity,transform,box-shadow,background-color,border-color] disabled:opacity-50"
               style={{ backgroundColor: "#DC2626", color: "#fff" }}>
               {deleting ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />}
               {deleting ? "Deleting…" : `Delete ${selected.size}`}
@@ -780,7 +780,7 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
           const isActive = mainView === v.key;
           return (
             <button key={v.key} onClick={() => { setMainView(v.key); setSearch(""); }}
-              className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all"
+              className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
               style={{
                 backgroundColor: isActive ? gold : C.bg,
                 color: isActive ? "#fff" : C.textMuted,
@@ -808,7 +808,7 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
               const isActive = leadsTab === i;
               return (
                 <button key={t.label} onClick={() => setLeadsTab(i)}
-                  className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all relative"
+                  className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-[opacity,transform,box-shadow,background-color,border-color] relative"
                   style={{ color: isActive ? t.color : C.textMuted }}>
                   {t.label}
                   {t.count > 0 && (

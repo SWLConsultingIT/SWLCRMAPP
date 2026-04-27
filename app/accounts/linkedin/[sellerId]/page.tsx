@@ -131,7 +131,7 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
             </p>
           </div>
           <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: C.border }}>
-            <div className="h-full transition-all" style={{
+            <div className="h-full transition-[opacity,transform,box-shadow,background-color,border-color]" style={{
               width: `${usagePct}%`,
               background: usagePct > 80 ? `linear-gradient(90deg, ${C.phone}, ${C.red})` : `linear-gradient(90deg, ${C.linkedin}, #4A90E2)`,
             }} />

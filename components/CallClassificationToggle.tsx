@@ -63,7 +63,7 @@ export default function CallClassificationToggle({ initialValue }: { initialValu
             key={opt.id}
             onClick={() => save(opt.id)}
             disabled={saving !== null}
-            className="text-left rounded-xl p-4 border-2 transition-all hover:scale-[1.01] disabled:opacity-60 disabled:hover:scale-100"
+            className="text-left rounded-xl p-4 border-2 transition-[opacity,transform,box-shadow,background-color,border-color] hover:scale-[1.01] disabled:opacity-60 disabled:hover:scale-100"
             style={{
               backgroundColor: selected ? `${opt.accent}0D` : C.bg,
               borderColor: selected ? opt.accent : C.border,

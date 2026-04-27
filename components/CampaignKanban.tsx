@@ -420,7 +420,7 @@ function MoveModal({
               </div>
 
               <button onClick={() => onCommit("send")} disabled={busy}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-all hover:shadow-sm disabled:opacity-50"
+                className="w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm disabled:opacity-50"
                 style={{ borderColor: `${chMeta.color}50`, backgroundColor: `${chMeta.color}08`, color: chMeta.color }}>
                 <span className="flex items-center gap-2.5">
                   <Send size={14} />
@@ -430,7 +430,7 @@ function MoveModal({
               </button>
 
               <button onClick={() => onCommit("skip")} disabled={busy}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-all hover:shadow-sm disabled:opacity-50"
+                className="w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm disabled:opacity-50"
                 style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textBody }}>
                 <span className="flex items-center gap-2.5">
                   <SkipForward size={14} style={{ color: C.textMuted }} />

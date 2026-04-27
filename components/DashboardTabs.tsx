@@ -24,7 +24,7 @@ export default function DashboardTabs({ children }: { children: React.ReactNode[
             <button
               key={t.label}
               onClick={() => setTab(i)}
-              className="flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-all relative rounded-t-lg"
+              className="flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] relative rounded-t-lg"
               style={{
                 color: active ? t.color : C.textMuted,
                 backgroundColor: active ? `${t.color}08` : "transparent",

@@ -104,7 +104,7 @@ export default function ReadyToLaunchGroup({ profileId, profileName, profileDeta
         <div className="flex-1" />
 
         <Link href={someSelected ? launchUrl : (profileId ? `/campaigns/new/${profileId}` : "#")}
-          className="flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-bold transition-all hover:shadow-md"
+          className="flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-bold transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-md"
           style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
           <Megaphone size={13} /> Create Outreach Flow{someSelected ? ` with ${selected.size} ${selected.size === 1 ? "Lead" : "Leads"}` : ` with All ${leads.length} Leads`}
         </Link>
@@ -121,7 +121,7 @@ export default function ReadyToLaunchGroup({ profileId, profileName, profileDeta
             <div
               key={lead.id}
               onClick={() => toggle(lead.id)}
-              className="rounded-lg border p-3 cursor-pointer transition-all hover:shadow-sm"
+              className="rounded-lg border p-3 cursor-pointer transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm"
               style={{
                 borderColor: isSelected ? gold : C.border,
                 backgroundColor: isSelected ? `color-mix(in srgb, ${gold} 2%, transparent)` : "transparent",

@@ -374,7 +374,7 @@ export default function FlowEditorPage() {
                 <div className="flex flex-wrap gap-1.5">
                   {sellers.filter(s => s.linkedin_account_id && !linkedinProfiles.includes(s.id)).map(s => (
                     <button key={s.id} onClick={() => setLinkedinProfiles(prev => [...prev, s.id])}
-                      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium cursor-pointer transition-all hover:shadow-sm"
+                      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium cursor-pointer transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm"
                       style={{ backgroundColor: C.cardHov, color: C.textMuted, border: `1px solid ${C.border}` }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = "#0A66C2"; e.currentTarget.style.color = "#0A66C2"; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMuted; }}>
@@ -420,7 +420,7 @@ export default function FlowEditorPage() {
                 <div className="flex flex-wrap gap-1.5">
                   {sellers.filter(s => !callAssignees.includes(s.id)).map(s => (
                     <button key={s.id} onClick={() => setCallAssignees(prev => [...prev, s.id])}
-                      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium cursor-pointer transition-all hover:shadow-sm"
+                      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium cursor-pointer transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm"
                       style={{ backgroundColor: C.cardHov, color: C.textMuted, border: `1px solid ${C.border}` }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = "#F97316"; e.currentTarget.style.color = "#F97316"; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textMuted; }}>
@@ -470,7 +470,7 @@ export default function FlowEditorPage() {
             const cumulativeDays = steps.slice(0, i).reduce((sum, s) => sum + s.wait_days, 0);
 
             return (
-              <div key={i} className="rounded-lg transition-all" style={{
+              <div key={i} className="rounded-lg transition-[opacity,transform,box-shadow,background-color,border-color]" style={{
                 border: `1px solid ${isExpanded ? conf.color + "40" : C.border}`,
                 backgroundColor: isExpanded ? `${conf.color}04` : "transparent",
               }}>
@@ -668,15 +668,15 @@ export default function FlowEditorPage() {
       {/* Bottom save bar */}
       <div className="flex items-center justify-end gap-3 mt-6 pt-5 border-t" style={{ borderColor: C.border }}>
         <Link href="/campaigns"
-          className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-all cursor-pointer hover:shadow-sm"
+          className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] cursor-pointer hover:shadow-sm"
           style={{ backgroundColor: `${C.red}12`, color: C.red, border: `1px solid ${C.red}30` }}>
           Cancel
         </Link>
         <button onClick={handleSave} disabled={saving || !flowName.trim()}
-          className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-all cursor-pointer hover:shadow-sm disabled:opacity-40"
+          className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] cursor-pointer hover:shadow-sm disabled:opacity-40"
           style={{ backgroundColor: C.goldGlow, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
           {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-          {saving ? "Saving..." : "Save Changes"}
+          {saving ? "Saving…" : "Save Changes"}
         </button>
       </div>
     </div>

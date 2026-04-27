@@ -32,7 +32,7 @@ export default function CampaignActions({ campaignId, status }: { campaignId: st
     <button
       onClick={toggle}
       disabled={loading}
-      className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-all disabled:opacity-50"
+      className="flex items-center gap-1 text-xs px-2 py-1 rounded transition-[opacity,transform,box-shadow,background-color,border-color] disabled:opacity-50"
       style={{
         backgroundColor: isPaused ? C.greenGlow : C.yellowGlow,
         color: isPaused ? C.green : C.yellow,

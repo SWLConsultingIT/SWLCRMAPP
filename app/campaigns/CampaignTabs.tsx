@@ -26,7 +26,7 @@ export default function CampaignTabs({ readyCount, activeCount, children }: {
           const Icon = t.icon;
           return (
             <button key={t.label} onClick={() => setTab(i)}
-              className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all relative"
+              className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-[opacity,transform,box-shadow,background-color,border-color] relative"
               style={{ color: active ? t.color : C.textMuted }}>
               <Icon size={15} />
               {t.label}

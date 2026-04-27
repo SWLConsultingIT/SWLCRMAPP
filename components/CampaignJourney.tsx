@@ -317,7 +317,7 @@ function CampaignBlock({
                                       className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg text-white"
                                       style={{ backgroundColor: gold, opacity: saving ? 0.7 : 1 }}>
                                       {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
-                                      {saving ? "Saving..." : "Save"}
+                                      {saving ? "Saving…" : "Save"}
                                     </button>
                                     <button onClick={() => setEditingId(null)}
                                       className="text-xs font-medium px-3 py-1.5 rounded-lg"

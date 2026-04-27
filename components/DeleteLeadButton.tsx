@@ -73,7 +73,7 @@ export default function DeleteLeadButton({ leadId, leadName }: { leadId: string;
                 className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
                 style={{ backgroundColor: C.red }}>
                 {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                {deleting ? "Deleting..." : "Yes, Delete"}
+                {deleting ? "Deleting…" : "Yes, Delete"}
               </button>
             </div>
           </div>

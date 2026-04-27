@@ -86,7 +86,7 @@ export default function NewFlowClient({ profiles, leads }: { profiles: Profile[]
                         <div className="flex items-center gap-3 shrink-0">
                           <span className="text-xs" style={{ color: C.textMuted }}>{p.leadCount} leads · {p.availableCount} available</span>
                           <Link href={`/campaigns/new/${p.id}`}
-                            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all hover:shadow-sm"
+                            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm"
                             style={{ backgroundColor: gold, color: "#04070d" }}>
                             Configure <ArrowRight size={12} />
                           </Link>

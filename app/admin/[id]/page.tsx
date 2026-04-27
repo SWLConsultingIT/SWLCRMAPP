@@ -351,7 +351,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                   </div>
                 </div>
                 <div className="h-1.5 rounded-full" style={{ backgroundColor: C.bg }}>
-                  <div className="h-1.5 rounded-full transition-all" style={{ width: `${row.pct}%`, backgroundColor: row.color }} />
+                  <div className="h-1.5 rounded-full transition-[opacity,transform,box-shadow,background-color,border-color]" style={{ width: `${row.pct}%`, backgroundColor: row.color }} />
                 </div>
               </div>
             ))}

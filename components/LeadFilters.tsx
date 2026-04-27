@@ -21,7 +21,7 @@ function PillGroup({ label, options, value, onChange }: {
           const isActive = value === opt.key;
           return (
             <button key={opt.key} onClick={() => onChange(opt.key)}
-              className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all"
+              className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
               style={{
                 backgroundColor: isActive ? C.card : "transparent",
                 color: isActive ? (opt.color ?? gold) : C.textMuted,

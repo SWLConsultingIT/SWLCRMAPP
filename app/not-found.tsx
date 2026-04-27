@@ -15,7 +15,7 @@ export default function NotFound() {
       <p className="text-lg font-semibold mb-1" style={{ color: C.textBody }}>Page not found</p>
       <p className="text-sm mb-8" style={{ color: C.textMuted }}>The URL you are trying to access does not exist.</p>
       <Link href="/"
-        className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-all"
+        className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
         style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 10%, transparent)", color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
         Back to Dashboard
       </Link>

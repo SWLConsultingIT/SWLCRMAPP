@@ -61,7 +61,7 @@ export default function LeadStatusSelect({ leadId, initialStatus, onUpdate }: {
       <button
         suppressHydrationWarning
         onClick={() => setOpen(o => !o)}
-        className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-all"
+        className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 transition-[opacity,transform,box-shadow,background-color,border-color]"
         style={{ backgroundColor: st.bg }}
       >
         <Icon size={11} style={{ color: st.color }} className={loading ? "animate-spin" : ""} />

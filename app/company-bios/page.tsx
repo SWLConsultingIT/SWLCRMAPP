@@ -299,7 +299,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
             <div className="grid grid-cols-4 gap-2.5">
               {bio.website && (
                 <a href={bio.website} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-3 px-3 py-3 rounded-lg transition-all hover:opacity-90 hover:shadow-md"
+                  className="flex items-center gap-3 px-3 py-3 rounded-lg transition-[opacity,transform,box-shadow,background-color,border-color] hover:opacity-90 hover:shadow-md"
                   style={{ backgroundColor: C.accent }}>
                   <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>
                     <Globe size={18} color="#fff" />
@@ -311,7 +311,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               )}
               {activeSocials.map(({ key, label, icon: Icon, color }) => (
                 <a key={key} href={bio[key]} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-3 px-3 py-3 rounded-lg transition-all hover:opacity-90 hover:shadow-md"
+                  className="flex items-center gap-3 px-3 py-3 rounded-lg transition-[opacity,transform,box-shadow,background-color,border-color] hover:opacity-90 hover:shadow-md"
                   style={{ backgroundColor: color }}>
                   <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>
                     <div className="[&_svg]:fill-white [&_svg_path]:fill-white"><Icon size={18} /></div>
@@ -455,7 +455,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               const Icon = fileIcon(r.file_url);
               return (
                 <a key={i} href={r.file_url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-3 rounded-lg border px-4 py-3 transition-all hover:shadow-sm"
+                  className="flex items-center gap-3 rounded-lg border px-4 py-3 transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm"
                   style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
                   <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: C.accentLight }}>
                     <Icon size={16} style={{ color: C.accent }} />
@@ -873,7 +873,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                       ...f,
                       languages: selected ? (f.languages ?? []).filter(l => l !== lang) : [...(f.languages ?? []), lang],
                     }))}
-                    className="px-2.5 py-1 rounded-full text-xs font-medium transition-all"
+                    className="px-2.5 py-1 rounded-full text-xs font-medium transition-[opacity,transform,box-shadow,background-color,border-color]"
                     style={selected
                       ? { backgroundColor: gold, color: "#04070d" }
                       : { backgroundColor: "#F3F4F6", color: C.textMuted, border: `1px solid ${C.border}` }
@@ -1200,7 +1200,7 @@ export default function CompanyBiosPage() {
                 {LANGUAGES.map(l => (
                   <button key={l.code}
                     onClick={() => setScanLang(l.code)}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-all"
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
                     style={scanLang === l.code
                       ? { backgroundColor: gold, color: "#04070d" }
                       : { backgroundColor: "#F3F4F6", color: C.textMuted, border: `1px solid ${C.border}` }
@@ -1225,7 +1225,7 @@ export default function CompanyBiosPage() {
               <button
                 onClick={handleScrape}
                 disabled={scraping || !scrapeUrl.trim()}
-                className="flex items-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold transition-all disabled:opacity-40 shrink-0 hover:opacity-90"
+                className="flex items-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] disabled:opacity-40 shrink-0 hover:opacity-90"
                 style={{ background: "linear-gradient(135deg, #0F172A, #1E293B)", color: "#fff" }}>
                 {scraping ? <Loader2 size={15} className="animate-spin" /> : <Globe size={15} />}
                 {scraping ? "Scanning..." : "Scan Web"}
@@ -1283,7 +1283,7 @@ export default function CompanyBiosPage() {
             </p>
             <button
               onClick={() => setEditing(true)}
-              className="inline-flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-all hover:shadow-lg hover:opacity-95"
+              className="inline-flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-lg hover:opacity-95"
               style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#04070d" }}>
               <Plus size={15} /> Create Manually
             </button>

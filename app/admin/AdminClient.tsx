@@ -391,7 +391,7 @@ function AircallAccessTab() {
                             key={n.id}
                             onClick={() => toggleNumber(company.id, n.id)}
                             disabled={saving === company.id}
-                            className="rounded-lg border p-3 flex items-center gap-3 text-left transition-all hover:shadow-sm disabled:opacity-60"
+                            className="rounded-lg border p-3 flex items-center gap-3 text-left transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm disabled:opacity-60"
                             style={{
                               borderColor: isAssigned ? C.phone : C.border,
                               backgroundColor: isAssigned ? `${C.phone}08` : C.bg,
@@ -555,7 +555,7 @@ function EmailAccessTab() {
                                   key={e.email}
                                   onClick={() => toggleEmail(company.id, e.email)}
                                   disabled={saving === company.id}
-                                  className="rounded-lg border p-3 flex items-center gap-3 text-left transition-all hover:shadow-sm disabled:opacity-60"
+                                  className="rounded-lg border p-3 flex items-center gap-3 text-left transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm disabled:opacity-60"
                                   style={{
                                     borderColor: isAssigned ? "#7C3AED" : C.border,
                                     backgroundColor: isAssigned ? "#7C3AED08" : C.bg,
@@ -662,7 +662,7 @@ export default function AdminClient({ clients, pendingApprovals, stats }: Props)
           const isActive = tab === i;
           return (
             <button key={t.label} onClick={() => setTab(i)}
-              className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all relative"
+              className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-[opacity,transform,box-shadow,background-color,border-color] relative"
               style={{ color: isActive ? t.color : C.textMuted }}>
               {t.label}
               {t.count > 0 && (

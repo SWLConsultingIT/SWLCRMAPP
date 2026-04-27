@@ -78,3 +78,41 @@ export const C = {
 } as const;
 
 export type Color = typeof C;
+
+// ── Typography scale (Inter body, Outfit headings) ──────────────────────────
+// Single source of truth so every page uses the same rhythm. Use these exact
+// values in className via arbitrary brackets (e.g. `text-[15px]`) when the
+// stock Tailwind sizes don't fit. Naming follows the visual hierarchy, not
+// pixel sizes, so the scale can be re-tuned without rewriting components.
+export const T = {
+  pageTitle:   "text-[28px] leading-[1.1] font-bold tracking-[-0.02em]",
+  sectionTitle:"text-[20px] leading-tight font-semibold tracking-[-0.015em]",
+  cardTitle:   "text-[15px] font-semibold",
+  body:        "text-[13.5px] leading-[1.55]",
+  bodyMuted:   "text-[13.5px] leading-[1.55] text-[color:var(--c-textMuted)]",
+  label:       "text-[10px] font-bold tracking-[0.16em] uppercase",
+  metaSmall:   "text-[11px] leading-tight",
+  numLg:       "text-[28px] font-bold tracking-tight tabular",
+  numMd:       "text-[20px] font-semibold tabular",
+} as const;
+
+// ── Hover / interaction system (single source of truth) ─────────────────────
+// Use these className strings instead of ad-hoc `hover:opacity-80` /
+// `hover:scale-[1.02]` mixes. All transitions are explicit (never `all`) and
+// respect prefers-reduced-motion via the global rule in globals.css.
+export const H = {
+  // Primary action — gold button
+  primary:     "transition-[opacity,box-shadow] duration-150 hover:opacity-90 hover:shadow-md focus-visible:shadow-md",
+  // Secondary — soft brand background tint on hover
+  secondary:   "transition-colors duration-150 hover:bg-[color:var(--brand-soft)]",
+  // Card / row that links to a detail view
+  card:        "transition-[box-shadow,border-color,transform] duration-150 hover:shadow-md hover:border-[color:var(--c-border2)]",
+  // Subtle row in a list (no shadow)
+  row:         "transition-colors duration-150 hover:bg-black/[0.02]",
+  // Icon button (inside a header / card actions)
+  iconBtn:     "transition-colors duration-150 hover:bg-black/[0.06]",
+  // Destructive action
+  danger:      "transition-colors duration-150 hover:bg-red-50",
+  // Link
+  link:        "transition-opacity duration-150 hover:opacity-80",
+} as const;

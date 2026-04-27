@@ -136,7 +136,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
           const isActive = tab === i;
           return (
             <button key={t.label} onClick={() => setTab(i)}
-              className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all relative"
+              className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-[opacity,transform,box-shadow,background-color,border-color] relative"
               style={{ color: isActive ? t.color : C.textMuted }}>
               {t.label}
               {t.count > 0 && (

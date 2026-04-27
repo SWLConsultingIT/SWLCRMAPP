@@ -180,7 +180,7 @@ export default function LoginPage() {
                   onChange={e => setEmail(e.target.value)}
                   placeholder="you@company.com"
                   autoComplete="email"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-all"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-[opacity,transform,box-shadow,background-color,border-color]"
                   style={{
                     backgroundColor: "rgba(255,255,255,0.04)",
                     border: "1px solid rgba(255,255,255,0.08)",
@@ -209,7 +209,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 pr-11 rounded-xl text-sm outline-none transition-all"
+                  className="w-full px-4 py-3 pr-11 rounded-xl text-sm outline-none transition-[opacity,transform,box-shadow,background-color,border-color]"
                   style={{
                     backgroundColor: "rgba(255,255,255,0.04)",
                     border: "1px solid rgba(255,255,255,0.08)",
@@ -246,7 +246,7 @@ export default function LoginPage() {
                   className="sr-only"
                 />
                 <div
-                  className="w-4 h-4 rounded flex items-center justify-center transition-all"
+                  className="w-4 h-4 rounded flex items-center justify-center transition-[opacity,transform,box-shadow,background-color,border-color]"
                   style={{
                     backgroundColor: remember ? "var(--brand-dark, #b79832)" : "rgba(255,255,255,0.06)",
                     border: remember ? "1px solid var(--brand-dark, #b79832)" : "1px solid rgba(255,255,255,0.15)",
@@ -275,7 +275,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading || !password || !email}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] disabled:opacity-40"
               style={{
                 backgroundColor: "var(--brand-dark, #b79832)",
                 color: "#04070d",

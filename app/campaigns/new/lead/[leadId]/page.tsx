@@ -416,7 +416,7 @@ export default function NewLeadCampaignWizard() {
         {WIZARD_STEPS.map((s, i) => (
           <div key={s} className="flex items-center gap-1">
             <button onClick={() => i < wizardStep && setWizardStep(i)} disabled={i > wizardStep}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
               style={i === wizardStep ? { backgroundColor: gold, color: "#04070d" } : i < wizardStep ? { backgroundColor: C.greenLight, color: C.green } : { backgroundColor: "#F3F4F6", color: C.textDim }}>
               {i < wizardStep ? <Check size={12} /> : <span>{i + 1}</span>}
               {s}
@@ -470,7 +470,7 @@ export default function NewLeadCampaignWizard() {
                   disabled={!canUse}
                   title={!canUse ? `Missing: ${missingChannels.join(", ")}` : ""}
                   onClick={() => { if (canUse) { setSequence(tpl.steps.map(s => ({ ...s }))); setChannelMessages({ steps: [], autoReplies: { positive: "", negative: "", question: "" } }); } }}
-                  className="rounded-lg border px-4 py-2.5 text-left transition-all hover:shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="rounded-lg border px-4 py-2.5 text-left transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{ borderColor: C.border, backgroundColor: C.bg }}>
                   <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{tpl.name}</p>
                   <p className="text-xs" style={{ color: C.textDim }}>{tpl.desc}</p>
@@ -505,7 +505,7 @@ export default function NewLeadCampaignWizard() {
                           <button key={opt.key} onClick={() => !disabled && updateStep(i, "channel", opt.key)}
                             disabled={disabled}
                             title={disabled ? `No ${opt.label} data for this lead` : ""}
-                            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-[opacity,transform,box-shadow,background-color,border-color] disabled:opacity-30 disabled:cursor-not-allowed"
                             style={s.channel === opt.key ? { backgroundColor: opt.color, color: "#fff" } : { backgroundColor: "#F3F4F6", color: C.textMuted }}>
                             <OptIcon size={12} /> {opt.label}
                           </button>
@@ -607,7 +607,7 @@ export default function NewLeadCampaignWizard() {
                     const hasEmail = !!s.email_account;
                     return (
                       <button key={s.id} onClick={() => setSelectedSeller(s.id)}
-                        className="rounded-xl border p-4 text-left transition-all hover:shadow-sm"
+                        className="rounded-xl border p-4 text-left transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm"
                         style={{
                           borderColor: isActive ? gold : C.border,
                           backgroundColor: isActive ? `color-mix(in srgb, ${gold} 2%, transparent)` : "transparent",
@@ -919,7 +919,7 @@ export default function NewLeadCampaignWizard() {
             className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50"
             style={{ backgroundColor: C.green, color: "#fff" }}>
             {submitting ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-            {submitting ? "Submitting..." : "Launch Flow"}
+            {submitting ? "Submitting…" : "Launch Flow"}
           </button>
         )}
       </div>

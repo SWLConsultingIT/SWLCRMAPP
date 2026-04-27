@@ -187,7 +187,7 @@ export default function SignupPage() {
                     <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(217,222,226,0.3)" }} />
                     <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)}
                       placeholder="Your name" required
-                      className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-all"
+                      className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-[opacity,transform,box-shadow,background-color,border-color]"
                       style={inputStyle}
                       onFocus={e => Object.assign(e.currentTarget.style, inputFocus)}
                       onBlur={e => Object.assign(e.currentTarget.style, inputBlur)} />
@@ -201,7 +201,7 @@ export default function SignupPage() {
                     <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(217,222,226,0.3)" }} />
                     <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                       placeholder="you@company.com" autoComplete="email" required
-                      className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-all"
+                      className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-[opacity,transform,box-shadow,background-color,border-color]"
                       style={inputStyle}
                       onFocus={e => Object.assign(e.currentTarget.style, inputFocus)}
                       onBlur={e => Object.assign(e.currentTarget.style, inputBlur)} />
@@ -215,7 +215,7 @@ export default function SignupPage() {
                     <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(217,222,226,0.3)" }} />
                     <input type={showPw ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)}
                       placeholder="At least 6 characters" autoComplete="new-password" minLength={6} required
-                      className="w-full pl-10 pr-4 py-3 pr-11 rounded-xl text-sm outline-none transition-all"
+                      className="w-full pl-10 pr-4 py-3 pr-11 rounded-xl text-sm outline-none transition-[opacity,transform,box-shadow,background-color,border-color]"
                       style={inputStyle}
                       onFocus={e => Object.assign(e.currentTarget.style, inputFocus)}
                       onBlur={e => Object.assign(e.currentTarget.style, inputBlur)} />
@@ -234,7 +234,7 @@ export default function SignupPage() {
                     <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(217,222,226,0.3)" }} />
                     <input type={showConfirm ? "text" : "password"} value={confirm} onChange={e => setConfirm(e.target.value)}
                       placeholder="Repeat your password" autoComplete="new-password" minLength={6} required
-                      className="w-full pl-10 pr-11 py-3 rounded-xl text-sm outline-none transition-all"
+                      className="w-full pl-10 pr-11 py-3 rounded-xl text-sm outline-none transition-[opacity,transform,box-shadow,background-color,border-color]"
                       style={{
                         ...inputStyle,
                         borderColor: passwordMismatch ? "rgba(220,38,38,0.5)" : inputStyle.border?.toString(),
@@ -262,7 +262,7 @@ export default function SignupPage() {
                 )}
 
                 <button type="submit" disabled={loading || !canSubmit}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] disabled:opacity-40"
                   style={{ backgroundColor: "var(--brand-dark, #b79832)", color: "#04070d" }}>
                   {loading ? (
                     <span className="flex items-center gap-2">

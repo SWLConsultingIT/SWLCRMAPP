@@ -50,7 +50,7 @@ export default function SettingsLayout({ callMode }: { callMode: "manual" | "aut
             <button
               key={s.id}
               onClick={() => setActive(s.id)}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-[opacity,transform,box-shadow,background-color,border-color]"
               style={{
                 backgroundColor: isActive ? `color-mix(in srgb, ${C.gold} 7%, transparent)` : "transparent",
                 color: isActive ? C.gold : C.textBody,
@@ -117,7 +117,7 @@ function ProfileSection({ user }: { user: AuthUser | null }) {
           {t("profile.passwordHelp")}
         </p>
         <button onClick={() => setPasswordOpen(true)}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg border transition-all hover:opacity-80"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg border transition-[opacity,transform,box-shadow,background-color,border-color] hover:opacity-80"
           style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
           <Shield size={12} /> {t("profile.changePassword")}
         </button>
@@ -151,7 +151,7 @@ function PreferencesSection() {
               <button
                 key={opt.id}
                 onClick={() => setTheme(opt.id)}
-                className="rounded-lg p-4 border-2 transition-all hover:scale-[1.01]"
+                className="rounded-lg p-4 border-2 transition-[opacity,transform,box-shadow,background-color,border-color] hover:scale-[1.01]"
                 style={{
                   backgroundColor: isActive ? `color-mix(in srgb, ${C.gold} 5%, transparent)` : C.bg,
                   borderColor: isActive ? C.gold : C.border,
@@ -278,7 +278,7 @@ function LanguageCard() {
             <button
               key={opt.id}
               onClick={() => setLocale(opt.id)}
-              className="rounded-lg p-4 border-2 transition-all hover:scale-[1.01] flex items-center gap-3"
+              className="rounded-lg p-4 border-2 transition-[opacity,transform,box-shadow,background-color,border-color] hover:scale-[1.01] flex items-center gap-3"
               style={{
                 backgroundColor: isActive ? `color-mix(in srgb, ${C.gold} 5%, transparent)` : C.bg,
                 borderColor: isActive ? C.gold : C.border,
@@ -392,7 +392,7 @@ function LogoutButton({ router }: { router: ReturnType<typeof useRouter> }) {
   }
   return (
     <button onClick={handleLogout} disabled={loading}
-      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all hover:opacity-80"
+      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-[opacity,transform,box-shadow,background-color,border-color] hover:opacity-80"
       style={{ color: C.red, backgroundColor: "transparent" }}>
       <LogOut size={14} />
       <span className="text-sm font-medium">{loading ? t("settings.signingOut") : t("settings.signOut")}</span>

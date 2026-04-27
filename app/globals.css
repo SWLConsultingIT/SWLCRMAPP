@@ -104,11 +104,57 @@ body {
   font-family: var(--font-inter), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Better digit rendering for stat cards, counters, dates — matches Linear/Vercel. */
+  font-feature-settings: "ss01", "cv11";
 }
 
-/* Outfit for headings */
+/* Outfit for headings + automatic widow prevention */
 h1, h2, h3 {
   font-family: var(--font-outfit), system-ui, sans-serif;
+  text-wrap: pretty;
+}
+h1 { letter-spacing: -0.02em; }
+h2 { letter-spacing: -0.015em; }
+
+/* Tabular numerals everywhere a `.tabular` class or stat-card pattern appears.
+   Prevents the "1px dance" when numbers update in real-time. */
+.tabular,
+[data-stat],
+.font-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Universal focus ring (accessibility — was missing on most controls) ─── */
+*:focus { outline: none; }
+*:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: inherit;
+  transition: outline-offset 0.12s ease;
+}
+/* Form fields use a subtle ring inside the field, not a halo around it. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 0;
+  box-shadow: 0 0 0 4px var(--brand-soft);
+}
+
+/* ─── Reduced motion — kill animations for users who request it ─── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .shimmer {
+    background: #F0F0F5;
+    animation: none !important;
+  }
 }
 
 /* ─── Main content area — subtle warm gradient mesh ─── */

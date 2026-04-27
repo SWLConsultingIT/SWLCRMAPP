@@ -85,7 +85,7 @@ function UsageBar({ sent, limit, channel }: { sent: number; limit: number; chann
         <span className="text-xs font-bold tabular-nums" style={{ color }}>{sent} / {limit}</span>
       </div>
       <div className="h-2 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
-        <div className="h-2 rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} />
+        <div className="h-2 rounded-full transition-[opacity,transform,box-shadow,background-color,border-color]" style={{ width: `${pct}%`, backgroundColor: color }} />
       </div>
       <p className="text-[9px] font-semibold mt-1 text-right tabular-nums" style={{ color }}>{pct}%</p>
     </div>
@@ -178,7 +178,7 @@ function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; onSucces
               {pin.map((d, i) => (
                 <input key={i} id={`pin-${i}`} type="password" inputMode="numeric" maxLength={1}
                   value={d} onChange={e => handlePinChange(i, e.target.value.replace(/\D/g, ""))}
-                  className="w-12 h-14 text-center text-2xl font-bold rounded-xl focus:outline-none transition-all"
+                  className="w-12 h-14 text-center text-2xl font-bold rounded-xl focus:outline-none transition-[opacity,transform,box-shadow,background-color,border-color]"
                   style={{ backgroundColor: C.bg, border: `2px solid ${pinError ? C.red : d ? gold : C.border}`, color: C.textPrimary }}
                   autoFocus={i === 0} />
               ))}
@@ -327,7 +327,7 @@ function EditAccountModal({ seller, onClose, onSuccess }: { seller: SellerCard; 
             className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-50"
             style={{ backgroundColor: C.blue, color: "#fff" }}>
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            {saving ? "Saving..." : "Save Changes"}
+            {saving ? "Saving…" : "Save Changes"}
           </button>
         </div>
       </div>
@@ -399,7 +399,7 @@ function LinkUnipileModal({ seller, onClose, onSuccess }: { seller: SellerCard; 
               const isSel = selectedId === a.id;
               return (
                 <button key={a.id} onClick={() => setSelectedId(a.id)}
-                  className="w-full text-left rounded-lg p-3 border transition-all flex items-center gap-3"
+                  className="w-full text-left rounded-lg p-3 border transition-[opacity,transform,box-shadow,background-color,border-color] flex items-center gap-3"
                   style={{
                     backgroundColor: isSel ? "#0A66C20D" : C.bg,
                     borderColor: isSel ? "#0A66C2" : C.border,
@@ -589,7 +589,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
           const isActive = tab === i;
           return (
             <button key={t.label} onClick={() => setTab(i)}
-              className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-all relative"
+              className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-[opacity,transform,box-shadow,background-color,border-color] relative"
               style={{ color: isActive ? t.color : C.textMuted }}>
               {t.label}
               <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
@@ -602,7 +602,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
         })}
         <div className="flex-1" />
         <button onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold mb-1 transition-all hover:shadow-md"
+          className="flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold mb-1 transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-md"
           style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
           <Plus size={14} /> Add Seller
         </button>
@@ -830,7 +830,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                 { key: "call", label: "Call", color: "#F97316" },
               ].map(opt => (
                 <button key={opt.key} onClick={() => setHistoryChannel(opt.key)}
-                  className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all"
+                  className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
                   style={{
                     backgroundColor: historyChannel === opt.key ? C.card : "transparent",
                     color: historyChannel === opt.key ? (opt.color ?? gold) : C.textMuted,
@@ -842,13 +842,13 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
 
             <div className="flex items-center gap-0.5 rounded-lg p-0.5" style={{ backgroundColor: C.bg }}>
               <button onClick={() => setHistorySeller("all")}
-                className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all"
+                className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
                 style={{ backgroundColor: historySeller === "all" ? C.card : "transparent", color: historySeller === "all" ? gold : C.textMuted }}>
                 All Sellers
               </button>
               {sellers.map(s => (
                 <button key={s.id} onClick={() => setHistorySeller(s.id)}
-                  className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all"
+                  className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
                   style={{ backgroundColor: historySeller === s.id ? C.card : "transparent", color: historySeller === s.id ? gold : C.textMuted }}>
                   {s.name}
                 </button>

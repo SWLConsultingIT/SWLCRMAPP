@@ -54,7 +54,7 @@ export default function LostLeadActions({ leadId }: Props) {
       <button
         onClick={recover}
         disabled={busy !== null}
-        className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all hover:opacity-85 disabled:opacity-50"
+        className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] hover:opacity-85 disabled:opacity-50"
         style={{
           backgroundColor: done === "recover" ? "#DCFCE7" : C.blueLight,
           color: done === "recover" ? "#16A34A" : C.blue,
@@ -69,7 +69,7 @@ export default function LostLeadActions({ leadId }: Props) {
       <button
         onClick={markWon}
         disabled={busy !== null}
-        className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-all hover:opacity-85 disabled:opacity-50"
+        className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] hover:opacity-85 disabled:opacity-50"
         style={{
           backgroundColor: done === "won" ? "#16A34A" : "#22C55E",
           color: "#fff",

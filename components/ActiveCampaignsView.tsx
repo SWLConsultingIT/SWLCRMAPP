@@ -141,7 +141,7 @@ export default function ActiveCampaignsView({ campaigns }: { campaigns: Campaign
 
         return (
           <Link key={group.name} href={`/campaigns/${group.firstId}`}
-            className="rounded-xl border overflow-hidden transition-all hover:shadow-md group"
+            className="rounded-xl border overflow-hidden transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-md group"
             style={{ backgroundColor: C.card, borderColor: C.border }}>
 
             {/* Top bar: channels + status */}

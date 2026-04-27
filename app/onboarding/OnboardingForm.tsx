@@ -72,7 +72,7 @@ export default function OnboardingForm({ displayName, email }: { displayName: st
     const done = step > n;
     return (
       <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-all"
+        <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-[opacity,transform,box-shadow,background-color,border-color]"
           style={{
             backgroundColor: done ? "#22C55E" : active ? "var(--brand-dark, #b79832)" : "rgba(255,255,255,0.08)",
             border: active ? "2px solid color-mix(in srgb, var(--brand-dark, #b79832) 40%, transparent)" : "none",
@@ -94,7 +94,7 @@ export default function OnboardingForm({ displayName, email }: { displayName: st
     border: "1px solid rgba(255,255,255,0.08)",
     color: "#f8fafc",
   };
-  const inputCls = "w-full px-3 py-2.5 rounded-lg text-sm outline-none transition-all";
+  const inputCls = "w-full px-3 py-2.5 rounded-lg text-sm outline-none transition-[opacity,transform,box-shadow,background-color,border-color]";
 
   return (
     <div className="min-h-screen flex items-center justify-center p-8" style={{ backgroundColor: "#04070d", fontFamily: "var(--font-inter)" }}>

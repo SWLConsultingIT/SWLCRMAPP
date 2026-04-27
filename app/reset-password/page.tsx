@@ -111,7 +111,7 @@ export default function ResetPasswordPage() {
               )}
 
               <button type="submit" disabled={loading || !password || !confirm}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] disabled:opacity-40"
                 style={{ backgroundColor: "var(--brand-dark, #b79832)", color: "#04070d" }}>
                 {loading ? (
                   <span className="flex items-center gap-2">

@@ -159,7 +159,7 @@ export default function Sidebar() {
                   <Link
                     key={href}
                     href={href}
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150"
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-[opacity,transform,box-shadow,background-color,border-color] duration-150"
                     style={active ? {
                       background: `linear-gradient(90deg, color-mix(in srgb, ${GOLD} 15%, transparent) 0%, color-mix(in srgb, ${GOLD} 4%, transparent) 100%)`,
                       color: GOLD,
@@ -224,7 +224,7 @@ export default function Sidebar() {
         <Link
           href="/settings"
           title={t("nav.settings")}
-          className="w-8 h-8 flex items-center justify-center rounded-lg transition-all shrink-0"
+          className="w-8 h-8 flex items-center justify-center rounded-lg transition-[opacity,transform,box-shadow,background-color,border-color] shrink-0"
           style={{
             color: pathname.startsWith("/settings") ? GOLD : TEXT_MUTED,
             backgroundColor: pathname.startsWith("/settings") ? `color-mix(in srgb, ${GOLD} 12%, transparent)` : "transparent",

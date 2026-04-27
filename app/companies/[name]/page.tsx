@@ -411,7 +411,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
                     const hasUrl = !!url;
                     return hasUrl ? (
                       <a key={label} href={url!} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-3 px-3 py-3 rounded-lg transition-all hover:opacity-90 hover:shadow-md cursor-pointer"
+                        className="flex items-center gap-3 px-3 py-3 rounded-lg transition-[opacity,transform,box-shadow,background-color,border-color] hover:opacity-90 hover:shadow-md cursor-pointer"
                         style={{ backgroundColor: activeBg }}>
                         <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>
                           <div className="[&_svg]:fill-white [&_svg_path]:fill-white [&_svg_circle]:stroke-white [&_svg_line]:stroke-white [&_svg_path]:stroke-none [&_svg]:stroke-none">

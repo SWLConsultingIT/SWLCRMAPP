@@ -189,13 +189,13 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
       {/* Status chips */}
       <div className="flex flex-wrap gap-2 mb-5">
         <button onClick={() => changeFilter(setFilterStatus, ALL)}
-          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition-all"
+          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition-[opacity,transform,box-shadow,background-color,border-color]"
           style={{ backgroundColor: filterStatus === ALL ? C.accentLight : "transparent", color: filterStatus === ALL ? C.accent : C.textMuted, borderColor: filterStatus === ALL ? `${C.accent}30` : C.border }}>
           <Users size={11} /> Todos <span className="font-bold">{leads.length}</span>
         </button>
         {(Object.entries(statusConfig) as [string, typeof statusConfig[string]][]).map(([key, { label, color, bg, icon: Icon }]) => (
           <button key={key} onClick={() => changeFilter(setFilterStatus, filterStatus === key ? ALL : key)}
-            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition-all"
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium border transition-[opacity,transform,box-shadow,background-color,border-color]"
             style={{ backgroundColor: filterStatus === key ? bg : "transparent", color: filterStatus === key ? color : C.textMuted, borderColor: filterStatus === key ? `${color}30` : C.border }}>
             <Icon size={11} /> {label} <span className="font-bold">{counts[key] ?? 0}</span>
           </button>
@@ -237,7 +237,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
           <span className="text-xs" style={{ color: C.textMuted }}>Cambiar estado a:</span>
           {Object.entries(statusConfig).map(([key, { label, color }]) => (
             <button key={key} onClick={() => bulkChangeStatus(key)} disabled={bulkLoading}
-              className="text-xs px-2.5 py-1 rounded-lg font-medium transition-all disabled:opacity-50"
+              className="text-xs px-2.5 py-1 rounded-lg font-medium transition-[opacity,transform,box-shadow,background-color,border-color] disabled:opacity-50"
               style={{ backgroundColor: C.card, color, border: `1px solid ${color}25` }}>
               {label}
             </button>

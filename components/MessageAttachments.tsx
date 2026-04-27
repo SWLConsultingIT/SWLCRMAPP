@@ -127,7 +127,7 @@ export default function MessageAttachments({
           style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}
         >
           {uploading ? <Loader2 size={12} className="animate-spin" /> : <Paperclip size={12} />}
-          {uploading ? "Uploading..." : "Attach file"}
+          {uploading ? "Uploading…" : "Attach file"}
         </button>
         <span className="text-xs" style={{ color: C.textDim }}>PDF or images, max 10MB</span>
       </div>

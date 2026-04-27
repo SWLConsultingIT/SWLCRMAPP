@@ -197,7 +197,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
 
                             return (
                               <div key={lead.id} onClick={() => toggle(lead.id)}
-                                className="rounded-lg border p-3 cursor-pointer transition-all hover:shadow-sm"
+                                className="rounded-lg border p-3 cursor-pointer transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm"
                                 style={{
                                   borderColor: isSelected ? gold : C.border,
                                   backgroundColor: isSelected ? `color-mix(in srgb, ${gold} 2%, transparent)` : "transparent",
@@ -260,7 +260,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
             from {groups.filter(g => g.leads.some(l => selected.has(l.id))).length} {groups.filter(g => g.leads.some(l => selected.has(l.id))).length === 1 ? "group" : "groups"}
           </span>
           <Link href={launchUrl}
-            className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-all hover:shadow-lg"
+            className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-lg"
             style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
             <Megaphone size={15} /> Create Outreach Flow
           </Link>

@@ -81,7 +81,7 @@ export default function CallsClient({ initialQueue, history }: {
             </div>
           ) : (
             queue.map((c, i) => (
-              <div key={c.id} className="rounded-xl border p-5 transition-all"
+              <div key={c.id} className="rounded-xl border p-5 transition-[opacity,transform,box-shadow,background-color,border-color]"
                 style={{
                   backgroundColor: C.card,
                   borderColor: i === 0 ? `color-mix(in srgb, ${C.gold} 25%, transparent)` : C.border,
@@ -130,7 +130,7 @@ export default function CallsClient({ initialQueue, history }: {
                         <button
                           onClick={() => complete(c.id)}
                           disabled={completing === c.id}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:opacity-60"
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] disabled:opacity-60"
                           style={{ backgroundColor: C.greenGlow, color: C.green, border: `1px solid ${C.green}30` }}
                         >
                           {completing === c.id
