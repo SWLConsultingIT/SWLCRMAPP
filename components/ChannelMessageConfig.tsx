@@ -81,14 +81,28 @@ function classifySteps(sequence: { channel: string; daysAfter: number }[]): { ty
   });
 }
 
-const typeDescriptions: Record<string, string> = {
-  LINKEDIN_INTRO_DM: "First real message after they accept. Start with 'Gracias por conectar'. Introduce yourself, your company, what you offer, and ask if interested.",
-  LINKEDIN_FOLLOWUP: "Follow-up message. Reference your previous message, bring new value (data, case study, trend). Don't re-introduce yourself.",
-  EMAIL_INTRO: "First email. Subject + body. Introduce yourself and your company, connect their pain point to your solution, include proof, end with CTA.",
-  EMAIL_FOLLOWUP_CROSS: "First email after contacting on another channel. Reference previous outreach, bring a new angle.",
-  EMAIL_FOLLOWUP: "Follow-up email. Short, reference previous email, one new piece of value.",
-  CALL_FIRST: "Call script in bullet points: Opener, Context, Questions, Pitch, Close.",
-  CALL_FOLLOWUP: "Follow-up call script. Reference previous contact, new angle, ask for meeting.",
+// Field-help descriptions, kept in both locales. The English version drops the
+// "Start with 'Gracias por conectar'" instruction so the AI doesn't generate
+// the body in Spanish when the UI is in English.
+const typeDescriptionsByLocale: Record<"es" | "en", Record<string, string>> = {
+  es: {
+    LINKEDIN_INTRO_DM: "Primer mensaje real después de que aceptan. Arrancá con 'Gracias por conectar'. Presentate, presentá tu empresa, qué ofrecés y preguntá si les interesa.",
+    LINKEDIN_FOLLOWUP: "Mensaje de seguimiento. Referenciá tu mensaje anterior, sumá valor nuevo (dato, caso, tendencia). No te re-presentes.",
+    EMAIL_INTRO: "Primer email. Subject + body. Presentate vos y tu empresa, conectá su pain con tu solución, incluí prueba, cerrá con CTA.",
+    EMAIL_FOLLOWUP_CROSS: "Primer email después de contactar por otro canal. Referenciá la conversación previa, traé un ángulo nuevo.",
+    EMAIL_FOLLOWUP: "Email de seguimiento. Corto, referenciá el email anterior, una pieza nueva de valor.",
+    CALL_FIRST: "Script de llamada en bullets: Apertura, Contexto, Preguntas, Pitch, Cierre.",
+    CALL_FOLLOWUP: "Script de llamada de seguimiento. Referenciá el contacto previo, ángulo nuevo, pedí meeting.",
+  },
+  en: {
+    LINKEDIN_INTRO_DM: "First real message after they accept the connection. Open with a thank-you for connecting, then introduce yourself, your company, what you offer, and ask if it's relevant.",
+    LINKEDIN_FOLLOWUP: "Follow-up message. Reference the previous message, bring new value (data point, case study, trend). Don't re-introduce yourself.",
+    EMAIL_INTRO: "First email. Subject + body. Introduce yourself and your company, connect their pain point to your solution, include proof, close with a CTA.",
+    EMAIL_FOLLOWUP_CROSS: "First email after contacting on another channel. Reference the previous outreach, bring a new angle.",
+    EMAIL_FOLLOWUP: "Follow-up email. Short, reference the previous email, one new piece of value.",
+    CALL_FIRST: "Call script in bullet points: Opener, Context, Questions, Pitch, Close.",
+    CALL_FOLLOWUP: "Follow-up call script. Reference the previous contact, new angle, ask for meeting.",
+  },
 };
 
 const typePlaceholdersByLocale: Record<"es" | "en", Record<string, string>> = {
@@ -136,6 +150,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   const placeholderLocale: "es" | "en" = locale === "es" ? "es" : "en";
   const typePlaceholders = typePlaceholdersByLocale[placeholderLocale];
   const inlinePlaceholders = inlinePlaceholdersByLocale[placeholderLocale];
+  const typeDescriptions = typeDescriptionsByLocale[placeholderLocale];
   const [aiLoading, setAiLoading] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [activeTemplatesCount, setActiveTemplatesCount] = useState<number | null>(null);

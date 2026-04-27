@@ -168,6 +168,85 @@ export default function NewLeadCampaignWizard() {
     load();
   }, [leadId]);
 
+  // ── Draft autosave & restore ────────────────────────────────────────────────
+  // Persist the campaign builder state to localStorage on every change so the
+  // user doesn't lose progress if they navigate away. On mount, if there's a
+  // saved draft we surface a banner asking whether to restore or discard.
+  const draftKey = `swl-campaign-draft-lead-${leadId}`;
+  const [showRestoreBanner, setShowRestoreBanner] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || draftLoaded) return;
+    try {
+      const draft = localStorage.getItem(draftKey);
+      if (draft) setShowRestoreBanner(true);
+    } catch {}
+    setDraftLoaded(true);
+  }, [draftKey, draftLoaded]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || submitted || !draftLoaded) return;
+    // Only autosave once the user has touched something — avoids stamping a
+    // pristine draft over a meaningful one when the page first hydrates.
+    const hasContent = !!campaignName.trim()
+      || (channelMessages.steps && channelMessages.steps.length > 0)
+      || !!channelMessages.connectionRequest
+      || sequence.length > 0;
+    if (!hasContent) return;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({
+        savedAt: new Date().toISOString(),
+        wizardStep, campaignName, selectedSeller, sequence, channelMessages,
+        language, selectedSignals, timezone,
+      }));
+    } catch {}
+  }, [draftKey, draftLoaded, submitted, wizardStep, campaignName, selectedSeller, sequence, channelMessages, language, selectedSignals, timezone]);
+
+  // Clear draft on successful submit so the next visit doesn't offer a stale one.
+  useEffect(() => {
+    if (submitted) {
+      try { localStorage.removeItem(draftKey); } catch {}
+    }
+  }, [submitted, draftKey]);
+
+  // Warn before unload if there's meaningful unsaved progress.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    function handler(e: BeforeUnloadEvent) {
+      if (submitted) return;
+      const hasContent = !!campaignName.trim()
+        || (channelMessages.steps && channelMessages.steps.length > 0)
+        || !!channelMessages.connectionRequest;
+      if (!hasContent) return;
+      e.preventDefault();
+      e.returnValue = "";
+    }
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [submitted, campaignName, channelMessages]);
+
+  function restoreDraft() {
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) { setShowRestoreBanner(false); return; }
+      const d = JSON.parse(raw);
+      if (typeof d.wizardStep === "number") setWizardStep(d.wizardStep);
+      if (typeof d.campaignName === "string") setCampaignName(d.campaignName);
+      if (typeof d.selectedSeller === "string") setSelectedSeller(d.selectedSeller);
+      if (Array.isArray(d.sequence)) setSequence(d.sequence);
+      if (d.channelMessages && typeof d.channelMessages === "object") setChannelMessages(d.channelMessages);
+      if (typeof d.language === "string") setLanguage(d.language);
+      if (Array.isArray(d.selectedSignals)) setSelectedSignals(d.selectedSignals);
+      if (typeof d.timezone === "string") setTimezone(d.timezone);
+    } catch {}
+    setShowRestoreBanner(false);
+  }
+  function discardDraft() {
+    try { localStorage.removeItem(draftKey); } catch {}
+    setShowRestoreBanner(false);
+  }
+
   // Sequence helpers
   function addStep() {
     const lastChannel = sequence.length > 0 ? sequence[sequence.length - 1].channel : "linkedin";
@@ -275,6 +354,25 @@ export default function NewLeadCampaignWizard() {
       <button onClick={() => router.back()} className="flex items-center gap-1.5 text-xs font-medium mb-3 transition-colors hover:opacity-80" style={{ color: C.textMuted }}>
         <ArrowLeft size={13} /> Back
       </button>
+
+      {showRestoreBanner && (
+        <div className="mb-4 rounded-xl border px-4 py-3 flex items-center gap-3"
+          style={{ backgroundColor: C.yellowLight, borderColor: "#FBBF24" }}>
+          <span className="text-sm flex-1" style={{ color: "#92400E" }}>
+            You have a saved draft for this lead from a previous session. Restore it?
+          </span>
+          <button onClick={discardDraft}
+            className="text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-white/60"
+            style={{ color: "#92400E" }}>
+            Discard
+          </button>
+          <button onClick={restoreDraft}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg"
+            style={{ backgroundColor: "#92400E", color: "#fff" }}>
+            Restore draft
+          </button>
+        </div>
+      )}
       <div className="mb-6">
         <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>New Flow</p>
         <h1 className="text-2xl font-bold flex items-center gap-2.5" style={{ color: C.textPrimary }}>
