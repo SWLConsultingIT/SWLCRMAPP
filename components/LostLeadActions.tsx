@@ -18,11 +18,12 @@ export default function LostLeadActions({ leadId }: Props) {
     if (busy) return;
     setBusy("recover");
     try {
-      await fetch(`/api/leads/${leadId}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "contacted" }),
-      });
+      const res = await fetch(`/api/leads/${leadId}/recover`, { method: "POST" });
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: "Recovery failed" }));
+        alert(error || "Recovery failed");
+        return;
+      }
       setDone("recover");
       setTimeout(() => router.push("/leads"), 900);
     } finally {
