@@ -1,13 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useState } from "react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import {
   Share2, Mail, Phone, Sparkles, Loader2,
-  ThumbsUp, ThumbsDown, Maximize2, Minimize2, BookOpen,
+  ThumbsUp, ThumbsDown, Maximize2, Minimize2,
 } from "lucide-react";
 
 const gold = C.gold;
@@ -18,6 +16,12 @@ export type StepMessage = {
   type: string;
   channel: string;
   label: string;
+  /** Free-text prompt the client writes describing what THIS step should say. The
+   * V7 Pro generator absorbs this + tone + lead context to write the actual
+   * message at send-time, per lead. Source of truth in the new UX. */
+  user_prompt?: string;
+  /** Legacy: a written-out example message. Still saved for backwards-compat
+   * with old campaigns and as a manual override / preview surface. */
   body: string;
   subject?: string;
 };
@@ -81,48 +85,49 @@ function classifySteps(sequence: { channel: string; daysAfter: number }[]): { ty
   });
 }
 
-// Field-help descriptions, kept in both locales. The English version drops the
-// "Start with 'Gracias por conectar'" instruction so the AI doesn't generate
-// the body in Spanish when the UI is in English.
+// Step descriptions — what each step is FOR (intent guidance, not template prescription).
+// In the new prompt-per-step UX the user writes their own intent below; these are
+// the contextual hint that sits above their textarea.
 const typeDescriptionsByLocale: Record<"es" | "en", Record<string, string>> = {
   es: {
-    LINKEDIN_INTRO_DM: "Primer mensaje real después de que aceptan. Arrancá con 'Gracias por conectar'. Presentate, presentá tu empresa, qué ofrecés y preguntá si les interesa.",
-    LINKEDIN_FOLLOWUP: "Mensaje de seguimiento. Referenciá tu mensaje anterior, sumá valor nuevo (dato, caso, tendencia). No te re-presentes.",
-    EMAIL_INTRO: "Primer email. Subject + body. Presentate vos y tu empresa, conectá su pain con tu solución, incluí prueba, cerrá con CTA.",
-    EMAIL_FOLLOWUP_CROSS: "Primer email después de contactar por otro canal. Referenciá la conversación previa, traé un ángulo nuevo.",
-    EMAIL_FOLLOWUP: "Email de seguimiento. Corto, referenciá el email anterior, una pieza nueva de valor.",
-    CALL_FIRST: "Script de llamada en bullets: Apertura, Contexto, Preguntas, Pitch, Cierre.",
-    CALL_FOLLOWUP: "Script de llamada de seguimiento. Referenciá el contacto previo, ángulo nuevo, pedí meeting.",
+    LINKEDIN_INTRO_DM: "Primer mensaje real después de que aceptan la conexión. Decile a la AI qué querés transmitir.",
+    LINKEDIN_FOLLOWUP: "Seguimiento sobre el mensaje anterior. ¿Qué ángulo nuevo querés traer? (data, caso, tendencia)",
+    EMAIL_INTRO: "Primer email. Tendrá subject + body. ¿Qué pain conectar y qué CTA querés al final?",
+    EMAIL_FOLLOWUP_CROSS: "Primer email después de tocarlos por otro canal. ¿Qué ángulo nuevo?",
+    EMAIL_FOLLOWUP: "Email de seguimiento corto. ¿Qué pieza nueva de valor querés traer?",
+    CALL_FIRST: "Script de llamada. ¿Qué tono, qué preguntas, qué pitch?",
+    CALL_FOLLOWUP: "Script de seguimiento por teléfono. ¿Qué nuevo ángulo y cómo cerrar?",
   },
   en: {
-    LINKEDIN_INTRO_DM: "First real message after they accept the connection. Open with a thank-you for connecting, then introduce yourself, your company, what you offer, and ask if it's relevant.",
-    LINKEDIN_FOLLOWUP: "Follow-up message. Reference the previous message, bring new value (data point, case study, trend). Don't re-introduce yourself.",
-    EMAIL_INTRO: "First email. Subject + body. Introduce yourself and your company, connect their pain point to your solution, include proof, close with a CTA.",
-    EMAIL_FOLLOWUP_CROSS: "First email after contacting on another channel. Reference the previous outreach, bring a new angle.",
-    EMAIL_FOLLOWUP: "Follow-up email. Short, reference the previous email, one new piece of value.",
-    CALL_FIRST: "Call script in bullet points: Opener, Context, Questions, Pitch, Close.",
-    CALL_FOLLOWUP: "Follow-up call script. Reference the previous contact, new angle, ask for meeting.",
+    LINKEDIN_INTRO_DM: "First real message after they accept the connection. Tell the AI what you want this message to convey.",
+    LINKEDIN_FOLLOWUP: "Follow-up to the previous message. What new angle should it bring? (data point, case, trend)",
+    EMAIL_INTRO: "First email — will have subject + body. What pain to connect to, and what CTA at the end?",
+    EMAIL_FOLLOWUP_CROSS: "First email after reaching out on another channel. What new angle?",
+    EMAIL_FOLLOWUP: "Short follow-up email. What new value piece should it bring?",
+    CALL_FIRST: "Call script. What tone, what questions, what pitch?",
+    CALL_FOLLOWUP: "Follow-up call script. What new angle and how to close?",
   },
 };
 
+// Prompt-style placeholders. These show the user HOW to write their intent.
 const typePlaceholdersByLocale: Record<"es" | "en", Record<string, string>> = {
   es: {
-    LINKEDIN_INTRO_DM: "Gracias por conectar, [nombre].\n\nSoy [vendedor] de SWL Consulting, donde ayudamos a empresas de [industria] a...\n\n¿Te interesaría coordinar una charla breve?\n\nGracias,\n[vendedor]\nSWL Consulting",
-    LINKEDIN_FOLLOWUP: "[nombre], volviendo a lo que te comenté sobre [tema].\n\n[Nuevo dato/caso/tendencia relevante]\n\n¿Te resulta relevante?\n\nGracias,\n[vendedor]",
-    EMAIL_INTRO: "Hola [nombre],\n\n[Hook sobre su empresa]\n\nSoy [vendedor] de SWL Consulting — [qué hacemos].\n\n[Pain point → Solución]\n\n[Prueba social]\n\n¿Tendría sentido coordinar 15 min?\n\nGracias,\n[vendedor]",
-    EMAIL_FOLLOWUP_CROSS: "Hola [nombre], te contacté por LinkedIn hace unos días sobre [tema]...",
-    EMAIL_FOLLOWUP: "[nombre], siguiendo con mi email anterior...",
-    CALL_FIRST: "• Apertura: Hola [nombre], soy [vendedor] de SWL Consulting...\n• Contexto: ...\n• Preguntas: ...\n• Pitch: ...\n• Cierre: ¿Coordinamos 15 min?",
-    CALL_FOLLOWUP: "• Apertura: [nombre], soy [vendedor] de SWL Consulting, te escribí por [canal]...\n• Nuevo ángulo: ...\n• Cierre: ...",
+    LINKEDIN_INTRO_DM: "ej: Agradecé la conexión, mencioná que ayudamos a empresas de [industria] a [resultado], y proponé una charla de 15 min para ver si tiene sentido.",
+    LINKEDIN_FOLLOWUP: "ej: Volvé al mensaje anterior con un dato concreto (ej: '6h/semana de tiempo recuperado' en una empresa similar), preguntá si les resuena.",
+    EMAIL_INTRO: "ej: Subject corto y específico. Cuerpo: hook con un dato sobre su empresa, qué hacemos en una línea, conectá su pain con nuestra solución, una prueba social, CTA de 15 min.",
+    EMAIL_FOLLOWUP_CROSS: "ej: Referenciá el ping de LinkedIn, traé un ángulo distinto (caso de cliente similar), CTA suave.",
+    EMAIL_FOLLOWUP: "ej: Una pieza nueva de valor (artículo, dato, comparativa), volvé al CTA.",
+    CALL_FIRST: "ej: Apertura cálida con su nombre y por qué llamás. Pregunta abierta sobre [tema]. Pitch en 2 líneas. Cierre proponiendo 15 min.",
+    CALL_FOLLOWUP: "ej: Referenciá el contacto previo, traé un dato nuevo, cerrá pidiendo 15 min específicos esta semana.",
   },
   en: {
-    LINKEDIN_INTRO_DM: "Thanks for connecting, [name].\n\nI'm [seller] from SWL Consulting, where we help [industry] companies to...\n\nWould you be open to a quick chat?\n\nThanks,\n[seller]\nSWL Consulting",
-    LINKEDIN_FOLLOWUP: "[name], following up on what I mentioned about [topic].\n\n[New data point / case / relevant trend]\n\nDoes that resonate?\n\nThanks,\n[seller]",
-    EMAIL_INTRO: "Hi [name],\n\n[Hook about their company]\n\nI'm [seller] from SWL Consulting — [what we do].\n\n[Pain point → Solution]\n\n[Social proof]\n\nWould it make sense to grab 15 min?\n\nThanks,\n[seller]",
-    EMAIL_FOLLOWUP_CROSS: "Hi [name], I reached out on LinkedIn a few days ago about [topic]...",
-    EMAIL_FOLLOWUP: "[name], following up on my previous email...",
-    CALL_FIRST: "• Opener: Hi [name], I'm [seller] from SWL Consulting...\n• Context: ...\n• Questions: ...\n• Pitch: ...\n• Close: Shall we book 15 min?",
-    CALL_FOLLOWUP: "• Opener: [name], I'm [seller] from SWL Consulting, I reached out via [channel]...\n• New angle: ...\n• Close: ...",
+    LINKEDIN_INTRO_DM: "e.g. Thank them for connecting, mention we help [industry] companies achieve [outcome], propose a 15-min chat to see if it's relevant.",
+    LINKEDIN_FOLLOWUP: "e.g. Refer back to the previous message with a concrete data point (e.g. '6h/week reclaimed at a similar company'), ask if it resonates.",
+    EMAIL_INTRO: "e.g. Short, specific subject. Body: hook with a data point about their company, what we do in one line, connect their pain to our solution, one social proof, soft 15-min CTA.",
+    EMAIL_FOLLOWUP_CROSS: "e.g. Reference the LinkedIn ping, bring a different angle (similar customer case), soft CTA.",
+    EMAIL_FOLLOWUP: "e.g. One new piece of value (article, data point, comparison), bring the CTA back.",
+    CALL_FIRST: "e.g. Warm opener with their name and why you're calling. Open question about [topic]. 2-line pitch. Close proposing 15 minutes.",
+    CALL_FOLLOWUP: "e.g. Reference the previous contact, bring a new data point, close by asking for a specific 15-min slot this week.",
   },
 };
 
@@ -153,22 +158,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   const typeDescriptions = typeDescriptionsByLocale[placeholderLocale];
   const [aiLoading, setAiLoading] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [activeTemplatesCount, setActiveTemplatesCount] = useState<number | null>(null);
-  const [sequences, setSequences] = useState<{ id: string; name: string; description: string | null }[]>([]);
-  const [selectedSequenceId, setSelectedSequenceId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const sb = getSupabaseBrowser();
-    sb.from("message_templates")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "active")
-      .then(({ count }) => setActiveTemplatesCount(count ?? 0));
-    sb.from("message_sequences")
-      .select("id, name, description")
-      .eq("status", "active")
-      .order("updated_at", { ascending: false })
-      .then(({ data }) => setSequences(data ?? []));
-  }, []);
   const toggleExpand = (key: string) => setExpanded(prev => {
     const next = new Set(prev);
     next.has(key) ? next.delete(key) : next.add(key);
@@ -183,7 +173,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   });
   const autoReplies = channelMessages.autoReplies || { positive: "", negative: "", question: "" };
 
-  function updateStep(idx: number, field: "body" | "subject", value: string) {
+  function updateStep(idx: number, field: "body" | "subject" | "user_prompt", value: string) {
     const newSteps = [...steps];
     newSteps[idx] = { ...newSteps[idx], [field]: value };
     onChange({ steps: newSteps, autoReplies });
@@ -199,10 +189,11 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
     setAiLoading(key);
     try {
       const ch = idx !== undefined ? classified[idx]?.channel : "linkedin";
+      const userPrompt = idx !== undefined ? (channelMessages.steps?.[idx]?.user_prompt ?? "") : "";
       const res = await fetch("/api/campaigns/generate-field", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ channel: ch || "linkedin", fieldType, idx, leadId, icpProfileId, language, signals, sequence_id: selectedSequenceId }),
+        body: JSON.stringify({ channel: ch || "linkedin", fieldType, idx, leadId, icpProfileId, language, signals, user_prompt: userPrompt }),
       });
       const data = await res.json();
       if (data.content) {
@@ -253,20 +244,22 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         const crRes = await fetch("/api/campaigns/generate-field", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channel: "linkedin", fieldType: "connectionNote", leadId, icpProfileId, language, signals, sequence_id: selectedSequenceId }),
+          body: JSON.stringify({ channel: "linkedin", fieldType: "connectionNote", leadId, icpProfileId, language, signals }),
         });
         const crData = await crRes.json();
         if (crData.content) connRequest = crData.content;
         onChange({ connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
       }
 
-      // Generate each step sequentially
+      // Generate each step sequentially. Each one passes the user's prompt
+      // for that step so the API can write the message to the user's intent.
       for (let i = 0; i < classified.length; i++) {
         const ft = stepToFieldType(classified[i].type);
+        const stepUserPrompt = channelMessages.steps?.[i]?.user_prompt ?? "";
         const res = await fetch("/api/campaigns/generate-field", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channel: classified[i].channel, fieldType: ft, idx: i, leadId, icpProfileId, language, signals, sequence_id: selectedSequenceId }),
+          body: JSON.stringify({ channel: classified[i].channel, fieldType: ft, idx: i, leadId, icpProfileId, language, signals, user_prompt: stepUserPrompt }),
         });
         const data = await res.json();
         if (data.content) {
@@ -280,7 +273,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         const res = await fetch("/api/campaigns/generate-field", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channel: "linkedin", fieldType: replyType, leadId, icpProfileId, language, signals, sequence_id: selectedSequenceId }),
+          body: JSON.stringify({ channel: "linkedin", fieldType: replyType, leadId, icpProfileId, language, signals }),
         });
         const data = await res.json();
         if (data.content) {
@@ -315,52 +308,48 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
 
   return (
     <div className="space-y-4">
-      {/* ═══ GENERATE ALL ═══ */}
-      <div className="rounded-xl border px-5 py-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <div className="flex items-center justify-between">
+      {/* ═══ AI ASSISTANT — preview generation using your prompts ═══ */}
+      <div
+        className="rounded-2xl border px-5 py-4 relative overflow-hidden"
+        style={{
+          background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 5%, var(--c-card)) 0%, var(--c-card) 100%)`,
+          borderColor: `color-mix(in srgb, ${gold} 22%, transparent)`,
+          boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
+        }}
+      >
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <Sparkles size={18} style={{ color: gold }} />
+            <div
+              className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0"
+              style={{
+                background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 14%, transparent), color-mix(in srgb, ${gold} 4%, transparent))`,
+                border: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
+                boxShadow: `0 0 14px color-mix(in srgb, ${gold} 16%, transparent)`,
+              }}
+            >
+              <Sparkles size={16} style={{ color: gold }} />
+            </div>
             <div>
-              <p className="text-sm font-medium" style={{ color: C.textPrimary }}>AI Message Assistant</p>
-              <p className="text-xs" style={{ color: C.textMuted }}>Auto-fill all outreach messages and auto-replies using company & lead data</p>
+              <p className="text-sm font-bold" style={{ color: C.textPrimary }}>AI Message Generator</p>
+              <p className="text-[11px]" style={{ color: C.textMuted }}>
+                Write the intent for each step below. The AI generates the actual message per lead at send time, using your brand voice and the lead&apos;s context.
+              </p>
             </div>
           </div>
-          <button onClick={generateAll} disabled={!!aiLoading}
-            className="flex items-center gap-2 rounded-lg px-5 py-2 text-xs font-semibold transition-opacity shrink-0 disabled:opacity-50"
-            style={{ backgroundColor: gold, color: "#04070d" }}>
+          <button
+            onClick={generateAll}
+            disabled={!!aiLoading}
+            className="flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-[opacity,transform,box-shadow] duration-150 shrink-0 disabled:opacity-50 hover:opacity-95"
+            style={{
+              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`,
+              color: "#04070d",
+              boxShadow: `0 2px 12px color-mix(in srgb, ${gold} 28%, transparent)`,
+            }}
+          >
             {aiLoading === "all" ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-            {aiLoading === "all" ? "Generating…" : "Generate All with AI"}
+            {aiLoading === "all" ? "Previewing…" : "Preview all"}
           </button>
         </div>
-        {sequences.length > 0 && (
-          <div className="mt-3 pt-3 border-t flex items-center gap-2 text-[11px]" style={{ borderColor: C.border }}>
-            <span className="font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Sequence</span>
-            <select value={selectedSequenceId ?? ""}
-              onChange={e => setSelectedSequenceId(e.target.value || null)}
-              className="text-xs px-2 py-1 rounded border outline-none flex-1 max-w-md"
-              style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textBody }}>
-              <option value="">— AI auto-pick (default) —</option>
-              {sequences.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-            <span className="text-[10px]" style={{ color: C.textMuted }}>
-              {selectedSequenceId ? "Following the sequence in order" : "AI mixes templates from library"}
-            </span>
-          </div>
-        )}
-        {activeTemplatesCount !== null && (
-          <div className="mt-3 pt-3 border-t flex items-center gap-2 text-[11px]" style={{ borderColor: C.border, color: C.textMuted }}>
-            <BookOpen size={11} style={{ color: gold }} />
-            <span>
-              AI references your brand voice
-              {activeTemplatesCount > 0
-                ? <> + <span className="font-semibold" style={{ color: C.textBody }}>{activeTemplatesCount} active template{activeTemplatesCount === 1 ? "" : "s"}</span> from your library.</>
-                : <>. <span className="font-semibold" style={{ color: C.textBody }}>No templates yet.</span></>}
-            </span>
-            <Link href="/voice" className="ml-auto font-semibold hover:underline" style={{ color: gold }}>
-              {activeTemplatesCount === 0 ? "Add templates →" : "Manage →"}
-            </Link>
-          </div>
-        )}
       </div>
 
       {/* ═══ LINKEDIN CONNECTION REQUEST (always shown if LinkedIn is in sequence) ═══ */}
@@ -458,15 +447,15 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                   </div>
                 </div>
 
-                {/* Description */}
+                {/* Description (intent guidance) */}
                 <div className="px-5 pt-3">
                   <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
-                    {typeDescriptions[cls.type] || "Write your message"}
+                    {typeDescriptions[cls.type] || "Write what this message should say."}
                   </p>
                 </div>
 
                 {/* Fields */}
-                <div className="px-5 py-3 space-y-2">
+                <div className="px-5 py-3 space-y-3">
                   {isEmail && (
                     <input
                       className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
@@ -476,18 +465,52 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                       placeholder={inlinePlaceholders.subject}
                     />
                   )}
-                  <textarea
-                    rows={expanded.has(`step-${i}`) ? 18 : (cls.type === "EMAIL_INTRO" ? 7 : cls.type.includes("CALL") ? 6 : cls.type === "LINKEDIN_CONNECTION_REQUEST" ? 2 : 5)}
-                    className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
-                    style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
-                    value={step?.body || ""}
-                    onChange={e => updateStep(i, "body", e.target.value)}
-                    placeholder={typePlaceholders[cls.type] || inlinePlaceholders.fallback}
-                  />
-                  {cls.type === "LINKEDIN_CONNECTION_REQUEST" && (
-                    <p className="text-xs text-right" style={{ color: (step?.body?.length || 0) > 300 ? C.red : C.textDim }}>
-                      {step?.body?.length || 0}/300
-                    </p>
+
+                  {/* PRIMARY: prompt — what the user wants this message to say.
+                     The V7 Pro generator absorbs this + tone + lead context to
+                     write the actual message per lead at send-time. */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
+                        What should this message say?
+                      </label>
+                      <span className="text-[10px]" style={{ color: C.textDim }}>
+                        AI will write the actual message per lead
+                      </span>
+                    </div>
+                    <textarea
+                      rows={expanded.has(`step-${i}`) ? 8 : 4}
+                      className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+                      style={{
+                        borderColor: `color-mix(in srgb, ${gold} 25%, transparent)`,
+                        color: C.textPrimary,
+                        backgroundColor: `color-mix(in srgb, ${gold} 3%, var(--c-bg))`,
+                      }}
+                      value={step?.user_prompt ?? step?.body ?? ""}
+                      onChange={e => updateStep(i, "user_prompt", e.target.value)}
+                      placeholder={typePlaceholders[cls.type] || inlinePlaceholders.fallback}
+                    />
+                  </div>
+
+                  {/* SECONDARY: optional manual override — only visible when expanded.
+                     Lets power users pin exact copy instead of letting AI write. */}
+                  {expanded.has(`step-${i}`) && (
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-[0.16em] mb-1.5 block" style={{ color: C.textDim }}>
+                        Manual override (optional)
+                      </label>
+                      <textarea
+                        rows={6}
+                        className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+                        style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
+                        value={step?.body || ""}
+                        onChange={e => updateStep(i, "body", e.target.value)}
+                        placeholder="Leave empty to let AI write it. Or pin exact copy here to bypass AI for this step."
+                      />
+                      <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
+                        If set, this exact text is used and AI is bypassed for this step.
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
