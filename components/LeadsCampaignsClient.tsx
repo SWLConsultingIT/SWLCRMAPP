@@ -753,8 +753,14 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
   return (
     <div>
       {/* Stat bar */}
-      <div className="flex items-center gap-6 mb-6 px-5 py-3 rounded-xl border"
-        style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div
+        className="flex items-center gap-6 mb-6 px-6 py-4 rounded-2xl border flex-wrap"
+        style={{
+          backgroundColor: C.card,
+          borderColor: C.border,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+        }}
+      >
         {[
           { label: "Total Leads",      value: stats.totalLeads,        color: C.textBody },
           { label: "Active Campaigns", value: stats.activeCampaigns,   color: gold },
@@ -763,32 +769,50 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
         ].map((s, i, arr) => (
           <div key={s.label} className="flex items-center gap-4">
             <div>
-              <span className="text-xl font-bold tabular-nums" style={{ color: s.color }}>{s.value}</span>
-              <span className="text-xs ml-2 font-medium" style={{ color: C.textMuted }}>{s.label}</span>
+              <span
+                className="text-2xl font-bold tabular-nums"
+                style={{
+                  color: s.color,
+                  fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {s.value}
+              </span>
+              <span className="text-[11px] ml-2 font-semibold uppercase tracking-[0.08em]" style={{ color: C.textMuted }}>{s.label}</span>
             </div>
-            {i < arr.length - 1 && <div className="h-5 w-px" style={{ backgroundColor: C.border }} />}
+            {i < arr.length - 1 && <div className="h-6 w-px" style={{ backgroundColor: C.border }} />}
           </div>
         ))}
       </div>
 
       {/* ═══ Main view toggle: Leads / Campaigns ═══ */}
-      <div className="flex items-center gap-1 mb-5">
+      <div className="flex items-center gap-1.5 mb-5">
         {([
           { key: "leads" as const,     label: "Leads",     count: allLeads.length },
           { key: "campaigns" as const, label: "Campaigns", count: activeGroups.length },
         ]).map(v => {
           const isActive = mainView === v.key;
           return (
-            <button key={v.key} onClick={() => { setMainView(v.key); setSearch(""); }}
-              className="px-5 py-2.5 rounded-lg text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
+            <button
+              key={v.key}
+              onClick={() => { setMainView(v.key); setSearch(""); }}
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] duration-150 hover:opacity-95"
               style={{
-                backgroundColor: isActive ? gold : C.bg,
-                color: isActive ? "#fff" : C.textMuted,
-                border: `1px solid ${isActive ? gold : C.border}`,
-              }}>
+                background: isActive ? `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))` : C.card,
+                color: isActive ? "#04070d" : C.textBody,
+                border: `1px solid ${isActive ? "transparent" : C.border}`,
+                boxShadow: isActive ? `0 4px 16px color-mix(in srgb, ${gold} 28%, transparent)` : "none",
+              }}
+            >
               {v.label}
-              <span className="ml-2 text-xs font-bold px-1.5 py-0.5 rounded-full"
-                style={{ backgroundColor: isActive ? "rgba(255,255,255,0.2)" : "#F3F4F6", color: isActive ? "#fff" : C.textDim }}>
+              <span
+                className="ml-2 text-xs font-bold px-1.5 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: isActive ? "rgba(4,7,13,0.14)" : C.cardHov,
+                  color: isActive ? "#04070d" : C.textDim,
+                }}
+              >
                 {v.count}
               </span>
             </button>
@@ -807,17 +831,28 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
             ].map((t, i) => {
               const isActive = leadsTab === i;
               return (
-                <button key={t.label} onClick={() => setLeadsTab(i)}
-                  className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-[opacity,transform,box-shadow,background-color,border-color] relative"
-                  style={{ color: isActive ? t.color : C.textMuted }}>
+                <button
+                  key={t.label}
+                  onClick={() => setLeadsTab(i)}
+                  className="flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-[color,background-color] duration-150 relative"
+                  style={{
+                    color: isActive ? t.color : C.textMuted,
+                    backgroundColor: isActive ? `color-mix(in srgb, ${t.color} 6%, transparent)` : "transparent",
+                  }}
+                >
                   {t.label}
                   {t.count > 0 && (
-                    <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
-                      style={{ backgroundColor: isActive ? `${t.color}15` : "#F3F4F6", color: isActive ? t.color : C.textDim }}>
+                    <span
+                      className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+                      style={{
+                        backgroundColor: isActive ? `color-mix(in srgb, ${t.color} 15%, transparent)` : C.cardHov,
+                        color: isActive ? t.color : C.textDim,
+                      }}
+                    >
                       {t.count}
                     </span>
                   )}
-                  {isActive && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: t.color }} />}
+                  {isActive && <div className="absolute bottom-0 left-0 right-0 h-[2px]" style={{ backgroundColor: t.color }} />}
                 </button>
               );
             })}

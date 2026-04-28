@@ -116,14 +116,14 @@ export default function OpportunitiesClient({ leads }: Props) {
 
       {/* Table */}
       {filtered.length === 0 ? (
-        <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="rounded-2xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
           <Trophy size={32} className="mx-auto mb-3" style={{ color: C.textDim }} />
           <p className="text-sm font-medium" style={{ color: C.textBody }}>
             {search || profileFilter !== "all" || channelFilter !== "all" ? "No opportunities match your filters" : "No opportunities yet"}
           </p>
         </div>
       ) : (
-        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
           <table className="w-full text-left">
             <thead>
               <tr style={{ backgroundColor: C.bg }}>

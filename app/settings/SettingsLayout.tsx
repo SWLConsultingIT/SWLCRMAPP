@@ -91,7 +91,7 @@ function ProfileSection({ user }: { user: AuthUser | null }) {
       <SectionHeader icon={User} title={t("profile.title")} description={t("profile.subtitle")} />
 
       {/* Identity card */}
-      <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="rounded-2xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
         <div className="flex items-center gap-4 mb-5">
           <div className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold shrink-0"
             style={{ background: `linear-gradient(135deg, ${roleColor}, ${roleColor}CC)`, color: "#fff" }}>
@@ -109,7 +109,7 @@ function ProfileSection({ user }: { user: AuthUser | null }) {
       </div>
 
       {/* Security */}
-      <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="rounded-2xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("profile.password")}</h3>
         </div>
@@ -137,7 +137,7 @@ function PreferencesSection() {
     <div className="space-y-5">
       <SectionHeader icon={SlidersHorizontal} title={t("prefs.title")} description={t("prefs.subtitle")} />
 
-      <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="rounded-2xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
         <h3 className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>{t("prefs.theme")}</h3>
         <p className="text-xs mb-4" style={{ color: C.textMuted }}>{t("prefs.themeHelp")}</p>
         <div className="grid grid-cols-2 gap-3">
@@ -205,7 +205,7 @@ function BrandingCard() {
   }
 
   return (
-    <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+    <div className="rounded-2xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
       <div className="flex items-center justify-between mb-1">
         <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Branding</h3>
       </div>
@@ -268,7 +268,7 @@ function LanguageCard() {
     { id: "es", label: "Español", flag: "🇦🇷" },
   ];
   return (
-    <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+    <div className="rounded-2xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
       <h3 className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>{t("prefs.language")}</h3>
       <p className="text-xs mb-4" style={{ color: C.textMuted }}>{t("prefs.languageHelp")}</p>
       <div className="grid grid-cols-2 gap-3">
@@ -309,7 +309,7 @@ function OperationsSection({ callMode }: { callMode: "manual" | "auto" }) {
     <div className="space-y-5">
       <SectionHeader icon={Phone} title={t("ops.title")} description={t("ops.subtitle")} />
 
-      <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="rounded-2xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
         <div className="mb-4">
           <h3 className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>{t("ops.callClass")}</h3>
           <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
@@ -339,24 +339,45 @@ function IntegrationsSection() {
 
       <div className="space-y-3">
         {integrations.map(i => (
-          <div key={i.name} className="rounded-xl border p-5 flex items-center gap-4"
-            style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0"
-              style={{ backgroundColor: `${i.color}15` }}>
+          <div
+            key={i.name}
+            className="rounded-2xl border p-5 flex items-center gap-4 transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-md"
+            style={{
+              background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${i.color} 4%, var(--c-card)) 100%)`,
+              borderColor: C.border,
+              boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+            }}
+          >
+            <div
+              className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0"
+              style={{
+                background: `linear-gradient(135deg, color-mix(in srgb, ${i.color} 14%, transparent), color-mix(in srgb, ${i.color} 4%, transparent))`,
+                border: `1px solid color-mix(in srgb, ${i.color} 22%, transparent)`,
+                boxShadow: `0 0 14px color-mix(in srgb, ${i.color} 16%, transparent)`,
+              }}
+            >
               {i.icon}
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{i.name}</p>
-                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
-                  style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>
+                <span
+                  className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  style={{
+                    backgroundColor: "#DCFCE7",
+                    color: "#16A34A",
+                    border: "1px solid color-mix(in srgb, #16A34A 18%, transparent)",
+                  }}
+                >
                   <CheckCircle2 size={9} /> {t("int.connected")}
                 </span>
               </div>
               <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{i.description}</p>
             </div>
-            <button className="text-[10px] font-semibold px-3 py-1.5 rounded-lg border"
-              style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
+            <button
+              className="text-xs font-semibold px-3.5 py-2 rounded-xl border transition-colors duration-150"
+              style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}
+            >
               {t("int.manage")}
             </button>
           </div>
@@ -369,13 +390,29 @@ function IntegrationsSection() {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function SectionHeader({ icon: Icon, title, description }: { icon: typeof User; title: string; description: string }) {
   return (
-    <div className="flex items-start gap-3 pb-4 border-b" style={{ borderColor: C.border }}>
-      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${C.gold} 8%, transparent)` }}>
-        <Icon size={16} style={{ color: C.gold }} />
+    <div className="flex items-start gap-3.5 pb-5 border-b" style={{ borderColor: C.border }}>
+      <div
+        className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
+        style={{
+          background: `linear-gradient(135deg, color-mix(in srgb, ${C.gold} 14%, transparent), color-mix(in srgb, ${C.gold} 4%, transparent))`,
+          border: `1px solid color-mix(in srgb, ${C.gold} 22%, transparent)`,
+          boxShadow: `0 0 18px color-mix(in srgb, ${C.gold} 16%, transparent)`,
+        }}
+      >
+        <Icon size={18} style={{ color: C.gold }} />
       </div>
       <div>
-        <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>{title}</h2>
-        <p className="text-xs" style={{ color: C.textMuted }}>{description}</p>
+        <h2
+          className="text-lg font-bold"
+          style={{
+            color: C.textPrimary,
+            fontFamily: "var(--font-outfit), system-ui, sans-serif",
+            letterSpacing: "-0.01em",
+          }}
+        >
+          {title}
+        </h2>
+        <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{description}</p>
       </div>
     </div>
   );
@@ -387,6 +424,10 @@ function LogoutButton({ router }: { router: ReturnType<typeof useRouter> }) {
   async function handleLogout() {
     setLoading(true);
     await fetch("/api/auth/logout", { method: "POST" });
+    try {
+      localStorage.removeItem("swl-theme");
+      localStorage.removeItem("swl-locale");
+    } catch {}
     router.push("/login");
     router.refresh();
   }

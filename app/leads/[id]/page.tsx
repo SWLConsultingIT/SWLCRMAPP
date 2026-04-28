@@ -223,22 +223,48 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       <Breadcrumb crumbs={[{ label: "Leads & Campaigns", href: "/leads" }, { label: lead.company_name ?? "Contact" }, { label: contactName }]} />
 
       {/* ═══ CONTACT HEADER ═══ */}
-      <div className="rounded-xl border mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div
+        className="rounded-2xl border mb-6 relative overflow-hidden"
+        style={{
+          backgroundColor: C.card,
+          borderColor: C.border,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)",
+        }}
+      >
+        <div
+          className="absolute inset-x-0 top-0 h-[3px]"
+          style={{
+            background: `linear-gradient(90deg, transparent 0%, ${gold} 30%, color-mix(in srgb, ${gold} 72%, white) 50%, ${gold} 70%, transparent 100%)`,
+          }}
+        />
 
         {/* Main row */}
-        <div className="p-5 flex items-start justify-between gap-6">
+        <div className="p-6 flex items-start justify-between gap-6">
 
           {/* Left: Avatar + Name + Badges */}
           <div className="flex items-start gap-4 flex-1">
             {/* Avatar */}
-            <div className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold text-white shrink-0"
-              style={{ backgroundColor: avatarBg }}>
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center text-lg font-bold text-white shrink-0"
+              style={{
+                background: `linear-gradient(135deg, ${avatarBg}, color-mix(in srgb, ${avatarBg} 75%, white))`,
+                boxShadow: `0 6px 20px color-mix(in srgb, ${avatarBg} 28%, transparent)`,
+                fontFamily: "var(--font-outfit), system-ui, sans-serif",
+              }}
+            >
               {initials}
             </div>
 
             {/* Name block */}
             <div>
-              <h1 className="text-xl font-bold" style={{ color: C.textPrimary }}>
+              <h1
+                className="text-[22px] font-bold leading-tight"
+                style={{
+                  color: C.textPrimary,
+                  fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                  letterSpacing: "-0.02em",
+                }}
+              >
                 {lead.primary_first_name} {lead.primary_last_name}
               </h1>
               <p className="text-sm mt-0.5" style={{ color: C.textMuted }}>
@@ -320,17 +346,35 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         </div>
 
         {/* Stats bar */}
-        <div className="mx-5 mb-4 px-5 py-3 rounded-lg grid grid-cols-4 gap-4"
-          style={{ backgroundColor: goldLight, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 20%, transparent)` }}>
+        <div
+          className="mx-6 mb-5 px-5 py-4 rounded-xl grid grid-cols-4 gap-4 relative overflow-hidden"
+          style={{
+            background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 8%, var(--c-card)) 0%, color-mix(in srgb, ${gold} 4%, var(--c-card)) 100%)`,
+            border: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
+          }}
+        >
+          <div
+            className="absolute -top-12 -right-12 w-32 h-32 rounded-full pointer-events-none opacity-50"
+            style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 14%, transparent) 0%, transparent 70%)` }}
+          />
           {[
             { label: "Messages Sent",  value: totalMsgsSent },
             { label: "Replies",        value: totalReplies },
             { label: "Positive",       value: positiveReplies },
             { label: "Campaign Step",  value: campaign ? `${currentStep}/${steps.length}` : "—" },
           ].map(s => (
-            <div key={s.label} className="text-center">
-              <p className="text-xl font-bold" style={{ color: C.textPrimary }}>{s.value}</p>
-              <p className="text-xs" style={{ color: C.textMuted }}>{s.label}</p>
+            <div key={s.label} className="text-center relative">
+              <p
+                className="text-2xl font-bold tabular-nums"
+                style={{
+                  color: C.textPrimary,
+                  fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {s.value}
+              </p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] mt-0.5" style={{ color: C.textMuted }}>{s.label}</p>
             </div>
           ))}
         </div>
@@ -338,7 +382,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
       {/* ═══ CAMPAIGN STEP PROGRESS (horizontal stepper) ═══ */}
       {steps.length > 0 ? (
-        <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="rounded-2xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
           <div className="flex items-center justify-between mb-8">
             <div>
               <p className="text-sm font-bold uppercase tracking-wider" style={{ color: C.textPrimary, letterSpacing: "0.08em" }}>
@@ -435,7 +479,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           </div>
         </div>
       ) : (
-        <div className="rounded-xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="rounded-2xl border p-6 mb-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-bold uppercase tracking-wider" style={{ color: C.textPrimary, letterSpacing: "0.08em" }}>
@@ -472,7 +516,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           <div className="space-y-5">
 
             {/* About This Person */}
-            <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
               <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>About This Person</h3>
 
               {/* Role + Seniority */}
@@ -581,7 +625,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
             {/* Company Info */}
             {lead.company_name && (
-              <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
                 <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Company</h3>
                 <div className="flex items-start gap-4 mb-4">
                   <div className="w-11 h-11 rounded-xl flex items-center justify-center text-base font-bold shrink-0"
@@ -630,7 +674,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
             {/* Tech Stack & Keywords */}
             {(technologies.length > 0 || keywords.length > 0) && (
-              <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
                 <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Tech Stack & Keywords</h3>
                 {technologies.length > 0 && (
                   <div className={keywords.length > 0 ? "mb-4" : ""}>
@@ -663,7 +707,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
             {/* Industry Context */}
             {lead.industry_trends && (
-              <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
                 <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Industry Context</h3>
                 <p className="text-sm leading-relaxed" style={{ color: C.textBody }}>{lead.industry_trends}</p>
               </div>
@@ -671,7 +715,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
             {/* Social Activity — this person's posts */}
             {(lead.recent_linkedin_post || lead.recent_ig_post || lead.twitter_last_posts) && (
-              <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
                 <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Recent Social Activity</h3>
                 <div className="space-y-3">
                   {lead.recent_linkedin_post && (
@@ -719,7 +763,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
             {/* Lead Source */}
             {(lead.source_universe || lead.source_tool) && (
-              <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <div className="rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
                 <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Lead Source</h3>
                 <div className="space-y-2 text-sm">
                   {lead.source_tool && (
@@ -748,7 +792,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
             {/* Career / Education */}
             {lead.primary_career && (
-              <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
                 <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Career & Education</h3>
                 <div className="space-y-0">
                   {lead.primary_career.split("\n").filter(Boolean).map((item: string, idx: number) => (
@@ -773,7 +817,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
             {/* Website Intelligence */}
             {(lead.website_summary || lead.recent_website_news) && (
-              <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
                 <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Website Intelligence</h3>
                 {lead.website_summary && (
                   <div className="mb-3">
@@ -899,7 +943,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   handle: lead.company_name,
                 },
               ].filter(Boolean).map((post: any, idx: number) => (
-                <div key={idx} className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                <div key={idx} className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
                   {/* Post header */}
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
@@ -924,7 +968,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               ))}
             </div>
           ) : (
-            <div className="rounded-xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <div className="rounded-2xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
               <p className="text-sm" style={{ color: C.textDim }}>No social content scraped for this contact yet.</p>
             </div>
           )}
@@ -944,7 +988,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             </div>
           </div>
           {calls.length === 0 ? (
-            <div className="rounded-xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <div className="rounded-2xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
               <Phone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
               <p className="text-sm font-medium" style={{ color: C.textBody }}>No calls recorded yet</p>
               <p className="text-xs mt-1" style={{ color: C.textMuted }}>

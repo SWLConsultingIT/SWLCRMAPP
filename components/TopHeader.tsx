@@ -76,6 +76,10 @@ export default function TopHeader() {
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
+    try {
+      localStorage.removeItem("swl-theme");
+      localStorage.removeItem("swl-locale");
+    } catch {}
     router.push("/login");
   }
 

@@ -268,7 +268,7 @@ export default async function ReportsPage() {
           { label: "Best Campaign", value: data.bestCampaign ? `${data.bestCampaign.conversionRate}%` : "—", sub: data.bestCampaign?.name ?? "no data", color: "#7C3AED", icon: Trophy },
           { label: "Best Channel", value: data.bestChannel ? `${data.bestChannel.responseRate}%` : "—", sub: data.bestChannel?.channel ?? "no data", color: "#F97316", icon: Target },
         ].map(({ label, value, sub, color, icon: Icon }) => (
-          <div key={label} className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${color}` }}>
+          <div key={label} className="rounded-2xl border p-4 relative overflow-hidden" style={{ background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${color} 5%, var(--c-card)) 100%)`, borderColor: C.border, borderTop: `3px solid ${color}`, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{label}</span>
               <div className="rounded-lg p-1.5" style={{ backgroundColor: `${color}15` }}>
@@ -282,7 +282,7 @@ export default async function ReportsPage() {
       </div>
 
       {/* ═══ CAMPAIGN COMPARISON TABLE ═══ */}
-      <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="rounded-2xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
         <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
           <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Campaign Comparison</h2>
           <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Performance breakdown by campaign</p>
@@ -349,7 +349,7 @@ export default async function ReportsPage() {
       {/* ═══ TWO COLUMNS: ICP Performance + Channel Analysis ═══ */}
       <div className="grid grid-cols-2 gap-6 mb-6">
         {/* ICP Profile Performance */}
-        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
           <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
             <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>ICP Profile Performance</h2>
             <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Which profiles generate the best results</p>
@@ -395,7 +395,7 @@ export default async function ReportsPage() {
         </div>
 
         {/* Channel Analysis */}
-        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
           <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
             <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Channel Analysis</h2>
             <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Performance by outreach channel</p>
@@ -449,7 +449,7 @@ export default async function ReportsPage() {
       {/* ═══ TWO COLUMNS: Reply Breakdown + Weekly Trend ═══ */}
       <div className="grid grid-cols-2 gap-6 mb-6">
         {/* Reply classification breakdown */}
-        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
           <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
             <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Reply Classification</h2>
             <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>How leads are responding</p>
@@ -483,7 +483,7 @@ export default async function ReportsPage() {
         </div>
 
         {/* Weekly trend */}
-        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
           <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
             <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Weekly Trend</h2>
             <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Replies over the last 8 weeks</p>
@@ -523,7 +523,7 @@ export default async function ReportsPage() {
       {/* ═══ SELLER PERFORMANCE + FORECAST ═══ */}
       <div className="grid grid-cols-3 gap-6 mb-6">
         {/* Seller Performance (2 cols) */}
-        <div className="col-span-2 rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="col-span-2 rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
           <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
             <div>
               <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Seller Performance</h2>
@@ -582,7 +582,7 @@ export default async function ReportsPage() {
         </div>
 
         {/* Forecast */}
-        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+        <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `3px solid ${gold}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
           <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
             <div className="flex items-center gap-2">
               <TrendingUp size={14} style={{ color: gold }} />
@@ -626,7 +626,7 @@ export default async function ReportsPage() {
 
       {/* ═══ RESPONSE BY STEP NUMBER ═══ */}
       {Object.keys(data.stepReplies).length > 0 && (
-        <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
           <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
             <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Response by Sequence Step</h2>
             <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Which step in the sequence generates the most replies</p>

@@ -263,16 +263,45 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
       <Breadcrumb crumbs={[{ label: "Leads & Campaigns", href: "/leads" }, { label: "Lost Leads" }, { label: name }]} />
 
       {/* ═══ HEADER CARD ═══ */}
-      <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border, borderLeftWidth: 4, borderLeftColor: C.red }}>
+      <div
+        className="rounded-2xl border overflow-hidden mb-6 relative"
+        style={{
+          backgroundColor: C.card,
+          borderColor: C.border,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)",
+        }}
+      >
+        <div
+          className="absolute inset-x-0 top-0 h-[3px]"
+          style={{
+            background: `linear-gradient(90deg, transparent 0%, ${C.red} 30%, color-mix(in srgb, ${C.red} 72%, white) 50%, ${C.red} 70%, transparent 100%)`,
+          }}
+        />
         <div className="p-6">
           <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold shrink-0"
-              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold shrink-0"
+              style={{
+                background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`,
+                color: "#fff",
+                fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                boxShadow: `0 6px 20px color-mix(in srgb, ${gold} 28%, transparent)`,
+              }}
+            >
               {((lead.company ?? name)[0] ?? "?").toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <h1 className="text-xl font-bold" style={{ color: C.textPrimary }}>{name}</h1>
+                <h1
+                  className="text-[22px] font-bold leading-tight"
+                  style={{
+                    color: C.textPrimary,
+                    fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  {name}
+                </h1>
                 {lead.is_priority && <Star size={14} fill={gold} stroke={gold} />}
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: badge.bg, color: badge.color }}>{badge.label}</span>
               </div>
@@ -313,7 +342,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
           { label: "Replies", value: stats.totalReplies, color: lossReason === "negative" ? C.red : C.textDim },
           { label: "Days Active", value: stats.daysSinceCreated, color: C.textBody },
         ].map(s => (
-          <div key={s.label} className="rounded-xl border p-3 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div key={s.label} className="rounded-2xl border p-3.5 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
             <p className="text-lg font-bold tabular-nums" style={{ color: s.color }}>{s.value}</p>
             <p className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{s.label}</p>
           </div>
@@ -326,7 +355,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
         <div className="col-span-2 space-y-4">
           {/* Profile */}
           {profile && (
-            <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <div className="rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
               <div className="flex items-center gap-1.5 mb-2">
                 <Target size={12} style={{ color: gold }} />
                 <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: gold }}>Lead Miner Profile</span>
@@ -339,7 +368,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
           )}
 
           {/* Campaigns used */}
-          <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
             <div className="flex items-center gap-1.5 mb-3">
               <Megaphone size={12} style={{ color: gold }} />
               <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: gold }}>Campaigns Attempted</span>
@@ -380,7 +409,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
           </div>
 
           {/* Loss analysis placeholder */}
-          <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${C.red}` }}>
+          <div className="rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `3px solid ${C.red}`, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
             <div className="flex items-center gap-1.5 mb-3">
               <TrendingDown size={12} style={{ color: C.red }} />
               <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.red }}>Loss Analysis</span>
@@ -415,7 +444,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
 
         {/* RIGHT: Timeline (3 cols) */}
         <div className="col-span-3">
-          <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
             <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
               <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Outreach Timeline</h2>
               <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Complete history of interactions with this lead</p>
@@ -503,7 +532,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Actions */}
-      <div className="flex items-center justify-between rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="flex items-center justify-between rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
         <Link href="/leads" className="text-xs font-medium hover:underline flex items-center gap-1" style={{ color: C.textMuted }}>
           <ArrowLeft size={12} /> Back to Leads & Campaigns
         </Link>
