@@ -187,6 +187,10 @@ const en: Dict = {
   "wiz.step.manualLabel": "Or write the message manually",
   "wiz.step.manualHint": "If you write something here it overrides the AI for this step.",
   "wiz.step.manualPlaceholder": "Leave empty to let AI write it. Or paste exact copy to bypass the AI.",
+  // New "prompt as helper below the message" UX
+  "wiz.step.promptHelper": "Prompt for AI (optional)",
+  "wiz.step.promptHelperHint": "Describe what this message should say. The AI uses it when generating.",
+  "wiz.step.promptHelperPlaceholder": "e.g. Mention our company, propose a 15-min call about [topic], end with a soft CTA.",
   "wiz.connReq.title": "LinkedIn Connection Request",
   "wiz.connReq.desc": "Sent when requesting to connect. The orchestrator skips this if already connected.",
   "wiz.connReq.hint": "Short note: who you are + why you want to connect. Max 300 characters.",
@@ -383,6 +387,10 @@ const es: Dict = {
   "wiz.step.manualLabel": "O escribí el mensaje manualmente",
   "wiz.step.manualHint": "Si escribís algo acá, sobreescribe a la AI en este paso.",
   "wiz.step.manualPlaceholder": "Dejá vacío para que la AI lo escriba. O pegá copy exacto para saltearla.",
+  // New "prompt as helper below the message" UX
+  "wiz.step.promptHelper": "Prompt para AI (opcional)",
+  "wiz.step.promptHelperHint": "Describí qué debería decir este mensaje. La AI lo usa al generar.",
+  "wiz.step.promptHelperPlaceholder": "ej: Mencionar nuestra empresa, proponer una llamada de 15 min sobre [tema], cerrar con un CTA suave.",
   "wiz.connReq.title": "Solicitud de conexión en LinkedIn",
   "wiz.connReq.desc": "Se envía al pedir conexión. El orquestador se la saltea si ya están conectados.",
   "wiz.connReq.hint": "Nota corta: quién sos + por qué querés conectar. Máx 300 caracteres.",

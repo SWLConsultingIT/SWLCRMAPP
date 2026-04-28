@@ -390,54 +390,48 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
               </button>
             </div>
           </div>
-          <div className="px-5 py-4 space-y-3">
+          <div className="px-5 py-4 space-y-2">
             <p className="text-xs" style={{ color: C.textMuted }}>{t("wiz.connReq.hint")}</p>
 
-            {/* PRIMARY: prompt for the connection note */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
-                  {t("wiz.step.promptLabel")}
+            {/* PRIMARY: the message. AI generation lands here. Always editable. */}
+            <textarea
+              rows={expanded.has("conn") ? 10 : 2}
+              className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+              style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
+              value={channelMessages.connectionRequest || ""}
+              onChange={e => onChange({ ...channelMessages, connectionRequest: e.target.value })}
+              placeholder={inlinePlaceholders.connectionRequest}
+            />
+            <p className="text-xs text-right" style={{ color: (channelMessages.connectionRequest?.length || 0) > 300 ? C.red : C.textDim }}>
+              {channelMessages.connectionRequest?.length || 0}/300
+            </p>
+
+            {/* SECONDARY: small prompt helper for AI — optional. */}
+            <div className="pt-2">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Sparkles size={10} style={{ color: gold }} />
+                <label className="text-[10px] font-semibold" style={{ color: C.textMuted }}>
+                  {t("wiz.step.promptHelper")}
                 </label>
-                <span className="text-[10px]" style={{ color: C.textDim }}>
-                  {t("wiz.step.promptHint")}
-                </span>
               </div>
               <textarea
-                rows={expanded.has("conn") ? 6 : 3}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+                rows={2}
+                className="w-full rounded-lg border px-3 py-1.5 text-xs focus:outline-none resize-none"
                 style={{
-                  borderColor: `color-mix(in srgb, ${gold} 25%, transparent)`,
+                  borderColor: `color-mix(in srgb, ${gold} 18%, transparent)`,
                   color: C.textPrimary,
-                  backgroundColor: `color-mix(in srgb, ${gold} 3%, var(--c-bg))`,
+                  backgroundColor: `color-mix(in srgb, ${gold} 2%, var(--c-bg))`,
                 }}
                 value={channelMessages.connectionRequestPrompt ?? ""}
                 onChange={e => onChange({ ...channelMessages, connectionRequestPrompt: e.target.value })}
                 placeholder={locale === "es"
-                  ? "ej: Mencioná que vimos su perfil, indicá brevemente quiénes somos y por qué queremos conectar."
-                  : "e.g. Mention we saw their profile, briefly say who we are and why we want to connect."
+                  ? "ej: Mencionar que vimos su perfil, presentación corta y por qué queremos conectar."
+                  : "e.g. Mention we saw their profile, short intro, and why we want to connect."
                 }
               />
-            </div>
-
-            {/* SECONDARY: manual override — exact connection note copy */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: C.textDim }}>
-                  {t("wiz.step.manualLabel")}
-                </label>
-                <span className="text-xs" style={{ color: (channelMessages.connectionRequest?.length || 0) > 300 ? C.red : C.textDim }}>
-                  {channelMessages.connectionRequest?.length || 0}/300
-                </span>
-              </div>
-              <textarea
-                rows={expanded.has("conn") ? 6 : 2}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
-                style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
-                value={channelMessages.connectionRequest || ""}
-                onChange={e => onChange({ ...channelMessages, connectionRequest: e.target.value })}
-                placeholder={inlinePlaceholders.connectionRequest}
-              />
+              <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>
+                {t("wiz.step.promptHelperHint")}
+              </p>
             </div>
           </div>
         </div>
@@ -501,7 +495,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                 </div>
 
                 {/* Fields */}
-                <div className="px-5 py-3 space-y-3">
+                <div className="px-5 py-3 space-y-2">
                   {isEmail && (
                     <input
                       className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
@@ -512,45 +506,38 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                     />
                   )}
 
-                  {/* PRIMARY: prompt — what the user wants this message to say. */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
-                        {t("wiz.step.promptLabel")}
+                  {/* PRIMARY: the message. AI generation lands here. Always editable. */}
+                  <textarea
+                    rows={expanded.has(`step-${i}`) ? 18 : (cls.type === "EMAIL_INTRO" ? 7 : cls.type.includes("CALL") ? 6 : 5)}
+                    className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+                    style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
+                    value={step?.body || ""}
+                    onChange={e => updateStep(i, "body", e.target.value)}
+                    placeholder={inlinePlaceholders.fallback}
+                  />
+
+                  {/* SECONDARY: small prompt helper for AI — optional. */}
+                  <div className="pt-2">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Sparkles size={10} style={{ color: gold }} />
+                      <label className="text-[10px] font-semibold" style={{ color: C.textMuted }}>
+                        {t("wiz.step.promptHelper")}
                       </label>
-                      <span className="text-[10px]" style={{ color: C.textDim }}>
-                        {t("wiz.step.promptHint")}
-                      </span>
                     </div>
                     <textarea
-                      rows={expanded.has(`step-${i}`) ? 8 : 4}
-                      className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+                      rows={2}
+                      className="w-full rounded-lg border px-3 py-1.5 text-xs focus:outline-none resize-none"
                       style={{
-                        borderColor: `color-mix(in srgb, ${gold} 25%, transparent)`,
+                        borderColor: `color-mix(in srgb, ${gold} 18%, transparent)`,
                         color: C.textPrimary,
-                        backgroundColor: `color-mix(in srgb, ${gold} 3%, var(--c-bg))`,
+                        backgroundColor: `color-mix(in srgb, ${gold} 2%, var(--c-bg))`,
                       }}
                       value={step?.user_prompt ?? ""}
                       onChange={e => updateStep(i, "user_prompt", e.target.value)}
-                      placeholder={typePlaceholders[cls.type] || inlinePlaceholders.fallback}
+                      placeholder={typePlaceholders[cls.type] || t("wiz.step.promptHelperPlaceholder")}
                     />
-                  </div>
-
-                  {/* SECONDARY: manual — always visible. Power users can pin exact copy. */}
-                  <div>
-                    <label className="text-[10px] font-bold uppercase tracking-[0.16em] mb-1.5 block" style={{ color: C.textDim }}>
-                      {t("wiz.step.manualLabel")}
-                    </label>
-                    <textarea
-                      rows={expanded.has(`step-${i}`) ? 6 : 3}
-                      className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
-                      style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
-                      value={step?.body || ""}
-                      onChange={e => updateStep(i, "body", e.target.value)}
-                      placeholder={t("wiz.step.manualPlaceholder")}
-                    />
-                    <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
-                      {t("wiz.step.manualHint")}
+                    <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>
+                      {t("wiz.step.promptHelperHint")}
                     </p>
                   </div>
                 </div>
@@ -569,8 +556,8 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
 
         <div className="p-5 space-y-4">
           {/* Positive */}
-          <div className="rounded-lg border p-4 space-y-3" style={{ borderColor: C.border, backgroundColor: `${C.green}04` }}>
-            <div className="flex items-center justify-between">
+          <div className="rounded-lg border p-4 space-y-2" style={{ borderColor: C.border, backgroundColor: `${C.green}04` }}>
+            <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <ThumbsUp size={14} style={{ color: C.green }} />
                 <p className="text-xs font-semibold" style={{ color: C.green }}>{t("wiz.replies.posTitle")}</p>
@@ -588,50 +575,44 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                 </button>
               </div>
             </div>
-            <p className="text-xs" style={{ color: C.textMuted }}>{t("wiz.replies.posHint")}</p>
+            <p className="text-xs mb-2" style={{ color: C.textMuted }}>{t("wiz.replies.posHint")}</p>
 
-            {/* PRIMARY: prompt for the positive auto-reply */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
-                  {t("wiz.step.promptLabel")}
+            {/* PRIMARY: the reply message. AI lands here. Editable. */}
+            <textarea rows={expanded.has("replyPositive") ? 10 : 3}
+              className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+              style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
+              value={autoReplies.positive}
+              onChange={e => updateAutoReply("positive", e.target.value)}
+              placeholder={inlinePlaceholders.replyPositive}
+            />
+
+            {/* SECONDARY: small prompt helper — optional. */}
+            <div className="pt-2">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Sparkles size={10} style={{ color: gold }} />
+                <label className="text-[10px] font-semibold" style={{ color: C.textMuted }}>
+                  {t("wiz.step.promptHelper")}
                 </label>
-                <span className="text-[10px]" style={{ color: C.textDim }}>{t("wiz.step.promptHint")}</span>
               </div>
               <textarea
-                rows={expanded.has("replyPositive") ? 6 : 3}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+                rows={2}
+                className="w-full rounded-lg border px-3 py-1.5 text-xs focus:outline-none resize-none"
                 style={{
-                  borderColor: `color-mix(in srgb, ${gold} 25%, transparent)`,
+                  borderColor: `color-mix(in srgb, ${gold} 18%, transparent)`,
                   color: C.textPrimary,
-                  backgroundColor: `color-mix(in srgb, ${gold} 3%, var(--c-card))`,
+                  backgroundColor: `color-mix(in srgb, ${gold} 2%, var(--c-card))`,
                 }}
                 value={autoReplies.positivePrompt ?? ""}
                 onChange={e => updateAutoReply("positivePrompt", e.target.value)}
                 placeholder={t("wiz.replies.posPromptPlaceholder")}
               />
-            </div>
-
-            {/* SECONDARY: manual override */}
-            <div>
-              <label className="text-[10px] font-bold uppercase tracking-[0.16em] mb-1.5 block" style={{ color: C.textDim }}>
-                {t("wiz.step.manualLabel")}
-              </label>
-              <textarea
-                rows={expanded.has("replyPositive") ? 6 : 2}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
-                style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
-                value={autoReplies.positive}
-                onChange={e => updateAutoReply("positive", e.target.value)}
-                placeholder={t("wiz.replies.posManualPlaceholder")}
-              />
-              <p className="text-[10px] mt-1" style={{ color: C.textDim }}>{t("wiz.step.manualHint")}</p>
+              <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>{t("wiz.step.promptHelperHint")}</p>
             </div>
           </div>
 
           {/* Negative */}
-          <div className="rounded-lg border p-4 space-y-3" style={{ borderColor: C.border, backgroundColor: `${C.red}04` }}>
-            <div className="flex items-center justify-between">
+          <div className="rounded-lg border p-4 space-y-2" style={{ borderColor: C.border, backgroundColor: `${C.red}04` }}>
+            <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <ThumbsDown size={14} style={{ color: C.red }} />
                 <p className="text-xs font-semibold" style={{ color: C.red }}>{t("wiz.replies.negTitle")}</p>
@@ -649,44 +630,38 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                 </button>
               </div>
             </div>
-            <p className="text-xs" style={{ color: C.textMuted }}>{t("wiz.replies.negHint")}</p>
+            <p className="text-xs mb-2" style={{ color: C.textMuted }}>{t("wiz.replies.negHint")}</p>
 
-            {/* PRIMARY: prompt for the negative auto-reply */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
-                  {t("wiz.step.promptLabel")}
+            {/* PRIMARY: the reply message. */}
+            <textarea rows={expanded.has("replyNegative") ? 10 : 2}
+              className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+              style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
+              value={autoReplies.negative}
+              onChange={e => updateAutoReply("negative", e.target.value)}
+              placeholder={inlinePlaceholders.replyNegative}
+            />
+
+            {/* SECONDARY: small prompt helper — optional. */}
+            <div className="pt-2">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Sparkles size={10} style={{ color: gold }} />
+                <label className="text-[10px] font-semibold" style={{ color: C.textMuted }}>
+                  {t("wiz.step.promptHelper")}
                 </label>
-                <span className="text-[10px]" style={{ color: C.textDim }}>{t("wiz.step.promptHint")}</span>
               </div>
               <textarea
-                rows={expanded.has("replyNegative") ? 6 : 3}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+                rows={2}
+                className="w-full rounded-lg border px-3 py-1.5 text-xs focus:outline-none resize-none"
                 style={{
-                  borderColor: `color-mix(in srgb, ${gold} 25%, transparent)`,
+                  borderColor: `color-mix(in srgb, ${gold} 18%, transparent)`,
                   color: C.textPrimary,
-                  backgroundColor: `color-mix(in srgb, ${gold} 3%, var(--c-card))`,
+                  backgroundColor: `color-mix(in srgb, ${gold} 2%, var(--c-card))`,
                 }}
                 value={autoReplies.negativePrompt ?? ""}
                 onChange={e => updateAutoReply("negativePrompt", e.target.value)}
                 placeholder={t("wiz.replies.negPromptPlaceholder")}
               />
-            </div>
-
-            {/* SECONDARY: manual override */}
-            <div>
-              <label className="text-[10px] font-bold uppercase tracking-[0.16em] mb-1.5 block" style={{ color: C.textDim }}>
-                {t("wiz.step.manualLabel")}
-              </label>
-              <textarea
-                rows={expanded.has("replyNegative") ? 6 : 2}
-                className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
-                style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
-                value={autoReplies.negative}
-                onChange={e => updateAutoReply("negative", e.target.value)}
-                placeholder={t("wiz.replies.negManualPlaceholder")}
-              />
-              <p className="text-[10px] mt-1" style={{ color: C.textDim }}>{t("wiz.step.manualHint")}</p>
+              <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>{t("wiz.step.promptHelperHint")}</p>
             </div>
           </div>
 
