@@ -33,7 +33,11 @@ export type AutoReplies = {
 };
 
 export type ChannelMessages = {
+  /** Manual override / literal copy for the LinkedIn connection note. */
   connectionRequest?: string;
+  /** Free-text intent prompt for the connection note. The V7 Pro generator
+   * absorbs this + tone + lead context to write the actual note per lead. */
+  connectionRequestPrompt?: string;
   steps: StepMessage[];
   autoReplies: AutoReplies;
 };
@@ -151,7 +155,7 @@ const inlinePlaceholdersByLocale: Record<"es" | "en", Record<string, string>> = 
 // ── Main Component ──
 
 export default function ChannelMessageConfig({ sequence, channelMessages, onChange, leadId, icpProfileId, language, signals }: Props) {
-  const { locale } = useLocale();
+  const { locale, t } = useLocale();
   const placeholderLocale: "es" | "en" = locale === "es" ? "es" : "en";
   const typePlaceholders = typePlaceholdersByLocale[placeholderLocale];
   const inlinePlaceholders = inlinePlaceholdersByLocale[placeholderLocale];
@@ -330,9 +334,9 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
               <Sparkles size={16} style={{ color: gold }} />
             </div>
             <div>
-              <p className="text-sm font-bold" style={{ color: C.textPrimary }}>AI Message Generator</p>
+              <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("wiz.gen.title")}</p>
               <p className="text-[11px]" style={{ color: C.textMuted }}>
-                Write the intent for each step below. The AI generates the actual message per lead at send time, using your brand voice and the lead&apos;s context.
+                {t("wiz.gen.subtitle")}
               </p>
             </div>
           </div>
@@ -347,7 +351,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
             }}
           >
             {aiLoading === "all" ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-            {aiLoading === "all" ? "Previewing…" : "Preview all"}
+            {aiLoading === "all" ? t("wiz.gen.previewing") : t("wiz.gen.previewAll")}
           </button>
         </div>
       </div>
@@ -362,8 +366,8 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                 <Share2 size={14} color="#fff" />
               </div>
               <div>
-                <span className="text-sm font-bold" style={{ color: C.textPrimary }}>LinkedIn Connection Request</span>
-                <p className="text-xs" style={{ color: C.textMuted }}>Sent when requesting to connect. The orchestrator skips this if already connected.</p>
+                <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("wiz.connReq.title")}</span>
+                <p className="text-xs" style={{ color: C.textMuted }}>{t("wiz.connReq.desc")}</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -380,19 +384,55 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
               </button>
             </div>
           </div>
-          <div className="px-5 py-4 space-y-2">
-            <p className="text-xs" style={{ color: C.textMuted }}>Short note: who you are + why you want to connect. Max 300 characters.</p>
-            <textarea
-              rows={expanded.has("conn") ? 10 : 2}
-              className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
-              style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
-              value={channelMessages.connectionRequest || ""}
-              onChange={e => onChange({ ...channelMessages, connectionRequest: e.target.value })}
-              placeholder={inlinePlaceholders.connectionRequest}
-            />
-            <p className="text-xs text-right" style={{ color: (channelMessages.connectionRequest?.length || 0) > 300 ? C.red : C.textDim }}>
-              {channelMessages.connectionRequest?.length || 0}/300
-            </p>
+          <div className="px-5 py-4 space-y-3">
+            <p className="text-xs" style={{ color: C.textMuted }}>{t("wiz.connReq.hint")}</p>
+
+            {/* PRIMARY: prompt for the connection note */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
+                  {t("wiz.step.promptLabel")}
+                </label>
+                <span className="text-[10px]" style={{ color: C.textDim }}>
+                  {t("wiz.step.promptHint")}
+                </span>
+              </div>
+              <textarea
+                rows={expanded.has("conn") ? 6 : 3}
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+                style={{
+                  borderColor: `color-mix(in srgb, ${gold} 25%, transparent)`,
+                  color: C.textPrimary,
+                  backgroundColor: `color-mix(in srgb, ${gold} 3%, var(--c-bg))`,
+                }}
+                value={channelMessages.connectionRequestPrompt ?? ""}
+                onChange={e => onChange({ ...channelMessages, connectionRequestPrompt: e.target.value })}
+                placeholder={locale === "es"
+                  ? "ej: Mencioná que vimos su perfil, indicá brevemente quiénes somos y por qué queremos conectar."
+                  : "e.g. Mention we saw their profile, briefly say who we are and why we want to connect."
+                }
+              />
+            </div>
+
+            {/* SECONDARY: manual override — exact connection note copy */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: C.textDim }}>
+                  {t("wiz.step.manualLabel")}
+                </label>
+                <span className="text-xs" style={{ color: (channelMessages.connectionRequest?.length || 0) > 300 ? C.red : C.textDim }}>
+                  {channelMessages.connectionRequest?.length || 0}/300
+                </span>
+              </div>
+              <textarea
+                rows={expanded.has("conn") ? 6 : 2}
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+                style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
+                value={channelMessages.connectionRequest || ""}
+                onChange={e => onChange({ ...channelMessages, connectionRequest: e.target.value })}
+                placeholder={inlinePlaceholders.connectionRequest}
+              />
+            </div>
           </div>
         </div>
       )}
@@ -466,16 +506,14 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                     />
                   )}
 
-                  {/* PRIMARY: prompt — what the user wants this message to say.
-                     The V7 Pro generator absorbs this + tone + lead context to
-                     write the actual message per lead at send-time. */}
+                  {/* PRIMARY: prompt — what the user wants this message to say. */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <label className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
-                        What should this message say?
+                        {t("wiz.step.promptLabel")}
                       </label>
                       <span className="text-[10px]" style={{ color: C.textDim }}>
-                        AI will write the actual message per lead
+                        {t("wiz.step.promptHint")}
                       </span>
                     </div>
                     <textarea
@@ -486,32 +524,29 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                         color: C.textPrimary,
                         backgroundColor: `color-mix(in srgb, ${gold} 3%, var(--c-bg))`,
                       }}
-                      value={step?.user_prompt ?? step?.body ?? ""}
+                      value={step?.user_prompt ?? ""}
                       onChange={e => updateStep(i, "user_prompt", e.target.value)}
                       placeholder={typePlaceholders[cls.type] || inlinePlaceholders.fallback}
                     />
                   </div>
 
-                  {/* SECONDARY: optional manual override — only visible when expanded.
-                     Lets power users pin exact copy instead of letting AI write. */}
-                  {expanded.has(`step-${i}`) && (
-                    <div>
-                      <label className="text-[10px] font-bold uppercase tracking-[0.16em] mb-1.5 block" style={{ color: C.textDim }}>
-                        Manual override (optional)
-                      </label>
-                      <textarea
-                        rows={6}
-                        className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
-                        style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
-                        value={step?.body || ""}
-                        onChange={e => updateStep(i, "body", e.target.value)}
-                        placeholder="Leave empty to let AI write it. Or pin exact copy here to bypass AI for this step."
-                      />
-                      <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
-                        If set, this exact text is used and AI is bypassed for this step.
-                      </p>
-                    </div>
-                  )}
+                  {/* SECONDARY: manual — always visible. Power users can pin exact copy. */}
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-[0.16em] mb-1.5 block" style={{ color: C.textDim }}>
+                      {t("wiz.step.manualLabel")}
+                    </label>
+                    <textarea
+                      rows={expanded.has(`step-${i}`) ? 6 : 3}
+                      className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+                      style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
+                      value={step?.body || ""}
+                      onChange={e => updateStep(i, "body", e.target.value)}
+                      placeholder={t("wiz.step.manualPlaceholder")}
+                    />
+                    <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
+                      {t("wiz.step.manualHint")}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -522,8 +557,8 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
       {/* ═══ AUTO-REPLIES (reactive, separate) ═══ */}
       <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
         <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
-          <p className="text-sm font-bold" style={{ color: C.textPrimary }}>Auto-Replies</p>
-          <p className="text-xs" style={{ color: C.textMuted }}>When the lead responds, these templates are used automatically. The campaign stops after any response.</p>
+          <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("wiz.replies.title")}</p>
+          <p className="text-xs" style={{ color: C.textMuted }}>{t("wiz.replies.desc")}</p>
         </div>
 
         <div className="p-5 space-y-4">
@@ -532,7 +567,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <ThumbsUp size={14} style={{ color: C.green }} />
-                <p className="text-xs font-semibold" style={{ color: C.green }}>Positive Response</p>
+                <p className="text-xs font-semibold" style={{ color: C.green }}>{t("wiz.replies.posTitle")}</p>
               </div>
               <div className="flex items-center gap-1">
                 <button onClick={() => toggleExpand("replyPositive")} title={expanded.has("replyPositive") ? "Collapse" : "Expand"}
@@ -547,7 +582,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                 </button>
               </div>
             </div>
-            <p className="text-xs mb-2" style={{ color: C.textMuted }}>Lead says yes / interested → propose meeting</p>
+            <p className="text-xs mb-2" style={{ color: C.textMuted }}>{t("wiz.replies.posHint")}</p>
             <textarea rows={expanded.has("replyPositive") ? 10 : 3}
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
@@ -561,7 +596,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <ThumbsDown size={14} style={{ color: C.red }} />
-                <p className="text-xs font-semibold" style={{ color: C.red }}>Negative Response</p>
+                <p className="text-xs font-semibold" style={{ color: C.red }}>{t("wiz.replies.negTitle")}</p>
               </div>
               <div className="flex items-center gap-1">
                 <button onClick={() => toggleExpand("replyNegative")} title={expanded.has("replyNegative") ? "Collapse" : "Expand"}
@@ -576,7 +611,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                 </button>
               </div>
             </div>
-            <p className="text-xs mb-2" style={{ color: C.textMuted }}>Lead says no → close respectfully, leave door open</p>
+            <p className="text-xs mb-2" style={{ color: C.textMuted }}>{t("wiz.replies.negHint")}</p>
             <textarea rows={expanded.has("replyNegative") ? 10 : 2}
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
@@ -588,7 +623,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           {/* Question — handled by AI agent in real-time */}
           <div className="rounded-lg border p-3" style={{ borderColor: C.border, backgroundColor: C.bg }}>
             <p className="text-xs" style={{ color: C.textMuted }}>
-              <strong>Questions:</strong> When a lead asks a question, the AI agent responds automatically using your Company Bio data. No template needed.
+              {t("wiz.replies.questions")}
             </p>
           </div>
         </div>

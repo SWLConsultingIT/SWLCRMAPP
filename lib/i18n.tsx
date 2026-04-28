@@ -176,6 +176,27 @@ const en: Dict = {
   "lead.stat.replies": "Replies",
   "lead.stat.positive": "Positive",
   "lead.stat.step": "Campaign step",
+
+  // Campaign wizard — Channel message config (prompt-per-step UX)
+  "wiz.gen.title": "AI Message Generator",
+  "wiz.gen.subtitle": "Write the intent for each step below. The AI generates the actual message per lead at send time, using your brand voice and the lead's context.",
+  "wiz.gen.previewAll": "Preview all",
+  "wiz.gen.previewing": "Previewing…",
+  "wiz.step.promptLabel": "What should this message say?",
+  "wiz.step.promptHint": "AI will write the actual message per lead",
+  "wiz.step.manualLabel": "Or write the message manually",
+  "wiz.step.manualHint": "If you write something here it overrides the AI for this step.",
+  "wiz.step.manualPlaceholder": "Leave empty to let AI write it. Or paste exact copy to bypass the AI.",
+  "wiz.connReq.title": "LinkedIn Connection Request",
+  "wiz.connReq.desc": "Sent when requesting to connect. The orchestrator skips this if already connected.",
+  "wiz.connReq.hint": "Short note: who you are + why you want to connect. Max 300 characters.",
+  "wiz.replies.title": "Auto-Replies",
+  "wiz.replies.desc": "When the lead responds, these templates are used automatically. The campaign stops after any response.",
+  "wiz.replies.posTitle": "Positive response",
+  "wiz.replies.posHint": "Lead says yes / interested → propose meeting",
+  "wiz.replies.negTitle": "Negative response",
+  "wiz.replies.negHint": "Lead says no → close respectfully, leave door open",
+  "wiz.replies.questions": "Questions: When a lead asks a question, the AI agent responds automatically using your Company Bio data. No template needed.",
 };
 
 const es: Dict = {
@@ -347,6 +368,27 @@ const es: Dict = {
   "lead.stat.replies": "Respuestas",
   "lead.stat.positive": "Positivos",
   "lead.stat.step": "Paso de campaña",
+
+  // Campaign wizard — Channel message config (prompt-per-step UX)
+  "wiz.gen.title": "Generador de mensajes con AI",
+  "wiz.gen.subtitle": "Escribí la intención de cada paso. La AI genera el mensaje real por lead al momento del envío, usando la voz de tu marca y el contexto del lead.",
+  "wiz.gen.previewAll": "Previsualizar todo",
+  "wiz.gen.previewing": "Generando…",
+  "wiz.step.promptLabel": "¿Qué debería decir este mensaje?",
+  "wiz.step.promptHint": "La AI escribirá el mensaje real por lead",
+  "wiz.step.manualLabel": "O escribí el mensaje manualmente",
+  "wiz.step.manualHint": "Si escribís algo acá, sobreescribe a la AI en este paso.",
+  "wiz.step.manualPlaceholder": "Dejá vacío para que la AI lo escriba. O pegá copy exacto para saltearla.",
+  "wiz.connReq.title": "Solicitud de conexión en LinkedIn",
+  "wiz.connReq.desc": "Se envía al pedir conexión. El orquestador se la saltea si ya están conectados.",
+  "wiz.connReq.hint": "Nota corta: quién sos + por qué querés conectar. Máx 300 caracteres.",
+  "wiz.replies.title": "Auto-respuestas",
+  "wiz.replies.desc": "Cuando el lead responde, se usan estas plantillas automáticamente. La campaña se detiene después de cualquier respuesta.",
+  "wiz.replies.posTitle": "Respuesta positiva",
+  "wiz.replies.posHint": "El lead dice sí / le interesa → proponé reunión",
+  "wiz.replies.negTitle": "Respuesta negativa",
+  "wiz.replies.negHint": "El lead dice no → cerrá con respeto, dejá la puerta abierta",
+  "wiz.replies.questions": "Preguntas: cuando un lead pregunta algo, el agente AI responde automáticamente usando los datos de tu Company Bio. No necesitás plantilla.",
 };
 
 const dicts: Record<Locale, Dict> = { en, es };
