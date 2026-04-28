@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getUserScope } from "@/lib/scope";
 import { C } from "@/lib/design";
-import { Megaphone, TrendingUp, MessageSquare, Users, MessageCircle, BookOpen, ChevronRight, CheckCircle2, AlertCircle } from "lucide-react";
+import { Megaphone, TrendingUp, MessageSquare, Users } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import CampaignTabs from "./CampaignTabs";
 import ActiveCampaignsView from "@/components/ActiveCampaignsView";
@@ -89,24 +88,6 @@ async function getData() {
   const icpMap: Record<string, any> = {};
   (icpProfiles ?? []).forEach((p: any) => { icpMap[p.id] = p; });
 
-  // Voice & Templates setup state — surfaced as a quick-link card in the hero.
-  // The AI generator references all three when creating campaign messages.
-  let voiceConfigured = false;
-  let templatesActive = 0;
-  let sequencesActive = 0;
-  if (bioId) {
-    const [bioRes, tplRes, seqRes] = await Promise.all([
-      supabase.from("company_bios").select("tone_of_voice, ideal_message_examples").eq("id", bioId).maybeSingle(),
-      supabase.from("message_templates").select("id", { count: "exact", head: true }).eq("status", "active"),
-      supabase.from("message_sequences").select("id", { count: "exact", head: true }).eq("status", "active"),
-    ]);
-    const bio = bioRes.data as { tone_of_voice: string | null; ideal_message_examples: unknown } | null;
-    voiceConfigured = !!(bio?.tone_of_voice && bio.tone_of_voice.trim()) ||
-      (Array.isArray(bio?.ideal_message_examples) && (bio?.ideal_message_examples as unknown[]).length > 0);
-    templatesActive = tplRes.count ?? 0;
-    sequencesActive = seqRes.count ?? 0;
-  }
-
   return {
     campaigns: enrichedCampaigns,
     stats: {
@@ -118,12 +99,11 @@ async function getData() {
     uncampaignedGroups,
     icpMap,
     totalUncampaigned,
-    setup: { voiceConfigured, templatesActive, sequencesActive },
   };
 }
 
 export default async function CampaignsPage() {
-  const { campaigns, stats, uncampaignedGroups, icpMap, totalUncampaigned, setup } = await getData();
+  const { campaigns, stats, uncampaignedGroups, icpMap, totalUncampaigned } = await getData();
 
   return (
     <div className="p-6 w-full">
@@ -136,44 +116,6 @@ export default async function CampaignsPage() {
         status={{ label: "AI Active", active: true }}
         badge="Outreach Engine"
       />
-
-      {/* Quick-link to Voice & Templates setup — surfaces config state without nesting it under campaigns */}
-      <Link
-        href="/voice"
-        className="mb-5 flex items-center gap-3 rounded-2xl border px-4 py-3 transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-md group"
-        style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}
-      >
-        <div className="rounded-lg p-2 shrink-0" style={{ backgroundColor: `${C.aiAccent}12` }}>
-          <MessageCircle size={16} style={{ color: C.aiAccent }} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold" style={{ color: C.textPrimary }}>Voice &amp; Templates</span>
-            {setup?.voiceConfigured
-              ? <CheckCircle2 size={12} style={{ color: C.green }} />
-              : <AlertCircle size={12} style={{ color: "#D97706" }} />}
-          </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] mt-0.5" style={{ color: C.textMuted }}>
-            <span className="flex items-center gap-1">
-              <span className="font-semibold" style={{ color: setup?.voiceConfigured ? C.textBody : "#D97706" }}>
-                {setup?.voiceConfigured ? "Brand voice configured" : "Brand voice not set"}
-              </span>
-            </span>
-            <span>·</span>
-            <span className="flex items-center gap-1">
-              <BookOpen size={10} />
-              <span className="font-semibold" style={{ color: C.textBody }}>{setup?.templatesActive ?? 0}</span> templates
-            </span>
-            <span>·</span>
-            <span>
-              <span className="font-semibold" style={{ color: C.textBody }}>{setup?.sequencesActive ?? 0}</span> sequences
-            </span>
-          </div>
-        </div>
-        <span className="text-xs font-semibold flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform" style={{ color: gold }}>
-          Configure <ChevronRight size={13} />
-        </span>
-      </Link>
 
       {/* 4 stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

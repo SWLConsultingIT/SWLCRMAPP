@@ -20,6 +20,17 @@ const themeScript = `try{var t=localStorage.getItem('swl-theme');if(t==='dark')d
 // Public/pre-auth routes must always show SWL default branding — never inherit a tenant's color.
 const PUBLIC_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password", "/auth/callback"];
 
+// Reset brand vars to SWL gold with !important so an inline style left over from
+// a previous tenant session can't bleed into the public/login surface. Inline
+// styles beat regular stylesheets, but !important in a stylesheet beats inline
+// without !important — so this is the only reliable way to undo the leak.
+const PUBLIC_BRAND_RESET = `:root{--brand:#c9a83a !important;--brand-dark:#b79832 !important;--brand-soft:rgba(201,168,58,0.15) !important;}`;
+
+// Sync script — runs before paint on initial load AND clears the inline vars
+// that BrandProvider may have set on a prior tenant page. Belt-and-braces with
+// the !important stylesheet above so SPA navigations are also handled.
+const PUBLIC_BRAND_CLEAR_SCRIPT = `try{document.documentElement.style.removeProperty('--brand');document.documentElement.style.removeProperty('--brand-dark');document.documentElement.style.removeProperty('--brand-soft');document.cookie='swl-brand=; Path=/; Max-Age=0; SameSite=Lax';}catch(e){}`;
+
 // Read the brand cookie (written by BrandProvider after DB fetch) and emit
 // the <style> tag server-side so the brand color is painted on the first byte.
 function getBrandStyle(cookieValue: string | undefined): string | null {
@@ -46,6 +57,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang="es" className={`${inter.variable} ${outfit.variable} h-full`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {isPublicRoute && <script dangerouslySetInnerHTML={{ __html: PUBLIC_BRAND_CLEAR_SCRIPT }} />}
+        {isPublicRoute && <style dangerouslySetInnerHTML={{ __html: PUBLIC_BRAND_RESET }} />}
         {brandCss && <style dangerouslySetInnerHTML={{ __html: brandCss }} />}
       </head>
       <body className="h-full antialiased">

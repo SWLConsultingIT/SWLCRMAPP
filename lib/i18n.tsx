@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 
 export type Locale = "en" | "es";
 
@@ -356,29 +357,65 @@ const LocaleContext = createContext<{
   t: (key: string) => string;
 }>({ locale: "en", setLocale: () => {}, t: (k) => k });
 
+// Storage is keyed by user_id so two accounts sharing a browser never see each
+// other's locale. The previous global "swl-locale" key was unsafe because a
+// stale value from user A would persist after logout and flash for user B
+// on the next login. We also delete that legacy key on first mount.
+const LEGACY_KEY = "swl-locale";
+const cacheKey = (userId: string) => `${LEGACY_KEY}-${userId}`;
+
 export function LocaleProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>("en");
 
   useEffect(() => {
-    // Anti-FOUC cache
-    const saved = localStorage.getItem("swl-locale") as Locale | null;
-    if (saved === "es" || saved === "en") setLocaleState(saved);
+    let alive = true;
+    (async () => {
+      // Drop the legacy global key — it's unsafe across accounts.
+      try { localStorage.removeItem(LEGACY_KEY); } catch {}
 
-    // Source of truth: DB (per-user)
-    fetch("/api/settings/prefs")
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (!d) return;
+      // Find the current user_id from the supabase session (sync, no network).
+      let userId: string | null = null;
+      try {
+        const sb = getSupabaseBrowser();
+        const { data: { session } } = await sb.auth.getSession();
+        userId = session?.user?.id ?? null;
+      } catch {}
+
+      // Anti-FOUC: read THIS user's cached locale only.
+      if (userId && alive) {
+        try {
+          const cached = localStorage.getItem(cacheKey(userId)) as Locale | null;
+          if (cached === "es" || cached === "en") setLocaleState(cached);
+        } catch {}
+      }
+
+      // Source of truth: DB (per-user via auth cookie).
+      try {
+        const res = await fetch("/api/settings/prefs");
+        if (!res.ok) return;
+        const d = await res.json();
+        if (!alive) return;
         const dbLocale: Locale = d.locale === "es" ? "es" : "en";
         setLocaleState(dbLocale);
-        try { localStorage.setItem("swl-locale", dbLocale); } catch {}
-      })
-      .catch(() => {});
+        const id = (d.userId as string | undefined) ?? userId;
+        if (id) {
+          try { localStorage.setItem(cacheKey(id), dbLocale); } catch {}
+        }
+      } catch {}
+    })();
+    return () => { alive = false; };
   }, []);
 
   function setLocale(l: Locale) {
     setLocaleState(l);
-    try { localStorage.setItem("swl-locale", l); } catch {}
+    (async () => {
+      try {
+        const sb = getSupabaseBrowser();
+        const { data: { session } } = await sb.auth.getSession();
+        const id = session?.user?.id;
+        if (id) localStorage.setItem(cacheKey(id), l);
+      } catch {}
+    })();
     fetch("/api/settings/prefs", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

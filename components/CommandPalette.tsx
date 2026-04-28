@@ -7,7 +7,7 @@ import { useLocale } from "@/lib/i18n";
 import {
   Search, ArrowRight, CheckCircle, XCircle, Clock, MinusCircle, Loader2,
   LayoutDashboard, Users, Megaphone, Building2, Target, Shield, Bell,
-  Trophy, UserCircle, Settings, MessageCircle, BookOpen, Plus,
+  Trophy, UserCircle, Settings,
 } from "lucide-react";
 
 type LeadResult = {
@@ -50,7 +50,6 @@ export default function CommandPalette() {
     { id: "leads",      label: t("nav.leads"),        hint: locale === "es" ? "Leads y campañas"   : "Leads and campaigns",           icon: Users,           href: "/leads",         group: "navigation", keywords: ["pipeline", "prospects"] },
     { id: "campaigns",  label: "Outreach Flow™",      hint: locale === "es" ? "Crear y gestionar campañas" : "Create and manage campaigns", icon: Megaphone,       href: "/campaigns",     group: "navigation", keywords: ["outreach", "campaigns", "campañas"] },
     { id: "icp",        label: "Lead Miner™",         hint: locale === "es" ? "Perfiles ICP"        : "ICP profiles",                  icon: Target,          href: "/icp",           group: "navigation", keywords: ["icp", "miner", "profiles"] },
-    { id: "voice",      label: "Voice & Templates",    hint: locale === "es" ? "Marca, plantillas y secuencias" : "Brand voice, templates, sequences", icon: MessageCircle,   href: "/voice",         group: "navigation", keywords: ["templates", "sequences", "brand", "voice", "plantillas"] },
     { id: "accounts",   label: t("nav.accounts"),     hint: locale === "es" ? "Sellers y conexiones LinkedIn" : "Sellers and LinkedIn accounts", icon: UserCircle,      href: "/accounts",      group: "navigation", keywords: ["sellers", "linkedin", "unipile", "aircall"] },
     { id: "ops",        label: t("nav.opportunities"), hint: locale === "es" ? "Leads convertidos"  : "Converted leads",               icon: Trophy,          href: "/opportunities", group: "navigation", keywords: ["wins", "won", "ganados"] },
     { id: "queue",      label: t("nav.queue"),        hint: locale === "es" ? "Tareas pendientes"  : "Pending tasks",                 icon: Bell,            href: "/queue",         group: "navigation", keywords: ["calls", "reviews", "replies"] },
@@ -58,8 +57,6 @@ export default function CommandPalette() {
     { id: "admin",      label: t("nav.admin"),        hint: locale === "es" ? "Panel admin (interno)" : "Admin panel (internal)",      icon: Shield,          href: "/admin",         group: "navigation", keywords: ["admin", "internal"] },
     { id: "settings",   label: t("nav.settings"),     hint: locale === "es" ? "Tu cuenta"           : "Your account",                  icon: Settings,        href: "/settings",      group: "navigation", keywords: ["account", "preferences", "language"] },
     // Quick actions
-    { id: "new-template",  label: locale === "es" ? "Nueva plantilla"  : "New template",  hint: "Voice & Templates → Library", icon: Plus,      href: "/voice?tab=templates", group: "actions", keywords: ["template", "plantilla"] },
-    { id: "new-sequence",  label: locale === "es" ? "Nueva secuencia"  : "New sequence",  hint: "Voice & Templates → Sequences", icon: BookOpen, href: "/voice?tab=sequences", group: "actions", keywords: ["sequence", "secuencia"] },
     { id: "new-campaign",  label: locale === "es" ? "Nueva campaña"    : "New campaign",  hint: "Outreach Flow™",            icon: Megaphone, href: "/campaigns/new",       group: "actions", keywords: ["campaign", "campaña", "outreach"] },
   ], [t, locale]);
 
