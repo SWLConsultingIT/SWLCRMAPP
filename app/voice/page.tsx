@@ -9,6 +9,7 @@ import {
   Mail, Phone, Share2, Save, Layers,
 } from "lucide-react";
 import EmptyState from "@/components/EmptyState";
+import PageHero from "@/components/PageHero";
 
 const gold = C.gold;
 
@@ -861,19 +862,20 @@ export default function VoicePage() {
   }
 
   return (
-    <div className="p-8 w-full max-w-7xl mx-auto">
-      <div className="flex items-center gap-2 mb-1">
-        <MessageCircle size={20} style={{ color: gold }} />
-        <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Voice & Templates</h1>
-      </div>
-      <p className="text-sm mb-6" style={{ color: C.textMuted }}>
-        Brand voice, template library and full outreach sequences. The AI generator references all three when creating campaign messages.
-      </p>
+    <div className="p-6 w-full max-w-7xl mx-auto">
+      <PageHero
+        icon={MessageCircle}
+        section="Growth Engine"
+        title="Voice & Templates"
+        description="Brand voice, template library and full outreach sequences. The AI generator references all three when creating campaign messages."
+        accentColor={gold}
+        status={{ label: "Synced", active: true }}
+      />
 
       <div className="flex items-center gap-1 mb-6 border-b" style={{ borderColor: C.border }}>
         <TabButton active={tab === "voice"} onClick={() => selectTab("voice")} icon={MessageCircle} label="Brand Voice" />
         <TabButton active={tab === "templates"} onClick={() => selectTab("templates")} icon={BookOpen} label="Templates Library" />
-        <TabButton active={tab === "sequences"} onClick={() => selectTab("sequences")} icon={MessageCircle} label="Sequences" />
+        <TabButton active={tab === "sequences"} onClick={() => selectTab("sequences")} icon={Layers} label="Sequences" />
       </div>
 
       {tab === "voice" ? <BrandVoiceTab /> : tab === "templates" ? <TemplatesTab /> : <SequencesTab />}
@@ -883,12 +885,15 @@ export default function VoicePage() {
 
 function TabButton({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: React.ElementType; label: string }) {
   return (
-    <button onClick={onClick}
-      className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors"
+    <button
+      onClick={onClick}
+      className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-[color,border-color,background-color] duration-150"
       style={{
         borderColor: active ? gold : "transparent",
         color: active ? gold : C.textMuted,
-      }}>
+        backgroundColor: active ? `color-mix(in srgb, ${gold} 6%, transparent)` : "transparent",
+      }}
+    >
       <Icon size={14} />
       {label}
     </button>

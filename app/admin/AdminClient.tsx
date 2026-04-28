@@ -7,10 +7,12 @@ import {
   Building2, Users, Megaphone, Clock, ChevronRight,
   Target, Search, X, CheckCircle, ArrowRight, Shield,
   Trash2, Loader2, Share2, AlertTriangle, Phone, Mail,
+  Activity,
 } from "lucide-react";
 import AdminActions from "./AdminActions";
 import PageHero from "@/components/PageHero";
 import PendingUsersSection from "./PendingUsersSection";
+import ActivityWidget from "@/components/ActivityWidget";
 
 type UserRow = {
   id: string;
@@ -618,8 +620,9 @@ export default function AdminClient({ clients, pendingApprovals, stats }: Props)
       );
 
   const tabs = [
-    { label: "Clients",           count: clients.length,          color: gold },
-    { label: "Pending Approvals", count: pendingApprovals.length, color: "#D97706" },
+    { label: "Clients",           count: clients.length,          color: gold,      icon: Building2 },
+    { label: "Pending Approvals", count: pendingApprovals.length, color: "#D97706", icon: Clock },
+    { label: "Activity",          count: 0,                       color: C.aiAccent, icon: Activity },
   ];
 
   return (
@@ -660,18 +663,23 @@ export default function AdminClient({ clients, pendingApprovals, stats }: Props)
       <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
         {tabs.map((t, i) => {
           const isActive = tab === i;
+          const Icon = t.icon;
           return (
             <button key={t.label} onClick={() => setTab(i)}
-              className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-[opacity,transform,box-shadow,background-color,border-color] relative"
-              style={{ color: isActive ? t.color : C.textMuted }}>
+              className="flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-[color,background-color] duration-150 relative"
+              style={{
+                color: isActive ? t.color : C.textMuted,
+                backgroundColor: isActive ? `color-mix(in srgb, ${t.color} 6%, transparent)` : "transparent",
+              }}>
+              <Icon size={14} />
               {t.label}
               {t.count > 0 && (
                 <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: isActive ? `${t.color}15` : "#F3F4F6", color: isActive ? t.color : C.textDim }}>
+                  style={{ backgroundColor: isActive ? `color-mix(in srgb, ${t.color} 15%, transparent)` : "#F3F4F6", color: isActive ? t.color : C.textDim }}>
                   {t.count}
                 </span>
               )}
-              {isActive && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: t.color }} />}
+              {isActive && <div className="absolute bottom-0 left-0 right-0 h-[2px]" style={{ backgroundColor: t.color }} />}
             </button>
           );
         })}
@@ -830,6 +838,9 @@ export default function AdminClient({ clients, pendingApprovals, stats }: Props)
           </div>
         );
       })()}
+
+      {/* ═══ Tab 2: Activity ═══ */}
+      {tab === 2 && <ActivityWidget />}
     </div>
   );
 }

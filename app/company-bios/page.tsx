@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 import {
   Building2, Save, AlertCircle, Plus, X, Pencil, Globe, Loader2,
   MapPin, Award, Briefcase, Trash2, Upload, Image as ImageIcon,
@@ -151,6 +152,7 @@ type LeadSummary = { id: string; primary_first_name: string; primary_last_name: 
 type CampaignGroup = { name: string; channel: string; status: string; leads: (LeadSummary & { campaign_status?: string })[] };
 
 function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
+  const { t } = useLocale();
   const [campaignGroups, setCampaignGroups] = useState<CampaignGroup[]>([]);
   const [uncampaignedLeads, setUncampaignedLeads] = useState<LeadSummary[]>([]);
   const [leadStats, setLeadStats] = useState({ total: 0, active: 0, responded: 0, qualified: 0 });
@@ -200,10 +202,10 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
 
   const activeSocials = socialLinks.filter(s => bio[s.key]);
   const metricItems = [
-    bio.industry && { label: "Industry", value: bio.industry },
-    bio.team_size && { label: "Team", value: bio.team_size },
-    bio.founded_year && { label: "Founded", value: String(bio.founded_year) },
-    bio.languages?.length > 0 && { label: "Languages", value: bio.languages.join(", ") },
+    bio.industry && { label: t("bio.industry"), value: bio.industry },
+    bio.team_size && { label: t("bio.team"), value: bio.team_size },
+    bio.founded_year && { label: t("bio.founded"), value: String(bio.founded_year) },
+    bio.languages?.length > 0 && { label: t("bio.languages"), value: bio.languages.join(", ") },
   ].filter(Boolean) as { label: string; value: string }[];
 
   const statusColors: Record<string, { color: string; bg: string }> = {
@@ -218,45 +220,101 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
 
   return (
     <div className="space-y-6">
-      {/* ═══ MAIN CARD (like leads detail) ═══ */}
-      <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      {/* ═══ MAIN CARD ═══ */}
+      <div
+        className="rounded-2xl border overflow-hidden relative"
+        style={{
+          backgroundColor: C.card,
+          borderColor: C.border,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)",
+        }}
+      >
+        {/* Gold accent stripe at top */}
+        <div
+          className="absolute inset-x-0 top-0 h-[3px]"
+          style={{
+            background: `linear-gradient(90deg, transparent 0%, ${gold} 30%, color-mix(in srgb, ${gold} 72%, white) 50%, ${gold} 70%, transparent 100%)`,
+          }}
+        />
 
         {/* Top row: Logo + Name + Edit */}
-        <div className="p-6 flex items-start justify-between gap-6">
-          <div className="flex items-start gap-4">
+        <div className="p-7 flex items-start justify-between gap-6">
+          <div className="flex items-start gap-5">
             {bio.logo_url ? (
-              <img src={bio.logo_url} alt="" className="w-16 h-16 rounded-xl object-contain border shrink-0 p-1.5" style={{ borderColor: C.border, backgroundColor: "#ffffff" }} />
+              <div
+                className="w-[72px] h-[72px] rounded-2xl border shrink-0 p-2 relative"
+                style={{
+                  borderColor: C.border,
+                  backgroundColor: "#ffffff",
+                  boxShadow: `0 4px 16px color-mix(in srgb, ${gold} 14%, transparent)`,
+                }}
+              >
+                <img src={bio.logo_url} alt="" className="w-full h-full object-contain" />
+              </div>
             ) : (
-              <div className="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold shrink-0"
-                style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
+              <div
+                className="w-[72px] h-[72px] rounded-2xl flex items-center justify-center text-3xl font-bold shrink-0"
+                style={{
+                  background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`,
+                  color: "#fff",
+                  fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                  boxShadow: `0 6px 20px color-mix(in srgb, ${gold} 32%, transparent)`,
+                }}
+              >
                 {bio.company_name?.[0]?.toUpperCase() ?? "?"}
               </div>
             )}
             <div>
-              <h2 className="text-2xl font-bold" style={{ color: C.textPrimary }}>{bio.company_name}</h2>
-              <div className="flex items-center gap-2 mt-1.5">
+              <h2
+                className="text-[26px] font-bold leading-tight"
+                style={{
+                  color: C.textPrimary,
+                  fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {bio.company_name}
+              </h2>
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
                 {bio.tagline ? (
                   <span className="text-sm italic" style={{ color: C.accent }}>{bio.tagline}</span>
                 ) : bio.industry ? (
-                  <span className="flex items-center gap-1.5 text-sm" style={{ color: C.textBody }}>
-                    <Briefcase size={13} style={{ color: gold }} /> {bio.industry}
+                  <span
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
+                    style={{
+                      backgroundColor: goldLight,
+                      color: gold,
+                      border: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
+                    }}
+                  >
+                    <Briefcase size={11} /> {bio.industry}
                   </span>
                 ) : null}
                 {bio.location && (
-                  <>
-                    <span className="text-sm" style={{ color: C.textDim }}>·</span>
-                    <span className="flex items-center gap-1 text-sm" style={{ color: C.textMuted }}>
-                      <MapPin size={12} /> {bio.location}
-                    </span>
-                  </>
+                  <span
+                    className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full"
+                    style={{
+                      backgroundColor: C.cardHov,
+                      color: C.textMuted,
+                      border: `1px solid ${C.border}`,
+                    }}
+                  >
+                    <MapPin size={11} /> {bio.location}
+                  </span>
                 )}
               </div>
             </div>
           </div>
-          <button onClick={onEdit}
-            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80 shrink-0"
-            style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
-            <Pencil size={12} /> Edit
+          <button
+            onClick={onEdit}
+            className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-semibold transition-[opacity,transform,box-shadow] duration-150 hover:opacity-90 hover:shadow-md shrink-0"
+            style={{
+              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`,
+              color: "#04070d",
+              boxShadow: `0 2px 12px color-mix(in srgb, ${gold} 28%, transparent)`,
+            }}
+          >
+            <Pencil size={12} /> {t("bio.edit")}
           </button>
         </div>
 
@@ -279,12 +337,36 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
 
         {/* Services bar */}
         {bio.main_services?.length > 0 && (
-          <div className="mx-6 my-4 px-5 py-3 rounded-lg" style={{ backgroundColor: goldLight, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 20%, transparent)` }}>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: gold }}>{bio.main_services.length} Services</p>
-            <div className="flex flex-wrap gap-1.5">
+          <div
+            className="mx-6 my-5 px-5 py-4 rounded-xl relative overflow-hidden"
+            style={{
+              background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 8%, var(--c-card)) 0%, color-mix(in srgb, ${gold} 4%, var(--c-card)) 100%)`,
+              border: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
+            }}
+          >
+            <div
+              className="absolute -top-10 -right-10 w-28 h-28 rounded-full pointer-events-none"
+              style={{
+                background: `radial-gradient(circle, color-mix(in srgb, ${gold} 14%, transparent) 0%, transparent 70%)`,
+              }}
+            />
+            <div className="flex items-center justify-between mb-3 relative">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
+                {bio.main_services.length} {t("bio.servicesCount")}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 relative">
               {bio.main_services.map((s, i) => (
-                <span key={i} className="text-xs font-medium px-2.5 py-1 rounded-md"
-                  style={{ backgroundColor: "rgba(255,255,255,0.7)", color: C.textBody }}>
+                <span
+                  key={i}
+                  className="text-xs font-medium px-3 py-1.5 rounded-full"
+                  style={{
+                    backgroundColor: C.card,
+                    color: C.textBody,
+                    border: `1px solid color-mix(in srgb, ${gold} 18%, transparent)`,
+                    boxShadow: `0 1px 3px color-mix(in srgb, ${gold} 10%, transparent)`,
+                  }}
+                >
                   {s}
                 </span>
               ))}
@@ -292,10 +374,12 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
           </div>
         )}
 
-        {/* Online Presence (social buttons like leads page) */}
+        {/* Online Presence */}
         {(bio.website || activeSocials.length > 0) && (
           <div className="px-6 pb-5">
-            <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>Online Presence</h3>
+            <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] mb-3" style={{ color: gold }}>
+              {t("bio.onlinePresence")}
+            </h3>
             <div className="grid grid-cols-4 gap-2.5">
               {bio.website && (
                 <a href={bio.website} target="_blank" rel="noopener noreferrer"
@@ -336,15 +420,43 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
 
       {/* ═══ ROW 1: About the Company (full width) ═══ */}
       {(bio.description || bio.value_proposition) && (
-        <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <h3 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>About the Company</h3>
+        <div
+          className="rounded-2xl border p-7"
+          style={{
+            backgroundColor: C.card,
+            borderColor: C.border,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+          }}
+        >
+          <h3
+            className="text-base font-bold mb-4"
+            style={{
+              color: C.textPrimary,
+              fontFamily: "var(--font-outfit), system-ui, sans-serif",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            {t("bio.aboutCompany")}
+          </h3>
           {bio.description && (
             <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{bio.description}</p>
           )}
           {bio.value_proposition && (
-            <div className="rounded-lg border p-3.5 mt-4" style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Value Proposition</p>
-              <p className="text-sm italic" style={{ color: C.accent }}>"{bio.value_proposition}"</p>
+            <div
+              className="rounded-xl border p-4 mt-5 relative overflow-hidden"
+              style={{
+                borderColor: `color-mix(in srgb, ${gold} 22%, transparent)`,
+                background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 6%, var(--c-card)) 0%, var(--c-card) 100%)`,
+              }}
+            >
+              <div
+                className="absolute left-0 top-0 bottom-0 w-1"
+                style={{ background: `linear-gradient(180deg, ${gold}, color-mix(in srgb, ${gold} 60%, white))` }}
+              />
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-1.5 pl-2" style={{ color: gold }}>
+                {t("bio.valueProposition")}
+              </p>
+              <p className="text-sm italic pl-2" style={{ color: C.textBody }}>&ldquo;{bio.value_proposition}&rdquo;</p>
             </div>
           )}
         </div>
@@ -354,22 +466,42 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
       {(bio.differentiators || bio.target_market || bio.tone_of_voice) && (
         <div className="grid grid-cols-5 gap-6">
           {bio.differentiators && (
-            <div className="col-span-3 rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>Differentiators</h3>
+            <div
+              className="col-span-3 rounded-2xl border p-7"
+              style={{
+                backgroundColor: C.card,
+                borderColor: C.border,
+                boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+              }}
+            >
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] mb-3" style={{ color: gold }}>
+                {t("bio.differentiators")}
+              </h3>
               <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{bio.differentiators}</p>
             </div>
           )}
           {(bio.target_market || bio.tone_of_voice) && (
-            <div className={`${bio.differentiators ? "col-span-2" : "col-span-5"} rounded-xl border p-6`} style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <div
+              className={`${bio.differentiators ? "col-span-2" : "col-span-5"} rounded-2xl border p-7`}
+              style={{
+                backgroundColor: C.card,
+                borderColor: C.border,
+                boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+              }}
+            >
               {bio.target_market && (
                 <div className={bio.tone_of_voice ? "mb-4" : ""}>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>Target Market</h3>
+                  <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] mb-3" style={{ color: gold }}>
+                    {t("bio.targetMarket")}
+                  </h3>
                   <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{bio.target_market}</p>
                 </div>
               )}
               {bio.tone_of_voice && (
                 <div className={bio.target_market ? "pt-4 border-t" : ""} style={{ borderColor: C.border }}>
-                  <h3 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: gold }}>Tone of Voice</h3>
+                  <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] mb-2" style={{ color: gold }}>
+                    {t("bio.toneOfVoice")}
+                  </h3>
                   <p className="text-sm" style={{ color: C.textBody }}>{bio.tone_of_voice}</p>
                 </div>
               )}
@@ -380,18 +512,45 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
 
       {/* ═══ Track Record (clients + certs + cases unified) ═══ */}
       {(bio.key_clients?.length > 0 || bio.certifications?.length > 0 || bio.case_studies?.length > 0) && (
-        <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <h3 className="text-sm font-bold mb-5" style={{ color: C.textPrimary }}>Track Record</h3>
+        <div
+          className="rounded-2xl border p-7"
+          style={{
+            backgroundColor: C.card,
+            borderColor: C.border,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+          }}
+        >
+          <h3
+            className="text-base font-bold mb-5"
+            style={{
+              color: C.textPrimary,
+              fontFamily: "var(--font-outfit), system-ui, sans-serif",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            {t("bio.trackRecord")}
+          </h3>
 
           <div className="space-y-5">
             {/* Clients */}
             {bio.key_clients?.length > 0 && (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: gold }}>Key Clients</p>
-                <div className="flex flex-wrap gap-1.5">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-2.5" style={{ color: gold }}>
+                  {t("bio.keyClients")}
+                </p>
+                <div className="flex flex-wrap gap-2">
                   {bio.key_clients.map((c, i) => (
-                    <span key={i} className="text-xs font-medium px-2.5 py-1 rounded-md"
-                      style={{ backgroundColor: C.blueLight, color: C.blue }}>{c}</span>
+                    <span
+                      key={i}
+                      className="text-xs font-medium px-3 py-1.5 rounded-full"
+                      style={{
+                        backgroundColor: C.blueLight,
+                        color: C.blue,
+                        border: `1px solid color-mix(in srgb, ${C.blue} 18%, transparent)`,
+                      }}
+                    >
+                      {c}
+                    </span>
                   ))}
                 </div>
               </div>
@@ -400,13 +559,22 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
             {/* Certifications */}
             {bio.certifications?.length > 0 && (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: gold }}>
-                  <Award size={12} /> Certifications & Awards
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-2.5 flex items-center gap-1.5" style={{ color: gold }}>
+                  <Award size={11} /> {t("bio.certifications")}
                 </p>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                   {bio.certifications.map((c, i) => (
-                    <span key={i} className="text-xs font-medium px-2.5 py-1 rounded-md"
-                      style={{ backgroundColor: C.greenLight, color: C.green }}>{c}</span>
+                    <span
+                      key={i}
+                      className="text-xs font-medium px-3 py-1.5 rounded-full"
+                      style={{
+                        backgroundColor: C.greenLight,
+                        color: C.green,
+                        border: `1px solid color-mix(in srgb, ${C.green} 18%, transparent)`,
+                      }}
+                    >
+                      {c}
+                    </span>
                   ))}
                 </div>
               </div>
@@ -415,24 +583,44 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
             {/* Case Studies */}
             {bio.case_studies?.length > 0 && (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>Case Studies / Portfolio</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-3" style={{ color: gold }}>
+                  {t("bio.caseStudies")}
+                </p>
                 <div className="grid grid-cols-3 gap-3">
                   {bio.case_studies.map((cs, i) => (
-                    <div key={i} className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
+                    <div
+                      key={i}
+                      className="rounded-xl border p-4 transition-[transform,box-shadow] duration-150 hover:shadow-md hover:-translate-y-0.5"
+                      style={{
+                        borderColor: C.border,
+                        background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${gold} 3%, var(--c-card)) 100%)`,
+                      }}
+                    >
                       <p className="text-sm font-semibold mb-1" style={{ color: C.textPrimary }}>{cs.title}</p>
                       <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>{cs.description}</p>
-                      <div className="flex items-center gap-3 mt-2">
+                      <div className="flex items-center gap-3 mt-3">
                         {cs.url && (
-                          <a href={cs.url} target="_blank" rel="noopener noreferrer"
-                            className="text-xs font-medium" style={{ color: C.accent }}>Read more →</a>
+                          <a
+                            href={cs.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs font-semibold"
+                            style={{ color: gold }}
+                          >
+                            {t("bio.readMore")}
+                          </a>
                         )}
                         {cs.file_url && (() => {
                           const Icon = fileIcon(cs.file_url);
                           return (
-                            <a href={cs.file_url} target="_blank" rel="noopener noreferrer"
+                            <a
+                              href={cs.file_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
                               className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded"
-                              style={{ backgroundColor: C.accentLight, color: C.accent }}>
-                              <Icon size={11} /> Attachment
+                              style={{ backgroundColor: C.accentLight, color: C.accent }}
+                            >
+                              <Icon size={11} /> {t("bio.attachment")}
                             </a>
                           );
                         })()}
@@ -448,8 +636,24 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
 
       {/* ═══ Resources ═══ */}
       {bio.resources?.length > 0 && (
-        <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <h3 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>Resources</h3>
+        <div
+          className="rounded-2xl border p-7"
+          style={{
+            backgroundColor: C.card,
+            borderColor: C.border,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+          }}
+        >
+          <h3
+            className="text-base font-bold mb-4"
+            style={{
+              color: C.textPrimary,
+              fontFamily: "var(--font-outfit), system-ui, sans-serif",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            {t("bio.resources")}
+          </h3>
           <div className="grid grid-cols-4 gap-3">
             {bio.resources.map((r, i) => {
               const Icon = fileIcon(r.file_url);
@@ -472,25 +676,55 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
       )}
 
       {/* ═══ Leads by Campaign ═══ */}
-      <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <div className="px-6 py-4 flex items-center justify-between border-b"
-          style={{ borderColor: C.border, background: `linear-gradient(90deg, color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent) 0%, transparent 50%)` }}>
+      <div
+        className="rounded-2xl border overflow-hidden"
+        style={{
+          backgroundColor: C.card,
+          borderColor: C.border,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+        }}
+      >
+        <div
+          className="px-6 py-4 flex items-center justify-between border-b"
+          style={{
+            borderColor: C.border,
+            background: `linear-gradient(90deg, color-mix(in srgb, ${gold} 10%, transparent) 0%, transparent 60%)`,
+          }}
+        >
           <div className="flex items-center gap-2.5">
-            <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Leads & Campaigns</h3>
+            <h3
+              className="text-base font-bold"
+              style={{
+                color: C.textPrimary,
+                fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {t("bio.leadsCampaigns")}
+            </h3>
             {leadStats.total > 0 && (
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: goldLight, color: gold }}>
+              <span
+                className="text-xs font-bold px-2 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: goldLight,
+                  color: gold,
+                  border: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
+                }}
+              >
                 {leadStats.total}
               </span>
             )}
           </div>
-          <Link href="/leads" className="text-xs font-semibold" style={{ color: gold }}>View All</Link>
+          <Link href="/leads" className="text-xs font-semibold transition-opacity hover:opacity-70" style={{ color: gold }}>
+            {t("bio.viewAll")} →
+          </Link>
         </div>
 
         {campaignGroups.length === 0 && uncampaignedLeads.length === 0 ? (
-          <div className="px-6 py-10 text-center">
-            <p className="text-sm" style={{ color: C.textDim }}>No leads linked to this company yet.</p>
+          <div className="px-6 py-12 text-center">
+            <p className="text-sm" style={{ color: C.textDim }}>{t("bio.noLeads")}</p>
             <p className="text-xs mt-1" style={{ color: C.textDim }}>
-              Leads will appear here once they are imported and assigned.
+              {t("bio.noLeadsHint")}
             </p>
           </div>
         ) : (
@@ -498,10 +732,10 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
             {/* Stats bar */}
             <div className="px-6 py-3 flex items-center gap-6 border-b" style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
               {[
-                { label: "Total", value: leadStats.total, color: C.textPrimary },
-                { label: "Active", value: leadStats.active, color: C.blue },
-                { label: "Responded", value: leadStats.responded, color: C.green },
-                { label: "Qualified", value: leadStats.qualified, color: C.accent },
+                { label: t("bio.stat.total"), value: leadStats.total, color: C.textPrimary },
+                { label: t("bio.stat.active"), value: leadStats.active, color: C.blue },
+                { label: t("bio.stat.responded"), value: leadStats.responded, color: C.green },
+                { label: t("bio.stat.qualified"), value: leadStats.qualified, color: C.accent },
               ].map(s => (
                 <div key={s.label} className="flex items-center gap-2">
                   <span className="text-lg font-bold" style={{ color: s.color }}>{s.value}</span>
@@ -515,8 +749,8 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               const isOpen = expandedGroup === group.name;
               const chColors: Record<string, string> = { linkedin: "#0A66C2", email: "#7C3AED", call: "#F97316" };
               const chColor = chColors[group.channel] ?? gold;
-              const campSt = group.status === "active" ? { color: C.green, bg: C.greenLight, label: "Active" }
-                : group.status === "paused" ? { color: "#D97706", bg: "#FFFBEB", label: "Paused" }
+              const campSt = group.status === "active" ? { color: C.green, bg: C.greenLight, label: t("bio.stat.active") }
+                : group.status === "paused" ? { color: "#D97706", bg: "#FFFBEB", label: t("bio.stat.active") === "Activos" ? "Pausada" : "Paused" }
                 : { color: C.textMuted, bg: "#F3F4F6", label: group.status };
               return (
                 <div key={group.name}>
@@ -533,7 +767,9 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
                     <span className="text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: campSt.bg, color: campSt.color }}>
                       {campSt.label}
                     </span>
-                    <span className="text-xs" style={{ color: C.textMuted }}>{group.leads.length} leads</span>
+                    <span className="text-xs" style={{ color: C.textMuted }}>
+                      {group.leads.length} {group.leads.length === 1 ? t("bio.leadSuffix") : t("bio.leadsSuffix")}
+                    </span>
                     <ChevronDown size={14} style={{ color: C.textDim, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
                   </button>
                   {isOpen && group.leads.map(lead => {
@@ -574,9 +810,11 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
                     <span className="text-xs font-bold" style={{ color: C.blue }}>?</span>
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>No Campaign Assigned</p>
+                    <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t("bio.noCampaign")}</p>
                   </div>
-                  <span className="text-xs" style={{ color: C.textMuted }}>{uncampaignedLeads.length} leads</span>
+                  <span className="text-xs" style={{ color: C.textMuted }}>
+                    {uncampaignedLeads.length} {uncampaignedLeads.length === 1 ? t("bio.leadSuffix") : t("bio.leadsSuffix")}
+                  </span>
                   <ChevronDown size={14} style={{ color: C.textDim, transform: expandedGroup === "__none" ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
                 </button>
                 {expandedGroup === "__none" && uncampaignedLeads.map(lead => {
@@ -1103,6 +1341,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
 
 // ─── MAIN PAGE ───────────────────────────────────────────
 export default function CompanyBiosPage() {
+  const { t } = useLocale();
   const [bio, setBio] = useState<CompanyBio | null>(null);
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -1151,7 +1390,7 @@ export default function CompanyBiosPage() {
   }, []);
 
   if (loading) {
-    return <div className="p-8 flex items-center justify-center" style={{ color: C.textMuted }}><Loader2 size={20} className="animate-spin mr-2" /> Loading…</div>;
+    return <div className="p-8 flex items-center justify-center" style={{ color: C.textMuted }}><Loader2 size={20} className="animate-spin mr-2" /> {t("bio.scan.scanning")}</div>;
   }
 
   const hasBio = bio && bio.id;
@@ -1161,50 +1400,124 @@ export default function CompanyBiosPage() {
 
       {/* ── Scanner Hero — always visible except when editing ── */}
       {!editing && (
-        <div className="rounded-2xl overflow-hidden" style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.12)" }}>
-          {/* Dark banner */}
-          <div className="px-8 py-6 flex items-center justify-between gap-6"
-            style={{ background: "linear-gradient(135deg, #0F172A 0%, #1E293B 100%)" }}>
-            <div className="flex items-center gap-5">
-              <span className="text-4xl select-none">🌐</span>
-              <div>
-                <h2 className="text-xl font-bold text-white">Company Bio Scanner</h2>
-                <p className="text-sm mt-1 leading-relaxed" style={{ color: "#94A3B8" }}>
-                  Scan a client's website in real-time to generate a comprehensive AI company breakdown and contact strategy.
-                </p>
+        <div className="rounded-2xl overflow-hidden relative" style={{ boxShadow: "0 8px 40px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.10)" }}>
+          {/* Dark banner — matches login/dashboard hero */}
+          <div
+            className="px-8 py-7 relative"
+            style={{
+              background: `
+                radial-gradient(ellipse 60% 90% at 100% 50%, color-mix(in srgb, ${gold} 22%, transparent) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 80% at 0% 100%, color-mix(in srgb, var(--brand-dark, #b79832) 16%, transparent) 0%, transparent 55%),
+                linear-gradient(135deg, #04070d 0%, #08101e 60%, #0a1525 100%)
+              `,
+            }}
+          >
+            {/* Grid overlay */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                backgroundImage: `linear-gradient(color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent) 1px, transparent 1px)`,
+                backgroundSize: "56px 56px",
+              }}
+            />
+            <div
+              className="absolute left-0 right-0 bottom-0 h-px pointer-events-none"
+              style={{
+                background: `linear-gradient(90deg, transparent 0%, color-mix(in srgb, ${gold} 38%, transparent) 35%, color-mix(in srgb, ${gold} 38%, transparent) 65%, transparent 100%)`,
+              }}
+            />
+
+            <div className="relative z-10 flex items-center justify-between gap-6 flex-wrap">
+              <div className="flex items-center gap-5">
+                <div
+                  className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+                  style={{
+                    background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 18%, transparent) 0%, color-mix(in srgb, ${gold} 4%, transparent) 100%)`,
+                    border: `1px solid color-mix(in srgb, ${gold} 28%, transparent)`,
+                    boxShadow: `0 0 24px color-mix(in srgb, ${gold} 22%, transparent)`,
+                  }}
+                >
+                  <Globe size={24} style={{ color: gold }} />
+                </div>
+                <div>
+                  <h2
+                    className="text-[22px] font-bold leading-tight"
+                    style={{
+                      color: "#f8fafc",
+                      fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                      letterSpacing: "-0.02em",
+                    }}
+                  >
+                    {t("bio.scan.title")}
+                  </h2>
+                  <p className="text-sm mt-1 leading-relaxed max-w-xl" style={{ color: "rgba(217,222,226,0.65)" }}>
+                    {t("bio.scan.subtitle")}
+                  </p>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2.5 shrink-0">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-                style={{ backgroundColor: "rgba(255,255,255,0.08)" }}>
-                <span className="w-2 h-2 rounded-full pulse-dot" style={{ backgroundColor: "#22C55E" }} />
-                <span className="text-sm font-medium text-white">Ready</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <div
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border"
+                  style={{
+                    borderColor: `color-mix(in srgb, ${gold} 30%, transparent)`,
+                    backgroundColor: `color-mix(in srgb, ${gold} 7%, transparent)`,
+                  }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ backgroundColor: "#22C55E" }} />
+                  <span className="text-[10px] font-bold tracking-[0.2em] uppercase" style={{ color: gold }}>
+                    {t("bio.scan.ready")}
+                  </span>
+                </div>
+                <span
+                  className="text-[10px] font-bold tracking-[0.2em] uppercase px-3 py-1.5 rounded-full"
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.04)",
+                    color: "rgba(217,222,226,0.6)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  {t("bio.scan.indexer")}
+                </span>
               </div>
-              <span className="text-xs px-3 py-1.5 rounded-full font-medium"
-                style={{ backgroundColor: "rgba(255,255,255,0.08)", color: "#94A3B8" }}>
-                AI Web Indexer
-              </span>
             </div>
           </div>
 
           {/* Scan controls */}
-          <div className="p-6" style={{ backgroundColor: C.card, borderLeft: `1px solid ${C.border}`, borderRight: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}`, borderRadius: "0 0 16px 16px" }}>
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: C.textMuted }}>Target Website</p>
+          <div
+            className="p-6"
+            style={{
+              backgroundColor: C.card,
+              borderLeft: `1px solid ${C.border}`,
+              borderRight: `1px solid ${C.border}`,
+              borderBottom: `1px solid ${C.border}`,
+              borderRadius: "0 0 16px 16px",
+            }}
+          >
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-3" style={{ color: C.textMuted }}>
+              {t("bio.scan.target")}
+            </p>
 
             {/* Language pills */}
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-[10px] font-bold uppercase tracking-widest shrink-0" style={{ color: C.textDim }}>
-                Scan Language
+            <div className="flex items-center gap-3 mb-4 flex-wrap">
+              <span className="text-[10px] font-bold uppercase tracking-[0.16em] shrink-0" style={{ color: C.textDim }}>
+                {t("bio.scan.lang")}
               </span>
               <div className="flex gap-1.5">
                 {LANGUAGES.map(l => (
-                  <button key={l.code}
+                  <button
+                    key={l.code}
                     onClick={() => setScanLang(l.code)}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
-                    style={scanLang === l.code
-                      ? { backgroundColor: gold, color: "#04070d" }
-                      : { backgroundColor: "#F3F4F6", color: C.textMuted, border: `1px solid ${C.border}` }
-                    }>
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] duration-150"
+                    style={
+                      scanLang === l.code
+                        ? {
+                            background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`,
+                            color: "#04070d",
+                            boxShadow: `0 2px 10px color-mix(in srgb, ${gold} 28%, transparent)`,
+                          }
+                        : { backgroundColor: C.cardHov, color: C.textMuted, border: `1px solid ${C.border}` }
+                    }
+                  >
                     <span>{l.flag}</span> {l.code}
                   </button>
                 ))}
@@ -1214,21 +1527,26 @@ export default function CompanyBiosPage() {
             {/* URL + button */}
             <div className="flex gap-3">
               <input
-                className="flex-1 rounded-lg border px-4 py-3 text-sm focus:outline-none"
+                className="flex-1 rounded-xl border px-4 py-3 text-sm focus:outline-none transition-colors duration-150"
                 style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
                 value={scrapeUrl}
                 onChange={e => setScrapeUrl(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && handleScrape()}
-                placeholder="e.g. https://www.acme-corp.com"
+                placeholder={t("bio.scan.placeholder")}
                 disabled={scraping}
               />
               <button
                 onClick={handleScrape}
                 disabled={scraping || !scrapeUrl.trim()}
-                className="flex items-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] disabled:opacity-40 shrink-0 hover:opacity-90"
-                style={{ background: "linear-gradient(135deg, #0F172A, #1E293B)", color: "#fff" }}>
+                className="flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-[opacity,transform,box-shadow] duration-150 disabled:opacity-40 shrink-0 hover:opacity-95 hover:shadow-md"
+                style={{
+                  background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`,
+                  color: "#04070d",
+                  boxShadow: `0 4px 16px color-mix(in srgb, ${gold} 28%, transparent)`,
+                }}
+              >
                 {scraping ? <Loader2 size={15} className="animate-spin" /> : <Globe size={15} />}
-                {scraping ? "Scanning..." : "Scan Web"}
+                {scraping ? t("bio.scan.scanning") : t("bio.scan.cta")}
               </button>
             </div>
             {scrapeError && (
@@ -1243,15 +1561,22 @@ export default function CompanyBiosPage() {
       {/* ── Edit header ── */}
       {editing && (
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>
-            {hasBio ? "Editing" : "New Company"}
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] mb-1" style={{ color: gold }}>
+            {hasBio ? t("bio.editing") : t("bio.newCompany")}
           </p>
-          <h1 className="text-2xl font-bold flex items-center gap-2.5" style={{ color: C.textPrimary }}>
+          <h1
+            className="text-[26px] font-bold flex items-center gap-2.5"
+            style={{
+              color: C.textPrimary,
+              fontFamily: "var(--font-outfit), system-ui, sans-serif",
+              letterSpacing: "-0.02em",
+            }}
+          >
             <Building2 size={22} style={{ color: gold }} />
-            Company Bio
+            {t("bio.breadcrumb")}
           </h1>
           <p className="text-sm mt-1" style={{ color: C.textMuted }}>
-            Only the name is required — everything else can be added later.
+            {t("bio.editHint")}
           </p>
           <div className="h-px mt-5" style={{ background: `linear-gradient(90deg, ${gold} 0%, color-mix(in srgb, var(--brand, #c9a83a) 15%, transparent) 40%, transparent 100%)` }} />
         </div>
@@ -1261,7 +1586,7 @@ export default function CompanyBiosPage() {
       {hasBio && !editing ? (
         <>
           <div className="flex items-center gap-2 text-xs -mt-2" style={{ color: C.textMuted }}>
-            <span>Company Bio</span>
+            <span>{t("bio.breadcrumb")}</span>
             <span>/</span>
             <span style={{ color: C.textBody }}>{bio.company_name}</span>
           </div>
@@ -1269,33 +1594,69 @@ export default function CompanyBiosPage() {
         </>
       ) : !hasBio && !editing ? (
         <div className="flex flex-col items-center justify-center py-8">
-          <div className="rounded-2xl border p-8 max-w-md w-full text-center relative overflow-hidden"
-            style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <div className="absolute inset-x-0 top-0 h-1"
-              style={{ background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white), ${gold})` }} />
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4"
-              style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 13%, transparent), color-mix(in srgb, ${gold} 3%, transparent))`, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
-              <Building2 size={24} style={{ color: gold }} />
+          <div
+            className="rounded-2xl border p-9 max-w-md w-full text-center relative overflow-hidden"
+            style={{
+              backgroundColor: C.card,
+              borderColor: C.border,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)",
+            }}
+          >
+            <div
+              className="absolute inset-x-0 top-0 h-[3px]"
+              style={{
+                background: `linear-gradient(90deg, transparent 0%, ${gold} 30%, color-mix(in srgb, ${gold} 72%, white) 50%, ${gold} 70%, transparent 100%)`,
+              }}
+            />
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+              style={{
+                background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 14%, transparent), color-mix(in srgb, ${gold} 4%, transparent))`,
+                border: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
+                boxShadow: `0 0 28px color-mix(in srgb, ${gold} 22%, transparent)`,
+              }}
+            >
+              <Building2 size={28} style={{ color: gold }} />
             </div>
-            <h2 className="text-base font-bold mb-1.5" style={{ color: C.textPrimary }}>No company profile yet</h2>
-            <p className="text-xs mb-5" style={{ color: C.textMuted }}>
-              Scan a website above or create your profile manually. This info personalizes your AI outreach.
+            <h2
+              className="text-lg font-bold mb-2"
+              style={{
+                color: C.textPrimary,
+                fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {t("bio.empty.title")}
+            </h2>
+            <p className="text-sm mb-6" style={{ color: C.textMuted }}>
+              {t("bio.empty.subtitle")}
             </p>
             <button
               onClick={() => setEditing(true)}
-              className="inline-flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-lg hover:opacity-95"
-              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#04070d" }}>
-              <Plus size={15} /> Create Manually
+              className="inline-flex items-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold transition-[opacity,transform,box-shadow] duration-150 hover:shadow-lg hover:opacity-95"
+              style={{
+                background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`,
+                color: "#04070d",
+                boxShadow: `0 4px 16px color-mix(in srgb, ${gold} 28%, transparent)`,
+              }}
+            >
+              <Plus size={15} /> {t("bio.empty.cta")}
             </button>
-            <div className="mt-6 pt-5 border-t grid grid-cols-3 gap-3" style={{ borderColor: C.border }}>
+            <div className="mt-7 pt-5 border-t grid grid-cols-3 gap-3" style={{ borderColor: C.border }}>
               {[
-                { icon: "1", label: "Enter your company info" },
-                { icon: "2", label: "AI personalizes messages" },
-                { icon: "3", label: "Better outreach, more replies" },
+                { icon: "1", label: t("bio.empty.step1") },
+                { icon: "2", label: t("bio.empty.step2") },
+                { icon: "3", label: t("bio.empty.step3") },
               ].map(step => (
                 <div key={step.icon} className="text-center">
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center mx-auto mb-1 text-xs font-bold"
-                    style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center mx-auto mb-1.5 text-xs font-bold"
+                    style={{
+                      backgroundColor: goldLight,
+                      color: gold,
+                      border: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
+                    }}
+                  >
                     {step.icon}
                   </div>
                   <p className="text-xs" style={{ color: C.textMuted }}>{step.label}</p>
