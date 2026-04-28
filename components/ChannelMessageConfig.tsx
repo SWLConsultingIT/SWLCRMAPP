@@ -186,11 +186,11 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   function updateStep(idx: number, field: "body" | "subject" | "user_prompt", value: string) {
     const newSteps = [...steps];
     newSteps[idx] = { ...newSteps[idx], [field]: value };
-    onChange({ steps: newSteps, autoReplies });
+    onChange({ ...channelMessages, steps: newSteps, autoReplies });
   }
 
   function updateAutoReply(field: keyof AutoReplies, value: string) {
-    onChange({ steps, autoReplies: { ...autoReplies, [field]: value } });
+    onChange({ ...channelMessages, steps, autoReplies: { ...autoReplies, [field]: value } });
   }
 
   // AI generation per field
@@ -228,7 +228,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           const replyMap: Record<string, string> = { replyPositive: "positive", replyNegative: "negative" };
           const field = replyMap[fieldType];
           if (field) {
-            onChange({ steps: currentSteps, autoReplies: { ...currentReplies, [field]: data.content } });
+            onChange({ ...channelMessages, steps: currentSteps, autoReplies: { ...currentReplies, [field]: data.content } });
           }
         }
       }
@@ -258,7 +258,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         });
         const crData = await crRes.json();
         if (crData.content) connRequest = crData.content;
-        onChange({ connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
+        onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
       }
 
       // Generate each step sequentially. Each one passes the user's prompt
@@ -274,7 +274,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         const data = await res.json();
         if (data.content) {
           allSteps[i] = { ...allSteps[i], body: data.content, subject: data.subject || allSteps[i]?.subject };
-          onChange({ connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
+          onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
         }
       }
 
@@ -289,7 +289,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         if (data.content) {
           const field = replyType === "replyPositive" ? "positive" : "negative";
           replies = { ...replies, [field]: data.content };
-          onChange({ connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
+          onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
         }
       }
     } catch (err) {
