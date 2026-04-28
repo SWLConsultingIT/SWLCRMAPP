@@ -1,5 +1,6 @@
 import { getSupabaseService } from "@/lib/supabase-service";
 import AdminClient from "./AdminClient";
+import ActivityWidget from "@/components/ActivityWidget";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { redirect } from "next/navigation";
 
@@ -192,5 +193,10 @@ export default async function AdminPage() {
   if (profile?.role !== "admin") redirect("/");
 
   const data = await getData();
-  return <AdminClient {...JSON.parse(JSON.stringify(data))} />;
+  return (
+    <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6 items-start">
+      <AdminClient {...JSON.parse(JSON.stringify(data))} />
+      <ActivityWidget />
+    </div>
+  );
 }
