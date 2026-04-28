@@ -169,7 +169,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
       {/* ═══ Tab 0: Pending Calls ═══ */}
       {tab === 0 && (
         filteredCalls.length === 0 ? (
-          <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="rounded-2xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
             <CheckCircle size={28} className="mx-auto mb-3" style={{ color: C.green }} />
             <p className="text-sm font-medium" style={{ color: C.textBody }}>
               {search ? "No calls match your search" : "No pending calls"}
@@ -184,7 +184,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                 const UIcon = urgency.icon;
                 const isEscalated = urgency.level === "critical" || urgency.level === "stuck";
                 return (
-                  <div key={call.id} className="rounded-xl border" style={{ backgroundColor: C.card, borderColor: isEscalated ? urgency.border : C.border, borderLeftWidth: isEscalated ? 3 : 1, borderLeftColor: isEscalated ? urgency.color : undefined }}>
+                  <div key={call.id} className="rounded-2xl border transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-md" style={{ backgroundColor: C.card, borderColor: isEscalated ? urgency.border : C.border, borderLeftWidth: isEscalated ? 3 : 1, borderLeftColor: isEscalated ? urgency.color : undefined, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
                     <div className="flex items-center gap-4 px-5 py-4">
                       {/* Avatar */}
                       <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
@@ -254,7 +254,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
       {/* ═══ Tab 1: New Replies ═══ */}
       {tab === 1 && (
         filteredReplies.length === 0 ? (
-          <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="rounded-2xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
             <CheckCircle size={28} className="mx-auto mb-3" style={{ color: C.green }} />
             <p className="text-sm font-medium" style={{ color: C.textBody }}>
               {search ? "No replies match your search" : "No replies yet"}
@@ -263,15 +263,15 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
         ) : (
           <>
             {needsReviewCount > 0 && !search && (
-              <div className="flex items-center gap-3 rounded-xl border px-4 py-3 mb-4"
-                style={{ backgroundColor: "#FFFBEB", borderColor: "#FCD34D" }}>
+              <div className="flex items-center gap-3 rounded-2xl border px-4 py-3 mb-4"
+                style={{ background: "linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)", borderColor: "#FCD34D", boxShadow: "0 4px 16px rgba(217, 119, 6, 0.08)" }}>
                 <AlertTriangle size={16} style={{ color: "#D97706" }} className="shrink-0" />
                 <p className="text-sm font-medium" style={{ color: "#92400E" }}>
                   {needsReviewCount} {needsReviewCount === 1 ? "reply needs" : "replies need"} your attention — the AI answered but flagged these for human review.
                 </p>
               </div>
             )}
-            <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
               {filteredReplies.map((r, i) => {
                 const cls = classificationMeta[r.classification ?? ""] ?? { color: C.textMuted, bg: "#F3F4F6", label: r.classification ?? "Reply" };
                 const chMeta = channelMeta[r.channel] ?? channelMeta.email;
@@ -336,7 +336,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
         const profiles = filteredReviews.filter(r => r.type === "profile");
 
         if (filteredReviews.length === 0) return (
-          <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="rounded-2xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
             <CheckCircle size={28} className="mx-auto mb-3" style={{ color: C.green }} />
             <p className="text-sm font-medium" style={{ color: C.textBody }}>
               {search ? "No reviews match your search" : "All caught up"}
@@ -352,7 +352,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                   <Megaphone size={14} style={{ color: gold }} />
                   <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Campaigns ({campaigns.length})</h3>
                 </div>
-                <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
                   {campaigns.map((review, i) => (
                     <Link key={review.id} href={review.href}
                       className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-black/[0.015]"
@@ -379,7 +379,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                   <Target size={14} style={{ color: C.blue }} />
                   <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Lead Gen Profiles ({profiles.length})</h3>
                 </div>
-                <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
                   {profiles.map((review, i) => (
                     <Link key={review.id} href={review.href}
                       className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-black/[0.015]"
@@ -406,7 +406,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
       {/* ═══ Tab 3: Updates (approved / rejected) ═══ */}
       {tab === 3 && (
         filteredUpdates.length === 0 ? (
-          <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="rounded-2xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
             <CheckCircle size={28} className="mx-auto mb-3" style={{ color: C.green }} />
             <p className="text-sm font-medium" style={{ color: C.textBody }}>
               {search ? "No updates match your search" : "No recent updates"}
@@ -416,7 +416,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
             </p>
           </div>
         ) : (
-          <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
             {filteredUpdates.map((u, i) => {
               const isApproved = u.status === "approved";
               const color = isApproved ? C.green : C.red;

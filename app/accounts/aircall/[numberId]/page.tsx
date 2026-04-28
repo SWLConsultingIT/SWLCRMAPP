@@ -78,7 +78,7 @@ export default async function AircallNumberDetail({ params }: { params: Promise<
       </div>
 
       {/* Header */}
-      <div className="rounded-xl border p-6 mb-6 flex items-center gap-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="rounded-2xl border p-6 mb-6 flex items-center gap-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
         <div className="w-14 h-14 rounded-xl flex items-center justify-center text-3xl shrink-0" style={{ backgroundColor: `${C.phone}15` }}>
           {FLAGS[number.country] ?? "📞"}
         </div>
@@ -102,7 +102,7 @@ export default async function AircallNumberDetail({ params }: { params: Promise<
           { label: "Talk time",       value: `${totalMins}m`, sub: `avg ${secsToMMSS(avgDuration)}`, color: gold, icon: Clock },
           { label: "Positive",        value: positiveCount, sub: `${negativeCount} negative`, color: "#7C3AED", icon: PhoneCall },
         ].map(({ label, value, sub, color, icon: Icon }) => (
-          <div key={label} className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${color}` }}>
+          <div key={label} className="rounded-2xl border p-4" style={{ background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${color} 5%, var(--c-card)) 100%)`, borderColor: C.border, borderTop: `3px solid ${color}`, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{label}</p>
               <div className="rounded-lg p-1.5" style={{ backgroundColor: `${color}15` }}>
@@ -116,7 +116,7 @@ export default async function AircallNumberDetail({ params }: { params: Promise<
       </div>
 
       {/* Recent calls */}
-      <div className="rounded-xl border" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="rounded-2xl border" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
         <div className="px-5 py-3 border-b flex items-center gap-2" style={{ borderColor: C.border }}>
           <PhoneCall size={14} style={{ color: C.textMuted }} />
           <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Recent Calls (last 30)</h3>

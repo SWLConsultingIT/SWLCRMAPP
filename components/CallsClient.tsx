@@ -74,19 +74,19 @@ export default function CallsClient({ initialQueue, history }: {
         {/* Queue */}
         <div className="col-span-2 space-y-3">
           {queue.length === 0 ? (
-            <div className="rounded-xl border p-14 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <div className="rounded-2xl border p-14 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
               <Phone size={28} style={{ color: C.textDim }} className="mx-auto mb-3" />
               <p className="text-sm font-medium" style={{ color: C.textMuted }}>No pending calls</p>
               <p className="text-xs mt-1" style={{ color: C.textDim }}>Calls will appear here when the orchestrator generates them</p>
             </div>
           ) : (
             queue.map((c, i) => (
-              <div key={c.id} className="rounded-xl border p-5 transition-[opacity,transform,box-shadow,background-color,border-color]"
+              <div key={c.id} className="rounded-2xl border p-5 transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-md"
                 style={{
                   backgroundColor: C.card,
                   borderColor: i === 0 ? `color-mix(in srgb, ${C.gold} 25%, transparent)` : C.border,
-                  borderTop: `2px solid ${i === 0 ? C.gold : C.border}`,
-                  boxShadow: i === 0 ? `0 0 0 1px color-mix(in srgb, ${C.gold} 8%, transparent), 0 4px 24px ${C.goldGlow}` : "none",
+                  borderTop: `3px solid ${i === 0 ? C.gold : C.border}`,
+                  boxShadow: i === 0 ? `0 0 0 1px color-mix(in srgb, ${C.gold} 8%, transparent), 0 4px 24px ${C.goldGlow}` : "0 4px 16px rgba(0,0,0,0.04)",
                 }}>
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black shrink-0"
@@ -173,8 +173,8 @@ export default function CallsClient({ initialQueue, history }: {
 
         {/* History sidebar */}
         <div className="space-y-4">
-          <div className="rounded-xl border overflow-hidden"
-            style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${C.green}` }}>
+          <div className="rounded-2xl border overflow-hidden"
+            style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `3px solid ${C.green}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
             <div className="px-5 py-4 border-b flex items-center justify-between"
               style={{ borderColor: C.border, background: "linear-gradient(90deg, rgba(61,220,132,0.04) 0%, transparent 60%)" }}>
               <div className="flex items-center gap-2">

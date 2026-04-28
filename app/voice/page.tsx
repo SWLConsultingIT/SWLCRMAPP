@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import EmptyState from "@/components/EmptyState";
 import PageHero from "@/components/PageHero";
+import { useLocale } from "@/lib/i18n";
 
 const gold = C.gold;
 
@@ -32,6 +33,7 @@ const STEP_TYPES = [
 ];
 
 function BrandVoiceTab() {
+  const { t } = useLocale();
   const [bio, setBio] = useState<{ id: string; company_name: string; tone_of_voice: string | null; ideal_message_examples: VoiceExample[] | null } | null>(null);
   const [tone, setTone] = useState("");
   const [examples, setExamples] = useState<VoiceExample[]>([]);
@@ -75,78 +77,81 @@ function BrandVoiceTab() {
   }
 
   if (loading) return <div className="flex items-center justify-center py-12"><Loader2 size={20} className="animate-spin" style={{ color: gold }} /></div>;
-  if (!bio) return <p className="text-sm" style={{ color: C.textMuted }}>No tenant assigned to this user.</p>;
+  if (!bio) return <p className="text-sm" style={{ color: C.textMuted }}>{t("voice.noTenant")}</p>;
 
   return (
     <div>
       <div className="flex items-start justify-between mb-5">
         <p className="text-sm max-w-xl" style={{ color: C.textMuted }}>
-          Tone description + ideal message examples for <span className="font-semibold" style={{ color: C.textBody }}>{bio.company_name}</span>.
-          Both are fed as few-shot to the AI message generator on every campaign.
+          {t("voice.brand.subtitle.before")} <span className="font-semibold" style={{ color: C.textBody }}>{bio.company_name}</span>{t("voice.brand.subtitle.after")}
         </p>
         <div className="flex items-center gap-3 shrink-0">
           {savedAt && (
             <span className="text-xs" style={{ color: C.green }}>
-              Saved {savedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+              {t("voice.saved")} {savedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
             </span>
           )}
           <button onClick={save} disabled={saving}
-            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-50"
-            style={{ backgroundColor: gold, color: "#fff" }}>
+            className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition-[opacity,transform,box-shadow] duration-150 hover:opacity-95 hover:shadow-md disabled:opacity-50"
+            style={{
+              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`,
+              color: "#04070d",
+              boxShadow: `0 4px 16px color-mix(in srgb, ${gold} 28%, transparent)`,
+            }}>
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-            {saving ? "Saving…" : "Save Changes"}
+            {saving ? t("voice.saving") : t("voice.save")}
           </button>
         </div>
       </div>
 
-      <div className="rounded-xl border p-5 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="rounded-2xl border p-5 mb-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
         <label className="block">
-          <span className="text-[11px] font-semibold uppercase tracking-wider mb-2 block" style={{ color: C.textMuted }}>Tone of voice</span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.16em] mb-2 block" style={{ color: C.textMuted }}>{t("voice.brand.toneLabel")}</span>
           <textarea value={tone} onChange={e => setTone(e.target.value)}
-            placeholder="e.g. 'Professional but warm. Plain English, no jargon. Confident without being pushy.'"
+            placeholder={t("voice.brand.tonePlaceholder")}
             rows={3}
             className="w-full text-sm px-3 py-2 rounded-lg border resize-y"
             style={{ borderColor: C.border, backgroundColor: C.bg }} />
         </label>
-        <p className="text-[10px] mt-1" style={{ color: C.textMuted }}>
-          Short description of the brand voice. The AI uses this as the writing style guide for every generated message.
+        <p className="text-[10px] mt-1.5" style={{ color: C.textMuted }}>
+          {t("voice.brand.toneHelp")}
         </p>
       </div>
 
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-          Ideal message examples ({examples.length})
+        <span className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: C.textMuted }}>
+          {t("voice.brand.examplesLabel")} ({examples.length})
         </span>
         <button onClick={addExample}
-          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
-          style={{ backgroundColor: C.goldGlow, color: gold }}>
-          <Plus size={12} /> Add Example
+          className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-80"
+          style={{ backgroundColor: C.goldGlow, color: gold, border: `1px solid color-mix(in srgb, ${gold} 25%, transparent)` }}>
+          <Plus size={12} /> {t("voice.brand.addExample")}
         </button>
       </div>
 
       {examples.length === 0 ? (
         <EmptyState
           icon={MessageCircle}
-          title="Build your brand voice"
-          description="Add 4–6 messages that capture how you write. The AI uses them as reference every time it generates outreach copy — the more specific, the better."
-          primaryCta={{ label: "+ Add your first example", onClick: addExample }}
+          title={t("voice.brand.empty.title")}
+          description={t("voice.brand.empty.desc")}
+          primaryCta={{ label: t("voice.brand.empty.cta"), onClick: addExample }}
         />
       ) : (
         <div className="space-y-3">
           {examples.map((ex, i) => (
-            <div key={i} className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <div key={i} className="rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
               <div className="flex items-center justify-between gap-2 mb-2">
                 <select value={ex.step_type} onChange={e => updateExample(i, { step_type: e.target.value })}
                   className="text-xs px-3 py-1.5 rounded-lg border outline-none"
                   style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textBody }}>
                   {STEP_TYPES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
-                <button onClick={() => removeExample(i)} className="p-1.5 rounded hover:bg-red-50" title="Remove">
+                <button onClick={() => removeExample(i)} className="p-1.5 rounded hover:bg-red-50" title={t("voice.brand.remove")}>
                   <Trash2 size={12} style={{ color: "#DC2626" }} />
                 </button>
               </div>
               <textarea value={ex.body} onChange={e => updateExample(i, { body: e.target.value })}
-                placeholder='Use {{first_name}}, {{role}}, {{company}}, {{seller_name}} and any enrichment placeholders.'
+                placeholder={t("voice.brand.examplePlaceholder")}
                 rows={5}
                 className="w-full text-sm px-3 py-2 rounded-lg border resize-y font-mono"
                 style={{ borderColor: C.border, backgroundColor: C.bg }} />
@@ -207,6 +212,7 @@ const emptyForm = {
 };
 
 function TemplatesTab() {
+  const { t: tr } = useLocale();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [icpOptions, setIcpOptions] = useState<IcpOption[]>([]);
   const [companyBioId, setCompanyBioId] = useState<string | null>(null);
@@ -308,9 +314,9 @@ function TemplatesTab() {
         templates.length === 0 ? (
           <EmptyState
             icon={BookOpen}
-            title="Build your template library"
-            description="Save proven outreach copy here. When the AI generates new messages, it picks the top templates for each step as reference — better library, better AI output."
-            primaryCta={{ label: "+ New template", onClick: () => { setEditingId(null); setShowForm(true); } }}
+            title={tr("voice.tpl.empty.title")}
+            description={tr("voice.tpl.empty.desc")}
+            primaryCta={{ label: `+ ${tr("voice.tpl.new")}`, onClick: () => { setEditingId(null); setShowForm(true); } }}
           />
         ) : (
           <EmptyState
@@ -510,6 +516,7 @@ const emptySequence = {
 };
 
 function SequencesTab() {
+  const { t: tr } = useLocale();
   const [sequences, setSequences] = useState<Sequence[]>([]);
   const [allTemplates, setAllTemplates] = useState<Template[]>([]);
   const [icpOptions, setIcpOptions] = useState<IcpOption[]>([]);
@@ -632,10 +639,9 @@ function SequencesTab() {
       ) : sequences.length === 0 ? (
         <EmptyState
           icon={Layers}
-          title="Create your first sequence"
-          description="Bundle templates into an ordered narrative — connection request, first DM, follow-ups, CTA, breakup. The AI follows the sequence in order so all messages tell one coherent story."
-          primaryCta={{ label: "+ New sequence", onClick: startNew }}
-          secondaryCta={{ label: "Browse templates first →", href: "/voice?tab=templates" }}
+          title={tr("voice.seq.empty.title")}
+          description={tr("voice.seq.empty.desc")}
+          primaryCta={{ label: `+ ${tr("voice.seq.new")}`, onClick: startNew }}
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -845,6 +851,7 @@ function SequenceForm({ initial, icpOptions, allTemplates, isEdit, editingSeqId,
 type TabKey = "voice" | "templates" | "sequences";
 
 export default function VoicePage() {
+  const { t: tr } = useLocale();
   const router = useRouter();
   const params = useSearchParams();
   const tabParam = ((): TabKey => {
@@ -866,16 +873,16 @@ export default function VoicePage() {
       <PageHero
         icon={MessageCircle}
         section="Growth Engine"
-        title="Voice & Templates"
-        description="Brand voice, template library and full outreach sequences. The AI generator references all three when creating campaign messages."
+        title={tr("voice.title")}
+        description={tr("voice.subtitle")}
         accentColor={gold}
-        status={{ label: "Synced", active: true }}
+        status={{ label: tr("voice.synced"), active: true }}
       />
 
       <div className="flex items-center gap-1 mb-6 border-b" style={{ borderColor: C.border }}>
-        <TabButton active={tab === "voice"} onClick={() => selectTab("voice")} icon={MessageCircle} label="Brand Voice" />
-        <TabButton active={tab === "templates"} onClick={() => selectTab("templates")} icon={BookOpen} label="Templates Library" />
-        <TabButton active={tab === "sequences"} onClick={() => selectTab("sequences")} icon={Layers} label="Sequences" />
+        <TabButton active={tab === "voice"} onClick={() => selectTab("voice")} icon={MessageCircle} label={tr("voice.tab.brandVoice")} />
+        <TabButton active={tab === "templates"} onClick={() => selectTab("templates")} icon={BookOpen} label={tr("voice.tab.templates")} />
+        <TabButton active={tab === "sequences"} onClick={() => selectTab("sequences")} icon={Layers} label={tr("voice.tab.sequences")} />
       </div>
 
       {tab === "voice" ? <BrandVoiceTab /> : tab === "templates" ? <TemplatesTab /> : <SequencesTab />}

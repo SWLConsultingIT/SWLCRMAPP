@@ -113,7 +113,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
   }
 
   return (
-    <div className="rounded-xl border mb-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+    <div className="rounded-2xl border mb-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `3px solid ${gold}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
       <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b" style={{ borderColor: C.border }}>
         <h2 className="text-sm font-semibold" style={{ color: C.textPrimary }}>
           {isNew ? "New LeadMiner Ticket" : "Edit Profile"}
@@ -196,7 +196,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
         </div>
 
         {/* Leads Requested */}
-        <div className="rounded-xl border p-4" style={{ borderColor: `color-mix(in srgb, ${gold} 25%, transparent)`, backgroundColor: `color-mix(in srgb, ${gold} 2%, transparent)` }}>
+        <div className="rounded-2xl border p-4" style={{ borderColor: `color-mix(in srgb, ${gold} 25%, transparent)`, background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 4%, var(--c-card)) 0%, var(--c-card) 100%)`, boxShadow: `0 0 16px color-mix(in srgb, ${gold} 8%, transparent)` }}>
           <label className="block text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: gold }}>
             How many leads do you need?
           </label>
@@ -313,8 +313,8 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
         <span style={{ color: C.textBody }}>{profile.profile_name}</span>
       </div>
 
-      <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-      <div className="absolute inset-x-0 top-0 h-1" style={{ background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white), ${gold})` }} />
+      <div className="rounded-2xl border overflow-hidden mb-6 relative" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 8px 32px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)" }}>
+      <div className="absolute inset-x-0 top-0 h-[3px]" style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 30%, color-mix(in srgb, ${gold} 72%, white) 50%, ${gold} 70%, transparent 100%)` }} />
 
       {/* Header */}
       <div className="p-6 flex items-start justify-between">
@@ -415,7 +415,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
 
       {/* Leads linked to this ticket */}
       <div className="px-6 pb-5">
-        <div className="rounded-xl border overflow-hidden" style={{ borderColor: C.border }}>
+        <div className="rounded-2xl border overflow-hidden" style={{ borderColor: C.border, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
           <button onClick={() => setLeadsOpen(!leadsOpen)}
             className="w-full px-5 py-3 flex items-center gap-2 border-b text-left transition-colors hover:bg-gray-50"
             style={{ borderColor: C.border, backgroundColor: C.bg }}>
@@ -699,8 +699,8 @@ export default function LeadGenPage() {
 
             return (
               <button key={p.id} onClick={() => setSelectedId(p.id)}
-                className="w-full text-left rounded-xl border p-5 transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm"
-                style={{ backgroundColor: C.card, borderColor: C.border }}>
+                className="w-full text-left rounded-2xl border p-5 transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:shadow-md"
+                style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
                 <div className="flex items-center gap-4 mb-3">
                   <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
                     style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 13%, transparent), color-mix(in srgb, ${gold} 3%, transparent))`, border: `1px solid color-mix(in srgb, ${gold} 15%, transparent)` }}>

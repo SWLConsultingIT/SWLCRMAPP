@@ -17,6 +17,7 @@ import CallButton from "@/components/CallButton";
 import CallCard from "@/components/CallCard";
 import PersonalizedInfoPanel from "@/components/PersonalizedInfoPanel";
 import LeadSummaryTab from "@/components/LeadSummaryTab";
+import LeadStatsBar from "@/components/LeadStatsBar";
 
 const gold = "var(--brand, #c9a83a)";
 const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";
@@ -345,39 +346,12 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           </div>
         </div>
 
-        {/* Stats bar */}
-        <div
-          className="mx-6 mb-5 px-5 py-4 rounded-xl grid grid-cols-4 gap-4 relative overflow-hidden"
-          style={{
-            background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 8%, var(--c-card)) 0%, color-mix(in srgb, ${gold} 4%, var(--c-card)) 100%)`,
-            border: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
-          }}
-        >
-          <div
-            className="absolute -top-12 -right-12 w-32 h-32 rounded-full pointer-events-none opacity-50"
-            style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 14%, transparent) 0%, transparent 70%)` }}
-          />
-          {[
-            { label: "Messages Sent",  value: totalMsgsSent },
-            { label: "Replies",        value: totalReplies },
-            { label: "Positive",       value: positiveReplies },
-            { label: "Campaign Step",  value: campaign ? `${currentStep}/${steps.length}` : "—" },
-          ].map(s => (
-            <div key={s.label} className="text-center relative">
-              <p
-                className="text-2xl font-bold tabular-nums"
-                style={{
-                  color: C.textPrimary,
-                  fontFamily: "var(--font-outfit), system-ui, sans-serif",
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                {s.value}
-              </p>
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] mt-0.5" style={{ color: C.textMuted }}>{s.label}</p>
-            </div>
-          ))}
-        </div>
+        <LeadStatsBar
+          totalMsgsSent={totalMsgsSent}
+          totalReplies={totalReplies}
+          positiveReplies={positiveReplies}
+          campaignStep={campaign ? `${currentStep}/${steps.length}` : "—"}
+        />
       </div>
 
       {/* ═══ CAMPAIGN STEP PROGRESS (horizontal stepper) ═══ */}

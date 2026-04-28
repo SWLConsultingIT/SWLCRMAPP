@@ -75,7 +75,7 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
       </div>
 
       {/* Header */}
-      <div className="rounded-xl border mb-6 overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="rounded-2xl border mb-6 overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 8px 32px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)" }}>
         <div className="p-6 flex items-start justify-between gap-6">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold shrink-0"
@@ -147,7 +147,7 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
           { label: "Fail rate",        value: `${failRate}%`,  sub: `${weekFailed} failed`,      color: failRate > 10 ? C.red : C.textMuted, icon: AlertTriangle },
           { label: "Active campaigns", value: activeCamps.length, sub: "in progress",             color: gold,       icon: Users },
         ].map(({ label, value, sub, color, icon: Icon }) => (
-          <div key={label} className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${color}` }}>
+          <div key={label} className="rounded-2xl border p-4" style={{ background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${color} 5%, var(--c-card)) 100%)`, borderColor: C.border, borderTop: `3px solid ${color}`, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
             <div className="flex items-center justify-between mb-2">
               <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{label}</p>
               <div className="rounded-lg p-1.5" style={{ backgroundColor: `${color}15` }}>
@@ -162,7 +162,7 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
 
       <div className="grid grid-cols-2 gap-6">
         {/* Recent activity */}
-        <div className="rounded-xl border" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="rounded-2xl border" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
           <div className="px-5 py-3 border-b flex items-center gap-2" style={{ borderColor: C.border }}>
             <TrendingUp size={14} style={{ color: C.textMuted }} />
             <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Recent LinkedIn Activity</h3>
@@ -202,7 +202,7 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
         </div>
 
         {/* Active campaigns */}
-        <div className="rounded-xl border" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="rounded-2xl border" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
           <div className="px-5 py-3 border-b flex items-center gap-2" style={{ borderColor: C.border }}>
             <Users size={14} style={{ color: C.textMuted }} />
             <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Active Campaigns ({activeCamps.length})</h3>

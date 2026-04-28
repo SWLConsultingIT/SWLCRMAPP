@@ -195,7 +195,7 @@ function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; onSucces
                 <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Juan Perez"
                   className="w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none" style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }} />
               </div>
-              <div className="rounded-xl border p-4" style={{ borderColor: "#0A66C220", backgroundColor: "#0A66C204" }}>
+              <div className="rounded-2xl border p-4" style={{ borderColor: "#0A66C230", background: "linear-gradient(135deg, #0A66C204 0%, #0A66C20D 100%)", boxShadow: "0 4px 14px rgba(10,102,194,0.06)" }}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Share2 size={14} style={{ color: "#0A66C2" }} />
@@ -299,7 +299,7 @@ function EditAccountModal({ seller, onClose, onSuccess }: { seller: SellerCard; 
             <input type="text" value={name} onChange={e => setName(e.target.value)}
               className="w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none" style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }} />
           </div>
-          <div className="rounded-xl border p-4" style={{ borderColor: "#0A66C220", backgroundColor: "#0A66C204" }}>
+          <div className="rounded-2xl border p-4" style={{ borderColor: "#0A66C230", background: "linear-gradient(135deg, #0A66C204 0%, #0A66C20D 100%)", boxShadow: "0 4px 14px rgba(10,102,194,0.06)" }}>
             <div className="flex items-center gap-2 mb-3">
               <Share2 size={14} style={{ color: "#0A66C2" }} />
               <span className="text-xs font-semibold" style={{ color: "#0A66C2" }}>LinkedIn (Unipile)</span>
@@ -451,7 +451,7 @@ function DeleteModal({ name, onConfirm, onClose, loading }: { name: string; onCo
           <h2 className="text-lg font-bold" style={{ color: C.red }}>Remove Seller</h2>
           <button onClick={onClose}><X size={18} style={{ color: C.textMuted }} /></button>
         </div>
-        <div className="rounded-xl border p-4 mb-4" style={{ borderColor: `${C.red}30`, backgroundColor: `${C.red}04` }}>
+        <div className="rounded-2xl border p-4 mb-4" style={{ borderColor: `${C.red}30`, background: `linear-gradient(135deg, ${C.red}05 0%, ${C.red}0D 100%)`, boxShadow: `0 4px 14px ${C.red}10` }}>
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle size={16} style={{ color: C.red }} />
             <span className="text-sm font-semibold" style={{ color: C.red }}>This action cannot be undone</span>
@@ -538,7 +538,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
     <div>
       {/* ═══ KPI CARDS ═══ */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="rounded-xl border p-4 card-lift" style={{ background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${gold} 4%, transparent) 100%)`, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+        <div className="rounded-2xl border p-4 card-lift" style={{ background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${gold} 5%, transparent) 100%)`, borderColor: C.border, borderTop: `3px solid ${gold}`, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Team Members</span>
             <Users size={14} style={{ color: gold }} />
@@ -546,7 +546,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
           <p className="text-2xl font-bold" style={{ color: C.textBody }}>{sellers.length}</p>
         </div>
 
-        <div className="rounded-xl border p-4 card-lift" style={{ background: "linear-gradient(135deg, var(--c-card) 0%, #0A66C209 100%)", borderColor: C.border, borderTop: "2px solid #0A66C2" }}>
+        <div className="rounded-2xl border p-4 card-lift" style={{ background: "linear-gradient(135deg, var(--c-card) 0%, #0A66C20D 100%)", borderColor: C.border, borderTop: "3px solid #0A66C2", boxShadow: "0 4px 16px rgba(10,102,194,0.06)" }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>LinkedIn Today</span>
             <Share2 size={14} style={{ color: "#0A66C2" }} />
@@ -556,7 +556,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
           </p>
         </div>
 
-        <div className="rounded-xl border p-4 card-lift" style={{ background: "linear-gradient(135deg, var(--c-card) 0%, #7C3AED09 100%)", borderColor: C.border, borderTop: `2px solid ${usageColor(instantlyPct)}` }}>
+        <div className="rounded-2xl border p-4 card-lift" style={{ background: "linear-gradient(135deg, var(--c-card) 0%, #7C3AED0D 100%)", borderColor: C.border, borderTop: `3px solid ${usageColor(instantlyPct)}`, boxShadow: "0 4px 16px rgba(124,58,237,0.06)" }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Instantly Pool</span>
             <Mail size={14} style={{ color: usageColor(instantlyPct) }} />
@@ -569,7 +569,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
           </p>
         </div>
 
-        <div className="rounded-xl border p-4 card-lift" style={{ background: "linear-gradient(135deg, var(--c-card) 0%, #F9731609 100%)", borderColor: C.border, borderTop: "2px solid #F97316" }}>
+        <div className="rounded-2xl border p-4 card-lift" style={{ background: "linear-gradient(135deg, var(--c-card) 0%, #F973160D 100%)", borderColor: C.border, borderTop: "3px solid #F97316", boxShadow: "0 4px 16px rgba(249,115,22,0.06)" }}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Aircall This Month</span>
             <Phone size={14} style={{ color: "#F97316" }} />
@@ -623,7 +623,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
               {sellers.map(seller => {
                 const status = usageStatus(seller.linkedin.pct);
                 return (
-                  <div key={seller.id} className="rounded-xl border overflow-hidden card-lift" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                  <div key={seller.id} className="rounded-2xl border overflow-hidden card-lift" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
                     <div className="px-5 py-4 flex items-center gap-3 border-b" style={{ borderColor: C.border }}>
                       <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
                         style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>{seller.name[0]}</div>
@@ -677,8 +677,8 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
               <span className="text-[10px]" style={{ color: C.textMuted }}>Shared pool across all campaigns</span>
             </div>
             {instantlyPct >= 80 && instantlyPoolLimit > 0 && (
-              <div className="rounded-xl border px-4 py-3 mb-4 flex items-center gap-3"
-                style={{ backgroundColor: instantlyPct >= 100 ? C.redLight : "#FFFBEB", borderColor: instantlyPct >= 100 ? `${C.red}40` : "#FCD34D" }}>
+              <div className="rounded-2xl border px-4 py-3 mb-4 flex items-center gap-3"
+                style={{ background: instantlyPct >= 100 ? `linear-gradient(135deg, ${C.redLight} 0%, ${C.red}15 100%)` : "linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)", borderColor: instantlyPct >= 100 ? `${C.red}40` : "#FCD34D", boxShadow: instantlyPct >= 100 ? `0 4px 14px ${C.red}15` : "0 4px 14px rgba(217,119,6,0.08)" }}>
                 <AlertTriangle size={15} style={{ color: instantlyPct >= 100 ? C.red : "#D97706", flexShrink: 0 }} />
                 <div>
                   <p className="text-xs font-bold" style={{ color: instantlyPct >= 100 ? C.red : "#92400E" }}>
@@ -692,11 +692,11 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
               </div>
             )}
             {!instantly ? (
-              <div className="rounded-xl border p-8 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <div className="rounded-2xl border p-8 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
                 <p className="text-sm" style={{ color: C.textDim }}>Instantly API unavailable</p>
               </div>
             ) : (
-              <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${usageColor(instantlyPct)}` }}>
+              <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `3px solid ${usageColor(instantlyPct)}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
                 <div className="px-5 py-4 flex items-center gap-6 border-b" style={{ borderColor: C.border }}>
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Sent Today</p>
@@ -761,13 +761,13 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
               <span className="text-[10px]" style={{ color: C.textMuted }}>Minutes per month · No daily limit</span>
             </div>
             {!aircall || aircall.numbers.length === 0 ? (
-              <div className="rounded-xl border p-8 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <div className="rounded-2xl border p-8 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
                 <p className="text-sm" style={{ color: C.textDim }}>No Aircall numbers configured</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {aircall.numbers.map(n => (
-                  <Link key={n.id} href={`/accounts/aircall/${n.id}`} className="rounded-xl border overflow-hidden card-lift block hover:shadow-md transition-shadow" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: "2px solid #F97316" }}>
+                  <Link key={n.id} href={`/accounts/aircall/${n.id}`} className="rounded-2xl border overflow-hidden card-lift block hover:shadow-md transition-shadow" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: "3px solid #F97316", boxShadow: "0 4px 16px rgba(249,115,22,0.06)" }}>
                     <div className="px-5 py-4 flex items-center gap-3 border-b" style={{ borderColor: C.border }}>
                       <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#F9731615" }}>
                         <Phone size={16} style={{ color: "#F97316" }} />
@@ -813,7 +813,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
       {/* ═══ TAB 1: HISTORY ═══ */}
       {tab === 1 && (
         <div>
-          <div className="rounded-xl border mb-5 px-4 py-3 flex items-center gap-4 flex-wrap" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="rounded-2xl border mb-5 px-4 py-3 flex items-center gap-4 flex-wrap" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
             <div className="flex items-center gap-2">
               <Calendar size={13} style={{ color: C.textDim }} />
               <input type="date" value={historyDate} onChange={e => setHistoryDate(e.target.value)}
@@ -862,7 +862,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
           </div>
 
           {filteredDates.length === 0 ? (
-            <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <div className="rounded-2xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
               <Calendar size={24} className="mx-auto mb-3" style={{ color: C.textDim }} />
               <p className="text-sm" style={{ color: C.textDim }}>No usage data for this period</p>
             </div>
@@ -879,7 +879,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                 const displayDate = new Date(date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
                 return (
-                  <div key={date} className="rounded-xl border overflow-hidden card-shadow" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                  <div key={date} className="rounded-2xl border overflow-hidden card-shadow" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
                     <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.bg }}>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{displayDate}</span>
