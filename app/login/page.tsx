@@ -33,6 +33,17 @@ export default function LoginPage() {
         setError("Incorrect credentials. Try again.");
         return;
       }
+      // Clear any cached prefs from a previous user session on this browser.
+      // The new ThemeProvider / LocaleProvider mount will fetch the right values
+      // for THIS user from /api/settings/prefs. Without this, the previous user's
+      // theme/locale would flash until the fetch returns (or persist if the fetch
+      // is slow / fails).
+      try {
+        localStorage.removeItem("swl-theme");
+        localStorage.removeItem("swl-locale");
+        // Also clear the document attribute that ThemeProvider might have set.
+        document.documentElement.removeAttribute("data-theme");
+      } catch {}
       if (remember) localStorage.setItem(REMEMBER_KEY, email);
       else localStorage.removeItem(REMEMBER_KEY);
       router.push("/");
