@@ -25,6 +25,21 @@ const LANGUAGES = [
 type CaseStudy = { title: string; description: string; url?: string; file_url?: string };
 type Resource = { name: string; file_url: string; type: string };
 
+export type ToneKey = "serious" | "professional" | "friendly" | "consultative" | "direct" | "witty";
+export type ToneByChannel = {
+  default: ToneKey;
+  linkedin: ToneKey | null;
+  email: ToneKey | null;
+  call: ToneKey | null;
+};
+
+const DEFAULT_TONE_BY_CHANNEL: ToneByChannel = {
+  default: "professional",
+  linkedin: null,
+  email: null,
+  call: null,
+};
+
 type CompanyBio = {
   id?: string;
   company_name: string;
@@ -46,6 +61,7 @@ type CompanyBio = {
   team_size: string;
   location: string;
   tone_of_voice: string;
+  tone_by_channel: ToneByChannel;
   languages: string[];
   certifications: string[];
   key_clients: string[];
@@ -58,7 +74,9 @@ const empty: CompanyBio = {
   company_name: "", tagline: "", industry: "", description: "", value_proposition: "",
   main_services: [], target_market: "", differentiators: "", website: "",
   linkedin_url: "", instagram_url: "", twitter_url: "", facebook_url: "", youtube_url: "", tiktok_url: "",
-  founded_year: null, team_size: "", location: "", tone_of_voice: "", languages: [], certifications: [],
+  founded_year: null, team_size: "", location: "", tone_of_voice: "",
+  tone_by_channel: DEFAULT_TONE_BY_CHANNEL,
+  languages: [], certifications: [],
   key_clients: [], case_studies: [], logo_url: "", resources: [],
 };
 
@@ -111,6 +129,142 @@ const socialLinks = [
   { key: "youtube_url", label: "YouTube", icon: YouTubeIcon, color: "#FF0000" },
   { key: "tiktok_url", label: "TikTok", icon: TikTokIcon, color: "#000000" },
 ] as const;
+
+// ─── Tone selector with per-channel overrides ────────────
+const TONE_OPTIONS: { id: ToneKey; label: string; hint: string }[] = [
+  { id: "serious",       label: "Serious",       hint: "no jokes, just business" },
+  { id: "professional",  label: "Professional",  hint: "polished, neutral" },
+  { id: "friendly",      label: "Friendly",      hint: "warm, approachable" },
+  { id: "consultative",  label: "Consultative",  hint: "advisor energy" },
+  { id: "direct",        label: "Direct",        hint: "no fluff, no buzzwords" },
+  { id: "witty",         label: "Witty",         hint: "smart, with personality" },
+];
+
+function TonePillRow({
+  value,
+  onChange,
+  allowNull = false,
+  size = "md",
+}: {
+  value: ToneKey | null;
+  onChange: (v: ToneKey | null) => void;
+  allowNull?: boolean;
+  size?: "sm" | "md";
+}) {
+  const padding = size === "sm" ? "px-2.5 py-1" : "px-3 py-1.5";
+  const fontSize = size === "sm" ? "text-[11px]" : "text-xs";
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {allowNull && (
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          className={`${padding} ${fontSize} font-semibold rounded-full transition-[opacity,transform,box-shadow,background-color,border-color] duration-150`}
+          style={value === null
+            ? { backgroundColor: C.cardHov, color: C.textBody, border: `1px solid ${C.border}` }
+            : { backgroundColor: "transparent", color: C.textDim, border: `1px solid ${C.border}` }
+          }
+        >
+          Use default
+        </button>
+      )}
+      {TONE_OPTIONS.map(opt => {
+        const active = value === opt.id;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => onChange(opt.id)}
+            title={opt.hint}
+            className={`${padding} ${fontSize} font-semibold rounded-full transition-[opacity,transform,box-shadow,background-color,border-color] duration-150 hover:opacity-95`}
+            style={active
+              ? {
+                  background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`,
+                  color: "#04070d",
+                  boxShadow: `0 2px 10px color-mix(in srgb, ${gold} 28%, transparent)`,
+                }
+              : { backgroundColor: C.cardHov, color: C.textBody, border: `1px solid ${C.border}` }
+            }
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function ToneSelector({
+  value,
+  onChange,
+}: {
+  value: ToneByChannel;
+  onChange: (v: ToneByChannel) => void;
+}) {
+  const [showChannelOverrides, setShowChannelOverrides] = useState(
+    !!(value.linkedin || value.email || value.call)
+  );
+
+  function setDefault(v: ToneKey | null) {
+    onChange({ ...value, default: (v ?? "professional") });
+  }
+  function setChannel(channel: "linkedin" | "email" | "call", v: ToneKey | null) {
+    onChange({ ...value, [channel]: v });
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2.5">
+        <label className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: C.textMuted }}>
+          Brand voice
+        </label>
+        <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-medium" style={{ color: C.textMuted }}>
+          <input
+            type="checkbox"
+            checked={showChannelOverrides}
+            onChange={e => {
+              setShowChannelOverrides(e.target.checked);
+              if (!e.target.checked) {
+                onChange({ ...value, linkedin: null, email: null, call: null });
+              }
+            }}
+            style={{ accentColor: gold }}
+          />
+          Customize per channel
+        </label>
+      </div>
+
+      <TonePillRow value={value.default} onChange={setDefault} />
+
+      {showChannelOverrides && (
+        <div
+          className="mt-4 rounded-xl border p-4 space-y-3"
+          style={{
+            background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 4%, var(--c-card)) 0%, var(--c-card) 100%)`,
+            borderColor: `color-mix(in srgb, ${gold} 22%, transparent)`,
+          }}
+        >
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
+            Per-channel overrides
+          </p>
+          {(["linkedin", "email", "call"] as const).map(ch => (
+            <div key={ch}>
+              <label className="block text-[11px] font-semibold mb-1.5 capitalize" style={{ color: C.textBody }}>
+                {ch}
+              </label>
+              <TonePillRow
+                value={value[ch]}
+                onChange={v => setChannel(ch, v)}
+                allowNull
+                size="sm"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── Tag Input ───────────────────────────────────────────
 function TagList({ values, onChange, placeholder }: { values: string[]; onChange: (v: string[]) => void; placeholder: string }) {
@@ -463,7 +617,11 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
       )}
 
       {/* ═══ ROW 2: Differentiators (3) + Market & Tone (2) ═══ */}
-      {(bio.differentiators || bio.target_market || bio.tone_of_voice) && (
+      {(() => {
+        const tbc = bio.tone_by_channel;
+        const hasTone = !!(tbc && tbc.default);
+        if (!bio.differentiators && !bio.target_market && !hasTone) return null;
+        return (
         <div className="grid grid-cols-5 gap-6">
           {bio.differentiators && (
             <div
@@ -480,7 +638,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{bio.differentiators}</p>
             </div>
           )}
-          {(bio.target_market || bio.tone_of_voice) && (
+          {(bio.target_market || hasTone) && (
             <div
               className={`${bio.differentiators ? "col-span-2" : "col-span-5"} rounded-2xl border p-7`}
               style={{
@@ -490,25 +648,53 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               }}
             >
               {bio.target_market && (
-                <div className={bio.tone_of_voice ? "mb-4" : ""}>
+                <div className={hasTone ? "mb-4" : ""}>
                   <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] mb-3" style={{ color: gold }}>
                     {t("bio.targetMarket")}
                   </h3>
                   <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{bio.target_market}</p>
                 </div>
               )}
-              {bio.tone_of_voice && (
+              {hasTone && tbc && (
                 <div className={bio.target_market ? "pt-4 border-t" : ""} style={{ borderColor: C.border }}>
-                  <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] mb-2" style={{ color: gold }}>
+                  <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] mb-2.5" style={{ color: gold }}>
                     {t("bio.toneOfVoice")}
                   </h3>
-                  <p className="text-sm" style={{ color: C.textBody }}>{bio.tone_of_voice}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    <span
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full capitalize"
+                      style={{
+                        background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`,
+                        color: "#04070d",
+                        boxShadow: `0 2px 10px color-mix(in srgb, ${gold} 28%, transparent)`,
+                      }}
+                    >
+                      {tbc.default}
+                    </span>
+                    {(["linkedin", "email", "call"] as const).map(ch =>
+                      tbc[ch] ? (
+                        <span
+                          key={ch}
+                          className="inline-flex items-center gap-1 text-[11px] font-medium px-2.5 py-1 rounded-full capitalize"
+                          style={{
+                            backgroundColor: C.cardHov,
+                            color: C.textBody,
+                            border: `1px solid color-mix(in srgb, ${gold} 18%, transparent)`,
+                          }}
+                          title={`${ch} override`}
+                        >
+                          <span className="text-[9px] uppercase tracking-wide" style={{ color: C.textMuted }}>{ch}:</span> {tbc[ch]}
+                        </span>
+                      ) : null
+                    )}
+                  </div>
                 </div>
               )}
             </div>
           )}
         </div>
-      )}
+        );
+      })()}
 
       {/* ═══ Track Record (clients + certs + cases unified) ═══ */}
       {(bio.key_clients?.length > 0 || bio.certifications?.length > 0 || bio.case_studies?.length > 0) && (
@@ -1093,13 +1279,10 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
       <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
         <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Target Audience & Communication</h2>
         <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Tone of Voice</label>
-            <textarea rows={2} className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none resize-none"
-              style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
-              value={form.tone_of_voice} onChange={e => setForm(f => ({ ...f, tone_of_voice: e.target.value }))}
-              placeholder="Professional yet approachable. Direct, no corporate jargon. Trustworthy." />
-          </div>
+          <ToneSelector
+            value={form.tone_by_channel ?? DEFAULT_TONE_BY_CHANNEL}
+            onChange={v => setForm(f => ({ ...f, tone_by_channel: v }))}
+          />
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Languages</label>
             <div className="flex flex-wrap gap-1.5 mb-2">
