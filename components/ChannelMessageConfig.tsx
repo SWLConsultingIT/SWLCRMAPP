@@ -27,8 +27,14 @@ export type StepMessage = {
 };
 
 export type AutoReplies = {
+  /** Manual override / literal copy used when the lead replies positively. */
   positive: string;
+  /** Manual override / literal copy used when the lead replies negatively. */
   negative: string;
+  /** Free-text intent prompt — V7 Pro absorbs this + lead context to write
+   * the actual reply per lead, mirroring the step prompts pattern. */
+  positivePrompt?: string;
+  negativePrompt?: string;
   question: string;
 };
 
@@ -563,8 +569,8 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
 
         <div className="p-5 space-y-4">
           {/* Positive */}
-          <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: `${C.green}04` }}>
-            <div className="flex items-center justify-between mb-2">
+          <div className="rounded-lg border p-4 space-y-3" style={{ borderColor: C.border, backgroundColor: `${C.green}04` }}>
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ThumbsUp size={14} style={{ color: C.green }} />
                 <p className="text-xs font-semibold" style={{ color: C.green }}>{t("wiz.replies.posTitle")}</p>
@@ -582,18 +588,50 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                 </button>
               </div>
             </div>
-            <p className="text-xs mb-2" style={{ color: C.textMuted }}>{t("wiz.replies.posHint")}</p>
-            <textarea rows={expanded.has("replyPositive") ? 10 : 3}
-              className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
-              style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
-              value={autoReplies.positive} onChange={e => updateAutoReply("positive", e.target.value)}
-              placeholder={inlinePlaceholders.replyPositive}
-            />
+            <p className="text-xs" style={{ color: C.textMuted }}>{t("wiz.replies.posHint")}</p>
+
+            {/* PRIMARY: prompt for the positive auto-reply */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
+                  {t("wiz.step.promptLabel")}
+                </label>
+                <span className="text-[10px]" style={{ color: C.textDim }}>{t("wiz.step.promptHint")}</span>
+              </div>
+              <textarea
+                rows={expanded.has("replyPositive") ? 6 : 3}
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+                style={{
+                  borderColor: `color-mix(in srgb, ${gold} 25%, transparent)`,
+                  color: C.textPrimary,
+                  backgroundColor: `color-mix(in srgb, ${gold} 3%, var(--c-card))`,
+                }}
+                value={autoReplies.positivePrompt ?? ""}
+                onChange={e => updateAutoReply("positivePrompt", e.target.value)}
+                placeholder={t("wiz.replies.posPromptPlaceholder")}
+              />
+            </div>
+
+            {/* SECONDARY: manual override */}
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-[0.16em] mb-1.5 block" style={{ color: C.textDim }}>
+                {t("wiz.step.manualLabel")}
+              </label>
+              <textarea
+                rows={expanded.has("replyPositive") ? 6 : 2}
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+                style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
+                value={autoReplies.positive}
+                onChange={e => updateAutoReply("positive", e.target.value)}
+                placeholder={t("wiz.replies.posManualPlaceholder")}
+              />
+              <p className="text-[10px] mt-1" style={{ color: C.textDim }}>{t("wiz.step.manualHint")}</p>
+            </div>
           </div>
 
           {/* Negative */}
-          <div className="rounded-lg border p-4" style={{ borderColor: C.border, backgroundColor: `${C.red}04` }}>
-            <div className="flex items-center justify-between mb-2">
+          <div className="rounded-lg border p-4 space-y-3" style={{ borderColor: C.border, backgroundColor: `${C.red}04` }}>
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ThumbsDown size={14} style={{ color: C.red }} />
                 <p className="text-xs font-semibold" style={{ color: C.red }}>{t("wiz.replies.negTitle")}</p>
@@ -611,13 +649,45 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                 </button>
               </div>
             </div>
-            <p className="text-xs mb-2" style={{ color: C.textMuted }}>{t("wiz.replies.negHint")}</p>
-            <textarea rows={expanded.has("replyNegative") ? 10 : 2}
-              className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
-              style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
-              value={autoReplies.negative} onChange={e => updateAutoReply("negative", e.target.value)}
-              placeholder={inlinePlaceholders.replyNegative}
-            />
+            <p className="text-xs" style={{ color: C.textMuted }}>{t("wiz.replies.negHint")}</p>
+
+            {/* PRIMARY: prompt for the negative auto-reply */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
+                  {t("wiz.step.promptLabel")}
+                </label>
+                <span className="text-[10px]" style={{ color: C.textDim }}>{t("wiz.step.promptHint")}</span>
+              </div>
+              <textarea
+                rows={expanded.has("replyNegative") ? 6 : 3}
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+                style={{
+                  borderColor: `color-mix(in srgb, ${gold} 25%, transparent)`,
+                  color: C.textPrimary,
+                  backgroundColor: `color-mix(in srgb, ${gold} 3%, var(--c-card))`,
+                }}
+                value={autoReplies.negativePrompt ?? ""}
+                onChange={e => updateAutoReply("negativePrompt", e.target.value)}
+                placeholder={t("wiz.replies.negPromptPlaceholder")}
+              />
+            </div>
+
+            {/* SECONDARY: manual override */}
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-[0.16em] mb-1.5 block" style={{ color: C.textDim }}>
+                {t("wiz.step.manualLabel")}
+              </label>
+              <textarea
+                rows={expanded.has("replyNegative") ? 6 : 2}
+                className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+                style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }}
+                value={autoReplies.negative}
+                onChange={e => updateAutoReply("negative", e.target.value)}
+                placeholder={t("wiz.replies.negManualPlaceholder")}
+              />
+              <p className="text-[10px] mt-1" style={{ color: C.textDim }}>{t("wiz.step.manualHint")}</p>
+            </div>
           </div>
 
           {/* Question — handled by AI agent in real-time */}

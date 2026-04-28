@@ -194,8 +194,12 @@ const en: Dict = {
   "wiz.replies.desc": "When the lead responds, these templates are used automatically. The campaign stops after any response.",
   "wiz.replies.posTitle": "Positive response",
   "wiz.replies.posHint": "Lead says yes / interested → propose meeting",
+  "wiz.replies.posPromptPlaceholder": "e.g. Thank them, propose a 15-min call to walk through how we'd work together. Keep the energy high but not desperate.",
+  "wiz.replies.posManualPlaceholder": "Or paste exact copy here — bypasses AI for positive replies.",
   "wiz.replies.negTitle": "Negative response",
   "wiz.replies.negHint": "Lead says no → close respectfully, leave door open",
+  "wiz.replies.negPromptPlaceholder": "e.g. Acknowledge politely, leave the door open in case priorities shift, no pressure.",
+  "wiz.replies.negManualPlaceholder": "Or paste exact copy here — bypasses AI for negative replies.",
   "wiz.replies.questions": "Questions: When a lead asks a question, the AI agent responds automatically using your Company Bio data. No template needed.",
 };
 
@@ -386,8 +390,12 @@ const es: Dict = {
   "wiz.replies.desc": "Cuando el lead responde, se usan estas plantillas automáticamente. La campaña se detiene después de cualquier respuesta.",
   "wiz.replies.posTitle": "Respuesta positiva",
   "wiz.replies.posHint": "El lead dice sí / le interesa → proponé reunión",
+  "wiz.replies.posPromptPlaceholder": "ej: Agradecé, proponé una llamada de 15 min para mostrar cómo trabajaríamos juntos. Energía alta sin desesperación.",
+  "wiz.replies.posManualPlaceholder": "O pegá copy exacto acá — saltea la AI en respuestas positivas.",
   "wiz.replies.negTitle": "Respuesta negativa",
   "wiz.replies.negHint": "El lead dice no → cerrá con respeto, dejá la puerta abierta",
+  "wiz.replies.negPromptPlaceholder": "ej: Reconocé con respeto, dejá la puerta abierta por si cambian las prioridades, sin presión.",
+  "wiz.replies.negManualPlaceholder": "O pegá copy exacto acá — saltea la AI en respuestas negativas.",
   "wiz.replies.questions": "Preguntas: cuando un lead pregunta algo, el agente AI responde automáticamente usando los datos de tu Company Bio. No necesitás plantilla.",
 };
 
