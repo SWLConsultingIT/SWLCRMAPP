@@ -22,8 +22,12 @@ type LegacyBody = {
   language?: string;
   signals?: string[];
   sequence_id?: string | null;
+  // The intent prompt the user wrote in the wizard's "Prompt for AI (optional)"
+  // helper field. V7 Pro consumes this as the source of truth for what THIS
+  // message should say. Empty / missing = let the planner decide on its own.
+  user_prompt?: string;
   // New shape pieces (preferred when caller already speaks the n8n contract):
-  sequence?: { channel: string; daysAfter: number }[];
+  sequence?: { channel: string; daysAfter: number; user_prompt?: string; body?: string }[];
   target_step?: number;
 };
 
@@ -34,7 +38,7 @@ const AUTO_REPLY_MAP: Record<string, "positive" | "negative"> = {
   replyNegative: "negative",
 };
 
-function inferSequence(body: LegacyBody): { channel: string; daysAfter: number }[] {
+function inferSequence(body: LegacyBody): { channel: string; daysAfter: number; user_prompt?: string; body?: string }[] {
   if (Array.isArray(body.sequence) && body.sequence.length > 0) return body.sequence;
   // Legacy single-field call: build a minimal sequence so the workflow can classify it.
   const channel = body.channel ?? "linkedin";
@@ -100,12 +104,27 @@ export async function POST(req: NextRequest) {
         language: body.language ?? "en",
         signals: [],
         sequence_id: body.sequence_id ?? null,
+        // The user's intent for the auto-reply, read by V7 as the primary
+        // signal of what tone/content to use. Empty = let the planner decide.
+        user_prompt: body.user_prompt ?? null,
       }
     : (() => {
         const sequence = inferSequence(body);
+        // If the caller is targeting one step and gave us a user_prompt, attach
+        // it to that step in the sequence so V7 can read it per-step. This is
+        // the "AI" button on a single step in the wizard.
         const targetStep = body.target_step ?? (body.sequence ? undefined : sequence.length);
+        const sequenceWithPrompt = sequence.map((s, i) => {
+          // Prefer per-step prompt embedded in the inbound sequence (batch mode).
+          if (s.user_prompt || s.body) return s;
+          // Otherwise inject the top-level user_prompt at the targeted step.
+          if (typeof targetStep === "number" && i === targetStep - 1 && body.user_prompt) {
+            return { ...s, user_prompt: body.user_prompt };
+          }
+          return s;
+        });
         return {
-          sequence,
+          sequence: sequenceWithPrompt,
           lead_id: body.leadId ?? null,
           icp_profile_id: body.icpProfileId ?? null,
           language: body.language ?? "en",
