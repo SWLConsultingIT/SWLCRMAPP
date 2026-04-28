@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
 
 type Theme = "light" | "dark";
 
@@ -9,36 +10,66 @@ const ThemeContext = createContext<{
   setTheme: (t: Theme) => void;
 }>({ theme: "light", setTheme: () => {} });
 
+// User-keyed storage so account A's theme never bleeds into account B on the
+// same browser. The legacy global key was unsafe across accounts and is
+// dropped on mount.
+const LEGACY_KEY = "swl-theme";
+const cacheKey = (userId: string) => `${LEGACY_KEY}-${userId}`;
+
+let currentUserId: string | null = null;
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("light");
 
-  // Load theme from DB (per-user) on mount. Falls back to localStorage for unauthenticated
-  // or offline scenarios. localStorage is only a cache for anti-FOUC; DB is source of truth.
   useEffect(() => {
-    // Anti-FOUC — apply cached value immediately if present
-    const cached = localStorage.getItem("swl-theme") as Theme | null;
-    if (cached === "dark") apply("dark", { persist: false });
+    let alive = true;
+    (async () => {
+      // Drop the unsafe legacy global key.
+      try { localStorage.removeItem(LEGACY_KEY); } catch {}
 
-    // Fetch authoritative value from DB
-    fetch("/api/settings/prefs")
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (!d) return;
+      // Pull user_id from supabase session (sync, no network).
+      let userId: string | null = null;
+      try {
+        const sb = getSupabaseBrowser();
+        const { data: { session } } = await sb.auth.getSession();
+        userId = session?.user?.id ?? null;
+      } catch {}
+      currentUserId = userId;
+
+      // Anti-FOUC: read THIS user's cached theme only.
+      if (userId && alive) {
+        try {
+          const cached = localStorage.getItem(cacheKey(userId)) as Theme | null;
+          if (cached === "dark") apply("dark", { persist: false, cache: false });
+        } catch {}
+      }
+
+      // Source of truth: DB (per-user via auth cookie).
+      try {
+        const res = await fetch("/api/settings/prefs");
+        if (!res.ok) return;
+        const d = await res.json();
+        if (!alive) return;
         const dbTheme: Theme = d.theme === "dark" ? "dark" : "light";
-        apply(dbTheme, { persist: false });
-      })
-      .catch(() => {});
+        const id = (d.userId as string | undefined) ?? userId;
+        currentUserId = id ?? currentUserId;
+        apply(dbTheme, { persist: false, cache: true });
+      } catch {}
+    })();
+    return () => { alive = false; };
   }, []);
 
-  function apply(t: Theme, opts: { persist?: boolean } = { persist: true }) {
+  function apply(t: Theme, opts: { persist?: boolean; cache?: boolean } = { persist: true, cache: true }) {
     setThemeState(t);
     if (t === "dark") {
       document.documentElement.setAttribute("data-theme", "dark");
     } else {
       document.documentElement.removeAttribute("data-theme");
     }
-    // Cache for anti-FOUC on next reload. This is session-local.
-    try { localStorage.setItem("swl-theme", t); } catch {}
+    // Cache only under the user-keyed bucket. Never write the legacy global key.
+    if (opts.cache !== false && currentUserId) {
+      try { localStorage.setItem(cacheKey(currentUserId), t); } catch {}
+    }
     if (opts.persist !== false) {
       fetch("/api/settings/prefs", {
         method: "PATCH",

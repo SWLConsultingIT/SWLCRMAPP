@@ -15,6 +15,7 @@ export async function GET() {
     .maybeSingle();
 
   return NextResponse.json({
+    userId: user.id,
     theme: profile?.theme ?? "light",
     locale: profile?.locale ?? "en",
   });
