@@ -76,8 +76,8 @@ export default function CallsClient({ initialQueue, history }: {
           {queue.length === 0 ? (
             <div className="rounded-xl border p-14 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
               <Phone size={28} style={{ color: C.textDim }} className="mx-auto mb-3" />
-              <p className="text-sm font-medium" style={{ color: C.textMuted }}>No hay llamadas pendientes</p>
-              <p className="text-xs mt-1" style={{ color: C.textDim }}>Las llamadas aparecerán cuando el orquestador las genere</p>
+              <p className="text-sm font-medium" style={{ color: C.textMuted }}>No pending calls</p>
+              <p className="text-xs mt-1" style={{ color: C.textDim }}>Calls will appear here when the orchestrator generates them</p>
             </div>
           ) : (
             queue.map((c, i) => (
@@ -187,7 +187,7 @@ export default function CallsClient({ initialQueue, history }: {
             </div>
             <div className="p-5">
               {history.length === 0 ? (
-                <p className="text-xs py-2" style={{ color: C.textDim }}>Sin historial aún</p>
+                <p className="text-xs py-2" style={{ color: C.textDim }}>No history yet</p>
               ) : (
                 <div className="space-y-3">
                   {history.map((c) => (

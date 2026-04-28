@@ -588,7 +588,7 @@ export default async function ReportsPage() {
               <TrendingUp size={14} style={{ color: gold }} />
               <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Forecast</h2>
             </div>
-            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Proyección a fin de mes</p>
+            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>End-of-month projection</p>
           </div>
           <div className="p-5 space-y-5">
             <div>
@@ -617,7 +617,7 @@ export default async function ReportsPage() {
 
             <div className="rounded-lg px-3 py-2" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
               <p className="text-[10px] font-medium" style={{ color: C.textMuted }}>
-                <b style={{ color: C.textBody }}>Tip:</b> si la velocity y el pipeline no coinciden, o te faltan leads, o la conversion bajó
+                <b style={{ color: C.textBody }}>Tip:</b> if velocity and pipeline don&apos;t match, you&apos;re either short on leads or your conversion has dropped
               </p>
             </div>
           </div>
