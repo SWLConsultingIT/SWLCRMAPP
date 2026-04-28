@@ -159,12 +159,13 @@ export default function Sidebar() {
                   <Link
                     key={href}
                     href={href}
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-[opacity,transform,box-shadow,background-color,border-color] duration-150"
+                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-[opacity,transform,box-shadow,background-color,border-color] duration-150 relative"
                     style={active ? {
-                      background: `linear-gradient(90deg, color-mix(in srgb, ${GOLD} 15%, transparent) 0%, color-mix(in srgb, ${GOLD} 4%, transparent) 100%)`,
+                      background: `linear-gradient(90deg, color-mix(in srgb, ${GOLD} 18%, transparent) 0%, color-mix(in srgb, ${GOLD} 4%, transparent) 100%)`,
                       color: GOLD,
                       borderLeft: `2px solid ${GOLD}`,
                       paddingLeft: "10px",
+                      boxShadow: `0 0 24px color-mix(in srgb, ${GOLD} 14%, transparent), inset 0 1px 0 color-mix(in srgb, ${GOLD} 18%, transparent)`,
                     } : { color: TEXT_BODY }}
                     onMouseEnter={(e) => {
                       if (!active) {
@@ -179,7 +180,7 @@ export default function Sidebar() {
                       }
                     }}
                   >
-                    <Icon size={15} style={{ color: active ? GOLD : TEXT_MUTED, transition: "color 0.15s" }} />
+                    <Icon size={15} style={{ color: active ? GOLD : TEXT_MUTED, transition: "color 0.15s", filter: active ? `drop-shadow(0 0 6px color-mix(in srgb, ${GOLD} 50%, transparent))` : undefined }} />
                     <span className="flex-1">{brandLabel ?? t(labelKey)}</span>
 
                     {tag && (

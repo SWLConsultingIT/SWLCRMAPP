@@ -176,21 +176,54 @@ export default async function CampaignsPage() {
       </Link>
 
       {/* 4 stat cards */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
           { label: "Active Campaigns", value: stats.active, color: C.green, icon: Megaphone },
           { label: "Response Rate", value: `${stats.responseRate}%`, color: C.blue, icon: MessageSquare },
           { label: "Positive Replies", value: stats.positiveCount, color: C.green, icon: TrendingUp },
           { label: "Ready to Launch", value: stats.readyToLaunch, color: gold, icon: Users },
         ].map(({ label, value, color, icon: Icon }) => (
-          <div key={label} className="rounded-xl border p-4 card-lift" style={{ background: `linear-gradient(135deg, var(--c-card) 0%, ${color}09 100%)`, borderColor: C.border, borderTop: `2px solid ${color}` }}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{label}</span>
-              <div className="rounded-lg p-1.5" style={{ backgroundColor: `${color}15` }}>
-                <Icon size={13} style={{ color }} />
+          <div
+            key={label}
+            data-stat
+            className="rounded-2xl border px-6 py-5 card-lift relative overflow-hidden"
+            style={{
+              background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${color} 5%, var(--c-card)) 100%)`,
+              borderColor: C.border,
+              borderTop: `3px solid ${color}`,
+            }}
+          >
+            {/* Soft halo behind the icon — premium depth without ornamentation. */}
+            <div
+              className="absolute -top-12 -right-12 w-32 h-32 rounded-full pointer-events-none opacity-50"
+              style={{ background: `radial-gradient(circle, color-mix(in srgb, ${color} 16%, transparent) 0%, transparent 70%)` }}
+            />
+            <div className="flex items-center justify-between mb-4 relative">
+              <span className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: C.textMuted }}>
+                {label}
+              </span>
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
+                  border: `1px solid color-mix(in srgb, ${color} 22%, transparent)`,
+                  boxShadow: `0 0 16px color-mix(in srgb, ${color} 18%, transparent)`,
+                }}
+              >
+                <Icon size={16} style={{ color }} />
               </div>
             </div>
-            <p className="text-2xl font-bold tabular-nums" style={{ color }}>{value}</p>
+            <p
+              className="text-[30px] font-bold leading-none"
+              style={{
+                color,
+                fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                letterSpacing: "-0.02em",
+                fontVariantNumeric: "tabular-nums",
+              }}
+            >
+              {value}
+            </p>
           </div>
         ))}
       </div>

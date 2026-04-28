@@ -25,50 +25,71 @@ export default function PageHero({
       style={{ boxShadow: "0 4px 28px rgba(0,0,0,0.14), 0 1px 4px rgba(0,0,0,0.08)" }}
     >
       <div
-        className="px-7 py-5 flex items-center justify-between gap-6 relative"
+        className="px-8 py-7 flex items-center justify-between gap-6 relative"
         style={{
           background: `
-            radial-gradient(ellipse 55% 70% at 90% 50%, color-mix(in srgb, ${accentColor} 19%, transparent) 0%, transparent 60%),
-            radial-gradient(ellipse 30% 50% at 5%  80%, rgba(255,255,255,0.06) 0%, transparent 50%),
-            linear-gradient(135deg, #0D1524 0%, #172035 55%, #1A2640 100%)
+            radial-gradient(ellipse 50% 90% at 95% 50%, color-mix(in srgb, ${accentColor} 22%, transparent) 0%, transparent 60%),
+            radial-gradient(ellipse 35% 70% at 0% 100%, color-mix(in srgb, var(--brand, #c9a83a) 14%, transparent) 0%, transparent 55%),
+            linear-gradient(135deg, #04070d 0%, #08101e 60%, #0a1525 100%)
           `,
         }}
       >
-        {/* Subtle grid overlay */}
+        {/* Grid overlay — same density as the login screen for visual consistency. */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
-            backgroundImage: `linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)`,
-            backgroundSize: "32px 32px",
+            backgroundImage: `linear-gradient(color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent) 1px, transparent 1px)`,
+            backgroundSize: "56px 56px",
+          }}
+        />
+
+        {/* Bottom-edge gold-dark gradient line for premium framing. */}
+        <div
+          className="absolute left-0 right-0 bottom-0 h-px pointer-events-none"
+          style={{
+            background: `linear-gradient(90deg, transparent 0%, color-mix(in srgb, ${accentColor} 35%, transparent) 35%, color-mix(in srgb, ${accentColor} 35%, transparent) 65%, transparent 100%)`,
           }}
         />
 
         {/* Left: icon + text */}
-        <div className="flex items-center gap-4 relative z-10">
+        <div className="flex items-center gap-5 relative z-10">
           <div
-            className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+            className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
             style={{
-              backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)`,
-              border: `1px solid color-mix(in srgb, ${accentColor} 25%, transparent)`,
-              boxShadow: `0 0 20px color-mix(in srgb, ${accentColor} 15%, transparent)`,
+              backgroundColor: `color-mix(in srgb, ${accentColor} 14%, transparent)`,
+              border: `1px solid color-mix(in srgb, ${accentColor} 30%, transparent)`,
+              boxShadow: `0 0 28px color-mix(in srgb, ${accentColor} 22%, transparent), inset 0 1px 0 color-mix(in srgb, ${accentColor} 25%, transparent)`,
             }}
           >
             <Icon size={22} style={{ color: accentColor }} />
           </div>
           <div>
-            <p
-              className="text-[9px] font-bold uppercase tracking-[0.15em] mb-0.5"
-              style={{ color: accentColor, opacity: 0.9 }}
+            {/* Section pill — matches the login "GROWTHAI SALES ENGINE" treatment. */}
+            <div
+              className="inline-flex items-center gap-1.5 mb-2 px-2.5 py-0.5 rounded-full border w-fit"
+              style={{
+                borderColor: `color-mix(in srgb, ${accentColor} 30%, transparent)`,
+                backgroundColor: `color-mix(in srgb, ${accentColor} 8%, transparent)`,
+              }}
             >
-              {section}
-            </p>
+              <span className="w-1 h-1 rounded-full pulse-dot" style={{ backgroundColor: accentColor }} />
+              <span
+                className="text-[9px] font-bold tracking-[0.18em] uppercase"
+                style={{ color: accentColor }}
+              >
+                {section}
+              </span>
+            </div>
             <h1
-              className="text-[19px] font-bold text-white leading-tight"
-              style={{ letterSpacing: "-0.02em" }}
+              className="text-[26px] font-bold text-white leading-[1.05]"
+              style={{
+                letterSpacing: "-0.02em",
+                fontFamily: "var(--font-outfit), system-ui, sans-serif",
+              }}
             >
               {title}
             </h1>
-            <p className="text-[12px] mt-0.5 leading-relaxed" style={{ color: "#8EA3BE" }}>
+            <p className="text-[13px] mt-1.5 leading-relaxed max-w-2xl" style={{ color: "rgba(217,222,226,0.6)" }}>
               {description}
             </p>
           </div>

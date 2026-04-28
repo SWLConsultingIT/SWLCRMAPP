@@ -100,6 +100,11 @@ html, body { height: 100%; }
 
 body {
   background-color: var(--c-bg);
+  /* Subtle gradient mesh — gives every authenticated page a premium feel
+     instead of a flat grey backdrop. The `--c-main-bg` token already defines
+     warm radial gradients in light mode (and is overridden in dark mode). */
+  background-image: var(--c-main-bg);
+  background-attachment: fixed;
   color: var(--c-textBody);
   font-family: var(--font-inter), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
