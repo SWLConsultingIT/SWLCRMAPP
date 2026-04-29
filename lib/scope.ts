@@ -27,7 +27,18 @@ export type UserScope = {
  */
 export async function getUserScope(): Promise<UserScope> {
   const supabase = await getSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
+  // Defensive: when the refresh token has been rotated/expired, supabase-ssr
+  // throws AuthApiError("Invalid Refresh Token") instead of returning a clean
+  // null user. Treat that as "not logged in" so server components don't crash
+  // with a stale-cookie issue. The browser layer (lib/session-cache) already
+  // handles the user-visible "session expired" flow.
+  let user: { id: string } | null = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    user = null;
+  }
   if (!user) {
     return { userId: null, role: null, companyBioId: null, isScoped: false, isDemoMode: false, demoBioId: null };
   }

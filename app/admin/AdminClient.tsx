@@ -7,7 +7,7 @@ import {
   Building2, Users, Megaphone, Clock, ChevronRight,
   Target, Search, X, CheckCircle, ArrowRight, Shield,
   Trash2, Loader2, Share2, AlertTriangle, Phone, Mail,
-  Activity,
+  Activity, Theater,
 } from "lucide-react";
 import AdminActions from "./AdminActions";
 import PageHero from "@/components/PageHero";
@@ -683,6 +683,19 @@ export default function AdminClient({ clients, pendingApprovals, stats }: Props)
             </button>
           );
         })}
+
+        {/* Demos: separate route, but lives visually as a sister tab so admins
+            can hop into impersonation without leaving the admin context. */}
+        <Link
+          href="/admin/demos"
+          className="flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-[color,background-color] duration-150 relative"
+          style={{ color: C.textMuted }}
+        >
+          <Theater size={14} />
+          Demos
+          <ArrowRight size={11} style={{ opacity: 0.5 }} />
+        </Link>
+
         <div className="flex-1" />
         <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5 mb-1"
           style={{ borderColor: C.border, backgroundColor: C.card }}>

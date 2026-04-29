@@ -22,7 +22,6 @@ const en: Dict = {
   "nav.queue": "Notifications",
   "nav.settings": "Settings",
   "nav.admin": "Admin",
-  "nav.demos": "Demos",
   "nav.aiActive": "AI Models Active",
   "nav.growthPlatform": "Growth Platform",
   // TopHeader
@@ -240,7 +239,6 @@ const es: Dict = {
   "nav.queue": "Notificaciones",
   "nav.settings": "Configuración",
   "nav.admin": "Administración",
-  "nav.demos": "Demos",
   "nav.aiActive": "Modelos AI activos",
   "nav.growthPlatform": "Growth Platform",
   // TopHeader

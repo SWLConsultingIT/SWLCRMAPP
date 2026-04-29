@@ -6,7 +6,16 @@ import { DEMO_SESSION_COOKIE } from "@/lib/scope";
 
 export async function GET() {
   const supabase = await getSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
+  // Same defensive guard as in lib/scope.ts: a rotated/expired refresh token
+  // makes supabase-ssr throw instead of returning null. Catch and treat as
+  // anonymous so the client gets a clean { user: null } payload it can act on.
+  let user: { id: string; email?: string; user_metadata?: Record<string, unknown> } | null = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    user = null;
+  }
 
   if (!user) {
     return NextResponse.json({ user: null });
