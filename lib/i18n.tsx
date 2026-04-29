@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { fetchPrefsCached, clearAllSessionCache } from "@/lib/session-cache";
 
 export type Locale = "en" | "es";
 
@@ -449,17 +450,14 @@ const LocaleContext = createContext<{
   t: (key: string) => string;
 }>({ locale: "en", setLocale: () => {}, t: (k) => k });
 
-// Locale lives in the user's DB profile (user_profiles.locale) and is fetched
-// fresh from /api/settings/prefs on mount and on every auth state change.
-// We deliberately do NOT cache locale in localStorage — caching across account
-// switches in the same browser caused stale values to persist (a user with es
-// would log out, the next user logging in would see their es flash before the
-// DB fetch resolved). The 200ms FOUC is preferable to language bleed.
+// Locale lives in user_profiles.locale. Backed by the in-memory session cache
+// (lib/session-cache.ts), which is invalidated on every auth state change so a
+// tenant switch in the same tab cannot leak the previous user's locale. This
+// gives us the no-leak guarantee without paying a fetch on every navigation.
 const LEGACY_KEY = "swl-locale";
 
-function clearAllLocaleCache() {
+function clearLegacyLocaleCache() {
   try {
-    // Drop legacy global key + every per-user cached locale from prior versions.
     localStorage.removeItem(LEGACY_KEY);
     const toRemove: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -477,28 +475,23 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     let alive = true;
 
     async function pullLocaleFromDb() {
-      try {
-        const res = await fetch("/api/settings/prefs", { cache: "no-store" });
-        if (!res.ok) return;
-        const d = await res.json();
-        if (!alive) return;
-        const dbLocale: Locale = d.locale === "es" ? "es" : "en";
-        setLocaleState(dbLocale);
-      } catch {}
+      const d = await fetchPrefsCached();
+      if (!alive || !d) return;
+      const dbLocale: Locale = d.locale === "es" ? "es" : "en";
+      setLocaleState(dbLocale);
     }
 
-    // Wipe all stale locale cache (legacy + per-user from older builds).
-    clearAllLocaleCache();
-    // Fetch fresh from DB on every mount (no cache).
+    // Wipe legacy localStorage cache from older builds.
+    clearLegacyLocaleCache();
     pullLocaleFromDb();
 
-    // Re-pull on auth state change (sign-in, sign-out, token refresh, user switch).
     let unsub: (() => void) | null = null;
     try {
       const sb = getSupabaseBrowser();
       const { data } = sb.auth.onAuthStateChange((_event) => {
-        // On any session change, drop cached state and re-pull.
-        clearAllLocaleCache();
+        // On any session change drop the cache so the next read goes to DB.
+        clearAllSessionCache();
+        clearLegacyLocaleCache();
         pullLocaleFromDb();
       });
       unsub = () => data.subscription.unsubscribe();
@@ -509,6 +502,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
 
   function setLocale(l: Locale) {
     setLocaleState(l);
+    clearAllSessionCache();
     fetch("/api/settings/prefs", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

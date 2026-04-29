@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { fetchBrandingCached, clearAllSessionCache } from "@/lib/session-cache";
 
 type BrandState = {
   primaryColor: string;   // effective color (either brand or gold fallback)
@@ -77,42 +79,61 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isPublicRoute = PUBLIC_ROUTES.some(r => pathname === r || pathname.startsWith(`${r}/`));
 
+  // Public-route effect — runs whenever pathname enters/exits a public route.
+  // Cheap: just clears DOM vars + cookie. No network.
   useEffect(() => {
-    // Public routes must always show SWL default — strip any inherited vars and clear cookie.
     if (isPublicRoute) {
       clearBrandVars();
       clearBrandCookie();
       setState({ primaryColor: DEFAULT_GOLD, enabled: false });
-      return;
+    }
+  }, [isPublicRoute]);
+
+  // Auth-bound effect — fires once on mount and again on every auth state
+  // change (sign-in, sign-out, token refresh, user switch). DOES NOT re-run on
+  // pathname change anymore; the SSR <style> tag in app/layout.tsx already
+  // paints the brand on first byte for every authenticated nav, so the client
+  // only needs to refresh the in-memory state when the actual user changes.
+  useEffect(() => {
+    let alive = true;
+
+    async function pullBrandFromDb() {
+      if (isPublicRoute) return;
+      const d = await fetchBrandingCached();
+      if (!alive) return;
+      if (!d) {
+        clearBrandVars();
+        clearBrandCookie();
+        setState({ primaryColor: DEFAULT_GOLD, enabled: false });
+        return;
+      }
+      const color = d.primary_color || DEFAULT_GOLD;
+      const enabled = !!d.use_brand_colors && !!d.primary_color;
+      setState({ primaryColor: enabled ? color : DEFAULT_GOLD, enabled });
+      if (enabled) {
+        applyBrand(color);
+        writeBrandCookie(true, color);
+      } else {
+        clearBrandVars();
+        clearBrandCookie();
+      }
     }
 
-    // Authenticated route: SSR <style> already painted the brand on first byte.
-    // Fetch the authoritative value and update state + cookie for next request.
-    fetch("/api/settings/branding")
-      .then(r => r.ok ? r.json() : null)
-      .then(d => {
-        if (!d) {
-          clearBrandVars();
-          clearBrandCookie();
-          setState({ primaryColor: DEFAULT_GOLD, enabled: false });
-          return;
-        }
-        const color = d.primary_color || DEFAULT_GOLD;
-        const enabled = !!d.use_brand_colors && !!d.primary_color;
-        setState({ primaryColor: enabled ? color : DEFAULT_GOLD, enabled });
+    pullBrandFromDb();
 
-        if (enabled) {
-          applyBrand(color);
-          writeBrandCookie(true, color);
-        } else {
-          clearBrandVars();
-          clearBrandCookie();
-        }
-      })
-      .catch(() => {
-        setState({ primaryColor: DEFAULT_GOLD, enabled: false });
+    let unsub: (() => void) | null = null;
+    try {
+      const sb = getSupabaseBrowser();
+      const { data } = sb.auth.onAuthStateChange((_event) => {
+        clearAllSessionCache();
+        pullBrandFromDb();
       });
-  }, [isPublicRoute, pathname]);
+      unsub = () => data.subscription.unsubscribe();
+    } catch {}
+
+    return () => { alive = false; unsub?.(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return <BrandContext.Provider value={state}>{children}</BrandContext.Provider>;
 }

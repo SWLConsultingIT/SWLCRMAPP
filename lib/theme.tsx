@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
+import { fetchPrefsCached, clearAllSessionCache } from "@/lib/session-cache";
 
 type Theme = "light" | "dark";
 
@@ -11,12 +12,14 @@ const ThemeContext = createContext<{
 }>({ theme: "light", setTheme: () => {} });
 
 // Theme lives in user_profiles.theme. We deliberately do NOT cache in
-// localStorage — caching across account switches caused stale theme to
-// flash for the next user. We re-pull on every mount and on every auth
-// state change. The 200ms FOUC is preferable to theme bleed across accounts.
+// localStorage — caching across account switches caused stale theme to flash
+// for the next user. Instead we read through an in-memory cache (lib/session-
+// cache.ts) with a short TTL that is cleared on every auth state change. This
+// preserves the no-leak invariant while avoiding the per-navigation API
+// round-trip that was causing the post-c99d344 navigation lag.
 const LEGACY_KEY = "swl-theme";
 
-function clearAllThemeCache() {
+function clearLegacyThemeCache() {
   try {
     localStorage.removeItem(LEGACY_KEY);
     const toRemove: string[] = [];
@@ -40,28 +43,27 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
 
     async function pullThemeFromDb() {
-      try {
-        const res = await fetch("/api/settings/prefs", { cache: "no-store" });
-        if (!res.ok) return;
-        const d = await res.json();
-        if (!alive) return;
-        const dbTheme: Theme = d.theme === "dark" ? "dark" : "light";
-        setThemeState(dbTheme);
-        applyDom(dbTheme);
-      } catch {}
+      const d = await fetchPrefsCached();
+      if (!alive || !d) return;
+      const dbTheme: Theme = d.theme === "dark" ? "dark" : "light";
+      setThemeState(dbTheme);
+      applyDom(dbTheme);
     }
 
-    // Reset on mount: clear cache + DOM, refetch from DB.
-    clearAllThemeCache();
+    // Reset on mount: clear legacy localStorage cache + DOM, refetch from DB
+    // (or from in-memory cache if fresh).
+    clearLegacyThemeCache();
     applyDom("light");
     pullThemeFromDb();
 
-    // Re-pull on any auth change (sign-in, sign-out, token refresh, user switch).
+    // Re-pull on any auth change. We also wipe the shared session cache so a
+    // tenant switch in the same tab cannot leak previous values.
     let unsub: (() => void) | null = null;
     try {
       const sb = getSupabaseBrowser();
       const { data } = sb.auth.onAuthStateChange((_event) => {
-        clearAllThemeCache();
+        clearAllSessionCache();
+        clearLegacyThemeCache();
         applyDom("light");
         pullThemeFromDb();
       });
@@ -75,6 +77,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setThemeState(t);
     if (t === "dark") document.documentElement.setAttribute("data-theme", "dark");
     else document.documentElement.removeAttribute("data-theme");
+    // Optimistic local update + invalidate cache so the next pull reflects it.
+    clearAllSessionCache();
     fetch("/api/settings/prefs", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
