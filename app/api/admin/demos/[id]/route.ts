@@ -34,19 +34,22 @@ export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string 
   const { data: demoLeads } = await svc.from("leads").select("id").eq("company_bio_id", bioId);
   const leadIds = (demoLeads ?? []).map(l => l.id);
 
-  // 3) Get all campaigns so we can clean campaign_messages.
-  const { data: demoCampaigns } = await svc.from("campaigns").select("id").eq("company_bio_id", bioId);
+  // 3) Get all campaigns. Note: campaigns has lead_id (no company_bio_id),
+  //    so we scope through the demo's leads.
+  const { data: demoCampaigns } = leadIds.length > 0
+    ? await svc.from("campaigns").select("id").in("lead_id", leadIds)
+    : { data: [] as { id: string }[] };
   const campaignIds = (demoCampaigns ?? []).map(c => c.id);
 
   // 4) Cascade. Each step is idempotent — empty `in()` filters short-circuit
   //    cleanly via the conditional, so we don't fire pointless deletes.
   if (campaignIds.length > 0) {
     await svc.from("campaign_messages").delete().in("campaign_id", campaignIds);
+    await svc.from("campaigns").delete().in("id", campaignIds);
   }
   if (leadIds.length > 0) {
     await svc.from("lead_replies").delete().in("lead_id", leadIds);
   }
-  await svc.from("campaigns").delete().eq("company_bio_id", bioId);
   await svc.from("campaign_requests").delete().eq("company_bio_id", bioId);
   await svc.from("icp_profiles").delete().eq("company_bio_id", bioId);
   await svc.from("leads").delete().eq("company_bio_id", bioId);

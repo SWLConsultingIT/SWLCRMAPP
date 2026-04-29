@@ -28,13 +28,27 @@ async function getDemos(): Promise<DemoTenant[]> {
 
   const ids = bios.map(b => b.id);
   const [{ data: leads }, { data: profiles }, { data: campaigns }] = await Promise.all([
-    svc.from("leads").select("company_bio_id").in("company_bio_id", ids),
+    svc.from("leads").select("id, company_bio_id").in("company_bio_id", ids),
     svc.from("icp_profiles").select("company_bio_id").in("company_bio_id", ids),
-    svc.from("campaigns").select("company_bio_id").in("company_bio_id", ids),
+    // campaigns has lead_id, not company_bio_id — join via leads.
+    svc.from("campaigns")
+      .select("id, lead_id, leads!inner(company_bio_id)")
+      .in("leads.company_bio_id", ids),
   ]);
 
   const count = (rows: { company_bio_id: string | null }[] | null, id: string) =>
     (rows ?? []).filter(r => r.company_bio_id === id).length;
+
+  // For campaigns, the bio_id lives on the joined `leads` row. supabase-js
+  // returns it nested on each campaign as `leads: { company_bio_id }`.
+  type CampaignRow = { id: string; lead_id: string | null; leads: { company_bio_id: string | null } | { company_bio_id: string | null }[] | null };
+  const campaignBioId = (c: CampaignRow): string | null => {
+    const l = c.leads;
+    if (Array.isArray(l)) return l[0]?.company_bio_id ?? null;
+    return l?.company_bio_id ?? null;
+  };
+  const countCampaigns = (id: string) =>
+    ((campaigns ?? []) as unknown as CampaignRow[]).filter(c => campaignBioId(c) === id).length;
 
   return bios.map(b => ({
     id: b.id,
@@ -44,7 +58,7 @@ async function getDemos(): Promise<DemoTenant[]> {
     tagline: b.tagline,
     leads: count(leads, b.id),
     profiles: count(profiles, b.id),
-    campaigns: count(campaigns, b.id),
+    campaigns: countCampaigns(b.id),
   }));
 }
 
