@@ -281,6 +281,65 @@ select:focus-visible {
 }
 .animate-fill { animation: fillBar 0.8s cubic-bezier(0.22,1,0.36,1); }
 
+/* ─── LogoLoader: SWL mark with a gold shine sweep ────────────────────
+   The PNG ships in white (filter: brightness 0/invert 1 elsewhere). Here
+   we recolor it gold via filter+drop-shadow, then sweep a translucent
+   diagonal highlight across it on a 2.6s loop — reads as "metal catching
+   light", not a mechanical pulse. The pulse on the mark itself is subtle
+   enough to live underneath. */
+
+.logo-loader-glint {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+}
+
+@keyframes logo-loader-glint-pulse {
+  0%, 100% {
+    /* sepia + hue-rotate + saturate is the cheapest way to recolor a white
+       PNG to gold without shipping a second asset. brightness/contrast keeps
+       the recolor from washing out. */
+    filter:
+      brightness(0)
+      saturate(100%)
+      invert(74%) sepia(43%) saturate(573%) hue-rotate(7deg) brightness(94%) contrast(86%)
+      drop-shadow(0 0 6px color-mix(in srgb, var(--brand, #c9a83a) 55%, transparent));
+  }
+  50% {
+    filter:
+      brightness(0)
+      saturate(100%)
+      invert(82%) sepia(58%) saturate(700%) hue-rotate(7deg) brightness(108%) contrast(90%)
+      drop-shadow(0 0 14px color-mix(in srgb, var(--brand, #c9a83a) 80%, transparent))
+      drop-shadow(0 0 28px color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent));
+  }
+}
+.logo-loader-glint__mark {
+  animation: logo-loader-glint-pulse 2.6s ease-in-out infinite;
+}
+
+@keyframes logo-loader-glint-sweep {
+  0%   { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
+  20%  { opacity: 0.9; }
+  60%  { opacity: 0.9; }
+  100% { transform: translateX(220%) skewX(-18deg); opacity: 0; }
+}
+.logo-loader-glint__sweep {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    transparent 40%,
+    rgba(255, 250, 220, 0.9) 50%,
+    transparent 60%,
+    transparent 100%
+  );
+  mix-blend-mode: screen;
+  animation: logo-loader-glint-sweep 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 /* ─── Table row hover ─── */
 .table-row-hover:hover {
   background-color: rgba(201,168,58,0.05) !important;

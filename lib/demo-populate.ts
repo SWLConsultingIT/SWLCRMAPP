@@ -7,6 +7,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { pickSeedLeads, emailFor, type DemoIndustryKey } from "@/lib/demo-seeds";
+import { aiGenerateDemoData } from "@/lib/demo-ai";
 
 export type DemoShapeConfig = {
   totalLeads: number;        // 0–50
@@ -206,8 +207,22 @@ export async function populateDemo(
   const { totalLeads, icps, campaigns: campaignsCount, wonLeads, lostLeads, industryPreset } = config;
   const industryHint = scraped.industry ?? "B2B";
 
+  // 0) AI tailoring ─────────────────────────────────────────────────────────
+  // First try to synthesize tailored data from the scrape (LATAM finance →
+  // LATAM finance prospects + Spanish copy; UK manufacturing → UK leads + EN).
+  // Falls back to canned pools below when OpenAI is unavailable or returns
+  // unparseable output.
+  const ai = totalLeads > 0
+    ? await aiGenerateDemoData(scraped, { leads: totalLeads, icps, campaigns: campaignsCount })
+    : null;
+
   // 1) ICPs ────────────────────────────────────────────────────────────────
-  const icpRows = icpTemplates(scraped, icps, industryHint).map(i => ({
+  // Prefer the AI-generated personas when present — they reference the
+  // seller's actual value prop + services. Fall back to canned templates.
+  const icpRows = (ai?.icps && ai.icps.length > 0
+    ? ai.icps as Array<ReturnType<typeof icpTemplates>[number]>
+    : icpTemplates(scraped, icps, industryHint)
+  ).map(i => ({
     ...i,
     company_bio_id: bioId,
     status: "approved",
@@ -218,7 +233,9 @@ export async function populateDemo(
     : [];
 
   // 2) Leads (with status distribution) ────────────────────────────────────
-  const seedLeads = pickSeedLeads(industryPreset, totalLeads);
+  const seedLeads = ai?.leads && ai.leads.length > 0
+    ? ai.leads
+    : pickSeedLeads(industryPreset, totalLeads);
   const statuses = distributeStatuses(totalLeads, wonLeads, lostLeads);
   const leadRows = seedLeads.map((s, i) => {
     const status = statuses[i] ?? "new";
