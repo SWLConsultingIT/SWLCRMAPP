@@ -205,6 +205,23 @@ const en: Dict = {
   "wiz.replies.negPromptPlaceholder": "e.g. Acknowledge politely, leave the door open in case priorities shift, no pressure.",
   "wiz.replies.negManualPlaceholder": "Or paste exact copy here — bypasses AI for negative replies.",
   "wiz.replies.questions": "Questions: When a lead asks a question, the AI agent responds automatically using your Company Bio data. No template needed.",
+  // Calls
+  "calls.section": "OPERATIONS",
+  "calls.title": "Call Queue",
+  "calls.desc": "Outbound calls scheduled by the orchestrator — work the queue top-down.",
+  "calls.pending": "{n} pending",
+  "calls.pending.one": "1 pending",
+  "calls.empty.title": "No pending calls",
+  "calls.empty.sub": "Calls will appear here when the orchestrator generates them.",
+  "calls.complete": "Complete",
+  "calls.completed": "Completed",
+  "calls.viewProfile": "View profile",
+  "calls.viewHistory": "View history",
+  "calls.history.empty": "No history yet.",
+  "calls.now": "now",
+  "calls.minAgo": "{n}m ago",
+  "calls.hoursAgo": "{n}h ago",
+  "calls.daysAgo": "{n}d ago",
 };
 
 const es: Dict = {
@@ -405,6 +422,23 @@ const es: Dict = {
   "wiz.replies.negPromptPlaceholder": "ej: Reconocé con respeto, dejá la puerta abierta por si cambian las prioridades, sin presión.",
   "wiz.replies.negManualPlaceholder": "O pegá copy exacto acá — saltea la AI en respuestas negativas.",
   "wiz.replies.questions": "Preguntas: cuando un lead pregunta algo, el agente AI responde automáticamente usando los datos de tu Company Bio. No necesitás plantilla.",
+  // Calls
+  "calls.section": "OPERACIONES",
+  "calls.title": "Cola de Llamadas",
+  "calls.desc": "Llamadas salientes programadas por el orquestador — trabajá la cola de arriba hacia abajo.",
+  "calls.pending": "{n} pendientes",
+  "calls.pending.one": "1 pendiente",
+  "calls.empty.title": "No hay llamadas pendientes",
+  "calls.empty.sub": "Cuando el orquestador genere llamadas, van a aparecer acá.",
+  "calls.complete": "Completar",
+  "calls.completed": "Completadas",
+  "calls.viewProfile": "Ver perfil",
+  "calls.viewHistory": "Ver historial",
+  "calls.history.empty": "Sin historial todavía.",
+  "calls.now": "ahora",
+  "calls.minAgo": "hace {n}m",
+  "calls.hoursAgo": "hace {n}h",
+  "calls.daysAgo": "hace {n}d",
 };
 
 const dicts: Record<Locale, Dict> = { en, es };
@@ -415,65 +449,66 @@ const LocaleContext = createContext<{
   t: (key: string) => string;
 }>({ locale: "en", setLocale: () => {}, t: (k) => k });
 
-// Storage is keyed by user_id so two accounts sharing a browser never see each
-// other's locale. The previous global "swl-locale" key was unsafe because a
-// stale value from user A would persist after logout and flash for user B
-// on the next login. We also delete that legacy key on first mount.
+// Locale lives in the user's DB profile (user_profiles.locale) and is fetched
+// fresh from /api/settings/prefs on mount and on every auth state change.
+// We deliberately do NOT cache locale in localStorage — caching across account
+// switches in the same browser caused stale values to persist (a user with es
+// would log out, the next user logging in would see their es flash before the
+// DB fetch resolved). The 200ms FOUC is preferable to language bleed.
 const LEGACY_KEY = "swl-locale";
-const cacheKey = (userId: string) => `${LEGACY_KEY}-${userId}`;
+
+function clearAllLocaleCache() {
+  try {
+    // Drop legacy global key + every per-user cached locale from prior versions.
+    localStorage.removeItem(LEGACY_KEY);
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(LEGACY_KEY + "-")) toRemove.push(k);
+    }
+    for (const k of toRemove) localStorage.removeItem(k);
+  } catch {}
+}
 
 export function LocaleProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>("en");
 
   useEffect(() => {
     let alive = true;
-    (async () => {
-      // Drop the legacy global key — it's unsafe across accounts.
-      try { localStorage.removeItem(LEGACY_KEY); } catch {}
 
-      // Find the current user_id from the supabase session (sync, no network).
-      let userId: string | null = null;
+    async function pullLocaleFromDb() {
       try {
-        const sb = getSupabaseBrowser();
-        const { data: { session } } = await sb.auth.getSession();
-        userId = session?.user?.id ?? null;
-      } catch {}
-
-      // Anti-FOUC: read THIS user's cached locale only.
-      if (userId && alive) {
-        try {
-          const cached = localStorage.getItem(cacheKey(userId)) as Locale | null;
-          if (cached === "es" || cached === "en") setLocaleState(cached);
-        } catch {}
-      }
-
-      // Source of truth: DB (per-user via auth cookie).
-      try {
-        const res = await fetch("/api/settings/prefs");
+        const res = await fetch("/api/settings/prefs", { cache: "no-store" });
         if (!res.ok) return;
         const d = await res.json();
         if (!alive) return;
         const dbLocale: Locale = d.locale === "es" ? "es" : "en";
         setLocaleState(dbLocale);
-        const id = (d.userId as string | undefined) ?? userId;
-        if (id) {
-          try { localStorage.setItem(cacheKey(id), dbLocale); } catch {}
-        }
       } catch {}
-    })();
-    return () => { alive = false; };
+    }
+
+    // Wipe all stale locale cache (legacy + per-user from older builds).
+    clearAllLocaleCache();
+    // Fetch fresh from DB on every mount (no cache).
+    pullLocaleFromDb();
+
+    // Re-pull on auth state change (sign-in, sign-out, token refresh, user switch).
+    let unsub: (() => void) | null = null;
+    try {
+      const sb = getSupabaseBrowser();
+      const { data } = sb.auth.onAuthStateChange((_event) => {
+        // On any session change, drop cached state and re-pull.
+        clearAllLocaleCache();
+        pullLocaleFromDb();
+      });
+      unsub = () => data.subscription.unsubscribe();
+    } catch {}
+
+    return () => { alive = false; unsub?.(); };
   }, []);
 
   function setLocale(l: Locale) {
     setLocaleState(l);
-    (async () => {
-      try {
-        const sb = getSupabaseBrowser();
-        const { data: { session } } = await sb.auth.getSession();
-        const id = session?.user?.id;
-        if (id) localStorage.setItem(cacheKey(id), l);
-      } catch {}
-    })();
     fetch("/api/settings/prefs", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

@@ -10,77 +10,80 @@ const ThemeContext = createContext<{
   setTheme: (t: Theme) => void;
 }>({ theme: "light", setTheme: () => {} });
 
-// User-keyed storage so account A's theme never bleeds into account B on the
-// same browser. The legacy global key was unsafe across accounts and is
-// dropped on mount.
+// Theme lives in user_profiles.theme. We deliberately do NOT cache in
+// localStorage — caching across account switches caused stale theme to
+// flash for the next user. We re-pull on every mount and on every auth
+// state change. The 200ms FOUC is preferable to theme bleed across accounts.
 const LEGACY_KEY = "swl-theme";
-const cacheKey = (userId: string) => `${LEGACY_KEY}-${userId}`;
 
-let currentUserId: string | null = null;
+function clearAllThemeCache() {
+  try {
+    localStorage.removeItem(LEGACY_KEY);
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(LEGACY_KEY + "-")) toRemove.push(k);
+    }
+    for (const k of toRemove) localStorage.removeItem(k);
+  } catch {}
+}
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>("light");
 
   useEffect(() => {
     let alive = true;
-    (async () => {
-      // Drop the unsafe legacy global key.
-      try { localStorage.removeItem(LEGACY_KEY); } catch {}
 
-      // Pull user_id from supabase session (sync, no network).
-      let userId: string | null = null;
+    function applyDom(t: Theme) {
+      if (t === "dark") document.documentElement.setAttribute("data-theme", "dark");
+      else document.documentElement.removeAttribute("data-theme");
+    }
+
+    async function pullThemeFromDb() {
       try {
-        const sb = getSupabaseBrowser();
-        const { data: { session } } = await sb.auth.getSession();
-        userId = session?.user?.id ?? null;
-      } catch {}
-      currentUserId = userId;
-
-      // Anti-FOUC: read THIS user's cached theme only.
-      if (userId && alive) {
-        try {
-          const cached = localStorage.getItem(cacheKey(userId)) as Theme | null;
-          if (cached === "dark") apply("dark", { persist: false, cache: false });
-        } catch {}
-      }
-
-      // Source of truth: DB (per-user via auth cookie).
-      try {
-        const res = await fetch("/api/settings/prefs");
+        const res = await fetch("/api/settings/prefs", { cache: "no-store" });
         if (!res.ok) return;
         const d = await res.json();
         if (!alive) return;
         const dbTheme: Theme = d.theme === "dark" ? "dark" : "light";
-        const id = (d.userId as string | undefined) ?? userId;
-        currentUserId = id ?? currentUserId;
-        apply(dbTheme, { persist: false, cache: true });
+        setThemeState(dbTheme);
+        applyDom(dbTheme);
       } catch {}
-    })();
-    return () => { alive = false; };
+    }
+
+    // Reset on mount: clear cache + DOM, refetch from DB.
+    clearAllThemeCache();
+    applyDom("light");
+    pullThemeFromDb();
+
+    // Re-pull on any auth change (sign-in, sign-out, token refresh, user switch).
+    let unsub: (() => void) | null = null;
+    try {
+      const sb = getSupabaseBrowser();
+      const { data } = sb.auth.onAuthStateChange((_event) => {
+        clearAllThemeCache();
+        applyDom("light");
+        pullThemeFromDb();
+      });
+      unsub = () => data.subscription.unsubscribe();
+    } catch {}
+
+    return () => { alive = false; unsub?.(); };
   }, []);
 
-  function apply(t: Theme, opts: { persist?: boolean; cache?: boolean } = { persist: true, cache: true }) {
+  function setTheme(t: Theme) {
     setThemeState(t);
-    if (t === "dark") {
-      document.documentElement.setAttribute("data-theme", "dark");
-    } else {
-      document.documentElement.removeAttribute("data-theme");
-    }
-    // Cache only under the user-keyed bucket. Never write the legacy global key.
-    if (opts.cache !== false && currentUserId) {
-      try { localStorage.setItem(cacheKey(currentUserId), t); } catch {}
-    }
-    if (opts.persist !== false) {
-      fetch("/api/settings/prefs", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ theme: t }),
-      }).catch(() => {});
-    }
+    if (t === "dark") document.documentElement.setAttribute("data-theme", "dark");
+    else document.documentElement.removeAttribute("data-theme");
+    fetch("/api/settings/prefs", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ theme: t }),
+    }).catch(() => {});
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme: (t) => apply(t) }}>
+    <ThemeContext.Provider value={{ theme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );

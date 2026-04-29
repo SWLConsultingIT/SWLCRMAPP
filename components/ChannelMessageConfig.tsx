@@ -199,11 +199,20 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
     setAiLoading(key);
     try {
       const ch = idx !== undefined ? classified[idx]?.channel : "linkedin";
-      const userPrompt = idx !== undefined ? (channelMessages.steps?.[idx]?.user_prompt ?? "") : "";
+      const userPrompt =
+        fieldType === "connectionNote"
+          ? (channelMessages.connectionRequestPrompt ?? "")
+          : fieldType === "replyPositive"
+            ? (channelMessages.autoReplies?.positivePrompt ?? "")
+            : fieldType === "replyNegative"
+              ? (channelMessages.autoReplies?.negativePrompt ?? "")
+              : idx !== undefined
+                ? (channelMessages.steps?.[idx]?.user_prompt ?? "")
+                : "";
       const res = await fetch("/api/campaigns/generate-field", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ channel: ch || "linkedin", fieldType, idx, leadId, icpProfileId, language, signals, user_prompt: userPrompt }),
+        body: JSON.stringify({ channel: ch || "linkedin", fieldType, idx, leadId, icpProfileId, language, signals, user_prompt: userPrompt, sequence_meta: sequence }),
       });
       const data = await res.json();
       if (data.content) {
@@ -254,7 +263,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         const crRes = await fetch("/api/campaigns/generate-field", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channel: "linkedin", fieldType: "connectionNote", leadId, icpProfileId, language, signals }),
+          body: JSON.stringify({ channel: "linkedin", fieldType: "connectionNote", leadId, icpProfileId, language, signals, sequence_meta: sequence, user_prompt: channelMessages.connectionRequestPrompt ?? "" }),
         });
         const crData = await crRes.json();
         if (crData.content) connRequest = crData.content;
@@ -269,7 +278,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         const res = await fetch("/api/campaigns/generate-field", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channel: classified[i].channel, fieldType: ft, idx: i, leadId, icpProfileId, language, signals, user_prompt: stepUserPrompt }),
+          body: JSON.stringify({ channel: classified[i].channel, fieldType: ft, idx: i, leadId, icpProfileId, language, signals, user_prompt: stepUserPrompt, sequence_meta: sequence }),
         });
         const data = await res.json();
         if (data.content) {
@@ -280,10 +289,12 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
 
       // Generate auto-replies
       for (const replyType of ["replyPositive", "replyNegative"] as const) {
+        const promptField = replyType === "replyPositive" ? "positivePrompt" : "negativePrompt";
+        const replyPrompt = (channelMessages.autoReplies && (channelMessages.autoReplies as Record<string, string | undefined>)[promptField]) ?? "";
         const res = await fetch("/api/campaigns/generate-field", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channel: "linkedin", fieldType: replyType, leadId, icpProfileId, language, signals }),
+          body: JSON.stringify({ channel: "linkedin", fieldType: replyType, leadId, icpProfileId, language, signals, user_prompt: replyPrompt }),
         });
         const data = await res.json();
         if (data.content) {

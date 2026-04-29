@@ -121,13 +121,30 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
 
       {/* ── Content ── */}
       {totalUncampaigned === 0 ? (
-        <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <CheckCircle size={32} className="mx-auto mb-3" style={{ color: C.green }} />
-          <p className="text-base font-semibold mb-1" style={{ color: C.textBody }}>All leads have active campaigns</p>
-          <p className="text-sm mb-5" style={{ color: C.textMuted }}>Upload new leads via Lead Miner to start a new campaign</p>
-          <Link href="/icp"
+        <div
+          className="rounded-2xl border py-16 text-center"
+          style={{
+            backgroundColor: C.card,
+            borderColor: C.border,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+          }}
+        >
+          <div
+            className="w-14 h-14 mx-auto mb-4 rounded-2xl flex items-center justify-center"
+            style={{
+              backgroundColor: `color-mix(in srgb, ${C.green} 10%, transparent)`,
+              border: `1px solid color-mix(in srgb, ${C.green} 22%, transparent)`,
+            }}
+          >
+            <CheckCircle size={22} style={{ color: C.green }} />
+          </div>
+          <p className="text-base font-semibold mb-1" style={{ color: C.textPrimary }}>All leads have active campaigns</p>
+          <p className="text-sm mb-5" style={{ color: C.textDim }}>Upload new leads via Lead Miner to start a new campaign.</p>
+          <Link
+            href="/icp"
             className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-opacity hover:opacity-80"
-            style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
+            style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}
+          >
             <Target size={14} /> Go to Lead Miner
           </Link>
         </div>
@@ -146,9 +163,23 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
               const hasEmail = group.leads.filter(l => l.primary_work_email).length;
 
               return (
-                <div key={group.profileId ?? gi} className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                <div
+                  key={group.profileId ?? gi}
+                  className="rounded-2xl border overflow-hidden"
+                  style={{
+                    backgroundColor: C.card,
+                    borderColor: C.border,
+                    boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
+                  }}
+                >
                   {/* Group header */}
-                  <div className="px-5 py-3.5 flex items-center gap-4 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                  <div
+                    className="px-5 py-3.5 flex items-center gap-4 border-b"
+                    style={{
+                      borderColor: C.border,
+                      background: `linear-gradient(90deg, color-mix(in srgb, ${C.blue} 4%, transparent) 0%, transparent 60%)`,
+                    }}
+                  >
                     <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                       style={{ background: `linear-gradient(135deg, ${C.blue}20, ${C.blue}08)` }}>
                       <Target size={16} style={{ color: C.blue }} />

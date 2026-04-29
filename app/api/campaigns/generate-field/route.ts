@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Proxies to the n8n workflow "SWL - CRM - Message Generator Universal".
-// The workflow handles: multilingual output, {{placeholder}} syntax, ticked signals,
-// ICP-template mode when no lead, and orders messages as a coherent sequence.
-//
-// Frontend contracts supported:
-//  - Batch: body omits `target_step` → workflow generates every step in the sequence.
-//  - Per-field: body includes `target_step` (1-indexed) → workflow generates only that one.
-//
-// Legacy shape: the UI used to call with { fieldType, idx, leadId, language, signals, icpProfileId }.
-// We translate that into the n8n shape { sequence, lead_id, icp_profile_id, language, signals, target_step }.
+// Proxies to the n8n workflow "SWL - CRM - Message Generator V7 Pro".
+// Computes step_type_override per idx (the wizard knows which UI step the user clicked
+// — we map that to the planner's internal step type so prompts are honored).
 
 const N8N_WEBHOOK_URL = "https://n8n.srv949269.hstgr.cloud/webhook/generate-campaign-messages-v3";
+
+type SequenceEntry = { channel: string; daysAfter: number; user_prompt?: string; body?: string; step_type_override?: string };
 
 type LegacyBody = {
   channel?: string;
@@ -22,80 +17,75 @@ type LegacyBody = {
   language?: string;
   signals?: string[];
   sequence_id?: string | null;
-  // The intent prompt the user wrote in the wizard's "Prompt for AI (optional)"
-  // helper field. V7 Pro consumes this as the source of truth for what THIS
-  // message should say. Empty / missing = let the planner decide on its own.
   user_prompt?: string;
+  /** Optional: the wizard's full sequence (channel + daysAfter per step). When present, used to
+   * compute the correct step_type_override based on idx + position among same-channel steps. */
+  sequence_meta?: { channel: string; daysAfter: number }[];
   // New shape pieces (preferred when caller already speaks the n8n contract):
-  sequence?: { channel: string; daysAfter: number; user_prompt?: string; body?: string }[];
+  sequence?: SequenceEntry[];
   target_step?: number;
 };
 
-// Auto-reply fieldTypes bypass sequence inference — the generator has a dedicated
-// branch that emits a reply template instead of outbound copy.
 const AUTO_REPLY_MAP: Record<string, "positive" | "negative"> = {
   replyPositive: "positive",
   replyNegative: "negative",
 };
 
-function inferSequence(body: LegacyBody): { channel: string; daysAfter: number; user_prompt?: string; body?: string }[] {
-  if (Array.isArray(body.sequence) && body.sequence.length > 0) return body.sequence;
-  // Legacy single-field call: build a minimal sequence so the workflow can classify it.
-  const channel = body.channel ?? "linkedin";
-  // connectionNote / LINKEDIN_INTRO_DM / LINKEDIN_FOLLOWUP / EMAIL_INTRO / etc.
-  // For connectionNote we produce a 1-step LinkedIn sequence → n8n types it as CONNECTION_REQUEST.
-  // For follow-ups we add prior steps so the classifier hits LINKEDIN_FOLLOWUP / EMAIL_FOLLOWUP.
-  const ft = body.fieldType ?? "";
-  if (ft === "connectionNote" || ft === "LINKEDIN_CONNECTION_REQUEST") {
-    return [{ channel: "linkedin", daysAfter: 0 }];
-  }
-  if (ft === "LINKEDIN_INTRO_DM") {
-    return [
-      { channel: "linkedin", daysAfter: 0 },
-      { channel: "linkedin", daysAfter: 3 },
-    ];
-  }
+// Map (fieldType, idx, sequence_meta) → explicit planner step type.
+// This kills the "every LINKEDIN_FOLLOWUP becomes BREAKUP because target_step is last" bug:
+// the wizard tells us which followup position the user clicked, and we name the type explicitly.
+function computeStepTypeOverride(body: LegacyBody): string | null {
+  const ft = body.fieldType;
+  if (!ft) return null;
+
+  if (ft === "connectionNote" || ft === "LINKEDIN_CONNECTION_REQUEST") return "LINKEDIN_CONNECTION_REQUEST";
+  if (ft === "LINKEDIN_INTRO_DM") return "LINKEDIN_INTRO_DM";
+  if (ft === "EMAIL_INTRO") return "EMAIL_INTRO";
+  if (ft === "EMAIL_FOLLOWUP_CROSS") return "EMAIL_FOLLOWUP_CROSS";
+  if (ft === "EMAIL_FOLLOWUP") return "EMAIL_FOLLOWUP";
+  if (ft === "CALL_FIRST") return "CALL_FIRST";
+  if (ft === "CALL_FOLLOWUP") return "CALL_FOLLOWUP";
+
   if (ft === "LINKEDIN_FOLLOWUP") {
-    return [
-      { channel: "linkedin", daysAfter: 0 },
-      { channel: "linkedin", daysAfter: 3 },
-      { channel: "linkedin", daysAfter: 7 },
-    ];
+    const seqMeta = Array.isArray(body.sequence_meta) ? body.sequence_meta : [];
+    const idx = typeof body.idx === "number" ? body.idx : 0;
+    // Filter to LinkedIn step indexes (in the wizard's UI sequence — connection request is NOT in this array).
+    const linkedinIdxs = seqMeta
+      .map((s, i) => (s.channel === "linkedin" ? i : -1))
+      .filter(i => i >= 0);
+    const myPosition = linkedinIdxs.indexOf(idx); // 0-based among LinkedIn steps
+    const totalLinkedin = linkedinIdxs.length;
+    const isLast = myPosition === totalLinkedin - 1;
+    // Position 0 is the post-connection First DM = INTRO_DM.
+    if (myPosition <= 0) return "LINKEDIN_INTRO_DM";
+    // Position 1 (first followup): always BUMP (yes/no question).
+    if (myPosition === 1) {
+      if (isLast && totalLinkedin >= 4) return "LINKEDIN_FOLLOWUP_BREAKUP";
+      return "LINKEDIN_FOLLOWUP_BUMP";
+    }
+    // Position 2 (second followup): PROOF (tangible offer) unless it's the last in a long sequence.
+    if (myPosition === 2) {
+      if (isLast && totalLinkedin >= 4) return "LINKEDIN_FOLLOWUP_BREAKUP";
+      return "LINKEDIN_FOLLOWUP_PROOF";
+    }
+    // Position 3+: INTERRUPT (curiosity-open) or BREAKUP if last.
+    if (isLast && totalLinkedin >= 4) return "LINKEDIN_FOLLOWUP_BREAKUP";
+    return "LINKEDIN_FOLLOWUP_INTERRUPT";
   }
-  if (ft === "EMAIL_INTRO") {
-    return [{ channel: "email", daysAfter: 0 }];
-  }
-  if (ft === "EMAIL_FOLLOWUP_CROSS") {
-    return [
-      { channel: "linkedin", daysAfter: 0 },
-      { channel: "email", daysAfter: 3 },
-    ];
-  }
-  if (ft === "EMAIL_FOLLOWUP") {
-    return [
-      { channel: "email", daysAfter: 0 },
-      { channel: "email", daysAfter: 4 },
-    ];
-  }
-  if (ft === "CALL_FIRST") {
-    return [{ channel: "call", daysAfter: 0 }];
-  }
-  if (ft === "CALL_FOLLOWUP") {
-    return [
-      { channel: "call", daysAfter: 0 },
-      { channel: "call", daysAfter: 5 },
-    ];
-  }
+  return null;
+}
+
+function inferSequence(body: LegacyBody): SequenceEntry[] {
+  if (Array.isArray(body.sequence) && body.sequence.length > 0) return body.sequence;
+  // Single-target field: build a 1-step sequence and let step_type_override drive the type.
+  const channel = body.channel ?? "linkedin";
   return [{ channel, daysAfter: 0 }];
 }
 
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as LegacyBody;
-
   const autoReplyType = body.fieldType ? AUTO_REPLY_MAP[body.fieldType] : undefined;
 
-  // Auto-reply path: skip sequence inference, tell the generator to emit a reply template.
-  // Signals are intentionally dropped — auto-replies must not reference enrichment placeholders.
   const n8nPayload = autoReplyType
     ? {
         auto_reply_type: autoReplyType,
@@ -104,24 +94,23 @@ export async function POST(req: NextRequest) {
         language: body.language ?? "en",
         signals: [],
         sequence_id: body.sequence_id ?? null,
-        // The user's intent for the auto-reply, read by V7 as the primary
-        // signal of what tone/content to use. Empty = let the planner decide.
         user_prompt: body.user_prompt ?? null,
       }
     : (() => {
         const sequence = inferSequence(body);
-        // If the caller is targeting one step and gave us a user_prompt, attach
-        // it to that step in the sequence so V7 can read it per-step. This is
-        // the "AI" button on a single step in the wizard.
-        const targetStep = body.target_step ?? (body.sequence ? undefined : sequence.length);
+        const stepTypeOverride = computeStepTypeOverride(body);
+        const targetStep = body.target_step ?? (body.sequence ? undefined : 1);
         const sequenceWithPrompt = sequence.map((s, i) => {
-          // Prefer per-step prompt embedded in the inbound sequence (batch mode).
-          if (s.user_prompt || s.body) return s;
-          // Otherwise inject the top-level user_prompt at the targeted step.
-          if (typeof targetStep === "number" && i === targetStep - 1 && body.user_prompt) {
-            return { ...s, user_prompt: body.user_prompt };
+          const out: SequenceEntry = { ...s };
+          if (s.user_prompt || s.body) {
+            // batch mode keeps per-step prompts; nothing to inject here.
+          } else if (typeof targetStep === "number" && i === targetStep - 1 && body.user_prompt) {
+            out.user_prompt = body.user_prompt;
           }
-          return s;
+          if (i === (targetStep ? targetStep - 1 : 0) && stepTypeOverride && !s.step_type_override) {
+            out.step_type_override = stepTypeOverride;
+          }
+          return out;
         });
         return {
           sequence: sequenceWithPrompt,
@@ -146,12 +135,10 @@ export async function POST(req: NextRequest) {
     }
     const data = await res.json() as { messages?: { step: number; channel: string; type: string; subject: string | null; body: string }[]; connectionRequest?: string | null };
 
-    // Batch mode: caller wants the full array → pass-through.
     if (body.sequence && !body.target_step) {
       return NextResponse.json(data);
     }
 
-    // Legacy single-field mode: extract the one targeted step and return the shape the UI expects.
     const msg = Array.isArray(data.messages) && data.messages.length > 0
       ? data.messages[data.messages.length - 1]
       : null;

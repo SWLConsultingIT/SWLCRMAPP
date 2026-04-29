@@ -124,10 +124,25 @@ export default function ActiveCampaignsView({ campaigns }: { campaigns: Campaign
 
   if (groups.length === 0) {
     return (
-      <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <BarChart3 size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-        <p className="text-sm font-medium" style={{ color: C.textBody }}>No campaigns yet</p>
-        <p className="text-xs mt-1" style={{ color: C.textMuted }}>Go to Ready to Launch to create your first campaign</p>
+      <div
+        className="rounded-2xl border py-16 text-center"
+        style={{
+          backgroundColor: C.card,
+          borderColor: C.border,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+        }}
+      >
+        <div
+          className="w-14 h-14 mx-auto mb-4 rounded-2xl flex items-center justify-center"
+          style={{
+            backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`,
+            border: `1px solid color-mix(in srgb, ${gold} 18%, transparent)`,
+          }}
+        >
+          <BarChart3 size={22} style={{ color: gold }} />
+        </div>
+        <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>No campaigns yet</p>
+        <p className="text-xs mt-1.5" style={{ color: C.textDim }}>Go to Ready to Launch to create your first campaign.</p>
       </div>
     );
   }
@@ -140,13 +155,32 @@ export default function ActiveCampaignsView({ campaigns }: { campaigns: Campaign
         const ago = timeAgo(group.lastActivity);
 
         return (
-          <Link key={group.name} href={`/campaigns/${group.firstId}`}
-            className="rounded-xl border overflow-hidden transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-md group"
-            style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <Link
+            key={group.name}
+            href={`/campaigns/${group.firstId}`}
+            className="rounded-2xl border overflow-hidden transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:shadow-lg group relative"
+            style={{
+              backgroundColor: C.card,
+              borderColor: C.border,
+              borderTop: `3px solid ${st.color}`,
+              boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
+            }}
+          >
+            {/* Soft halo per status — depth without ornamentation */}
+            <div
+              aria-hidden
+              className="absolute -top-10 -right-10 w-32 h-32 rounded-full pointer-events-none opacity-40"
+              style={{ background: `radial-gradient(circle, color-mix(in srgb, ${st.color} 18%, transparent) 0%, transparent 70%)` }}
+            />
 
             {/* Top bar: channels + status */}
-            <div className="flex items-center justify-between px-4 py-2.5 border-b"
-              style={{ borderColor: C.border, backgroundColor: C.bg }}>
+            <div
+              className="flex items-center justify-between px-4 py-2.5 border-b relative"
+              style={{
+                borderColor: C.border,
+                background: `linear-gradient(90deg, color-mix(in srgb, ${st.color} 4%, transparent) 0%, transparent 60%)`,
+              }}
+            >
               <div className="flex items-center gap-2">
                 {group.channels.map(ch => {
                   const meta = channelMeta[ch] ?? channelMeta.email;
@@ -159,15 +193,21 @@ export default function ActiveCampaignsView({ campaigns }: { campaigns: Campaign
                   );
                 })}
               </div>
-              <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded"
-                style={{ backgroundColor: st.bg, color: st.color }}>
+              <span
+                className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: st.bg,
+                  color: st.color,
+                  border: `1px solid color-mix(in srgb, ${st.color} 22%, transparent)`,
+                }}
+              >
                 {st.label}
               </span>
             </div>
 
             {/* Body */}
-            <div className="px-4 py-3">
-              <h3 className="text-sm font-bold mb-1 group-hover:underline" style={{ color: C.textPrimary }}>{group.name}</h3>
+            <div className="px-4 py-3 relative">
+              <h3 className="text-[15px] font-semibold mb-1 group-hover:underline" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>{group.name}</h3>
               <div className="flex items-center gap-2 flex-wrap text-xs" style={{ color: C.textMuted }}>
                 <span>{group.totalLeads} {group.totalLeads === 1 ? "lead" : "leads"}</span>
                 {group.active > 0 && <><span>·</span><span style={{ color: C.green }}>{group.active} active</span></>}

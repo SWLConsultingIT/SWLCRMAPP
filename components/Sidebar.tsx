@@ -109,19 +109,75 @@ export default function Sidebar() {
       <div className="absolute top-0 left-0 w-48 h-48 pointer-events-none"
         style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--brand, #c9a83a) 7%, transparent) 0%, transparent 70%)" }} />
 
-      {/* Logo */}
-      <div className="relative px-5 py-5 border-b" style={{ borderColor: BORDER }}>
-        <div className="flex items-center gap-3">
-          <img
-            src="https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png"
-            alt="SWL Consulting"
-            className="h-7 w-auto object-contain"
-            style={{ filter: "brightness(0) invert(1)" }}
-          />
+      {/* Logo + brand block — premium framing with halo + app name in display font */}
+      <div className="relative px-5 pt-6 pb-5 border-b" style={{ borderColor: BORDER }}>
+        {/* Soft gold halo behind the logo */}
+        <div
+          aria-hidden
+          className="absolute pointer-events-none"
+          style={{
+            top: 8,
+            left: 0,
+            right: 0,
+            height: 80,
+            background: `radial-gradient(ellipse 60% 70% at 22% 50%, color-mix(in srgb, ${GOLD} 20%, transparent) 0%, transparent 70%)`,
+          }}
+        />
+
+        {/* Logo */}
+        <div className="relative flex items-center gap-3">
+          <div
+            className="flex items-center justify-center rounded-xl shrink-0"
+            style={{
+              padding: "6px 10px",
+              backgroundColor: `color-mix(in srgb, ${GOLD} 8%, transparent)`,
+              border: `1px solid color-mix(in srgb, ${GOLD} 20%, transparent)`,
+              boxShadow: `0 0 22px color-mix(in srgb, ${GOLD} 16%, transparent), inset 0 1px 0 color-mix(in srgb, ${GOLD} 18%, transparent)`,
+            }}
+          >
+            <img
+              src="https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png"
+              alt="SWL Consulting"
+              className="h-6 w-auto object-contain"
+              style={{ filter: "brightness(0) invert(1)" }}
+            />
+          </div>
         </div>
-        <p className="text-[9px] font-bold tracking-[0.18em] uppercase mt-1" style={{ color: GOLD_DIM }}>
-          Growth Platform
-        </p>
+
+        {/* App name + tagline */}
+        <div className="relative mt-3">
+          <h1
+            className="text-[19px] font-bold leading-none"
+            style={{
+              color: "#fff",
+              letterSpacing: "-0.01em",
+              fontFamily: "var(--font-outfit), system-ui, sans-serif",
+            }}
+          >
+            Growth<span style={{ color: GOLD }}>AI</span>
+          </h1>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <span
+              className="inline-block w-1 h-1 rounded-full pulse-dot"
+              style={{ backgroundColor: GOLD }}
+            />
+            <span
+              className="text-[9px] font-bold tracking-[0.22em] uppercase"
+              style={{ color: GOLD_DIM }}
+            >
+              Sales Engine
+            </span>
+          </div>
+        </div>
+
+        {/* Bottom gold-fade edge — same treatment as PageHero for consistency */}
+        <div
+          aria-hidden
+          className="absolute left-0 right-0 bottom-0 h-px pointer-events-none"
+          style={{
+            background: `linear-gradient(90deg, transparent 0%, color-mix(in srgb, ${GOLD} 35%, transparent) 30%, color-mix(in srgb, ${GOLD} 35%, transparent) 70%, transparent 100%)`,
+          }}
+        />
       </div>
 
       {/* Navigation */}
@@ -211,15 +267,25 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Footer */}
+      {/* Footer — branded "Powered by" treatment for SWL Consulting */}
       <div className="relative px-5 py-4 border-t flex items-center gap-2.5" style={{ borderColor: BORDER }}>
-        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-          style={{ background: `linear-gradient(135deg, ${GOLD}, color-mix(in srgb, ${GOLD} 65%, white))`, color: "#fff" }}>
+        <div
+          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+          style={{
+            background: `linear-gradient(135deg, ${GOLD}, color-mix(in srgb, ${GOLD} 65%, white))`,
+            color: "#04070d",
+            boxShadow: `0 0 16px color-mix(in srgb, ${GOLD} 28%, transparent)`,
+          }}
+        >
           S
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>SWL Consulting</p>
-          <p className="text-[10px]" style={{ color: GOLD_DIM }}>Growth Platform</p>
+          <p className="text-[8px] font-bold tracking-[0.2em] uppercase" style={{ color: GOLD_DIM }}>
+            Powered by
+          </p>
+          <p className="text-[13px] font-semibold leading-tight" style={{ color: "#fff", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+            SWL Consulting
+          </p>
         </div>
         <Link
           href="/settings"
