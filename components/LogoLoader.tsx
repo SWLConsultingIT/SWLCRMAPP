@@ -9,15 +9,17 @@ import type { CSSProperties } from "react";
 
 export default function LogoLoader({
   fullscreen = false,
-  size = 64,
+  size = 240,
 }: {
+  /** When true, covers the entire viewport. Default false: fills its
+   *  container so the Sidebar and TopHeader stay visible during page nav. */
   fullscreen?: boolean;
   /** Logo width in px. Height auto from aspect ratio. */
   size?: number;
 }) {
   const containerClass = fullscreen
     ? "fixed inset-0 z-[100] flex items-center justify-center"
-    : "flex items-center justify-center py-12";
+    : "w-full min-h-[70vh] flex items-center justify-center";
 
   const containerStyle: CSSProperties = fullscreen
     ? {
