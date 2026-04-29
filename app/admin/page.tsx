@@ -43,10 +43,12 @@ export type ExecutionItem = {
 };
 
 async function getData() {
-  // 1) Clients
+  // 1) Clients — exclude demo tenants. Demos live behind /admin/demos and
+  //    should never count as paying clients on the admin dashboard.
   const { data: bios } = await supabase
     .from("company_bios")
     .select("id, company_name, industry, logo_url, location, created_at")
+    .or("is_demo.is.null,is_demo.eq.false")
     .order("created_at", { ascending: false });
 
   // 2) All ICP profiles

@@ -60,11 +60,39 @@ export async function GET() {
     }
   }
 
+  const displayName = (user.user_metadata?.display_name ?? user.user_metadata?.name ?? user.user_metadata?.full_name ?? user.email) as string | undefined;
+
+  // ─── Demo impersonation override ────────────────────────────────────────
+  // While inside a demo tenant, the entire UX should pretend the user belongs
+  // to that company. Top-right header shows the demo's name/logo, role is
+  // demoted to "client" so admin-only nav (Sidebar `adminOnly`, /admin route
+  // guards) auto-hides without case-by-case patches, and queries that scope
+  // by `companyBioId` from this payload land on demo data.
+  if (demoMode.active) {
+    return NextResponse.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName,
+        role: "client",
+        companyBioId: demoMode.bioId,
+        companyName: demoMode.companyName,
+        companyLogoUrl: demoMode.logoUrl,
+      },
+      demoMode,
+    }, {
+      // No caching while impersonating — flipping the cookie has to flip
+      // this payload immediately (max-age=30 was eating the override on
+      // client-side nav).
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+
   return NextResponse.json({
     user: {
       id: user.id,
       email: user.email,
-      displayName: user.user_metadata?.display_name ?? user.user_metadata?.name ?? user.user_metadata?.full_name ?? user.email,
+      displayName,
       role,
       companyBioId: profile?.company_bio_id ?? null,
       companyName: bio?.company_name ?? null,
@@ -74,7 +102,6 @@ export async function GET() {
   }, {
     // Auth-bound but stable — let the browser cache for a short window.
     // SWR pattern on the client already invalidates on auth-state-change.
-    // Demo cookie changes go through router.refresh() so the cache is busted.
     headers: { "Cache-Control": "private, max-age=30" },
   });
 }

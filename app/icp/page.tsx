@@ -505,12 +505,26 @@ export default function LeadGenPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState<string | null>(null);
 
+  // /api/auth/me returns the demo's bio_id when admin is impersonating, so
+  // scoping every query by `me.companyBioId` makes Lead Miner naturally
+  // sandbox to whatever tenant the user (or fake-tenant) belongs to. Real
+  // tenant users have RLS to back this up; admins outside demos see their
+  // own SWL bio. Cached as `bioId` here to avoid an extra round-trip per call.
+  async function getScopedBioId(): Promise<string | null> {
+    try {
+      const res = await fetch("/api/auth/me", { cache: "no-store" });
+      const me = await res.json();
+      return (me?.user?.companyBioId as string | null) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
   async function loadProfiles() {
     const supabase = getSupabaseBrowser();
-    const { data } = await supabase
-      .from("icp_profiles")
-      .select("*")
-      .order("created_at", { ascending: false });
+    const bioId = await getScopedBioId();
+    const q = supabase.from("icp_profiles").select("*").order("created_at", { ascending: false });
+    const { data } = await (bioId ? q.eq("company_bio_id", bioId) : q);
     setProfiles(data ?? []);
     setLoading(false);
   }
@@ -519,16 +533,15 @@ export default function LeadGenPage() {
 
   async function handleCreate(form: typeof emptyForm) {
     const supabase = getSupabaseBrowser();
-    const { data: bio } = await supabase
-      .from("company_bios").select("id").order("created_at", { ascending: false }).limit(1).maybeSingle();
+    const bioId = await getScopedBioId();
 
-    if (!bio?.id) {
+    if (!bioId) {
       throw new Error("No Company Bio found. Please create one first at /company-bios before submitting a ticket.");
     }
 
     const { error } = await supabase
       .from("icp_profiles")
-      .insert({ ...form, company_bio_id: bio.id, status: "pending" });
+      .insert({ ...form, company_bio_id: bioId, status: "pending" });
 
     if (error) throw error;
     setShowForm(false);

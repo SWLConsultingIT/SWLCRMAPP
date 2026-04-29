@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Sparkles, LogOut } from "lucide-react";
 
 // Persistent gold strip rendered above TopHeader whenever the admin is
@@ -10,13 +10,18 @@ import { Sparkles, LogOut } from "lucide-react";
 type DemoState = { active: false } | { active: true; bioId: string; companyName: string | null };
 
 export default function DemoBanner() {
-  const router = useRouter();
   const [demo, setDemo] = useState<DemoState>({ active: false });
   const [exiting, setExiting] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
+    // `cache: "no-store"` is non-negotiable here — /api/auth/me ships with
+    // Cache-Control private/max-age=30 in non-demo mode, so without busting
+    // the cache the banner would lag a full minute behind cookie flips.
+    // We also re-run on pathname change so the banner reappears after a
+    // client-side nav from /admin/demos → / right after entering a demo.
     let cancelled = false;
-    fetch("/api/auth/me")
+    fetch("/api/auth/me", { cache: "no-store" })
       .then(r => r.json())
       .then(d => {
         if (cancelled) return;
@@ -28,7 +33,7 @@ export default function DemoBanner() {
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, []);
+  }, [pathname]);
 
   if (!demo.active) return null;
 
@@ -36,9 +41,9 @@ export default function DemoBanner() {
     setExiting(true);
     try {
       await fetch("/api/admin/demos/exit", { method: "POST" });
-      router.refresh();
-      // Hard hop ensures the next page load picks up the cleared scope and
-      // the client-side cache in lib/session-cache invalidates.
+      // Hard nav — same reason as DemosClient.enterDemo. The session cache
+      // (theme, locale, branding) and Sidebar role state all need a full
+      // re-mount under the cleared cookie.
       window.location.assign("/admin/demos");
     } catch {
       setExiting(false);

@@ -61,8 +61,12 @@ export default function DemosClient({
         setBusy(null);
         return;
       }
-      router.push("/");
-      router.refresh();
+      // Hard nav — Sidebar role, BrandProvider, TopHeader all read from
+      // /api/auth/me on mount and would otherwise still render the admin's
+      // real identity until the next full reload. router.refresh() only
+      // re-runs server components; we need every client component to
+      // re-mount under the new cookie too.
+      window.location.assign("/");
     } catch (e) {
       alert(String(e));
       setBusy(null);
@@ -73,8 +77,7 @@ export default function DemosClient({
     setBusy("__exit");
     try {
       await fetch("/api/admin/demos/exit", { method: "POST" });
-      router.push("/admin/demos");
-      router.refresh();
+      window.location.assign("/admin/demos");
     } catch {
       setBusy(null);
     }

@@ -67,9 +67,16 @@ export async function getUserScope(): Promise<UserScope> {
         .eq("is_demo", true)
         .maybeSingle();
       if (demoBio?.id) {
+        // Faking the role as "client" here is the whole trick: every
+        // `role === "admin"` gate in the app (Sidebar adminOnly filter,
+        // /admin route guards, admin API endpoints) auto-hides without a
+        // single per-page change. Real admin role returns the moment the
+        // cookie is cleared via /api/admin/demos/exit. The DemoBanner reads
+        // `isDemoMode` (independent of role) to keep the persistent Exit
+        // button visible.
         return {
           userId: user.id,
-          role: "admin",
+          role: "client",
           companyBioId: demoBio.id,
           isScoped: true,
           isDemoMode: true,
