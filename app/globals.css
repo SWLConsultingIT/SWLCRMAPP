@@ -310,22 +310,54 @@ select:focus-visible {
   }
 }
 
-/* Three parallelograms — staggered pulse on opacity + a subtle vertical
-   travel so they look like waves of light moving across the mark. */
-.logo-loader-mark { display: block; flex-shrink: 0; }
+/* PNG-based mark: native gold colors (no filter recolor → no edge halo),
+   with a soft drop-shadow halo that breathes and a mask-clipped diagonal
+   shine overlay that follows the logo's exact silhouette. */
 
-.logo-loader-bar {
-  transform-origin: center;
-  transform-box: fill-box;
-  animation: logo-loader-bar 2.6s ease-in-out infinite;
+.logo-loader-mark-wrap {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 14px color-mix(in srgb, var(--brand, #c9a83a) 35%, transparent));
+  animation: logo-loader-mark-glow 4.5s ease-in-out infinite;
 }
-.logo-loader-bar--1 { animation-delay: 0s; }
-.logo-loader-bar--2 { animation-delay: 0.18s; }
-.logo-loader-bar--3 { animation-delay: 0.36s; }
 
-@keyframes logo-loader-bar {
-  0%, 100% { opacity: 0.55; transform: translateY(0); }
-  50%      { opacity: 1; transform: translateY(-1.5px); }
+.logo-loader-mark-img {
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+@keyframes logo-loader-mark-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 12px color-mix(in srgb, var(--brand, #c9a83a) 28%, transparent));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 26px color-mix(in srgb, var(--brand, #c9a83a) 55%, transparent))
+      drop-shadow(0 0 64px color-mix(in srgb, var(--brand, #c9a83a) 18%, transparent));
+  }
+}
+
+@keyframes logo-loader-mark-shine {
+  0%   { background-position: -130% 50%; opacity: 0; }
+  20%  { opacity: 1; }
+  60%  { opacity: 1; }
+  100% { background-position: 230% 50%;  opacity: 0; }
+}
+.logo-loader-mark-shine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 38%,
+    rgba(255, 250, 220, 0.85) 50%,
+    transparent 62%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: logo-loader-mark-shine 4.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .logo-loader-wordmark {
