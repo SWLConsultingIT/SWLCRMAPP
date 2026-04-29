@@ -1,35 +1,52 @@
 "use client";
 
 import { C } from "@/lib/design";
-import { Search, X, SlidersHorizontal } from "lucide-react";
+import { Search, X, SlidersHorizontal, Flame, Megaphone, MessageCircle, Target } from "lucide-react";
+import type { ReactNode } from "react";
 
 const gold = "var(--brand, #c9a83a)";
+const goldDark = "var(--brand-dark, #b79832)";
 
 type FilterOption = { key: string; label: string; color?: string; count?: number };
 
-function PillGroup({ label, options, value, onChange }: {
+function PillGroup({ icon, label, options, value, onChange }: {
+  icon: ReactNode;
   label: string;
   options: FilterOption[];
   value: string;
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-[10px] font-semibold uppercase tracking-wider shrink-0" style={{ color: C.textDim }}>{label}</span>
-      <div className="flex items-center gap-0.5 rounded-lg p-0.5" style={{ backgroundColor: C.bg }}>
+    <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 shrink-0">
+        <span style={{ color: C.textDim }}>{icon}</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textMuted, letterSpacing: "0.08em" }}>{label}</span>
+      </div>
+      <div className="flex items-center gap-0.5 rounded-lg p-0.5 border" style={{ backgroundColor: C.bg, borderColor: C.border }}>
         {options.map(opt => {
           const isActive = value === opt.key;
+          const accent = opt.color ?? goldDark;
           return (
-            <button key={opt.key} onClick={() => onChange(opt.key)}
-              className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
+            <button
+              key={opt.key}
+              onClick={() => onChange(opt.key)}
+              className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 hover:scale-[1.02]"
               style={{
-                backgroundColor: isActive ? C.card : "transparent",
-                color: isActive ? (opt.color ?? gold) : C.textMuted,
-                boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.06)" : "none",
-              }}>
+                backgroundColor: isActive
+                  ? `color-mix(in srgb, ${accent} 14%, ${C.card})`
+                  : "transparent",
+                color: isActive ? accent : C.textMuted,
+                border: isActive
+                  ? `1px solid color-mix(in srgb, ${accent} 35%, transparent)`
+                  : "1px solid transparent",
+                boxShadow: isActive
+                  ? `0 1px 0 color-mix(in srgb, ${accent} 18%, transparent), 0 0 0 2px color-mix(in srgb, ${accent} 8%, transparent)`
+                  : "none",
+              }}
+            >
               {opt.label}
               {opt.count !== undefined && isActive && opt.key !== "all" && (
-                <span className="ml-1 text-[9px] font-bold px-1 py-0.5 rounded" style={{ backgroundColor: `${opt.color ?? gold}12`, color: opt.color ?? gold }}>{opt.count}</span>
+                <span className="ml-1 text-[9px] font-bold px-1 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${accent} 18%, transparent)`, color: accent }}>{opt.count}</span>
               )}
             </button>
           );
@@ -65,66 +82,134 @@ export function LeadFilterBar({
   showProfileFilter?: boolean;
 }) {
   const set = (key: keyof LeadFilterState, val: string) => onChange({ ...filters, [key]: val });
-  const hasActiveFilter = filters.score !== "all" || filters.campaign !== "all" || filters.reply !== "all" || filters.profile !== "all" || filters.search !== "";
+  const activeCount =
+    (filters.score !== "all" ? 1 : 0) +
+    (filters.campaign !== "all" ? 1 : 0) +
+    (filters.reply !== "all" ? 1 : 0) +
+    (filters.profile !== "all" ? 1 : 0) +
+    (filters.search !== "" ? 1 : 0);
+  const hasActiveFilter = activeCount > 0;
 
   return (
-    <div className="rounded-xl border mb-4 overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+    <div className="rounded-2xl border mb-4 overflow-hidden relative" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+      {/* Subtle gold accent line — same signature as the lead detail card */}
+      <div className="absolute inset-x-0 top-0 h-[2px] pointer-events-none" style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)`, opacity: 0.4 }} />
+
       {/* Search row */}
       <div className="px-4 py-3 flex items-center gap-3 border-b" style={{ borderColor: C.border }}>
-        <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5 flex-1"
-          style={{ borderColor: C.border, backgroundColor: C.bg }}>
-          <Search size={14} style={{ color: C.textDim }} />
-          <input type="text" value={filters.search} onChange={e => set("search", e.target.value)}
-            placeholder="Search by name, company, email..." className="bg-transparent text-sm outline-none flex-1" style={{ color: C.textPrimary }} />
-          {filters.search && <button onClick={() => set("search", "")}><X size={12} style={{ color: C.textDim }} /></button>}
+        <div
+          className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 flex-1 transition-shadow focus-within:shadow-sm"
+          style={{
+            borderColor: filters.search ? `color-mix(in srgb, ${goldDark} 35%, ${C.border})` : C.border,
+            backgroundColor: C.bg,
+          }}
+        >
+          <Search size={12} style={{ color: filters.search ? goldDark : C.textDim }} />
+          <input
+            type="text"
+            value={filters.search}
+            onChange={e => set("search", e.target.value)}
+            placeholder="Search by name, company, email…"
+            className="bg-transparent text-[12px] outline-none flex-1 placeholder:font-normal placeholder:text-[12px]"
+            style={{ color: C.textPrimary }}
+          />
+          {filters.search && (
+            <button onClick={() => set("search", "")} className="rounded p-0.5 hover:bg-black/5 transition-colors">
+              <X size={11} style={{ color: C.textDim }} />
+            </button>
+          )}
         </div>
-        <div className="flex items-center gap-1.5">
-          <SlidersHorizontal size={12} style={{ color: C.textDim }} />
-          <span className="text-[10px] font-semibold" style={{ color: C.textDim }}>Filters</span>
+
+        <div
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border"
+          style={{
+            borderColor: hasActiveFilter ? `color-mix(in srgb, ${goldDark} 30%, ${C.border})` : C.border,
+            backgroundColor: hasActiveFilter ? `color-mix(in srgb, ${goldDark} 8%, transparent)` : "transparent",
+          }}
+        >
+          <SlidersHorizontal size={12} style={{ color: hasActiveFilter ? goldDark : C.textDim }} />
+          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: hasActiveFilter ? goldDark : C.textDim, letterSpacing: "0.08em" }}>
+            Filters
+          </span>
+          {activeCount > 0 && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: goldDark, color: "white", lineHeight: 1 }}>
+              {activeCount}
+            </span>
+          )}
         </div>
+
         {hasActiveFilter && (
-          <button onClick={() => onChange({ search: "", score: "all", campaign: "all", reply: "all", profile: "all" })}
-            className="text-[10px] font-medium px-2 py-0.5 rounded-md transition-colors hover:bg-gray-100"
-            style={{ color: C.red }}>
-            Clear all
+          <button
+            onClick={() => onChange({ search: "", score: "all", campaign: "all", reply: "all", profile: "all" })}
+            className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md transition-colors hover:bg-red-50"
+            style={{ color: C.red, letterSpacing: "0.06em" }}
+          >
+            Clear
           </button>
         )}
-        <span className="text-[10px] font-bold tabular-nums px-2 py-0.5 rounded-full" style={{ backgroundColor: C.bg, color: C.textMuted }}>
-          {resultCount === totalCount ? totalCount : `${resultCount} / ${totalCount}`}
+
+        <span className="text-[11px] font-bold tabular-nums px-2.5 py-1 rounded-md" style={{ backgroundColor: C.bg, color: C.textBody, border: `1px solid ${C.border}` }}>
+          {resultCount === totalCount ? `${totalCount}` : `${resultCount} / ${totalCount}`}
         </span>
       </div>
 
       {/* Filter pills row */}
-      <div className="px-4 py-2.5 flex items-center gap-4 flex-wrap">
-        <PillGroup label="Score" value={filters.score} onChange={v => set("score", v)} options={[
-          { key: "all", label: "All" },
-          { key: "hot", label: "Hot", color: C.hot },
-          { key: "warm", label: "Warm", color: C.warm },
-          { key: "nurture", label: "Nurture", color: C.nurture },
-        ]} />
+      <div className="px-4 py-3 flex items-center gap-4 flex-wrap" style={{ backgroundColor: `color-mix(in srgb, ${C.bg} 50%, transparent)` }}>
+        <PillGroup
+          icon={<Flame size={11} />}
+          label="Score"
+          value={filters.score}
+          onChange={v => set("score", v)}
+          options={[
+            { key: "all", label: "All" },
+            { key: "hot", label: "Hot", color: C.hot },
+            { key: "warm", label: "Warm", color: C.warm },
+            { key: "nurture", label: "Nurture", color: C.nurture },
+          ]}
+        />
 
         {showCampaignFilter && (
-          <PillGroup label="Campaign" value={filters.campaign} onChange={v => set("campaign", v)} options={[
-            { key: "all", label: "All" },
-            { key: "yes", label: "Active", color: C.green },
-            { key: "no", label: "None", color: "#92400E" },
-          ]} />
+          <PillGroup
+            icon={<Megaphone size={11} />}
+            label="Campaign"
+            value={filters.campaign}
+            onChange={v => set("campaign", v)}
+            options={[
+              { key: "all", label: "All" },
+              { key: "yes", label: "Active", color: C.green },
+              { key: "no", label: "None", color: "#92400E" },
+            ]}
+          />
         )}
 
-        <PillGroup label="Reply" value={filters.reply} onChange={v => set("reply", v)} options={[
-          { key: "all", label: "All" },
-          { key: "positive", label: "Positive", color: C.green },
-          { key: "replied", label: "Replied", color: "#D97706" },
-          { key: "none", label: "No Reply" },
-        ]} />
-
-        {showProfileFilter && profileNames && profileNames.length > 1 && (
-          <PillGroup label="Profile" value={filters.profile} onChange={v => set("profile", v)} options={[
+        <PillGroup
+          icon={<MessageCircle size={11} />}
+          label="Reply"
+          value={filters.reply}
+          onChange={v => set("reply", v)}
+          options={[
             { key: "all", label: "All" },
-            ...profileNames.map(n => ({ key: n, label: n.length > 20 ? n.slice(0, 20) + "..." : n })),
-          ]} />
-        )}
+            { key: "positive", label: "Positive", color: C.green },
+            { key: "replied", label: "Replied", color: "#D97706" },
+            { key: "none", label: "No Reply" },
+          ]}
+        />
       </div>
+
+      {showProfileFilter && profileNames && profileNames.length > 1 && (
+        <div className="px-4 py-2.5 border-t flex items-center gap-3 flex-wrap" style={{ borderColor: C.border, backgroundColor: C.card }}>
+          <PillGroup
+            icon={<Target size={11} />}
+            label="Profile"
+            value={filters.profile}
+            onChange={v => set("profile", v)}
+            options={[
+              { key: "all", label: "All" },
+              ...profileNames.map(n => ({ key: n, label: n.length > 22 ? n.slice(0, 22) + "…" : n })),
+            ]}
+          />
+        </div>
+      )}
     </div>
   );
 }

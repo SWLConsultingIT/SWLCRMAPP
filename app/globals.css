@@ -283,8 +283,31 @@ select:focus-visible {
 
 /* ─── Table row hover ─── */
 .table-row-hover:hover {
-  background-color: rgba(201,168,58,0.035) !important;
+  background-color: rgba(201,168,58,0.05) !important;
   cursor: pointer;
+}
+[data-theme="dark"] .table-row-hover:hover {
+  /* On dark navy, 5% gold reads as a barely-visible warm tint. Bump to 9% for
+     a visible-but-subtle highlight that doesn't flash white. */
+  background-color: rgba(201,168,58,0.09) !important;
+}
+
+/* ─── Dark-mode overrides for Tailwind light-grey hover utilities ───
+   Many components use `hover:bg-gray-50` / `hover:bg-gray-100` /
+   `hover:bg-white/*` for a subtle hover affordance in light mode. In dark
+   mode these resolve to near-white and produce a jarring flash. Redirect
+   them to the themed `--c-cardHov` token. Keep the override scoped to
+   `:hover` so non-hover states aren't affected. */
+[data-theme="dark"] .hover\:bg-gray-50:hover,
+[data-theme="dark"] .hover\:bg-gray-100:hover,
+[data-theme="dark"] .hover\:bg-slate-50:hover,
+[data-theme="dark"] .hover\:bg-slate-100:hover {
+  background-color: var(--c-cardHov) !important;
+}
+[data-theme="dark"] .hover\:bg-white\/5:hover,
+[data-theme="dark"] .hover\:bg-white\/50:hover,
+[data-theme="dark"] .hover\:bg-white\/60:hover {
+  background-color: rgba(255,255,255,0.04) !important;
 }
 
 /* ─── Toast slide in ─── */

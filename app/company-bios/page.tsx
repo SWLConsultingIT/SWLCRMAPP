@@ -370,6 +370,10 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
     qualified: { color: C.green, bg: C.greenLight },
     closed_won: { color: C.green, bg: C.greenLight },
     closed_lost: { color: C.red, bg: C.redLight },
+    completed: { color: "#7C6D2E", bg: C.yellowLight },
+    failed: { color: C.red, bg: C.redLight },
+    paused: { color: "#7C6D2E", bg: C.yellowLight },
+    nurturing: { color: C.accent, bg: C.accentLight },
   };
 
   return (
@@ -941,7 +945,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               return (
                 <div key={group.name}>
                   <button onClick={() => setExpandedGroup(isOpen ? null : group.name)}
-                    className="flex items-center gap-3 w-full px-6 py-3 border-b text-left transition-colors hover:bg-gray-50"
+                    className="flex items-center gap-3 w-full px-6 py-3 border-b text-left transition-colors table-row-hover"
                     style={{ borderColor: C.border }}>
                     <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
                       style={{ backgroundColor: `${chColor}12` }}>
@@ -989,7 +993,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
             {uncampaignedLeads.length > 0 && (
               <div>
                 <button onClick={() => setExpandedGroup(expandedGroup === "__none" ? null : "__none")}
-                  className="flex items-center gap-3 w-full px-6 py-3 border-b text-left transition-colors hover:bg-gray-50"
+                  className="flex items-center gap-3 w-full px-6 py-3 border-b text-left transition-colors table-row-hover"
                   style={{ borderColor: C.border }}>
                   <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
                     style={{ backgroundColor: `${C.blue}12` }}>
