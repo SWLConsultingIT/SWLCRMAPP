@@ -281,63 +281,66 @@ select:focus-visible {
 }
 .animate-fill { animation: fillBar 0.8s cubic-bezier(0.22,1,0.36,1); }
 
-/* ─── LogoLoader: SWL mark with a gold shine sweep ────────────────────
-   The PNG ships in white (filter: brightness 0/invert 1 elsewhere). Here
-   we recolor it gold via filter+drop-shadow, then sweep a translucent
-   diagonal highlight across it on a 2.6s loop — reads as "metal catching
-   light", not a mechanical pulse. The pulse on the mark itself is subtle
-   enough to live underneath. */
+/* ─── LogoLoader: SWL gold wordmark with shimmer ──────────────────────
+   Typographic mark instead of a PNG so the highlight follows the actual
+   letterforms — clean edges at any size, no bounding-box artifacts. Pulls
+   from the app's --brand tokens so a tenant's brand override (or demo
+   tenant's color) just works.
 
-.logo-loader-glint {
-  position: relative;
-  display: inline-block;
-  overflow: hidden;
+   Three layered effects:
+   - background-clip:text gold gradient that travels diagonally (the
+     "shimmer" — letters look like polished gold catching light)
+   - drop-shadow halo that breathes (the soft glow around the mark)
+   - subtle scale pulse so the whole composition feels alive */
+
+.logo-loader-wordmark {
+  font-weight: 800;
+  letter-spacing: -0.06em;
+  /* Gradient stops use brand tokens so the loader inherits the active
+     tenant's brand if set. The bright midpoint (--brand-bright) is a
+     warmer highlight that reads as the "shine" in the gradient sweep.
+     We define it inline as a color-mix so we don't need a new token. */
+  background: linear-gradient(
+    115deg,
+    var(--brand-dark, #b79832) 0%,
+    var(--brand, #c9a83a) 30%,
+    color-mix(in srgb, var(--brand, #c9a83a) 65%, white) 50%,
+    var(--brand, #c9a83a) 70%,
+    var(--brand-dark, #b79832) 100%
+  );
+  background-size: 220% 220%;
+  background-position: 0% 0%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--brand, #c9a83a) 40%, transparent));
+  animation:
+    logo-loader-shimmer 2.8s ease-in-out infinite,
+    logo-loader-pulse 2.8s ease-in-out infinite;
 }
 
-@keyframes logo-loader-glint-pulse {
+@keyframes logo-loader-shimmer {
+  0%, 100% { background-position: 0% 0%; }
+  50%      { background-position: 100% 100%; }
+}
+
+@keyframes logo-loader-pulse {
   0%, 100% {
-    /* sepia + hue-rotate + saturate is the cheapest way to recolor a white
-       PNG to gold without shipping a second asset. brightness/contrast keeps
-       the recolor from washing out. */
-    filter:
-      brightness(0)
-      saturate(100%)
-      invert(74%) sepia(43%) saturate(573%) hue-rotate(7deg) brightness(94%) contrast(86%)
-      drop-shadow(0 0 6px color-mix(in srgb, var(--brand, #c9a83a) 55%, transparent));
+    transform: scale(1);
+    filter: drop-shadow(0 0 14px color-mix(in srgb, var(--brand, #c9a83a) 35%, transparent));
   }
   50% {
+    transform: scale(1.015);
     filter:
-      brightness(0)
-      saturate(100%)
-      invert(82%) sepia(58%) saturate(700%) hue-rotate(7deg) brightness(108%) contrast(90%)
-      drop-shadow(0 0 14px color-mix(in srgb, var(--brand, #c9a83a) 80%, transparent))
-      drop-shadow(0 0 28px color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent));
+      drop-shadow(0 0 28px color-mix(in srgb, var(--brand, #c9a83a) 60%, transparent))
+      drop-shadow(0 0 56px color-mix(in srgb, var(--brand, #c9a83a) 20%, transparent));
   }
 }
-.logo-loader-glint__mark {
-  animation: logo-loader-glint-pulse 2.6s ease-in-out infinite;
-}
 
-@keyframes logo-loader-glint-sweep {
-  0%   { transform: translateX(-120%) skewX(-18deg); opacity: 0; }
-  20%  { opacity: 0.9; }
-  60%  { opacity: 0.9; }
-  100% { transform: translateX(220%) skewX(-18deg); opacity: 0; }
-}
-.logo-loader-glint__sweep {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(
-    100deg,
-    transparent 0%,
-    transparent 40%,
-    rgba(255, 250, 220, 0.9) 50%,
-    transparent 60%,
-    transparent 100%
-  );
-  mix-blend-mode: screen;
-  animation: logo-loader-glint-sweep 2.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+[data-theme="dark"] .logo-loader-wordmark {
+  /* Slightly hotter glow on dark background so the gold reads. */
+  filter: drop-shadow(0 0 22px color-mix(in srgb, var(--brand, #c9a83a) 55%, transparent));
 }
 
 /* ─── Table row hover ─── */

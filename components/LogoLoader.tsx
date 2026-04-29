@@ -2,19 +2,19 @@
 
 import type { CSSProperties } from "react";
 
-// Minimal SWL mark with a gold shimmer sweep + soft pulse glow. Use it for
-// auth transitions, demo enter/exit, and other rare full-blank moments.
-// NOT a default page loader — page-specific `loading.tsx` files keep their
-// semantic skeletons.
-
+// Branded loader: typographic "SWL" wordmark with a gold gradient that
+// shimmers across the letters. Uses background-clip:text so the highlight
+// follows the actual letterforms — no PNG edges, no rectangular bounding
+// box artifacts. Colors pull from the app's real --brand tokens so it
+// matches whatever the active tenant's brand override is.
 export default function LogoLoader({
   fullscreen = false,
-  size = 240,
+  size = 180,
 }: {
   /** When true, covers the entire viewport. Default false: fills its
    *  container so the Sidebar and TopHeader stay visible during page nav. */
   fullscreen?: boolean;
-  /** Logo width in px. Height auto from aspect ratio. */
+  /** Wordmark font-size in px. */
   size?: number;
 }) {
   const containerClass = fullscreen
@@ -30,20 +30,16 @@ export default function LogoLoader({
 
   return (
     <div className={containerClass} style={containerStyle} role="status" aria-live="polite">
-      <div className="logo-loader-glint" style={{ width: size }}>
-        {/* Gold-tinted version of the SWL mark — uses CSS filters to recolor
-            the white PNG into our brand gold without shipping a separate asset. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png"
-          alt="SWL"
-          className="logo-loader-glint__mark"
-          style={{ width: size, height: "auto", display: "block" }}
-        />
-        {/* Shine sweep — a translucent diagonal gradient that travels across
-            the logo every few seconds, like light catching on metal. */}
-        <span aria-hidden className="logo-loader-glint__sweep" />
-      </div>
+      <span
+        className="logo-loader-wordmark"
+        style={{
+          fontSize: size,
+          lineHeight: 1,
+          fontFamily: "var(--font-outfit), system-ui, sans-serif",
+        }}
+      >
+        SWL
+      </span>
     </div>
   );
 }
