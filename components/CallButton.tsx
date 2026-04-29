@@ -60,7 +60,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
     return (
       <span
         className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs"
-        style={{ backgroundColor: "#F3F4F6", color: C.textDim }}
+        style={{ backgroundColor: C.surface, color: C.textDim }}
       >
         <PhoneOff size={12} /> No phone number
       </span>

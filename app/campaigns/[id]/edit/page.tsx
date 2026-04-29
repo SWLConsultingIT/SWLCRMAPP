@@ -455,7 +455,7 @@ export default function FlowEditorPage() {
             const ok = allowedChannels.has(key);
             return (
               <span key={key} className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: ok ? `${c.color}12` : "#F3F4F6", color: ok ? c.color : C.textDim, opacity: ok ? 1 : 0.5 }}>
+                style={{ backgroundColor: ok ? `${c.color}12` : C.surface, color: ok ? c.color : C.textDim, opacity: ok ? 1 : 0.5 }}>
                 {ok ? <CheckCircle size={9} /> : <AlertCircle size={9} />} {c.label}
               </span>
             );
@@ -509,7 +509,7 @@ export default function FlowEditorPage() {
                   </div>
 
                   {/* Quick info */}
-                  <span className="text-xs shrink-0 px-2 py-0.5 rounded" style={{ backgroundColor: "#F3F4F6", color: C.textMuted }}>
+                  <span className="text-xs shrink-0 px-2 py-0.5 rounded" style={{ backgroundColor: C.surface, color: C.textMuted }}>
                     {step.wait_days === 0 ? "Immediate" : `+${step.wait_days}d`}
                   </span>
 

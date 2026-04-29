@@ -205,7 +205,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
                     </span>
                     <button onClick={() => toggleGroup(group.leads)}
                       className="text-[10px] font-semibold px-3 py-1 rounded-md transition-colors"
-                      style={{ backgroundColor: allGroupSelected ? `color-mix(in srgb, ${gold} 8%, transparent)` : "#F3F4F6", color: allGroupSelected ? gold : C.textMuted }}>
+                      style={{ backgroundColor: allGroupSelected ? `color-mix(in srgb, ${gold} 8%, transparent)` : C.surface, color: allGroupSelected ? gold : C.textMuted }}>
                       {allGroupSelected ? "Deselect all" : someGroupSelected ? `Select all ${group.leads.length}` : `Select all ${group.leads.length}`}
                     </button>
                   </div>

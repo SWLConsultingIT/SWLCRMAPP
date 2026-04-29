@@ -6,7 +6,7 @@ import { C } from "@/lib/design";
 import { Clock, Upload, CheckCircle, Loader2 } from "lucide-react";
 
 const steps = [
-  { key: "not_started",  label: "Not Started",    color: C.textMuted, bg: "#F3F4F6",    icon: Clock },
+  { key: "not_started",  label: "Not Started",    color: C.textMuted, bg: C.surface,    icon: Clock },
   { key: "in_progress",  label: "In Progress",    color: "#D97706",   bg: "#FFFBEB",    icon: Clock },
   { key: "uploaded",     label: "Leads Uploaded",  color: C.blue,      bg: C.blueLight,  icon: Upload },
   { key: "completed",    label: "Completed",       color: C.green,     bg: C.greenLight, icon: CheckCircle },
@@ -55,7 +55,7 @@ export default function ExecutionActions({ id, currentStatus, leadsUploaded }: {
             <div key={step.key} className="flex items-center gap-1 flex-1">
               <div className="flex items-center gap-2 flex-1">
                 <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: isDone ? step.bg : "#F3F4F6" }}>
+                  style={{ backgroundColor: isDone ? step.bg : C.surface }}>
                   <Icon size={13} style={{ color: isDone ? step.color : C.textDim }} />
                 </div>
                 <span className="text-xs font-medium truncate"

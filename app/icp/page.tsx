@@ -253,7 +253,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
             {saving ? "Saving…" : isNew ? "Submit for Review" : "Save Changes"}
           </button>
           <button onClick={onCancel} className="rounded-lg px-5 py-2.5 text-sm font-medium"
-            style={{ color: C.textMuted, backgroundColor: "#F3F4F6" }}>
+            style={{ color: C.textMuted, backgroundColor: C.surface }}>
             Cancel
           </button>
         </div>
@@ -487,7 +487,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
               Yes, delete
             </button>
             <button onClick={() => setConfirmDelete(false)} className="rounded-lg px-3 py-1.5 text-xs font-medium"
-              style={{ color: C.textMuted, backgroundColor: "#F3F4F6" }}>No</button>
+              style={{ color: C.textMuted, backgroundColor: C.surface }}>No</button>
           </div>
         )}
       </div>
@@ -822,7 +822,7 @@ const TIER_STYLES: Record<string, { color: string; bg: string }> = {
   HOT:     { color: C.red,     bg: C.redLight },
   WARM:    { color: "#D97706", bg: C.yellowLight },
   NURTURE: { color: C.blue,    bg: C.blueLight },
-  DISCARD: { color: C.textMuted, bg: "#F3F4F6" },
+  DISCARD: { color: C.textMuted, bg: C.surface },
 };
 
 function highlightTokens(text: string): React.ReactNode[] {

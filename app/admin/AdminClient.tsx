@@ -256,7 +256,7 @@ function SellersTab() {
           >
             <div
               className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-              style={{ background: seller.active ? `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` : "#E5E7EB", color: seller.active ? "#fff" : "#9CA3AF" }}
+              style={{ background: seller.active ? `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` : C.border, color: seller.active ? "#fff" : "#9CA3AF" }}
             >
               {seller.name[0]?.toUpperCase() ?? "?"}
             </div>
@@ -675,7 +675,7 @@ export default function AdminClient({ clients, pendingApprovals, stats }: Props)
               {t.label}
               {t.count > 0 && (
                 <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: isActive ? `color-mix(in srgb, ${t.color} 15%, transparent)` : "#F3F4F6", color: isActive ? t.color : C.textDim }}>
+                  style={{ backgroundColor: isActive ? `color-mix(in srgb, ${t.color} 15%, transparent)` : C.surface, color: isActive ? t.color : C.textDim }}>
                   {t.count}
                 </span>
               )}

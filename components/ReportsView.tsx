@@ -86,7 +86,7 @@ function HBarChart({ data, colorMap, labelMap }: { data: Record<string, number>;
                 <span className="text-xs tabular-nums w-8 text-right" style={{ color: C.textMuted }}>{pct}%</span>
               </div>
             </div>
-            <div className="w-full rounded-full h-2" style={{ backgroundColor: "#E5E7EB" }}>
+            <div className="w-full rounded-full h-2" style={{ backgroundColor: C.border }}>
               <div className="h-2 rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
             </div>
           </div>
@@ -114,7 +114,7 @@ function LineChart({ data }: { data: Record<string, number> }) {
         </linearGradient>
       </defs>
       {[0, 0.5, 1].map((p, i) => (
-        <line key={i} x1={PAD} y1={PAD + (1 - p) * (H - 2 * PAD)} x2={W - PAD} y2={PAD + (1 - p) * (H - 2 * PAD)} stroke="#E5E7EB" strokeWidth="1" strokeDasharray="6 6" />
+        <line key={i} x1={PAD} y1={PAD + (1 - p) * (H - 2 * PAD)} x2={W - PAD} y2={PAD + (1 - p) * (H - 2 * PAD)} stroke={C.border} strokeWidth="1" strokeDasharray="6 6" />
       ))}
       <path d={areaD} fill="url(#areaGrad)" />
       <path d={pathD} fill="none" stroke={gold} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
@@ -150,10 +150,10 @@ function Funnel({ data }: { data: Record<string, number> }) {
               <span className="text-sm font-medium" style={{ color: C.textBody }}>{s.label}</span>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold tabular-nums" style={{ color: s.color }}>{val}</span>
-                {conv !== null && <span className="text-xs px-1.5 py-0.5 rounded tabular-nums" style={{ backgroundColor: "#F3F4F6", color: C.textMuted }}>{conv}% conv.</span>}
+                {conv !== null && <span className="text-xs px-1.5 py-0.5 rounded tabular-nums" style={{ backgroundColor: C.surface, color: C.textMuted }}>{conv}% conv.</span>}
               </div>
             </div>
-            <div className="w-full rounded-full h-2" style={{ backgroundColor: "#E5E7EB" }}>
+            <div className="w-full rounded-full h-2" style={{ backgroundColor: C.border }}>
               <div className="h-2 rounded-full" style={{ width: `${pct}%`, backgroundColor: s.color }} />
             </div>
           </div>
@@ -238,7 +238,7 @@ export default async function ReportsView() {
                         <span className="text-sm font-bold tabular-nums" style={{ color: channelColors[ch] ?? C.textMuted }}>{rate}%</span>
                       </div>
                     </div>
-                    <div className="w-full rounded-full h-2" style={{ backgroundColor: "#E5E7EB" }}>
+                    <div className="w-full rounded-full h-2" style={{ backgroundColor: C.border }}>
                       <div className="h-2 rounded-full" style={{ width: `${rate}%`, backgroundColor: channelColors[ch] ?? C.textMuted }} />
                     </div>
                   </div>

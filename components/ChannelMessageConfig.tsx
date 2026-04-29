@@ -141,16 +141,18 @@ const typePlaceholdersByLocale: Record<"es" | "en", Record<string, string>> = {
   },
 };
 
+// Tenant-agnostic placeholder examples. We avoid mentioning a specific company
+// name (e.g. "SWL Consulting") so the wizard reads correctly for any client tenant.
 const inlinePlaceholdersByLocale: Record<"es" | "en", Record<string, string>> = {
   es: {
-    connectionRequest: "Hola [nombre], soy [vendedor] de SWL Consulting. Vi tu trabajo en [tema] y me gustaría conectar para intercambiar ideas.",
+    connectionRequest: "Hola [nombre], soy [vendedor] de [empresa]. Vi tu trabajo en [tema] y me gustaría conectar para intercambiar ideas.",
     subject: "Línea de asunto (max 60 caracteres)...",
     fallback: "Escribí tu mensaje...",
     replyPositive: "¡Excelente! Me alegra tu interés. Te propongo coordinar una llamada de 15 min...",
     replyNegative: "Entiendo perfectamente. Gracias por tu tiempo. Si en el futuro...",
   },
   en: {
-    connectionRequest: "Hi [name], I'm [seller] from SWL Consulting. I saw your work on [topic] and I'd love to connect to share ideas.",
+    connectionRequest: "Hi [name], I'm [seller] from [company]. I saw your work on [topic] and I'd love to connect to share ideas.",
     subject: "Subject line (max 60 chars)...",
     fallback: "Write your message...",
     replyPositive: "Great! Glad you're interested. How about we book a quick 15-minute call...",

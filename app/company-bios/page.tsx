@@ -560,7 +560,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               {/* Empty slots */}
               {socialLinks.filter(s => !bio[s.key]).map(({ key, label, icon: Icon }) => (
                 <div key={key} className="flex items-center gap-3 px-3 py-3 rounded-lg border"
-                  style={{ borderColor: "#E5E7EB", backgroundColor: C.cardHov }}>
+                  style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
                   <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 grayscale opacity-30" style={{ backgroundColor: "white" }}>
                     <Icon size={18} />
                   </div>
@@ -937,7 +937,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               const chColor = chColors[group.channel] ?? gold;
               const campSt = group.status === "active" ? { color: C.green, bg: C.greenLight, label: t("bio.stat.active") }
                 : group.status === "paused" ? { color: "#D97706", bg: "#FFFBEB", label: t("bio.stat.active") === "Activos" ? "Pausada" : "Paused" }
-                : { color: C.textMuted, bg: "#F3F4F6", label: group.status };
+                : { color: C.textMuted, bg: C.surface, label: group.status };
               return (
                 <div key={group.name}>
                   <button onClick={() => setExpandedGroup(isOpen ? null : group.name)}
@@ -959,7 +959,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
                     <ChevronDown size={14} style={{ color: C.textDim, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
                   </button>
                   {isOpen && group.leads.map(lead => {
-                    const st = statusColors[lead.status] ?? { color: C.textMuted, bg: "#F3F4F6" };
+                    const st = statusColors[lead.status] ?? { color: C.textMuted, bg: C.surface };
                     return (
                       <Link key={lead.id} href={`/leads/${lead.id}`}
                         className="flex items-center gap-4 px-6 pl-16 py-2.5 border-b table-row-hover"
@@ -1004,7 +1004,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
                   <ChevronDown size={14} style={{ color: C.textDim, transform: expandedGroup === "__none" ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
                 </button>
                 {expandedGroup === "__none" && uncampaignedLeads.map(lead => {
-                  const st = statusColors[lead.status] ?? { color: C.textMuted, bg: "#F3F4F6" };
+                  const st = statusColors[lead.status] ?? { color: C.textMuted, bg: C.surface };
                   return (
                     <Link key={lead.id} href={`/leads/${lead.id}`}
                       className="flex items-center gap-4 px-6 pl-16 py-2.5 border-b table-row-hover"
@@ -1297,7 +1297,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                     className="px-2.5 py-1 rounded-full text-xs font-medium transition-[opacity,transform,box-shadow,background-color,border-color]"
                     style={selected
                       ? { backgroundColor: gold, color: "#04070d" }
-                      : { backgroundColor: "#F3F4F6", color: C.textMuted, border: `1px solid ${C.border}` }
+                      : { backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }
                     }>
                     {lang}
                   </button>
@@ -1390,7 +1390,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                           </div>
                         ) : (
                           <label className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
-                            style={{ backgroundColor: "#F3F4F6", color: C.textMuted, border: `1px solid ${C.border}` }}>
+                            style={{ backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }}>
                             <Upload size={12} /> Upload PDF / Image
                             <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" className="hidden" onChange={async (e) => {
                               const file = e.target.files?.[0];
@@ -1477,7 +1477,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
           {!isNew && (
             <button onClick={onCancel}
               className="rounded-lg px-5 py-2.5 text-sm font-medium"
-              style={{ color: C.textMuted, backgroundColor: "#F3F4F6" }}>
+              style={{ color: C.textMuted, backgroundColor: C.surface }}>
               Cancel
             </button>
           )}
@@ -1511,7 +1511,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
               </button>
               <button onClick={() => setConfirmDelete(false)}
                 className="rounded-lg px-3 py-2 text-xs font-medium"
-                style={{ color: C.textMuted, backgroundColor: "#F3F4F6" }}>
+                style={{ color: C.textMuted, backgroundColor: C.surface }}>
                 No
               </button>
             </div>

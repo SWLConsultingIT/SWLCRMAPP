@@ -84,7 +84,7 @@ function UsageBar({ sent, limit, channel }: { sent: number; limit: number; chann
         </div>
         <span className="text-xs font-bold tabular-nums" style={{ color }}>{sent} / {limit}</span>
       </div>
-      <div className="h-2 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+      <div className="h-2 rounded-full" style={{ backgroundColor: C.border }}>
         <div className="h-2 rounded-full transition-[opacity,transform,box-shadow,background-color,border-color]" style={{ width: `${pct}%`, backgroundColor: color }} />
       </div>
       <p className="text-[9px] font-semibold mt-1 text-right tabular-nums" style={{ color }}>{pct}%</p>
@@ -219,7 +219,7 @@ function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; onSucces
             {error && <div className="mt-4 rounded-lg px-3 py-2" style={{ backgroundColor: C.redLight }}><p className="text-xs font-medium" style={{ color: C.red }}>{error}</p></div>}
 
             <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t" style={{ borderColor: C.border }}>
-              <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>Cancel</button>
+              <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>Cancel</button>
               <button onClick={handleStartConnection} disabled={saving || !name.trim()}
                 className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-50"
                 style={{ backgroundColor: "#0A66C2", color: "#fff" }}>
@@ -322,7 +322,7 @@ function EditAccountModal({ seller, onClose, onSuccess }: { seller: SellerCard; 
         {error && <div className="mt-4 rounded-lg px-3 py-2" style={{ backgroundColor: C.redLight }}><p className="text-xs font-medium" style={{ color: C.red }}>{error}</p></div>}
 
         <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t" style={{ borderColor: C.border }}>
-          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>Cancel</button>
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>Cancel</button>
           <button onClick={handleSave} disabled={saving}
             className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-50"
             style={{ backgroundColor: C.blue, color: "#fff" }}>
@@ -426,7 +426,7 @@ function LinkUnipileModal({ seller, onClose, onSuccess }: { seller: SellerCard; 
         {error && <div className="mt-4 rounded-lg px-3 py-2" style={{ backgroundColor: C.redLight }}><p className="text-xs font-medium" style={{ color: C.red }}>{error}</p></div>}
 
         <div className="flex items-center justify-end gap-3 mt-5 pt-4 border-t" style={{ borderColor: C.border }}>
-          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>Cancel</button>
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>Cancel</button>
           <button onClick={handleLink} disabled={!selectedId || saving}
             className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-40"
             style={{ backgroundColor: "#0A66C2", color: "#fff" }}>
@@ -465,7 +465,7 @@ function DeleteModal({ name, onConfirm, onClose, loading }: { name: string; onCo
             style={{ color: C.textPrimary, backgroundColor: C.bg, border: `2px solid ${matches ? C.red : C.border}` }} autoFocus />
         </div>
         <div className="flex items-center justify-end gap-3 mt-5 pt-4 border-t" style={{ borderColor: C.border }}>
-          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>Cancel</button>
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>Cancel</button>
           <button onClick={onConfirm} disabled={!matches || loading}
             className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-30 transition-opacity"
             style={{ backgroundColor: C.red, color: "#fff" }}>
@@ -593,7 +593,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
               style={{ color: isActive ? t.color : C.textMuted }}>
               {t.label}
               <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
-                style={{ backgroundColor: isActive ? `${t.color}15` : "#F3F4F6", color: isActive ? t.color : C.textDim }}>
+                style={{ backgroundColor: isActive ? `${t.color}15` : C.surface, color: isActive ? t.color : C.textDim }}>
                 {t.count}
               </span>
               {isActive && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: t.color }} />}
@@ -912,7 +912,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                               <span className="text-sm font-bold tabular-nums" style={{ color: usageColor(pct) }}>{h.count}</span>
                               {limit > 0 && <>
                                 <span className="text-[10px]" style={{ color: C.textDim }}>/ {limit}</span>
-                                <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                                <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
                                   <div className="h-1.5 rounded-full" style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: usageColor(pct) }} />
                                 </div>
                                 <span className="text-[10px] tabular-nums font-semibold w-8 text-right" style={{ color: usageColor(pct) }}>{pct}%</span>

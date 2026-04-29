@@ -85,11 +85,28 @@ export default function ResetPasswordPage() {
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>New password</p>
                 <div className="relative">
-                  <input type={showPw ? "text" : "password"} value={password} onChange={e => setPassword(e.target.value)} placeholder="At least 6 characters"
-                    className="w-full px-4 py-3 pr-11 rounded-xl text-sm outline-none"
+                  <input
+                    type={showPw ? "text" : "password"}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="At least 6 characters"
+                    className="w-full px-4 py-3 pr-11 rounded-xl text-sm outline-none transition-[opacity,transform,box-shadow,background-color,border-color]"
                     style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#f8fafc" }}
-                    autoComplete="new-password" minLength={6} autoFocus />
-                  <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(217,222,226,0.3)" }}>
+                    autoComplete="new-password"
+                    minLength={6}
+                    autoFocus
+                    onFocus={e => {
+                      e.currentTarget.style.borderColor = "color-mix(in srgb, var(--brand-dark, #b79832) 50%, transparent)";
+                      e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent)";
+                      e.currentTarget.style.boxShadow = "0 0 0 4px color-mix(in srgb, var(--brand-dark, #b79832) 12%, transparent)";
+                    }}
+                    onBlur={e => {
+                      e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+                      e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
+                  />
+                  <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-100" style={{ color: "var(--brand-dark, #b79832)", zIndex: 10 }}>
                     {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
@@ -97,10 +114,26 @@ export default function ResetPasswordPage() {
 
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>Confirm</p>
-                <input type={showPw ? "text" : "password"} value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repeat your password"
-                  className="w-full px-4 py-3 rounded-xl text-sm outline-none"
+                <input
+                  type={showPw ? "text" : "password"}
+                  value={confirm}
+                  onChange={e => setConfirm(e.target.value)}
+                  placeholder="Repeat your password"
+                  className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-[opacity,transform,box-shadow,background-color,border-color]"
                   style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#f8fafc" }}
-                  autoComplete="new-password" minLength={6} />
+                  autoComplete="new-password"
+                  minLength={6}
+                  onFocus={e => {
+                    e.currentTarget.style.borderColor = "color-mix(in srgb, var(--brand-dark, #b79832) 50%, transparent)";
+                    e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent)";
+                    e.currentTarget.style.boxShadow = "0 0 0 4px color-mix(in srgb, var(--brand-dark, #b79832) 12%, transparent)";
+                  }}
+                  onBlur={e => {
+                    e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+                    e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                />
               </div>
 
               {error && (

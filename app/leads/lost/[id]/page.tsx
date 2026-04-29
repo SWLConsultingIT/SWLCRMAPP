@@ -321,7 +321,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
                   <XCircle size={16} /> Negative Reply
                 </div>
               ) : (
-                <div className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-bold" style={{ backgroundColor: "#F3F4F6", color: C.textMuted }}>
+                <div className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-bold" style={{ backgroundColor: C.surface, color: C.textMuted }}>
                   <AlertTriangle size={16} /> No Reply
                 </div>
               )}
@@ -393,7 +393,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                        <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
                           <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: C.textMuted }} />
                         </div>
                         <span className="text-[9px] tabular-nums" style={{ color: C.textDim }}>{c.current_step ?? 0}/{steps.length} steps</span>
@@ -466,7 +466,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
                       const isMsg = item.type === "message_sent";
                       const chMeta = channelMeta[item.channel] ?? channelMeta.email;
                       const cls = isReply && item.classification ? classColors[item.classification] : null;
-                      const dotBg = isReply ? (cls?.bg ?? "#F3F4F6") : isCampStart ? `color-mix(in srgb, ${gold} 8%, transparent)` : isCampEnd ? "#F3F4F6" : `${chMeta.color}15`;
+                      const dotBg = isReply ? (cls?.bg ?? C.surface) : isCampStart ? `color-mix(in srgb, ${gold} 8%, transparent)` : isCampEnd ? C.surface : `${chMeta.color}15`;
 
                       return (
                         <div key={i} className="flex gap-3 relative">
@@ -507,7 +507,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
                             {item.content && (
                               <div className="rounded-lg px-3 py-2 mt-1 border"
                                 style={{
-                                  backgroundColor: isReply ? (cls?.bg ?? "#F3F4F6") : C.bg,
+                                  backgroundColor: isReply ? (cls?.bg ?? C.surface) : C.bg,
                                   borderColor: isReply ? (cls?.color ?? C.textDim) + "20" : C.border,
                                 }}>
                                 <p className="text-[11px] leading-relaxed whitespace-pre-line line-clamp-6" style={{ color: C.textBody }}>
@@ -574,7 +574,7 @@ function AIRecoveryPanel({
   const verdict = verdictMeta[analysis.verdict] ?? verdictMeta.lost;
   const v = analysis.reengage_viability;
   const vColor = viabilityColor[v] ?? C.textMuted;
-  const vBg = viabilityBg[v] ?? "#F3F4F6";
+  const vBg = viabilityBg[v] ?? C.surface;
   const tp = analysis.next_touchpoint;
   const ChMeta = channelIcon[tp?.channel ?? "email"] ?? channelIcon.email;
   const ChIcon = ChMeta.icon;

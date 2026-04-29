@@ -23,7 +23,7 @@ const channelMeta: Record<string, { icon: React.ElementType; color: string; labe
 const statusMeta: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
   active:    { label: "Active",    color: C.green,    bg: C.greenLight,  icon: PlayCircle },
   paused:    { label: "Paused",    color: "#D97706",  bg: "#FFFBEB",     icon: PauseCircle },
-  completed: { label: "Completed", color: C.textMuted, bg: "#F3F4F6",    icon: CheckCircle },
+  completed: { label: "Completed", color: C.textMuted, bg: C.surface,    icon: CheckCircle },
   failed:    { label: "Failed",    color: C.red,      bg: C.redLight,    icon: XCircle },
 };
 
@@ -141,7 +141,7 @@ export default async function CampaignOverviewPage({ params }: { params: Promise
     meeting_intent: { color: C.green,   bg: C.greenLight, label: "Meeting" },
     negative:       { color: C.red,     bg: C.redLight,   label: "Negative" },
     question:       { color: "#D97706", bg: "#FFFBEB",    label: "Question" },
-    other:          { color: C.textMuted, bg: "#F3F4F6",  label: "Other" },
+    other:          { color: C.textMuted, bg: C.surface,  label: "Other" },
   };
 
   // Breadcrumb: try to find the ICP profile for back link
@@ -275,7 +275,7 @@ export default async function CampaignOverviewPage({ params }: { params: Promise
 
             {/* Progress bar */}
             <div className="flex items-center gap-2">
-              <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+              <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: C.border }}>
                 <div className="h-2 rounded-full" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} />
               </div>
               <span className="text-xs font-bold tabular-nums" style={{ color: gold }}>{pct}%</span>
@@ -445,7 +445,7 @@ export default async function CampaignOverviewPage({ params }: { params: Promise
                   <td className="px-4 py-3"><span className="text-[10px] font-semibold rounded-md px-2 py-0.5" style={{ backgroundColor: cst.bg, color: cst.color }}>{cst.label}</span></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <div className="w-16 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                      <div className="w-16 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
                         <div className="h-1.5 rounded-full" style={{ width: `${p}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} />
                       </div>
                       <span className="text-xs tabular-nums" style={{ color: C.textMuted }}>{c.current_step}/{ts}</span>

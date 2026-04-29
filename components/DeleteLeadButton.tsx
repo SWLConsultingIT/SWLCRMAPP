@@ -66,7 +66,7 @@ export default function DeleteLeadButton({ leadId, leadName }: { leadId: string;
             <div className="flex items-center justify-end gap-3">
               <button onClick={() => setShowConfirm(false)} disabled={deleting}
                 className="rounded-lg px-4 py-2 text-sm font-medium"
-                style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>
+                style={{ backgroundColor: C.surface, color: C.textBody }}>
                 Cancel
               </button>
               <button onClick={handleDelete} disabled={deleting}

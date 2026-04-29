@@ -423,7 +423,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
                     ) : (
                       <div key={label}
                         className="flex items-center gap-3 px-3 py-3 rounded-lg border"
-                        style={{ borderColor: "#E5E7EB", backgroundColor: C.cardHov }}>
+                        style={{ borderColor: C.border, backgroundColor: C.cardHov }}>
                         <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 grayscale opacity-30" style={{ backgroundColor: "white" }}>
                           {icon}
                         </div>
@@ -486,12 +486,12 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
 
                 <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
                   {lead.source_tool && (
-                    <span className="text-xs px-2 py-1 rounded-md" style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>
+                    <span className="text-xs px-2 py-1 rounded-md" style={{ backgroundColor: C.surface, color: C.textBody }}>
                       {lead.source_tool}
                     </span>
                   )}
                   {lead.source_universe && (
-                    <span className="text-xs px-2 py-1 rounded-md" style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>
+                    <span className="text-xs px-2 py-1 rounded-md" style={{ backgroundColor: C.surface, color: C.textBody }}>
                       {lead.source_universe}
                     </span>
                   )}
@@ -552,7 +552,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
                       </div>
                       <div className="flex flex-wrap gap-1.5">
                         {lead.website_summary.split(",").slice(0, 5).map((w: string, i: number) => (
-                          <span key={i} className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>
+                          <span key={i} className="text-xs px-2 py-0.5 rounded" style={{ backgroundColor: C.surface, color: C.textBody }}>
                             {w.trim()}
                           </span>
                         ))}

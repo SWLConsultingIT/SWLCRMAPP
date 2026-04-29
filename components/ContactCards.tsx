@@ -37,7 +37,7 @@ const statusMap: Record<string, { label: string; color: string; bg: string }> = 
   proposal_sent: { label: "PROPOSAL SENT", color: C.accent,    bg: C.accentLight },
   closed_won:    { label: "WON",           color: C.green,     bg: C.greenLight },
   closed_lost:   { label: "LOST",          color: C.red,       bg: C.redLight },
-  nurturing:     { label: "NURTURING",     color: C.textMuted, bg: "#F3F4F6" },
+  nurturing:     { label: "NURTURING",     color: C.textMuted, bg: C.surface },
 };
 
 function ScoreRing({ score, color }: { score: number; color: string }) {
@@ -49,7 +49,7 @@ function ScoreRing({ score, color }: { score: number; color: string }) {
   return (
     <div className="relative w-12 h-12 flex items-center justify-center">
       <svg width="48" height="48" className="absolute -rotate-90">
-        <circle cx="24" cy="24" r={radius} fill="none" stroke="#E5E7EB" strokeWidth="3" />
+        <circle cx="24" cy="24" r={radius} fill="none" stroke={C.border} strokeWidth="3" />
         <circle cx="24" cy="24" r={radius} fill="none" stroke={color} strokeWidth="3"
           strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" />
       </svg>
@@ -93,7 +93,7 @@ export default function ContactCards({ contacts }: { contacts: Contact[] }) {
                 </p>
                 {contact.primary_seniority && (
                   <span className="inline-block text-xs font-medium mt-1 px-2 py-0.5 rounded"
-                    style={{ backgroundColor: "#F3F4F6", color: C.textBody, textTransform: "uppercase", fontSize: "10px" }}>
+                    style={{ backgroundColor: C.surface, color: C.textBody, textTransform: "uppercase", fontSize: "10px" }}>
                     {contact.primary_seniority.replace("_", " ")}
                   </span>
                 )}
@@ -129,7 +129,7 @@ export default function ContactCards({ contacts }: { contacts: Contact[] }) {
             <div>
               {contact.current_channel && (
                 <span className="text-xs font-medium px-2.5 py-1 rounded"
-                  style={{ backgroundColor: "#F3F4F6", color: C.textBody, textTransform: "capitalize" }}>
+                  style={{ backgroundColor: C.surface, color: C.textBody, textTransform: "capitalize" }}>
                   {contact.current_channel === "linkedin" ? "LinkedIn Campaign" :
                    contact.current_channel === "email" ? "Email Campaign" :
                    contact.current_channel === "call" ? "Call Campaign" :
@@ -147,7 +147,7 @@ export default function ContactCards({ contacts }: { contacts: Contact[] }) {
       {/* Add Contact card */}
       <div className="rounded-xl border-2 border-dashed p-5 flex flex-col items-center justify-center gap-3 cursor-pointer transition-colors hover:bg-gray-50"
         style={{ borderColor: "#D1D5DB", minHeight: "200px" }}>
-        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: "#F3F4F6" }}>
+        <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: C.surface }}>
           <Plus size={20} style={{ color: C.textMuted }} />
         </div>
         <span className="text-sm font-medium" style={{ color: C.textMuted }}>Add Contact</span>

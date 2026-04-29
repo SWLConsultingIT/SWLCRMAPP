@@ -11,7 +11,7 @@ const variants: Record<Variant, {
   orange: { iconBg: C.orangeLight, iconColor: C.orange,  accentColor: C.orange,  barColor: C.orange },
   red:    { iconBg: C.redLight,    iconColor: C.red,     accentColor: C.red,     barColor: C.red },
   blue:   { iconBg: C.blueLight,   iconColor: C.blue,    accentColor: C.blue,    barColor: C.blue },
-  muted:  { iconBg: "#F3F4F6",     iconColor: C.textMuted, accentColor: C.textMuted, barColor: "#D1D5DB" },
+  muted:  { iconBg: C.surface,     iconColor: C.textMuted, accentColor: C.textMuted, barColor: C.border2 },
 };
 
 export default function StatCard({
@@ -57,7 +57,7 @@ export default function StatCard({
       </div>
 
       {progress !== undefined && (
-        <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "#F3F4F6" }}>
+        <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: C.surface }}>
           <div className="h-full rounded-full animate-fill"
             style={{ width: `${Math.min(progress, 100)}%`, backgroundColor: v.barColor }} />
         </div>

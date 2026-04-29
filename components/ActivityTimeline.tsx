@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { C } from "@/lib/design";
-import { Mail, PlusCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { Mail, PlusCircle, ChevronDown, ChevronUp, MessageSquare, StickyNote } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
 
 type ActivityItem = {
@@ -47,8 +47,8 @@ const classificationStyles: Record<string, { label: string; color: string; bg: s
   not_now:        { label: "NOT NOW",        color: C.orange, bg: C.orangeLight },
   negative:       { label: "NEGATIVE",       color: C.red,    bg: C.redLight },
   unsubscribe:    { label: "UNSUBSCRIBE",    color: C.red,    bg: C.redLight },
-  spam:           { label: "SPAM",           color: C.textMuted, bg: "#F3F4F6" },
-  auto_reply:     { label: "AUTO-REPLY",     color: C.textMuted, bg: "#F3F4F6" },
+  spam:           { label: "SPAM",           color: C.textMuted, bg: C.surface },
+  auto_reply:     { label: "AUTO-REPLY",     color: C.textMuted, bg: C.surface },
 };
 
 function formatTime(iso: string) {
@@ -139,8 +139,25 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
 
         {/* Timeline groups */}
         {groups.length === 0 ? (
-          <div className="rounded-xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <p className="text-sm" style={{ color: C.textDim }}>No activity yet</p>
+          <div
+            className="rounded-2xl border py-14 text-center"
+            style={{
+              backgroundColor: C.card,
+              borderColor: C.border,
+              boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+            }}
+          >
+            <div
+              className="w-14 h-14 mx-auto mb-4 rounded-2xl flex items-center justify-center"
+              style={{
+                backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 10%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 22%, transparent)",
+              }}
+            >
+              <MessageSquare size={22} style={{ color: "var(--brand, #c9a83a)" }} />
+            </div>
+            <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>No activity yet</p>
+            <p className="text-xs mt-1.5" style={{ color: C.textDim }}>Messages, replies and calls will appear here as they happen.</p>
           </div>
         ) : (
           <div className="space-y-6 px-2">
@@ -163,16 +180,34 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                     if (item.type === "reply") {
                       const cls = classificationStyles[item.classification ?? ""] ?? classificationStyles.auto_reply;
                       const isPositive = ["positive", "meeting_intent"].includes(item.classification ?? "");
+                      const accentColor = item.requiresReview ? "#D97706" : isPositive ? C.green : cls.color;
                       return (
-                        <div key={item.id}
-                          className="rounded-xl border p-4"
+                        <div
+                          key={item.id}
+                          className="rounded-2xl border p-4 relative overflow-hidden"
                           style={{
                             backgroundColor: item.requiresReview ? "#FFFBEB" : isPositive ? C.greenLight : C.card,
                             borderColor: item.requiresReview ? "#FDE68A" : isPositive ? "#BBF7D0" : C.border,
-                          }}>
-                          <div className="flex items-start justify-between mb-2">
+                            borderTop: `3px solid ${accentColor}`,
+                            boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
+                          }}
+                        >
+                          {/* Soft halo per classification */}
+                          <div
+                            aria-hidden
+                            className="absolute -top-10 -right-10 w-28 h-28 rounded-full pointer-events-none opacity-40"
+                            style={{ background: `radial-gradient(circle, color-mix(in srgb, ${accentColor} 18%, transparent) 0%, transparent 70%)` }}
+                          />
+                          <div className="flex items-start justify-between mb-2 relative">
                             <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: ch.bg }}>
+                              <div
+                                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                                style={{
+                                  backgroundColor: ch.bg,
+                                  border: `1px solid color-mix(in srgb, ${ch.color} 20%, transparent)`,
+                                  boxShadow: `0 0 14px color-mix(in srgb, ${ch.color} 16%, transparent)`,
+                                }}
+                              >
                                 <ChannelIcon channel={item.channel} />
                               </div>
                               <div>
@@ -185,12 +220,18 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                               </div>
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
-                              <span className="text-xs font-bold px-2 py-0.5 rounded border-l-3"
-                                style={{ color: cls.color, backgroundColor: cls.bg, borderLeft: `3px solid ${cls.color}` }}>
+                              <span
+                                className="text-[10px] font-bold tracking-wider px-2.5 py-0.5 rounded-full"
+                                style={{
+                                  color: cls.color,
+                                  backgroundColor: cls.bg,
+                                  border: `1px solid color-mix(in srgb, ${cls.color} 22%, transparent)`,
+                                }}
+                              >
                                 {cls.label}
                               </span>
                               {item.aiConfidence && (
-                                <span className="text-xs px-1.5 py-0.5 rounded" style={{ backgroundColor: "#F3F4F6", color: C.textMuted }}>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ backgroundColor: C.surface, color: C.textMuted }}>
                                   {Math.round(item.aiConfidence * 100)}% AI
                                 </span>
                               )}
@@ -198,15 +239,26 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                           </div>
 
                           {item.content && (
-                            <div className="ml-10 mt-2 px-3 py-2 rounded-lg" style={{ backgroundColor: "rgba(255,255,255,0.7)" }}>
-                              <p className="text-sm italic" style={{ color: C.textBody }}>"{item.content}"</p>
+                            <div
+                              className="ml-11 mt-2 px-3.5 py-2.5 rounded-xl"
+                              style={{
+                                backgroundColor: "rgba(255,255,255,0.75)",
+                                border: "1px solid rgba(0,0,0,0.04)",
+                              }}
+                            >
+                              <p className="text-sm leading-relaxed italic" style={{ color: C.textBody }}>&ldquo;{item.content}&rdquo;</p>
                             </div>
                           )}
 
                           {item.requiresReview && (
-                            <div className="ml-10 mt-2 flex items-center gap-3">
-                              <button className="text-xs font-semibold" style={{ color: "var(--brand, #c9a83a)" }}>Reply Now</button>
-                              <button className="text-xs font-medium" style={{ color: C.textMuted }}>Dismiss</button>
+                            <div className="ml-11 mt-3 flex items-center gap-3 relative">
+                              <button
+                                className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90"
+                                style={{ backgroundColor: "var(--brand, #c9a83a)", color: "#04070d" }}
+                              >
+                                Reply Now
+                              </button>
+                              <button className="text-xs font-medium hover:underline" style={{ color: C.textMuted }}>Dismiss</button>
                             </div>
                           )}
                         </div>
@@ -215,15 +267,31 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
 
                     if (item.type === "campaign_start") {
                       return (
-                        <div key={item.id} className="flex items-center gap-3 px-4 py-3 rounded-lg border"
-                          style={{ backgroundColor: C.card, borderColor: C.border }}>
-                          <span className="text-base">🏁</span>
+                        <div
+                          key={item.id}
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl border"
+                          style={{
+                            backgroundColor: C.card,
+                            borderColor: C.border,
+                            borderLeft: "3px solid var(--brand, #c9a83a)",
+                            boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+                          }}
+                        >
+                          <div
+                            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-base"
+                            style={{
+                              backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 10%, transparent)",
+                              border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 22%, transparent)",
+                            }}
+                          >
+                            🏁
+                          </div>
                           <div className="flex-1">
                             <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>
                               Campaign started — {item.content ?? "Outreach"}
                             </p>
                             {item.sellerName && (
-                              <p className="text-xs" style={{ color: C.textMuted }}>Assigned to: {item.sellerName}</p>
+                              <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Assigned to: <span className="font-semibold" style={{ color: "var(--brand, #c9a83a)" }}>{item.sellerName}</span></p>
                             )}
                           </div>
                         </div>
@@ -232,9 +300,18 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
 
                     if (item.type === "lead_created") {
                       return (
-                        <div key={item.id} className="flex items-center gap-3 px-4 py-3 rounded-lg border"
-                          style={{ backgroundColor: C.card, borderColor: C.border }}>
-                          <PlusCircle size={16} style={{ color: C.textMuted }} />
+                        <div
+                          key={item.id}
+                          className="flex items-center gap-3 px-4 py-2.5 rounded-xl border"
+                          style={{
+                            backgroundColor: C.bg,
+                            borderColor: C.border,
+                            borderLeft: `3px solid ${C.textMuted}`,
+                          }}
+                        >
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: C.card }}>
+                            <PlusCircle size={14} style={{ color: C.textMuted }} />
+                          </div>
                           <p className="text-sm font-medium" style={{ color: C.textBody }}>Lead created</p>
                         </div>
                       );
@@ -248,26 +325,56 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                       return next;
                     });
                     return (
-                      <div key={item.id} className="rounded-lg border overflow-hidden"
-                        style={{ backgroundColor: C.card, borderColor: C.border }}>
-                        <div className="flex items-center gap-3 px-4 py-3">
-                          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: ch.bg }}>
+                      <div
+                        key={item.id}
+                        className="rounded-xl border overflow-hidden transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-md"
+                        style={{
+                          backgroundColor: C.card,
+                          borderColor: C.border,
+                          boxShadow: isExpanded ? "0 4px 16px rgba(0,0,0,0.05)" : "0 1px 3px rgba(0,0,0,0.02)",
+                        }}
+                      >
+                        <button
+                          onClick={item.content ? toggleExpand : undefined}
+                          className={`w-full flex items-center gap-3 px-4 py-3 ${item.content ? "cursor-pointer" : "cursor-default"} text-left`}
+                          disabled={!item.content}
+                        >
+                          <div
+                            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                            style={{
+                              backgroundColor: ch.bg,
+                              border: `1px solid color-mix(in srgb, ${ch.color} 18%, transparent)`,
+                            }}
+                          >
                             <ChannelIcon channel={item.channel} />
                           </div>
                           <p className="text-sm flex-1" style={{ color: C.textBody }}>
                             {item.channel === "call" ? "Call to" : item.channel === "email" ? "Email sent to" : "DM sent to"}{" "}
                             <span className="font-semibold" style={{ color: C.textPrimary }}>{item.contactName}</span>
-                            {item.stepNumber !== undefined ? ` (Step ${item.stepNumber})` : ""}
+                            {item.stepNumber !== undefined ? (
+                              <span
+                                className="ml-2 text-[10px] font-bold tracking-wider px-1.5 py-0.5 rounded"
+                                style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)", color: "var(--brand, #c9a83a)" }}
+                              >
+                                STEP {item.stepNumber}
+                              </span>
+                            ) : ""}
                           </p>
-                          <span className="text-xs shrink-0 mr-2" style={{ color: C.textDim }}>{formatTime(item.timestamp)}</span>
+                          <span className="text-xs shrink-0 mr-2 tabular-nums" style={{ color: C.textDim }}>{formatTime(item.timestamp)}</span>
                           {item.content && (
-                            <button onClick={toggleExpand} className="shrink-0 p-1 rounded hover:bg-black/5 transition-colors">
+                            <span className="shrink-0 p-1 rounded">
                               {isExpanded ? <ChevronUp size={14} style={{ color: C.textDim }} /> : <ChevronDown size={14} style={{ color: C.textDim }} />}
-                            </button>
+                            </span>
                           )}
-                        </div>
+                        </button>
                         {isExpanded && item.content && (
-                          <div className="px-4 pb-4 pt-1 border-t" style={{ borderColor: C.border }}>
+                          <div
+                            className="px-4 pb-4 pt-3 border-t"
+                            style={{
+                              borderColor: C.border,
+                              background: "linear-gradient(180deg, rgba(0,0,0,0.015) 0%, transparent 60%)",
+                            }}
+                          >
                             <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{item.content}</p>
                           </div>
                         )}
@@ -285,8 +392,24 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
       <div className="space-y-5 pr-2">
 
         {/* Team Notes */}
-        <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textPrimary }}>Team Notes</h3>
+        <div
+          className="rounded-2xl border p-5 relative overflow-hidden"
+          style={{
+            backgroundColor: C.card,
+            borderColor: C.border,
+            borderTop: "3px solid var(--brand, #c9a83a)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+          }}
+        >
+          <div
+            aria-hidden
+            className="absolute -top-12 -right-12 w-32 h-32 rounded-full pointer-events-none opacity-30"
+            style={{ background: "radial-gradient(circle, color-mix(in srgb, var(--brand, #c9a83a) 18%, transparent) 0%, transparent 70%)" }}
+          />
+          <div className="flex items-center gap-2 mb-4 relative">
+            <StickyNote size={14} style={{ color: "var(--brand, #c9a83a)" }} />
+            <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: C.textPrimary }}>Team Notes</h3>
+          </div>
 
           <div className="mb-4">
             <textarea
@@ -355,14 +478,31 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
         </div>
 
         {/* Channel Indicators */}
-        <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div
+          className="rounded-2xl border p-5"
+          style={{
+            backgroundColor: C.card,
+            borderColor: C.border,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
+          }}
+        >
           <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Channel Indicators</h3>
-          <div className="space-y-3">
-            {Object.entries(channelIcons).map(([key, { label }]) => (
-              <div key={key} className="flex items-center gap-3">
-                <ChannelIcon channel={key} size={16} />
-                <span className="text-sm" style={{ color: C.textBody }}>
-                  {label} {key === "linkedin" ? "Integration" : key === "email" ? "Outreach" : "Logs"}
+          <div className="space-y-2.5">
+            {Object.entries(channelIcons).map(([key, { color, bg, label }]) => (
+              <div
+                key={key}
+                className="flex items-center gap-3 px-3 py-2 rounded-lg"
+                style={{
+                  backgroundColor: bg,
+                  border: `1px solid color-mix(in srgb, ${color} 18%, transparent)`,
+                }}
+              >
+                <ChannelIcon channel={key} size={14} />
+                <span className="text-sm font-medium" style={{ color: color }}>
+                  {label}
+                </span>
+                <span className="text-xs ml-auto" style={{ color: C.textMuted }}>
+                  {key === "linkedin" ? "Integration" : key === "email" ? "Outreach" : "Logs"}
                 </span>
               </div>
             ))}

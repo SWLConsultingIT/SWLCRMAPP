@@ -208,7 +208,7 @@ export default async function ReportsPrintPage() {
           <p style={{ fontSize: 12, fontWeight: 700, color: "#111827", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>Campaign Comparison</p>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
             <thead>
-              <tr style={{ backgroundColor: "#F3F4F6" }}>
+              <tr style={{ backgroundColor: C.surface }}>
                 {["Campaign", "Channels", "Leads", "Sent", "Replied", "Positive", "Response %", "Conversion %"].map(h => (
                   <th key={h} style={{ padding: "8px 10px", textAlign: h === "Campaign" ? "left" : "center", fontSize: 10, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em", border: "1px solid #E5E7EB" }}>{h}</th>
                 ))}
@@ -232,7 +232,7 @@ export default async function ReportsPrintPage() {
                   <td style={{ padding: "8px 10px", textAlign: "center", fontWeight: 600, color: "#16A34A", border: "1px solid #E5E7EB" }}>{c.positive}</td>
                   <td style={{ padding: "8px 10px", textAlign: "center", border: "1px solid #E5E7EB" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                      <div style={{ width: 40, height: 6, borderRadius: 3, backgroundColor: "#E5E7EB", overflow: "hidden" }}>
+                      <div style={{ width: 40, height: 6, borderRadius: 3, backgroundColor: C.border, overflow: "hidden" }}>
                         <div style={{ height: "100%", width: `${c.responseRate}%`, backgroundColor: "#2563EB", borderRadius: 3 }} />
                       </div>
                       <span style={{ fontWeight: 700, color: "#2563EB", minWidth: 28 }}>{c.responseRate}%</span>
@@ -240,7 +240,7 @@ export default async function ReportsPrintPage() {
                   </td>
                   <td style={{ padding: "8px 10px", textAlign: "center", border: "1px solid #E5E7EB" }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                      <div style={{ width: 40, height: 6, borderRadius: 3, backgroundColor: "#E5E7EB", overflow: "hidden" }}>
+                      <div style={{ width: 40, height: 6, borderRadius: 3, backgroundColor: C.border, overflow: "hidden" }}>
                         <div style={{ height: "100%", width: `${c.conversionRate}%`, backgroundColor: "#16A34A", borderRadius: 3 }} />
                       </div>
                       <span style={{ fontWeight: 700, color: "#16A34A", minWidth: 28 }}>{c.conversionRate}%</span>
@@ -257,7 +257,7 @@ export default async function ReportsPrintPage() {
 
           {/* Channel Analysis */}
           <div style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden" }}>
-            <div style={{ backgroundColor: "#F3F4F6", padding: "10px 14px", borderBottom: "1px solid #E5E7EB" }}>
+            <div style={{ backgroundColor: C.surface, padding: "10px 14px", borderBottom: "1px solid #E5E7EB" }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: "#111827", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>Channel Analysis</p>
             </div>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
@@ -287,7 +287,7 @@ export default async function ReportsPrintPage() {
 
           {/* Reply Breakdown */}
           <div style={{ border: "1px solid #E5E7EB", borderRadius: 10, overflow: "hidden" }}>
-            <div style={{ backgroundColor: "#F3F4F6", padding: "10px 14px", borderBottom: "1px solid #E5E7EB" }}>
+            <div style={{ backgroundColor: C.surface, padding: "10px 14px", borderBottom: "1px solid #E5E7EB" }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: "#111827", textTransform: "uppercase", letterSpacing: "0.06em", margin: 0 }}>Reply Classification</p>
             </div>
             <div style={{ padding: 14 }}>
@@ -300,7 +300,7 @@ export default async function ReportsPrintPage() {
                       <span style={{ fontWeight: 600, color }}>{classLabel[cls] ?? cls}</span>
                       <span style={{ color: "#6B7280" }}>{count} <span style={{ fontSize: 10 }}>({pct}%)</span></span>
                     </div>
-                    <div style={{ height: 8, borderRadius: 4, backgroundColor: "#E5E7EB", overflow: "hidden" }}>
+                    <div style={{ height: 8, borderRadius: 4, backgroundColor: C.border, overflow: "hidden" }}>
                       <div style={{ height: "100%", width: `${pct}%`, backgroundColor: color, borderRadius: 4 }} />
                     </div>
                   </div>
@@ -319,7 +319,7 @@ export default async function ReportsPrintPage() {
             <p style={{ fontSize: 12, fontWeight: 700, color: "#111827", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>Seller Performance</p>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
-                <tr style={{ backgroundColor: "#F3F4F6" }}>
+                <tr style={{ backgroundColor: C.surface }}>
                   {["Seller", "Active Campaigns", "Contacted", "Replied", "Won", "Response %", "Conversion %"].map(h => (
                     <th key={h} style={{ padding: "8px 12px", textAlign: h === "Seller" ? "left" : "center", fontSize: 10, fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em", border: "1px solid #E5E7EB" }}>{h}</th>
                   ))}
@@ -344,7 +344,7 @@ export default async function ReportsPrintPage() {
                     <td style={{ padding: "8px 12px", textAlign: "center", fontWeight: 700, color: "#2563EB", border: "1px solid #E5E7EB" }}>{s.conversionRate === 0 && s.contacted > 0 ? "0%" : `${Math.round(s.replied / (s.contacted || 1) * 100)}%`}</td>
                     <td style={{ padding: "8px 12px", textAlign: "center", border: "1px solid #E5E7EB" }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                        <div style={{ width: 40, height: 6, borderRadius: 3, backgroundColor: "#E5E7EB", overflow: "hidden" }}>
+                        <div style={{ width: 40, height: 6, borderRadius: 3, backgroundColor: C.border, overflow: "hidden" }}>
                           <div style={{ height: "100%", width: `${s.conversionRate}%`, backgroundColor: "#16A34A", borderRadius: 3 }} />
                         </div>
                         <span style={{ fontWeight: 700, color: "#16A34A", minWidth: 28 }}>{s.conversionRate}%</span>

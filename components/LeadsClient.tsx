@@ -32,7 +32,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; i
   proposal_sent: { label: "Proposal",     color: C.accent,    bg: C.accentLight,  icon: CheckCircle },
   closed_won:    { label: "Won",          color: C.green,     bg: C.greenLight,   icon: CheckCircle },
   closed_lost:   { label: "Lost",         color: C.red,       bg: C.redLight,     icon: XCircle },
-  nurturing:     { label: "Nurturing",    color: C.textMuted, bg: "#F3F4F6",      icon: MinusCircle },
+  nurturing:     { label: "Nurturing",    color: C.textMuted, bg: C.surface,      icon: MinusCircle },
 };
 
 function relativeTime(iso: string) {
@@ -373,7 +373,7 @@ export default function LeadsClient({ leads, sellers }: { leads: Lead[]; sellers
               return (
                 <button key={p} onClick={() => setPage(p)}
                   className="w-7 h-7 rounded text-xs font-medium"
-                  style={{ backgroundColor: p === page ? C.gold : "#F3F4F6", color: p === page ? "#fff" : C.textMuted }}>
+                  style={{ backgroundColor: p === page ? C.gold : C.surface, color: p === page ? "#fff" : C.textMuted }}>
                   {p + 1}
                 </button>
               );

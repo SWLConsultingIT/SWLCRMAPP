@@ -13,10 +13,12 @@ const inputStyle = {
 const inputFocus = {
   borderColor: "color-mix(in srgb, var(--brand-dark, #b79832) 50%, transparent)",
   backgroundColor: "color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent)",
+  boxShadow: "0 0 0 4px color-mix(in srgb, var(--brand-dark, #b79832) 12%, transparent)",
 };
 const inputBlur = {
   borderColor: "rgba(255,255,255,0.08)",
   backgroundColor: "rgba(255,255,255,0.04)",
+  boxShadow: "none",
 };
 
 export default function SignupPage() {

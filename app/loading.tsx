@@ -1,7 +1,7 @@
 import { C } from "@/lib/design";
 
 function Shimmer({ className, style }: { className?: string; style?: React.CSSProperties }) {
-  return <div className={`rounded-lg animate-pulse ${className}`} style={{ backgroundColor: "#E5E7EB", ...style }} />;
+  return <div className={`rounded-lg animate-pulse ${className}`} style={{ backgroundColor: C.border, ...style }} />;
 }
 
 export default function DashboardLoading() {

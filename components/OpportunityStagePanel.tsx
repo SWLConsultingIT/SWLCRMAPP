@@ -78,7 +78,7 @@ export default function OpportunityStagePanel({ leadId, initialStage, initialNot
                   onClick={() => { setStage(s.id); save({ opportunity_stage: s.id }); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
                   style={{
-                    backgroundColor: isActive ? `${s.color}15` : "#F3F4F6",
+                    backgroundColor: isActive ? `${s.color}15` : C.surface,
                     color:           isActive ? s.color : C.textMuted,
                     border:          `1px solid ${isActive ? s.color + "40" : "transparent"}`,
                   }}
@@ -91,7 +91,7 @@ export default function OpportunityStagePanel({ leadId, initialStage, initialNot
           </div>
 
           {/* Progress bar */}
-          <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: "#E5E7EB" }}>
+          <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: C.border }}>
             <div
               className="h-full rounded-full transition-[opacity,transform,box-shadow,background-color,border-color] duration-500"
               style={{
