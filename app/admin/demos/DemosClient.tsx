@@ -4,13 +4,33 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { C } from "@/lib/design";
-import { Theater, Users, Target, Megaphone, ArrowLeft, ArrowRight, LogOut, Plus, Sparkles, X, Loader2, Sprout } from "lucide-react";
+import { Theater, Users, Target, Megaphone, ArrowLeft, ArrowRight, LogOut, Plus, Sparkles, X, Loader2, Sprout, Trash2, Globe, Wand2, Check } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import { DEMO_INDUSTRY_OPTIONS, type DemoIndustryKey } from "@/lib/demo-seeds";
 import type { DemoTenant } from "./page";
 
 const gold = "var(--brand, #c9a83a)";
 const goldDark = "var(--brand-dark, #b79832)";
+
+type ScrapedBio = {
+  company_name?: string;
+  industry?: string;
+  tagline?: string;
+  description?: string;
+  value_proposition?: string;
+  main_services?: string[];
+  differentiators?: string;
+  target_market?: string;
+  location?: string;
+  tone_of_voice?: string;
+  website?: string;
+  linkedin_url?: string;
+  instagram_url?: string;
+  twitter_url?: string;
+  facebook_url?: string;
+  youtube_url?: string;
+  tiktok_url?: string;
+};
 
 export default function DemosClient({
   demos,
@@ -25,6 +45,7 @@ export default function DemosClient({
   const [busy, setBusy] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [seedFor, setSeedFor] = useState<DemoTenant | null>(null);
+  const [deleteFor, setDeleteFor] = useState<DemoTenant | null>(null);
 
   async function enterDemo(bioId: string) {
     setBusy(bioId);
@@ -82,7 +103,7 @@ export default function DemosClient({
         icon={Theater}
         section="Internal"
         title="Demo Tenants"
-        description="Sales-ready impersonation. Enter a demo tenant to walk a prospect through the product in their industry context — your SWL data is untouched."
+        description="Sales-ready impersonation. Paste a URL, auto-fill from the website, seed sample leads, and walk a prospect through the product in their context. Your SWL data stays untouched."
         accentColor={gold}
         status={{ label: "Internal", active: true }}
       />
@@ -125,7 +146,7 @@ export default function DemosClient({
           </div>
           <h2 className="text-base font-bold mb-1" style={{ color: C.textPrimary }}>No demo tenants yet</h2>
           <p className="text-sm mb-4" style={{ color: C.textMuted }}>
-            Create your first demo — name + industry, then seed it with sample leads.
+            Paste a URL — we auto-fill industry, tagline, value prop, services. Then seed sample leads.
           </p>
           <button
             onClick={() => setShowCreate(true)}
@@ -146,7 +167,7 @@ export default function DemosClient({
             return (
               <div
                 key={d.id}
-                className="rounded-2xl border p-5 relative overflow-hidden transition-all hover:shadow-md"
+                className="rounded-2xl border p-5 relative overflow-hidden transition-all hover:shadow-md group/card"
                 style={{
                   backgroundColor: C.card,
                   borderColor: isCurrent ? `color-mix(in srgb, ${goldDark} 40%, ${C.border})` : C.border,
@@ -154,6 +175,20 @@ export default function DemosClient({
                 }}
               >
                 <div className="absolute inset-x-0 top-0 h-[2px]" style={{ background: `linear-gradient(90deg, transparent 0%, ${goldDark} 50%, transparent 100%)`, opacity: isCurrent ? 0.8 : 0.35 }} />
+
+                {/* Delete button (top-right, appears on hover) */}
+                <button
+                  onClick={() => setDeleteFor(d)}
+                  title="Delete demo"
+                  className="absolute top-3 right-3 rounded-lg p-1.5 border transition-all opacity-0 group-hover/card:opacity-100 hover:scale-105"
+                  style={{
+                    backgroundColor: C.card,
+                    borderColor: `color-mix(in srgb, ${C.red} 25%, ${C.border})`,
+                    color: C.red,
+                  }}
+                >
+                  <Trash2 size={11} />
+                </button>
 
                 <div className="flex items-start gap-3 mb-4">
                   {d.logo_url ? (
@@ -164,14 +199,14 @@ export default function DemosClient({
                       {d.company_name?.[0]?.toUpperCase() ?? "?"}
                     </div>
                   )}
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 pr-6">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className="text-sm font-bold leading-tight" style={{ color: C.textPrimary }}>{d.company_name}</h3>
+                      <h3 className="text-sm font-bold leading-tight truncate" style={{ color: C.textPrimary }}>{d.company_name}</h3>
                       {isCurrent && (
                         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 uppercase tracking-wider" style={{ backgroundColor: `color-mix(in srgb, ${goldDark} 14%, transparent)`, color: goldDark }}>Active</span>
                       )}
                     </div>
-                    {d.industry && <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{d.industry}</p>}
+                    {d.industry && <p className="text-xs mt-0.5 truncate" style={{ color: C.textMuted }}>{d.industry}</p>}
                     {d.tagline && <p className="text-[11px] mt-1 line-clamp-2" style={{ color: C.textDim }}>{d.tagline}</p>}
                   </div>
                 </div>
@@ -215,7 +250,6 @@ export default function DemosClient({
           onClose={() => setShowCreate(false)}
           onCreated={async (bioId) => {
             setShowCreate(false);
-            // Auto-enter the freshly created demo so the user lands inside it.
             await enterDemo(bioId);
           }}
         />
@@ -227,6 +261,17 @@ export default function DemosClient({
           onClose={() => setSeedFor(null)}
           onDone={() => {
             setSeedFor(null);
+            router.refresh();
+          }}
+        />
+      )}
+
+      {deleteFor && (
+        <DeleteDemoModal
+          demo={deleteFor}
+          onClose={() => setDeleteFor(null)}
+          onDone={() => {
+            setDeleteFor(null);
             router.refresh();
           }}
         />
@@ -247,7 +292,7 @@ function Stat({ label, value, icon: Icon, color }: { label: string; value: numbe
   );
 }
 
-// ─── Create demo modal ──────────────────────────────────────────────────────
+// ─── Create demo modal (with URL auto-fill) ─────────────────────────────────
 function CreateDemoModal({
   onClose,
   onCreated,
@@ -255,11 +300,49 @@ function CreateDemoModal({
   onClose: () => void;
   onCreated: (bioId: string) => void | Promise<void>;
 }) {
+  const [url, setUrl] = useState("");
+  const [scraped, setScraped] = useState<ScrapedBio | null>(null);
   const [companyName, setCompanyName] = useState("");
   const [industry, setIndustry] = useState("");
   const [tagline, setTagline] = useState("");
+  const [valueProp, setValueProp] = useState("");
+  const [scraping, setScraping] = useState(false);
+  const [scrapeError, setScrapeError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function autoFill() {
+    setScrapeError(null);
+    if (!url.trim()) {
+      setScrapeError("Paste a URL first");
+      return;
+    }
+    let normalized = url.trim();
+    if (!/^https?:\/\//i.test(normalized)) normalized = `https://${normalized}`;
+    setScraping(true);
+    try {
+      const res = await fetch("/api/company-bios/scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: normalized, lang: "EN" }),
+      });
+      const body = (await res.json()) as ScrapedBio & { error?: string };
+      if (!res.ok) {
+        setScrapeError(body.error ?? "Scrape failed");
+        setScraping(false);
+        return;
+      }
+      setScraped(body);
+      setCompanyName(body.company_name ?? "");
+      setIndustry(body.industry ?? "");
+      setTagline(body.tagline ?? "");
+      setValueProp(body.value_proposition ?? "");
+      setScraping(false);
+    } catch (e) {
+      setScrapeError(String(e));
+      setScraping(false);
+    }
+  }
 
   async function submit() {
     setError(null);
@@ -269,14 +352,18 @@ function CreateDemoModal({
     }
     setBusy(true);
     try {
+      const payload = {
+        ...scraped,
+        company_name: companyName.trim(),
+        industry: industry.trim() || null,
+        tagline: tagline.trim() || null,
+        value_proposition: valueProp.trim() || null,
+        website: scraped?.website ?? (url.trim() ? (/^https?:\/\//i.test(url) ? url.trim() : `https://${url.trim()}`) : null),
+      };
       const res = await fetch("/api/admin/demos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          company_name: companyName.trim(),
-          industry: industry.trim() || null,
-          tagline: tagline.trim() || null,
-        }),
+        body: JSON.stringify(payload),
       });
       const body = await res.json();
       if (!res.ok) {
@@ -294,7 +381,7 @@ function CreateDemoModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(4,7,13,0.55)" }} onClick={onClose}>
       <div
-        className="rounded-2xl border w-full max-w-md p-6 relative"
+        className="rounded-2xl border w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto"
         style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 16px 48px rgba(0,0,0,0.25)" }}
         onClick={e => e.stopPropagation()}
       >
@@ -307,47 +394,52 @@ function CreateDemoModal({
           </div>
           <div>
             <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>Create demo tenant</h2>
-            <p className="text-xs" style={{ color: C.textMuted }}>Empty tenant. Seed sample leads after, or use Lead Miner from inside.</p>
+            <p className="text-xs" style={{ color: C.textMuted }}>Paste a URL → AI fills the rest. You can edit before saving.</p>
           </div>
         </div>
 
+        {/* URL + auto-fill */}
+        <div className="rounded-xl border p-3 mb-4" style={{ borderColor: C.border, backgroundColor: C.surface }}>
+          <label className="block text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted, letterSpacing: "0.06em" }}>
+            <Globe size={10} className="inline mr-1" /> Company website
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={url}
+              onChange={e => setUrl(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); autoFill(); } }}
+              placeholder="mcdonalds.com"
+              className="flex-1 rounded-lg border px-3 py-2 text-sm outline-none"
+              style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
+            />
+            <button
+              onClick={autoFill}
+              disabled={scraping || !url.trim()}
+              className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-xs font-bold transition-opacity hover:opacity-90 disabled:opacity-50 shrink-0"
+              style={{
+                background: scraped ? `color-mix(in srgb, ${C.green} 14%, transparent)` : `linear-gradient(135deg, ${C.aiAccent}, color-mix(in srgb, ${C.aiAccent} 80%, white))`,
+                color: scraped ? C.green : "#fff",
+                border: scraped ? `1px solid color-mix(in srgb, ${C.green} 35%, transparent)` : "none",
+              }}
+            >
+              {scraping ? <Loader2 size={11} className="animate-spin" /> : scraped ? <Check size={11} /> : <Wand2 size={11} />}
+              {scraping ? "Reading…" : scraped ? "Filled" : "Auto-fill"}
+            </button>
+          </div>
+          {scrapeError && <p className="mt-2 text-[11px]" style={{ color: C.red }}>{scrapeError}</p>}
+          {scraped && !scrapeError && (
+            <p className="mt-2 text-[11px]" style={{ color: C.textMuted }}>
+              Filled from {new URL(scraped.website ?? url).hostname}. Edit anything below before saving.
+            </p>
+          )}
+        </div>
+
         <div className="space-y-3">
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted, letterSpacing: "0.06em" }}>Company name</label>
-            <input
-              type="text"
-              autoFocus
-              value={companyName}
-              onChange={e => setCompanyName(e.target.value)}
-              placeholder="McDonald's Argentina"
-              className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-              style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted, letterSpacing: "0.06em" }}>Industry (optional)</label>
-            <input
-              type="text"
-              value={industry}
-              onChange={e => setIndustry(e.target.value)}
-              placeholder="Quick-service restaurants"
-              className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-              style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted, letterSpacing: "0.06em" }}>Tagline (optional)</label>
-            <input
-              type="text"
-              value={tagline}
-              onChange={e => setTagline(e.target.value)}
-              placeholder="Hot food, hot leads."
-              className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
-              style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
-            />
-          </div>
+          <Field label="Company name" value={companyName} onChange={setCompanyName} placeholder="McDonald's Argentina" autoFocus />
+          <Field label="Industry" value={industry} onChange={setIndustry} placeholder="Quick-service restaurants" />
+          <Field label="Tagline" value={tagline} onChange={setTagline} placeholder="Hot food, hot leads." />
+          <Field label="Value proposition" value={valueProp} onChange={setValueProp} placeholder="What problem they solve, for whom" />
         </div>
 
         {error && (
@@ -373,6 +465,23 @@ function CreateDemoModal({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function Field({ label, value, onChange, placeholder, autoFocus }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string; autoFocus?: boolean }) {
+  return (
+    <div>
+      <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted, letterSpacing: "0.06em" }}>{label}</label>
+      <input
+        type="text"
+        autoFocus={autoFocus}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+        style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
+      />
     </div>
   );
 }
@@ -494,6 +603,97 @@ function SeedLeadsModal({
           >
             {busy ? <Loader2 size={12} className="animate-spin" /> : <Sprout size={12} />}
             {busy ? "Seeding…" : `Seed ${count} leads`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Delete demo modal ──────────────────────────────────────────────────────
+function DeleteDemoModal({
+  demo,
+  onClose,
+  onDone,
+}: {
+  demo: DemoTenant;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/demos/${demo.id}`, { method: "DELETE" });
+      const body = await res.json();
+      if (!res.ok) {
+        setError(body.error ?? "Delete failed");
+        setBusy(false);
+        return;
+      }
+      onDone();
+    } catch (e) {
+      setError(String(e));
+      setBusy(false);
+    }
+  }
+
+  const total = demo.leads + demo.profiles + demo.campaigns;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(4,7,13,0.55)" }} onClick={onClose}>
+      <div
+        className="rounded-2xl border w-full max-w-md p-6 relative"
+        style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 16px 48px rgba(0,0,0,0.25)" }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="absolute inset-x-0 top-0 h-[2px] rounded-t-2xl" style={{ background: `linear-gradient(90deg, transparent 0%, ${C.red} 50%, transparent 100%)`, opacity: 0.5 }} />
+        <button onClick={onClose} className="absolute top-3 right-3 rounded p-1 hover:bg-black/5"><X size={14} style={{ color: C.textDim }} /></button>
+
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `color-mix(in srgb, ${C.red} 14%, transparent)` }}>
+            <Trash2 size={18} style={{ color: C.red }} />
+          </div>
+          <div>
+            <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>Delete demo?</h2>
+            <p className="text-xs" style={{ color: C.textMuted }}>This permanently removes the demo and everything in it.</p>
+          </div>
+        </div>
+
+        <div className="rounded-xl border p-3 mb-4" style={{ backgroundColor: C.redLight, borderColor: `color-mix(in srgb, ${C.red} 25%, transparent)` }}>
+          <p className="text-xs font-semibold mb-1" style={{ color: C.red }}>About to delete <span className="font-bold">{demo.company_name}</span></p>
+          {total > 0 ? (
+            <p className="text-[11px]" style={{ color: C.red }}>
+              Cascade: {demo.leads} lead{demo.leads === 1 ? "" : "s"} · {demo.profiles} ICP{demo.profiles === 1 ? "" : "s"} · {demo.campaigns} campaign{demo.campaigns === 1 ? "" : "s"}
+            </p>
+          ) : (
+            <p className="text-[11px]" style={{ color: C.red }}>Empty demo — nothing else to clean.</p>
+          )}
+        </div>
+
+        {error && (
+          <div className="mb-3 rounded-lg px-3 py-2 text-xs" style={{ backgroundColor: C.redLight, color: C.red, border: `1px solid color-mix(in srgb, ${C.red} 25%, transparent)` }}>
+            {error}
+          </div>
+        )}
+
+        <div className="flex items-center justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg px-3 py-2 text-xs font-semibold transition-colors hover:bg-black/5" style={{ color: C.textMuted }}>Cancel</button>
+          <button
+            onClick={submit}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition-opacity hover:opacity-90 disabled:opacity-50"
+            style={{
+              backgroundColor: C.red,
+              color: "#fff",
+              boxShadow: `0 4px 16px color-mix(in srgb, ${C.red} 28%, transparent)`,
+            }}
+          >
+            {busy ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+            {busy ? "Deleting…" : "Delete demo"}
           </button>
         </div>
       </div>
