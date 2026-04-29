@@ -409,7 +409,7 @@ function CreateDemoModal({
               value={url}
               onChange={e => setUrl(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); autoFill(); } }}
-              placeholder="mcdonalds.com"
+              placeholder="swlconsulting.com"
               className="flex-1 rounded-lg border px-3 py-2 text-sm outline-none"
               style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
             />
@@ -436,9 +436,9 @@ function CreateDemoModal({
         </div>
 
         <div className="space-y-3">
-          <Field label="Company name" value={companyName} onChange={setCompanyName} placeholder="McDonald's Argentina" autoFocus />
-          <Field label="Industry" value={industry} onChange={setIndustry} placeholder="Quick-service restaurants" />
-          <Field label="Tagline" value={tagline} onChange={setTagline} placeholder="Hot food, hot leads." />
+          <Field label="Company name" value={companyName} onChange={setCompanyName} placeholder="SWL Consulting" autoFocus />
+          <Field label="Industry" value={industry} onChange={setIndustry} placeholder="B2B Sales & Growth Consulting" />
+          <Field label="Tagline" value={tagline} onChange={setTagline} placeholder="The growth engine for B2B sales teams" />
           <Field label="Value proposition" value={valueProp} onChange={setValueProp} placeholder="What problem they solve, for whom" />
         </div>
 
