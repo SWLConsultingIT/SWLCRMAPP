@@ -90,7 +90,7 @@ const statusMap: Record<string, { label: string; color: string; bg: string }> = 
   proposal_sent: { label: "Proposal Sent", color: C.accent,    bg: C.accentLight },
   closed_won:    { label: "Won",           color: C.green,     bg: C.greenLight },
   closed_lost:   { label: "Lost",          color: C.red,       bg: C.redLight },
-  nurturing:     { label: "Nurturing",     color: C.textMuted, bg: "#F3F4F6" },
+  nurturing:     { label: "Nurturing",     color: C.textMuted, bg: C.surface },
 };
 
 // Score ring SVG
@@ -101,7 +101,7 @@ function ScoreRing({ score, color }: { score: number; color: string }) {
   return (
     <div className="relative w-14 h-14 flex items-center justify-center">
       <svg width="56" height="56" className="absolute -rotate-90">
-        <circle cx="28" cy="28" r={r} fill="none" stroke="#E5E7EB" strokeWidth="3.5" />
+        <circle cx="28" cy="28" r={r} fill="none" stroke={C.border} strokeWidth="3.5" />
         <circle cx="28" cy="28" r={r} fill="none" stroke={color} strokeWidth="3.5"
           strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" />
       </svg>
@@ -448,7 +448,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           </div>
 
           {/* Progress bar */}
-          <div className="mt-6 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+          <div className="mt-6 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
             <div className="h-1.5 rounded-full transition-[opacity,transform,box-shadow,background-color,border-color]" style={{ width: `${stepPct}%`, backgroundColor: gold }} />
           </div>
         </div>
@@ -469,7 +469,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               0% Complete
             </span>
           </div>
-          <div className="mt-5 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }} />
+          <div className="mt-5 h-1.5 rounded-full" style={{ backgroundColor: C.border }} />
         </div>
       )}
 
@@ -716,7 +716,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   )}
                   {lead.twitter_last_posts && (
                     <div className="flex gap-3 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#F3F4F6" }}>
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: C.surface }}>
                         <span style={{ fontSize: 13 }}>𝕏</span>
                       </div>
                       <div className="flex-1 min-w-0">
@@ -852,7 +852,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               platform: "X / Twitter",
               icon: <span style={{ fontSize: 14, fontWeight: 800 }}>𝕏</span>,
               color: "#111827",
-              bg: "#F3F4F6",
+              bg: C.surface,
               content: lead.twitter_last_posts,
               handle: lead.twitter_url ? `@${lead.twitter_url.split("/").pop()}` : null,
             },
@@ -896,7 +896,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   platform: "X / Twitter",
                   icon: <span style={{ fontSize: 14, fontWeight: 800 }}>𝕏</span>,
                   color: "#111827",
-                  bg: "#F3F4F6",
+                  bg: C.surface,
                   content: lead.twitter_last_posts,
                   handle: lead.twitter_url ? lead.twitter_url.split("/").pop() : null,
                 },

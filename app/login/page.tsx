@@ -200,10 +200,12 @@ export default function LoginPage() {
                   onFocus={e => {
                     e.currentTarget.style.borderColor = "color-mix(in srgb, var(--brand-dark, #b79832) 50%, transparent)";
                     e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent)";
+                    e.currentTarget.style.boxShadow = "0 0 0 4px color-mix(in srgb, var(--brand-dark, #b79832) 12%, transparent)";
                   }}
                   onBlur={e => {
                     e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
                     e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)";
+                    e.currentTarget.style.boxShadow = "none";
                   }}
                 />
               </div>
@@ -229,10 +231,12 @@ export default function LoginPage() {
                   onFocus={e => {
                     e.currentTarget.style.borderColor = "color-mix(in srgb, var(--brand-dark, #b79832) 50%, transparent)";
                     e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent)";
+                    e.currentTarget.style.boxShadow = "0 0 0 4px color-mix(in srgb, var(--brand-dark, #b79832) 12%, transparent)";
                   }}
                   onBlur={e => {
                     e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
                     e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)";
+                    e.currentTarget.style.boxShadow = "none";
                   }}
                   autoComplete="current-password"
                 />

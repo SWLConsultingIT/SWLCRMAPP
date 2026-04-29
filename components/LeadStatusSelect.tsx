@@ -13,7 +13,7 @@ const statusConfig: Record<string, { label: string; color: string; bg: string; i
   proposal_sent: { label: "Proposal",   color: C.accent,    bg: C.accentLight, icon: CheckCircle },
   closed_won:    { label: "Won",        color: C.green,     bg: C.greenLight,  icon: CheckCircle },
   closed_lost:   { label: "Lost",       color: C.red,       bg: C.redLight,    icon: XCircle },
-  nurturing:     { label: "Nurturing",  color: C.textMuted, bg: "#F3F4F6",     icon: MinusCircle },
+  nurturing:     { label: "Nurturing",  color: C.textMuted, bg: C.surface,     icon: MinusCircle },
 };
 
 export default function LeadStatusSelect({ leadId, initialStatus, onUpdate }: {

@@ -153,7 +153,7 @@ export default async function AircallNumberDetail({ params }: { params: Promise<
                       )}
                       {call.classification && (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{
-                          backgroundColor: call.classification === "positive" || call.classification === "meeting_intent" ? "#DCFCE7" : call.classification === "negative" || call.classification === "wrong_number" ? "#FEE2E2" : "#F3F4F6",
+                          backgroundColor: call.classification === "positive" || call.classification === "meeting_intent" ? "#DCFCE7" : call.classification === "negative" || call.classification === "wrong_number" ? "#FEE2E2" : C.surface,
                           color: call.classification === "positive" || call.classification === "meeting_intent" ? "#16A34A" : call.classification === "negative" || call.classification === "wrong_number" ? "#DC2626" : C.textMuted,
                         }}>
                           {call.classification.toUpperCase()}

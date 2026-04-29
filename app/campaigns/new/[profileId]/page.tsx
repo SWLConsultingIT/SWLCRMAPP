@@ -317,7 +317,7 @@ export default function NewCampaignWizard() {
           <div key={s} className="flex items-center gap-1">
             <button onClick={() => i < wizardStep && setWizardStep(i)} disabled={i > wizardStep}
               className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
-              style={i === wizardStep ? { backgroundColor: gold, color: "#04070d" } : i < wizardStep ? { backgroundColor: C.greenLight, color: C.green } : { backgroundColor: "#F3F4F6", color: C.textDim }}>
+              style={i === wizardStep ? { backgroundColor: gold, color: "#04070d" } : i < wizardStep ? { backgroundColor: C.greenLight, color: C.green } : { backgroundColor: C.surface, color: C.textDim }}>
               {i < wizardStep ? <Check size={12} /> : <span>{i + 1}</span>}
               {s}
             </button>
@@ -394,7 +394,7 @@ export default function NewCampaignWizard() {
                             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-[opacity,transform,box-shadow,background-color,border-color]"
                             style={selected
                               ? { backgroundColor: opt.color, color: "#fff" }
-                              : { backgroundColor: "#F3F4F6", color: C.textMuted }
+                              : { backgroundColor: C.surface, color: C.textMuted }
                             }>
                             <OptIcon size={12} />
                             {opt.label}
@@ -755,7 +755,7 @@ export default function NewCampaignWizard() {
             <div className="flex items-center justify-center gap-3">
               <button onClick={() => router.push("/leads")}
                 className="rounded-lg px-5 py-2.5 text-sm font-medium"
-                style={{ backgroundColor: "#F3F4F6", color: C.textBody }}>
+                style={{ backgroundColor: C.surface, color: C.textBody }}>
                 Back to Leads
               </button>
               <button onClick={() => router.push("/campaigns")}
@@ -785,7 +785,7 @@ export default function NewCampaignWizard() {
       <div className="flex items-center justify-between mt-8 pt-6 border-t" style={{ borderColor: C.border }}>
         <button onClick={() => wizardStep === 0 ? router.push("/campaigns") : setWizardStep(s => s - 1)}
           className="flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium transition-opacity"
-          style={{ color: C.textBody, backgroundColor: "#F3F4F6" }}>
+          style={{ color: C.textBody, backgroundColor: C.surface }}>
           <ArrowLeft size={15} /> {wizardStep === 0 ? "Cancel" : "Previous"}
         </button>
 

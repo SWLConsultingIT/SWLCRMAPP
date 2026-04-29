@@ -244,7 +244,7 @@ export default async function DashboardPage() {
                         })}
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                        <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
                           <div className="h-1.5 rounded-full" style={{ width: `${camp.avgProgress}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} />
                         </div>
                         <span className="text-[10px] tabular-nums shrink-0" style={{ color: C.textMuted }}>{camp.avgProgress}%</span>
@@ -274,7 +274,7 @@ export default async function DashboardPage() {
                 </div>
               ) : (
                 data.recentReplies.map((r: any, i: number) => {
-                  const cls = classColors[r.classification] ?? { color: C.textMuted, bg: "#F3F4F6", label: r.classification ?? "Reply" };
+                  const cls = classColors[r.classification] ?? { color: C.textMuted, bg: C.surface, label: r.classification ?? "Reply" };
                   const chMeta = channelMeta[r.channel] ?? channelMeta.email;
                   const ChIcon = chMeta.icon;
                   return (

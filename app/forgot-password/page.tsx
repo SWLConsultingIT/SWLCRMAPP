@@ -67,9 +67,25 @@ export default function ForgotPasswordPage() {
                 <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(217,222,226,0.4)" }}>Email</p>
                 <div className="relative">
                   <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: "rgba(217,222,226,0.3)" }} />
-                  <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" autoComplete="email"
-                    className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none"
-                    style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#f8fafc" }} />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    autoComplete="email"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none transition-[opacity,transform,box-shadow,background-color,border-color]"
+                    style={{ backgroundColor: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#f8fafc" }}
+                    onFocus={e => {
+                      e.currentTarget.style.borderColor = "color-mix(in srgb, var(--brand-dark, #b79832) 50%, transparent)";
+                      e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent)";
+                      e.currentTarget.style.boxShadow = "0 0 0 4px color-mix(in srgb, var(--brand-dark, #b79832) 12%, transparent)";
+                    }}
+                    onBlur={e => {
+                      e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+                      e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.04)";
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
+                  />
                 </div>
               </div>
 

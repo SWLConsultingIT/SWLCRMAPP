@@ -18,6 +18,8 @@ export async function GET() {
     userId: user.id,
     theme: profile?.theme ?? "light",
     locale: profile?.locale ?? "en",
+  }, {
+    headers: { "Cache-Control": "private, max-age=60" },
   });
 }
 

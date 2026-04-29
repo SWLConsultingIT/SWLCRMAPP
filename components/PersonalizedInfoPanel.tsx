@@ -102,7 +102,7 @@ const PRIORITY_KEYS = [
 
 const RATING_COLORS: Record<string, { color: string; bg: string }> = {
   GOLD:            { color: "#B45309", bg: "#FEF3C7" },
-  SILVER:          { color: "#4B5563", bg: "#E5E7EB" },
+  SILVER:          { color: "#4B5563", bg: C.border },
   BRONZE:          { color: "#9A3412", bg: "#FED7AA" },
   "ONE RED FLAG":  { color: C.red,     bg: C.redLight },
   "TWO RED FLAGS": { color: C.red,     bg: C.redLight },

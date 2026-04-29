@@ -32,7 +32,7 @@ const channelMeta: Record<string, { icon: React.ElementType; color: string; labe
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
   active:    { label: "Active",    color: C.green,    bg: C.greenLight },
   paused:    { label: "Paused",    color: "#D97706",  bg: "#FFFBEB" },
-  completed: { label: "Completed", color: C.textMuted, bg: "#F3F4F6" },
+  completed: { label: "Completed", color: C.textMuted, bg: C.surface },
   failed:    { label: "Failed",    color: C.red,      bg: C.redLight },
 };
 
@@ -215,7 +215,7 @@ export default function CampaignDetailClient({
               <Icon size={15} /> {t.label}
               {t.count !== null && (
                 <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: active ? `color-mix(in srgb, ${gold} 8%, transparent)` : "#F3F4F6", color: active ? gold : C.textDim }}>{t.count}</span>
+                  style={{ backgroundColor: active ? `color-mix(in srgb, ${gold} 8%, transparent)` : C.surface, color: active ? gold : C.textDim }}>{t.count}</span>
               )}
               {active && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: gold }} />}
             </button>
@@ -287,13 +287,13 @@ export default function CampaignDetailClient({
                       <td className="px-4 py-3 text-xs" style={{ color: C.textBody }}>{l.company_name ?? "—"}</td>
                       <td className="px-4 py-3 text-xs" style={{ color: C.textMuted }}>{l.primary_title_role ?? "—"}</td>
                       <td className="px-4 py-3"><span className="rounded-md px-2 py-0.5 text-xs font-semibold" style={{ backgroundColor: cst.bg, color: cst.color }}>{cst.label}</span></td>
-                      <td className="px-4 py-3"><div className="flex items-center gap-2"><div className="w-16 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}><div className="h-1.5 rounded-full" style={{ width: `${p}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} /></div><span className="text-xs tabular-nums" style={{ color: C.textMuted }}>{c.current_step}/{ts}</span></div></td>
+                      <td className="px-4 py-3"><div className="flex items-center gap-2"><div className="w-16 h-1.5 rounded-full" style={{ backgroundColor: C.border }}><div className="h-1.5 rounded-full" style={{ width: `${p}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} /></div><span className="text-xs tabular-nums" style={{ color: C.textMuted }}>{c.current_step}/{ts}</span></div></td>
                       <td className="px-4 py-3 text-xs" style={{ color: C.textBody }}>{c.sellers?.name ?? "—"}</td>
                       <td className="px-4 py-3"><div className="flex gap-1">
                         {c.status === "active" && <button onClick={() => act(c.id, "pause")} disabled={!!acting} className="rounded-md px-2 py-1 text-xs disabled:opacity-50" style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}><Pause size={10} /></button>}
                         {c.status === "paused" && <button onClick={() => act(c.id, "resume")} disabled={!!acting} className="rounded-md px-2 py-1 text-xs disabled:opacity-50" style={{ backgroundColor: C.greenLight, color: C.green }}><Play size={10} /></button>}
                         {["active","paused"].includes(c.status) && <>
-                          <button onClick={() => { if (confirm(`Remove ${nm}?`)) act(c.id, "cancel"); }} disabled={!!acting} className="rounded-md px-2 py-1 text-xs disabled:opacity-50" style={{ backgroundColor: "#F3F4F6", color: C.textMuted }}><Trash2 size={10} /></button>
+                          <button onClick={() => { if (confirm(`Remove ${nm}?`)) act(c.id, "cancel"); }} disabled={!!acting} className="rounded-md px-2 py-1 text-xs disabled:opacity-50" style={{ backgroundColor: C.surface, color: C.textMuted }}><Trash2 size={10} /></button>
                         </>}
                       </div></td>
                     </tr>
@@ -500,7 +500,7 @@ export default function CampaignDetailClient({
                   <button onClick={() => setExpandedStep(isOpen ? null : i)}
                     className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-gray-50">
                     <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
-                      style={{ backgroundColor: isPast ? meta.color : isCurrent ? gold : "#E5E7EB" }}>
+                      style={{ backgroundColor: isPast ? meta.color : isCurrent ? gold : C.border }}>
                       {isPast ? <Check size={12} color="#fff" /> : isCurrent ? <PlayCircle size={12} color="#fff" /> : <span className="text-[10px] font-bold text-white">{i + 1}</span>}
                     </div>
                     <span className="flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: `${meta.color}12`, color: meta.color }}><Icon size={11} /> {meta.label}</span>
@@ -508,7 +508,7 @@ export default function CampaignDetailClient({
                     {showConnNote && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: "#0A66C212", color: "#0A66C2" }}>+ connection note</span>}
                     <div className="flex-1" />
                     {isSent && <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: C.greenLight, color: C.green }}><Send size={10} /> Sent</span>}
-                    {isPending && <span className="text-xs px-2 py-0.5 rounded-md" style={{ backgroundColor: isCurrent ? `color-mix(in srgb, ${gold} 8%, transparent)` : "#F3F4F6", color: isCurrent ? gold : C.textMuted }}>{isCurrent ? "Up Next" : "Pending"}</span>}
+                    {isPending && <span className="text-xs px-2 py-0.5 rounded-md" style={{ backgroundColor: isCurrent ? `color-mix(in srgb, ${gold} 8%, transparent)` : C.surface, color: isCurrent ? gold : C.textMuted }}>{isCurrent ? "Up Next" : "Pending"}</span>}
                   </button>
 
                   {isOpen && (
@@ -520,7 +520,7 @@ export default function CampaignDetailClient({
                             <Share2 size={12} style={{ color: "#0A66C2" }} />
                             <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#0A66C2" }}>LinkedIn — Connection Request Note</span>
                             {connReqMsg?.status === "skipped" && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ backgroundColor: "#F3F4F6", color: C.textMuted }}>Skipped — already connected</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ backgroundColor: C.surface, color: C.textMuted }}>Skipped — already connected</span>
                             )}
                             {connReqMsg?.status === "sent" && (
                               <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ backgroundColor: C.greenLight, color: C.green }}>Sent</span>
@@ -553,7 +553,7 @@ export default function CampaignDetailClient({
                           <textarea rows={5} className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none" style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.card }} value={editContent} onChange={e => setEditContent(e.target.value)} />
                           <div className="flex gap-2">
                             <button onClick={() => saveMsg(msg.id)} disabled={saving} className="flex items-center gap-1 rounded-lg px-4 py-2 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: C.green, color: "#fff" }}>{saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save</button>
-                            <button onClick={() => setEditingIdx(null)} className="flex items-center gap-1 rounded-lg px-4 py-2 text-xs" style={{ backgroundColor: "#F3F4F6", color: C.textBody }}><X size={12} /> Cancel</button>
+                            <button onClick={() => setEditingIdx(null)} className="flex items-center gap-1 rounded-lg px-4 py-2 text-xs" style={{ backgroundColor: C.surface, color: C.textBody }}><X size={12} /> Cancel</button>
                           </div>
                         </div>
                       )}
@@ -637,7 +637,7 @@ export default function CampaignDetailClient({
                   className="text-sm font-medium hover:underline" style={{ color: C.textPrimary }}>{nm}</Link>
                 <p className="text-xs" style={{ color: C.textMuted }}>
                   {lead.primary_title_role ?? ""}{lead.company_name ? ` · ${lead.company_name}` : ""}
-                  {showTicketName && <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ backgroundColor: "#F3F4F6", color: C.textMuted }}>{showTicketName}</span>}
+                  {showTicketName && <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ backgroundColor: C.surface, color: C.textMuted }}>{showTicketName}</span>}
                 </p>
               </div>
               {lead.lead_score != null && (
@@ -722,7 +722,7 @@ export default function CampaignDetailClient({
                         <Users size={14} style={{ color: C.textMuted }} />
                         <span className="text-sm font-bold" style={{ color: C.textBody }}>Other Available Leads</span>
                       </div>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#F3F4F6", color: C.textMuted }}>{otherLeads.length}</span>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: C.surface, color: C.textMuted }}>{otherLeads.length}</span>
                     </div>
                     <p className="text-xs" style={{ color: C.textDim }}>From different mining tickets</p>
                     <div className="flex items-center justify-between mt-3">

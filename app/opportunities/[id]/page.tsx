@@ -328,7 +328,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                         <span className="ml-1 font-bold" style={{ color: ch.rate >= 20 ? C.green : "#D97706" }}>({ch.rate}%)</span>
                       </span>
                     </div>
-                    <div className="h-3 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                    <div className="h-3 rounded-full" style={{ backgroundColor: C.border }}>
                       <div className="h-3 rounded-full" style={{ width: `${ch.rate}%`, backgroundColor: meta.color }} />
                     </div>
                   </div>
@@ -450,7 +450,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
                         <p className="text-[10px] font-semibold mb-2" style={{ color: C.textMuted }}>Full Reply History ({lead.allReplies.length})</p>
                         <div className="space-y-1.5">
                           {lead.allReplies.map((r: any) => {
-                            const rCls = classColors[r.classification] ?? { color: C.textMuted, bg: "#F3F4F6", label: r.classification };
+                            const rCls = classColors[r.classification] ?? { color: C.textMuted, bg: C.surface, label: r.classification };
                             const rCh = channelMeta[r.channel] ?? channelMeta.email;
                             return (
                               <div key={r.id} className="flex items-start gap-2 rounded-lg px-3 py-2 border"

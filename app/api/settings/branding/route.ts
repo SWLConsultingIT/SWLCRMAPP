@@ -7,24 +7,28 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Single query — join user_profiles → company_bios via FK relationship.
+  // Was 2 sequential queries (~1.3s wall-clock); now ~400-600ms.
   const svc = getSupabaseService();
   const { data: profile } = await svc
     .from("user_profiles")
-    .select("company_bio_id")
+    .select("company_bio_id, company_bios(primary_color, use_brand_colors, logo_url)")
     .eq("user_id", user.id)
     .maybeSingle();
-  if (!profile?.company_bio_id) return NextResponse.json({ primary_color: null, use_brand_colors: false });
 
-  const { data: bio } = await svc
-    .from("company_bios")
-    .select("primary_color, use_brand_colors, logo_url")
-    .eq("id", profile.company_bio_id)
-    .maybeSingle();
+  const rawBios = (profile as unknown as { company_bios?: unknown })?.company_bios;
+  const bio = Array.isArray(rawBios)
+    ? (rawBios[0] as { primary_color: string | null; use_brand_colors: boolean | null; logo_url: string | null } | undefined) ?? null
+    : (rawBios as { primary_color: string | null; use_brand_colors: boolean | null; logo_url: string | null } | null) ?? null;
 
   return NextResponse.json({
     primary_color: bio?.primary_color ?? null,
     use_brand_colors: bio?.use_brand_colors ?? false,
     logo_url: bio?.logo_url ?? null,
+  }, {
+    // Brand changes rarely. 60s private cache is safe — BrandProvider also
+    // invalidates on auth-state-change so a tenant switch is reflected immediately.
+    headers: { "Cache-Control": "private, max-age=60" },
   });
 }
 

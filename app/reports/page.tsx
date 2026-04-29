@@ -325,7 +325,7 @@ export default async function ReportsPage() {
                   <td className="px-3 py-3 text-center text-xs font-semibold" style={{ color: C.green }}>{c.positive}</td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2 justify-center">
-                      <div className="w-14 h-2 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                      <div className="w-14 h-2 rounded-full" style={{ backgroundColor: C.border }}>
                         <div className="h-2 rounded-full" style={{ width: `${c.responseRate}%`, backgroundColor: C.blue }} />
                       </div>
                       <span className="text-xs font-bold tabular-nums" style={{ color: C.blue }}>{c.responseRate}%</span>
@@ -333,7 +333,7 @@ export default async function ReportsPage() {
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2 justify-center">
-                      <div className="w-14 h-2 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                      <div className="w-14 h-2 rounded-full" style={{ backgroundColor: C.border }}>
                         <div className="h-2 rounded-full" style={{ width: `${c.conversionRate}%`, backgroundColor: C.green }} />
                       </div>
                       <span className="text-xs font-bold tabular-nums" style={{ color: C.green }}>{c.conversionRate}%</span>
@@ -373,7 +373,7 @@ export default async function ReportsPage() {
                           <span className="text-[10px]" style={{ color: C.blue }}>Response</span>
                           <span className="text-[10px] font-bold" style={{ color: C.blue }}>{respRate}%</span>
                         </div>
-                        <div className="h-2 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                        <div className="h-2 rounded-full" style={{ backgroundColor: C.border }}>
                           <div className="h-2 rounded-full" style={{ width: `${respRate}%`, backgroundColor: C.blue }} />
                         </div>
                       </div>
@@ -382,7 +382,7 @@ export default async function ReportsPage() {
                           <span className="text-[10px]" style={{ color: C.green }}>Conversion</span>
                           <span className="text-[10px] font-bold" style={{ color: C.green }}>{convRate}%</span>
                         </div>
-                        <div className="h-2 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                        <div className="h-2 rounded-full" style={{ backgroundColor: C.border }}>
                           <div className="h-2 rounded-full" style={{ width: `${convRate}%`, backgroundColor: C.green }} />
                         </div>
                       </div>
@@ -424,7 +424,7 @@ export default async function ReportsPage() {
                           <span className="text-[10px]" style={{ color: C.textDim }}>Response</span>
                           <span className="text-[10px] font-bold" style={{ color: meta.color }}>{ch.responseRate}%</span>
                         </div>
-                        <div className="h-2.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                        <div className="h-2.5 rounded-full" style={{ backgroundColor: C.border }}>
                           <div className="h-2.5 rounded-full" style={{ width: `${ch.responseRate}%`, backgroundColor: meta.color }} />
                         </div>
                       </div>
@@ -433,7 +433,7 @@ export default async function ReportsPage() {
                           <span className="text-[10px]" style={{ color: C.textDim }}>Conversion</span>
                           <span className="text-[10px] font-bold" style={{ color: C.green }}>{ch.conversionRate}%</span>
                         </div>
-                        <div className="h-2.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                        <div className="h-2.5 rounded-full" style={{ backgroundColor: C.border }}>
                           <div className="h-2.5 rounded-full" style={{ width: `${ch.conversionRate}%`, backgroundColor: C.green }} />
                         </div>
                       </div>
@@ -471,7 +471,7 @@ export default async function ReportsPage() {
                           <span className="text-xs font-semibold" style={{ color: meta.color }}>{meta.label}</span>
                           <span className="text-xs tabular-nums" style={{ color: C.textBody }}>{count} <span style={{ color: C.textDim }}>({pct}%)</span></span>
                         </div>
-                        <div className="h-2.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                        <div className="h-2.5 rounded-full" style={{ backgroundColor: C.border }}>
                           <div className="h-2.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: meta.color }} />
                         </div>
                       </div>
@@ -568,7 +568,7 @@ export default async function ReportsPage() {
                     <td className="px-3 py-3 text-center text-xs font-semibold" style={{ color: C.green }}>{s.positive}</td>
                     <td className="px-3 py-3">
                       <div className="flex items-center gap-2 justify-center">
-                        <div className="w-14 h-2 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                        <div className="w-14 h-2 rounded-full" style={{ backgroundColor: C.border }}>
                           <div className="h-2 rounded-full" style={{ width: `${s.conversionRate}%`, backgroundColor: C.green }} />
                         </div>
                         <span className="text-xs font-bold tabular-nums" style={{ color: C.green }}>{s.conversionRate}%</span>

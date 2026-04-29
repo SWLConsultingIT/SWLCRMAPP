@@ -65,7 +65,7 @@ export default function SequenceAccordion({
               style={{ cursor: hasContent ? "pointer" : "default" }}
             >
               <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
-                style={{ backgroundColor: isPast ? meta.color : isCurrent ? gold : "#E5E7EB" }}>
+                style={{ backgroundColor: isPast ? meta.color : isCurrent ? gold : C.border }}>
                 {isPast ? <Check size={12} color="#fff" /> : isCurrent ? <PlayCircle size={12} color="#fff" /> : <span className="text-[10px] font-bold text-white">{i + 1}</span>}
               </div>
               <span className="flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: `${meta.color}12`, color: meta.color }}><Icon size={11} /> {meta.label}</span>
@@ -73,7 +73,7 @@ export default function SequenceAccordion({
               {showConnNote && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: "#0A66C212", color: "#0A66C2" }}>+ connection note</span>}
               <div className="flex-1" />
               {isSent && <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: C.greenLight, color: C.green }}>Sent</span>}
-              {!isSent && <span className="text-xs px-2 py-0.5 rounded-md" style={{ backgroundColor: isCurrent ? `color-mix(in srgb, ${gold} 8%, transparent)` : "#F3F4F6", color: isCurrent ? gold : C.textMuted }}>{isCurrent ? "Up Next" : "Pending"}</span>}
+              {!isSent && <span className="text-xs px-2 py-0.5 rounded-md" style={{ backgroundColor: isCurrent ? `color-mix(in srgb, ${gold} 8%, transparent)` : C.surface, color: isCurrent ? gold : C.textMuted }}>{isCurrent ? "Up Next" : "Pending"}</span>}
               {hasContent && (
                 <ChevronDown
                   size={14}

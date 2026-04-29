@@ -64,8 +64,8 @@ const classificationStyles: Record<string, { label: string; color: string; bg: s
   not_now:        { label: "NOT NOW",        color: C.orange, bg: C.orangeLight },
   negative:       { label: "NEGATIVE",       color: C.red,    bg: C.redLight },
   unsubscribe:    { label: "UNSUBSCRIBE",    color: C.red,    bg: C.redLight },
-  spam:           { label: "SPAM",           color: C.textMuted, bg: "#F3F4F6" },
-  auto_reply:     { label: "AUTO-REPLY",     color: C.textMuted, bg: "#F3F4F6" },
+  spam:           { label: "SPAM",           color: C.textMuted, bg: C.surface },
+  auto_reply:     { label: "AUTO-REPLY",     color: C.textMuted, bg: C.surface },
 };
 
 function formatDate(iso: string | null) {
@@ -78,7 +78,7 @@ function statusBadge(status: string | null) {
   if (status === "paused")    return { label: "PAUSED",    color: C.orange, bg: C.orangeLight };
   if (status === "completed") return { label: "COMPLETED", color: C.blue,   bg: C.blueLight };
   if (status === "failed")    return { label: "FAILED",    color: C.red,    bg: C.redLight };
-  return { label: "UNKNOWN", color: C.textMuted, bg: "#F3F4F6" };
+  return { label: "UNKNOWN", color: C.textMuted, bg: C.surface };
 }
 
 /* ── Single Campaign Block ── */
@@ -188,7 +188,7 @@ function CampaignBlock({
                 const stepKey = `${campaign.id}-${stepNum}`;
                 const isExpanded = expandedSteps.has(stepKey);
                 const label = channelLabels[stepChannel] ?? stepChannel;
-                const lineColor = isCompleted ? "#22C55E" : isCurrent ? gold : "#E5E7EB";
+                const lineColor = isCompleted ? "#22C55E" : isCurrent ? gold : C.border;
 
                 return (
                   <div key={idx} className="flex gap-4" style={{ minHeight: 56 }}>
@@ -208,7 +208,7 @@ function CampaignBlock({
                         </div>
                       ) : (
                         <div className="rounded-full flex items-center justify-center shrink-0"
-                          style={{ width: 36, height: 36, backgroundColor: "#F3F4F6", border: "2px solid #E5E7EB" }}>
+                          style={{ width: 36, height: 36, backgroundColor: C.surface, border: "2px solid #E5E7EB" }}>
                           <span className="text-xs font-medium" style={{ color: "#9CA3AF" }}>
                             {String(stepNum).padStart(2, "0")}
                           </span>
@@ -226,7 +226,7 @@ function CampaignBlock({
                         <div className="flex items-center gap-2.5">
                           <span className="text-xs font-bold px-2 py-0.5 rounded"
                             style={{
-                              backgroundColor: isCompleted ? "#DCFCE7" : isCurrent ? goldLight : "#F3F4F6",
+                              backgroundColor: isCompleted ? "#DCFCE7" : isCurrent ? goldLight : C.surface,
                               color: isCompleted ? "#22C55E" : isCurrent ? gold : "#9CA3AF",
                             }}>
                             Step {stepNum}
@@ -248,7 +248,7 @@ function CampaignBlock({
                             <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ color: C.orange, backgroundColor: C.orangeLight }}>DRAFT</span>
                           )}
                           {!msg && (
-                            <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ color: "#9CA3AF", backgroundColor: "#F3F4F6" }}>PENDING</span>
+                            <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ color: "#9CA3AF", backgroundColor: C.surface }}>PENDING</span>
                           )}
                         </div>
                       </div>
@@ -297,7 +297,7 @@ function CampaignBlock({
                                 </button>
                               )}
                               {isSent && isExpanded && (
-                                <span className="text-xs px-2 py-0.5 rounded" style={{ color: C.textDim, backgroundColor: "#F3F4F6" }}>
+                                <span className="text-xs px-2 py-0.5 rounded" style={{ color: C.textDim, backgroundColor: C.surface }}>
                                   Read-only
                                 </span>
                               )}

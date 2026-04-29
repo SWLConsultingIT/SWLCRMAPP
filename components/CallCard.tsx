@@ -31,7 +31,7 @@ const statusBg: Record<string, string> = {
   answered:  C.greenLight,
   initiated: C.orangeLight,
   missed:    C.redLight,
-  voicemail: "#F3F4F6",
+  voicemail: C.surface,
 };
 
 export default function CallCard({ call, compact = false }: { call: CallRecord; compact?: boolean }) {
@@ -60,12 +60,12 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {durLabel && (
-            <span className="text-xs px-2 py-0.5 rounded font-medium" style={{ backgroundColor: "#F3F4F6", color: C.textMuted }}>
+            <span className="text-xs px-2 py-0.5 rounded font-medium" style={{ backgroundColor: C.surface, color: C.textMuted }}>
               {durLabel}
             </span>
           )}
           <span className="text-xs font-bold px-2.5 py-0.5 rounded capitalize"
-            style={{ backgroundColor: statusBg[sc] ?? "#F3F4F6", color: statusColor[sc] ?? C.textMuted }}>
+            style={{ backgroundColor: statusBg[sc] ?? C.surface, color: statusColor[sc] ?? C.textMuted }}>
             {sc}
           </span>
         </div>

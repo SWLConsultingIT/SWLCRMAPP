@@ -623,7 +623,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
           ) : (
             <div className="divide-y" style={{ borderColor: C.border }}>
               {leads.map((lead: any) => {
-                const st = leadStatusStyles[lead.status] ?? { color: C.textMuted, bg: "#F3F4F6" };
+                const st = leadStatusStyles[lead.status] ?? { color: C.textMuted, bg: C.surface };
                 return (
                   <Link key={lead.id} href={`/leads/${lead.id}`} className="flex items-center gap-3 px-6 py-3 table-row-hover">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
@@ -683,11 +683,11 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                     <span className="text-xs font-semibold capitalize" style={{ color: ch.color }}>{c.channel}</span>
                   </div>
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-md capitalize shrink-0"
-                    style={{ backgroundColor: isActive ? (stale ? C.redLight : C.greenLight) : "#F3F4F6", color: isActive ? (stale ? C.red : C.green) : C.textMuted }}>
+                    style={{ backgroundColor: isActive ? (stale ? C.redLight : C.greenLight) : C.surface, color: isActive ? (stale ? C.red : C.green) : C.textMuted }}>
                     {isActive && stale ? "stale" : c.status}
                   </span>
                   <div className="flex items-center gap-2 w-24 shrink-0">
-                    <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                    <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
                       <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} />
                     </div>
                     <span className="text-xs tabular-nums" style={{ color: C.textMuted }}>{c.current_step}/{totalSteps}</span>

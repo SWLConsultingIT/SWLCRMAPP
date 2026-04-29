@@ -82,7 +82,7 @@ const classificationMeta: Record<string, { color: string; bg: string; label: str
   meeting_intent: { color: C.green,   bg: C.greenLight, label: "Meeting Intent" },
   negative:       { color: C.red,     bg: C.redLight,   label: "Negative" },
   needs_info:     { color: "#D97706", bg: "#FFFBEB",    label: "Needs Info" },
-  not_now:        { color: C.textMuted, bg: "#F3F4F6",  label: "Not Now" },
+  not_now:        { color: C.textMuted, bg: C.surface,  label: "Not Now" },
 };
 
 function timeAgo(iso: string | null) {
@@ -141,7 +141,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
               {t.label}
               {t.count > 0 && (
                 <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: isActive ? `${t.color}15` : "#F3F4F6", color: isActive ? t.color : C.textDim }}>
+                  style={{ backgroundColor: isActive ? `${t.color}15` : C.surface, color: isActive ? t.color : C.textDim }}>
                   {t.count}
                 </span>
               )}
@@ -221,7 +221,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                           <CallButton phone={call.phone} leadId={call.leadId} size="md" defaultNumberId={call.aircallNumberId ?? null} />
                         ) : (
                           <span className="flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-xs"
-                            style={{ backgroundColor: "#F3F4F6", color: C.textDim }}>
+                            style={{ backgroundColor: C.surface, color: C.textDim }}>
                             <PhoneOff size={12} /> No lead linked
                           </span>
                         )}
@@ -273,7 +273,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
             )}
             <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
               {filteredReplies.map((r, i) => {
-                const cls = classificationMeta[r.classification ?? ""] ?? { color: C.textMuted, bg: "#F3F4F6", label: r.classification ?? "Reply" };
+                const cls = classificationMeta[r.classification ?? ""] ?? { color: C.textMuted, bg: C.surface, label: r.classification ?? "Reply" };
                 const chMeta = channelMeta[r.channel] ?? channelMeta.email;
                 const ChIcon = chMeta.icon;
 

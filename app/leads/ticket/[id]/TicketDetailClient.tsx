@@ -54,7 +54,7 @@ type Props = {
 const statusMeta: Record<string, { color: string; bg: string; icon: typeof PlayCircle; label: string }> = {
   active:    { color: C.green,     bg: C.greenLight, icon: PlayCircle,  label: "Active" },
   paused:    { color: "#D97706",   bg: "#FFFBEB",    icon: PauseCircle, label: "Paused" },
-  completed: { color: C.textMuted, bg: "#F3F4F6",    icon: CheckCircle, label: "Completed" },
+  completed: { color: C.textMuted, bg: C.surface,    icon: CheckCircle, label: "Completed" },
   failed:    { color: C.red,       bg: C.redLight,   icon: XCircle,     label: "Failed" },
 };
 
@@ -136,7 +136,7 @@ function CampaignCard({ camp }: { camp: CampaignGroup }) {
 
       <div className="px-4 py-2.5 border-t flex items-center gap-2"
         style={{ borderColor: C.border, backgroundColor: C.bg }}>
-        <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+        <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
           <div className="h-1.5 rounded-full" style={{ width: `${camp.avgProgress}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} />
         </div>
         <span className="text-[10px] tabular-nums shrink-0" style={{ color: C.textMuted }}>{camp.avgProgress}%</span>
@@ -403,7 +403,7 @@ export default function TicketDetailClient({ ticketName, campaigns, leads }: Pro
               {t.label}
               {t.count > 0 && (
                 <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: isActive ? `${t.color}15` : "#F3F4F6", color: isActive ? t.color : C.textDim }}>
+                  style={{ backgroundColor: isActive ? `${t.color}15` : C.surface, color: isActive ? t.color : C.textDim }}>
                   {t.count}
                 </span>
               )}

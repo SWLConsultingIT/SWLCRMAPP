@@ -145,7 +145,7 @@ function ClientSellers({ companyBioId }: { companyBioId: string }) {
         return (
           <div key={seller.id} className="flex items-center gap-4 py-3">
             <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-              style={{ background: seller.active ? `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` : "#E5E7EB", color: seller.active ? "#fff" : "#9CA3AF" }}>
+              style={{ background: seller.active ? `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` : C.border, color: seller.active ? "#fff" : "#9CA3AF" }}>
               {seller.name[0]?.toUpperCase() ?? "?"}
             </div>
             <div className="flex-1 min-w-0">

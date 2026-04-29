@@ -161,7 +161,7 @@ function LostLeadCard({ lead, selected, onToggle }: { lead: LostLead; selected: 
               Negative Reply
             </span>
           ) : (
-            <span className="text-[10px] font-bold px-2.5 py-1 rounded-md shrink-0" style={{ backgroundColor: "#F3F4F6", color: C.textMuted }}>
+            <span className="text-[10px] font-bold px-2.5 py-1 rounded-md shrink-0" style={{ backgroundColor: C.surface, color: C.textMuted }}>
               No Reply
             </span>
           )}
@@ -197,7 +197,7 @@ function LostLeadCard({ lead, selected, onToggle }: { lead: LostLead; selected: 
           </div>
           {/* Progress bar */}
           <div className="flex items-center gap-2 mt-2">
-            <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+            <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
               <div className="h-1.5 rounded-full" style={{ width: `${progress}%`, backgroundColor: C.textMuted }} />
             </div>
             <span className="text-[9px] tabular-nums" style={{ color: C.textDim }}>{progress}% completed</span>
@@ -291,7 +291,7 @@ function RenurturingLeadCard({ lead }: { lead: RenurturingLead }) {
           </div>
           {!isPendingReview && lead.new_campaign_step != null && lead.new_campaign_total_steps != null && (
             <div className="flex items-center gap-2 mt-1.5">
-              <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+              <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
                 <div className="h-1.5 rounded-full" style={{ width: `${newProgress}%`, backgroundColor: C.green }} />
               </div>
               <span className="text-[9px] tabular-nums" style={{ color: C.textDim }}>
@@ -690,7 +690,7 @@ function ProfileCard({ group }: { group: ProfileGroup }) {
           ].map(row => (
             <div key={row.label} className="flex items-center gap-2">
               <span className="text-[10px] w-[70px] shrink-0" style={{ color: C.textMuted }}>{row.label}</span>
-              <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+              <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: C.border }}>
                 <div className="h-2 rounded-full" style={{ width: `${(row.value / funnelMax) * 100}%`, backgroundColor: row.color }} />
               </div>
               <span className="text-[10px] font-bold w-6 text-right tabular-nums" style={{ color: row.color }}>{row.value}</span>

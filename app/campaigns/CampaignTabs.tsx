@@ -32,7 +32,7 @@ export default function CampaignTabs({ readyCount, activeCount, children }: {
               {t.label}
               {t.count > 0 && (
                 <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: active ? `${t.color}15` : "#F3F4F6", color: active ? t.color : C.textDim }}>
+                  style={{ backgroundColor: active ? `${t.color}15` : C.surface, color: active ? t.color : C.textDim }}>
                   {t.count}
                 </span>
               )}

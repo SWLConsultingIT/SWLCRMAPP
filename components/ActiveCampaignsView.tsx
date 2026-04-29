@@ -51,7 +51,7 @@ const channelMeta: Record<string, { icon: React.ElementType; color: string; labe
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
   active:    { label: "Active",    color: C.green,    bg: C.greenLight },
   paused:    { label: "Paused",    color: "#D97706",  bg: "#FFFBEB" },
-  completed: { label: "Completed", color: C.textMuted, bg: "#F3F4F6" },
+  completed: { label: "Completed", color: C.textMuted, bg: C.surface },
   failed:    { label: "Failed",    color: C.red,      bg: C.redLight },
 };
 
@@ -241,7 +241,7 @@ export default function ActiveCampaignsView({ campaigns }: { campaigns: Campaign
             <div className="px-4 py-2.5 border-t flex items-center justify-between gap-2"
               style={{ borderColor: C.border, backgroundColor: C.bg }}>
               <div className="flex items-center gap-2 flex-1">
-                <div className="flex-1 h-1 rounded-full" style={{ backgroundColor: "#E5E7EB" }}>
+                <div className="flex-1 h-1 rounded-full" style={{ backgroundColor: C.border }}>
                   <div className="h-1 rounded-full" style={{ width: `${group.avgProgress}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} />
                 </div>
                 <span className="text-[10px] tabular-nums shrink-0" style={{ color: C.textMuted }}>{group.avgProgress}%</span>
