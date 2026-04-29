@@ -11,12 +11,12 @@ const LOGO_URL = "https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNx
 
 export default function LogoLoader({
   fullscreen = false,
-  size = 110,
+  size = 140,
 }: {
   /** When true, covers the entire viewport. Default false: fills its
    *  container so the Sidebar and TopHeader stay visible during page nav. */
   fullscreen?: boolean;
-  /** Logo height in px; mark + wordmark scale together. */
+  /** Lockup height in px (the PNG's native aspect drives the width). */
   size?: number;
 }) {
   const containerClass = fullscreen
@@ -35,48 +35,33 @@ export default function LogoLoader({
 
   return (
     <div className={containerClass} style={containerStyle} role="status" aria-live="polite">
-      <div className="logo-loader-stage">
-        <div className="logo-loader-mark-wrap" style={{ width: markWidth, height: size }}>
-          {/* Actual brand PNG — rendered at native gold colors */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={LOGO_URL}
-            alt="SWL"
-            className="logo-loader-mark-img"
-            style={{ width: markWidth, height: size }}
-          />
-          {/* Shine overlay: linear-gradient sweeping diagonally, mask-clipped
-              to the same PNG silhouette so the highlight only paints on the
-              actual logo shape (no rectangular bounding box reveal). */}
-          <span
-            aria-hidden
-            className="logo-loader-mark-shine"
-            style={{
-              width: markWidth,
-              height: size,
-              WebkitMaskImage: `url(${LOGO_URL})`,
-              maskImage: `url(${LOGO_URL})`,
-              WebkitMaskSize: "contain",
-              maskSize: "contain",
-              WebkitMaskRepeat: "no-repeat",
-              maskRepeat: "no-repeat",
-              WebkitMaskPosition: "center",
-              maskPosition: "center",
-            }}
-          />
-        </div>
-
-        {/* Wordmark — italic-skewed "SWL" in gold gradient with shimmer */}
+      {/* The PNG already contains the full lockup (mark + "SWL" wordmark
+          baked in). Rendering it once with the halo + masked shine sweep
+          gives us the exact brand identity, no duplication. */}
+      <div className="logo-loader-mark-wrap" style={{ width: markWidth, height: size }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={LOGO_URL}
+          alt="SWL"
+          className="logo-loader-mark-img"
+          style={{ width: markWidth, height: size }}
+        />
         <span
-          className="logo-loader-wordmark"
+          aria-hidden
+          className="logo-loader-mark-shine"
           style={{
-            fontSize: Math.round(size * 0.92),
-            lineHeight: 1,
-            fontFamily: "var(--font-outfit), system-ui, sans-serif",
+            width: markWidth,
+            height: size,
+            WebkitMaskImage: `url(${LOGO_URL})`,
+            maskImage: `url(${LOGO_URL})`,
+            WebkitMaskSize: "contain",
+            maskSize: "contain",
+            WebkitMaskRepeat: "no-repeat",
+            maskRepeat: "no-repeat",
+            WebkitMaskPosition: "center",
+            maskPosition: "center",
           }}
-        >
-          SWL
-        </span>
+        />
       </div>
     </div>
   );
