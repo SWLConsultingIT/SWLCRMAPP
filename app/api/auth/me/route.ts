@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { DEMO_SESSION_COOKIE } from "@/lib/scope";
 
 export async function GET() {
   const supabase = await getSupabaseServer();
@@ -27,19 +29,43 @@ export async function GET() {
     ? (rawBios[0] as { company_name: string | null; logo_url: string | null } | undefined) ?? null
     : (rawBios as { company_name: string | null; logo_url: string | null } | null) ?? null;
 
+  const role = (profile?.role ?? user.user_metadata?.role ?? "client") as string;
+
+  // Demo impersonation surface: if admin AND a valid demo cookie is set, expose
+  // the demo tenant's id + name so the UI can render the banner without an
+  // additional round-trip. Cookie is HttpOnly so client JS can't read it directly.
+  let demoMode: { active: false } | { active: true; bioId: string; companyName: string | null; logoUrl: string | null } = { active: false };
+  if (role === "admin") {
+    const cookieStore = await cookies();
+    const demoBioId = cookieStore.get(DEMO_SESSION_COOKIE)?.value ?? null;
+    if (demoBioId) {
+      const { data: demoBio } = await svc
+        .from("company_bios")
+        .select("id, company_name, logo_url, is_demo")
+        .eq("id", demoBioId)
+        .eq("is_demo", true)
+        .maybeSingle();
+      if (demoBio?.id) {
+        demoMode = { active: true, bioId: demoBio.id, companyName: demoBio.company_name, logoUrl: demoBio.logo_url };
+      }
+    }
+  }
+
   return NextResponse.json({
     user: {
       id: user.id,
       email: user.email,
       displayName: user.user_metadata?.display_name ?? user.user_metadata?.name ?? user.user_metadata?.full_name ?? user.email,
-      role: profile?.role ?? user.user_metadata?.role ?? "client",
+      role,
       companyBioId: profile?.company_bio_id ?? null,
       companyName: bio?.company_name ?? null,
       companyLogoUrl: bio?.logo_url ?? null,
     },
+    demoMode,
   }, {
     // Auth-bound but stable — let the browser cache for a short window.
     // SWR pattern on the client already invalidates on auth-state-change.
+    // Demo cookie changes go through router.refresh() so the cache is busted.
     headers: { "Cache-Control": "private, max-age=30" },
   });
 }

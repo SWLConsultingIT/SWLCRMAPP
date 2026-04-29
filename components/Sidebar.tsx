@@ -7,7 +7,7 @@ import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { useLocale } from "@/lib/i18n";
 import {
   LayoutDashboard, Users, Megaphone,
-  Building2, Target, Shield, ChevronDown, Bell, Trophy, UserCircle, Settings,
+  Building2, Target, Shield, ChevronDown, Bell, Trophy, UserCircle, Settings, Theater,
 } from "lucide-react";
 
 const DARK   = "#060c18";
@@ -50,6 +50,7 @@ const sections: { labelKey: string; items: NavItem[] }[] = [
       { href: "/opportunities", labelKey: "nav.opportunities", icon: Trophy },
       { href: "/queue", labelKey: "nav.queue", icon: Bell, badgeKey: "calls" },
       { href: "/admin", labelKey: "nav.admin", icon: Shield, badgeKey: "pending", adminOnly: true },
+      { href: "/admin/demos", labelKey: "nav.demos", icon: Theater, adminOnly: true },
     ],
   },
 ];

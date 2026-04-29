@@ -1,5 +1,10 @@
+import { cookies } from "next/headers";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
+
+/** Cookie name for admin "demo impersonation". When set, an admin user
+ * sees the app as if they belonged to a specific (is_demo=true) tenant. */
+export const DEMO_SESSION_COOKIE = "demo_session_bio_id";
 
 export type UserScope = {
   userId: string | null;
@@ -7,18 +12,25 @@ export type UserScope = {
   companyBioId: string | null;
   /** True when queries must be filtered to a specific company. False = admin / no user (see everything). */
   isScoped: boolean;
+  /** Admin is currently impersonating a demo tenant via the cookie override. */
+  isDemoMode: boolean;
+  /** When `isDemoMode`, this is the demo tenant's bio id (mirror of companyBioId for clarity). */
+  demoBioId: string | null;
 };
 
 /**
  * Resolves the current user's tenancy scope.
- * - Admins see everything across all clients.
- * - Clients see only data for their company_bio_id.
+ * - Admins see everything across all clients UNLESS they've entered a demo
+ *   tenant — in which case the cookie forces scope to that bio_id.
+ * - Clients see only data for their company_bio_id (cookie ignored).
  * - Unauthenticated requests behave like admins (server components called with no user context).
  */
 export async function getUserScope(): Promise<UserScope> {
   const supabase = await getSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return { userId: null, role: null, companyBioId: null, isScoped: false };
+  if (!user) {
+    return { userId: null, role: null, companyBioId: null, isScoped: false, isDemoMode: false, demoBioId: null };
+  }
 
   const svc = getSupabaseService();
   const { data: profile } = await svc
@@ -28,7 +40,34 @@ export async function getUserScope(): Promise<UserScope> {
     .single();
 
   const role = (profile?.role ?? "client") as "admin" | "client";
-  const companyBioId = profile?.company_bio_id ?? null;
-  const isScoped = role !== "admin" && !!companyBioId;
-  return { userId: user.id, role, companyBioId, isScoped };
+  const ownBioId = profile?.company_bio_id ?? null;
+
+  // Demo impersonation only applies to admins. We verify the cookie value
+  // points at a real is_demo=true tenant before honoring it — otherwise a
+  // stale cookie would silently leak data from a real client tenant.
+  if (role === "admin") {
+    const cookieStore = await cookies();
+    const demoBioId = cookieStore.get(DEMO_SESSION_COOKIE)?.value ?? null;
+    if (demoBioId) {
+      const { data: demoBio } = await svc
+        .from("company_bios")
+        .select("id, is_demo")
+        .eq("id", demoBioId)
+        .eq("is_demo", true)
+        .maybeSingle();
+      if (demoBio?.id) {
+        return {
+          userId: user.id,
+          role: "admin",
+          companyBioId: demoBio.id,
+          isScoped: true,
+          isDemoMode: true,
+          demoBioId: demoBio.id,
+        };
+      }
+    }
+  }
+
+  const isScoped = role !== "admin" && !!ownBioId;
+  return { userId: user.id, role, companyBioId: ownBioId, isScoped, isDemoMode: false, demoBioId: null };
 }
