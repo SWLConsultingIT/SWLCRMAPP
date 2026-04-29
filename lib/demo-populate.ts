@@ -305,8 +305,61 @@ export async function populateDemo(
       .filter((r): r is NonNullable<typeof r> => r !== null);
 
     if (campaignRows.length > 0) {
-      const { data: campRes } = await svc.from("campaigns").insert(campaignRows).select("id");
+      const { data: campRes } = await svc.from("campaigns").insert(campaignRows).select("id, lead_id");
       insertedCampaigns = campRes?.length ?? 0;
+
+      // 4) lead_replies for won/qualified (positive) and lost (negative). The
+      //    Opportunities page filters by lead_replies.classification IN
+      //    ('positive', 'meeting_intent') OR transferred_to_odoo_at IS NOT
+      //    NULL — without these rows, populated demos showed 0 opportunities
+      //    even though closed_won leads existed in the DB.
+      const lang = ai?.language ?? "en";
+      const isEs = lang.startsWith("es");
+      const replyByStatus: Record<string, string> = isEs
+        ? {
+            closed_won: "¡Buenísimo! Me interesa, agendemos una llamada esta semana.",
+            qualified: "Suena bien, contame más sobre cómo funciona y los valores.",
+            closed_lost: "Gracias pero no es prioridad ahora. Quizás más adelante.",
+          }
+        : {
+            closed_won: "Great, I'm interested — let's set up a call this week.",
+            qualified: "Sounds promising. Can you share a bit more about how it works and pricing?",
+            closed_lost: "Thanks but not a priority for us right now. Maybe down the line.",
+          };
+
+      const campIdByLead = new Map<string, string>();
+      for (const c of campRes ?? []) campIdByLead.set(c.lead_id, c.id);
+
+      const replyRows = insertedLeads
+        .map(lead => {
+          const status = lead.status as LeadStatus;
+          if (!["closed_won", "qualified", "closed_lost"].includes(status)) return null;
+          const classification = status === "closed_lost" ? "negative" : "positive";
+          return {
+            lead_id: lead.id,
+            campaign_id: campIdByLead.get(lead.id) ?? null,
+            channel: "linkedin",
+            reply_text: replyByStatus[status],
+            classification,
+            ai_confidence: 0.92,
+            requires_human_review: false,
+            received_at: new Date(Date.now() - Math.random() * 6 * 86400_000).toISOString(),
+          };
+        })
+        .filter((r): r is NonNullable<typeof r> => r !== null);
+
+      if (replyRows.length > 0) {
+        await svc.from("lead_replies").insert(replyRows);
+      }
+
+      // 5) transferred_to_odoo_at for won leads — belt-and-braces so the
+      //    Opportunities page picks them up via either signal.
+      const wonIds = insertedLeads.filter(l => l.status === "closed_won").map(l => l.id);
+      if (wonIds.length > 0) {
+        await svc.from("leads")
+          .update({ transferred_to_odoo_at: new Date(Date.now() - Math.random() * 3 * 86400_000).toISOString() })
+          .in("id", wonIds);
+      }
     }
   }
 
