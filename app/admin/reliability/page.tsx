@@ -5,6 +5,7 @@ import Breadcrumb from "@/components/Breadcrumb";
 import { C } from "@/lib/design";
 import { AlertTriangle, CheckCircle2, Clock, RefreshCw, Send, Zap } from "lucide-react";
 import ReliabilityActions from "./ReliabilityActions";
+import RetryButton from "./RetryButton";
 
 // Reliability dashboard.
 //
@@ -79,6 +80,8 @@ type ReliabilityData = {
     unipileAccountId: string | null;
     unipileError: string | null;
     invitesInUnipile: number;
+    dailySent: number;
+    dailyLimit: number;
   }>;
   fetchedAt: string;
 };
@@ -95,7 +98,7 @@ async function fetchReliability(): Promise<ReliabilityData> {
     svc.from("campaign_messages").select(queueSelect).eq("status", "dispatching").order("created_at", { ascending: true }),
     svc.from("campaign_messages").select(queueSelect).eq("status", "failed").order("created_at", { ascending: false }).limit(50),
     svc.from("campaign_messages").select(queueSelect).eq("status", "sent").eq("step_number", 0).gte("sent_at", since24h).order("sent_at", { ascending: false }),
-    svc.from("sellers").select("id, name, unipile_account_id, active").eq("active", true),
+    svc.from("sellers").select("id, name, unipile_account_id, active, linkedin_daily_limit").eq("active", true),
   ]);
 
   // Pull Unipile sent invites per active seller (last 100 each).
@@ -150,12 +153,23 @@ async function fetchReliability(): Promise<ReliabilityData> {
   const matchedCount = reconciled.filter((r) => r._matched).length;
   const ghostCount = reconciled.length - matchedCount;
 
+  // Per-seller daily count: sent in last 24h. Mirrors the guard in
+  // /api/cron/dispatch-queue so the dashboard shows the same numbers
+  // the dispatcher uses to decide eligibility.
+  const dailyCount = new Map<string, number>();
+  for (const r of sentLedgerQ.data ?? []) {
+    const sid = (r as any)?.campaigns?.seller_id as string | undefined;
+    if (sid) dailyCount.set(sid, (dailyCount.get(sid) ?? 0) + 1);
+  }
+
   const sellerHealth = (sellersQ.data ?? []).map((s: any) => ({
     sellerId: s.id,
     sellerName: s.name ?? "(unnamed)",
     unipileAccountId: s.unipile_account_id ?? null,
     unipileError: sellerErrors.get(s.id) ?? null,
     invitesInUnipile: unipileBySeller.get(s.id)?.length ?? 0,
+    dailySent: dailyCount.get(s.id) ?? 0,
+    dailyLimit: (s.linkedin_daily_limit as number | null) ?? 20,
   }));
 
   return {
@@ -233,6 +247,7 @@ export default async function ReliabilityPage() {
               <Th>Seller</Th>
               <Th>Step</Th>
               <Th>Error</Th>
+              <Th>Action</Th>
             </thead>
             <tbody>
               {queueHealth.failed.map((r) => (
@@ -246,6 +261,7 @@ export default async function ReliabilityPage() {
                       {r.error_details ?? "(no error captured)"}
                     </span>
                   </Td>
+                  <Td><RetryButton messageId={r.id} /></Td>
                 </tr>
               ))}
             </tbody>
@@ -343,29 +359,50 @@ export default async function ReliabilityPage() {
             <Th>Seller</Th>
             <Th>Unipile account</Th>
             <Th>Status</Th>
+            <Th>Today (24h)</Th>
             <Th>Invites in Unipile</Th>
           </thead>
           <tbody>
-            {sellerHealth.map((s) => (
-              <tr key={s.sellerId} style={{ borderTop: `1px solid ${C.border}` }}>
-                <Td>{s.sellerName}</Td>
-                <Td>
-                  <span className="text-xs font-mono" style={{ color: C.textMuted }}>
-                    {s.unipileAccountId ?? "(none)"}
-                  </span>
-                </Td>
-                <Td>
-                  {s.unipileError ? (
-                    <span className="text-xs" style={{ color: C.red }}>{s.unipileError}</span>
-                  ) : s.unipileAccountId ? (
-                    <span className="text-xs font-bold" style={{ color: C.green }}>OK</span>
-                  ) : (
-                    <span className="text-xs" style={{ color: C.textMuted }}>not connected</span>
-                  )}
-                </Td>
-                <Td>{s.invitesInUnipile}</Td>
-              </tr>
-            ))}
+            {sellerHealth.map((s) => {
+              const pct = s.dailyLimit > 0 ? Math.min(100, Math.round((s.dailySent / s.dailyLimit) * 100)) : 0;
+              const atCap = s.dailySent >= s.dailyLimit;
+              const dailyColor = atCap ? C.red : pct >= 80 ? "#D97706" : C.linkedin;
+              return (
+                <tr key={s.sellerId} style={{ borderTop: `1px solid ${C.border}` }}>
+                  <Td>{s.sellerName}</Td>
+                  <Td>
+                    <span className="text-xs font-mono" style={{ color: C.textMuted }}>
+                      {s.unipileAccountId ?? "(none)"}
+                    </span>
+                  </Td>
+                  <Td>
+                    {s.unipileError ? (
+                      <span className="text-xs" style={{ color: C.red }}>{s.unipileError}</span>
+                    ) : s.unipileAccountId ? (
+                      <span className="text-xs font-bold" style={{ color: C.green }}>OK</span>
+                    ) : (
+                      <span className="text-xs" style={{ color: C.textMuted }}>not connected</span>
+                    )}
+                  </Td>
+                  <Td>
+                    <div className="flex items-center gap-2 min-w-[120px]">
+                      <span className="text-xs tabular-nums font-semibold" style={{ color: dailyColor }}>
+                        {s.dailySent}/{s.dailyLimit}
+                      </span>
+                      <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
+                        <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: dailyColor }} />
+                      </div>
+                      {atCap && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: C.redLight, color: C.red }}>
+                          AT CAP
+                        </span>
+                      )}
+                    </div>
+                  </Td>
+                  <Td>{s.invitesInUnipile}</Td>
+                </tr>
+              );
+            })}
           </tbody>
         </Table>
       </Section>
