@@ -147,18 +147,28 @@ async function handle(req: NextRequest) {
 
   // 1. Atomically claim ONE queued step-0 message: flip status to 'dispatching'
   //    so concurrent ticks (or admin manual triggers) cannot pick the same row.
+  //    We pull a window of 10 candidates so we can skip rows that are still in
+  //    LinkedIn rate-limit cooldown (last_rate_limit_at within RATE_LIMIT_COOLDOWN_MS).
   const { data: claimed } = await svc
     .from("campaign_messages")
-    .select("id, campaign_id, lead_id, step_number, channel, content, status")
+    .select("id, campaign_id, lead_id, step_number, channel, content, status, metadata")
     .eq("status", "queued")
     .eq("step_number", 0)
     .eq("channel", "linkedin")
     .order("created_at", { ascending: true })
-    .limit(1);
+    .limit(10);
 
-  const candidate = (claimed ?? [])[0] as QueuedRow | undefined;
+  const RATE_LIMIT_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4h after a rate-limit hit, skip the row
+  const nowMs = Date.now();
+  const candidate = (claimed ?? []).find((r: any) => {
+    const lastRL = r?.metadata?.last_rate_limit_at;
+    if (!lastRL) return true;
+    return nowMs - new Date(lastRL).getTime() > RATE_LIMIT_COOLDOWN_MS;
+  }) as QueuedRow | undefined;
+
   if (!candidate) {
-    return NextResponse.json({ ok: true, processed: 0, reason: "no queued messages" });
+    const totalQueued = claimed?.length ?? 0;
+    return NextResponse.json({ ok: true, processed: 0, reason: totalQueued > 0 ? "all queued rows in rate-limit cooldown" : "no queued messages" });
   }
 
   // Optimistic concurrency: only proceed if our UPDATE actually flipped the row
@@ -235,7 +245,11 @@ async function handle(req: NextRequest) {
       await svc.from("leads").update({ linkedin_internal_id: providerId }).eq("id", lead.id);
     }
   } catch (e: any) {
-    return await failMessage(svc, candidate.id, candidate.lead_id, e?.message ?? String(e));
+    const errMsg = e?.message ?? String(e);
+    if (isRateLimitError(errMsg)) {
+      return await requeueRateLimited(svc, candidate.id, candidate.lead_id, errMsg);
+    }
+    return await failMessage(svc, candidate.id, candidate.lead_id, errMsg);
   }
 
   // 4. Build the personalized note + truncate to LinkedIn's API cap.
@@ -257,7 +271,13 @@ async function handle(req: NextRequest) {
     });
     invitationId = inviteResp?.invitation_id ?? null;
   } catch (e: any) {
-    return await failMessage(svc, candidate.id, candidate.lead_id, e?.message ?? String(e));
+    const errMsg = e?.message ?? String(e);
+    // LinkedIn/Unipile burst protection: don't burn the message as failed —
+    // revert to queued and timestamp the cooldown so the next tick skips it.
+    if (isRateLimitError(errMsg)) {
+      return await requeueRateLimited(svc, candidate.id, candidate.lead_id, errMsg);
+    }
+    return await failMessage(svc, candidate.id, candidate.lead_id, errMsg);
   }
 
   // 6. Mark success: message → sent, lead → contacted, persist invitation_id.
@@ -293,4 +313,45 @@ async function failMessage(svc: ReturnType<typeof getSupabaseService>, msgId: st
     metadata: { dispatched_by: "cron-dispatch-queue", failed_at: new Date().toISOString() },
   }).eq("id", msgId);
   return NextResponse.json({ ok: false, processed: 0, message_id: msgId, lead_id: leadId, error: reason }, { status: 200 });
+}
+
+// Detect Unipile/LinkedIn burst-protection errors. These are NOT permanent
+// failures — the account isn't banned, just told to slow down. We treat
+// them differently from real failures (name mismatch, missing slug, etc.)
+// so the queue doesn't get burned during a temporary cooldown.
+function isRateLimitError(reason: string): boolean {
+  const r = reason.toLowerCase();
+  return r.includes("temporary provider limit")
+    || r.includes("rate limit")
+    || r.includes("rate-limit")
+    || r.includes("too many requests")
+    || r.includes("429");
+}
+
+// Revert a 'dispatching' row back to 'queued' and stamp metadata so future
+// dispatch ticks (and the orquestador) skip this row for the cooldown window.
+async function requeueRateLimited(svc: ReturnType<typeof getSupabaseService>, msgId: string, leadId: string, reason: string) {
+  const { data: existing } = await svc
+    .from("campaign_messages")
+    .select("metadata")
+    .eq("id", msgId)
+    .maybeSingle();
+  const prevMeta = (existing?.metadata as Record<string, unknown> | null) ?? {};
+  const prevCount = typeof prevMeta.rate_limit_count === "number" ? prevMeta.rate_limit_count : 0;
+  await svc.from("campaign_messages").update({
+    status: "queued",
+    error_details: null,
+    metadata: {
+      ...prevMeta,
+      dispatched_by: "cron-dispatch-queue",
+      last_rate_limit_at: new Date().toISOString(),
+      last_rate_limit_reason: reason,
+      rate_limit_count: prevCount + 1,
+    },
+  }).eq("id", msgId);
+  return NextResponse.json({
+    ok: false, processed: 0, requeued: true,
+    message_id: msgId, lead_id: leadId, error: reason,
+    reason: "rate_limited — message returned to queue, will retry after cooldown",
+  }, { status: 200 });
 }
