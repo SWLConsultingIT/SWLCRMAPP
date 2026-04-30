@@ -6,6 +6,7 @@ import {
   ArrowLeft, Share2, AlertTriangle, CheckCircle, PauseCircle,
   TrendingUp, Send, MessageSquare, Users, Clock,
 } from "lucide-react";
+import LimitEditor from "./LimitEditor";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -158,6 +159,11 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
             <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>{sub}</p>
           </div>
         ))}
+      </div>
+
+      {/* Outreach Limits — editable */}
+      <div className="mb-6">
+        <LimitEditor sellerId={seller.id} initialLimit={dailyLimit} />
       </div>
 
       <div className="grid grid-cols-2 gap-6">
