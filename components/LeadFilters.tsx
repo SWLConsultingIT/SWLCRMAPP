@@ -9,20 +9,24 @@ const goldDark = "var(--brand-dark, #b79832)";
 
 type FilterOption = { key: string; label: string; color?: string; count?: number };
 
-function PillGroup({ icon, label, options, value, onChange }: {
+function PillGroup({ icon, label, options, value, onChange, wrap = false }: {
   icon: ReactNode;
   label: string;
   options: FilterOption[];
   value: string;
   onChange: (v: string) => void;
+  /** Allow the pill row to wrap to multiple lines when content overflows.
+   *  Used by the Profile filter where ICP names can be long ("Pathway
+   *  Invoice Finance — Construction"). */
+  wrap?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2">
-      <div className="flex items-center gap-1.5 shrink-0">
+    <div className={wrap ? "flex items-start gap-2 flex-wrap min-w-0" : "flex items-center gap-2"}>
+      <div className="flex items-center gap-1.5 shrink-0 pt-1">
         <span style={{ color: C.textDim }}>{icon}</span>
         <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textMuted, letterSpacing: "0.08em" }}>{label}</span>
       </div>
-      <div className="flex items-center gap-0.5 rounded-lg p-0.5 border" style={{ backgroundColor: C.bg, borderColor: C.border }}>
+      <div className={`${wrap ? "flex flex-wrap" : "flex items-center"} gap-0.5 rounded-lg p-0.5 border`} style={{ backgroundColor: C.bg, borderColor: C.border }}>
         {options.map(opt => {
           const isActive = value === opt.key;
           const accent = opt.color ?? goldDark;
@@ -197,15 +201,20 @@ export function LeadFilterBar({
       </div>
 
       {showProfileFilter && profileNames && profileNames.length > 1 && (
-        <div className="px-4 py-2.5 border-t flex items-center gap-3 flex-wrap" style={{ borderColor: C.border, backgroundColor: C.card }}>
+        <div className="px-4 py-2.5 border-t flex items-start gap-3 flex-wrap" style={{ borderColor: C.border, backgroundColor: C.card }}>
           <PillGroup
             icon={<Target size={11} />}
             label="Profile"
             value={filters.profile}
             onChange={v => set("profile", v)}
+            wrap
             options={[
               { key: "all", label: "All" },
-              ...profileNames.map(n => ({ key: n, label: n.length > 22 ? n.slice(0, 22) + "…" : n })),
+              // No truncation — long ICP names like "Pathway Invoice
+              // Finance — Construction" used to all collapse to the same
+              // "Pathway Invoice Financ…" string and become indistinguishable.
+              // PillGroup wraps to multiple lines when names don't fit on one.
+              ...profileNames.map(n => ({ key: n, label: n })),
             ]}
           />
         </div>

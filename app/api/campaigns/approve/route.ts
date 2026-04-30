@@ -142,7 +142,11 @@ export async function POST(req: NextRequest) {
     // Create campaign_messages: connection request (if LinkedIn) + all steps
     const messageInserts: any[] = [];
 
-    // Add connection request as step 0 if LinkedIn and connectionRequest exists
+    // Add connection request as step 0 if LinkedIn and connectionRequest exists.
+    // We seed it as `queued` so /api/cron/dispatch-queue picks it up on the next
+    // tick, calls Unipile, and only flips it to 'sent' when LinkedIn confirms.
+    // Steps 1+ stay as 'draft' until the connection is accepted (the
+    // BESFOHaqTt2Ki0Vw "Registro de Nueva Conexion" workflow then queues them).
     const connectionRequest = prompts.channelMessages?.connectionRequest ?? "";
     if (connectionRequest && channels.includes("linkedin")) {
       messageInserts.push({
@@ -151,12 +155,13 @@ export async function POST(req: NextRequest) {
         step_number: 0,
         channel: "linkedin",
         content: connectionRequest,
-        status: "draft",
+        status: "queued",
         created_at: new Date().toISOString(),
       });
     }
 
-    // Add regular step messages (step 1, 2, 3...)
+    // Add regular step messages (step 1, 2, 3...) as draft. They are activated
+    // only after the connection request is accepted.
     messages.forEach((msg, i) => messageInserts.push({
       campaign_id: campaign.id,
       lead_id: leadId,
@@ -177,10 +182,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Update lead: assign campaign channel + set status to contacted
+    // Update lead's channel only — DO NOT mark as contacted yet. The cron
+    // dispatcher will flip the lead to 'contacted' once Unipile confirms the
+    // invite was actually sent. (Pre-fix bug: lead was marked contacted before
+    // any LinkedIn call, producing 8 ghost-contacted leads on Pathway.)
     await supabase
       .from("leads")
-      .update({ status: "contacted", current_channel: primaryChannel })
+      .update({ current_channel: primaryChannel })
       .eq("id", leadId);
 
     campaignsCreated++;

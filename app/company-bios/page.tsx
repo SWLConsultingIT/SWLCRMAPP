@@ -1564,13 +1564,34 @@ export default function CompanyBiosPage() {
   useEffect(() => {
     async function load() {
       const supabase = getSupabaseBrowser();
-      const { data } = await supabase
-        .from("company_bios")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-      if (data) setBio(data);
+
+      // Resolve which bio to load via /api/auth/me. The endpoint already
+      // honors demo impersonation: when the admin is inside a demo tenant it
+      // returns the demo's companyBioId here, so the page naturally shows
+      // the demo's company info instead of the admin's own SWL profile.
+      // No-store on /api/auth/me when in demo mode means cookie flips are
+      // reflected on the next render.
+      let targetBioId: string | null = null;
+      try {
+        const meRes = await fetch("/api/auth/me", { cache: "no-store" });
+        const me = await meRes.json();
+        targetBioId = me?.user?.companyBioId ?? null;
+      } catch {
+        targetBioId = null;
+      }
+
+      if (targetBioId) {
+        const { data } = await supabase
+          .from("company_bios")
+          .select("*")
+          .eq("id", targetBioId)
+          .maybeSingle();
+        if (data) setBio(data);
+      } else {
+        // No scoped bio — empty state. Editing creates a new row that the
+        // backend will associate with the user's profile on save.
+        setBio(null);
+      }
       setLoading(false);
     }
     load();

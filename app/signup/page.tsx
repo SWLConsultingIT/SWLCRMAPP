@@ -11,9 +11,9 @@ const inputStyle = {
   color: "#f8fafc",
 };
 const inputFocus = {
-  borderColor: "color-mix(in srgb, var(--brand-dark, #b79832) 50%, transparent)",
-  backgroundColor: "color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent)",
-  boxShadow: "0 0 0 4px color-mix(in srgb, var(--brand-dark, #b79832) 12%, transparent)",
+  borderColor: "color-mix(in srgb, #b79832 50%, transparent)",
+  backgroundColor: "color-mix(in srgb, #b79832 4%, transparent)",
+  boxShadow: "0 0 0 4px color-mix(in srgb, #b79832 12%, transparent)",
 };
 const inputBlur = {
   borderColor: "rgba(255,255,255,0.08)",
@@ -109,12 +109,12 @@ export default function SignupPage() {
       {/* LEFT PANEL */}
       <div className="hidden lg:flex flex-col w-[58%] relative overflow-hidden" style={{ backgroundColor: "#04070d" }}>
         <div className="absolute inset-0" style={{
-          backgroundImage: `linear-gradient(color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent) 1px, transparent 1px),
-                            linear-gradient(90deg, color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent) 1px, transparent 1px)`,
+          backgroundImage: `linear-gradient(color-mix(in srgb, #b79832 4%, transparent) 1px, transparent 1px),
+                            linear-gradient(90deg, color-mix(in srgb, #b79832 4%, transparent) 1px, transparent 1px)`,
           backgroundSize: "56px 56px",
         }} />
         <div className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full pointer-events-none" style={{
-          background: "radial-gradient(circle, color-mix(in srgb, var(--brand-dark, #b79832) 10%, transparent) 0%, transparent 65%)",
+          background: "radial-gradient(circle, color-mix(in srgb, #b79832 10%, transparent) 0%, transparent 65%)",
         }} />
         <div className="absolute -bottom-48 right-0 w-[500px] h-[500px] rounded-full pointer-events-none" style={{
           background: "radial-gradient(circle, rgba(26,127,116,0.08) 0%, transparent 65%)",
@@ -125,13 +125,13 @@ export default function SignupPage() {
           </div>
           <div className="flex-1 flex flex-col justify-center max-w-2xl">
             <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full border w-fit"
-              style={{ borderColor: "color-mix(in srgb, var(--brand-dark, #b79832) 30%, transparent)", backgroundColor: "color-mix(in srgb, var(--brand-dark, #b79832) 7%, transparent)" }}>
-              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "var(--brand-dark, #b79832)" }} />
-              <span className="text-xs font-medium tracking-widest uppercase" style={{ color: "var(--brand-dark, #b79832)" }}>Empezar ahora</span>
+              style={{ borderColor: "color-mix(in srgb, #b79832 30%, transparent)", backgroundColor: "color-mix(in srgb, #b79832 7%, transparent)" }}>
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#b79832" }} />
+              <span className="text-xs font-medium tracking-widest uppercase" style={{ color: "#b79832" }}>Empezar ahora</span>
             </div>
             <h1 className="text-6xl font-bold leading-[1.1] mb-6" style={{ color: "#f8fafc", fontFamily: "var(--font-outfit)", letterSpacing: "-0.02em" }}>
               Automatizá tu equipo{" "}
-              <span style={{ color: "var(--brand-dark, #b79832)" }}>de ventas.</span>
+              <span style={{ color: "#b79832" }}>de ventas.</span>
             </h1>
             <p className="text-lg leading-relaxed mb-10" style={{ color: "#d9dee2", opacity: 0.7 }}>
               Lead generation, outreach multicanal y gestión de campañas. Todo en un lugar, potenciado por IA.
@@ -144,14 +144,14 @@ export default function SignupPage() {
           </div>
         </div>
         <div className="absolute right-0 top-0 bottom-0 w-px" style={{
-          background: "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--brand-dark, #b79832) 15%, transparent) 30%, color-mix(in srgb, var(--brand-dark, #b79832) 15%, transparent) 70%, transparent)",
+          background: "linear-gradient(to bottom, transparent, color-mix(in srgb, #b79832 15%, transparent) 30%, color-mix(in srgb, #b79832 15%, transparent) 70%, transparent)",
         }} />
       </div>
 
       {/* RIGHT PANEL */}
       <div className="flex-1 flex items-center justify-center p-8 relative" style={{ backgroundColor: "#06090f" }}>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 pointer-events-none" style={{
-          background: "radial-gradient(circle, color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent) 0%, transparent 70%)",
+          background: "radial-gradient(circle, color-mix(in srgb, #b79832 4%, transparent) 0%, transparent 70%)",
         }} />
 
         <div className="w-full max-w-md relative z-10">
@@ -165,7 +165,7 @@ export default function SignupPage() {
               <p className="text-sm leading-relaxed mb-6" style={{ color: "rgba(217,222,226,0.6)" }}>
                 We sent a confirmation link to <strong style={{ color: "#f8fafc" }}>{email}</strong>. Click it to activate your account.
               </p>
-              <a href="/login" className="text-xs font-semibold hover:underline" style={{ color: "var(--brand-dark, #b79832)" }}>
+              <a href="/login" className="text-xs font-semibold hover:underline" style={{ color: "#b79832" }}>
                 Back to login →
               </a>
             </div>
@@ -265,7 +265,7 @@ export default function SignupPage() {
 
                 <button type="submit" disabled={loading || !canSubmit}
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] disabled:opacity-40"
-                  style={{ backgroundColor: "var(--brand-dark, #b79832)", color: "#04070d" }}>
+                  style={{ backgroundColor: "#b79832", color: "#04070d" }}>
                   {loading ? (
                     <span className="flex items-center gap-2">
                       <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
@@ -279,7 +279,7 @@ export default function SignupPage() {
 
               <p className="text-center text-xs mt-6" style={{ color: "rgba(217,222,226,0.4)" }}>
                 Already have an account?{" "}
-                <a href="/login" className="font-semibold hover:underline" style={{ color: "var(--brand-dark, #b79832)" }}>Sign in</a>
+                <a href="/login" className="font-semibold hover:underline" style={{ color: "#b79832" }}>Sign in</a>
               </p>
             </>
           )}

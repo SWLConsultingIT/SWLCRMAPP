@@ -281,6 +281,127 @@ select:focus-visible {
 }
 .animate-fill { animation: fillBar 0.8s cubic-bezier(0.22,1,0.36,1); }
 
+/* ─── LogoLoader: cropped brand-mark PNG + gold wordmark ──────────────
+   The brand PNG has its "SWL" lettering in white, which disappears on
+   light mode. We crop the PNG to just the gold parallelograms (left
+   ~34%), then render a gold-clipped italic "SWL" wordmark beside it.
+   Both pieces work on any theme. Halo + masked shine sweep follow the
+   visible mark silhouette. */
+
+.logo-loader-stage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2vw, 28px);
+}
+
+/* Gold ambient backdrop behind the lockup — masks any tenant-tinted bleed
+   from --c-main-bg (which has a faint teal radial) so the loader is always
+   bathed in SWL gold light. */
+.logo-loader-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 18% 14% at 50% 50%, rgba(201, 168, 58, 0.20) 0%, rgba(201, 168, 58, 0.05) 50%, transparent 80%);
+  animation: logo-loader-backdrop-breathe 4.5s ease-in-out infinite;
+}
+
+@keyframes logo-loader-backdrop-breathe {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.05); }
+}
+
+[data-theme="dark"] .logo-loader-backdrop {
+  background:
+    radial-gradient(ellipse 18% 14% at 50% 50%, rgba(201, 168, 58, 0.26) 0%, rgba(201, 168, 58, 0.06) 50%, transparent 80%);
+}
+
+.logo-loader-mark-wrap {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  overflow: hidden;
+  filter: drop-shadow(0 0 14px rgba(201, 168, 58, 0.35));
+  animation: logo-loader-mark-glow 4.5s ease-in-out infinite;
+}
+
+.logo-loader-mark-img {
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Gold typographic SWL wordmark — SWL is the product identity, not the
+   tenant's, so this is hardcoded gold (does NOT honor --brand override).
+   Travels diagonally on the same 4.5s cycle as the mark halo. */
+.logo-loader-wordmark {
+  font-weight: 800;
+  letter-spacing: -0.07em;
+  font-style: italic;
+  display: inline-block;
+  transform: skewX(-2deg);
+  background: linear-gradient(
+    110deg,
+    #b79832 0%,
+    #c9a83a 28%,
+    #f0d97a 50%,
+    #c9a83a 72%,
+    #b79832 100%
+  );
+  background-size: 240% 240%;
+  background-position: 0% 0%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  filter: drop-shadow(0 0 12px rgba(201, 168, 58, 0.3));
+  animation: logo-loader-wordmark-shimmer 4.5s ease-in-out infinite;
+}
+
+@keyframes logo-loader-wordmark-shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+@keyframes logo-loader-mark-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 12px rgba(201, 168, 58, 0.28));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 26px rgba(201, 168, 58, 0.55))
+      drop-shadow(0 0 64px rgba(201, 168, 58, 0.18));
+  }
+}
+
+@keyframes logo-loader-mark-shine {
+  0%   { background-position: -130% 50%; opacity: 0; }
+  20%  { opacity: 1; }
+  60%  { opacity: 1; }
+  100% { background-position: 230% 50%;  opacity: 0; }
+}
+.logo-loader-mark-shine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 38%,
+    rgba(255, 250, 220, 0.85) 50%,
+    transparent 62%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: logo-loader-mark-shine 4.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+[data-theme="dark"] .logo-loader-mark-wrap {
+  /* Slightly hotter glow on dark background so the gold reads. */
+  filter: drop-shadow(0 0 22px rgba(201, 168, 58, 0.55));
+}
+
 /* ─── Table row hover ─── */
 .table-row-hover:hover {
   background-color: rgba(201,168,58,0.05) !important;

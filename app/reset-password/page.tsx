@@ -46,8 +46,8 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-8" style={{ backgroundColor: "#04070d", fontFamily: "var(--font-inter)" }}>
       <div className="absolute top-0 left-0 w-full h-full" style={{
-        backgroundImage: `linear-gradient(color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent) 1px, transparent 1px),
-                          linear-gradient(90deg, color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent) 1px, transparent 1px)`,
+        backgroundImage: `linear-gradient(color-mix(in srgb, #b79832 4%, transparent) 1px, transparent 1px),
+                          linear-gradient(90deg, color-mix(in srgb, #b79832 4%, transparent) 1px, transparent 1px)`,
         backgroundSize: "56px 56px",
       }} />
 
@@ -66,7 +66,7 @@ export default function ResetPasswordPage() {
             <p className="text-sm mb-6" style={{ color: "rgba(217,222,236,0.6)" }}>
               Request a new link from &quot;Forgot password&quot;.
             </p>
-            <a href="/forgot-password" className="text-xs font-semibold hover:underline" style={{ color: "var(--brand-dark, #b79832)" }}>
+            <a href="/forgot-password" className="text-xs font-semibold hover:underline" style={{ color: "#b79832" }}>
               Request new link →
             </a>
           </div>
@@ -96,9 +96,9 @@ export default function ResetPasswordPage() {
                     minLength={6}
                     autoFocus
                     onFocus={e => {
-                      e.currentTarget.style.borderColor = "color-mix(in srgb, var(--brand-dark, #b79832) 50%, transparent)";
-                      e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent)";
-                      e.currentTarget.style.boxShadow = "0 0 0 4px color-mix(in srgb, var(--brand-dark, #b79832) 12%, transparent)";
+                      e.currentTarget.style.borderColor = "color-mix(in srgb, #b79832 50%, transparent)";
+                      e.currentTarget.style.backgroundColor = "color-mix(in srgb, #b79832 4%, transparent)";
+                      e.currentTarget.style.boxShadow = "0 0 0 4px color-mix(in srgb, #b79832 12%, transparent)";
                     }}
                     onBlur={e => {
                       e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
@@ -106,7 +106,7 @@ export default function ResetPasswordPage() {
                       e.currentTarget.style.boxShadow = "none";
                     }}
                   />
-                  <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-100" style={{ color: "var(--brand-dark, #b79832)", zIndex: 10 }}>
+                  <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-100" style={{ color: "#b79832", zIndex: 10 }}>
                     {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
                   </button>
                 </div>
@@ -124,9 +124,9 @@ export default function ResetPasswordPage() {
                   autoComplete="new-password"
                   minLength={6}
                   onFocus={e => {
-                    e.currentTarget.style.borderColor = "color-mix(in srgb, var(--brand-dark, #b79832) 50%, transparent)";
-                    e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent)";
-                    e.currentTarget.style.boxShadow = "0 0 0 4px color-mix(in srgb, var(--brand-dark, #b79832) 12%, transparent)";
+                    e.currentTarget.style.borderColor = "color-mix(in srgb, #b79832 50%, transparent)";
+                    e.currentTarget.style.backgroundColor = "color-mix(in srgb, #b79832 4%, transparent)";
+                    e.currentTarget.style.boxShadow = "0 0 0 4px color-mix(in srgb, #b79832 12%, transparent)";
                   }}
                   onBlur={e => {
                     e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
@@ -145,7 +145,7 @@ export default function ResetPasswordPage() {
 
               <button type="submit" disabled={loading || !password || !confirm}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] disabled:opacity-40"
-                style={{ backgroundColor: "var(--brand-dark, #b79832)", color: "#04070d" }}>
+                style={{ backgroundColor: "#b79832", color: "#04070d" }}>
                 {loading ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />

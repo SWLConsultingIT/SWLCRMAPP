@@ -7,6 +7,7 @@ import Link from "next/link";
 import DashboardHero from "@/components/DashboardHero";
 import DashboardStats from "@/components/DashboardStats";
 import DashboardTabs from "@/components/DashboardTabs";
+import ReliabilityBanner from "@/components/ReliabilityBanner";
 import ReportsPage from "@/app/reports/page";
 
 const gold = "var(--brand, #c9a83a)";
@@ -182,6 +183,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="p-6 w-full">
+      <ReliabilityBanner />
       <DashboardHero />
 
       <DashboardTabs>

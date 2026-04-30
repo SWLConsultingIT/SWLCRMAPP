@@ -4,6 +4,142 @@ const LANG_MAP: Record<string, string> = {
   EN: "English", IT: "Italian", ES: "Spanish", FR: "French", DE: "German",
 };
 
+// Generic patterns that indicate a share/widget/intent URL — not a real account.
+// These appear in tweet/share buttons, OAuth dialogs, embedded plugins, etc.
+const SHARE_PATH_BLOCKLIST = [
+  "/intent/", "/share", "/sharer", "/sharing/", "/dialog/", "/plugins/",
+  "/embed/", "/oauth", "/login", "/signup", "/help", "/about", "/privacy",
+  "/terms", "/policies", "/i/flow", "/home", "/explore", "/search",
+];
+
+// Reserved handles that aren't real company accounts (used by share widgets,
+// generic landing links, or platform-internal pages).
+const RESERVED_HANDLES = new Set([
+  "share", "sharer", "intent", "home", "explore", "login", "signup", "help",
+  "about", "privacy", "terms", "policies", "settings", "profile", "tv",
+  "watch", "channel", "user", "c", "embed", "p", "reel", "stories",
+]);
+
+function isShareUrl(url: string): boolean {
+  const lower = url.toLowerCase();
+  return SHARE_PATH_BLOCKLIST.some(p => lower.includes(p));
+}
+
+function cleanUrl(url: string): string {
+  // Drop query string + fragment, then trim trailing slash.
+  return url.split("?")[0].split("#")[0].replace(/\/+$/, "");
+}
+
+function firstHandleSegment(pathname: string): string | null {
+  const seg = pathname.replace(/^\/+/, "").split("/")[0] ?? "";
+  return seg ? seg.toLowerCase() : null;
+}
+
+function extractAllHrefs(html: string, hostPattern: RegExp): string[] {
+  const out: string[] = [];
+  const re = new RegExp(`href=["'](https?:\\/\\/[^"'\\s]*${hostPattern.source}[^"'\\s]*)["']`, "gi");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) out.push(m[1]);
+  return out;
+}
+
+function pickFirst<T>(arr: T[], predicate: (v: T) => boolean): T | null {
+  for (const v of arr) if (predicate(v)) return v;
+  return null;
+}
+
+function extractSocialLinks(html: string): {
+  linkedin_url: string;
+  instagram_url: string;
+  twitter_url: string;
+  facebook_url: string;
+  youtube_url: string;
+  tiktok_url: string;
+} {
+  // LinkedIn — must be /company/<slug> or /in/<slug>. Reject share/widget URLs.
+  const linkedin = pickFirst(
+    extractAllHrefs(html, /linkedin\.com/),
+    (u) => {
+      if (isShareUrl(u)) return false;
+      try {
+        const p = new URL(u).pathname.toLowerCase();
+        return /^\/(company|school|in)\/[^/]+/.test(p);
+      } catch { return false; }
+    },
+  );
+
+  // Instagram — must have a non-reserved handle as the first path segment.
+  const instagram = pickFirst(
+    extractAllHrefs(html, /instagram\.com/),
+    (u) => {
+      if (isShareUrl(u)) return false;
+      try {
+        const handle = firstHandleSegment(new URL(u).pathname);
+        return !!handle && !RESERVED_HANDLES.has(handle) && handle !== "accounts";
+      } catch { return false; }
+    },
+  );
+
+  // Twitter / X — require a real handle (not /intent/tweet, not /share, not just root).
+  const twitter = pickFirst(
+    extractAllHrefs(html, /(?:twitter|x)\.com/),
+    (u) => {
+      if (isShareUrl(u)) return false;
+      try {
+        const handle = firstHandleSegment(new URL(u).pathname);
+        return !!handle && !RESERVED_HANDLES.has(handle) && handle !== "i";
+      } catch { return false; }
+    },
+  );
+
+  // Facebook — reject sharer.php, dialog, plugins, tr (pixel), watch, etc.
+  const facebook = pickFirst(
+    extractAllHrefs(html, /facebook\.com/),
+    (u) => {
+      if (isShareUrl(u)) return false;
+      try {
+        const p = new URL(u).pathname.toLowerCase();
+        if (/^\/(sharer|dialog|plugins|tr|watch|events|groups|marketplace)/.test(p)) return false;
+        if (p === "" || p === "/") return false;
+        return /^\/[a-z0-9._-]+/i.test(p);
+      } catch { return false; }
+    },
+  );
+
+  // YouTube — only @handle, /channel/<id>, /c/<name>, or /user/<name>.
+  const youtube = pickFirst(
+    extractAllHrefs(html, /youtube\.com/),
+    (u) => {
+      if (isShareUrl(u)) return false;
+      try {
+        const p = new URL(u).pathname;
+        return /^\/(@[^/]+|channel\/[^/]+|c\/[^/]+|user\/[^/]+)/i.test(p);
+      } catch { return false; }
+    },
+  );
+
+  // TikTok — must be /@handle (real account), not /share/, /tag/, etc.
+  const tiktok = pickFirst(
+    extractAllHrefs(html, /tiktok\.com/),
+    (u) => {
+      if (isShareUrl(u)) return false;
+      try {
+        const p = new URL(u).pathname;
+        return /^\/@[^/]+/.test(p);
+      } catch { return false; }
+    },
+  );
+
+  return {
+    linkedin_url: linkedin ? cleanUrl(linkedin) : "",
+    instagram_url: instagram ? cleanUrl(instagram) : "",
+    twitter_url: twitter ? cleanUrl(twitter) : "",
+    facebook_url: facebook ? cleanUrl(facebook) : "",
+    youtube_url: youtube ? cleanUrl(youtube) : "",
+    tiktok_url: tiktok ? cleanUrl(tiktok) : "",
+  };
+}
+
 export async function POST(req: NextRequest) {
   const { url, lang = "EN" } = await req.json();
   const language = LANG_MAP[lang] ?? "English";
@@ -44,22 +180,10 @@ export async function POST(req: NextRequest) {
     const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
     const ogDesc = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']*)["']/i);
 
-    // Extract social links from HTML
-    const linkedinMatch = html.match(/href=["'](https?:\/\/(?:www\.)?linkedin\.com\/company\/[^"'\s]+)["']/i);
-    const instagramMatch = html.match(/href=["'](https?:\/\/(?:www\.)?instagram\.com\/[^"'\s]+)["']/i);
-    const twitterMatch = html.match(/href=["'](https?:\/\/(?:www\.)?(?:twitter|x)\.com\/[^"'\s]+)["']/i);
-    const facebookMatch = html.match(/href=["'](https?:\/\/(?:www\.)?facebook\.com\/[^"'\s]+)["']/i);
-    const youtubeMatch = html.match(/href=["'](https?:\/\/(?:www\.)?youtube\.com\/[^"'\s]+)["']/i);
-    const tiktokMatch = html.match(/href=["'](https?:\/\/(?:www\.)?tiktok\.com\/@[^"'\s]+)["']/i);
-
-    const socialLinks = {
-      linkedin_url: linkedinMatch?.[1] ?? "",
-      instagram_url: instagramMatch?.[1] ?? "",
-      twitter_url: twitterMatch?.[1] ?? "",
-      facebook_url: facebookMatch?.[1] ?? "",
-      youtube_url: youtubeMatch?.[1] ?? "",
-      tiktok_url: tiktokMatch?.[1] ?? "",
-    };
+    // Extract social links from HTML — collect all candidates, then filter out
+    // share/intent/sharer URLs (they're widgets pointing to the social network,
+    // not the company's own account) and validate per-platform path shape.
+    const socialLinks = extractSocialLinks(html);
 
     // 2. Call OpenAI to extract structured info
     const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {

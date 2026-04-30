@@ -15,7 +15,12 @@ export const metadata: Metadata = {
   description: "Growth Engine — SWL Consulting",
 };
 
-const themeScript = `try{var t=localStorage.getItem('swl-theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}`;
+// Belt-and-braces: the server already sets `data-theme="dark"` on <html> when
+// the swl-theme cookie says dark, so SSR is flash-free. This script only runs
+// on the client and re-syncs the attribute against the cookie in case the
+// server snapshot is stale (e.g. after an in-tab theme change but before the
+// next full reload).
+const themeScript = `try{var m=document.cookie.match(/(?:^|;\\s*)swl-theme=(light|dark)/);if(m&&m[1]==='dark')document.documentElement.setAttribute('data-theme','dark');else if(m&&m[1]==='light')document.documentElement.removeAttribute('data-theme');}catch(e){}`;
 
 // Public/pre-auth routes must always show SWL default branding — never inherit a tenant's color.
 const PUBLIC_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password", "/auth/callback"];
@@ -52,9 +57,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const pathname = headerStore.get("x-pathname") ?? "";
   const isPublicRoute = PUBLIC_ROUTES.some(r => pathname === r || pathname.startsWith(`${r}/`));
   const brandCss = isPublicRoute ? null : getBrandStyle(cookieStore.get("swl-brand")?.value);
+  // Read the theme cookie server-side so we paint the dark backdrop on the
+  // first byte. Without this the page renders light → ThemeProvider mounts →
+  // pulls from DB → flips to dark, producing a visible flash on every reload.
+  const themeCookie = cookieStore.get("swl-theme")?.value;
+  const isDark = themeCookie === "dark";
 
   return (
-    <html lang="es" className={`${inter.variable} ${outfit.variable} h-full`} suppressHydrationWarning>
+    <html
+      lang="es"
+      className={`${inter.variable} ${outfit.variable} h-full`}
+      data-theme={isDark ? "dark" : undefined}
+      suppressHydrationWarning
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
         {isPublicRoute && <script dangerouslySetInnerHTML={{ __html: PUBLIC_BRAND_CLEAR_SCRIPT }} />}

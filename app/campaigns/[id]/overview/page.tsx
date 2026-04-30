@@ -59,11 +59,17 @@ async function getData(id: string) {
     ? await supabase.from("lead_replies").select("lead_id, classification, reply_text, received_at, channel").in("lead_id", leadIds).order("received_at", { ascending: false })
     : { data: [] };
 
-  // Campaign request for templates
+  // Campaign request for templates — must filter by status=approved + take
+  // the most recent. The same name can have a rejected version sitting next
+  // to the approved one; without this filter we'd render stale prompts from
+  // the rejected request (the bug behind the "running a recruitment agency"
+  // ghost note in the Pathway campaign overview).
   const { data: campRequest } = await supabase
     .from("campaign_requests")
     .select("message_prompts")
     .eq("name", campaign.name)
+    .eq("status", "approved")
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 

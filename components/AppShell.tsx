@@ -7,6 +7,8 @@ import PositiveReplyBanner from "@/components/PositiveReplyBanner";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 import CommandPalette from "@/components/CommandPalette";
 import NavigationProgress from "@/components/NavigationProgress";
+import NavigationLoader from "@/components/NavigationLoader";
+import DemoBanner from "@/components/DemoBanner";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -23,9 +25,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex h-full">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
+          <DemoBanner />
           <TopHeader />
           <main className="flex-1 overflow-y-auto main-bg">
-            {children}
+            <NavigationLoader>{children}</NavigationLoader>
           </main>
         </div>
         <PositiveReplyBanner />

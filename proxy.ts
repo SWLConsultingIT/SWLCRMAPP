@@ -39,10 +39,35 @@ export async function proxy(req: NextRequest) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // `getUser()` can throw `AuthApiError: Invalid Refresh Token` when the
+  // refresh token in the cookie has expired or was invalidated server-side
+  // (e.g. after a Supabase project key rotation, manual session revocation,
+  // or simply leaving the tab open past the refresh window). Treat any auth
+  // error as "no user" + clear the stale Supabase cookies so the next request
+  // doesn't keep retrying with the same bad token.
+  let user: { id: string } | null = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    user = null;
+  }
 
   if (!user) {
-    return NextResponse.redirect(new URL("/login", req.url));
+    const redirectRes = NextResponse.redirect(new URL("/login", req.url));
+    // Mirror any Set-Cookie headers Supabase wrote on `response` (e.g. cleared
+    // session cookies) onto the redirect, so the client actually sheds them.
+    for (const c of response.cookies.getAll()) {
+      redirectRes.cookies.set(c.name, c.value, c);
+    }
+    // Belt-and-braces: explicitly clear common Supabase auth cookies in case
+    // the SDK didn't (it doesn't always when the refresh token is malformed).
+    for (const name of req.cookies.getAll().map(c => c.name)) {
+      if (name.startsWith("sb-") && (name.endsWith("-auth-token") || name.includes("auth-token"))) {
+        redirectRes.cookies.set(name, "", { path: "/", maxAge: 0, sameSite: "lax" });
+      }
+    }
+    return redirectRes;
   }
 
   // Heartbeat — update user_profiles.last_seen_at at most once per 60s. We
