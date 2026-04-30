@@ -33,6 +33,13 @@ export async function POST(req: NextRequest) {
     facebook_url?: string | null;
     youtube_url?: string | null;
     tiktok_url?: string | null;
+    // Newer scraper fields — surface the richer data for downstream consumers
+    // (the demo AI generator already reads bio.industry / target_market /
+    // main_services; key_clients gives it brand names to riff on).
+    key_clients?: string[] | null;
+    target_buyer_seniority?: string[] | null;
+    employees_range?: string | null;
+    founded_year?: string | null;
     /** Optional shape config — when present, the new demo is auto-populated
      *  with ICPs + leads + campaigns + opportunities in the same request. */
     shape?: Partial<DemoShapeConfig>;
@@ -69,7 +76,7 @@ export async function POST(req: NextRequest) {
     tone_by_channel: { default: "professional", linkedin: null, email: null, call: null },
     languages: ["English"],
     certifications: [],
-    key_clients: [],
+    key_clients: Array.isArray(body.key_clients) ? body.key_clients.slice(0, 8) : [],
     case_studies: [],
     resources: [],
   };

@@ -17,6 +17,12 @@ type ScrapedBio = {
   main_services?: string[] | null;
   location?: string | null;
   description?: string | null;
+  // Newer fields from the enhanced scraper. All optional — the AI handles
+  // missing data gracefully but uses these when present to anchor lead +
+  // ICP generation in the seller's actual reality.
+  key_clients?: string[] | null;
+  target_buyer_seniority?: string[] | null;
+  employees_range?: string | null;
 };
 
 export type AiIcp = {
@@ -82,6 +88,11 @@ function userPrompt(scrape: ScrapedBio, counts: { leads: number; icps: number; c
       main_services: scrape.main_services ?? [],
       description: scrape.description,
       location: scrape.location,
+      // Anchor signals — when present, ICPs and lead seniority should
+      // explicitly mirror these instead of generic templates.
+      key_clients_to_mirror: scrape.key_clients ?? [],
+      preferred_buyer_seniority: scrape.target_buyer_seniority ?? [],
+      seller_company_size: scrape.employees_range,
     },
     counts,
     language,
