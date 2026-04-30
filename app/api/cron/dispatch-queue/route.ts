@@ -145,19 +145,20 @@ async function handle(req: NextRequest) {
 
   const svc = getSupabaseService();
 
-  // 1. Atomically claim ONE queued step-0 message: flip status to 'dispatching'
-  //    so concurrent ticks (or admin manual triggers) cannot pick the same row.
-  //    We pull a window of 10 candidates and filter to find the first eligible:
+  // 1. Atomically claim ONE queued LinkedIn message (any step): flip status to
+  //    'dispatching' so concurrent ticks cannot pick the same row.
+  //    We pull a window of 20 candidates and filter to find the first eligible:
   //      - NOT in rate-limit cooldown (4h since last_rate_limit_at)
+  //      - metadata.eligible_at <= now (or null) — gates the post-acceptance
+  //        wait (5 min for step 1) and the daysAfter waits between steps 2+
   //      - seller's 24h sent count < linkedin_daily_limit
   const { data: claimed } = await svc
     .from("campaign_messages")
-    .select("id, campaign_id, lead_id, step_number, channel, content, status, metadata, campaigns(seller_id)")
+    .select("id, campaign_id, lead_id, step_number, channel, content, status, metadata, campaigns(seller_id, sequence_steps)")
     .eq("status", "queued")
-    .eq("step_number", 0)
     .eq("channel", "linkedin")
     .order("created_at", { ascending: true })
-    .limit(10);
+    .limit(20);
 
   const RATE_LIMIT_COOLDOWN_MS = 4 * 60 * 60 * 1000;
   const DAY_MS = 24 * 60 * 60 * 1000;
@@ -194,7 +195,10 @@ async function handle(req: NextRequest) {
 
   let blockedByLimit: string[] = [];
   const candidate = (claimed ?? []).find((r: any) => {
-    // Cooldown filter
+    // Eligibility window — step 1 has +5 min after accept, step 2+ has +daysAfter days.
+    const eligibleAt = r?.metadata?.eligible_at;
+    if (eligibleAt && new Date(eligibleAt).getTime() > nowMs) return false;
+    // Cooldown filter (LinkedIn rate-limit)
     const lastRL = r?.metadata?.last_rate_limit_at;
     if (lastRL && nowMs - new Date(lastRL).getTime() <= RATE_LIMIT_COOLDOWN_MS) return false;
     // Daily limit filter
@@ -299,57 +303,135 @@ async function handle(req: NextRequest) {
     return await failMessage(svc, candidate.id, candidate.lead_id, errMsg);
   }
 
-  // 4. Build the personalized note + truncate to LinkedIn's API cap.
+  // 4. Build the personalized message + (for step 0) truncate to LinkedIn's
+  //    invite-note 300-char cap. Step 1+ DMs have no such cap (LinkedIn allows
+  //    up to ~8000 chars for messages), so we don't truncate there.
   const rawTemplate = candidate.content ?? "";
-  let note = personalizeNote(rawTemplate, lead as LeadRow, seller as SellerRow).trim();
+  const personalized = personalizeNote(rawTemplate, lead as LeadRow, seller as SellerRow).trim();
+  let outgoing = personalized;
   let truncated = false;
-  if (note.length > NOTE_MAX_LEN) {
-    note = note.slice(0, NOTE_MAX_LEN - 1).trimEnd() + "…";
+  if (candidate.step_number === 0 && outgoing.length > NOTE_MAX_LEN) {
+    outgoing = outgoing.slice(0, NOTE_MAX_LEN - 1).trimEnd() + "…";
     truncated = true;
   }
 
-  // 5. Send the actual invitation.
-  let invitationId: string | null = null;
+  // 5. Send via Unipile. Step 0 = connection invite. Step 1+ = DM.
+  let providerMessageId: string | null = null;
+  let chatId: string | null = null;
   try {
-    const inviteResp = await unipilePost(`${UNIPILE_BASE}/api/v1/users/invite`, {
-      account_id: seller.unipile_account_id,
-      provider_id: providerId,
-      message: note || undefined, // omit empty notes — LinkedIn-friendly
-    });
-    invitationId = inviteResp?.invitation_id ?? null;
+    if (candidate.step_number === 0) {
+      // Connection request with note.
+      const inviteResp = await unipilePost(`${UNIPILE_BASE}/api/v1/users/invite`, {
+        account_id: seller.unipile_account_id,
+        provider_id: providerId,
+        message: outgoing || undefined,
+      });
+      providerMessageId = inviteResp?.invitation_id ?? null;
+    } else {
+      // Step 1+ DM. For step 1 we always create a fresh chat. For step 2+
+      // we reuse the chat_id stored in step 1's metadata so all follow-ups
+      // land in the same LinkedIn thread (otherwise the lead sees N chats
+      // from the same sender, looks robotic).
+      let prevChatId: string | null = null;
+      if (candidate.step_number > 1) {
+        const { data: prevMsg } = await svc
+          .from("campaign_messages")
+          .select("metadata")
+          .eq("campaign_id", candidate.campaign_id)
+          .eq("step_number", candidate.step_number - 1)
+          .maybeSingle();
+        prevChatId = (prevMsg?.metadata as Record<string, unknown> | null)?.chat_id as string ?? null;
+      }
+
+      if (prevChatId) {
+        const msgResp = await unipilePost(`${UNIPILE_BASE}/api/v1/chats/${encodeURIComponent(prevChatId)}/messages`, {
+          text: outgoing,
+        });
+        chatId = prevChatId;
+        providerMessageId = msgResp?.id ?? msgResp?.message_id ?? null;
+      } else {
+        const chatResp = await unipilePost(`${UNIPILE_BASE}/api/v1/chats`, {
+          account_id: seller.unipile_account_id,
+          attendees_ids: [providerId],
+          text: outgoing,
+        });
+        chatId = chatResp?.chat_id ?? chatResp?.id ?? null;
+        providerMessageId = chatResp?.message_id ?? chatResp?.id ?? null;
+      }
+    }
   } catch (e: any) {
     const errMsg = e?.message ?? String(e);
-    // LinkedIn/Unipile burst protection: don't burn the message as failed —
-    // revert to queued and timestamp the cooldown so the next tick skips it.
     if (isRateLimitError(errMsg)) {
       return await requeueRateLimited(svc, candidate.id, candidate.lead_id, errMsg);
     }
     return await failMessage(svc, candidate.id, candidate.lead_id, errMsg);
   }
 
-  // 6. Mark success: message → sent, lead → contacted, persist invitation_id.
+  // 6. Mark this step sent + queue the next step (if any) with eligible_at
+  //    set to NOW + daysAfter days from sequence_steps.
   const now = new Date().toISOString();
-  await Promise.all([
+  const sequenceSteps = (campaign as any)?.sequence_steps as Array<{ channel?: string; daysAfter?: number }> | null;
+  const nextStepNumber = candidate.step_number + 1;
+  const nextStepConfig = Array.isArray(sequenceSteps) ? sequenceSteps[candidate.step_number] : null;
+  const nextDaysAfter = typeof nextStepConfig?.daysAfter === "number" ? nextStepConfig.daysAfter : null;
+
+  const nextEligibleAt = nextDaysAfter !== null
+    ? new Date(Date.now() + nextDaysAfter * 24 * 60 * 60 * 1000).toISOString()
+    : null;
+
+  const updateOps: Array<Promise<unknown>> = [
     svc.from("campaign_messages").update({
       status: "sent",
       sent_at: now,
-      provider_message_id: invitationId,
+      provider_message_id: providerMessageId,
       error_details: null,
-      metadata: { dispatched_by: "cron-dispatch-queue", truncated_note: truncated },
+      metadata: {
+        dispatched_by: "cron-dispatch-queue",
+        truncated_note: truncated,
+        ...(chatId ? { chat_id: chatId } : {}),
+      },
     }).eq("id", candidate.id),
-    svc.from("leads").update({
-      status: "contacted",
-      current_channel: "linkedin",
-    }).eq("id", lead.id),
-  ]);
+  ];
+
+  // Step 0 → mark lead contacted. Steps 1+ → also update last_step_at on campaign.
+  if (candidate.step_number === 0) {
+    updateOps.push(
+      svc.from("leads").update({ status: "contacted", current_channel: "linkedin" }).eq("id", lead.id),
+    );
+  } else {
+    updateOps.push(
+      svc.from("campaigns").update({
+        current_step: candidate.step_number,
+        last_step_at: now,
+        ...(nextEligibleAt === null ? { status: "completed" } : {}),
+      }).eq("id", candidate.campaign_id),
+    );
+  }
+
+  // Queue the next step if there's another in the sequence. Step 0 → step 1 is
+  // NOT queued here — it's queued by the Unipile accept webhook when the lead
+  // accepts. Step 1 → step 2 → step 3 are auto-queued with daysAfter delay.
+  if (candidate.step_number >= 1 && nextEligibleAt) {
+    updateOps.push(
+      svc.from("campaign_messages").update({
+        status: "queued",
+        metadata: { eligible_at: nextEligibleAt, queued_by: "cron-dispatch-queue" },
+      }).eq("campaign_id", candidate.campaign_id).eq("step_number", nextStepNumber).eq("status", "draft"),
+    );
+  }
+
+  await Promise.all(updateOps);
 
   return NextResponse.json({
     ok: true,
     processed: 1,
+    step: candidate.step_number,
     message_id: candidate.id,
     lead_id: lead.id,
-    invitation_id: invitationId,
+    provider_message_id: providerMessageId,
+    chat_id: chatId,
     note_truncated: truncated,
+    next_eligible_at: nextEligibleAt,
   });
 }
 
