@@ -1,41 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { Sparkles, LogOut } from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
 
 // Persistent gold strip rendered above TopHeader whenever the admin is
-// inside a demo tenant (cookie-driven). Self-fetches /api/auth/me; the
-// endpoint is already cache=private,max-age=30 so the cost is amortized.
-type DemoState = { active: false } | { active: true; bioId: string; companyName: string | null };
-
+// inside a demo tenant (cookie-driven). Reads demoMode from the shared
+// AuthContext — was self-fetching /api/auth/me on every mount + pathname
+// change before, which duplicated the work Sidebar/TopHeader were already
+// doing. The Provider's visibilitychange listener still keeps the banner
+// in sync if the cookie flips in another tab.
 export default function DemoBanner() {
-  const [demo, setDemo] = useState<DemoState>({ active: false });
+  const { demoMode } = useAuth();
   const [exiting, setExiting] = useState(false);
-  const pathname = usePathname();
 
-  useEffect(() => {
-    // `cache: "no-store"` is non-negotiable here — /api/auth/me ships with
-    // Cache-Control private/max-age=30 in non-demo mode, so without busting
-    // the cache the banner would lag a full minute behind cookie flips.
-    // We also re-run on pathname change so the banner reappears after a
-    // client-side nav from /admin/demos → / right after entering a demo.
-    let cancelled = false;
-    fetch("/api/auth/me", { cache: "no-store" })
-      .then(r => r.json())
-      .then(d => {
-        if (cancelled) return;
-        if (d?.demoMode?.active) {
-          setDemo({ active: true, bioId: d.demoMode.bioId, companyName: d.demoMode.companyName });
-        } else {
-          setDemo({ active: false });
-        }
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, [pathname]);
-
-  if (!demo.active) return null;
+  if (!demoMode.active) return null;
 
   async function exit() {
     setExiting(true);
@@ -80,7 +59,7 @@ export default function DemoBanner() {
           <span className="text-[10px] font-bold uppercase tracking-wider mr-2 px-1.5 py-0.5 rounded" style={{ backgroundColor: "var(--brand, #c9a83a)", color: "#04070d", letterSpacing: "0.08em" }}>
             Demo mode
           </span>
-          Viewing as <span className="font-bold" style={{ color: "var(--brand, #c9a83a)" }}>{demo.companyName ?? "demo tenant"}</span>
+          Viewing as <span className="font-bold" style={{ color: "var(--brand, #c9a83a)" }}>{demoMode.companyName ?? "demo tenant"}</span>
           <span className="hidden sm:inline ml-2 opacity-70">— your SWL data is untouched.</span>
         </p>
       </div>

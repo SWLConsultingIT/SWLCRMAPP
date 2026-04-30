@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { useLocale } from "@/lib/i18n";
+import { useAuthUser } from "@/lib/auth-context";
 import {
   LayoutDashboard, Users, Megaphone,
   Building2, Target, Shield, ChevronDown, Bell, Trophy, UserCircle, Settings,
@@ -60,11 +61,10 @@ export default function Sidebar() {
   const [callCount, setCallCount] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const [role, setRole] = useState<string>("");
-
-  useEffect(() => {
-    fetch("/api/auth/me").then(r => r.json()).then(d => setRole(d.user?.role ?? "")).catch(() => {});
-  }, []);
+  // Read from shared AuthContext — was a duplicate /api/auth/me fetch on every
+  // sidebar mount before. Saves one round-trip per navigation.
+  const authUser = useAuthUser();
+  const role = authUser?.role ?? "";
 
   useEffect(() => {
     async function fetchBadges() {

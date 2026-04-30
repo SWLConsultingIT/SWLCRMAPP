@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { C } from "@/lib/design";
+import { useAuthUser } from "@/lib/auth-context";
 import {
   Share2, Mail, Phone, AlertTriangle,
   Users, Calendar, X, Plus, Trash2, Loader2, Shield, Pencil, Save,
@@ -489,11 +490,9 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
   const [linkTarget, setLinkTarget] = useState<SellerCard | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/auth/me").then(r => r.json()).then(d => setIsAdmin(d.user?.role === "admin")).catch(() => {});
-  }, []);
+  // Was a duplicate /api/auth/me fetch — now reads from shared AuthContext.
+  const authUser = useAuthUser();
+  const isAdmin = authUser?.role === "admin";
 
   const [historyDate, setHistoryDate] = useState("");
   const [historyChannel, setHistoryChannel] = useState("all");

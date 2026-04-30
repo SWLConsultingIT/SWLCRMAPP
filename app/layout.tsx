@@ -6,6 +6,7 @@ import AppShell from "@/components/AppShell";
 import { ThemeProvider } from "@/lib/theme";
 import { LocaleProvider } from "@/lib/i18n";
 import { BrandProvider } from "@/lib/brand";
+import { AuthProvider } from "@/lib/auth-context";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const outfit = Outfit({ variable: "--font-outfit", subsets: ["latin"], weight: ["500", "600", "700", "800"] });
@@ -80,7 +81,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ThemeProvider>
           <LocaleProvider>
             <BrandProvider>
-              <AppShell>{children}</AppShell>
+              <AuthProvider>
+                <AppShell>{children}</AppShell>
+              </AuthProvider>
             </BrandProvider>
           </LocaleProvider>
         </ThemeProvider>
