@@ -86,6 +86,12 @@ export async function getUserScope(): Promise<UserScope> {
     }
   }
 
-  const isScoped = role !== "admin" && !!ownBioId;
+  // Admin is scoped to their own bio on operational pages (Dashboard, Leads,
+  // Campaigns, Opportunities) so they see SWL data, not a 'cross-tenant
+  // firehose' that the previous behavior produced. The cross-tenant view
+  // already lives in /admin and /admin/[id], which use the service role
+  // directly and bypass this scope. Demo impersonation is handled above
+  // and overrides this branch entirely.
+  const isScoped = !!ownBioId;
   return { userId: user.id, role, companyBioId: ownBioId, isScoped, isDemoMode: false, demoBioId: null };
 }
