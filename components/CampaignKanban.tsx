@@ -343,7 +343,7 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
           ))}
 
           {/* Completed column */}
-          <div className="flex-1 min-w-0 rounded-xl border" style={{ backgroundColor: C.bg, borderColor: C.border }}>
+          <div className="flex-1 min-w-0 rounded-xl border overflow-hidden" style={{ backgroundColor: C.bg, borderColor: C.border }}>
             <div className="px-3 py-2.5 border-b flex items-center justify-between"
               style={{ borderColor: C.border, backgroundColor: C.card }}>
               <div className="flex items-center gap-2">
