@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
   let populated:
     | { insertedLeads: number; insertedIcps: number; insertedCampaigns: number; wonLeads: number; lostLeads: number }
     | null = null;
+  let populateError: string | null = null;
   if (body.shape) {
     const shapeConfig = {
       totalLeads: body.shape.totalLeads ?? 20,
@@ -103,14 +104,26 @@ export async function POST(req: NextRequest) {
       industryPreset: (body.shape.industryPreset as DemoIndustryKey | undefined)
         ?? autoIndustryPreset(data.industry),
     };
-    populated = await populateDemo(svc, data.id, {
-      industry: data.industry,
-      target_market: data.target_market,
-      value_proposition: data.value_proposition,
-      main_services: data.main_services,
-      location: data.location,
-    }, shapeConfig);
+    try {
+      populated = await populateDemo(svc, data.id, {
+        industry: data.industry,
+        target_market: data.target_market,
+        value_proposition: data.value_proposition,
+        main_services: data.main_services,
+        location: data.location,
+      }, shapeConfig);
+    } catch (e: unknown) {
+      // Bio is already created; surface the population failure so the admin
+      // can retry via the "Build demo data" modal instead of being lied to.
+      populateError = e instanceof Error ? e.message : String(e);
+    }
   }
 
-  return NextResponse.json({ ok: true, bioId: data.id, companyName: data.company_name, populated });
+  return NextResponse.json({
+    ok: true,
+    bioId: data.id,
+    companyName: data.company_name,
+    populated,
+    ...(populateError ? { populateError } : {}),
+  });
 }

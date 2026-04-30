@@ -44,15 +44,19 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     config.lostLeads = Math.max(0, config.lostLeads - overflow);
   }
 
-  const result = await populateDemo(svc, bio.id, {
-    industry: bio.industry,
-    target_market: bio.target_market,
-    value_proposition: bio.value_proposition,
-    main_services: bio.main_services,
-    location: bio.location,
-  }, config);
-
-  return NextResponse.json({ ok: true, ...result });
+  try {
+    const result = await populateDemo(svc, bio.id, {
+      industry: bio.industry,
+      target_market: bio.target_market,
+      value_proposition: bio.value_proposition,
+      main_services: bio.main_services,
+      location: bio.location,
+    }, config);
+    return NextResponse.json({ ok: true, ...result });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ ok: false, error: msg }, { status: 500 });
+  }
 }
 
 function clamp(n: number, min: number, max: number): number {

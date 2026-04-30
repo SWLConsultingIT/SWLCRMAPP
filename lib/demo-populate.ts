@@ -228,18 +228,48 @@ export async function populateDemo(
     status: "approved",
     execution_status: "completed",
   }));
-  const insertedIcps = icpRows.length > 0
-    ? (await svc.from("icp_profiles").insert(icpRows).select("id")).data ?? []
-    : [];
+  let insertedIcps: Array<{ id: string }> = [];
+  if (icpRows.length > 0) {
+    const { data, error } = await svc.from("icp_profiles").insert(icpRows).select("id");
+    if (error) throw new Error(`ICP insert failed: ${error.message}`);
+    insertedIcps = data ?? [];
+  }
 
   // 2) Leads (with status distribution) ────────────────────────────────────
+  // Note: dedupe leads by email + linkedin_url BEFORE inserting. Postgres rejects
+  // the entire batch if even one row violates a unique constraint, which would
+  // mask the bug as "0 leads inserted, no error" (the symptom we hit on
+  // GrupoIEB demo 2026-04-30 — turned out OpenAI generated 2 leads with
+  // identical emails because emailFor uses slug(company) which collapses for
+  // similar company names).
   const seedLeads = ai?.leads && ai.leads.length > 0
     ? ai.leads
     : pickSeedLeads(industryPreset, totalLeads);
   const statuses = distributeStatuses(totalLeads, wonLeads, lostLeads);
+  const seenEmails = new Set<string>();
+  const seenLinkedIns = new Set<string>();
   const leadRows = seedLeads.map((s, i) => {
+    // Dedupe email: collapse-prone emailFor (slug(company)) can yield the
+    // same address for similar company names. Suffix duplicates so the unique
+    // constraint doesn't reject the entire batch.
+    const baseEmail = emailFor(s.first, s.last, s.company);
+    let email = baseEmail;
+    let suffix = 1;
+    while (seenEmails.has(email)) {
+      const [local, domain] = baseEmail.split("@");
+      email = `${local}${suffix}@${domain}`;
+      suffix++;
+    }
+    seenEmails.add(email);
+
+    // Same defensive dedupe for linkedin URL.
+    let linkedin = s.linkedin || "";
+    if (linkedin && seenLinkedIns.has(linkedin)) {
+      linkedin = `${linkedin}-${i}`;
+    }
+    if (linkedin) seenLinkedIns.add(linkedin);
+
     const status = statuses[i] ?? "new";
-    // Round-robin: each lead lands on a different ICP if we created any.
     const icpId = insertedIcps.length > 0 ? insertedIcps[i % insertedIcps.length].id : null;
     return {
       company_bio_id: bioId,
@@ -248,14 +278,13 @@ export async function populateDemo(
       primary_last_name: s.last,
       primary_title_role: s.role,
       primary_seniority: s.seniority,
-      primary_work_email: emailFor(s.first, s.last, s.company),
-      primary_linkedin_url: s.linkedin,
+      primary_work_email: email,
+      primary_linkedin_url: linkedin,
       company_name: s.company,
       company_industry: s.industry,
       company_country: s.country,
       employees: s.employees,
       status,
-      // Won leads also get an opportunity_stage for the Opportunities page.
       opportunity_stage: status === "closed_won" ? "won" : status === "qualified" ? "negotiation" : null,
       allow_linkedin: true,
       allow_email: true,
@@ -265,9 +294,12 @@ export async function populateDemo(
     };
   });
 
-  const insertedLeads = leadRows.length > 0
-    ? (await svc.from("leads").insert(leadRows).select("id, status")).data ?? []
-    : [];
+  let insertedLeads: Array<{ id: string; status: string }> = [];
+  if (leadRows.length > 0) {
+    const { data, error } = await svc.from("leads").insert(leadRows).select("id, status");
+    if (error) throw new Error(`Lead insert failed (${leadRows.length} rows): ${error.message}`);
+    insertedLeads = (data ?? []) as Array<{ id: string; status: string }>;
+  }
 
   // 3) Campaigns ───────────────────────────────────────────────────────────
   // One row per (campaign-name, lead) since that's how the schema models it.
@@ -305,7 +337,8 @@ export async function populateDemo(
       .filter((r): r is NonNullable<typeof r> => r !== null);
 
     if (campaignRows.length > 0) {
-      const { data: campRes } = await svc.from("campaigns").insert(campaignRows).select("id, lead_id");
+      const { data: campRes, error: campErr } = await svc.from("campaigns").insert(campaignRows).select("id, lead_id");
+      if (campErr) throw new Error(`Campaign insert failed (${campaignRows.length} rows): ${campErr.message}`);
       insertedCampaigns = campRes?.length ?? 0;
 
       // 4) lead_replies for won/qualified (positive) and lost (negative). The
