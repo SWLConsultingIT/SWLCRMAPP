@@ -147,28 +147,75 @@ async function handle(req: NextRequest) {
 
   // 1. Atomically claim ONE queued step-0 message: flip status to 'dispatching'
   //    so concurrent ticks (or admin manual triggers) cannot pick the same row.
-  //    We pull a window of 10 candidates so we can skip rows that are still in
-  //    LinkedIn rate-limit cooldown (last_rate_limit_at within RATE_LIMIT_COOLDOWN_MS).
+  //    We pull a window of 10 candidates and filter to find the first eligible:
+  //      - NOT in rate-limit cooldown (4h since last_rate_limit_at)
+  //      - seller's 24h sent count < linkedin_daily_limit
   const { data: claimed } = await svc
     .from("campaign_messages")
-    .select("id, campaign_id, lead_id, step_number, channel, content, status, metadata")
+    .select("id, campaign_id, lead_id, step_number, channel, content, status, metadata, campaigns(seller_id)")
     .eq("status", "queued")
     .eq("step_number", 0)
     .eq("channel", "linkedin")
     .order("created_at", { ascending: true })
     .limit(10);
 
-  const RATE_LIMIT_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4h after a rate-limit hit, skip the row
+  const RATE_LIMIT_COOLDOWN_MS = 4 * 60 * 60 * 1000;
+  const DAY_MS = 24 * 60 * 60 * 1000;
   const nowMs = Date.now();
+
+  // Pre-compute daily sent counts and daily limits for the sellers in our window.
+  const sellerIds = Array.from(new Set(
+    (claimed ?? []).map((r: any) => r?.campaigns?.seller_id).filter(Boolean) as string[],
+  ));
+
+  const sentCounts: Record<string, number> = {};
+  const dailyLimits: Record<string, number> = {};
+  if (sellerIds.length > 0) {
+    const since24h = new Date(nowMs - DAY_MS).toISOString();
+    const [{ data: sentRows }, { data: sellerRows }] = await Promise.all([
+      svc.from("campaign_messages")
+        .select("id, campaigns!inner(seller_id)")
+        .eq("status", "sent")
+        .eq("channel", "linkedin")
+        .gte("sent_at", since24h)
+        .in("campaigns.seller_id", sellerIds),
+      svc.from("sellers")
+        .select("id, linkedin_daily_limit")
+        .in("id", sellerIds),
+    ]);
+    for (const row of sentRows ?? []) {
+      const sid = (row as any)?.campaigns?.seller_id;
+      if (sid) sentCounts[sid] = (sentCounts[sid] ?? 0) + 1;
+    }
+    for (const s of sellerRows ?? []) {
+      dailyLimits[(s as any).id] = (s as any).linkedin_daily_limit ?? 20;
+    }
+  }
+
+  let blockedByLimit: string[] = [];
   const candidate = (claimed ?? []).find((r: any) => {
+    // Cooldown filter
     const lastRL = r?.metadata?.last_rate_limit_at;
-    if (!lastRL) return true;
-    return nowMs - new Date(lastRL).getTime() > RATE_LIMIT_COOLDOWN_MS;
+    if (lastRL && nowMs - new Date(lastRL).getTime() <= RATE_LIMIT_COOLDOWN_MS) return false;
+    // Daily limit filter
+    const sid = r?.campaigns?.seller_id;
+    if (!sid) return true; // missing seller_id is caught downstream as failure
+    const sent = sentCounts[sid] ?? 0;
+    const cap = dailyLimits[sid] ?? 20;
+    if (sent >= cap) {
+      if (!blockedByLimit.includes(sid)) blockedByLimit.push(sid);
+      return false;
+    }
+    return true;
   }) as QueuedRow | undefined;
 
   if (!candidate) {
     const totalQueued = claimed?.length ?? 0;
-    return NextResponse.json({ ok: true, processed: 0, reason: totalQueued > 0 ? "all queued rows in rate-limit cooldown" : "no queued messages" });
+    let reason: string;
+    if (totalQueued === 0) reason = "no queued messages";
+    else if (blockedByLimit.length > 0) reason = `daily_limit_reached for sellers: ${blockedByLimit.join(",")}`;
+    else reason = "all queued rows in rate-limit cooldown";
+    return NextResponse.json({ ok: true, processed: 0, reason, blocked_sellers: blockedByLimit });
   }
 
   // Optimistic concurrency: only proceed if our UPDATE actually flipped the row
