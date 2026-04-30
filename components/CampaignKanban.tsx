@@ -16,6 +16,11 @@ const channelMeta: Record<string, { icon: React.ElementType; color: string; labe
 };
 
 type SequenceStep = { channel: string; daysAfter: number };
+type Step0State = {
+  status: string;
+  lastRateLimitAt: string | null;
+  errorDetails: string | null;
+} | null;
 type Campaign = {
   id: string;
   status: string;
@@ -31,7 +36,44 @@ type Campaign = {
     is_priority?: boolean | null;
   } | null;
   sellers: { name: string } | null;
+  step_0?: Step0State;
 };
+
+// Visual state of the connection request (step 0). Only meaningful while the
+// campaign is in column 1 (current_step = 0) — once they accept and step 1
+// fires, the lead has moved on and the badge is no longer relevant.
+type CardBadge = { label: string; color: string; bg: string };
+function deriveCardBadge(camp: Campaign): CardBadge | null {
+  // Past column 1 = post-acceptance, no badge needed (the column itself tells the story).
+  if ((camp.current_step ?? 0) > 0) return null;
+  const s = camp.step_0;
+  if (!s) return null;
+
+  if (s.status === "sent") {
+    return { label: "REQUEST SENT", color: "#16A34A", bg: "#DCFCE7" };
+  }
+  if (s.status === "failed") {
+    return { label: "FAILED", color: "#DC2626", bg: "#FEE2E2" };
+  }
+  if (s.status === "dispatching") {
+    return { label: "SENDING…", color: "#7C3AED", bg: "#EDE9FE" };
+  }
+  if (s.status === "queued") {
+    // Surface cooldown when a rate-limit hit recently — that row is parked
+    // for ~4h so admins can tell it apart from a fresh queue entry.
+    if (s.lastRateLimitAt) {
+      const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
+      if (new Date(s.lastRateLimitAt).getTime() > fourHoursAgo) {
+        return { label: "COOLDOWN", color: "#D97706", bg: "#FFFBEB" };
+      }
+    }
+    return { label: "QUEUED", color: "#0A66C2", bg: "#DBEAFE" };
+  }
+  if (s.status === "draft") {
+    return { label: "DRAFT", color: "#6B7280", bg: "#F3F4F6" };
+  }
+  return null;
+}
 
 type Props = {
   sequence: SequenceStep[];
@@ -104,8 +146,22 @@ function LeadCard({ camp, isDragging }: { camp: Campaign; isDragging?: boolean }
             <User size={9} /> {camp.sellers.name}
           </span>
         ) : <span />}
-        {camp.status === "completed" && <CheckCircle size={11} style={{ color: C.green }} />}
-        {camp.status === "paused" && <span className="text-[9px] font-bold" style={{ color: "#D97706" }}>PAUSED</span>}
+        <div className="flex items-center gap-1">
+          {(() => {
+            const b = deriveCardBadge(camp);
+            return b ? (
+              <span
+                className="text-[8.5px] font-bold tracking-wider px-1.5 py-0.5 rounded-full"
+                style={{ backgroundColor: b.bg, color: b.color, letterSpacing: "0.04em" }}
+                title={camp.step_0?.errorDetails ?? undefined}
+              >
+                {b.label}
+              </span>
+            ) : null;
+          })()}
+          {camp.status === "completed" && <CheckCircle size={11} style={{ color: C.green }} />}
+          {camp.status === "paused" && <span className="text-[9px] font-bold" style={{ color: "#D97706" }}>PAUSED</span>}
+        </div>
       </div>
     </div>
   );
@@ -120,7 +176,7 @@ function Column({ stepIndex, step, children, count }: { stepIndex: number; step:
   return (
     <div
       ref={setNodeRef}
-      className="flex-1 min-w-0 rounded-xl border transition-colors"
+      className="flex-1 min-w-0 rounded-xl border transition-colors overflow-hidden"
       style={{
         backgroundColor: isOver ? `${meta.color}08` : C.bg,
         borderColor: isOver ? meta.color : C.border,

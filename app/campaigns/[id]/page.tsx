@@ -127,6 +127,31 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
     ...siblings.map((s: any) => ({ ...s, _isCurrent: false })),
   ];
 
+  // Per-campaign step-0 LinkedIn message status (for the kanban badge that
+  // distinguishes "request sent — waiting accept" from "queued / cooldown /
+  // failed"). All sibling campaigns appear in the same kanban column when
+  // their `current_step` is 0, so we need finer-grain state surfaced there.
+  const allCampaignIds = allGroupCampaigns.map(c => c.id);
+  const step0Map: Record<string, { status: string; lastRateLimitAt: string | null; errorDetails: string | null } | undefined> = {};
+  if (allCampaignIds.length > 0) {
+    const { data: step0Rows } = await supabase
+      .from("campaign_messages")
+      .select("campaign_id, status, metadata, error_details")
+      .in("campaign_id", allCampaignIds)
+      .eq("step_number", 0)
+      .eq("channel", "linkedin");
+    for (const row of step0Rows ?? []) {
+      const cid = (row as any).campaign_id as string;
+      const meta = (row as any).metadata as Record<string, unknown> | null;
+      step0Map[cid] = {
+        status: (row as any).status,
+        lastRateLimitAt: (meta?.last_rate_limit_at as string | null) ?? null,
+        errorDetails: (row as any).error_details ?? null,
+      };
+    }
+  }
+  for (const c of allGroupCampaigns) (c as any).step_0 = step0Map[c.id] ?? null;
+
   let cumDays = 0;
   const dayPerStep = sequence.map((s: any, i: number) => {
     cumDays += i === 0 ? 0 : s.daysAfter;
