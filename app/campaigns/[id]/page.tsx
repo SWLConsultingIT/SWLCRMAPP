@@ -129,26 +129,37 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
 
   // Per-campaign step-0 LinkedIn message status (for the kanban badge that
   // distinguishes "request sent — waiting accept" from "queued / cooldown /
-  // failed"). All sibling campaigns appear in the same kanban column when
-  // their `current_step` is 0, so we need finer-grain state surfaced there.
+  // failed"). Uses direct REST with service key like getMessages above —
+  // the cookie-based supabase client returned empty in some cases (likely
+  // RLS on campaign_messages), and we need authoritative data for the badge.
   const allCampaignIds = allGroupCampaigns.map(c => c.id);
   const step0Map: Record<string, { status: string; lastRateLimitAt: string | null; errorDetails: string | null } | undefined> = {};
   if (allCampaignIds.length > 0) {
-    const { data: step0Rows } = await supabase
-      .from("campaign_messages")
-      .select("campaign_id, status, metadata, error_details")
-      .in("campaign_id", allCampaignIds)
-      .eq("step_number", 0)
-      .eq("channel", "linkedin");
-    for (const row of step0Rows ?? []) {
-      const cid = (row as any).campaign_id as string;
-      const meta = (row as any).metadata as Record<string, unknown> | null;
-      step0Map[cid] = {
-        status: (row as any).status,
-        lastRateLimitAt: (meta?.last_rate_limit_at as string | null) ?? null,
-        errorDetails: (row as any).error_details ?? null,
-      };
-    }
+    const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const sbKey = process.env.SUPABASE_SERVICE_KEY!;
+    const inClause = `(${allCampaignIds.join(",")})`;
+    const url = `${sbUrl}/rest/v1/campaign_messages?campaign_id=in.${encodeURIComponent(inClause)}&step_number=eq.0&channel=eq.linkedin&select=campaign_id,status,metadata,error_details`;
+    try {
+      const res = await fetch(url, {
+        headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const rows = (await res.json()) as Array<{
+          campaign_id: string;
+          status: string;
+          metadata: Record<string, unknown> | null;
+          error_details: string | null;
+        }>;
+        for (const row of rows) {
+          step0Map[row.campaign_id] = {
+            status: row.status,
+            lastRateLimitAt: (row.metadata?.last_rate_limit_at as string | null) ?? null,
+            errorDetails: row.error_details,
+          };
+        }
+      }
+    } catch { /* fail open — kanban shows no badges */ }
   }
   for (const c of allGroupCampaigns) (c as any).step_0 = step0Map[c.id] ?? null;
 
