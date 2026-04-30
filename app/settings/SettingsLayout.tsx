@@ -9,15 +9,9 @@ import {
 import { C } from "@/lib/design";
 import { useTheme } from "@/lib/theme";
 import { useLocale } from "@/lib/i18n";
+import { useAuthUser } from "@/lib/auth-context";
 import CallClassificationToggle from "@/components/CallClassificationToggle";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
-
-type AuthUser = {
-  id: string;
-  email: string;
-  displayName: string;
-  role: string;
-};
 
 type SectionId = "profile" | "preferences" | "operations" | "integrations";
 
@@ -33,11 +27,8 @@ export default function SettingsLayout({ callMode }: { callMode: "manual" | "aut
   const router = useRouter();
   const { t } = useLocale();
   const [active, setActive] = useState<SectionId>("profile");
-  const [user, setUser] = useState<AuthUser | null>(null);
-
-  useEffect(() => {
-    fetch("/api/auth/me").then(r => r.json()).then(d => setUser(d.user ?? null)).catch(() => {});
-  }, []);
+  // Was a duplicate /api/auth/me fetch on mount — now reads from shared context.
+  const user = useAuthUser();
 
   return (
     <div className="grid grid-cols-[220px_1fr] gap-6">
@@ -80,7 +71,9 @@ export default function SettingsLayout({ callMode }: { callMode: "manual" | "aut
 }
 
 // ─── Section: Profile ───────────────────────────────────────────────────────
-function ProfileSection({ user }: { user: AuthUser | null }) {
+type ProfileUser = { id: string; email?: string; displayName?: string; role: string } | null;
+
+function ProfileSection({ user }: { user: ProfileUser }) {
   const { t } = useLocale();
   const [passwordOpen, setPasswordOpen] = useState(false);
   const roleLabel = user?.role === "admin" ? t("profile.role.admin") : user?.role === "client" ? t("profile.role.client") : t("profile.role.user");

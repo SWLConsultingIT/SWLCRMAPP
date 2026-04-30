@@ -1,11 +1,11 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import { Bell, HelpCircle, Search, ChevronRight, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
+import { useAuthUser } from "@/lib/auth-context";
 
 const ROUTE_KEYS: Record<string, { key: string; brand?: string }> = {
   "/":              { key: "nav.dashboard" },
@@ -51,28 +51,14 @@ function openCommandPalette() {
   );
 }
 
-type AuthUser = {
-  id: string;
-  email: string;
-  displayName: string;
-  role: string;
-  companyName?: string | null;
-  companyLogoUrl?: string | null;
-};
-
 export default function TopHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const pageName = usePageName(pathname);
   const { t } = useLocale();
-  const [user, setUser] = useState<AuthUser | null>(null);
-
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then(r => r.json())
-      .then(d => setUser(d.user ?? null))
-      .catch(() => {});
-  }, []);
+  // Read from shared AuthContext — was a duplicate /api/auth/me fetch on every
+  // header mount before. Saves one round-trip per navigation.
+  const user = useAuthUser();
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
