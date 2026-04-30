@@ -4,6 +4,9 @@ import { createServerClient } from "@supabase/ssr";
 const PUBLIC_PATHS = [
   "/login", "/signup", "/forgot-password", "/reset-password", "/auth/callback",
   "/api/auth", "/api/aircall/webhook", "/api/unipile/webhook",
+  // Cron endpoints authenticate via CRON_SECRET inside the route handler,
+  // so they must skip the Supabase session redirect in this middleware.
+  "/api/cron",
 ];
 
 export async function proxy(req: NextRequest) {
