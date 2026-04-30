@@ -95,40 +95,35 @@ async function getAircallUsage() {
 async function getData() {
   const supabase = await getSupabaseServer();
 
-  // Resolve current user's scope
-  const { data: { user } } = await supabase.auth.getUser();
-  let userRole: string | null = null;
-  let userCompanyBioId: string | null = null;
+  // Use the shared scope helper so demo-impersonation and tenant boundaries
+  // are respected uniformly. Previously this page filtered "if not admin",
+  // which meant the SWL super-admin saw sellers from every tenant — including
+  // Graeme (Pathway). /accounts is an OPERATIONAL page (per-seller daily
+  // usage, edits, etc.), not a super-admin cross-tenant view, so we always
+  // scope to the current user's bio. The cross-tenant view lives at /admin.
+  const { getUserScope } = await import("@/lib/scope");
+  const scope = await getUserScope();
+  const userCompanyBioId = scope.companyBioId;
   let allowedEmails: string[] | null = null;
   let allowedAircallIds: number[] | null = null;
 
-  if (user) {
+  if (userCompanyBioId) {
     const svc = getSupabaseService();
-    const { data: profile } = await svc
-      .from("user_profiles")
-      .select("role, company_bio_id")
-      .eq("user_id", user.id)
+    const { data: bio } = await svc
+      .from("company_bios")
+      .select("email_accounts, aircall_number_ids")
+      .eq("id", userCompanyBioId)
       .single();
-    userRole = profile?.role ?? null;
-    userCompanyBioId = profile?.company_bio_id ?? null;
-
-    if (userRole !== "admin" && userCompanyBioId) {
-      const { data: bio } = await svc
-        .from("company_bios")
-        .select("email_accounts, aircall_number_ids")
-        .eq("id", userCompanyBioId)
-        .single();
-      allowedEmails = (bio?.email_accounts as string[] | null) ?? [];
-      allowedAircallIds = (bio?.aircall_number_ids as number[] | null) ?? [];
-    }
+    allowedEmails = (bio?.email_accounts as string[] | null) ?? [];
+    allowedAircallIds = (bio?.aircall_number_ids as number[] | null) ?? [];
   }
 
-  // Sellers: admin sees all, client only sees sellers of their company
+  // Sellers always scoped to the current bio. No cross-tenant leak.
   let sellersQuery = supabase.from("sellers")
     .select("id, name, unipile_account_id, linkedin_daily_limit, active, company_bio_id")
     .eq("active", true)
     .order("name");
-  if (userRole !== "admin" && userCompanyBioId) {
+  if (userCompanyBioId) {
     sellersQuery = sellersQuery.eq("company_bio_id", userCompanyBioId);
   }
 
