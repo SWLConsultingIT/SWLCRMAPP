@@ -96,7 +96,17 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
     getMessages(id),
     getSiblingCampaigns(campaign.name, id),
     getUnlinkedLeadsByProfile(),
-    supabase.from("campaign_requests").select("message_prompts").eq("name", campaign.name).limit(1).maybeSingle(),
+    // Always pull the most recent APPROVED request — when a request is edited
+    // the rejected version is kept in the table, so filtering by name alone
+    // can return the rejected (and now-stale) message_prompts.
+    supabase
+      .from("campaign_requests")
+      .select("message_prompts")
+      .eq("name", campaign.name)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
   const autoReplies = campRequest?.data?.message_prompts?.channelMessages?.autoReplies ?? {};
   const connectionNote = campRequest?.data?.message_prompts?.channelMessages?.connectionRequest ?? "";

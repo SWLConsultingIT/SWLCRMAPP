@@ -21,14 +21,21 @@ export default function LogoLoader({
 }) {
   const containerClass = fullscreen
     ? "fixed inset-0 z-[100] flex items-center justify-center"
-    : "w-full min-h-[70vh] flex items-center justify-center";
+    : "relative w-full min-h-[70vh] flex items-center justify-center overflow-hidden";
 
+  // Always paint an explicit themed background. The non-fullscreen variant
+  // used to inherit `<main>`'s background, which left a white flash if the
+  // theme cookie hadn't been seeded yet (cold load) or if the loader rendered
+  // before the dark `--c-main-bg` token resolved. Forcing `var(--c-bg)` here
+  // means the loader is opaque dark/light from the very first frame.
   const containerStyle: CSSProperties = fullscreen
     ? {
         backgroundColor: "color-mix(in srgb, var(--c-bg, #F7F8FB) 92%, transparent)",
         backdropFilter: "blur(2px)",
       }
-    : {};
+    : {
+        backgroundColor: "var(--c-bg, #F7F8FB)",
+      };
 
   // PNG is 280×136 native. The brand mark sits in the left ~35%; the rest
   // is the white "SWL" lettering which we DON'T want (white doesn't read on
@@ -40,6 +47,9 @@ export default function LogoLoader({
 
   return (
     <div className={containerClass} style={containerStyle} role="status" aria-live="polite">
+      {/* Gold ambient backdrop — overpowers any tenant-tinted page bleed
+          (e.g. the teal radial in --c-main-bg) so the loader always reads gold. */}
+      <span aria-hidden className="logo-loader-backdrop" />
       <div className="logo-loader-stage">
         {/* Brand mark — cropped PNG showing only the gold parallelograms */}
         <div className="logo-loader-mark-wrap" style={{ width: markWidth, height: size }}>

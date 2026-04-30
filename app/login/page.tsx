@@ -63,14 +63,14 @@ export default function LoginPage() {
 
         {/* Subtle grid */}
         <div className="absolute inset-0" style={{
-          backgroundImage: `linear-gradient(color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent) 1px, transparent 1px),
-                            linear-gradient(90deg, color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent) 1px, transparent 1px)`,
+          backgroundImage: `linear-gradient(color-mix(in srgb, #b79832 4%, transparent) 1px, transparent 1px),
+                            linear-gradient(90deg, color-mix(in srgb, #b79832 4%, transparent) 1px, transparent 1px)`,
           backgroundSize: "56px 56px",
         }} />
 
         {/* Radial glow top-left */}
         <div className="absolute -top-32 -left-32 w-[600px] h-[600px] rounded-full pointer-events-none" style={{
-          background: "radial-gradient(circle, color-mix(in srgb, var(--brand-dark, #b79832) 10%, transparent) 0%, transparent 65%)",
+          background: "radial-gradient(circle, color-mix(in srgb, #b79832 10%, transparent) 0%, transparent 65%)",
         }} />
 
         {/* Radial glow bottom-right */}
@@ -93,9 +93,9 @@ export default function LoginPage() {
           {/* Hero text */}
           <div className="flex-1 flex flex-col justify-center max-w-2xl">
             <div className="inline-flex items-center gap-2 mb-6 px-3 py-1.5 rounded-full border w-fit"
-              style={{ borderColor: "color-mix(in srgb, var(--brand-dark, #b79832) 30%, transparent)", backgroundColor: "color-mix(in srgb, var(--brand-dark, #b79832) 7%, transparent)" }}>
-              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "var(--brand-dark, #b79832)" }} />
-              <span className="text-xs font-medium tracking-widest uppercase" style={{ color: "var(--brand-dark, #b79832)" }}>
+              style={{ borderColor: "color-mix(in srgb, #b79832 30%, transparent)", backgroundColor: "color-mix(in srgb, #b79832 7%, transparent)" }}>
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#b79832" }} />
+              <span className="text-xs font-medium tracking-widest uppercase" style={{ color: "#b79832" }}>
                 GrowthAI Sales Engine
               </span>
             </div>
@@ -106,7 +106,7 @@ export default function LoginPage() {
               letterSpacing: "-0.02em",
             }}>
               Bigger deals.{" "}
-              <span style={{ color: "var(--brand-dark, #b79832)" }}>Stronger teams.</span>
+              <span style={{ color: "#b79832" }}>Stronger teams.</span>
             </h1>
 
             <p className="text-lg leading-relaxed mb-10" style={{ color: "#d9dee2", opacity: 0.7 }}>
@@ -121,7 +121,7 @@ export default function LoginPage() {
                 { value: "SWL", label: "Consulting" },
               ].map(s => (
                 <div key={s.label}>
-                  <p className="text-2xl font-bold" style={{ color: "var(--brand-dark, #b79832)", fontFamily: "var(--font-outfit)" }}>{s.value}</p>
+                  <p className="text-2xl font-bold" style={{ color: "#b79832", fontFamily: "var(--font-outfit)" }}>{s.value}</p>
                   <p className="text-xs mt-0.5" style={{ color: "#d9dee2", opacity: 0.5 }}>{s.label}</p>
                 </div>
               ))}
@@ -138,7 +138,7 @@ export default function LoginPage() {
 
         {/* Vertical separator with fade */}
         <div className="absolute right-0 top-0 bottom-0 w-px" style={{
-          background: "linear-gradient(to bottom, transparent, color-mix(in srgb, var(--brand-dark, #b79832) 15%, transparent) 30%, color-mix(in srgb, var(--brand-dark, #b79832) 15%, transparent) 70%, transparent)",
+          background: "linear-gradient(to bottom, transparent, color-mix(in srgb, #b79832 15%, transparent) 30%, color-mix(in srgb, #b79832 15%, transparent) 70%, transparent)",
         }} />
       </div>
 
@@ -147,7 +147,7 @@ export default function LoginPage() {
 
         {/* Subtle glow behind card */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 pointer-events-none" style={{
-          background: "radial-gradient(circle, color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent) 0%, transparent 70%)",
+          background: "radial-gradient(circle, color-mix(in srgb, #b79832 4%, transparent) 0%, transparent 70%)",
         }} />
 
         <div className="w-full max-w-md relative z-10">
@@ -198,9 +198,9 @@ export default function LoginPage() {
                     color: "#f8fafc",
                   }}
                   onFocus={e => {
-                    e.currentTarget.style.borderColor = "color-mix(in srgb, var(--brand-dark, #b79832) 50%, transparent)";
-                    e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent)";
-                    e.currentTarget.style.boxShadow = "0 0 0 4px color-mix(in srgb, var(--brand-dark, #b79832) 12%, transparent)";
+                    e.currentTarget.style.borderColor = "color-mix(in srgb, #b79832 50%, transparent)";
+                    e.currentTarget.style.backgroundColor = "color-mix(in srgb, #b79832 4%, transparent)";
+                    e.currentTarget.style.boxShadow = "0 0 0 4px color-mix(in srgb, #b79832 12%, transparent)";
                   }}
                   onBlur={e => {
                     e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
@@ -229,9 +229,9 @@ export default function LoginPage() {
                     color: "#f8fafc",
                   }}
                   onFocus={e => {
-                    e.currentTarget.style.borderColor = "color-mix(in srgb, var(--brand-dark, #b79832) 50%, transparent)";
-                    e.currentTarget.style.backgroundColor = "color-mix(in srgb, var(--brand-dark, #b79832) 4%, transparent)";
-                    e.currentTarget.style.boxShadow = "0 0 0 4px color-mix(in srgb, var(--brand-dark, #b79832) 12%, transparent)";
+                    e.currentTarget.style.borderColor = "color-mix(in srgb, #b79832 50%, transparent)";
+                    e.currentTarget.style.backgroundColor = "color-mix(in srgb, #b79832 4%, transparent)";
+                    e.currentTarget.style.boxShadow = "0 0 0 4px color-mix(in srgb, #b79832 12%, transparent)";
                   }}
                   onBlur={e => {
                     e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
@@ -244,7 +244,7 @@ export default function LoginPage() {
                   type="button"
                   onClick={() => setShowPw(!showPw)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-100"
-                  style={{ color: "var(--brand-dark, #b79832)", zIndex: 10 }}
+                  style={{ color: "#b79832", zIndex: 10 }}
                 >
                   {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
@@ -263,8 +263,8 @@ export default function LoginPage() {
                 <div
                   className="w-4 h-4 rounded flex items-center justify-center transition-[opacity,transform,box-shadow,background-color,border-color]"
                   style={{
-                    backgroundColor: remember ? "var(--brand-dark, #b79832)" : "rgba(255,255,255,0.06)",
-                    border: remember ? "1px solid var(--brand-dark, #b79832)" : "1px solid rgba(255,255,255,0.15)",
+                    backgroundColor: remember ? "#b79832" : "rgba(255,255,255,0.06)",
+                    border: remember ? "1px solid #b79832" : "1px solid rgba(255,255,255,0.15)",
                   }}
                 >
                   {remember && (
@@ -292,11 +292,11 @@ export default function LoginPage() {
               disabled={loading || !password || !email}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] disabled:opacity-40"
               style={{
-                backgroundColor: "var(--brand-dark, #b79832)",
+                backgroundColor: "#b79832",
                 color: "#04070d",
               }}
               onMouseEnter={e => !loading && password && email && (e.currentTarget.style.backgroundColor = "#c9aa38")}
-              onMouseLeave={e => (e.currentTarget.style.backgroundColor = "var(--brand-dark, #b79832)")}
+              onMouseLeave={e => (e.currentTarget.style.backgroundColor = "#b79832")}
             >
               {loading ? (
                 <span className="flex items-center gap-2">
@@ -317,7 +317,7 @@ export default function LoginPage() {
             <a href="/forgot-password" className="hover:underline" style={{ color: "rgba(217,222,226,0.5)" }}>
               Forgot password
             </a>
-            <a href="/signup" className="hover:underline font-semibold" style={{ color: "var(--brand-dark, #b79832)" }}>
+            <a href="/signup" className="hover:underline font-semibold" style={{ color: "#b79832" }}>
               Create account →
             </a>
           </div>

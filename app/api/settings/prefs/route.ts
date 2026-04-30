@@ -2,6 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 
+const THEME_COOKIE = "swl-theme";
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+
+// Sync the swl-theme cookie to whatever the DB says is the current user's
+// theme. The server-side layout reads this cookie on the first byte to emit
+// `<html data-theme="dark">` flash-free. Setting it from the server (instead
+// of the client) keeps it authoritative and survives tenant impersonation
+// toggles, hard reloads, and multi-tab usage.
+function setThemeCookie(res: NextResponse, theme: "light" | "dark") {
+  res.cookies.set(THEME_COOKIE, theme, {
+    httpOnly: false,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: COOKIE_MAX_AGE,
+  });
+}
+
 export async function GET() {
   const supabase = await getSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
@@ -14,13 +32,18 @@ export async function GET() {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  return NextResponse.json({
+  const theme = profile?.theme === "dark" ? "dark" : "light";
+  const locale = profile?.locale ?? "en";
+
+  const res = NextResponse.json({
     userId: user.id,
-    theme: profile?.theme ?? "light",
-    locale: profile?.locale ?? "en",
+    theme,
+    locale,
   }, {
     headers: { "Cache-Control": "private, max-age=60" },
   });
+  setThemeCookie(res, theme);
+  return res;
 }
 
 export async function PATCH(req: NextRequest) {
@@ -40,5 +63,10 @@ export async function PATCH(req: NextRequest) {
     .update(update)
     .eq("user_id", user.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, ...update });
+
+  const res = NextResponse.json({ ok: true, ...update });
+  if (update.theme === "light" || update.theme === "dark") {
+    setThemeCookie(res, update.theme);
+  }
+  return res;
 }

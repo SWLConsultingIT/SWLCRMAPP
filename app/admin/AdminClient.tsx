@@ -7,7 +7,7 @@ import {
   Building2, Users, Megaphone, Clock, ChevronRight,
   Target, Search, X, CheckCircle, ArrowRight, Shield,
   Trash2, Loader2, Share2, AlertTriangle, Phone, Mail,
-  Activity, Theater,
+  Activity, Theater, Zap,
 } from "lucide-react";
 import AdminActions from "./AdminActions";
 import PageHero from "@/components/PageHero";
@@ -693,6 +693,19 @@ export default function AdminClient({ clients, pendingApprovals, stats }: Props)
         >
           <Theater size={14} />
           Demos
+          <ArrowRight size={11} style={{ opacity: 0.5 }} />
+        </Link>
+
+        {/* Reliability: DB ↔ Unipile ↔ n8n reconciliation. Lives next to Demos
+            so the admin can spot ghost-sent rows or stuck queues without
+            digging through Supabase. */}
+        <Link
+          href="/admin/reliability"
+          className="flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-[color,background-color] duration-150 relative"
+          style={{ color: C.textMuted }}
+        >
+          <Zap size={14} />
+          Reliability
           <ArrowRight size={11} style={{ opacity: 0.5 }} />
         </Link>
 

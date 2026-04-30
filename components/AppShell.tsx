@@ -7,6 +7,7 @@ import PositiveReplyBanner from "@/components/PositiveReplyBanner";
 import RealtimeRefresh from "@/components/RealtimeRefresh";
 import CommandPalette from "@/components/CommandPalette";
 import NavigationProgress from "@/components/NavigationProgress";
+import NavigationLoader from "@/components/NavigationLoader";
 import DemoBanner from "@/components/DemoBanner";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -27,7 +28,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <DemoBanner />
           <TopHeader />
           <main className="flex-1 overflow-y-auto main-bg">
-            {children}
+            <NavigationLoader>{children}</NavigationLoader>
           </main>
         </div>
         <PositiveReplyBanner />
