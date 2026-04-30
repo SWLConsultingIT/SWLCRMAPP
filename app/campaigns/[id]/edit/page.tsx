@@ -139,7 +139,7 @@ export default function FlowEditorPage() {
       // Build messages map and attachments map
       const msgMap: Record<number, { id: string; content: string; subject?: string }> = {};
       const attMap: Record<number, Attachment[]> = {};
-      (msgs ?? []).forEach(m => {
+      (msgs ?? []).forEach((m: any) => {
         const subject = m.metadata?.subject ?? undefined;
         msgMap[m.step_number] = { id: m.id, content: m.content ?? "", subject };
         if (m.metadata?.attachments && Array.isArray(m.metadata.attachments)) {
