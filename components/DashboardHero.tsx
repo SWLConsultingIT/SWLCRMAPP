@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { Megaphone } from "lucide-react";
 import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
@@ -39,56 +37,33 @@ export default function DashboardHero() {
           }}
         />
 
-        <div className="relative z-10 flex items-end justify-between gap-8 flex-wrap">
-          <div className="max-w-2xl">
-            <div
-              className="inline-flex items-center gap-2 mb-5 px-3 py-1 rounded-full border w-fit"
-              style={{
-                borderColor: `color-mix(in srgb, ${gold} 30%, transparent)`,
-                backgroundColor: `color-mix(in srgb, ${gold} 7%, transparent)`,
-              }}
-            >
-              <span className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ backgroundColor: gold }} />
-              <span className="text-[10px] font-bold tracking-[0.2em] uppercase" style={{ color: gold }}>
-                {t("dash.pillLive")}
-              </span>
-            </div>
-
-            <h1
-              className="text-[44px] leading-[1.05] font-bold mb-3"
-              style={{
-                color: "#f8fafc",
-                fontFamily: "var(--font-outfit), system-ui, sans-serif",
-                letterSpacing: "-0.025em",
-              }}
-            >
-              {t("dash.title.a")} <span style={{ color: gold }}>{t("dash.title.b")}</span>
-            </h1>
-            <p className="text-[15px] leading-relaxed max-w-xl" style={{ color: "rgba(217,222,226,0.65)" }}>
-              {t("dash.subtitle")}
-            </p>
+        <div className="relative z-10 max-w-2xl">
+          <div
+            className="inline-flex items-center gap-2 mb-5 px-3 py-1 rounded-full border w-fit"
+            style={{
+              borderColor: `color-mix(in srgb, ${gold} 30%, transparent)`,
+              backgroundColor: `color-mix(in srgb, ${gold} 7%, transparent)`,
+            }}
+          >
+            <span className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ backgroundColor: gold }} />
+            <span className="text-[10px] font-bold tracking-[0.2em] uppercase" style={{ color: gold }}>
+              {t("dash.pillLive")}
+            </span>
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <Link
-              href="/campaigns/new"
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[13px] font-semibold transition-[opacity,transform,box-shadow] duration-150 hover:opacity-90 hover:shadow-md"
-              style={{ backgroundColor: gold, color: "#04070d" }}
-            >
-              <Megaphone size={14} /> {t("dash.cta.newCampaign")}
-            </Link>
-            <Link
-              href="/voice"
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[13px] font-medium border transition-colors duration-150 hover:bg-white/5"
-              style={{
-                color: "#f8fafc",
-                borderColor: "rgba(255,255,255,0.18)",
-                backgroundColor: "rgba(255,255,255,0.04)",
-              }}
-            >
-              {t("dash.cta.voice")}
-            </Link>
-          </div>
+          <h1
+            className="text-[44px] leading-[1.05] font-bold mb-3"
+            style={{
+              color: "#f8fafc",
+              fontFamily: "var(--font-outfit), system-ui, sans-serif",
+              letterSpacing: "-0.025em",
+            }}
+          >
+            {t("dash.title.a")} <span style={{ color: gold }}>{t("dash.title.b")}</span>
+          </h1>
+          <p className="text-[15px] leading-relaxed max-w-xl" style={{ color: "rgba(217,222,226,0.65)" }}>
+            {t("dash.subtitle")}
+          </p>
         </div>
       </div>
     </div>
