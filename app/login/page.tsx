@@ -33,16 +33,14 @@ export default function LoginPage() {
         setError("Incorrect credentials. Try again.");
         return;
       }
-      // Clear any cached prefs from a previous user session on this browser.
-      // The new ThemeProvider / LocaleProvider mount will fetch the right values
-      // for THIS user from /api/settings/prefs. Without this, the previous user's
-      // theme/locale would flash until the fetch returns (or persist if the fetch
-      // is slow / fails).
+      // Clear legacy localStorage keys (older builds wrote here; cookie is the
+      // SSR cache today). DO NOT touch document.documentElement.data-theme —
+      // ThemeProvider's useEffect re-applies the attribute from the user's DB
+      // theme on SIGNED_IN, but stripping it eagerly here leaves a visible
+      // light-flash window between router.push("/") and that async fetch.
       try {
         localStorage.removeItem("swl-theme");
         localStorage.removeItem("swl-locale");
-        // Also clear the document attribute that ThemeProvider might have set.
-        document.documentElement.removeAttribute("data-theme");
       } catch {}
       if (remember) localStorage.setItem(REMEMBER_KEY, email);
       else localStorage.removeItem(REMEMBER_KEY);
