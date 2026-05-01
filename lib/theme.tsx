@@ -101,6 +101,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Belt-and-braces: keep `<html data-theme>` in sync with React state.
+  // pullThemeFromDb's "cookie matches DB but state differs" branch updates state
+  // without touching the DOM, so the cards could render light while the toggle
+  // showed dark. This effect closes that gap on every state change.
+  useEffect(() => { applyDom(theme); }, [theme]);
+
   function setTheme(t: Theme) {
     setThemeState(t);
     applyDom(t);
