@@ -477,6 +477,9 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     async function pullLocaleFromDb() {
       const d = await fetchPrefsCached();
       if (!alive || !d) return;
+      // Unauthenticated → server has no opinion. Don't override the locale
+      // already seeded from the cookie (same fix pattern as ThemeProvider).
+      if ((d as { authenticated?: boolean }).authenticated === false) return;
       const dbLocale: Locale = d.locale === "es" ? "es" : "en";
       setLocaleState(dbLocale);
     }

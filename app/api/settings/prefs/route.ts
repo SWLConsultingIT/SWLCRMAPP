@@ -23,7 +23,11 @@ function setThemeCookie(res: NextResponse, theme: "light" | "dark") {
 export async function GET() {
   const supabase = await getSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ theme: "light", locale: "en" });
+  // Unauthenticated → return an explicit signal instead of a default theme.
+  // Returning {theme:"light"} caused pullThemeFromDb on /login to force the
+  // dark cookie back to light, then login → home flashed white before the
+  // post-auth refetch could restore dark.
+  if (!user) return NextResponse.json({ authenticated: false });
 
   const svc = getSupabaseService();
   const { data: profile } = await svc

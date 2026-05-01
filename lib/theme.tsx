@@ -66,6 +66,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     async function pullThemeFromDb() {
       const d = await fetchPrefsCached();
       if (!alive || !d) return;
+      // Unauthenticated response — server says "no user, no opinion". Don't
+      // touch state/cookie/DOM; whatever the cookie already says is what we
+      // keep. Avoids stomping a logged-out user's dark cookie back to light
+      // while they're on /login.
+      if ((d as { authenticated?: boolean }).authenticated === false) return;
       const dbTheme: Theme = d.theme === "dark" ? "dark" : "light";
       // Only touch the DOM if it actually differs — prevents needless attribute
       // mutations and any consequent style recalculation flash.
