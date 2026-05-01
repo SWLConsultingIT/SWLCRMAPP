@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { fetchBrandingCached, clearAllSessionCache } from "@/lib/session-cache";
@@ -79,13 +79,28 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isPublicRoute = PUBLIC_ROUTES.some(r => pathname === r || pathname.startsWith(`${r}/`));
 
+  // Mirror isPublicRoute into a ref so the auth-state-change listener — which
+  // is registered ONCE inside an empty-deps useEffect — always sees the
+  // current value. Without this, an admin who first lands on /login captured
+  // isPublicRoute=true in the listener's closure; the post-login SIGNED_IN
+  // fired pullBrandFromDb but bailed early, so the tenant brand never painted.
+  const isPublicRouteRef = useRef(isPublicRoute);
+  isPublicRouteRef.current = isPublicRoute;
+  // Stash the auth-effect's pullBrandFromDb so we can re-fire it from the
+  // public-route effect when the user transitions /login → / (the SIGNED_IN
+  // event can race ahead of the navigation render, leaving the listener with
+  // stale ref state).
+  const pullRef = useRef<(() => void) | null>(null);
+
   // Public-route effect — runs whenever pathname enters/exits a public route.
-  // Cheap: just clears DOM vars + cookie. No network.
   useEffect(() => {
     if (isPublicRoute) {
       clearBrandVars();
       clearBrandCookie();
       setState({ primaryColor: DEFAULT_GOLD, enabled: false });
+    } else {
+      // Just left a public route → make sure the tenant brand is hydrated.
+      pullRef.current?.();
     }
   }, [isPublicRoute]);
 
@@ -98,7 +113,7 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
     let alive = true;
 
     async function pullBrandFromDb() {
-      if (isPublicRoute) return;
+      if (isPublicRouteRef.current) return;
       const d = await fetchBrandingCached();
       if (!alive) return;
       if (!d) {
@@ -119,12 +134,13 @@ export function BrandProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
+    pullRef.current = pullBrandFromDb;
     pullBrandFromDb();
 
     let unsub: (() => void) | null = null;
     try {
       const sb = getSupabaseBrowser();
-      const { data } = sb.auth.onAuthStateChange((_event) => {
+      const { data } = sb.auth.onAuthStateChange(() => {
         clearAllSessionCache();
         pullBrandFromDb();
       });
