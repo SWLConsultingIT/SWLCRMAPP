@@ -92,12 +92,15 @@ export default function FlowEditorPage() {
   useEffect(() => {
     async function load() {
   const supabase = getSupabaseBrowser();
-      const [{ data: campaign }, { data: sellersList }, { data: emails }, { data: msgs }] = await Promise.all([
+      // campaign_messages has RLS enabled with no policies → browser-side
+      // SELECT returns empty. Fetch via server route which uses service key.
+      const [{ data: campaign }, { data: sellersList }, { data: emails }, msgsRes] = await Promise.all([
         supabase.from("campaigns").select("*, leads(allow_linkedin, allow_email, allow_call, allow_whatsapp), sellers(id, name, email_account, linkedin_account_id, whatsapp_account)").eq("id", campaignId).single(),
         supabase.from("sellers").select("id, name, email_account, linkedin_account_id, whatsapp_account").eq("active", true).order("name"),
         supabase.from("instantly_accounts").select("id, email, name, active").eq("active", true).order("email"),
-        supabase.from("campaign_messages").select("id, step_number, channel, content, metadata").eq("campaign_id", campaignId).order("step_number"),
+        fetch(`/api/campaigns/${campaignId}/messages`, { cache: "no-store" }).then(r => r.json()).catch(() => ({ messages: [] })),
       ]);
+      const msgs = (msgsRes?.messages ?? []) as Array<{ id: string; step_number: number; channel: string; content: string | null; metadata: Record<string, unknown> | null }>;
 
       if (campaign) {
         // Build allowed channels set from lead flags
