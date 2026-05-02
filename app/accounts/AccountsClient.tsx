@@ -8,9 +8,10 @@ import { useAuthUser } from "@/lib/auth-context";
 import {
   Share2, Mail, Phone, AlertTriangle,
   Users, Calendar, X, Plus, Trash2, Loader2, Shield, Pencil, Save,
-  Zap, Globe, TrendingUp, Settings,
+  Zap, Globe, TrendingUp, Settings, ChevronRight,
 } from "lucide-react";
 import EmailPoolManager from "@/components/EmailPoolManager";
+import AircallPoolManager from "@/components/AircallPoolManager";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -96,9 +97,22 @@ function UsageBar({ sent, limit, channel }: { sent: number; limit: number; chann
 
 const SECURITY_PIN = "2026";
 
-// ─── Add Seller Modal (PIN-gated) ───────────────────────────────────────────
-function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  const [step, setStep] = useState<"pin" | "form" | "connecting" | "connected">("pin");
+// ─── Add Account Modal (PIN-gated, 3-channel picker) ────────────────────────
+// PIN → channel picker → LinkedIn flow / hand-off to Email or Calls manager.
+// onPickEmail / onPickCalls let the parent close this modal and open the
+// pool-manager modal that already handles its own claim flow.
+function AddAccountModal({
+  onClose,
+  onSuccess,
+  onPickEmail,
+  onPickCalls,
+}: {
+  onClose: () => void;
+  onSuccess: () => void;
+  onPickEmail: () => void;
+  onPickCalls: () => void;
+}) {
+  const [step, setStep] = useState<"pin" | "channel" | "form" | "connecting" | "connected">("pin");
   const [pin, setPin] = useState(["", "", "", ""]);
   const [pinError, setPinError] = useState(false);
   const [name, setName] = useState("");
@@ -114,7 +128,7 @@ function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; onSucces
     if (val && idx < 3) document.getElementById(`pin-${idx + 1}`)?.focus();
     if (idx === 3 && val) {
       const full = next.join("");
-      if (full === SECURITY_PIN) setStep("form");
+      if (full === SECURITY_PIN) setStep("channel");
       else { setPinError(true); setTimeout(() => setPin(["", "", "", ""]), 500); document.getElementById("pin-0")?.focus(); }
     }
   }
@@ -162,9 +176,10 @@ function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; onSucces
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>
             {step === "pin" ? "Security Verification"
+              : step === "channel" ? "Add Account"
               : step === "connecting" ? "Connecting LinkedIn"
               : step === "connected" ? "Connected"
-              : "Add Seller"}
+              : "Add LinkedIn Seller"}
           </h2>
           <button onClick={onClose}><X size={18} style={{ color: C.textMuted }} /></button>
         </div>
@@ -186,6 +201,62 @@ function AddAccountModal({ onClose, onSuccess }: { onClose: () => void; onSucces
               ))}
             </div>
             {pinError && <p className="text-xs font-medium" style={{ color: C.red }}>Incorrect PIN. Try again.</p>}
+          </div>
+        )}
+
+        {step === "channel" && (
+          <div className="space-y-2 py-2">
+            <p className="text-xs mb-3" style={{ color: C.textMuted }}>
+              Pick the channel you want to add to your tenant.
+            </p>
+            {[
+              {
+                key: "linkedin" as const,
+                label: "LinkedIn seller",
+                desc: "Add a new seller and connect their LinkedIn via Unipile.",
+                icon: Share2,
+                color: "#0A66C2",
+                onClick: () => setStep("form"),
+              },
+              {
+                key: "email" as const,
+                label: "Email inbox",
+                desc: "Claim Instantly inboxes into your tenant's email pool.",
+                icon: Mail,
+                color: "#7C3AED",
+                onClick: () => { onClose(); onPickEmail(); },
+              },
+              {
+                key: "calls" as const,
+                label: "Aircall number",
+                desc: "Claim an Aircall line into your tenant's calls pool.",
+                icon: Phone,
+                color: "#F97316",
+                onClick: () => { onClose(); onPickCalls(); },
+              },
+            ].map(opt => {
+              const Icon = opt.icon;
+              return (
+                <button
+                  key={opt.key}
+                  onClick={opt.onClick}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl border text-left transition-colors hover:bg-black/[0.02]"
+                  style={{ borderColor: C.border, backgroundColor: C.bg }}
+                >
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: `color-mix(in srgb, ${opt.color} 12%, transparent)` }}
+                  >
+                    <Icon size={16} style={{ color: opt.color }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{opt.label}</p>
+                    <p className="text-[11px] leading-snug" style={{ color: C.textMuted }}>{opt.desc}</p>
+                  </div>
+                  <ChevronRight size={14} style={{ color: C.textDim }} />
+                </button>
+              );
+            })}
           </div>
         )}
 
@@ -492,6 +563,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showPoolManager, setShowPoolManager] = useState(false);
+  const [showAircallManager, setShowAircallManager] = useState(false);
   // Was a duplicate /api/auth/me fetch — now reads from shared AuthContext.
   const authUser = useAuthUser();
   const isAdmin = authUser?.role === "admin";
@@ -605,7 +677,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
         <button onClick={() => setShowAddModal(true)}
           className="flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold mb-1 transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-md"
           style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
-          <Plus size={14} /> Add Seller
+          <Plus size={14} /> Add Account
         </button>
       </div>
 
@@ -936,11 +1008,19 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
         </div>
       )}
 
-      {showAddModal && <AddAccountModal onClose={() => setShowAddModal(false)} onSuccess={() => { setShowAddModal(false); router.refresh(); }} />}
+      {showAddModal && (
+        <AddAccountModal
+          onClose={() => setShowAddModal(false)}
+          onSuccess={() => { setShowAddModal(false); router.refresh(); }}
+          onPickEmail={() => setShowPoolManager(true)}
+          onPickCalls={() => setShowAircallManager(true)}
+        />
+      )}
       {editTarget && <EditAccountModal seller={editTarget} onClose={() => setEditTarget(null)} onSuccess={() => { setEditTarget(null); router.refresh(); }} />}
       {linkTarget && <LinkUnipileModal seller={linkTarget} onClose={() => setLinkTarget(null)} onSuccess={() => { setLinkTarget(null); router.refresh(); }} />}
       {deleteTarget && <DeleteModal name={deleteTarget.name} onConfirm={handleDelete} onClose={() => setDeleteTarget(null)} loading={deleting} />}
       <EmailPoolManager open={showPoolManager} onClose={() => setShowPoolManager(false)} />
+      <AircallPoolManager open={showAircallManager} onClose={() => setShowAircallManager(false)} />
     </div>
   );
 }
