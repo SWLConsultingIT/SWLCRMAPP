@@ -336,7 +336,10 @@ async function handle(req: NextRequest) {
   // 6. Send via Instantly v2 emails endpoint
   let providerMessageId: string | null = null;
   try {
-    const resp = await instantlyPost("/emails", {
+    // Instantly v2 send endpoint is /emails/send — NOT /emails (which is the
+    // listing endpoint and rejects POST with 404). Confirmed against the
+    // reply handler workflow which has been using /emails/send correctly.
+    const resp = await instantlyPost("/emails/send", {
       from_address_email: fromAddress,
       to_address_email_list: lead.primary_work_email,
       subject,

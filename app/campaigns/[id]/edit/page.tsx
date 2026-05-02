@@ -127,8 +127,14 @@ export default function FlowEditorPage() {
         // the invite — and prepend a synthetic Send Request card so the
         // connection note remains editable.
         const rawSteps: any[] = campaign.sequence_steps ?? [];
-        const hasConnectionNoteInMsgs = (msgs ?? []).some(
-          (m: any) => m.step_number === 0 && m.channel === "linkedin",
+        // Format detection: legacy entries carry an explicit `action` field
+        // ("Send Request" / "Send DM" / "Send Email" / etc.); the new wizard
+        // (post-2026-04-30) writes only `{channel, daysAfter}`. We use the
+        // presence of any explicit `action` as the signal — more reliable
+        // than reading campaign_messages (which can be empty / RLS-blocked
+        // / arrive after this code runs in some browser configurations).
+        const isLegacyWithAction = rawSteps.some(
+          (s: any) => typeof s.action === "string" && s.action.length > 0,
         );
         let seenLinkedinRequest = false;
         const normalizedSteps: SequenceStep[] = rawSteps.map((s: any) => {
@@ -137,7 +143,10 @@ export default function FlowEditorPage() {
           let action = s.action;
           if (!action) {
             if (channel === "linkedin") {
-              if (!hasConnectionNoteInMsgs && !seenLinkedinRequest && waitDays === 0) {
+              // Legacy: first LI step at waitDays=0 was a Send Request entry.
+              // New: every LI entry in sequence_steps is a post-acceptance DM
+              // (the Send Request lives implicitly in messages step_number=0).
+              if (isLegacyWithAction && !seenLinkedinRequest && waitDays === 0) {
                 action = "Send Request"; seenLinkedinRequest = true;
               } else { action = "Send DM"; }
             } else if (channel === "email") { action = "Send Email"; }
@@ -148,9 +157,11 @@ export default function FlowEditorPage() {
           if (action === "Send Request") seenLinkedinRequest = true;
           return { channel, action, wait_days: waitDays } as SequenceStep;
         });
-        // New-format campaigns: prepend the implicit Send Request so the
-        // editor renders a card for the connection note.
-        if (hasConnectionNoteInMsgs && !normalizedSteps.some(s => s.action === "Send Request")) {
+        // New-format LinkedIn campaigns: the connection note is implicit
+        // in sequence_steps but lives as message step_number=0. Prepend a
+        // synthetic Send Request card so the editor exposes it for editing.
+        const firstIsLinkedin = rawSteps[0]?.channel === "linkedin";
+        if (firstIsLinkedin && !normalizedSteps.some(s => s.action === "Send Request")) {
           normalizedSteps.unshift({ channel: "linkedin", action: "Send Request", wait_days: 0 });
         }
         setSteps(normalizedSteps);
