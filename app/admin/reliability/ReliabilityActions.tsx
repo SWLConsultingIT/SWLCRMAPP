@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTransition } from "react";
 import { RefreshCw } from "lucide-react";
 import { C } from "@/lib/design";
 
@@ -14,14 +15,20 @@ import { C } from "@/lib/design";
 // accidental-click surface.
 export default function ReliabilityActions() {
   const router = useRouter();
+  // useTransition gives us a pending flag tied to router.refresh(), so the
+  // button can spin while the server components re-fetch instead of feeling
+  // dead on click (the data DOES update — there was just no visual cue).
+  const [isPending, startTransition] = useTransition();
+
   return (
     <div className="flex items-center gap-2">
       <button
-        onClick={() => router.refresh()}
-        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border"
+        onClick={() => startTransition(() => router.refresh())}
+        disabled={isPending}
+        className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition-opacity duration-150 disabled:opacity-60 disabled:cursor-wait"
         style={{ color: C.textBody, borderColor: C.border, backgroundColor: C.card }}>
-        <RefreshCw size={12} />
-        Refresh
+        <RefreshCw size={12} className={isPending ? "animate-spin" : undefined} />
+        {isPending ? "Refreshing…" : "Refresh"}
       </button>
     </div>
   );
