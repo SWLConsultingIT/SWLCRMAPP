@@ -761,17 +761,19 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                   </div>
                   <div className="flex-1" />
                   {isAdmin && (
-                    <button onClick={() => setShowPoolManager(true)}
-                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors hover:bg-black/[0.02]"
-                      style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
-                      <Settings size={12} /> Manage pool
-                    </button>
+                    <>
+                      <button onClick={() => setShowPoolManager(true)}
+                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors hover:bg-black/[0.02]"
+                        style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
+                        <Settings size={12} /> Manage pool
+                      </button>
+                      <a href="https://app.instantly.ai/app/accounts" target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-opacity hover:opacity-80"
+                        style={{ backgroundColor: "#7C3AED15", color: "#7C3AED" }}>
+                        <Zap size={12} /> Manage in Instantly
+                      </a>
+                    </>
                   )}
-                  <a href="https://app.instantly.ai/app/accounts" target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-opacity hover:opacity-80"
-                    style={{ backgroundColor: "#7C3AED15", color: "#7C3AED" }}>
-                    <Zap size={12} /> Manage in Instantly
-                  </a>
                 </div>
                 <div className="px-5 py-4">
                   <details className="group">
