@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { getUserScope } from "@/lib/scope";
 
 // Use service key to bypass RLS for admin operations
 const supabase = createClient(
@@ -8,6 +9,15 @@ const supabase = createClient(
 );
 
 export async function POST(req: NextRequest) {
+  // Approving a campaign request kicks off real outbound sends (LinkedIn /
+  // email / call). Restrict to SWL admins. Without this gate, any logged-in
+  // user could POST a known requestId and trigger sends on a tenant they
+  // don't own. Middleware already enforces authentication on this path.
+  const scope = await getUserScope();
+  if (scope.role !== "admin") {
+    return NextResponse.json({ error: "Admin only" }, { status: 403 });
+  }
+
   const { requestId } = await req.json();
 
   if (!requestId) {
@@ -94,18 +104,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ approved: true, campaignsCreated: 0, message: "No eligible leads found" });
   }
 
-  // 3. Resolve the seller chosen at campaign creation (stored in message_prompts.sellerId)
+  // 3. Resolve the seller chosen at campaign creation (stored in message_prompts.sellerId).
+  //    Fallback only picks from sellers that share the LEAD's tenant — without
+  //    this scoping, a missing sellerId could fall through to a seller from
+  //    another company_bio (cross-tenant leak in attribution + Unipile send).
   const chosenSellerId: string | null = prompts.sellerId ?? null;
   let sellerId: string | null = chosenSellerId;
-  if (!sellerId) {
-    const { data: firstSeller } = await supabase
-      .from("sellers")
-      .select("id")
-      .eq("active", true)
-      .order("name", { ascending: true })
-      .limit(1)
+  if (!sellerId && leadIds.length > 0) {
+    const { data: leadForBio } = await supabase
+      .from("leads")
+      .select("company_bio_id")
+      .eq("id", leadIds[0])
       .maybeSingle();
-    sellerId = firstSeller?.id ?? null;
+    const tenantBioId = (leadForBio as any)?.company_bio_id ?? null;
+    if (tenantBioId) {
+      const { data: firstSeller } = await supabase
+        .from("sellers")
+        .select("id")
+        .eq("active", true)
+        .eq("company_bio_id", tenantBioId)
+        .order("name", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      sellerId = firstSeller?.id ?? null;
+    }
   }
 
   // 4. Create campaigns and messages for each lead

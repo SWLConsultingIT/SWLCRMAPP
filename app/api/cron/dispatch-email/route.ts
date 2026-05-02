@@ -45,6 +45,7 @@ function personalize(template: string, lead: any, seller: any): string {
   const last = lead?.primary_last_name ?? "";
   const full = `${first} ${last}`.trim();
   const company = lead?.company_name ?? "";
+  const role = lead?.primary_title_role ?? "";
   const sellerName = seller?.name ?? "";
   return (template ?? "")
     .replaceAll("{{first_name}}", first)
@@ -52,7 +53,10 @@ function personalize(template: string, lead: any, seller: any): string {
     .replaceAll("{{full_name}}", full)
     .replaceAll("{{company_name}}", company)
     .replaceAll("{{company}}", company)
-    .replaceAll("{{seller_name}}", sellerName);
+    .replaceAll("{{role}}", role)
+    .replaceAll("{{title}}", role)
+    .replaceAll("{{seller_name}}", sellerName)
+    .replaceAll("{{seller_company}}", "");
 }
 
 async function instantlyPost(path: string, body: any): Promise<any> {
@@ -298,7 +302,7 @@ async function handle(req: NextRequest) {
   // 3. Hydrate lead + campaign. Seller is loaded only for personalization
   //    (the from-address comes from the shared pool, not the seller).
   const [{ data: lead }, { data: campaign }] = await Promise.all([
-    svc.from("leads").select("id, primary_first_name, primary_last_name, primary_work_email, company_name").eq("id", candidate.lead_id).maybeSingle(),
+    svc.from("leads").select("id, primary_first_name, primary_last_name, primary_work_email, company_name, primary_title_role").eq("id", candidate.lead_id).maybeSingle(),
     svc.from("campaigns").select("id, seller_id, sequence_steps").eq("id", candidate.campaign_id).maybeSingle(),
   ]);
   if (!lead || !campaign) return await failMessage(svc, candidate.id, candidate.lead_id, "lead or campaign missing");
