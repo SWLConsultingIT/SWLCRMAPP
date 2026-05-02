@@ -273,13 +273,23 @@ async function handle(req: NextRequest) {
   }
 
   let providerId = lead.linkedin_internal_id ?? null;
+  // network_distance from Unipile (DISTANCE_1 / DISTANCE_2 / OUT_OF_NETWORK).
+  // We use it on step 0 to decide whether to send the invite or skip directly
+  // to step 1 because the seller is already a 1st-degree connection.
+  let networkDistance: string | null = null;
 
   try {
-    if (!providerId) {
+    // Step 0 ALWAYS re-fetches the user even if provider_id is cached, because
+    // we need a fresh network_distance reading. Step 1+ can rely on the cached
+    // provider_id (the connection state was already verified at step 0 / via
+    // the acceptance webhook).
+    const needsFetch = !providerId || candidate.step_number === 0;
+    if (needsFetch) {
       const userResp = await unipileGet(
         `${UNIPILE_BASE}/api/v1/users/${encodeURIComponent(slug)}?account_id=${encodeURIComponent(seller.unipile_account_id)}`,
       );
-      providerId = userResp?.provider_id ?? null;
+      providerId = userResp?.provider_id ?? providerId;
+      networkDistance = userResp?.network_distance ?? null;
       const apiFirst = userResp?.first_name ?? "";
       const apiLast = userResp?.last_name ?? "";
       if (!nameMatches(lead.primary_first_name, lead.primary_last_name, apiFirst, apiLast)) {
@@ -291,9 +301,12 @@ async function handle(req: NextRequest) {
       if (!providerId) {
         return await failMessage(svc, candidate.id, candidate.lead_id, "Unipile did not return a provider_id");
       }
-      // Cache so the next step (the post-acceptance message) doesn't have to
-      // re-resolve and re-verify.
-      await svc.from("leads").update({ linkedin_internal_id: providerId }).eq("id", lead.id);
+      // Cache provider_id so step 1+ can skip re-resolution. We don't cache
+      // network_distance — it can change (lead accepts an invite from another
+      // session, gets removed, etc.) and we re-fetch on every step 0.
+      if (!lead.linkedin_internal_id) {
+        await svc.from("leads").update({ linkedin_internal_id: providerId }).eq("id", lead.id);
+      }
     }
   } catch (e: any) {
     const errMsg = e?.message ?? String(e);
@@ -301,6 +314,17 @@ async function handle(req: NextRequest) {
       return await requeueRateLimited(svc, candidate.id, candidate.lead_id, errMsg);
     }
     return await failMessage(svc, candidate.id, candidate.lead_id, errMsg);
+  }
+
+  // Step 0 short-circuit: lead is already a 1st-degree connection. Skip the
+  // invite (avoid burning rate-limit budget on a guaranteed 422) and promote
+  // step 1 to queued so the DM goes out in 5 min through the same flow as
+  // the acceptance webhook.
+  if (candidate.step_number === 0 && networkDistance === "DISTANCE_1") {
+    return await skipAlreadyConnected(
+      svc, candidate.id, candidate.lead_id, candidate.campaign_id, candidate.step_number,
+      "preflight: lead is already a 1st-degree connection (network_distance=DISTANCE_1)",
+    );
   }
 
   // 4. Build the personalized message + (for step 0) truncate to LinkedIn's
