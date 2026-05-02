@@ -45,6 +45,7 @@ type CampaignMessageRow = {
     primary_linkedin_url: string | null;
     company_name: string | null;
     company_bio_id: string | null;
+    linkedin_connected: boolean | null;
     primary_company_bios?: { company_name: string | null } | null;
   } | null;
   campaigns: {
@@ -65,6 +66,8 @@ type UnipileSentInvite = {
 
 type ReliabilityData = {
   queueHealth: {
+    skipped: CampaignMessageRow[];
+    stuck: CampaignMessageRow[];
     queued: CampaignMessageRow[];
     dispatching: CampaignMessageRow[];
     failed: CampaignMessageRow[];
@@ -89,16 +92,31 @@ type ReliabilityData = {
 async function fetchReliability(): Promise<ReliabilityData> {
   const svc = getSupabaseService();
 
-  const queueSelect = "id, campaign_id, lead_id, step_number, channel, status, sent_at, provider_message_id, error_details, created_at, leads(primary_first_name, primary_last_name, primary_linkedin_url, company_name, company_bio_id), campaigns(name, seller_id, sellers(name, unipile_account_id))";
+  const queueSelect = "id, campaign_id, lead_id, step_number, channel, status, sent_at, provider_message_id, error_details, created_at, leads(primary_first_name, primary_last_name, primary_linkedin_url, company_name, company_bio_id, linkedin_connected), campaigns(name, seller_id, sellers(name, unipile_account_id))";
 
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [queuedQ, dispatchingQ, failedQ, sentLedgerQ, sellersQ] = await Promise.all([
+  // Stuck cutoff: step 0 sent ≥7 days ago + lead never connected + step 1 still draft.
+  // These campaigns are technically "active" but functionally dead — the lead
+  // ignored the invite. Without surfacing them they accumulate silently.
+  const STUCK_DAYS = 7;
+  const stuckCutoff = new Date(Date.now() - STUCK_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+  const [queuedQ, dispatchingQ, failedQ, skippedQ, sentLedgerQ, sellersQ, stuckQ] = await Promise.all([
     svc.from("campaign_messages").select(queueSelect).eq("status", "queued").order("created_at", { ascending: true }),
     svc.from("campaign_messages").select(queueSelect).eq("status", "dispatching").order("created_at", { ascending: true }),
     svc.from("campaign_messages").select(queueSelect).eq("status", "failed").order("created_at", { ascending: false }).limit(50),
+    // Skipped rows from skipAlreadyConnected / markAlreadyInvited / retroactive
+    // fixes — they're not failures but they need visibility (esp. the
+    // "awaiting acceptance" ones that depend on the lead).
+    svc.from("campaign_messages").select(queueSelect).eq("status", "skipped").order("created_at", { ascending: false }).limit(50),
     svc.from("campaign_messages").select(queueSelect).eq("status", "sent").eq("step_number", 0).gte("sent_at", since24h).order("sent_at", { ascending: false }),
     svc.from("sellers").select("id, name, unipile_account_id, active, linkedin_daily_limit").eq("active", true),
+    // Stuck campaigns: step 0 sent ≥7d ago, lead never connected.
+    svc.from("campaign_messages").select(queueSelect)
+      .eq("status", "sent").eq("step_number", 0).eq("channel", "linkedin")
+      .lt("sent_at", stuckCutoff)
+      .order("sent_at", { ascending: true }),
   ]);
 
   // Pull Unipile sent invites per active seller (last 100 each).
@@ -172,11 +190,21 @@ async function fetchReliability(): Promise<ReliabilityData> {
     dailyLimit: (s.linkedin_daily_limit as number | null) ?? 20,
   }));
 
+  // Stuck = sent step-0 LinkedIn invite ≥7d ago AND lead never connected.
+  // Surface these explicitly — without it they sit in 'active' campaigns
+  // forever, invisible. (The user reported this gap with Pathway: 6 invites
+  // sent, 0 acceptances, no surface anywhere.)
+  const stuckRows = ((stuckQ.data ?? []) as unknown as CampaignMessageRow[]).filter(
+    (r) => r.leads?.linkedin_connected !== true,
+  );
+
   return {
     queueHealth: {
-      queued: (queuedQ.data ?? []) as CampaignMessageRow[],
-      dispatching: (dispatchingQ.data ?? []) as CampaignMessageRow[],
-      failed: (failedQ.data ?? []) as CampaignMessageRow[],
+      queued: (queuedQ.data ?? []) as unknown as CampaignMessageRow[],
+      dispatching: (dispatchingQ.data ?? []) as unknown as CampaignMessageRow[],
+      failed: (failedQ.data ?? []) as unknown as CampaignMessageRow[],
+      skipped: (skippedQ.data ?? []) as unknown as CampaignMessageRow[],
+      stuck: stuckRows,
     },
     sentVsUnipile: { rows: reconciled, ghostCount, matchedCount },
     sellerHealth,
@@ -203,7 +231,7 @@ export default async function ReliabilityPage() {
   const data = await fetchReliability();
   const { queueHealth, sentVsUnipile, sellerHealth, fetchedAt } = data;
 
-  const totalAttention = queueHealth.queued.length + queueHealth.dispatching.length + queueHealth.failed.length + sentVsUnipile.ghostCount;
+  const totalAttention = queueHealth.queued.length + queueHealth.dispatching.length + queueHealth.failed.length + queueHealth.stuck.length + sentVsUnipile.ghostCount;
 
   return (
     <div className="p-6 w-full max-w-6xl mx-auto">
@@ -220,10 +248,12 @@ export default async function ReliabilityPage() {
       </div>
 
       {/* Summary tiles */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
         <Tile label="Queued" count={queueHealth.queued.length} color={C.blue} icon={Clock} />
         <Tile label="Dispatching" count={queueHealth.dispatching.length} color="#7C3AED" icon={Send} />
         <Tile label="Failed" count={queueHealth.failed.length} color={C.red} icon={AlertTriangle} />
+        <Tile label="Skipped" count={queueHealth.skipped.length} color="#6B7280" icon={CheckCircle2} />
+        <Tile label="Stuck (≥7d)" count={queueHealth.stuck.length} color={queueHealth.stuck.length > 0 ? "#D97706" : C.green} icon={queueHealth.stuck.length > 0 ? AlertTriangle : CheckCircle2} />
         <Tile label="Ghost-sent (24h)" count={sentVsUnipile.ghostCount} color={sentVsUnipile.ghostCount > 0 ? C.red : C.green} icon={sentVsUnipile.ghostCount > 0 ? AlertTriangle : CheckCircle2} />
       </div>
 
@@ -235,6 +265,60 @@ export default async function ReliabilityPage() {
             Nothing in queue, nothing failed, no ghosts. Outgoing pipeline is clean.
           </span>
         </div>
+      )}
+
+      {/* Stuck campaigns — sent step-0 invite ≥7d ago, lead never connected */}
+      {queueHealth.stuck.length > 0 && (
+        <Section title={`Stuck campaigns — invite sent ≥7d ago, no acceptance (${queueHealth.stuck.length})`} accent="#D97706">
+          <Table>
+            <thead>
+              <Th>Sent</Th>
+              <Th>Lead</Th>
+              <Th>Company</Th>
+              <Th>Seller</Th>
+            </thead>
+            <tbody>
+              {queueHealth.stuck.map((r) => {
+                const days = r.sent_at ? Math.floor((Date.now() - new Date(r.sent_at).getTime()) / 86400000) : 0;
+                return (
+                  <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                    <Td>
+                      <span className="text-xs">{formatTime(r.sent_at)}</span>
+                      <span className="text-[10px] ml-2 px-1.5 py-0.5 rounded" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>{days}d ago</span>
+                    </Td>
+                    <Td>{leadName(r)}</Td>
+                    <Td>{r.leads?.company_name ?? "—"}</Td>
+                    <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </Table>
+        </Section>
+      )}
+
+      {/* Skipped — preflight skip + retroactive fixes */}
+      {queueHealth.skipped.length > 0 && (
+        <Section title={`Skipped (${queueHealth.skipped.length})`} accent="#6B7280">
+          <Table>
+            <thead>
+              <Th>Lead</Th>
+              <Th>Step</Th>
+              <Th>Channel</Th>
+              <Th>Created</Th>
+            </thead>
+            <tbody>
+              {queueHealth.skipped.map((r) => (
+                <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                  <Td>{leadName(r)}</Td>
+                  <Td>{r.step_number}</Td>
+                  <Td>{r.channel}</Td>
+                  <Td>{formatTime(r.created_at)}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </Table>
+        </Section>
       )}
 
       {/* Failed */}
