@@ -153,11 +153,20 @@ export default function NewLeadCampaignWizard() {
       if (!leadData) { setLoading(false); return; }
       setLead(leadData);
 
+      // Scope sellers to the lead's tenant — without this, every other tenant's
+      // sellers leak into the seller picker (Graeme @ Pathway showing up for an
+      // SWL Consulting flow). The lead row already carries company_bio_id, so
+      // we filter by it directly.
+      const sellerQ = supabase.from("sellers")
+        .select("id, name, unipile_account_id, email_account, linkedin_daily_limit, email_daily_limit")
+        .eq("active", true)
+        .order("name");
+      if (leadData.company_bio_id) sellerQ.eq("company_bio_id", leadData.company_bio_id);
       const [{ data: profileData }, { data: sellerList }] = await Promise.all([
         leadData.icp_profile_id
           ? supabase.from("icp_profiles").select("*").eq("id", leadData.icp_profile_id).single()
           : { data: null },
-        supabase.from("sellers").select("id, name, unipile_account_id, email_account, linkedin_daily_limit, email_daily_limit").eq("active", true).order("name"),
+        sellerQ,
       ]);
 
       setProfile(profileData);
