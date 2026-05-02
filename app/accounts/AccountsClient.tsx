@@ -8,8 +8,9 @@ import { useAuthUser } from "@/lib/auth-context";
 import {
   Share2, Mail, Phone, AlertTriangle,
   Users, Calendar, X, Plus, Trash2, Loader2, Shield, Pencil, Save,
-  Zap, Globe, TrendingUp,
+  Zap, Globe, TrendingUp, Settings,
 } from "lucide-react";
+import EmailPoolManager from "@/components/EmailPoolManager";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -490,6 +491,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
   const [linkTarget, setLinkTarget] = useState<SellerCard | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showPoolManager, setShowPoolManager] = useState(false);
   // Was a duplicate /api/auth/me fetch — now reads from shared AuthContext.
   const authUser = useAuthUser();
   const isAdmin = authUser?.role === "admin";
@@ -717,6 +719,11 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                     <p className="text-2xl font-bold tabular-nums" style={{ color: "#D97706" }}>{instantly.warmupPending}</p>
                   </div>
                   <div className="flex-1" />
+                  <button onClick={() => setShowPoolManager(true)}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors hover:bg-black/[0.02]"
+                    style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
+                    <Settings size={12} /> Manage pool
+                  </button>
                   <a href="https://app.instantly.ai/app/accounts" target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-opacity hover:opacity-80"
                     style={{ backgroundColor: "#7C3AED15", color: "#7C3AED" }}>
@@ -933,6 +940,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
       {editTarget && <EditAccountModal seller={editTarget} onClose={() => setEditTarget(null)} onSuccess={() => { setEditTarget(null); router.refresh(); }} />}
       {linkTarget && <LinkUnipileModal seller={linkTarget} onClose={() => setLinkTarget(null)} onSuccess={() => { setLinkTarget(null); router.refresh(); }} />}
       {deleteTarget && <DeleteModal name={deleteTarget.name} onConfirm={handleDelete} onClose={() => setDeleteTarget(null)} loading={deleting} />}
+      <EmailPoolManager open={showPoolManager} onClose={() => setShowPoolManager(false)} />
     </div>
   );
 }
