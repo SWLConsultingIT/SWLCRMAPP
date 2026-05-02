@@ -364,6 +364,14 @@ async function handle(req: NextRequest) {
     if (isRateLimitError(errMsg)) {
       return await requeueRateLimited(svc, candidate.id, candidate.lead_id, errMsg);
     }
+    // Step 0 only: if Unipile says "already connected" / "already sent",
+    // skip this invite and promote step 1 to queued so the campaign keeps
+    // moving instead of dying on a permanent 'failed'.
+    if (candidate.step_number === 0 && isAlreadyConnectedError(errMsg)) {
+      return await skipAlreadyConnected(
+        svc, candidate.id, candidate.lead_id, candidate.campaign_id, candidate.step_number, errMsg,
+      );
+    }
     return await failMessage(svc, candidate.id, candidate.lead_id, errMsg);
   }
 
@@ -455,6 +463,61 @@ function isRateLimitError(reason: string): boolean {
     || r.includes("rate-limit")
     || r.includes("too many requests")
     || r.includes("429");
+}
+
+// Detect Unipile responses that indicate the lead is already connected to
+// the seller's account (or the seller already sent an invite recently).
+// Both mean: do NOT keep retrying step 0 — the connection effectively
+// exists already, so we mark the step skipped and promote step 1 (DM)
+// to queued so the campaign continues without a manual intervention.
+function isAlreadyConnectedError(reason: string): boolean {
+  const r = reason.toLowerCase();
+  return r.includes("already connected")
+    || r.includes("already a contact")
+    || r.includes("already sent")
+    || r.includes("invitation has already");
+}
+
+// Step 0 (connection request) hit a "already connected" / "already sent
+// recently" error. Treat it as a successful skip:
+//   - mark this row status='skipped' with the original reason in metadata
+//   - flip lead.linkedin_connected = true (the connection effectively exists)
+//   - promote step 1 (the first DM) from 'draft' to 'queued' with
+//     eligible_at = NOW + 5 min, mirroring the post-acceptance flow
+//   - bump campaign.current_step + last_step_at
+// Net effect: the campaign continues straight into the DM phase instead of
+// stalling on a permanent 'failed' that needs manual cleanup.
+async function skipAlreadyConnected(
+  svc: ReturnType<typeof getSupabaseService>,
+  msgId: string,
+  leadId: string,
+  campaignId: string,
+  stepNumber: number,
+  reason: string,
+) {
+  const now = new Date().toISOString();
+  const eligibleAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+  await Promise.all([
+    svc.from("campaign_messages").update({
+      status: "skipped",
+      sent_at: now,
+      error_details: null,
+      metadata: { dispatched_by: "cron-dispatch-queue", skipped_reason: reason, skipped_at: now },
+    }).eq("id", msgId),
+    svc.from("leads").update({ linkedin_connected: true, updated_at: now }).eq("id", leadId),
+    svc.from("campaigns").update({
+      current_step: stepNumber,
+      last_step_at: now,
+    }).eq("id", campaignId),
+    svc.from("campaign_messages").update({
+      status: "queued",
+      metadata: { eligible_at: eligibleAt, queued_by: "cron-dispatch-queue:already-connected" },
+    }).eq("campaign_id", campaignId).eq("step_number", stepNumber + 1).eq("status", "draft"),
+  ]);
+  return NextResponse.json({
+    ok: true, processed: 1, skipped: true, reason: "already_connected",
+    message_id: msgId, lead_id: leadId, next_step_eligible_at: eligibleAt,
+  });
 }
 
 // Revert a 'dispatching' row back to 'queued' and stamp metadata so future
