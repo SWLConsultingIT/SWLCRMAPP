@@ -156,10 +156,23 @@ export default function NewCampaignWizard() {
   useEffect(() => {
     async function load() {
   const supabase = getSupabaseBrowser();
+      // Resolve the current user's tenant first — sellers + bio queries below
+      // both filter by it. Without this scope, every tenant's seller list leaks
+      // into every other tenant's wizard (e.g. Graeme appearing in SWL's flow).
+      const { data: authBioId } = await supabase.rpc("get_auth_company_bio_id");
+      const bioId = (authBioId as string | null) ?? null;
+      const sellerQ = supabase.from("sellers")
+        .select("id, name, unipile_account_id, email_account, linkedin_daily_limit, email_daily_limit")
+        .eq("active", true)
+        .order("name");
+      if (bioId) sellerQ.eq("company_bio_id", bioId);
+      const bioQ = bioId
+        ? supabase.from("company_bios").select("*").eq("id", bioId).single()
+        : supabase.from("company_bios").select("*").order("created_at", { ascending: false }).limit(1).single();
       const [{ data: p }, { data: b }, { data: sellerList }] = await Promise.all([
         supabase.from("icp_profiles").select("*").eq("id", profileId).single(),
-        supabase.from("company_bios").select("*").order("created_at", { ascending: false }).limit(1).single(),
-        supabase.from("sellers").select("id, name, unipile_account_id, email_account, linkedin_daily_limit, email_daily_limit").eq("active", true).order("name"),
+        bioQ,
+        sellerQ,
       ]);
       setSellers(sellerList ?? []);
       if (sellerList?.length === 1) setSelectedSeller(sellerList[0].id);
