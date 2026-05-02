@@ -95,10 +95,11 @@ function UsageBar({ sent, limit, channel }: { sent: number; limit: number; chann
   );
 }
 
-const SECURITY_PIN = "2026";
-
-// ─── Add Account Modal (PIN-gated, 3-channel picker) ────────────────────────
-// PIN → channel picker → LinkedIn flow / hand-off to Email or Calls manager.
+// ─── Add Account Modal (3-channel picker) ──────────────────────────────────
+// Channel picker → LinkedIn flow / hand-off to Email or Calls manager. The
+// older client-side PIN gate was removed once the button itself became
+// admin-only and the API endpoints validate role server-side — keeping it
+// would have been redundant friction.
 // onPickEmail / onPickCalls let the parent close this modal and open the
 // pool-manager modal that already handles its own claim flow.
 function AddAccountModal({
@@ -112,26 +113,13 @@ function AddAccountModal({
   onPickEmail: () => void;
   onPickCalls: () => void;
 }) {
-  const [step, setStep] = useState<"pin" | "channel" | "form" | "connecting" | "connected">("pin");
-  const [pin, setPin] = useState(["", "", "", ""]);
-  const [pinError, setPinError] = useState(false);
+  const [step, setStep] = useState<"channel" | "form" | "connecting" | "connected">("channel");
   const [name, setName] = useState("");
   const [linkedinLimit, setLinkedinLimit] = useState(15);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [authWindow, setAuthWindow] = useState<Window | null>(null);
-
-  function handlePinChange(idx: number, val: string) {
-    if (val.length > 1) return;
-    const next = [...pin]; next[idx] = val; setPin(next); setPinError(false);
-    if (val && idx < 3) document.getElementById(`pin-${idx + 1}`)?.focus();
-    if (idx === 3 && val) {
-      const full = next.join("");
-      if (full === SECURITY_PIN) setStep("channel");
-      else { setPinError(true); setTimeout(() => setPin(["", "", "", ""]), 500); document.getElementById("pin-0")?.focus(); }
-    }
-  }
 
   async function handleStartConnection() {
     if (!name.trim()) { setError("Name is required"); return; }
@@ -175,34 +163,13 @@ function AddAccountModal({
       <div className="rounded-2xl border p-6 w-full max-w-lg shadow-2xl" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>
-            {step === "pin" ? "Security Verification"
-              : step === "channel" ? "Add Account"
+            {step === "channel" ? "Add Account"
               : step === "connecting" ? "Connecting LinkedIn"
               : step === "connected" ? "Connected"
               : "Add LinkedIn Seller"}
           </h2>
           <button onClick={onClose}><X size={18} style={{ color: C.textMuted }} /></button>
         </div>
-
-        {step === "pin" && (
-          <div className="py-8 text-center">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)` }}>
-              <Shield size={24} style={{ color: gold }} />
-            </div>
-            <p className="text-sm font-medium mb-1" style={{ color: C.textPrimary }}>Enter security PIN</p>
-            <p className="text-xs mb-6" style={{ color: C.textMuted }}>4-digit PIN required to manage accounts</p>
-            <div className="flex items-center justify-center gap-3 mb-4">
-              {pin.map((d, i) => (
-                <input key={i} id={`pin-${i}`} type="password" inputMode="numeric" maxLength={1}
-                  value={d} onChange={e => handlePinChange(i, e.target.value.replace(/\D/g, ""))}
-                  className="w-12 h-14 text-center text-2xl font-bold rounded-xl focus:outline-none transition-[opacity,transform,box-shadow,background-color,border-color]"
-                  style={{ backgroundColor: C.bg, border: `2px solid ${pinError ? C.red : d ? gold : C.border}`, color: C.textPrimary }}
-                  autoFocus={i === 0} />
-              ))}
-            </div>
-            {pinError && <p className="text-xs font-medium" style={{ color: C.red }}>Incorrect PIN. Try again.</p>}
-          </div>
-        )}
 
         {step === "channel" && (
           <div className="space-y-2 py-2">
