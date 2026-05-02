@@ -46,6 +46,8 @@ type LeadRow = {
   primary_last_name: string | null;
   primary_linkedin_url: string | null;
   linkedin_internal_id: string | null;
+  company_name: string | null;
+  primary_title_role: string | null;
 };
 
 type SellerRow = {
@@ -86,12 +88,30 @@ function nameMatches(
   return af.startsWith(ef.slice(0, 3)) && al.startsWith(el.slice(0, 3));
 }
 
+// Interpolate placeholders in a LinkedIn invite-note or DM. The AI message
+// generator regularly emits any of: {{first_name}}, {{last_name}},
+// {{full_name}}, {{company}}, {{company_name}}, {{role}}, {{title}},
+// {{seller_name}}, {{seller_company}}. Until 2026-05-02 this only handled
+// {{first_name}} and {{seller_name}} — Fran's test caught a literal
+// "{{company}}" rendered in a sent DM. Mirror the email dispatcher's
+// `personalize` so both channels treat placeholders consistently.
 function personalizeNote(template: string, lead: LeadRow, seller: SellerRow): string {
   const first = lead.primary_first_name ?? "there";
+  const last = lead.primary_last_name ?? "";
+  const full = `${first} ${last}`.trim();
+  const company = lead.company_name ?? "";
+  const role = lead.primary_title_role ?? "";
   const sellerName = seller.name ?? "";
-  return template
+  return (template ?? "")
     .replaceAll("{{first_name}}", first)
-    .replaceAll("{{seller_name}}", sellerName);
+    .replaceAll("{{last_name}}", last)
+    .replaceAll("{{full_name}}", full)
+    .replaceAll("{{company_name}}", company)
+    .replaceAll("{{company}}", company)
+    .replaceAll("{{role}}", role)
+    .replaceAll("{{title}}", role)
+    .replaceAll("{{seller_name}}", sellerName)
+    .replaceAll("{{seller_company}}", "");
 }
 
 async function unipileGet(url: string): Promise<any> {
@@ -237,7 +257,7 @@ async function handle(req: NextRequest) {
 
   // 2. Hydrate the lead + seller + campaign rows we need for the call.
   const [{ data: lead }, { data: campaign }] = await Promise.all([
-    svc.from("leads").select("id, primary_first_name, primary_last_name, primary_linkedin_url, linkedin_internal_id")
+    svc.from("leads").select("id, primary_first_name, primary_last_name, primary_linkedin_url, linkedin_internal_id, company_name, primary_title_role")
       .eq("id", candidate.lead_id).maybeSingle(),
     svc.from("campaigns").select("id, seller_id, name").eq("id", candidate.campaign_id).maybeSingle(),
   ]);
@@ -273,10 +293,17 @@ async function handle(req: NextRequest) {
   }
 
   let providerId = lead.linkedin_internal_id ?? null;
-  // network_distance from Unipile (DISTANCE_1 / DISTANCE_2 / OUT_OF_NETWORK).
-  // We use it on step 0 to decide whether to send the invite or skip directly
-  // to step 1 because the seller is already a 1st-degree connection.
+  // network_distance from Unipile. Real values seen in production:
+  // FIRST_DEGREE / SECOND_DEGREE / THIRD_DEGREE / OUT_OF_NETWORK. The
+  // n8n legacy code also accepted DISTANCE_1 (older Unipile schema) so we
+  // keep both for backwards compat.
   let networkDistance: string | null = null;
+  // Pending invitation tracker — Unipile returns
+  //   invitation: { type: "SENT", status: "PENDING" }
+  // when there's an unaccepted invite already outstanding from this account.
+  // Catches the same condition as the 422 "already sent recently" error
+  // but proactively, before we even attempt to send.
+  let invitationStatus: string | null = null;
 
   try {
     // Step 0 ALWAYS re-fetches the user even if provider_id is cached, because
@@ -290,6 +317,7 @@ async function handle(req: NextRequest) {
       );
       providerId = userResp?.provider_id ?? providerId;
       networkDistance = userResp?.network_distance ?? null;
+      invitationStatus = userResp?.invitation?.status ?? null;
       const apiFirst = userResp?.first_name ?? "";
       const apiLast = userResp?.last_name ?? "";
       if (!nameMatches(lead.primary_first_name, lead.primary_last_name, apiFirst, apiLast)) {
@@ -316,15 +344,29 @@ async function handle(req: NextRequest) {
     return await failMessage(svc, candidate.id, candidate.lead_id, errMsg);
   }
 
-  // Step 0 short-circuit: lead is already a 1st-degree connection. Skip the
-  // invite (avoid burning rate-limit budget on a guaranteed 422) and promote
-  // step 1 to queued so the DM goes out in 5 min through the same flow as
-  // the acceptance webhook.
-  if (candidate.step_number === 0 && networkDistance === "DISTANCE_1") {
-    return await skipAlreadyConnected(
-      svc, candidate.id, candidate.lead_id, candidate.campaign_id, candidate.step_number,
-      "preflight: lead is already a 1st-degree connection (network_distance=DISTANCE_1)",
-    );
+  // Step 0 preflight branches — both avoid burning rate-limit budget on a
+  // guaranteed 422 and surface the right state in the DB:
+  //   1. Lead is already a 1st-degree connection → skip invite, queue step 1.
+  //      Production Unipile returns "FIRST_DEGREE"; the legacy n8n code also
+  //      accepted "DISTANCE_1" (older schema), so we match both.
+  //   2. Lead has a pending SENT invitation already outstanding → mark
+  //      step 0 skipped + leave step 1 in draft. The lead will eventually
+  //      accept (or LinkedIn auto-expires the invite in ~3 weeks); when they
+  //      accept, the Unipile users.relations webhook fires and n8n
+  //      BESFOHaqTt2Ki0Vw promotes step 1 through the normal flow.
+  if (candidate.step_number === 0) {
+    if (networkDistance === "FIRST_DEGREE" || networkDistance === "DISTANCE_1") {
+      return await skipAlreadyConnected(
+        svc, candidate.id, candidate.lead_id, candidate.campaign_id, candidate.step_number,
+        `preflight: lead is already a 1st-degree connection (network_distance=${networkDistance})`,
+      );
+    }
+    if (invitationStatus === "PENDING") {
+      return await markAlreadyInvited(
+        svc, candidate.id, candidate.lead_id,
+        "preflight: lead has a pending SENT invitation outstanding (invitation.status=PENDING)",
+      );
+    }
   }
 
   // 4. Build the personalized message + (for step 0) truncate to LinkedIn's
