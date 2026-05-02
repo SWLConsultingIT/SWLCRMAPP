@@ -113,17 +113,33 @@ export default function FlowEditorPage() {
         setFlowName(campaign.name ?? "");
         setOriginalName(campaign.name ?? "");
         setFlowManagerId(campaign.seller_id);
-        // Normalize sequence_steps: support both { channel, daysAfter } and { channel, action, wait_days } formats
+        // Normalize sequence_steps to the editor's internal shape.
+        // Two formats coexist:
+        //   - LEGACY: each entry has { channel, action, wait_days }; the
+        //     "Send Request" entry is explicit at index 0.
+        //   - NEW (post-2026-04-30 wizard): each entry only has
+        //     { channel, daysAfter }. The connection note is implicit and
+        //     lives in campaign_messages at step_number=0; sequence_steps
+        //     contains only the post-acceptance steps.
+        // Detect "new format with implicit connection note" by checking if
+        // a step_number=0 LinkedIn message exists. If so, do NOT auto-infer
+        // "Send Request" on the first LinkedIn entry — that's the DM, not
+        // the invite — and prepend a synthetic Send Request card so the
+        // connection note remains editable.
         const rawSteps: any[] = campaign.sequence_steps ?? [];
+        const hasConnectionNoteInMsgs = (msgs ?? []).some(
+          (m: any) => m.step_number === 0 && m.channel === "linkedin",
+        );
         let seenLinkedinRequest = false;
-        const normalizedSteps = rawSteps.map((s: any) => {
+        const normalizedSteps: SequenceStep[] = rawSteps.map((s: any) => {
           const channel = s.channel ?? "email";
           const waitDays = s.wait_days ?? s.daysAfter ?? 0;
           let action = s.action;
           if (!action) {
             if (channel === "linkedin") {
-              if (!seenLinkedinRequest && waitDays === 0) { action = "Send Request"; seenLinkedinRequest = true; }
-              else { action = "Send DM"; }
+              if (!hasConnectionNoteInMsgs && !seenLinkedinRequest && waitDays === 0) {
+                action = "Send Request"; seenLinkedinRequest = true;
+              } else { action = "Send DM"; }
             } else if (channel === "email") { action = "Send Email"; }
             else if (channel === "call") { action = "Call"; }
             else if (channel === "whatsapp") { action = "Send Message"; }
@@ -132,6 +148,11 @@ export default function FlowEditorPage() {
           if (action === "Send Request") seenLinkedinRequest = true;
           return { channel, action, wait_days: waitDays } as SequenceStep;
         });
+        // New-format campaigns: prepend the implicit Send Request so the
+        // editor renders a card for the connection note.
+        if (hasConnectionNoteInMsgs && !normalizedSteps.some(s => s.action === "Send Request")) {
+          normalizedSteps.unshift({ channel: "linkedin", action: "Send Request", wait_days: 0 });
+        }
         setSteps(normalizedSteps);
         setEmailAccount(campaign.email_account ?? "");
       }
@@ -591,11 +612,22 @@ export default function FlowEditorPage() {
 
                     {/* Message template */}
                     {(() => {
-                      // Map step index to message step_number:
-                      // "Send Request" → step_number 0 (connection note)
-                      // Other steps → offset by 1 if a Send Request exists in the sequence, else direct index
-                      const hasConnectionReq = steps.some(s => s.channel === "linkedin" && s.action === "Send Request");
-                      const msgKey = step.action === "Send Request" ? 0 : hasConnectionReq ? i + 1 : i;
+                      // Map step index → campaign_messages.step_number.
+                      // "Send Request" always maps to step_number 0 (the connection note).
+                      // For every other card, count the non-Send-Request steps that
+                      // appear before it in the sequence and add 1 — that's the
+                      // step_number used by the wizard / approve route. Works for
+                      // both legacy (explicit Send Request entry) and new wizard
+                      // (synthetic Send Request prepended at load time) formats,
+                      // and for non-LinkedIn campaigns where no Send Request exists
+                      // (msgKey starts at 1, since approve writes msg.step ?? i+1).
+                      let msgKey: number;
+                      if (step.action === "Send Request") {
+                        msgKey = 0;
+                      } else {
+                        const realStepsBefore = steps.slice(0, i).filter(s => s.action !== "Send Request").length;
+                        msgKey = realStepsBefore + 1;
+                      }
                       const msg = messages[msgKey];
                       return (
                     <div className="mt-3 pt-3 border-t" style={{ borderColor: `${conf.color}15` }}>
