@@ -364,13 +364,18 @@ async function handle(req: NextRequest) {
     if (isRateLimitError(errMsg)) {
       return await requeueRateLimited(svc, candidate.id, candidate.lead_id, errMsg);
     }
-    // Step 0 only: if Unipile says "already connected" / "already sent",
-    // skip this invite and promote step 1 to queued so the campaign keeps
-    // moving instead of dying on a permanent 'failed'.
-    if (candidate.step_number === 0 && isAlreadyConnectedError(errMsg)) {
-      return await skipAlreadyConnected(
-        svc, candidate.id, candidate.lead_id, candidate.campaign_id, candidate.step_number, errMsg,
-      );
+    // Step 0 only — two distinct skip paths depending on the kind of 422:
+    //   - already connected → connection effectively exists, queue step 1 now
+    //   - already invited (pending) → wait for acceptance webhook, leave step 1 in draft
+    if (candidate.step_number === 0) {
+      if (isAlreadyConnectedError(errMsg)) {
+        return await skipAlreadyConnected(
+          svc, candidate.id, candidate.lead_id, candidate.campaign_id, candidate.step_number, errMsg,
+        );
+      }
+      if (isAlreadyInvitedError(errMsg)) {
+        return await markAlreadyInvited(svc, candidate.id, candidate.lead_id, errMsg);
+      }
     }
     return await failMessage(svc, candidate.id, candidate.lead_id, errMsg);
   }
@@ -465,17 +470,22 @@ function isRateLimitError(reason: string): boolean {
     || r.includes("429");
 }
 
-// Detect Unipile responses that indicate the lead is already connected to
-// the seller's account (or the seller already sent an invite recently).
-// Both mean: do NOT keep retrying step 0 — the connection effectively
-// exists already, so we mark the step skipped and promote step 1 (DM)
-// to queued so the campaign continues without a manual intervention.
+// Lead is ALREADY a connection — DM via /chats will work. Safe to skip
+// step 0 and immediately promote step 1.
 function isAlreadyConnectedError(reason: string): boolean {
   const r = reason.toLowerCase();
-  return r.includes("already connected")
-    || r.includes("already a contact")
-    || r.includes("already sent")
-    || r.includes("invitation has already");
+  return r.includes("already connected") || r.includes("already a contact");
+}
+
+// Lead has a PENDING invite (sent earlier, not yet accepted). They are
+// NOT yet connected, so step 1 (DM) would fail because LinkedIn requires
+// the connection before opening a chat. Skip step 0 but leave step 1 in
+// draft — when the lead eventually accepts, the Unipile users.relations
+// webhook fires and n8n BESFOHaqTt2Ki0Vw promotes step 1 through the
+// normal acceptance flow.
+function isAlreadyInvitedError(reason: string): boolean {
+  const r = reason.toLowerCase();
+  return r.includes("already sent") || r.includes("invitation has already");
 }
 
 // Step 0 (connection request) hit a "already connected" / "already sent
@@ -517,6 +527,32 @@ async function skipAlreadyConnected(
   return NextResponse.json({
     ok: true, processed: 1, skipped: true, reason: "already_connected",
     message_id: msgId, lead_id: leadId, next_step_eligible_at: eligibleAt,
+  });
+}
+
+// Step 0 hit "already sent recently" — there's a pending invite from a
+// previous session that hasn't been accepted. Mark step 0 skipped so the
+// dispatcher stops retrying, but DO NOT promote step 1 and DO NOT flip
+// linkedin_connected — they aren't connected yet. When the lead finally
+// accepts the pending invite, Unipile's users.relations webhook fires
+// and n8n BESFOHaqTt2Ki0Vw runs the normal acceptance flow which queues
+// step 1 with eligible_at = NOW + 5 min.
+async function markAlreadyInvited(
+  svc: ReturnType<typeof getSupabaseService>,
+  msgId: string,
+  leadId: string,
+  reason: string,
+) {
+  const now = new Date().toISOString();
+  await svc.from("campaign_messages").update({
+    status: "skipped",
+    sent_at: null,
+    error_details: null,
+    metadata: { dispatched_by: "cron-dispatch-queue", skipped_reason: reason, skipped_at: now, awaiting_acceptance: true },
+  }).eq("id", msgId);
+  return NextResponse.json({
+    ok: true, processed: 1, skipped: true, reason: "pending_invite_awaiting_acceptance",
+    message_id: msgId, lead_id: leadId,
   });
 }
 
