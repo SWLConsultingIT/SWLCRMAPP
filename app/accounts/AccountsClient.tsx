@@ -674,11 +674,13 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
           );
         })}
         <div className="flex-1" />
-        <button onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold mb-1 transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-md"
-          style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
-          <Plus size={14} /> Add Account
-        </button>
+        {isAdmin && (
+          <button onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold mb-1 transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-md"
+            style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
+            <Plus size={14} /> Add Account
+          </button>
+        )}
       </div>
 
       {/* ═══ TAB 0: TODAY'S USAGE — 3 sections ═══ */}
@@ -791,11 +793,13 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                     <p className="text-2xl font-bold tabular-nums" style={{ color: "#D97706" }}>{instantly.warmupPending}</p>
                   </div>
                   <div className="flex-1" />
-                  <button onClick={() => setShowPoolManager(true)}
-                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors hover:bg-black/[0.02]"
-                    style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
-                    <Settings size={12} /> Manage pool
-                  </button>
+                  {isAdmin && (
+                    <button onClick={() => setShowPoolManager(true)}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors hover:bg-black/[0.02]"
+                      style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
+                      <Settings size={12} /> Manage pool
+                    </button>
+                  )}
                   <a href="https://app.instantly.ai/app/accounts" target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg transition-opacity hover:opacity-80"
                     style={{ backgroundColor: "#7C3AED15", color: "#7C3AED" }}>
