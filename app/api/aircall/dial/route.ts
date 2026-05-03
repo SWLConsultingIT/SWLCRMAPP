@@ -60,9 +60,19 @@ export async function POST(req: NextRequest) {
   }
 
   // Resolve which Aircall user makes the call.
-  //   1. Use the explicit aircallUserId if passed.
-  //   2. Otherwise fetch /v1/users and pick the first one with availability_status='available'.
-  // Aircall's outbound endpoint is /v1/users/{user_id}/calls — no user, no call.
+  //
+  // Aircall has TWO availability fields and they look similar but mean
+  // different things:
+  //   - `available` (boolean): is the user actually signed into the Aircall
+  //     app right now? This is what matters for dialing — if false, the call
+  //     gets queued by the API but no device will ever ring.
+  //   - `availability_status` (string): a soft status like "available",
+  //     "do_not_disturb", "in_call", "after_call". Even users who are NOT
+  //     signed in have availability_status='available' (it's their default
+  //     state). Filtering by this field is wrong — it matches everyone.
+  //
+  // Pick the first user with `available === true`. If none, the dial would
+  // fail silently (queued but never rung), so return an explicit 503.
   let resolvedUserId: number | null = aircallUserId ? Number(aircallUserId) : null;
   if (!resolvedUserId) {
     try {
@@ -72,8 +82,8 @@ export async function POST(req: NextRequest) {
       if (usersRes.ok) {
         const usersData = await usersRes.json();
         const candidate = (usersData?.users ?? []).find(
-          (u: any) => u?.availability_status === "available",
-        ) ?? (usersData?.users ?? [])[0];
+          (u: any) => u?.available === true,
+        );
         if (candidate?.id) resolvedUserId = Number(candidate.id);
       }
     } catch {
@@ -81,7 +91,9 @@ export async function POST(req: NextRequest) {
     }
   }
   if (!resolvedUserId) {
-    return NextResponse.json({ error: "no Aircall user available to place the call" }, { status: 503 });
+    return NextResponse.json({
+      error: "no Aircall user is signed into the app right now — open Aircall on a device first",
+    }, { status: 503 });
   }
 
   // Aircall outbound endpoint: POST /v1/users/{user_id}/calls
