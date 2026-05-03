@@ -59,28 +59,51 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const payload: Record<string, unknown> = {
-    number_id: resolvedNumberId,
-    to: phone,
-  };
-  if (aircallUserId) payload.user_id = Number(aircallUserId);
+  // Resolve which Aircall user makes the call.
+  //   1. Use the explicit aircallUserId if passed.
+  //   2. Otherwise fetch /v1/users and pick the first one with availability_status='available'.
+  // Aircall's outbound endpoint is /v1/users/{user_id}/calls — no user, no call.
+  let resolvedUserId: number | null = aircallUserId ? Number(aircallUserId) : null;
+  if (!resolvedUserId) {
+    try {
+      const usersRes = await fetch("https://api.aircall.io/v1/users", {
+        headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
+      });
+      if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        const candidate = (usersData?.users ?? []).find(
+          (u: any) => u?.availability_status === "available",
+        ) ?? (usersData?.users ?? [])[0];
+        if (candidate?.id) resolvedUserId = Number(candidate.id);
+      }
+    } catch {
+      // fall through to error below
+    }
+  }
+  if (!resolvedUserId) {
+    return NextResponse.json({ error: "no Aircall user available to place the call" }, { status: 503 });
+  }
 
-  const res = await fetch("https://api.aircall.io/v1/calls", {
+  // Aircall outbound endpoint: POST /v1/users/{user_id}/calls
+  // (Old /v1/calls returns 404 — that's a deprecated path.)
+  // Returns 204 No Content on success — body is empty, the actual call_id
+  // comes later via webhook (call.created).
+  const res = await fetch(`https://api.aircall.io/v1/users/${resolvedUserId}/calls`, {
     method: "POST",
     headers: {
       Authorization: `Basic ${AIRCALL_AUTH}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ number_id: resolvedNumberId, to: phone }),
   });
 
   if (!res.ok) {
     const err = await res.text();
-    return NextResponse.json({ error: err }, { status: res.status });
+    return NextResponse.json({ error: err || `Aircall ${res.status}` }, { status: res.status });
   }
 
-  const data = await res.json();
-  const callId = data.call?.id ?? null;
+  // 204 No Content — no body, no call_id yet. The webhook fills it in.
+  const callId: string | null = null;
 
   if (leadId) {
     await svc.from("calls").insert({
