@@ -79,24 +79,83 @@ function personalize(template: string, lead: any, seller: any): string {
     .replaceAll("{{seller_company}}", "");
 }
 
-async function instantlyPost(path: string, body: any): Promise<any> {
-  const res = await fetch(`${INSTANTLY_BASE}${path}`, {
-    method: "POST",
+async function instantlyFetch(method: "POST" | "DELETE", path: string, body?: any): Promise<any> {
+  const init: RequestInit = {
+    method,
     headers: {
       Authorization: `Bearer ${INSTANTLY_KEY}`,
       accept: "application/json",
       "content-type": "application/json",
     },
-    body: JSON.stringify(body),
-  });
+  };
+  if (body !== undefined) init.body = JSON.stringify(body);
+  const res = await fetch(`${INSTANTLY_BASE}${path}`, init);
   const text = await res.text();
   let parsed: any = null;
   try { parsed = text ? JSON.parse(text) : null; } catch { /* */ }
   if (!res.ok) {
     const reason = parsed?.detail || parsed?.message || parsed?.error || text || `HTTP ${res.status}`;
-    throw new Error(`Instantly POST ${path} → ${res.status}: ${reason}`);
+    throw new Error(`Instantly ${method} ${path} → ${res.status}: ${reason}`);
   }
   return parsed;
+}
+
+async function instantlyPost(path: string, body: any): Promise<any> {
+  return instantlyFetch("POST", path, body);
+}
+
+// Enroll a lead in an Instantly campaign with the personalized body.
+//
+// Instantly's POST /leads has a soft dedupe inside the campaign: if the same
+// email is already enrolled, it returns the EXISTING lead's record (200 OK)
+// without updating personalization. Detect this by comparing the returned
+// `personalization` to the one we sent — if they don't match, the response is
+// the stale enrollment. Resolution: DELETE the stale lead, then POST again.
+//
+// This handles two real cases:
+//   1. Retries after a failed dispatch (lead was POSTed once, send failed,
+//      we re-queue → next tick the lead still exists in Instantly).
+//   2. Multi-step CRM campaigns where a later email step targets the same
+//      lead in the same Instantly campaign — we want a fresh send with the
+//      new step's body, not Instantly silently no-op'ing.
+async function enrollLead(opts: {
+  campaignId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  companyName: string;
+  body: string;
+  subject: string;
+}): Promise<{ leadId: string; recreated: boolean }> {
+  const payload = {
+    campaign: opts.campaignId,
+    email: opts.email,
+    first_name: opts.firstName,
+    last_name: opts.lastName,
+    company_name: opts.companyName,
+    personalization: opts.body,
+    custom_variables: { subject_line: opts.subject },
+    skip_if_in_workspace: false,
+    skip_if_in_campaign: false,
+  };
+  const first = await instantlyPost("/leads", payload);
+  const returnedBody = typeof first?.personalization === "string" ? first.personalization : "";
+  const matches = returnedBody === opts.body;
+  if (matches) {
+    return { leadId: first?.id ?? "", recreated: false };
+  }
+  // Stale lead returned by dedupe — delete and re-post.
+  if (first?.id) {
+    try {
+      await instantlyFetch("DELETE", `/leads/${first.id}`);
+    } catch (e: any) {
+      // If the delete itself fails we still want to surface the original
+      // problem clearly. The caller will see the duplicate and can retry.
+      throw new Error(`stale lead detected (id=${first.id}) but delete failed: ${e?.message ?? e}`);
+    }
+  }
+  const second = await instantlyPost("/leads", payload);
+  return { leadId: second?.id ?? "", recreated: true };
 }
 
 function isRateLimitError(reason: string): boolean {
@@ -235,25 +294,22 @@ async function handle(req: NextRequest) {
 
   // 6. Enroll the lead in the tenant's Instantly campaign. Instantly takes
   //    over from here — picks an inbox, applies warmup throttle, sends.
+  //    `enrollLead` handles the dedupe-by-email gotcha (delete + re-post when
+  //    an existing stale lead is returned).
   let providerLeadId: string | null = null;
+  let recreated = false;
   try {
-    const resp = await instantlyPost("/leads", {
-      campaign: instantlyCampaignId,
+    const result = await enrollLead({
+      campaignId: instantlyCampaignId,
       email: lead.primary_work_email,
-      first_name: lead.primary_first_name ?? "",
-      last_name: lead.primary_last_name ?? "",
-      company_name: lead.company_name ?? "",
-      personalization: body,
-      custom_variables: {
-        subject_line: subject,
-      },
-      // Allow re-adding the same email if it already exists in another
-      // workspace campaign (e.g. an old test). The same email cannot be in
-      // the SAME campaign twice — that's handled by isDuplicateLeadError below.
-      skip_if_in_workspace: false,
-      skip_if_in_campaign: false,
+      firstName: lead.primary_first_name ?? "",
+      lastName: lead.primary_last_name ?? "",
+      companyName: lead.company_name ?? "",
+      body,
+      subject,
     });
-    providerLeadId = resp?.id ?? null;
+    providerLeadId = result.leadId;
+    recreated = result.recreated;
   } catch (e: any) {
     const errMsg = e?.message ?? String(e);
     if (isRateLimitError(errMsg)) {
@@ -264,7 +320,7 @@ async function handle(req: NextRequest) {
         svc,
         candidate.id,
         candidate.lead_id,
-        `lead already enrolled in Instantly campaign — multi-email-step within one CRM campaign not yet supported: ${errMsg}`,
+        `lead already enrolled in Instantly campaign and could not be replaced: ${errMsg}`,
       );
     }
     return await failMessage(svc, candidate.id, candidate.lead_id, errMsg);
@@ -295,6 +351,7 @@ async function handle(req: NextRequest) {
         subject,
         instantly_campaign_id: instantlyCampaignId,
         instantly_lead_id: providerLeadId,
+        ...(recreated ? { instantly_lead_recreated: true } : {}),
       },
     }).eq("id", candidate.id),
     svc.from("campaigns").update({
