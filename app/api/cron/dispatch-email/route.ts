@@ -3,20 +3,40 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 
 // Cron-driven dispatcher for `campaign_messages` rows in `status='queued'`
-// where channel='email'. Sends one email per tick via Instantly v2.
+// where channel='email'. One mail per tick via Instantly v2.
 //
-// Design mirrors /api/cron/dispatch-queue (LinkedIn) but adapted for email:
-//   - No connection-request concept — every email is one-shot
-//   - No provider_id lookup — Instantly addresses by email string
-//   - `subject` lives in metadata.subject
-//   - From-address comes from a SHARED Instantly account pool (not bound to
-//     sellers). Step 0 picks the account with the lowest 24h usage that is
-//     still under its daily_limit. Step 1+ reuses whatever address sent the
-//     earlier step for the same campaign so the reply thread stays intact.
-//     The chosen email is persisted in `campaign_messages.metadata.from_address`.
-//   - To-address from leads.primary_work_email
+// Architecture notes — IMPORTANT, read before editing.
 //
-// Auth: same pattern — Vercel cron Bearer ${CRON_SECRET} OR admin role.
+// Instantly v2 is NOT a transactional provider. There is no "send this mail
+// now" endpoint. The /emails/send route does not exist. The send model is:
+//
+//   1. Each tenant has a single Instantly campaign ("<Tenant>-CRM-Outbound")
+//      wired to that tenant's inboxes. Its template is one step:
+//        subject = {{subject_line}}
+//        body    = {{personalization}}
+//   2. To send, we POST a lead to /api/v2/leads with:
+//        campaign        = company_bios.instantly_campaign_id
+//        email           = lead.primary_work_email
+//        personalization = the fully personalized body
+//        custom_variables.subject_line = the personalized subject
+//      Instantly enrolls the lead, dispatches via its inbox-rotation engine
+//      (warmup / deliverability included), and the lead is "completed" once
+//      the single-step template fires.
+//   3. Replies are caught by the existing webhook (n8n EartyXv9hlVVFqvt) which
+//      already updates lead_replies + halts the CRM campaign.
+//
+// What this means in practice:
+//   - We don't pick a from-address — Instantly does. The tenant's pool of
+//     inboxes is configured ON THE INSTANTLY CAMPAIGN, not here.
+//   - There is no per-account daily-cap enforcement here — Instantly enforces
+//     it on its side per inbox.
+//   - For multi-email-step CRM campaigns (e.g. step 2 and step 4 both email),
+//     the second email will need handling — Instantly rejects re-adding the
+//     same email to the same campaign. We pass `skip_if_in_workspace: false`
+//     to allow it but fall back to a clear error if rejected. Today's CRM
+//     campaigns all have ≤ 1 email step so this is not yet a hot path.
+//
+// Auth: Vercel cron Bearer ${CRON_SECRET} OR admin role.
 
 const INSTANTLY_KEY = process.env.INSTANTLY_API_KEY ?? "";
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
@@ -59,159 +79,93 @@ function personalize(template: string, lead: any, seller: any): string {
     .replaceAll("{{seller_company}}", "");
 }
 
-async function instantlyPost(path: string, body: any): Promise<any> {
-  const res = await fetch(`${INSTANTLY_BASE}${path}`, {
-    method: "POST",
+async function instantlyFetch(method: "POST" | "DELETE", path: string, body?: any): Promise<any> {
+  const init: RequestInit = {
+    method,
     headers: {
       Authorization: `Bearer ${INSTANTLY_KEY}`,
       accept: "application/json",
       "content-type": "application/json",
     },
-    body: JSON.stringify(body),
-  });
+  };
+  if (body !== undefined) init.body = JSON.stringify(body);
+  const res = await fetch(`${INSTANTLY_BASE}${path}`, init);
   const text = await res.text();
   let parsed: any = null;
   try { parsed = text ? JSON.parse(text) : null; } catch { /* */ }
   if (!res.ok) {
     const reason = parsed?.detail || parsed?.message || parsed?.error || text || `HTTP ${res.status}`;
-    throw new Error(`Instantly POST ${path} → ${res.status}: ${reason}`);
+    throw new Error(`Instantly ${method} ${path} → ${res.status}: ${reason}`);
   }
   return parsed;
 }
 
-async function instantlyGet(path: string): Promise<any> {
-  const res = await fetch(`${INSTANTLY_BASE}${path}`, {
-    headers: { Authorization: `Bearer ${INSTANTLY_KEY}`, accept: "application/json" },
-  });
-  const text = await res.text();
-  let parsed: any = null;
-  try { parsed = text ? JSON.parse(text) : null; } catch { /* */ }
-  if (!res.ok) {
-    const reason = parsed?.detail || parsed?.message || parsed?.error || text || `HTTP ${res.status}`;
-    throw new Error(`Instantly GET ${path} → ${res.status}: ${reason}`);
-  }
-  return parsed;
+async function instantlyPost(path: string, body: any): Promise<any> {
+  return instantlyFetch("POST", path, body);
 }
 
-// Module-level cache for the Instantly account pool. Each tick can reuse the
-// list for up to 60s — long enough to avoid burning the rate budget on every
-// dispatch, short enough that newly-added or warmup-graduated accounts are
-// picked up within a minute.
-type PoolAccount = { email: string; daily_limit: number };
-let poolCache: { accounts: PoolAccount[]; fetchedAt: number } | null = null;
-const POOL_TTL_MS = 60_000;
-
-async function getInstantlyPool(): Promise<PoolAccount[]> {
-  if (poolCache && Date.now() - poolCache.fetchedAt < POOL_TTL_MS) {
-    return poolCache.accounts;
-  }
-  // status=1 means active in Instantly v2. We additionally require the
-  // warmup score to be at 100 so we never send from an account still warming.
-  const accounts: PoolAccount[] = [];
-  let cursor: string | null = null;
-  for (let i = 0; i < 5; i++) {
-    const path = cursor
-      ? `/accounts?limit=100&starting_after=${encodeURIComponent(cursor)}`
-      : "/accounts?limit=100";
-    const page: any = await instantlyGet(path);
-    for (const a of page?.items ?? []) {
-      if (a?.status !== 1) continue;
-      if ((a?.stat_warmup_score ?? 0) < 100) continue;
-      if (typeof a?.email !== "string") continue;
-      accounts.push({ email: a.email, daily_limit: typeof a.daily_limit === "number" ? a.daily_limit : 30 });
-    }
-    cursor = page?.next_starting_after ?? null;
-    if (!cursor) break;
-  }
-  poolCache = { accounts, fetchedAt: Date.now() };
-  return accounts;
-}
-
-// Step 0: pick the pool account with the lowest 24h send count that's still
-// under its daily_limit AND is in the tenant's email_accounts allowlist.
-// Step >0: reuse whatever address sent the earliest already-sent step in
-// the same campaign so the conversation stays in one thread and the reply
-// mailbox is consistent.
+// Enroll a lead in an Instantly campaign with the personalized body.
 //
-// Tenant scoping: we share one Instantly org but each tenant only sends from
-// the inboxes claimed in its company_bios.email_accounts. Without filtering
-// here, a Pathway campaign could rotate to an SWL inbox and vice versa —
-// cross-tenant leak in the from-address.
-async function pickFromAddress(
-  svc: ReturnType<typeof getSupabaseService>,
-  campaignId: string,
-  stepNumber: number,
-  tenantBioId: string | null,
-): Promise<{ email: string } | { error: string }> {
-  if (stepNumber > 0) {
-    const { data: priors } = await svc
-      .from("campaign_messages")
-      .select("metadata, sent_at")
-      .eq("campaign_id", campaignId)
-      .eq("channel", "email")
-      .eq("status", "sent")
-      .lt("step_number", stepNumber)
-      .order("sent_at", { ascending: true })
-      .limit(1);
-    const fromPrior = (priors?.[0]?.metadata as any)?.from_address;
-    if (typeof fromPrior === "string" && fromPrior.length > 0) {
-      return { email: fromPrior };
+// Instantly's POST /leads has a soft dedupe inside the campaign: if the same
+// email is already enrolled, it returns the EXISTING lead's record (200 OK)
+// without updating personalization. Detect this by comparing the returned
+// `personalization` to the one we sent — if they don't match, the response is
+// the stale enrollment. Resolution: DELETE the stale lead, then POST again.
+//
+// This handles two real cases:
+//   1. Retries after a failed dispatch (lead was POSTed once, send failed,
+//      we re-queue → next tick the lead still exists in Instantly).
+//   2. Multi-step CRM campaigns where a later email step targets the same
+//      lead in the same Instantly campaign — we want a fresh send with the
+//      new step's body, not Instantly silently no-op'ing.
+async function enrollLead(opts: {
+  campaignId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  companyName: string;
+  body: string;
+  subject: string;
+}): Promise<{ leadId: string; recreated: boolean }> {
+  const payload = {
+    campaign: opts.campaignId,
+    email: opts.email,
+    first_name: opts.firstName,
+    last_name: opts.lastName,
+    company_name: opts.companyName,
+    personalization: opts.body,
+    custom_variables: { subject_line: opts.subject },
+    skip_if_in_workspace: false,
+    skip_if_in_campaign: false,
+  };
+  const first = await instantlyPost("/leads", payload);
+  const returnedBody = typeof first?.personalization === "string" ? first.personalization : "";
+  const matches = returnedBody === opts.body;
+  if (matches) {
+    return { leadId: first?.id ?? "", recreated: false };
+  }
+  // Stale lead returned by dedupe — delete and re-post.
+  if (first?.id) {
+    try {
+      await instantlyFetch("DELETE", `/leads/${first.id}`);
+    } catch (e: any) {
+      // If the delete itself fails we still want to surface the original
+      // problem clearly. The caller will see the duplicate and can retry.
+      throw new Error(`stale lead detected (id=${first.id}) but delete failed: ${e?.message ?? e}`);
     }
-    // Fall through to pool-pick if no prior step found (defensive — shouldn't
-    // happen for well-formed campaigns).
   }
-
-  if (!tenantBioId) return { error: "campaign has no tenant — cannot resolve email pool" };
-
-  // Resolve the tenant's email allowlist. An empty array means "no inboxes
-  // claimed yet" — the tenant must claim some via /accounts before sending.
-  const { data: bio } = await svc
-    .from("company_bios")
-    .select("email_accounts")
-    .eq("id", tenantBioId)
-    .maybeSingle();
-  const tenantEmails = (((bio as any)?.email_accounts as string[] | null) ?? []).map(e => String(e).toLowerCase());
-  if (tenantEmails.length === 0) {
-    return { error: "tenant has no claimed Instantly inboxes (company_bios.email_accounts empty)" };
-  }
-
-  const fullPool = await getInstantlyPool();
-  const pool = fullPool.filter(a => tenantEmails.includes(a.email.toLowerCase()));
-  if (pool.length === 0) return { error: "no eligible Instantly accounts in pool for this tenant" };
-
-  // Tally usage in last 24h by from_address. metadata is JSONB — we extract
-  // the field server-side via PostgREST's `metadata->>from_address` syntax,
-  // but the Supabase JS client doesn't accept that in `.select()` easily;
-  // simpler to fetch the rows and tally client-side. The window is small
-  // enough (~hundreds of rows max) that this is fine.
-  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const { data: sentRows } = await svc
-    .from("campaign_messages")
-    .select("metadata")
-    .eq("channel", "email")
-    .eq("status", "sent")
-    .gte("sent_at", since24h);
-  const usageBy: Record<string, number> = {};
-  for (const r of sentRows ?? []) {
-    const addr = (r as any)?.metadata?.from_address;
-    if (typeof addr === "string") usageBy[addr] = (usageBy[addr] ?? 0) + 1;
-  }
-
-  // Sort: lowest used first, then alphabetical for deterministic tie-break.
-  const ranked = pool
-    .map(a => ({ ...a, used: usageBy[a.email] ?? 0 }))
-    .filter(a => a.used < a.daily_limit)
-    .sort((a, b) => (a.used - b.used) || a.email.localeCompare(b.email));
-
-  if (ranked.length === 0) {
-    return { error: `all ${pool.length} pool accounts at daily_limit` };
-  }
-  return { email: ranked[0].email };
+  const second = await instantlyPost("/leads", payload);
+  return { leadId: second?.id ?? "", recreated: true };
 }
 
 function isRateLimitError(reason: string): boolean {
   const r = reason.toLowerCase();
   return r.includes("rate limit") || r.includes("rate-limit") || r.includes("too many requests") || r.includes("429");
+}
+
+function isDuplicateLeadError(reason: string): boolean {
+  const r = reason.toLowerCase();
+  return r.includes("already exist") || r.includes("duplicate") || r.includes("already in campaign");
 }
 
 async function failMessage(svc: ReturnType<typeof getSupabaseService>, msgId: string, leadId: string, reason: string) {
@@ -261,9 +215,7 @@ async function handle(req: NextRequest) {
   const DAY_MS = 24 * 60 * 60 * 1000;
   const nowMs = Date.now();
 
-  // 1. Pull window of candidates (channel=email, any step). Filter by
-  //    eligibility: not in cooldown, eligible_at met. Per-account daily caps
-  //    are enforced later by pickFromAddress against the Instantly pool.
+  // 1. Pull window of candidates (channel=email, any step).
   const { data: claimed } = await svc
     .from("campaign_messages")
     .select("id, campaign_id, lead_id, step_number, channel, content, status, metadata, campaigns(seller_id)")
@@ -299,8 +251,7 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ ok: true, processed: 0, reason: "lost race", id: candidate.id });
   }
 
-  // 3. Hydrate lead + campaign. Seller is loaded only for personalization
-  //    (the from-address comes from the shared pool, not the seller).
+  // 3. Hydrate lead + campaign + seller (for tenant resolution + personalization).
   const [{ data: lead }, { data: campaign }] = await Promise.all([
     svc.from("leads").select("id, primary_first_name, primary_last_name, primary_work_email, company_name, primary_title_role").eq("id", candidate.lead_id).maybeSingle(),
     svc.from("campaigns").select("id, seller_id, sequence_steps").eq("id", candidate.campaign_id).maybeSingle(),
@@ -314,17 +265,25 @@ async function handle(req: NextRequest) {
     seller = (s as any) ?? null;
   }
 
-  // 4. Pick the from-address. Step 0 → least-used pool account under cap,
-  //    scoped to the tenant's email_accounts allowlist.
-  //    Step >0 → reuse whatever sent the earlier step (keeps thread intact).
+  // 4. Resolve the tenant's Instantly campaign UUID.
   const tenantBioId = seller?.company_bio_id ?? null;
-  const picked = await pickFromAddress(svc, candidate.campaign_id, candidate.step_number, tenantBioId);
-  if ("error" in picked) {
-    // Pool exhausted is not a fatal error — requeue with cooldown so the
-    // next tick (or tomorrow) can retry.
-    return await requeueRateLimited(svc, candidate.id, candidate.lead_id, `pool: ${picked.error}`);
+  if (!tenantBioId) {
+    return await failMessage(svc, candidate.id, candidate.lead_id, "campaign has no tenant — cannot resolve Instantly campaign");
   }
-  const fromAddress = picked.email;
+  const { data: bio } = await svc
+    .from("company_bios")
+    .select("instantly_campaign_id, company_name")
+    .eq("id", tenantBioId)
+    .maybeSingle();
+  const instantlyCampaignId = (bio as any)?.instantly_campaign_id as string | null | undefined;
+  if (!instantlyCampaignId) {
+    return await failMessage(
+      svc,
+      candidate.id,
+      candidate.lead_id,
+      `tenant "${(bio as any)?.company_name ?? tenantBioId}" has no instantly_campaign_id set — configure it in Settings`,
+    );
+  }
 
   // 5. Build subject + body.
   const meta = (candidate.metadata as Record<string, unknown> | null) ?? {};
@@ -333,28 +292,45 @@ async function handle(req: NextRequest) {
   const body = personalize(candidate.content ?? "", lead, seller);
   if (!body.trim()) return await failMessage(svc, candidate.id, candidate.lead_id, "empty body after personalization");
 
-  // 6. Send via Instantly v2 emails endpoint
-  let providerMessageId: string | null = null;
+  // 6. Enroll the lead in the tenant's Instantly campaign. Instantly takes
+  //    over from here — picks an inbox, applies warmup throttle, sends.
+  //    `enrollLead` handles the dedupe-by-email gotcha (delete + re-post when
+  //    an existing stale lead is returned).
+  let providerLeadId: string | null = null;
+  let recreated = false;
   try {
-    // Instantly v2 send endpoint is /emails/send — NOT /emails (which is the
-    // listing endpoint and rejects POST with 404). Confirmed against the
-    // reply handler workflow which has been using /emails/send correctly.
-    const resp = await instantlyPost("/emails/send", {
-      from_address_email: fromAddress,
-      to_address_email_list: lead.primary_work_email,
+    const result = await enrollLead({
+      campaignId: instantlyCampaignId,
+      email: lead.primary_work_email,
+      firstName: lead.primary_first_name ?? "",
+      lastName: lead.primary_last_name ?? "",
+      companyName: lead.company_name ?? "",
+      body,
       subject,
-      body: { html: body.replace(/\n/g, "<br/>") },
     });
-    providerMessageId = resp?.id ?? resp?.message_id ?? null;
+    providerLeadId = result.leadId;
+    recreated = result.recreated;
   } catch (e: any) {
     const errMsg = e?.message ?? String(e);
     if (isRateLimitError(errMsg)) {
       return await requeueRateLimited(svc, candidate.id, candidate.lead_id, errMsg);
     }
+    if (isDuplicateLeadError(errMsg)) {
+      return await failMessage(
+        svc,
+        candidate.id,
+        candidate.lead_id,
+        `lead already enrolled in Instantly campaign and could not be replaced: ${errMsg}`,
+      );
+    }
     return await failMessage(svc, candidate.id, candidate.lead_id, errMsg);
   }
 
-  // 7. Mark sent + queue next step (if sequence has another)
+  // 7. Mark sent + queue next step.
+  //    NOTE: We mark "sent" at enroll time. Instantly may not send immediately
+  //    (its inbox-rotation engine throttles based on the warmup curve), but
+  //    from the CRM's perspective the email is committed to the provider.
+  //    The reply webhook handles inbound and timing of delivery is opaque.
   const now = new Date().toISOString();
   const sequenceSteps = (campaign as any)?.sequence_steps as Array<{ channel?: string; daysAfter?: number }> | null;
   const nextStepNumber = candidate.step_number + 1;
@@ -364,16 +340,19 @@ async function handle(req: NextRequest) {
     ? new Date(Date.now() + nextDaysAfter * DAY_MS).toISOString()
     : null;
 
-  const updateOps: Array<Promise<unknown>> = [
+  const updateOps: Array<PromiseLike<unknown>> = [
     svc.from("campaign_messages").update({
       status: "sent",
       sent_at: now,
-      provider_message_id: providerMessageId,
+      provider_message_id: providerLeadId,
       error_details: null,
-      // from_address persisted so subsequent steps for this campaign reuse
-      // the same mailbox (reply thread continuity) and the reply handler
-      // can route inbound replies back to the dispatcher correctly.
-      metadata: { dispatched_by: "cron-dispatch-email", subject, from_address: fromAddress },
+      metadata: {
+        dispatched_by: "cron-dispatch-email",
+        subject,
+        instantly_campaign_id: instantlyCampaignId,
+        instantly_lead_id: providerLeadId,
+        ...(recreated ? { instantly_lead_recreated: true } : {}),
+      },
     }).eq("id", candidate.id),
     svc.from("campaigns").update({
       current_step: candidate.step_number,
@@ -382,7 +361,6 @@ async function handle(req: NextRequest) {
     }).eq("id", candidate.campaign_id),
   ];
 
-  // Queue next step if sequence has more
   if (nextEligibleAt) {
     updateOps.push(
       svc.from("campaign_messages").update({
@@ -400,8 +378,8 @@ async function handle(req: NextRequest) {
     step: candidate.step_number,
     message_id: candidate.id,
     lead_id: lead.id,
-    from_address: fromAddress,
-    provider_message_id: providerMessageId,
+    instantly_campaign_id: instantlyCampaignId,
+    instantly_lead_id: providerLeadId,
     next_eligible_at: nextEligibleAt,
   });
 }

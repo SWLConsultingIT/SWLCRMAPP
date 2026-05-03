@@ -70,9 +70,10 @@ export async function GET() {
   if (!myBioId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const svc = getSupabaseService();
-  const [accounts, { data: bios }] = await Promise.all([
+  const [accounts, { data: bios }, { data: myBio }] = await Promise.all([
     fetchInstantlyAccounts(),
     svc.from("company_bios").select("id, company_name, email_accounts"),
+    svc.from("company_bios").select("instantly_campaign_id").eq("id", myBioId).maybeSingle(),
   ]);
 
   // Build email → owning-bio index. Empty/null email_accounts mean unowned.
@@ -102,7 +103,11 @@ export async function GET() {
     };
   });
 
-  return NextResponse.json({ myEmails, accounts: enriched });
+  return NextResponse.json({
+    myEmails,
+    accounts: enriched,
+    instantlyCampaignId: (myBio as any)?.instantly_campaign_id ?? null,
+  });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -116,6 +121,11 @@ export async function PATCH(req: NextRequest) {
   const body = await req.json();
   const incoming = Array.isArray(body?.emails) ? body.emails : null;
   if (!incoming) return NextResponse.json({ error: "emails must be an array" }, { status: 400 });
+
+  // Optional: Instantly campaign UUID for this tenant. Empty string clears it.
+  // The dispatcher uses this as the send target — without it email steps fail.
+  const rawCampaignId = typeof body?.instantlyCampaignId === "string" ? body.instantlyCampaignId.trim() : null;
+  const instantlyCampaignId = rawCampaignId === null ? undefined : (rawCampaignId === "" ? null : rawCampaignId);
 
   // Normalize, dedupe, basic shape check.
   const normalized: string[] = Array.from(new Set(
@@ -145,11 +155,19 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Some emails belong to other tenants", conflicts }, { status: 409 });
   }
 
+  const updatePayload: Record<string, unknown> = { email_accounts: normalized };
+  if (instantlyCampaignId !== undefined) {
+    updatePayload.instantly_campaign_id = instantlyCampaignId;
+  }
   const { error } = await svc
     .from("company_bios")
-    .update({ email_accounts: normalized })
+    .update(updatePayload)
     .eq("id", myBioId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ ok: true, emails: normalized });
+  return NextResponse.json({
+    ok: true,
+    emails: normalized,
+    instantlyCampaignId: instantlyCampaignId === undefined ? "unchanged" : instantlyCampaignId,
+  });
 }
