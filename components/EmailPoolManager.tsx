@@ -30,6 +30,7 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
   const [saving, setSaving] = useState(false);
   const [accounts, setAccounts] = useState<PoolAccount[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [campaignId, setCampaignId] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
         const list = (d.accounts ?? []) as PoolAccount[];
         setAccounts(list);
         setSelected(new Set(list.filter(a => a.isMine).map(a => a.email)));
+        setCampaignId(typeof d.instantlyCampaignId === "string" ? d.instantlyCampaignId : "");
       })
       .catch(() => alive && setError("Failed to load Instantly pool"))
       .finally(() => alive && setLoading(false));
@@ -67,7 +69,10 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
       const res = await fetch("/api/settings/email-pool", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emails: Array.from(selected) }),
+        body: JSON.stringify({
+          emails: Array.from(selected),
+          instantlyCampaignId: campaignId.trim(),
+        }),
       });
       const d = await res.json();
       if (!res.ok) {
@@ -124,6 +129,26 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
+          {/* Instantly campaign UUID — required for the dispatcher.
+              Without it every email step fails with a clear error. */}
+          <div className="mb-5 pb-4 border-b" style={{ borderColor: C.border }}>
+            <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>
+              Instantly campaign ID
+            </label>
+            <input
+              type="text"
+              value={campaignId}
+              onChange={(e) => setCampaignId(e.target.value)}
+              placeholder="e.g. 0193a8c5-…"
+              className="w-full px-3 py-2 text-sm font-mono rounded-lg border outline-none"
+              style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
+            />
+            <p className="text-[10px] mt-1.5" style={{ color: C.textDim }}>
+              UUID of the Instantly campaign this tenant sends through (template:
+              subject = <code>{"{{subject_line}}"}</code>, body = <code>{"{{personalization}}"}</code>).
+            </p>
+          </div>
+
           {loading ? (
             <div className="flex items-center justify-center py-10 gap-2" style={{ color: C.textMuted }}>
               <Loader2 size={16} className="animate-spin" />
