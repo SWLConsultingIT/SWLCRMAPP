@@ -18,6 +18,15 @@ export async function POST(req: NextRequest) {
   const { phone, leadId, sellerId, aircallUserId, numberId } = await req.json();
   if (!phone) return NextResponse.json({ error: "Phone number required" }, { status: 400 });
 
+  // Aircall requires strict E.164: leading "+" then digits only, no spaces,
+  // dashes or parens. Lead records often have human-formatted numbers
+  // ("+54 9 11 3394 2012") — strip everything except digits and the leading
+  // plus before sending or Aircall returns 400 "Number needs to be E164".
+  const normalizedPhone = "+" + String(phone).replace(/[^\d]/g, "");
+  if (normalizedPhone.length < 8) {
+    return NextResponse.json({ error: `phone "${phone}" did not normalize to a valid number` }, { status: 400 });
+  }
+
   const svc = getSupabaseService();
 
   // Validate numberId belongs to this tenant (or fall back to tenant's first
@@ -106,7 +115,7 @@ export async function POST(req: NextRequest) {
       Authorization: `Basic ${AIRCALL_AUTH}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ number_id: resolvedNumberId, to: phone }),
+    body: JSON.stringify({ number_id: resolvedNumberId, to: normalizedPhone }),
   });
 
   if (!res.ok) {
