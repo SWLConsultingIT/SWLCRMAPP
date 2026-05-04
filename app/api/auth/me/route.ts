@@ -27,7 +27,7 @@ export async function GET() {
   const svc = getSupabaseService();
   const { data: profile } = await svc
     .from("user_profiles")
-    .select("company_bio_id, role, company_bios(company_name, logo_url)")
+    .select("company_bio_id, role, tier, company_bios(company_name, logo_url)")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -39,6 +39,10 @@ export async function GET() {
     : (rawBios as { company_name: string | null; logo_url: string | null } | null) ?? null;
 
   const role = (profile?.role ?? user.user_metadata?.role ?? "client") as string;
+  // tier was backfilled in migration 010. Defensive default from role for
+  // any pre-migration row that slipped through.
+  const tier = (profile?.tier as string | null | undefined)
+    ?? (role === "admin" ? "super_admin" : "owner");
 
   // Demo impersonation surface: if admin AND a valid demo cookie is set, expose
   // the demo tenant's id + name so the UI can render the banner without an
@@ -75,6 +79,9 @@ export async function GET() {
         email: user.email,
         displayName,
         role: "client",
+        // Demo impersonation = act as `owner` of the demo tenant. Hides
+        // SWL super_admin views automatically.
+        tier: "owner",
         companyBioId: demoMode.bioId,
         companyName: demoMode.companyName,
         companyLogoUrl: demoMode.logoUrl,
@@ -94,6 +101,7 @@ export async function GET() {
       email: user.email,
       displayName,
       role,
+      tier,
       companyBioId: profile?.company_bio_id ?? null,
       companyName: bio?.company_name ?? null,
       companyLogoUrl: bio?.logo_url ?? null,

@@ -32,7 +32,10 @@ export type AuthUser = {
   id: string;
   email?: string;
   displayName?: string;
+  /** Legacy binary role. Prefer `tier`. */
   role: "admin" | "client" | string;
+  /** RBAC tier. New, source of truth for access control. */
+  tier: "super_admin" | "owner" | "manager" | "seller" | "viewer" | null;
   companyBioId: string | null;
   companyName: string | null;
   companyLogoUrl: string | null;

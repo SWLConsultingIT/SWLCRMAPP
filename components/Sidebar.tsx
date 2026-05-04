@@ -64,7 +64,7 @@ export default function Sidebar() {
   // Read from shared AuthContext — was a duplicate /api/auth/me fetch on every
   // sidebar mount before. Saves one round-trip per navigation.
   const authUser = useAuthUser();
-  const role = authUser?.role ?? "";
+  const tier = authUser?.tier ?? null;
 
   useEffect(() => {
     async function fetchBadges() {
@@ -83,10 +83,14 @@ export default function Sidebar() {
     return () => clearInterval(interval);
   }, []);
 
-  const isAdmin = role === "admin";
+  // Show the Admin sidebar item to anyone who has access to a tier-scoped
+  // version of /admin: super_admin (cross-tenant SWL view), owner/manager
+  // (their tenant's view). Sellers + viewers don't see the menu at all —
+  // /admin/page.tsx redirects them away if they navigate there directly.
+  const showAdmin = tier === "super_admin" || tier === "owner" || tier === "manager";
   const visibleSections = sections.map(s => ({
     ...s,
-    items: s.items.filter(item => !item.adminOnly || isAdmin),
+    items: s.items.filter(item => !item.adminOnly || showAdmin),
   })).filter(s => s.items.length > 0);
 
   const badges: Record<string, number> = { calls: callCount, pending: pendingCount };
