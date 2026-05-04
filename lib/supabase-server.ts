@@ -1,7 +1,12 @@
+import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-export async function getSupabaseServer() {
+// Memoized per-request via React's `cache`. Many pages call
+// `getSupabaseServer()` in 2-3 places (the page itself, a helper, the
+// layout). Without memoization each call recreates the SSR client and
+// re-reads cookies — small but adds up across navigation.
+export const getSupabaseServer = cache(async function getSupabaseServer() {
   const cookieStore = await cookies();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,4 +26,4 @@ export async function getSupabaseServer() {
       },
     }
   );
-}
+});
