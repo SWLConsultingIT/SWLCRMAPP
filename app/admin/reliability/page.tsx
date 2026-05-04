@@ -1,5 +1,5 @@
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
 import { redirect } from "next/navigation";
 import Breadcrumb from "@/components/Breadcrumb";
 import { C } from "@/lib/design";
@@ -231,7 +231,7 @@ function formatTime(iso: string | null): string {
 
 export default async function ReliabilityPage() {
   const scope = await getUserScope();
-  if (scope.role !== "admin") redirect("/");
+  if (!canViewSwlAdmin(scope.tier)) redirect("/");
 
   const data = await fetchReliability();
   const { queueHealth, sentVsUnipile, sellerHealth, fetchedAt } = data;

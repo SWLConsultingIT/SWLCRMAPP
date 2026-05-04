@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { pickSeedLeads, emailFor, type DemoIndustryKey } from "@/lib/demo-seeds";
 
@@ -10,7 +10,7 @@ import { pickSeedLeads, emailFor, type DemoIndustryKey } from "@/lib/demo-seeds"
 // stale URL can't pollute a real client).
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const scope = await getUserScope();
-  if (scope.role !== "admin") {
+  if (!canViewSwlAdmin(scope.tier)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

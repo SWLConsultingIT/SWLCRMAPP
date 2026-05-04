@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
 
 // Server-side reader for campaign_messages. Browser-side queries return
 // empty because campaign_messages has RLS enabled with NO policies (default
@@ -18,7 +18,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   const svc = getSupabaseService();
 
   // Tenant scope: admins see anything; clients only their bio's campaigns.
-  if (scope.role !== "admin") {
+  if (!canViewSwlAdmin(scope.tier)) {
     const { data: camp } = await svc
       .from("campaigns")
       .select("id, leads(company_bio_id)")

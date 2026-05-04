@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { populateDemo, autoIndustryPreset, type DemoShapeConfig } from "@/lib/demo-populate";
 import type { DemoIndustryKey } from "@/lib/demo-seeds";
@@ -10,7 +10,7 @@ import type { DemoIndustryKey } from "@/lib/demo-seeds";
 // pass through directly without massaging fields. Admin-only.
 export async function POST(req: NextRequest) {
   const scope = await getUserScope();
-  if (scope.role !== "admin") {
+  if (!canViewSwlAdmin(scope.tier)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

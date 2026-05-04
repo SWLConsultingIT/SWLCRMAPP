@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope, canApproveCampaigns } from "@/lib/scope";
 
 // Use service key to bypass RLS for admin operations
 const supabase = createClient(
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   // user could POST a known requestId and trigger sends on a tenant they
   // don't own. Middleware already enforces authentication on this path.
   const scope = await getUserScope();
-  if (scope.role !== "admin") {
+  if (!canApproveCampaigns(scope.tier)) {
     return NextResponse.json({ error: "Admin only" }, { status: 403 });
   }
 
