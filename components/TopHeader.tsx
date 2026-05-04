@@ -5,7 +5,7 @@ import { Bell, HelpCircle, Search, ChevronRight, LogOut, Settings } from "lucide
 import Link from "next/link";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
-import { useAuthUser } from "@/lib/auth-context";
+import { useAuthUser, useAuth } from "@/lib/auth-context";
 
 const ROUTE_KEYS: Record<string, { key: string; brand?: string }> = {
   "/":              { key: "nav.dashboard" },
@@ -59,6 +59,7 @@ export default function TopHeader() {
   // Read from shared AuthContext — was a duplicate /api/auth/me fetch on every
   // header mount before. Saves one round-trip per navigation.
   const user = useAuthUser();
+  const { clearAuth } = useAuth();
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -66,7 +67,12 @@ export default function TopHeader() {
       localStorage.removeItem("swl-theme");
       localStorage.removeItem("swl-locale");
     } catch {}
+    // Clear the in-memory auth cache before navigating, otherwise the next
+    // page render briefly shows the previous user's identity (header avatar,
+    // role badge) until the new /api/auth/me resolves.
+    clearAuth();
     router.push("/login");
+    router.refresh();
   }
 
   const displayName = user?.displayName ?? "";

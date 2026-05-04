@@ -108,8 +108,10 @@ export async function GET() {
     },
     demoMode,
   }, {
-    // Auth-bound but stable — let the browser cache for a short window.
-    // SWR pattern on the client already invalidates on auth-state-change.
-    headers: { "Cache-Control": "private, max-age=30" },
+    // No-store on auth payload. The earlier 30s cache was eating logout/login
+    // flips: user A logs out, user B logs in, and the browser served user A's
+    // /api/auth/me response from cache → header showed user A's identity for
+    // up to 30s after login. Hard fix: never cache auth.
+    headers: { "Cache-Control": "no-store" },
   });
 }

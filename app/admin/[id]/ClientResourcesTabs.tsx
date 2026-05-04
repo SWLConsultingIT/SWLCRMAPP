@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { C } from "@/lib/design";
-import { Users, Share2, Phone, Mail, Loader2, CheckCircle, AlertTriangle, Trash2 } from "lucide-react";
+import { Users, Share2, Phone, Mail, Loader2, CheckCircle } from "lucide-react";
+import TenantTeamTab from "../TenantTeamTab";
 
 const gold = "var(--brand, #c9a83a)";
 
 type Props = { companyBioId: string; companyName: string };
 
-type UserRow = { id: string; email: string; role: string | null; company_bio_id: string | null; created_at: string };
 type SellerRow = { id: string; name: string; active: boolean; company_bio_id: string | null; linkedin_status: string | null; linkedin_status_note: string | null };
 type AircallNumber = { id: number; name: string; digits: string; country: string };
 type InstantlyEmail = { email: string; dailyLimit: number; warmupScore: number; setupPending: boolean };
@@ -57,7 +57,11 @@ export default function ClientResourcesTabs({ companyBioId, companyName }: Props
       </div>
 
       <div className="p-5">
-        {tab === 0 && <ClientUsers companyBioId={companyBioId} />}
+        {/* Use the same TenantTeamTab that owners see in /admin so super_admin
+            gets the full Team management (invite + role + remove) when
+            looking at any tenant — including SWL itself. The /api/team
+            endpoints already accept ?bioId=… for super_admin cross-tenant. */}
+        {tab === 0 && <TenantTeamTab companyBioId={companyBioId} canManage={true} />}
         {tab === 1 && <ClientSellers companyBioId={companyBioId} />}
         {tab === 2 && <ClientAircall companyBioId={companyBioId} />}
         {tab === 3 && <ClientEmails companyBioId={companyBioId} />}
@@ -66,59 +70,9 @@ export default function ClientResourcesTabs({ companyBioId, companyName }: Props
   );
 }
 
-// ═══ USERS ══════════════════════════════════════════════════════════════════
-function ClientUsers({ companyBioId }: { companyBioId: string }) {
-  const [users, setUsers] = useState<UserRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<string | null>(null);
-
-  useEffect(() => {
-    fetch("/api/admin/users")
-      .then(r => r.json())
-      .then(d => setUsers((d.users ?? []).filter((u: UserRow) => u.company_bio_id === companyBioId)))
-      .finally(() => setLoading(false));
-  }, [companyBioId]);
-
-  async function remove(userId: string) {
-    setSaving(userId);
-    await fetch(`/api/admin/users/${userId}`, { method: "DELETE" });
-    setUsers(prev => prev.filter(u => u.id !== userId));
-    setSaving(null);
-  }
-
-  if (loading) return <Spinner />;
-
-  if (users.length === 0) return (
-    <EmptyState icon={Users} text="No users assigned to this client yet" sub="Users self-signup, then you assign them here from the global Users view." />
-  );
-
-  return (
-    <div className="divide-y" style={{ borderColor: C.border }}>
-      {users.map(user => (
-        <div key={user.id} className="flex items-center gap-4 py-3">
-          <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-            style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
-            {user.email[0]?.toUpperCase() ?? "?"}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{user.email}</p>
-            <p className="text-[11px]" style={{ color: C.textDim }}>
-              {user.role ? `${user.role} · joined ${new Date(user.created_at).toLocaleDateString()}` : "No role"}
-            </p>
-          </div>
-          {saving === user.id ? (
-            <Loader2 size={14} className="animate-spin" style={{ color: C.textDim }} />
-          ) : (
-            <button onClick={() => remove(user.id)} title="Remove from client"
-              className="p-1.5 rounded-lg hover:bg-red-50">
-              <Trash2 size={13} style={{ color: C.textDim }} />
-            </button>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
+// Users tab now uses TenantTeamTab (the same component owners see in /admin
+// for their own tenant). Provides invite + role management + remove. The
+// legacy ClientUsers function was removed when this was wired up.
 
 // ═══ SELLERS ════════════════════════════════════════════════════════════════
 function ClientSellers({ companyBioId }: { companyBioId: string }) {

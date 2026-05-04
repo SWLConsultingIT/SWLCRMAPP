@@ -9,7 +9,7 @@ import {
 import { C } from "@/lib/design";
 import { useTheme } from "@/lib/theme";
 import { useLocale } from "@/lib/i18n";
-import { useAuthUser } from "@/lib/auth-context";
+import { useAuthUser, useAuth } from "@/lib/auth-context";
 import CallClassificationToggle from "@/components/CallClassificationToggle";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 
@@ -413,6 +413,7 @@ function SectionHeader({ icon: Icon, title, description }: { icon: typeof User; 
 
 function LogoutButton({ router }: { router: ReturnType<typeof useRouter> }) {
   const { t } = useLocale();
+  const { clearAuth } = useAuth();
   const [loading, setLoading] = useState(false);
   async function handleLogout() {
     setLoading(true);
@@ -421,6 +422,10 @@ function LogoutButton({ router }: { router: ReturnType<typeof useRouter> }) {
       localStorage.removeItem("swl-theme");
       localStorage.removeItem("swl-locale");
     } catch {}
+    // Drop in-memory user before nav so the next render doesn't briefly flash
+    // the previous identity (avatar, name, role badge) while /api/auth/me
+    // re-fetches.
+    clearAuth();
     router.push("/login");
     router.refresh();
   }
