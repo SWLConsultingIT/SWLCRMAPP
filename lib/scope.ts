@@ -73,6 +73,31 @@ export function canApproveCampaigns(tier: Tier | null): boolean {
 }
 
 /**
+ * For a user with tier='seller', return the seller record IDs they're linked
+ * to (via `sellers.user_id`). Used by /leads, /queue, /campaigns to apply a
+ * `seller_id IN (...)` filter so the seller only sees their assigned work.
+ *
+ * Returns:
+ *   - null            → caller is not a seller (no filter needed)
+ *   - empty array []  → caller IS a seller but has no links yet (show nothing)
+ *   - [id, id, ...]   → filter by these seller IDs
+ *
+ * Wrapped in React.cache so multiple components reading this in the same
+ * request share one DB lookup.
+ */
+export const getMyAssignedSellerIds = cache(async function getMyAssignedSellerIds(): Promise<string[] | null> {
+  const scope = await getUserScope();
+  if (scope.tier !== "seller") return null;
+  if (!scope.userId) return [];
+  const svc = getSupabaseService();
+  const { data } = await svc
+    .from("sellers")
+    .select("id")
+    .eq("user_id", scope.userId);
+  return (data ?? []).map(r => r.id as string);
+});
+
+/**
  * Resolves the current user's tenancy scope.
  * - Admins see everything across all clients UNLESS they've entered a demo
  *   tenant — in which case the cookie forces scope to that bio_id.

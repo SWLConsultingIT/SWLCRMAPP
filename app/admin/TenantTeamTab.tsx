@@ -241,14 +241,30 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
   );
 }
 
+type SellerOption = { id: string; name: string; userId: string | null };
+
 function InviteModal({
   companyBioId, onClose, onSuccess,
 }: { companyBioId: string; onClose: () => void; onSuccess: () => void }) {
   const [email, setEmail] = useState("");
   const [tier, setTier] = useState<Tier>("seller");
   const [fullName, setFullName] = useState("");
+  const [sellerId, setSellerId] = useState<string>("");
+  const [sellers, setSellers] = useState<SellerOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Load tenant sellers when role=seller is selected so the user can be
+  // linked to a specific seller record. Only unassigned sellers are
+  // selectable (otherwise they'd be linked to TWO users).
+  useEffect(() => {
+    if (tier !== "seller") return;
+    if (sellers.length > 0) return;
+    fetch(`/api/sellers?bioId=${encodeURIComponent(companyBioId)}`)
+      .then(r => r.ok ? r.json() : { sellers: [] })
+      .then(d => setSellers(d.sellers ?? []))
+      .catch(() => setSellers([]));
+  }, [tier, companyBioId, sellers.length]);
 
   async function submit() {
     setSaving(true);
@@ -257,7 +273,14 @@ function InviteModal({
       const res = await fetch("/api/team/invite", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), tier, fullName: fullName.trim() || undefined, companyBioId }),
+        body: JSON.stringify({
+          email: email.trim(),
+          tier,
+          fullName: fullName.trim() || undefined,
+          companyBioId,
+          // Only sent when role=seller AND a record was picked
+          sellerId: tier === "seller" && sellerId ? sellerId : undefined,
+        }),
       });
       const d = await res.json();
       if (!res.ok) {
@@ -341,6 +364,34 @@ function InviteModal({
               {tier === "viewer" && "Read-only across the tenant."}
             </p>
           </div>
+
+          {/* Seller record picker — only visible when role=seller. Without
+              this link the new user has no leads to see (server filters
+              `seller_id IN (sellers where user_id = me)` → empty set). */}
+          {tier === "seller" && (
+            <div>
+              <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>
+                Link to seller record
+              </label>
+              <select
+                value={sellerId}
+                onChange={(e) => setSellerId(e.target.value)}
+                className="w-full px-3 py-2 text-sm rounded-lg border outline-none"
+                style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
+              >
+                <option value="">— pick a seller —</option>
+                {sellers.map(s => (
+                  <option key={s.id} value={s.id} disabled={!!s.userId}>
+                    {s.name}{s.userId ? " (already linked)" : ""}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] mt-1.5" style={{ color: C.textDim }}>
+                Sellers already linked to another user are disabled. Leave empty to assign later from this user&apos;s row.
+              </p>
+            </div>
+          )}
+
           {error && (
             <div className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: `${C.red}30`, backgroundColor: `${C.red}10`, color: C.red }}>
               {error}
