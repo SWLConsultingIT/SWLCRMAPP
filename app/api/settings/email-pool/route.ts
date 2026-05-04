@@ -37,9 +37,11 @@ async function fetchInstantlyAccounts(): Promise<InstantlyAccount[]> {
     const path: string = cursor
       ? `/accounts?limit=100&starting_after=${encodeURIComponent(cursor)}`
       : "/accounts?limit=100";
+    // 60s revalidate — Instantly accounts list (warmup score, daily limits)
+    // updates slowly. Email pool manager UI doesn't need second-precision.
     const res: Response = await fetch(`${INSTANTLY_BASE}${path}`, {
       headers: { Authorization: `Bearer ${INSTANTLY_KEY}`, accept: "application/json" },
-      cache: "no-store",
+      next: { revalidate: 60, tags: ["instantly-accounts"] },
     });
     if (!res.ok) break;
     const data: { items?: InstantlyAccount[]; next_starting_after?: string | null } = await res.json();

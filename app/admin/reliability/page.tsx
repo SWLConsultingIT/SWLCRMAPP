@@ -126,9 +126,14 @@ async function fetchReliability(): Promise<ReliabilityData> {
     await Promise.all(sellersQ.data.map(async (s: any) => {
       if (!s.unipile_account_id) return;
       try {
+        // 60s revalidate — Unipile invite list per seller is hot data for
+        // ghost detection but doesn't need second precision. Without cache,
+        // every reload of /admin/reliability re-pegged Unipile N times
+        // (1 per active seller, sequential network round-trips) → page felt
+        // frozen for 5-15s.
         const res = await fetch(
           `${UNIPILE_BASE}/api/v1/users/invite/sent?account_id=${encodeURIComponent(s.unipile_account_id)}&limit=100`,
-          { headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" }, cache: "no-store" },
+          { headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" }, next: { revalidate: 60, tags: [`unipile-invites-${s.id}`] } },
         );
         const body = await res.json().catch(() => ({}));
         if (!res.ok) {

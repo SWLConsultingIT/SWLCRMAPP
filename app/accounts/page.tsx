@@ -10,9 +10,13 @@ const AIRCALL_AUTH = Buffer.from(`${process.env.AIRCALL_API_ID}:${process.env.AI
 
 async function getInstantlyPool() {
   try {
+    // 60s revalidate — Instantly accounts (warmup score, daily limits) are
+    // updated by Instantly itself on a slow rhythm and don't need second-
+    // precision on this page. Without this cache, every navigation between
+    // pages that mention accounts re-pegs Instantly's slow API (~1.5s typical).
     const res = await fetch("https://api.instantly.ai/api/v2/accounts?limit=100", {
       headers: { Authorization: `Bearer ${INSTANTLY_KEY}` },
-      cache: "no-store",
+      next: { revalidate: 60, tags: ["instantly-accounts"] },
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -45,14 +49,17 @@ async function getAircallUsage() {
     monthStart.setUTCHours(0, 0, 0, 0);
     const fromTs = Math.floor(monthStart.getTime() / 1000);
 
+    // 60s revalidate is fine for this page — it shows aggregate usage
+    // (minutes/calls per number this month). Real-time precision isn't needed.
+    // Without this cache, every accounts-page nav hit Aircall twice (~2s each).
     const [numbersRes, callsRes] = await Promise.all([
       fetch("https://api.aircall.io/v1/numbers", {
         headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
-        cache: "no-store",
+        next: { revalidate: 60, tags: ["aircall-numbers"] },
       }),
       fetch(`https://api.aircall.io/v1/calls?from=${fromTs}&per_page=50&order=desc`, {
         headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
-        cache: "no-store",
+        next: { revalidate: 60, tags: ["aircall-calls"] },
       }),
     ]);
 

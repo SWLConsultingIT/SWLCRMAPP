@@ -26,7 +26,7 @@ async function fetchAircallNumbers(): Promise<AircallNumber[]> {
   if (!AIRCALL_API_ID || !AIRCALL_API_TOKEN) return [];
   const res = await fetch("https://api.aircall.io/v1/numbers", {
     headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
-    cache: "no-store",
+    next: { revalidate: 60, tags: ["aircall-numbers"] },
   });
   if (!res.ok) return [];
   const data: { numbers?: AircallNumber[] } = await res.json();
