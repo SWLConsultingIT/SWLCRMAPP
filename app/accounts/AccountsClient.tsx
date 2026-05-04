@@ -107,11 +107,13 @@ function AddAccountModal({
   onSuccess,
   onPickEmail,
   onPickCalls,
+  isAdmin,
 }: {
   onClose: () => void;
   onSuccess: () => void;
   onPickEmail: () => void;
   onPickCalls: () => void;
+  isAdmin: boolean;
 }) {
   const [step, setStep] = useState<"channel" | "form" | "connecting" | "connected">("channel");
   const [name, setName] = useState("");
@@ -185,22 +187,27 @@ function AddAccountModal({
                 color: "#0A66C2",
                 onClick: () => setStep("form"),
               },
-              {
-                key: "email" as const,
-                label: "Email inbox",
-                desc: "Claim Instantly inboxes into your tenant's email pool.",
-                icon: Mail,
-                color: "#7C3AED",
-                onClick: () => { onClose(); onPickEmail(); },
-              },
-              {
-                key: "calls" as const,
-                label: "Aircall number",
-                desc: "Claim an Aircall line into your tenant's calls pool.",
-                icon: Phone,
-                color: "#F97316",
-                onClick: () => { onClose(); onPickCalls(); },
-              },
+              // Email + Calls require admin: Instantly account and Aircall
+              // workspace are SWL-managed today. Hidden for clients to avoid
+              // sending them into a flow they'll be 403'd out of.
+              ...(isAdmin ? [
+                {
+                  key: "email" as const,
+                  label: "Email inbox",
+                  desc: "Claim Instantly inboxes into your tenant's email pool.",
+                  icon: Mail,
+                  color: "#7C3AED",
+                  onClick: () => { onClose(); onPickEmail(); },
+                },
+                {
+                  key: "calls" as const,
+                  label: "Aircall number",
+                  desc: "Claim an Aircall line into your tenant's calls pool.",
+                  icon: Phone,
+                  color: "#F97316",
+                  onClick: () => { onClose(); onPickCalls(); },
+                },
+              ] : []),
             ].map(opt => {
               const Icon = opt.icon;
               return (
@@ -641,13 +648,14 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
           );
         })}
         <div className="flex-1" />
-        {isAdmin && (
-          <button onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold mb-1 transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-md"
-            style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
-            <Plus size={14} /> Add Account
-          </button>
-        )}
+        {/* Visible to every authenticated user — clients self-serve their own
+            LinkedIn sellers. The modal hides Email/Calls for non-admins since
+            those resources (Instantly inboxes, Aircall numbers) are admin-managed today. */}
+        <button onClick={() => setShowAddModal(true)}
+          className="flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold mb-1 transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-md"
+          style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
+          <Plus size={14} /> Add Account
+        </button>
       </div>
 
       {/* ═══ TAB 0: TODAY'S USAGE — 3 sections ═══ */}
@@ -987,6 +995,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
           onSuccess={() => { setShowAddModal(false); router.refresh(); }}
           onPickEmail={() => setShowPoolManager(true)}
           onPickCalls={() => setShowAircallManager(true)}
+          isAdmin={isAdmin}
         />
       )}
       {editTarget && <EditAccountModal seller={editTarget} onClose={() => setEditTarget(null)} onSuccess={() => { setEditTarget(null); router.refresh(); }} />}
