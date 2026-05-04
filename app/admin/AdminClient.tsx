@@ -13,6 +13,7 @@ import AdminActions from "./AdminActions";
 import PageHero from "@/components/PageHero";
 import PendingUsersSection from "./PendingUsersSection";
 import ActivityWidget from "@/components/ActivityWidget";
+import TenantTeamTab from "./TenantTeamTab";
 
 type UserRow = {
   id: string;
@@ -62,6 +63,10 @@ type Props = {
     activeCampaigns: number;
     executionPending?: number;
   };
+  /** Caller's own bio_id (super_admin → SWL). Used by the "My Team" tab to
+   *  scope TenantTeamTab to the admin's own workspace without forcing them
+   *  to click into "SWL Consulting" as if it were just another client. */
+  myCompanyBioId: string | null;
 };
 
 function UsersTab() {
@@ -603,7 +608,7 @@ function timeAgo(iso: string | null) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-export default function AdminClient({ clients, pendingApprovals, stats }: Props) {
+export default function AdminClient({ clients, pendingApprovals, stats, myCompanyBioId }: Props) {
   const [tab, setTab] = useState(0);
   const [search, setSearch] = useState("");
 
@@ -623,6 +628,11 @@ export default function AdminClient({ clients, pendingApprovals, stats }: Props)
     { label: "Clients",           count: clients.length,          color: gold,      icon: Building2 },
     { label: "Pending Approvals", count: pendingApprovals.length, color: "#D97706", icon: Clock },
     { label: "Activity",          count: 0,                       color: C.aiAccent, icon: Activity },
+    // "My Team" — manage SWL's own workspace (the super_admin's tenant)
+    // without having to navigate into /admin/[swl-id] as if it were a
+    // client. Hidden when myCompanyBioId is null (super_admin without a
+    // bio, edge case).
+    ...(myCompanyBioId ? [{ label: "My Team", count: 0, color: "#7C3AED", icon: Users }] : []),
   ];
 
   return (
@@ -867,6 +877,11 @@ export default function AdminClient({ clients, pendingApprovals, stats }: Props)
 
       {/* ═══ Tab 2: Activity ═══ */}
       {tab === 2 && <ActivityWidget />}
+
+      {/* ═══ Tab 3: My Team (super_admin's own workspace) ═══ */}
+      {tab === 3 && myCompanyBioId && (
+        <TenantTeamTab companyBioId={myCompanyBioId} canManage={true} />
+      )}
     </div>
   );
 }
