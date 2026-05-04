@@ -11,22 +11,28 @@ async function getData() {
   const scope = await getUserScope();
   const bioId = scope.isScoped ? scope.companyBioId! : null;
 
+  // Round 1 — profiles + leads run in parallel (both only depend on bioId).
+  // Previously these were two sequential awaits, doubling the wall-clock cost.
   const profilesQ = supabase
     .from("icp_profiles")
     .select("id, profile_name, target_industries, target_roles, status")
     .eq("status", "approved")
     .order("created_at", { ascending: false });
-  const { data: profiles } = await (bioId ? profilesQ.eq("company_bio_id", bioId) : profilesQ);
-
-  const icpMap: Record<string, { id: string; profile_name: string; target_industries?: string[]; target_roles?: string[] }> = {};
-  for (const p of profiles ?? []) icpMap[p.id] = p;
-
   const leadsQ = supabase
     .from("leads")
     .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at")
     .order("created_at", { ascending: false });
-  const { data: allLeads } = await (bioId ? leadsQ.eq("company_bio_id", bioId) : leadsQ);
+  const [{ data: profiles }, { data: allLeads }] = await Promise.all([
+    bioId ? profilesQ.eq("company_bio_id", bioId) : profilesQ,
+    bioId ? leadsQ.eq("company_bio_id", bioId) : leadsQ,
+  ]);
 
+  const icpMap: Record<string, { id: string; profile_name: string; target_industries?: string[]; target_roles?: string[] }> = {};
+  for (const p of profiles ?? []) icpMap[p.id] = p;
+
+  // Round 2 — campaigns + replies + pending requests in parallel. campaigns
+  // and replies both depend on leadIds; pendingRequests is independent of
+  // both, so it can join this round instead of waiting for round 3.
   const leadIds = (allLeads ?? []).map(l => l.id);
   const campaignsQ = supabase
     .from("campaigns")
@@ -34,18 +40,24 @@ async function getData() {
     .in("status", ["active", "paused", "completed", "failed"])
     .order("created_at", { ascending: false })
     .limit(500);
-  const { data: campaigns } = await (bioId && leadIds.length > 0 ? campaignsQ.in("lead_id", leadIds) : (bioId ? Promise.resolve({ data: [] as any[] }) : campaignsQ));
-  const { data: replies } = leadIds.length > 0
-    ? await supabase.from("lead_replies").select("lead_id, classification, received_at, channel, reply_text").in("lead_id", leadIds).order("received_at", { ascending: false })
-    : { data: [] };
-
-  const campIds = (campaigns ?? []).map(c => c.id);
-  const [{ data: messages }, { data: pendingRequests }] = await Promise.all([
-    campIds.length > 0
-      ? supabase.from("campaign_messages").select("campaign_id, sent_at").in("campaign_id", campIds)
-      : Promise.resolve({ data: [] }),
+  const [campaignsRes, repliesRes, pendingRequestsRes] = await Promise.all([
+    bioId && leadIds.length > 0
+      ? campaignsQ.in("lead_id", leadIds)
+      : (bioId ? Promise.resolve({ data: [] as any[] }) : campaignsQ),
+    leadIds.length > 0
+      ? supabase.from("lead_replies").select("lead_id, classification, received_at, channel, reply_text").in("lead_id", leadIds).order("received_at", { ascending: false })
+      : Promise.resolve({ data: [] as any[] }),
     supabase.from("campaign_requests").select("lead_id, name, status, created_at").eq("status", "pending_review"),
   ]);
+  const campaigns = campaignsRes.data;
+  const replies = repliesRes.data;
+  const pendingRequests = pendingRequestsRes.data;
+
+  // Round 3 — messages depends on campIds.
+  const campIds = (campaigns ?? []).map(c => c.id);
+  const { data: messages } = campIds.length > 0
+    ? await supabase.from("campaign_messages").select("campaign_id, sent_at").in("campaign_id", campIds)
+    : { data: [] as any[] };
 
   const pendingRequestsByLead: Record<string, { name: string; status: string }> = {};
   for (const r of pendingRequests ?? []) {
