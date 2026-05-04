@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
@@ -24,8 +25,14 @@ export type UserScope = {
  *   tenant — in which case the cookie forces scope to that bio_id.
  * - Clients see only data for their company_bio_id (cookie ignored).
  * - Unauthenticated requests behave like admins (server components called with no user context).
+ *
+ * Wrapped with React's `cache` so multiple server components calling
+ * `getUserScope()` during the same request share a single resolution.
+ * Without this, every page that calls it in three places (page header,
+ * data fetcher, sidebar query) ran `auth.getUser()` + `user_profiles`
+ * fetch three times.
  */
-export async function getUserScope(): Promise<UserScope> {
+export const getUserScope = cache(async function getUserScope(): Promise<UserScope> {
   const supabase = await getSupabaseServer();
   // Defensive: when the refresh token has been rotated/expired, supabase-ssr
   // throws AuthApiError("Invalid Refresh Token") instead of returning a clean
@@ -94,4 +101,4 @@ export async function getUserScope(): Promise<UserScope> {
   // and overrides this branch entirely.
   const isScoped = !!ownBioId;
   return { userId: user.id, role, companyBioId: ownBioId, isScoped, isDemoMode: false, demoBioId: null };
-}
+});

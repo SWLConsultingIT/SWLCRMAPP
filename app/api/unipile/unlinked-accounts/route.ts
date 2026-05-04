@@ -24,11 +24,11 @@ export async function GET() {
   const [upRes, sbRes] = await Promise.all([
     fetch(`https://${DSN}/api/v1/accounts`, {
       headers: { "X-API-KEY": KEY },
-      cache: "no-store",
+      next: { revalidate: 30, tags: ["unipile-accounts"] },
     }),
     fetch(`${SB_URL}/rest/v1/sellers?select=unipile_account_id&unipile_account_id=not.is.null`, {
       headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` },
-      cache: "no-store",
+      next: { revalidate: 30, tags: ["sellers"] },
     }),
   ]);
 
