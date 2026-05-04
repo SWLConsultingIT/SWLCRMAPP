@@ -22,30 +22,31 @@ export default async function ReliabilityBanner() {
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const stuckCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
-  const [failed, dispatching, queued] = await Promise.all([
+  // Banner fires only on PROBLEM states — failed dispatches or rows stuck
+  // mid-dispatch. Plain "queued" is normal pipeline state (LinkedIn rate-
+  // limit cooldown, calls awaiting manual click) and used to dominate the
+  // banner with low-signal noise that overlapped with the Needs-Attention
+  // card below. If something is queued normally, the user already sees it
+  // in the dashboard's call/queue widgets — no need for a duplicate alert.
+  const [failed, dispatching] = await Promise.all([
     svc.from("campaign_messages").select("id", { count: "exact", head: true })
       .eq("status", "failed").gte("created_at", since24h),
     svc.from("campaign_messages").select("id", { count: "exact", head: true })
       .eq("status", "dispatching").lt("created_at", stuckCutoff),
-    svc.from("campaign_messages").select("id", { count: "exact", head: true })
-      .eq("status", "queued"),
   ]);
 
   const failedCount = failed.count ?? 0;
   const stuckCount = dispatching.count ?? 0;
-  const queuedCount = queued.count ?? 0;
 
-  if (failedCount === 0 && stuckCount === 0 && queuedCount === 0) return null;
+  if (failedCount === 0 && stuckCount === 0) return null;
 
   const parts: string[] = [];
   if (failedCount > 0) parts.push(`${failedCount} failed`);
   if (stuckCount > 0) parts.push(`${stuckCount} stuck dispatching`);
-  if (queuedCount > 0) parts.push(`${queuedCount} queued`);
 
-  // Severity: failed = red, stuck = orange, queued only = blue/info.
-  const severity = failedCount > 0 || stuckCount > 0 ? "alert" : "info";
-  const accent = severity === "alert" ? C.red : C.blue;
-  const bg = severity === "alert" ? C.redLight : C.blueLight;
+  // Always alert color now — banner only shows for actual problems.
+  const accent = C.red;
+  const bg = C.redLight;
 
   return (
     <Link
