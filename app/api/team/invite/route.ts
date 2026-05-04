@@ -86,6 +86,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: profileErr.message }, { status: 500 });
   }
 
+  // Optional seller link: when tier=seller and the inviter picked a seller
+  // record, attach the new auth user to that sellers row. Without this, the
+  // seller-tier user logs in and sees nothing (the data filter resolves to
+  // an empty list of seller IDs). Validation: the seller must belong to the
+  // same tenant we're inviting into AND be currently unassigned.
+  const sellerIdToLink = typeof body?.sellerId === "string" && body.sellerId ? body.sellerId : null;
+  if (tier === "seller" && sellerIdToLink) {
+    const { data: target } = await svc
+      .from("sellers")
+      .select("id, user_id, company_bio_id")
+      .eq("id", sellerIdToLink)
+      .maybeSingle();
+    if (target && target.company_bio_id === targetBioId && !target.user_id) {
+      await svc
+        .from("sellers")
+        .update({ user_id: invited.user.id })
+        .eq("id", sellerIdToLink);
+    }
+    // If the link couldn't be applied (seller in wrong tenant or already
+    // linked), the invite still succeeds — the seller link can be set later
+    // via the user-edit modal. Surface this in a follow-up commit if it
+    // becomes a common confusion.
+  }
+
   return NextResponse.json({
     ok: true,
     user: { id: invited.user.id, email, tier },

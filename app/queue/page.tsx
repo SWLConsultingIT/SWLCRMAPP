@@ -1,28 +1,22 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { getUserScope, getMyAssignedSellerIds } from "@/lib/scope";
 import QueueClient from "./QueueClient";
 
 async function getQueueData() {
   const supabase = await getSupabaseServer();
 
-  // Resolve user scope
-  const { data: { user } } = await supabase.auth.getUser();
-  let userRole: string | null = null;
-  let userCompanyBioId: string | null = null;
-
-  if (user) {
-    const svc = getSupabaseService();
-    const { data: profile } = await svc
-      .from("user_profiles")
-      .select("role, company_bio_id")
-      .eq("user_id", user.id)
-      .single();
-    userRole = profile?.role ?? null;
-    userCompanyBioId = profile?.company_bio_id ?? null;
-  }
-
-  const isScoped = userRole !== "admin" && !!userCompanyBioId;
+  // Resolve user scope via the central helper so tier + companyBioId stay
+  // consistent with the rest of the app. Previous bespoke profile-fetch
+  // duplicated logic and missed the seller-tier filter.
+  const scope = await getUserScope();
+  const userCompanyBioId: string | null = scope.companyBioId;
+  const isScoped = scope.tier !== "super_admin" && !!userCompanyBioId;
   const scopedCompanyBioId = isScoped ? userCompanyBioId! : null;
+
+  // For tier='seller', restrict campaigns/leads to those whose seller_id is
+  // in the user's linked sellers. null → no extra filter.
+  const sellerIds = await getMyAssignedSellerIds();
 
   // ICP profile IDs owned by this company (for request filtering)
   let scopedProfileIds: string[] | null = null;
@@ -34,18 +28,27 @@ async function getQueueData() {
 
   // Campaigns
   let campQuery = supabase.from("campaigns")
-    .select("id, name, channel, current_step, sequence_steps, last_step_at, lead_id, aircall_number_id, leads!inner(primary_first_name, primary_last_name, company_name, primary_title_role, primary_phone, primary_work_email, company_bio_id)")
+    .select("id, name, channel, current_step, sequence_steps, last_step_at, lead_id, seller_id, aircall_number_id, leads!inner(primary_first_name, primary_last_name, company_name, primary_title_role, primary_phone, primary_work_email, company_bio_id)")
     .eq("status", "active")
     .order("last_step_at", { ascending: true })
     .limit(200);
   if (scopedCompanyBioId) campQuery = campQuery.eq("leads.company_bio_id", scopedCompanyBioId);
+  // Seller-tier filter on campaigns. Empty array → match nothing. The
+  // sentinel UUID is a no-op match used because PostgREST .in([]) is
+  // disallowed; this guarantees zero rows for unlinked sellers.
+  if (sellerIds !== null) {
+    campQuery = campQuery.in("seller_id", sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"]);
+  }
 
   // Replies
   let replyQuery = supabase.from("lead_replies")
-    .select("id, classification, received_at, channel, reply_text, lead_id, campaign_id, requires_human_review, leads!inner(primary_first_name, primary_last_name, company_name, company_bio_id), campaigns(name)")
+    .select("id, classification, received_at, channel, reply_text, lead_id, campaign_id, requires_human_review, leads!inner(primary_first_name, primary_last_name, company_name, company_bio_id), campaigns!inner(name, seller_id)")
     .order("received_at", { ascending: false })
     .limit(30);
   if (scopedCompanyBioId) replyQuery = replyQuery.eq("leads.company_bio_id", scopedCompanyBioId);
+  if (sellerIds !== null) {
+    replyQuery = replyQuery.in("campaigns.seller_id", sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"]);
+  }
 
   // Pending campaign requests
   let pendingCampQuery = supabase.from("campaign_requests")

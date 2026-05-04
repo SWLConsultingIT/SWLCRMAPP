@@ -1,5 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope, getMyAssignedSellerIds } from "@/lib/scope";
 import { C } from "@/lib/design";
 import { Users } from "lucide-react";
 import LeadsCampaignsClient from "@/components/LeadsCampaignsClient";
@@ -11,6 +11,10 @@ async function getData() {
   const scope = await getUserScope();
   const bioId = scope.isScoped ? scope.companyBioId! : null;
 
+  // Seller-tier users only see leads where leads.seller_id IN (their linked
+  // seller IDs). For other tiers this is null = no extra filter.
+  const sellerIds = await getMyAssignedSellerIds();
+
   // Round 1 — profiles + leads run in parallel (both only depend on bioId).
   // Previously these were two sequential awaits, doubling the wall-clock cost.
   const profilesQ = supabase
@@ -18,10 +22,17 @@ async function getData() {
     .select("id, profile_name, target_industries, target_roles, status")
     .eq("status", "approved")
     .order("created_at", { ascending: false });
-  const leadsQ = supabase
+  let leadsQ = supabase
     .from("leads")
     .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at")
     .order("created_at", { ascending: false });
+  // Seller-tier filter: only leads where seller_id ∈ their linked sellers.
+  // Empty array (sellerIds.length=0) → in([]) returns no rows, which is the
+  // intended behavior — a seller with no link sees nothing until they're
+  // linked to a seller record.
+  if (sellerIds !== null) {
+    leadsQ = leadsQ.in("seller_id", sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"]);
+  }
   const [{ data: profiles }, { data: allLeads }] = await Promise.all([
     bioId ? profilesQ.eq("company_bio_id", bioId) : profilesQ,
     bioId ? leadsQ.eq("company_bio_id", bioId) : leadsQ,
