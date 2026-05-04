@@ -1,7 +1,8 @@
 import { getSupabaseService } from "@/lib/supabase-service";
 import AdminClient from "./AdminClient";
-import { getSupabaseServer } from "@/lib/supabase-server";
+import TenantAdminView from "./TenantAdminView";
 import { redirect } from "next/navigation";
+import { getUserScope } from "@/lib/scope";
 
 export const dynamic = "force-dynamic";
 
@@ -182,19 +183,30 @@ async function getData() {
   return { clients, pendingApprovals, executionItems, stats };
 }
 
+// Unified /admin route — same URL, role-scoped content (decision 2026-05-04).
+//   - super_admin (SWL): cross-tenant ops view (AdminClient)
+//   - owner / manager (per-tenant): their tenant view (TenantAdminView)
+//   - seller / viewer / unauthenticated: redirected away
+//
+// Same-route routing keeps a single mental model ("Admin = my admin panel for
+// whatever I'm authorized to manage") and avoids splitting the codebase
+// across /admin and /workspace. Each branch fetches only the data its tier
+// needs — no over-fetch, no leakage.
 export default async function AdminPage() {
-  const sb = await getSupabaseServer();
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) redirect("/login");
+  const scope = await getUserScope();
+  if (!scope.userId) redirect("/login");
 
-  const { data: profile } = await supabase
-    .from("user_profiles")
-    .select("role")
-    .eq("user_id", user.id)
-    .single();
+  if (scope.tier === "super_admin") {
+    const data = await getData();
+    return <AdminClient {...JSON.parse(JSON.stringify(data))} />;
+  }
 
-  if (profile?.role !== "admin") redirect("/");
+  if (scope.tier === "owner" || scope.tier === "manager") {
+    if (!scope.companyBioId) redirect("/");
+    return <TenantAdminView tier={scope.tier} companyBioId={scope.companyBioId} />;
+  }
 
-  const data = await getData();
-  return <AdminClient {...JSON.parse(JSON.stringify(data))} />;
+  // seller / viewer / unknown — they shouldn't see the sidebar item; if they
+  // navigate here directly, redirect to dashboard.
+  redirect("/");
 }

@@ -7,9 +7,22 @@ import { getSupabaseService } from "@/lib/supabase-service";
  * sees the app as if they belonged to a specific (is_demo=true) tenant. */
 export const DEMO_SESSION_COOKIE = "demo_session_bio_id";
 
+/**
+ * RBAC tiers (from migration 010, 2026-05-04).
+ * - super_admin: SWL ops, cross-tenant. Sees /admin/* SWL views.
+ * - owner: full per-tenant admin. Manages team + settings. Does NOT see SWL /admin views.
+ * - manager: tenant-wide read/write but no team management.
+ * - seller: only own assigned leads + campaigns.
+ * - viewer: read-only across the tenant.
+ */
+export type Tier = "super_admin" | "owner" | "manager" | "seller" | "viewer";
+
 export type UserScope = {
   userId: string | null;
+  /** Legacy binary role. Kept for backwards-compat during migration. Prefer `tier`. */
   role: "admin" | "client" | null;
+  /** RBAC tier. Source of truth going forward. */
+  tier: Tier | null;
   companyBioId: string | null;
   /** True when queries must be filtered to a specific company. False = admin / no user (see everything). */
   isScoped: boolean;
@@ -18,6 +31,46 @@ export type UserScope = {
   /** When `isDemoMode`, this is the demo tenant's bio id (mirror of companyBioId for clarity). */
   demoBioId: string | null;
 };
+
+// ── RBAC helpers ────────────────────────────────────────────────────────────
+// Use these instead of comparing tiers directly so business rules stay
+// readable and centralized. Adding a new tier means updating these helpers
+// in one place.
+
+/** SWL-only super-admin views (cross-tenant ops, /admin/[id], /admin/reliability, etc). */
+export function canViewSwlAdmin(tier: Tier | null): boolean {
+  return tier === "super_admin";
+}
+
+/** Sees the unified "Admin" sidebar item — super_admin sees SWL view, owner/manager see their tenant view. */
+export function canViewAdminMenu(tier: Tier | null): boolean {
+  return tier === "super_admin" || tier === "owner" || tier === "manager";
+}
+
+/** Invite users, assign roles, remove team members. */
+export function canManageTeam(tier: Tier | null): boolean {
+  return tier === "super_admin" || tier === "owner";
+}
+
+/** Edit tenant-wide settings (branding, integrations, ICPs). */
+export function canEditTenantSettings(tier: Tier | null): boolean {
+  return tier === "super_admin" || tier === "owner";
+}
+
+/** Read all leads + campaigns within the tenant (vs only own assigned). */
+export function canViewAllTenantData(tier: Tier | null): boolean {
+  return tier === "super_admin" || tier === "owner" || tier === "manager";
+}
+
+/** Create campaigns. Sellers can — but only for their own assigned leads (enforced server-side at create time). */
+export function canCreateCampaigns(tier: Tier | null): boolean {
+  return tier !== "viewer" && tier !== null;
+}
+
+/** Approve campaigns (the gate currently held by `role === "admin"`). */
+export function canApproveCampaigns(tier: Tier | null): boolean {
+  return tier === "super_admin" || tier === "owner" || tier === "manager";
+}
 
 /**
  * Resolves the current user's tenancy scope.
@@ -47,17 +100,21 @@ export const getUserScope = cache(async function getUserScope(): Promise<UserSco
     user = null;
   }
   if (!user) {
-    return { userId: null, role: null, companyBioId: null, isScoped: false, isDemoMode: false, demoBioId: null };
+    return { userId: null, role: null, tier: null, companyBioId: null, isScoped: false, isDemoMode: false, demoBioId: null };
   }
 
   const svc = getSupabaseService();
   const { data: profile } = await svc
     .from("user_profiles")
-    .select("role, company_bio_id")
+    .select("role, tier, company_bio_id")
     .eq("user_id", user.id)
     .single();
 
   const role = (profile?.role ?? "client") as "admin" | "client";
+  // tier was backfilled in migration 010 from role; defensive fallback in case
+  // a row is missing it (shouldn't happen, but null-safe).
+  const tier: Tier = (profile?.tier as Tier | undefined)
+    ?? (role === "admin" ? "super_admin" : "owner");
   const ownBioId = profile?.company_bio_id ?? null;
 
   // Demo impersonation only applies to admins. We verify the cookie value
@@ -81,9 +138,13 @@ export const getUserScope = cache(async function getUserScope(): Promise<UserSco
         // cookie is cleared via /api/admin/demos/exit. The DemoBanner reads
         // `isDemoMode` (independent of role) to keep the persistent Exit
         // button visible.
+        // Demo impersonation: act as `owner` of the demo tenant. Same effect
+        // as a tenant admin entering their own workspace — full visibility
+        // within the demo bio, no SWL super_admin views.
         return {
           userId: user.id,
           role: "client",
+          tier: "owner",
           companyBioId: demoBio.id,
           isScoped: true,
           isDemoMode: true,
@@ -100,5 +161,5 @@ export const getUserScope = cache(async function getUserScope(): Promise<UserSco
   // directly and bypass this scope. Demo impersonation is handled above
   // and overrides this branch entirely.
   const isScoped = !!ownBioId;
-  return { userId: user.id, role, companyBioId: ownBioId, isScoped, isDemoMode: false, demoBioId: null };
+  return { userId: user.id, role, tier, companyBioId: ownBioId, isScoped, isDemoMode: false, demoBioId: null };
 });
