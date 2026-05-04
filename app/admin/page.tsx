@@ -198,7 +198,7 @@ export default async function AdminPage() {
 
   if (scope.tier === "super_admin") {
     const data = await getData();
-    return <AdminClient {...JSON.parse(JSON.stringify(data))} />;
+    return <AdminClient {...JSON.parse(JSON.stringify(data))} myCompanyBioId={scope.companyBioId} />;
   }
 
   if (scope.tier === "owner" || scope.tier === "manager") {
