@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getUserScope, DEMO_SESSION_COOKIE } from "@/lib/scope";
+import { getUserScope, canViewSwlAdmin, DEMO_SESSION_COOKIE } from "@/lib/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 
 // POST /api/admin/demos/enter  body: { bioId: string }
@@ -8,7 +8,7 @@ import { getSupabaseService } from "@/lib/supabase-service";
 // client JS can't tamper; readable in server components / RSC + API routes.
 export async function POST(req: NextRequest) {
   const scope = await getUserScope();
-  if (scope.role !== "admin") {
+  if (!canViewSwlAdmin(scope.tier)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

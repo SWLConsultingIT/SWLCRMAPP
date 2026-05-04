@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
 
 const AIRCALL_AUTH = Buffer.from(
   `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   } else {
     // Tenant has no claimed numbers — only allow SWL admins to use the global
     // default. Clients must claim a number via /accounts first.
-    if (scope.role !== "admin") {
+    if (!canViewSwlAdmin(scope.tier)) {
       return NextResponse.json({ error: "Tenant has no Aircall numbers claimed" }, { status: 403 });
     }
     resolvedNumberId = DEFAULT_NUMBER_ID;
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
 
   // Validate leadId belongs to this tenant (admin can dial across tenants
   // for support reasons; clients are strictly scoped).
-  if (leadId && scope.role !== "admin") {
+  if (leadId && !canViewSwlAdmin(scope.tier)) {
     const { data: lead } = await svc
       .from("leads")
       .select("id, company_bio_id")

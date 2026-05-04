@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getUserScope, DEMO_SESSION_COOKIE } from "@/lib/scope";
+import { getUserScope, canViewSwlAdmin, DEMO_SESSION_COOKIE } from "@/lib/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 
 // DELETE /api/admin/demos/[id]
@@ -12,7 +12,7 @@ import { getSupabaseService } from "@/lib/supabase-service";
 // happened to be inside this very demo while deleting.
 export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const scope = await getUserScope();
-  if (scope.role !== "admin") {
+  if (!canViewSwlAdmin(scope.tier)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

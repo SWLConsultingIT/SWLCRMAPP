@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
 import DemosClient from "./DemosClient";
 
 export const dynamic = "force-dynamic";
@@ -64,7 +64,7 @@ async function getDemos(): Promise<DemoTenant[]> {
 
 export default async function DemosPage() {
   const scope = await getUserScope();
-  if (scope.role !== "admin") redirect("/");
+  if (!canViewSwlAdmin(scope.tier)) redirect("/");
 
   const demos = await getDemos();
   return <DemosClient demos={demos} isInDemoMode={scope.isDemoMode} currentDemoBioId={scope.demoBioId} />;

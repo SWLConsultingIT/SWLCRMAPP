@@ -175,7 +175,10 @@ async function getDashboardData() {
 export default async function DashboardPage() {
   // Force new clients through onboarding if they haven't completed company_bio yet.
   const scope = await getUserScope();
-  if (scope.userId && scope.role !== "admin" && !scope.companyBioId) {
+  // super_admin (SWL ops) doesn't need a tenant — they operate cross-tenant.
+  // Every other tier (owner/manager/seller/viewer) needs a company_bio_id;
+  // if missing, push through onboarding.
+  if (scope.userId && scope.tier !== "super_admin" && !scope.companyBioId) {
     redirect("/onboarding");
   }
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope, canManageTeam } from "@/lib/scope";
 
 // Tenant-scoped Instantly account assignment.
 //
@@ -114,9 +114,11 @@ export async function GET() {
 
 export async function PATCH(req: NextRequest) {
   const scope = await getUserScope();
-  // Only SWL admins claim inboxes on behalf of tenants today. Clients viewing
-  // their tenant page can read the pool (GET) but not mutate it.
-  if (scope.role !== "admin") return NextResponse.json({ error: "Admin only" }, { status: 403 });
+  // super_admin (SWL) + owner (per-tenant) can claim inboxes. Manager and
+  // below cannot — claiming Instantly inboxes is a tenant-level resource
+  // assignment that affects everyone, so it lives at the same level as
+  // team management.
+  if (!canManageTeam(scope.tier)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const myBioId = await getCurrentBioId();
   if (!myBioId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

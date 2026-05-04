@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserScope } from "@/lib/scope";
+import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 
 // POST /api/admin/reliability/retry
@@ -12,7 +12,7 @@ import { getSupabaseService } from "@/lib/supabase-service";
 // 4h rate-limit cooldown filter on the next dispatch tick.
 export async function POST(req: NextRequest) {
   const scope = await getUserScope();
-  if (scope.role !== "admin") {
+  if (!canViewSwlAdmin(scope.tier)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
