@@ -1086,10 +1086,8 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
     const supabase = getSupabaseBrowser();
     setSaving(true);
     setError(null);
-    // Only send columns the schema actually has. The scraper used to leak
-    // hallucinated keys (employees_range, target_buyer_seniority...) into the
-    // form via setPrefilled({...empty, ...data}); spreading those into the
-    // INSERT/UPDATE made Postgres reject the whole save.
+    // Whitelist of columns the form is allowed to write. Anything outside this
+    // list (e.g. AI-hallucinated keys like employees_range) is dropped.
     const SAVE_KEYS = [
       "company_name", "tagline", "industry", "description", "value_proposition",
       "main_services", "target_market", "differentiators",
@@ -1100,16 +1098,34 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
       "certifications", "key_clients", "case_studies",
       "logo_url", "resources",
     ] as const;
+
+    // Empty strings / empty arrays from a barely-populated form should NOT
+    // overwrite existing values in the DB. Previous save logic spread the
+    // entire form into the UPDATE, which wiped industry/description/etc when
+    // the user edited just one field (e.g. uploaded a logo) and saved.
+    const isEmptyValue = (v: unknown): boolean => {
+      if (v === undefined || v === null) return true;
+      if (typeof v === "string" && v.trim() === "") return true;
+      if (Array.isArray(v) && v.length === 0) return true;
+      return false;
+    };
+
     const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
     for (const k of SAVE_KEYS) {
-      if ((form as Record<string, unknown>)[k] !== undefined) {
-        payload[k] = (form as Record<string, unknown>)[k];
-      }
+      const value = (form as Record<string, unknown>)[k];
+      if (!isEmptyValue(value)) payload[k] = value;
     }
+
     let result;
     if (form.id) {
       result = await supabase.from("company_bios").update(payload).eq("id", form.id).select().single();
     } else {
+      // For inserts we still need company_name (NOT NULL); ensure it's there.
+      if (!payload.company_name) {
+        setError("Company name is required");
+        setSaving(false);
+        return;
+      }
       result = await supabase.from("company_bios").insert(payload).select().single();
     }
     if (result.error) { setError(result.error.message); setSaving(false); }
