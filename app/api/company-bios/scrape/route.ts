@@ -275,10 +275,9 @@ export async function POST(req: NextRequest) {
 - target_market: string (the ideal customer profile in 1-2 sentences — industry + size + role of buyer)
 - location: string (city, country)
 - tone_of_voice: string — pick from: "professional", "consultative", "technical", "playful", "premium / luxury", "scrappy / bootstrapped", "academic", or describe in 2-3 words
-- founded_year: string (4-digit year if mentioned, else "")
-- employees_range: string — pick from: "1-10", "11-50", "51-200", "201-500", "501-1000", "1000+", or "" if not stated
+- founded_year: integer (4-digit year if mentioned, else null)
+- team_size: string — pick from: "1-10", "11-50", "51-200", "201-500", "501-1000", "1000+", or "" if not stated
 - key_clients: string[] (named clients/case studies if listed, max 6, else [])
-- target_buyer_seniority: string[] — likely buyer roles (e.g. ["CFO", "Finance Director"], ["CMO", "VP Marketing"]). Infer from value_prop + services. Max 4.
 
 CRITICAL:
 - Be specific over generic. "Helping businesses grow" is useless — say HOW (e.g. "invoice finance for recruitment agencies funding weekly payroll").
@@ -307,12 +306,33 @@ ${cleaned}`,
     const aiData = await aiRes.json();
     const parsed = JSON.parse(aiData.choices[0].message.content);
 
-    // Merge AI results with scraped social links
+    // Whitelist only the columns that exist on company_bios. The AI sometimes
+    // hallucinates extra fields (employees_range, target_buyer_seniority, etc.)
+    // and if those leak into the form, the save fails with a Postgres
+    // "column does not exist" error. Keep this list aligned with the schema.
+    const ALLOWED_KEYS = [
+      "company_name", "tagline", "industry", "description", "value_proposition",
+      "main_services", "differentiators", "target_market", "location",
+      "tone_of_voice", "founded_year", "team_size", "key_clients",
+    ] as const;
+
+    const cleanBio: Record<string, unknown> = {};
+    for (const k of ALLOWED_KEYS) {
+      if (parsed[k] !== undefined && parsed[k] !== null) cleanBio[k] = parsed[k];
+    }
+
+    // Coerce founded_year to a number (DB column is integer). The AI sometimes
+    // returns a 4-digit string instead of a number despite the schema.
+    if (typeof cleanBio.founded_year === "string") {
+      const n = parseInt(cleanBio.founded_year, 10);
+      cleanBio.founded_year = Number.isFinite(n) ? n : null;
+    }
+
+    // Merge whitelisted AI fields with scraped social links + the URL itself.
     return NextResponse.json({
-      ...parsed,
+      ...cleanBio,
       website: url,
-      ...socialLinks,
-      // Don't override AI results with empty social links
+      // Only include social URLs that the regex actually found.
       ...(socialLinks.linkedin_url ? { linkedin_url: socialLinks.linkedin_url } : {}),
       ...(socialLinks.instagram_url ? { instagram_url: socialLinks.instagram_url } : {}),
       ...(socialLinks.twitter_url ? { twitter_url: socialLinks.twitter_url } : {}),
