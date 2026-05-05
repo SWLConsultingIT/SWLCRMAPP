@@ -1083,10 +1083,29 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
   }
 
   async function handleSave() {
-  const supabase = getSupabaseBrowser();
+    const supabase = getSupabaseBrowser();
     setSaving(true);
     setError(null);
-    const payload = { ...form, updated_at: new Date().toISOString() };
+    // Only send columns the schema actually has. The scraper used to leak
+    // hallucinated keys (employees_range, target_buyer_seniority...) into the
+    // form via setPrefilled({...empty, ...data}); spreading those into the
+    // INSERT/UPDATE made Postgres reject the whole save.
+    const SAVE_KEYS = [
+      "company_name", "tagline", "industry", "description", "value_proposition",
+      "main_services", "target_market", "differentiators",
+      "website", "linkedin_url", "instagram_url", "twitter_url", "facebook_url",
+      "youtube_url", "tiktok_url",
+      "founded_year", "team_size", "location",
+      "tone_of_voice", "tone_by_channel", "languages",
+      "certifications", "key_clients", "case_studies",
+      "logo_url", "resources",
+    ] as const;
+    const payload: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    for (const k of SAVE_KEYS) {
+      if ((form as Record<string, unknown>)[k] !== undefined) {
+        payload[k] = (form as Record<string, unknown>)[k];
+      }
+    }
     let result;
     if (form.id) {
       result = await supabase.from("company_bios").update(payload).eq("id", form.id).select().single();
