@@ -362,27 +362,26 @@ export default async function LeadsCampaignsPage() {
 
   return (
     <div className="p-6 w-full">
-      <div className="flex items-start justify-between gap-4 mb-2">
-        <div className="flex-1 min-w-0">
-          <PageHero
-            icon={Users}
-            section="Operations"
-            title="Leads & Campaigns"
-            description="Manage your full prospect pipeline and track outreach progress across all channels."
-            accentColor={C.blue}
-            status={{ label: "Active", active: true }}
-          />
-        </div>
-        {canImport && (
+      <PageHero
+        icon={Users}
+        section="Operations"
+        title="Leads & Campaigns"
+        description="Manage your full prospect pipeline and track outreach progress across all channels."
+        accentColor={C.blue}
+        status={{ label: "Active", active: true }}
+        action={canImport ? (
           <Link
             href="/leads/import"
-            className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold shrink-0 mt-6 transition-opacity hover:opacity-90"
-            style={{ background: `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold shrink-0 transition-opacity hover:opacity-90"
+            style={{
+              background: `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`,
+              color: "#1A1A2E",
+            }}
           >
-            <Upload size={14} /> Import Leads
+            <Upload size={11} /> Import Leads
           </Link>
-        )}
-      </div>
+        ) : undefined}
+      />
 
       <LeadsCampaignsClient
         profileGroups={JSON.parse(JSON.stringify(profileGroups))}
