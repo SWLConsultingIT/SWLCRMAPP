@@ -108,19 +108,26 @@ function AddAccountModal({
   onPickEmail,
   onPickCalls,
   isAdmin,
+  existingSeller,
 }: {
   onClose: () => void;
   onSuccess: () => void;
   onPickEmail: () => void;
   onPickCalls: () => void;
   isAdmin: boolean;
+  existingSeller?: SellerCard;
 }) {
-  const [step, setStep] = useState<"channel" | "form" | "connecting" | "connected">("channel");
-  const [name, setName] = useState("");
-  const [linkedinLimit, setLinkedinLimit] = useState(15);
+  // Reconnect flow: skip channel picker, prefill name/limit from the existing
+  // seller row, and pass its id back to the API so it reuses the row instead
+  // of creating a duplicate.
+  const [step, setStep] = useState<"channel" | "form" | "connecting" | "connected">(
+    existingSeller ? "form" : "channel"
+  );
+  const [name, setName] = useState(existingSeller?.name ?? "");
+  const [linkedinLimit, setLinkedinLimit] = useState(existingSeller?.linkedin.limit ?? 15);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sellerId, setSellerId] = useState<string | null>(null);
+  const [sellerId, setSellerId] = useState<string | null>(existingSeller?.id ?? null);
   const [authWindow, setAuthWindow] = useState<Window | null>(null);
 
   async function handleStartConnection() {
@@ -129,7 +136,11 @@ function AddAccountModal({
     const res = await fetch("/api/unipile/hosted-link", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), linkedin_daily_limit: linkedinLimit }),
+      body: JSON.stringify({
+        name: name.trim(),
+        linkedin_daily_limit: linkedinLimit,
+        ...(existingSeller ? { sellerId: existingSeller.id } : {}),
+      }),
     });
     setSaving(false);
     if (!res.ok) {
@@ -168,7 +179,7 @@ function AddAccountModal({
             {step === "channel" ? "Add Account"
               : step === "connecting" ? "Connecting LinkedIn"
               : step === "connected" ? "Connected"
-              : "Add LinkedIn Seller"}
+              : existingSeller ? "Reconnect LinkedIn" : "Add LinkedIn Seller"}
           </h2>
           <button onClick={onClose}><X size={18} style={{ color: C.textMuted }} /></button>
         </div>
@@ -532,6 +543,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
   const router = useRouter();
   const [tab, setTab] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [reconnectTarget, setReconnectTarget] = useState<SellerCard | null>(null);
   const [editTarget, setEditTarget] = useState<SellerCard | null>(null);
   const [linkTarget, setLinkTarget] = useState<SellerCard | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
@@ -698,10 +710,15 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                       )}
                     </div>
                     <div className="px-5 py-3 border-t flex justify-end gap-2" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                      {!seller.hasLinkedin && (
+                        <button onClick={() => setReconnectTarget(seller)}
+                          className="flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-md transition-opacity hover:opacity-80 mr-auto"
+                          style={{ backgroundColor: "#0A66C2", color: "#fff" }}><Share2 size={10} /> Connect Unipile</button>
+                      )}
                       {!seller.hasLinkedin && isAdmin && (
                         <button onClick={() => setLinkTarget(seller)}
-                          className="flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-md transition-opacity hover:opacity-80 mr-auto"
-                          style={{ backgroundColor: "#0A66C215", color: "#0A66C2", border: "1px solid #0A66C230" }}><Share2 size={10} /> Link LinkedIn</button>
+                          className="flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-md transition-opacity hover:opacity-80"
+                          style={{ backgroundColor: "#0A66C215", color: "#0A66C2", border: "1px solid #0A66C230" }}><Share2 size={10} /> Link existing</button>
                       )}
                       <Link href={`/accounts/linkedin/${seller.id}`}
                         className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-md transition-opacity hover:opacity-80"
@@ -995,6 +1012,16 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
           onSuccess={() => { setShowAddModal(false); router.refresh(); }}
           onPickEmail={() => setShowPoolManager(true)}
           onPickCalls={() => setShowAircallManager(true)}
+          isAdmin={isAdmin}
+        />
+      )}
+      {reconnectTarget && (
+        <AddAccountModal
+          existingSeller={reconnectTarget}
+          onClose={() => setReconnectTarget(null)}
+          onSuccess={() => { setReconnectTarget(null); router.refresh(); }}
+          onPickEmail={() => { /* no-op in reconnect */ }}
+          onPickCalls={() => { /* no-op in reconnect */ }}
           isAdmin={isAdmin}
         />
       )}

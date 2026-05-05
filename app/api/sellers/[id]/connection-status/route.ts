@@ -12,6 +12,7 @@ type Seller = {
   name: string;
   unipile_account_id: string | null;
   created_at: string;
+  updated_at: string | null;
 };
 
 type UnipileAccount = {
@@ -30,7 +31,7 @@ export async function GET(
 
   // 1. Fetch this seller
   const sellerRes = await fetch(
-    `${SB_URL}/rest/v1/sellers?id=eq.${id}&select=id,name,unipile_account_id,created_at&limit=1`,
+    `${SB_URL}/rest/v1/sellers?id=eq.${id}&select=id,name,unipile_account_id,created_at,updated_at&limit=1`,
     { headers: sbHeaders, cache: "no-store" }
   );
   const [seller] = (await sellerRes.json().catch(() => [])) as Seller[];
@@ -67,11 +68,16 @@ export async function GET(
   const linked = (await linkedRes.json().catch(() => [])) as Array<{ unipile_account_id: string }>;
   const linkedSet = new Set(linked.map(s => s.unipile_account_id));
 
+  // Use the latest of created_at / updated_at — on reconnect flow the seller row
+  // existed for hours/days but updated_at gets bumped when a new hosted-link is
+  // requested, so we want to match Unipile accounts created after that bump.
   const sellerCreated = new Date(seller.created_at).getTime();
+  const sellerUpdated = seller.updated_at ? new Date(seller.updated_at).getTime() : sellerCreated;
+  const sellerSince = Math.max(sellerCreated, sellerUpdated);
   const candidate = items
     .filter(a => a.type === "LINKEDIN")
     .filter(a => !linkedSet.has(a.id))
-    .filter(a => new Date(a.created_at).getTime() >= sellerCreated - 60_000) // small tolerance
+    .filter(a => new Date(a.created_at).getTime() >= sellerSince - 60_000) // small tolerance
     .sort((a, b) => (a.created_at > b.created_at ? -1 : 1))[0];
 
   if (!candidate) {

@@ -18,7 +18,7 @@ function getBaseUrl(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const { name, linkedin_daily_limit = 15 } = await req.json();
+  const { name, linkedin_daily_limit = 15, sellerId } = await req.json();
   if (!name?.trim()) {
     return NextResponse.json({ error: "Name required" }, { status: 400 });
   }
@@ -36,26 +36,63 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
   const companyBioId: string | null = profile?.company_bio_id ?? null;
 
-  // 1. Create the seller in Supabase with unipile_account_id = null (pending)
-  const sellerRes = await fetch(`${SB_URL}/rest/v1/sellers`, {
-    method: "POST",
-    headers: {
-      apikey: SB_KEY,
-      Authorization: `Bearer ${SB_KEY}`,
-      "Content-Type": "application/json",
-      Prefer: "return=representation",
-    },
-    body: JSON.stringify({
-      name: name.trim(),
-      linkedin_daily_limit,
-      active: true,
-      company_bio_id: companyBioId,
-    }),
-  });
-  if (!sellerRes.ok) {
-    return NextResponse.json({ error: await sellerRes.text() }, { status: 500 });
+  // 1. Resolve the target seller — either reuse an existing orphan (reconnect flow)
+  //    or create a fresh one. Reusing avoids leaving zombie rows in Supabase when
+  //    a client closes the Unipile popup before completing the login.
+  let seller: { id: string; name: string };
+  const isReconnect = typeof sellerId === "string" && sellerId.length > 0;
+
+  if (isReconnect) {
+    const { data: existing } = await svc
+      .from("sellers")
+      .select("id, name, unipile_account_id, company_bio_id")
+      .eq("id", sellerId)
+      .maybeSingle();
+    if (!existing) {
+      return NextResponse.json({ error: "Seller not found" }, { status: 404 });
+    }
+    if (companyBioId && existing.company_bio_id && existing.company_bio_id !== companyBioId) {
+      return NextResponse.json({ error: "Seller belongs to another tenant" }, { status: 403 });
+    }
+    if (existing.unipile_account_id) {
+      return NextResponse.json({ error: "Seller already has Unipile linked" }, { status: 409 });
+    }
+    await fetch(`${SB_URL}/rest/v1/sellers?id=eq.${sellerId}`, {
+      method: "PATCH",
+      headers: {
+        apikey: SB_KEY,
+        Authorization: `Bearer ${SB_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({
+        name: name.trim(),
+        linkedin_daily_limit,
+        updated_at: new Date().toISOString(),
+      }),
+    });
+    seller = { id: existing.id, name: name.trim() };
+  } else {
+    const sellerRes = await fetch(`${SB_URL}/rest/v1/sellers`, {
+      method: "POST",
+      headers: {
+        apikey: SB_KEY,
+        Authorization: `Bearer ${SB_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
+        name: name.trim(),
+        linkedin_daily_limit,
+        active: true,
+        company_bio_id: companyBioId,
+      }),
+    });
+    if (!sellerRes.ok) {
+      return NextResponse.json({ error: await sellerRes.text() }, { status: 500 });
+    }
+    [seller] = (await sellerRes.json()) as Array<{ id: string; name: string }>;
   }
-  const [seller] = (await sellerRes.json()) as Array<{ id: string; name: string }>;
 
   // 2. Ask Unipile for a hosted link
   const baseUrl = getBaseUrl(req);
@@ -81,11 +118,14 @@ export async function POST(req: NextRequest) {
 
   if (!unipileRes.ok) {
     const err = await unipileRes.text();
-    // roll back the seller we just created
-    await fetch(`${SB_URL}/rest/v1/sellers?id=eq.${seller.id}`, {
-      method: "DELETE",
-      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` },
-    });
+    // Only roll back if we just created the seller — on reconnect we keep the
+    // existing row so the client can retry without losing it again.
+    if (!isReconnect) {
+      await fetch(`${SB_URL}/rest/v1/sellers?id=eq.${seller.id}`, {
+        method: "DELETE",
+        headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` },
+      });
+    }
     return NextResponse.json({ error: `Unipile: ${err}` }, { status: 500 });
   }
 
