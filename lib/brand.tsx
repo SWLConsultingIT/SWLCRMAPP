@@ -20,7 +20,7 @@ export function useBrand() {
   return useContext(BrandContext);
 }
 
-function clearBrandVars() {
+export function clearBrandVars() {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
   root.style.removeProperty("--brand");
@@ -49,7 +49,8 @@ function hexToRgba(hex: string, alpha: number): string {
 const BRAND_COOKIE = "swl-brand";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
-function applyBrand(color: string) {
+export function applyBrand(color: string) {
+  if (typeof document === "undefined") return;
   const root = document.documentElement;
   root.style.setProperty("--brand", color);
   root.style.setProperty("--brand-dark", darken(color, 0.12));

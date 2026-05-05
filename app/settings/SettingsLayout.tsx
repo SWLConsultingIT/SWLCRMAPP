@@ -10,6 +10,7 @@ import { C } from "@/lib/design";
 import { useTheme } from "@/lib/theme";
 import { useLocale } from "@/lib/i18n";
 import { useAuthUser, useAuth } from "@/lib/auth-context";
+import { applyBrand, clearBrandVars } from "@/lib/brand";
 import CallClassificationToggle from "@/components/CallClassificationToggle";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 
@@ -223,12 +224,22 @@ function BrandingCard() {
             </label>
             <div className="flex items-center gap-3">
               <input type="color" value={primaryColor}
-                onChange={e => { setPrimaryColor(e.target.value); save({ primary_color: e.target.value }); }}
+                onChange={e => {
+                  const next = e.target.value;
+                  setPrimaryColor(next);
+                  // Live preview if the toggle is on; persist the value.
+                  if (useBrandColors) applyBrand(next);
+                  save({ primary_color: next });
+                }}
                 className="w-12 h-10 rounded-lg border cursor-pointer"
                 style={{ borderColor: C.border }} />
               <input type="text" value={primaryColor}
                 onChange={e => setPrimaryColor(e.target.value)}
-                onBlur={() => /^#[0-9A-Fa-f]{6}$/.test(primaryColor) && save({ primary_color: primaryColor })}
+                onBlur={() => {
+                  if (!/^#[0-9A-Fa-f]{6}$/.test(primaryColor)) return;
+                  if (useBrandColors) applyBrand(primaryColor);
+                  save({ primary_color: primaryColor });
+                }}
                 className="flex-1 rounded-lg border px-3 py-2 text-sm font-mono outline-none"
                 style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }} />
             </div>
@@ -236,7 +247,14 @@ function BrandingCard() {
 
           <label className="flex items-center gap-3 cursor-pointer">
             <input type="checkbox" checked={useBrandColors}
-              onChange={e => { setUseBrandColors(e.target.checked); save({ use_brand_colors: e.target.checked }); }}
+              onChange={e => {
+                const next = e.target.checked;
+                setUseBrandColors(next);
+                // Apply or revert immediately so the user sees the change without a page refresh.
+                if (next) applyBrand(primaryColor);
+                else clearBrandVars();
+                save({ use_brand_colors: next });
+              }}
               style={{ accentColor: primaryColor }} />
             <div>
               <p className="text-xs font-semibold" style={{ color: C.textBody }}>Apply brand color to the app</p>
