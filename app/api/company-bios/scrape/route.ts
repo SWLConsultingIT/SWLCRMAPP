@@ -182,17 +182,30 @@ export async function POST(req: NextRequest) {
     // Build base origin for subpage fetches so we don't double-count if the
     // user pasted a URL with path/query.
     let origin = url;
-    try { origin = new URL(url).origin; } catch { /* fall through with raw url */ }
+    let pastedHadPath = false;
+    try {
+      const u = new URL(url);
+      origin = u.origin;
+      pastedHadPath = u.pathname.length > 1; // anything beyond "/"
+    } catch { /* fall through with raw url */ }
 
-    // Pull subpages in parallel, but only the ones the AI is likely to find
-    // useful for this kind of extraction. Spanish-language sites usually have
-    // /nosotros, /servicios — include both.
-    const subPages = await Promise.all([
-      fetchPage(`${origin}/about`),
-      fetchPage(`${origin}/services`),
-      fetchPage(`${origin}/nosotros`),
-      fetchPage(`${origin}/servicios`),
-    ]);
+    // Pull subpages in parallel. Spanish/Italian/French sites use different
+    // names for the same kind of page — try the common ones across the langs
+    // we support. If the user pasted a deep URL (e.g. /project-management),
+    // also fetch the root since the homepage usually has the broader pitch.
+    const subpageTargets = [
+      `${origin}/about`,
+      `${origin}/services`,
+      `${origin}/nosotros`,
+      `${origin}/servicios`,
+      `${origin}/chi-siamo`,
+      `${origin}/servizi`,
+      `${origin}/a-propos`,
+      `${origin}/ueber-uns`,
+    ];
+    if (pastedHadPath) subpageTargets.push(origin);
+
+    const subPages = await Promise.all(subpageTargets.map(fetchPage));
 
     const stripHtml = (raw: string): string => raw
       .replace(/<script[\s\S]*?<\/script>/gi, "")
@@ -224,21 +237,15 @@ export async function POST(req: NextRequest) {
     // not the company's own account) and validate per-platform path shape.
     const socialLinks = extractSocialLinks(html);
 
-    // Detect site language from <html lang> + og:locale + meta hints, plus
-    // a fallback heuristic on body text. Used to (a) prefer the user's
-    // requested language but (b) override when the site itself is clearly
-    // in a different language so the AI's translation isn't confusingly
-    // off from the source copy.
+    // Detect site language so we can pass it as context to the AI (helps it
+    // understand source copy), but ALWAYS respect the language the user
+    // picked in the UI for the output. The user clicks EN/IT/ES/FR/DE
+    // explicitly because they want the bio in that language; auto-overriding
+    // based on the site's <html lang> defeats the toggle.
     const htmlLangCode = (htmlLang?.[1] ?? "").trim().toLowerCase().split("-")[0];
     const ogLocaleCode = (ogLocale?.[1] ?? "").trim().toLowerCase().split("_")[0];
     const detectedLang = htmlLangCode || ogLocaleCode || "";
-    const langForExtraction =
-      detectedLang === "es" ? "Spanish"
-      : detectedLang === "pt" ? "Portuguese"
-      : detectedLang === "fr" ? "French"
-      : detectedLang === "de" ? "German"
-      : detectedLang === "it" ? "Italian"
-      : language;
+    const langForExtraction = language;
 
     // 2. Call OpenAI to extract structured info. Richer schema (employees
     //    range, founded year, target_seniority hints) lets the demo data
@@ -276,7 +283,7 @@ export async function POST(req: NextRequest) {
 CRITICAL:
 - Be specific over generic. "Helping businesses grow" is useless — say HOW (e.g. "invoice finance for recruitment agencies funding weekly payroll").
 - Quote them when possible. Don't invent.
-- Output ALL text fields in ${langForExtraction}.`,
+- Output ALL text fields in ${langForExtraction}. If the source website is in a different language than ${langForExtraction}, TRANSLATE the content — do not copy phrases in the source language. Proper nouns (company names, product names, places) stay as-is.`,
           },
           {
             role: "user",
