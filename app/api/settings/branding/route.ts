@@ -26,9 +26,10 @@ export async function GET() {
     use_brand_colors: bio?.use_brand_colors ?? false,
     logo_url: bio?.logo_url ?? null,
   }, {
-    // Brand changes rarely. 60s private cache is safe — BrandProvider also
-    // invalidates on auth-state-change so a tenant switch is reflected immediately.
-    headers: { "Cache-Control": "private, max-age=60" },
+    // Branding edits should be visible immediately — uploading a logo via
+    // /company-bios and going back to Settings used to show the stale cached
+    // value for up to 60s. Bypass any browser/Vercel cache for this endpoint.
+    headers: { "Cache-Control": "no-store" },
   });
 }
 
