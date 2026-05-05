@@ -1,4 +1,6 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { getUserScope } from "@/lib/scope";
+import { decryptLeadPayload, redactClientLead, hydrateDecryptedLead, logDataAccess, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -27,7 +29,46 @@ const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";
 async function getLead(id: string) {
   const supabase = await getSupabaseServer();
   const { data } = await supabase.from("leads").select("*").eq("id", id).single();
-  return data;
+  if (!data) return null;
+
+  // SWL-uploaded leads are unprotected — return as-is.
+  if (data.source !== "client") return data;
+
+  // Client-uploaded leads have all PII inside encrypted_payload. Resolve the
+  // caller's scope to decide between decrypt (same tenant) and redact (SWL
+  // super_admin not impersonating the tenant). Demo-impersonating super_admins
+  // get the decrypted view but the audit log records the access for the tenant.
+  const scope = await getUserScope();
+  const sameTenant = scope.companyBioId && scope.companyBioId === data.company_bio_id;
+
+  if (!sameTenant) {
+    if (scope.tier === "super_admin") {
+      return redactClientLead(data);
+    }
+    // Anyone else (different tenant, no scope) cannot see this lead at all.
+    return null;
+  }
+
+  if (!data.encrypted_payload) {
+    // Marked as client but no payload — treat as redacted to avoid leaking nulls.
+    return redactClientLead(data);
+  }
+
+  try {
+    const blob = bufferFromSupabaseBytea(data.encrypted_payload);
+    const decrypted = await decryptLeadPayload(blob, data.company_bio_id);
+    await logDataAccess({
+      companyBioId: data.company_bio_id,
+      leadId: data.id,
+      caller: scope.isDemoMode ? "swl-admin" : "client-app",
+      reason: scope.isDemoMode ? "demo-mode-read" : "tenant-detail-view",
+      encryptionMode: "standard",
+    });
+    return hydrateDecryptedLead(data, decrypted);
+  } catch (err) {
+    console.error("[leads/[id]] decrypt failed", err);
+    return redactClientLead(data);
+  }
 }
 
 async function getCampaign(leadId: string) {

@@ -1,4 +1,5 @@
 import { type LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 type PageHeroProps = {
   icon: LucideIcon;
@@ -8,6 +9,9 @@ type PageHeroProps = {
   accentColor: string;
   status?: { label: string; active?: boolean };
   badge?: string;
+  // Slot on the right for page-level CTAs (e.g. "Import Leads").
+  // Sits next to the status pill, inside the hero card so it doesn't float.
+  action?: ReactNode;
 };
 
 export default function PageHero({
@@ -18,6 +22,7 @@ export default function PageHero({
   accentColor,
   status,
   badge,
+  action,
 }: PageHeroProps) {
   return (
     <div
@@ -125,6 +130,7 @@ export default function PageHero({
               {badge}
             </span>
           )}
+          {action}
         </div>
       </div>
     </div>
