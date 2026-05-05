@@ -1,7 +1,14 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
-import { getUserScope, getMyAssignedSellerIds } from "@/lib/scope";
+import { getUserScope, getMyAssignedSellerIds, canEditTenantSettings } from "@/lib/scope";
+import {
+  resolveTenantKey,
+  decryptWithResolvedKey,
+  bufferFromSupabaseBytea,
+  ENCRYPTED_LEAD_COLUMNS,
+} from "@/lib/leads-crypto";
 import { C } from "@/lib/design";
-import { Users } from "lucide-react";
+import { Users, Upload } from "lucide-react";
+import Link from "next/link";
 import LeadsCampaignsClient from "@/components/LeadsCampaignsClient";
 import PageHero from "@/components/PageHero";
 
@@ -24,7 +31,7 @@ async function getData() {
     .order("created_at", { ascending: false });
   let leadsQ = supabase
     .from("leads")
-    .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at")
+    .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at, source, encrypted_payload, company_bio_id")
     .order("created_at", { ascending: false });
   // Seller-tier filter: only leads where seller_id ∈ their linked sellers.
   // Empty array (sellerIds.length=0) → in([]) returns no rows, which is the
@@ -33,10 +40,50 @@ async function getData() {
   if (sellerIds !== null) {
     leadsQ = leadsQ.in("seller_id", sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"]);
   }
-  const [{ data: profiles }, { data: allLeads }] = await Promise.all([
+  const [{ data: profiles }, { data: rawLeads }] = await Promise.all([
     bioId ? profilesQ.eq("company_bio_id", bioId) : profilesQ,
     bioId ? leadsQ.eq("company_bio_id", bioId) : leadsQ,
   ]);
+
+  // Privacy pass: client-uploaded leads have their PII inside encrypted_payload.
+  //  - Same tenant → decrypt and merge into the row so the UI sees real values.
+  //  - Cross-tenant SWL super_admin → null out PII columns (redaction).
+  //  - List view does NOT log access (would spam the audit log on every render);
+  //    only individual reads (lead detail, agent decrypt) are logged.
+  const allLeads = await (async () => {
+    if (!rawLeads || rawLeads.length === 0) return rawLeads ?? [];
+    const clientLeads = rawLeads.filter((l: { source?: string | null }) => l.source === "client");
+    if (clientLeads.length === 0) return rawLeads;
+
+    if (bioId) {
+      // Tenant view: same tenant for every row, resolve key once.
+      try {
+        const { key } = await resolveTenantKey(bioId);
+        return rawLeads.map((l: Record<string, unknown>) => {
+          if (l.source !== "client" || !l.encrypted_payload) return l;
+          try {
+            const blob = bufferFromSupabaseBytea(l.encrypted_payload);
+            const decrypted = decryptWithResolvedKey(blob, key);
+            return { ...l, ...decrypted, encrypted_payload: undefined };
+          } catch (err) {
+            console.error("[/leads] decrypt failed for", l.id, err);
+            return l;
+          }
+        });
+      } catch (err) {
+        console.error("[/leads] tenant key resolution failed", err);
+        return rawLeads;
+      }
+    }
+
+    // Cross-tenant SWL view: null PII columns on every client lead.
+    return rawLeads.map((l: Record<string, unknown>) => {
+      if (l.source !== "client") return l;
+      const out: Record<string, unknown> = { ...l, encrypted_payload: undefined };
+      for (const col of ENCRYPTED_LEAD_COLUMNS) out[col] = null;
+      return out;
+    });
+  })();
 
   const icpMap: Record<string, { id: string; profile_name: string; target_industries?: string[]; target_roles?: string[] }> = {};
   for (const p of profiles ?? []) icpMap[p.id] = p;
@@ -310,17 +357,32 @@ async function getData() {
 
 export default async function LeadsCampaignsPage() {
   const { profileGroups, allLeads, lostLeads, renurturingLeads, stats } = await getData();
+  const scope = await getUserScope();
+  const canImport = canEditTenantSettings(scope.tier) || scope.tier === "manager";
 
   return (
     <div className="p-6 w-full">
-      <PageHero
-        icon={Users}
-        section="Operations"
-        title="Leads & Campaigns"
-        description="Manage your full prospect pipeline and track outreach progress across all channels."
-        accentColor={C.blue}
-        status={{ label: "Active", active: true }}
-      />
+      <div className="flex items-start justify-between gap-4 mb-2">
+        <div className="flex-1 min-w-0">
+          <PageHero
+            icon={Users}
+            section="Operations"
+            title="Leads & Campaigns"
+            description="Manage your full prospect pipeline and track outreach progress across all channels."
+            accentColor={C.blue}
+            status={{ label: "Active", active: true }}
+          />
+        </div>
+        {canImport && (
+          <Link
+            href="/leads/import"
+            className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold shrink-0 mt-6 transition-opacity hover:opacity-90"
+            style={{ background: `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}
+          >
+            <Upload size={14} /> Import Leads
+          </Link>
+        )}
+      </div>
 
       <LeadsCampaignsClient
         profileGroups={JSON.parse(JSON.stringify(profileGroups))}
