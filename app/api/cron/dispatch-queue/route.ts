@@ -339,7 +339,7 @@ async function handle(req: NextRequest) {
   } catch (e: any) {
     const errMsg = e?.message ?? String(e);
     if (isRateLimitError(errMsg)) {
-      return await requeueRateLimited(svc, candidate.id, candidate.lead_id, errMsg);
+      return await requeueRateLimited(svc, candidate.id, candidate.lead_id, seller?.id ?? null, errMsg);
     }
     return await failMessage(svc, candidate.id, candidate.lead_id, errMsg);
   }
@@ -428,7 +428,7 @@ async function handle(req: NextRequest) {
   } catch (e: any) {
     const errMsg = e?.message ?? String(e);
     if (isRateLimitError(errMsg)) {
-      return await requeueRateLimited(svc, candidate.id, candidate.lead_id, errMsg);
+      return await requeueRateLimited(svc, candidate.id, candidate.lead_id, seller?.id ?? null, errMsg);
     }
     // Step 0 only — two distinct skip paths depending on the kind of 422:
     //   - already connected → connection effectively exists, queue step 1 now
@@ -624,7 +624,29 @@ async function markAlreadyInvited(
 
 // Revert a 'dispatching' row back to 'queued' and stamp metadata so future
 // dispatch ticks (and the orquestador) skip this row for the cooldown window.
-async function requeueRateLimited(svc: ReturnType<typeof getSupabaseService>, msgId: string, leadId: string, reason: string) {
+//
+// LinkedIn's "temporary provider limit" is per-ACCOUNT (the seller's Unipile
+// account), not per-message. If we only cooldown the failing row, the next 7
+// ticks pick up the next 7 messages of the same seller and burn each one
+// against an already-blocked account → 7 more 422s → LinkedIn escalates from
+// "wait 4h" to "restricted 24h" to "manual review".
+//
+// Fix (D1): when one message hits 422, propagate the cooldown stamp to every
+// other queued LinkedIn message belonging to the same seller, so the dispatcher
+// will skip them all for the same 4h window.
+//
+// Fix (D2): also auto-lower the seller's `linkedin_daily_limit` by 1 (floor 3)
+// if it hasn't been adjusted in the last 6h. The 422 is LinkedIn telling us
+// our cap is too high for this account's current trust level — respect it.
+async function requeueRateLimited(
+  svc: ReturnType<typeof getSupabaseService>,
+  msgId: string,
+  leadId: string,
+  sellerId: string | null,
+  reason: string,
+) {
+  const cooldownAt = new Date().toISOString();
+
   const { data: existing } = await svc
     .from("campaign_messages")
     .select("metadata")
@@ -638,14 +660,65 @@ async function requeueRateLimited(svc: ReturnType<typeof getSupabaseService>, ms
     metadata: {
       ...prevMeta,
       dispatched_by: "cron-dispatch-queue",
-      last_rate_limit_at: new Date().toISOString(),
+      last_rate_limit_at: cooldownAt,
       last_rate_limit_reason: reason,
       rate_limit_count: prevCount + 1,
     },
   }).eq("id", msgId);
+
+  let cascadedCount = 0;
+  let newDailyLimit: number | null = null;
+  if (sellerId) {
+    // D1: cascade cooldown to other queued LinkedIn messages of the same seller.
+    const { data: sellerQueued } = await svc
+      .from("campaign_messages")
+      .select("id, metadata, campaigns!inner(seller_id)")
+      .eq("status", "queued")
+      .eq("channel", "linkedin")
+      .eq("campaigns.seller_id", sellerId)
+      .neq("id", msgId);
+    if (sellerQueued && sellerQueued.length > 0) {
+      await Promise.all((sellerQueued as any[]).map((row) => {
+        const meta = (row.metadata as Record<string, unknown> | null) ?? {};
+        return svc.from("campaign_messages").update({
+          metadata: {
+            ...meta,
+            last_rate_limit_at: cooldownAt,
+            last_rate_limit_reason: `cascade from ${msgId}: ${reason}`,
+          },
+        }).eq("id", row.id);
+      }));
+      cascadedCount = sellerQueued.length;
+    }
+
+    // D2: auto-lower seller cap (floor 3) if not adjusted in last 6h.
+    const { data: seller } = await svc
+      .from("sellers")
+      .select("linkedin_daily_limit, linkedin_status_updated_at")
+      .eq("id", sellerId)
+      .maybeSingle();
+    if (seller) {
+      const lastUpdate = seller.linkedin_status_updated_at
+        ? new Date(seller.linkedin_status_updated_at).getTime()
+        : 0;
+      const hoursSinceUpdate = (Date.now() - lastUpdate) / (60 * 60 * 1000);
+      const currentLimit = seller.linkedin_daily_limit ?? 20;
+      if (hoursSinceUpdate >= 6 && currentLimit > 3) {
+        newDailyLimit = Math.max(3, currentLimit - 1);
+        await svc.from("sellers").update({
+          linkedin_daily_limit: newDailyLimit,
+          linkedin_status_note: `auto-lowered from ${currentLimit} to ${newDailyLimit} at ${cooldownAt} after LinkedIn 422`,
+          linkedin_status_updated_at: cooldownAt,
+        }).eq("id", sellerId);
+      }
+    }
+  }
+
   return NextResponse.json({
     ok: false, processed: 0, requeued: true,
     message_id: msgId, lead_id: leadId, error: reason,
-    reason: "rate_limited — message returned to queue, will retry after cooldown",
+    seller_cooldown_cascaded_to: cascadedCount,
+    seller_daily_limit_lowered_to: newDailyLimit,
+    reason: "rate_limited — message + seller's other queued messages on cooldown 4h",
   }, { status: 200 });
 }
