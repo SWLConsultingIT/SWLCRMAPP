@@ -631,13 +631,17 @@ async function markAlreadyInvited(
 // against an already-blocked account → 7 more 422s → LinkedIn escalates from
 // "wait 4h" to "restricted 24h" to "manual review".
 //
-// Fix (D1): when one message hits 422, propagate the cooldown stamp to every
-// other queued LinkedIn message belonging to the same seller, so the dispatcher
-// will skip them all for the same 4h window.
+// Cascade fix: when one message hits 422, propagate the cooldown stamp to
+// every other queued LinkedIn message belonging to the same seller, so the
+// dispatcher skips them all for the same 4h window. Once the cooldown
+// expires, the dispatcher resumes naturally.
 //
-// Fix (D2): also auto-lower the seller's `linkedin_daily_limit` by 1 (floor 3)
-// if it hasn't been adjusted in the last 6h. The 422 is LinkedIn telling us
-// our cap is too high for this account's current trust level — respect it.
+// We deliberately do NOT auto-lower `sellers.linkedin_daily_limit` on a 422:
+// the seller's cap is a human decision (tied to the warmup ramp and the
+// admin's read of the account's trust level), and a single 422 is normal
+// noise that doesn't justify silently degrading capacity. Surface the issue
+// in the reliability dashboard's RATE-LIMITED badge instead and let the
+// admin decide whether to lower the cap.
 async function requeueRateLimited(
   svc: ReturnType<typeof getSupabaseService>,
   msgId: string,
@@ -667,9 +671,7 @@ async function requeueRateLimited(
   }).eq("id", msgId);
 
   let cascadedCount = 0;
-  let newDailyLimit: number | null = null;
   if (sellerId) {
-    // D1: cascade cooldown to other queued LinkedIn messages of the same seller.
     const { data: sellerQueued } = await svc
       .from("campaign_messages")
       .select("id, metadata, campaigns!inner(seller_id)")
@@ -690,35 +692,12 @@ async function requeueRateLimited(
       }));
       cascadedCount = sellerQueued.length;
     }
-
-    // D2: auto-lower seller cap (floor 3) if not adjusted in last 6h.
-    const { data: seller } = await svc
-      .from("sellers")
-      .select("linkedin_daily_limit, linkedin_status_updated_at")
-      .eq("id", sellerId)
-      .maybeSingle();
-    if (seller) {
-      const lastUpdate = seller.linkedin_status_updated_at
-        ? new Date(seller.linkedin_status_updated_at).getTime()
-        : 0;
-      const hoursSinceUpdate = (Date.now() - lastUpdate) / (60 * 60 * 1000);
-      const currentLimit = seller.linkedin_daily_limit ?? 20;
-      if (hoursSinceUpdate >= 6 && currentLimit > 3) {
-        newDailyLimit = Math.max(3, currentLimit - 1);
-        await svc.from("sellers").update({
-          linkedin_daily_limit: newDailyLimit,
-          linkedin_status_note: `auto-lowered from ${currentLimit} to ${newDailyLimit} at ${cooldownAt} after LinkedIn 422`,
-          linkedin_status_updated_at: cooldownAt,
-        }).eq("id", sellerId);
-      }
-    }
   }
 
   return NextResponse.json({
     ok: false, processed: 0, requeued: true,
     message_id: msgId, lead_id: leadId, error: reason,
     seller_cooldown_cascaded_to: cascadedCount,
-    seller_daily_limit_lowered_to: newDailyLimit,
     reason: "rate_limited — message + seller's other queued messages on cooldown 4h",
   }, { status: 200 });
 }
