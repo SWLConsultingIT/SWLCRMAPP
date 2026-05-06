@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
+import { getInstantlyConfig } from "@/lib/instantly-config";
 
 // Cron-driven dispatcher for `campaign_messages` rows in `status='queued'`
 // where channel='email'. One mail per tick via Instantly v2.
@@ -38,7 +39,10 @@ import { getUserScope } from "@/lib/scope";
 //
 // Auth: Vercel cron Bearer ${CRON_SECRET} OR admin role.
 
-const INSTANTLY_KEY = process.env.INSTANTLY_API_KEY ?? "";
+// API key is resolved per-tenant via getInstantlyConfig (company_bios.instantly_api_key
+// with fallback to INSTANTLY_API_KEY env var). Tenants whose inboxes live in
+// a separate Instantly account (e.g. Arqy on a different Hypergrowth plan)
+// set their own key and the dispatcher routes accordingly.
 const CRON_SECRET = process.env.CRON_SECRET ?? "";
 const INSTANTLY_BASE = "https://api.instantly.ai/api/v2";
 
@@ -79,11 +83,11 @@ function personalize(template: string, lead: any, seller: any): string {
     .replaceAll("{{seller_company}}", "");
 }
 
-async function instantlyFetch(method: "POST" | "DELETE", path: string, body?: any): Promise<any> {
+async function instantlyFetch(apiKey: string, method: "POST" | "DELETE", path: string, body?: any): Promise<any> {
   const init: RequestInit = {
     method,
     headers: {
-      Authorization: `Bearer ${INSTANTLY_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       accept: "application/json",
       "content-type": "application/json",
     },
@@ -100,8 +104,8 @@ async function instantlyFetch(method: "POST" | "DELETE", path: string, body?: an
   return parsed;
 }
 
-async function instantlyPost(path: string, body: any): Promise<any> {
-  return instantlyFetch("POST", path, body);
+async function instantlyPost(apiKey: string, path: string, body: any): Promise<any> {
+  return instantlyFetch(apiKey, "POST", path, body);
 }
 
 // Enroll a lead in an Instantly campaign with the personalized body.
@@ -119,6 +123,7 @@ async function instantlyPost(path: string, body: any): Promise<any> {
 //      lead in the same Instantly campaign — we want a fresh send with the
 //      new step's body, not Instantly silently no-op'ing.
 async function enrollLead(opts: {
+  apiKey: string;
   campaignId: string;
   email: string;
   firstName: string;
@@ -138,7 +143,7 @@ async function enrollLead(opts: {
     skip_if_in_workspace: false,
     skip_if_in_campaign: false,
   };
-  const first = await instantlyPost("/leads", payload);
+  const first = await instantlyPost(opts.apiKey, "/leads", payload);
   const returnedBody = typeof first?.personalization === "string" ? first.personalization : "";
   const matches = returnedBody === opts.body;
   if (matches) {
@@ -147,14 +152,14 @@ async function enrollLead(opts: {
   // Stale lead returned by dedupe — delete and re-post.
   if (first?.id) {
     try {
-      await instantlyFetch("DELETE", `/leads/${first.id}`);
+      await instantlyFetch(opts.apiKey, "DELETE", `/leads/${first.id}`);
     } catch (e: any) {
       // If the delete itself fails we still want to surface the original
       // problem clearly. The caller will see the duplicate and can retry.
       throw new Error(`stale lead detected (id=${first.id}) but delete failed: ${e?.message ?? e}`);
     }
   }
-  const second = await instantlyPost("/leads", payload);
+  const second = await instantlyPost(opts.apiKey, "/leads", payload);
   return { leadId: second?.id ?? "", recreated: true };
 }
 
@@ -206,9 +211,9 @@ async function handle(req: NextRequest) {
   if (!authorized(req, scope.role ?? null)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  if (!INSTANTLY_KEY) {
-    return NextResponse.json({ error: "INSTANTLY_API_KEY not configured" }, { status: 500 });
-  }
+  // API key validation moves to per-tenant resolution below: a tenant with
+  // its own `company_bios.instantly_api_key` doesn't need INSTANTLY_API_KEY
+  // env var to be set, so we can't fail-fast here.
 
   const svc = getSupabaseService();
   const RATE_LIMIT_COOLDOWN_MS = 4 * 60 * 60 * 1000;
@@ -265,18 +270,28 @@ async function handle(req: NextRequest) {
     seller = (s as any) ?? null;
   }
 
-  // 4. Resolve the tenant's Instantly campaign UUID.
+  // 4. Resolve the tenant's Instantly account + campaign.
+  //    The tenant may use either:
+  //      - the SWL Instantly account (env-level INSTANTLY_API_KEY) — default
+  //      - their own Instantly account via `company_bios.instantly_api_key`
+  //        (e.g. Arqy: inboxes live in a separate Hypergrowth subscription)
   const tenantBioId = seller?.company_bio_id ?? null;
   if (!tenantBioId) {
     return await failMessage(svc, candidate.id, candidate.lead_id, "campaign has no tenant — cannot resolve Instantly campaign");
   }
-  const { data: bio } = await svc
-    .from("company_bios")
-    .select("instantly_campaign_id, company_name")
-    .eq("id", tenantBioId)
-    .maybeSingle();
-  const instantlyCampaignId = (bio as any)?.instantly_campaign_id as string | null | undefined;
+  const config = await getInstantlyConfig(tenantBioId);
+  if (!config) {
+    return await failMessage(
+      svc,
+      candidate.id,
+      candidate.lead_id,
+      `tenant ${tenantBioId} has no Instantly API key (neither company_bios.instantly_api_key nor INSTANTLY_API_KEY env)`,
+    );
+  }
+  const instantlyCampaignId = config.campaignId;
   if (!instantlyCampaignId) {
+    // Fetch company name for a friendlier error message.
+    const { data: bio } = await svc.from("company_bios").select("company_name").eq("id", tenantBioId).maybeSingle();
     return await failMessage(
       svc,
       candidate.id,
@@ -300,6 +315,7 @@ async function handle(req: NextRequest) {
   let recreated = false;
   try {
     const result = await enrollLead({
+      apiKey: config.apiKey,
       campaignId: instantlyCampaignId,
       email: lead.primary_work_email,
       firstName: lead.primary_first_name ?? "",

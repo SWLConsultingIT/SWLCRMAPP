@@ -2,6 +2,12 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import { requireAdminApi } from "@/lib/auth-admin";
 import { NextRequest, NextResponse } from "next/server";
 
+// SWL super-admin cross-tenant view of inboxes available for email_accounts
+// assignment. This endpoint intentionally lists ONLY the inboxes of the SWL
+// Instantly account (env var). Tenants with their own `instantly_api_key`
+// (e.g. Arqy on a separate Hypergrowth subscription) own their own inboxes
+// and assign them via /settings/email-pool from the tenant context — there's
+// nothing for SWL to assign across that boundary.
 const INSTANTLY_KEY = process.env.INSTANTLY_API_KEY!;
 
 type EmailAccount = { email: string; daily_limit?: number; stat_warmup_score?: number; setup_pending?: boolean };

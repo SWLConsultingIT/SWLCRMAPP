@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, canManageTeam } from "@/lib/scope";
+import { getInstantlyConfig } from "@/lib/instantly-config";
 
 // Tenant-scoped Instantly account assignment.
 //
@@ -10,14 +11,14 @@ import { getUserScope, canManageTeam } from "@/lib/scope";
 // list — otherwise a campaign for tenant A could rotate through an Instantly
 // inbox owned by tenant B (cross-tenant leak in the from-address).
 //
-// GET  → returns every Instantly account in the org with its owner status
-//        (mine / available / claimed-by-other) so the UI can render a picker.
+// GET  → returns every Instantly inbox visible to the tenant's API key with
+//        its owner status (mine / available / claimed-by-other). Tenants
+//        with their own `instantly_api_key` see only the inboxes of their
+//        own Instantly account; tenants without one see SWL's account.
 // PATCH → replaces the current user's tenant email_accounts with the supplied
-//         list. Validates that no email in the new list is currently owned by
-//         a DIFFERENT tenant — only unowned emails or already-mine ones may
-//         be claimed.
+//         list, and optionally updates instantly_campaign_id and
+//         instantly_api_key. Validates email conflicts before saving.
 
-const INSTANTLY_KEY = process.env.INSTANTLY_API_KEY ?? "";
 const INSTANTLY_BASE = "https://api.instantly.ai/api/v2";
 
 type InstantlyAccount = {
@@ -29,8 +30,8 @@ type InstantlyAccount = {
   status?: number;
 };
 
-async function fetchInstantlyAccounts(): Promise<InstantlyAccount[]> {
-  if (!INSTANTLY_KEY) return [];
+async function fetchInstantlyAccounts(apiKey: string, cacheTag: string): Promise<InstantlyAccount[]> {
+  if (!apiKey) return [];
   const accounts: InstantlyAccount[] = [];
   let cursor: string | null = null;
   for (let i = 0; i < 5; i++) {
@@ -39,9 +40,11 @@ async function fetchInstantlyAccounts(): Promise<InstantlyAccount[]> {
       : "/accounts?limit=100";
     // 60s revalidate — Instantly accounts list (warmup score, daily limits)
     // updates slowly. Email pool manager UI doesn't need second-precision.
+    // Per-tenant cache tag so different tenants don't share each other's
+    // account listings (one Instantly key sees one set of inboxes).
     const res: Response = await fetch(`${INSTANTLY_BASE}${path}`, {
-      headers: { Authorization: `Bearer ${INSTANTLY_KEY}`, accept: "application/json" },
-      next: { revalidate: 60, tags: ["instantly-accounts"] },
+      headers: { Authorization: `Bearer ${apiKey}`, accept: "application/json" },
+      next: { revalidate: 60, tags: [cacheTag] },
     });
     if (!res.ok) break;
     const data: { items?: InstantlyAccount[]; next_starting_after?: string | null } = await res.json();
@@ -71,11 +74,19 @@ export async function GET() {
   const myBioId = await getCurrentBioId();
   if (!myBioId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  // Resolve which Instantly account this tenant uses. Tenants with their own
+  // `instantly_api_key` see their own inboxes; otherwise fall back to SWL.
+  const config = await getInstantlyConfig(myBioId);
+  const apiKey = config?.apiKey ?? "";
+
   const svc = getSupabaseService();
   const [accounts, { data: bios }, { data: myBio }] = await Promise.all([
-    fetchInstantlyAccounts(),
+    fetchInstantlyAccounts(apiKey, `instantly-accounts-${myBioId}`),
     svc.from("company_bios").select("id, company_name, email_accounts"),
-    svc.from("company_bios").select("instantly_campaign_id").eq("id", myBioId).maybeSingle(),
+    svc.from("company_bios")
+      .select("instantly_campaign_id, instantly_api_key")
+      .eq("id", myBioId)
+      .maybeSingle(),
   ]);
 
   // Build email → owning-bio index. Empty/null email_accounts mean unowned.
@@ -105,10 +116,19 @@ export async function GET() {
     };
   });
 
+  // Mask the API key for the UI (just preview + length so the user can verify
+  // it's set without exposing the secret in DOM/network logs).
+  const rawApiKey = (myBio as any)?.instantly_api_key as string | null | undefined;
+  const apiKeyPreview = rawApiKey && rawApiKey.length > 0
+    ? `${rawApiKey.slice(0, 8)}…${rawApiKey.slice(-4)}`
+    : null;
+
   return NextResponse.json({
     myEmails,
     accounts: enriched,
     instantlyCampaignId: (myBio as any)?.instantly_campaign_id ?? null,
+    instantlyApiKeyPreview: apiKeyPreview,
+    instantlyAccountSource: config?.source ?? "env",
   });
 }
 
@@ -130,6 +150,12 @@ export async function PATCH(req: NextRequest) {
   // The dispatcher uses this as the send target — without it email steps fail.
   const rawCampaignId = typeof body?.instantlyCampaignId === "string" ? body.instantlyCampaignId.trim() : null;
   const instantlyCampaignId = rawCampaignId === null ? undefined : (rawCampaignId === "" ? null : rawCampaignId);
+
+  // Optional: per-tenant Instantly API key. Empty string clears it (tenant
+  // falls back to the env var SWL key). When set, the dispatcher uses this
+  // key for every Instantly call related to this tenant.
+  const rawApiKey = typeof body?.instantlyApiKey === "string" ? body.instantlyApiKey.trim() : null;
+  const instantlyApiKey = rawApiKey === null ? undefined : (rawApiKey === "" ? null : rawApiKey);
 
   // Normalize, dedupe, basic shape check.
   const normalized: string[] = Array.from(new Set(
@@ -163,6 +189,9 @@ export async function PATCH(req: NextRequest) {
   if (instantlyCampaignId !== undefined) {
     updatePayload.instantly_campaign_id = instantlyCampaignId;
   }
+  if (instantlyApiKey !== undefined) {
+    updatePayload.instantly_api_key = instantlyApiKey;
+  }
   const { error } = await svc
     .from("company_bios")
     .update(updatePayload)
@@ -173,5 +202,6 @@ export async function PATCH(req: NextRequest) {
     ok: true,
     emails: normalized,
     instantlyCampaignId: instantlyCampaignId === undefined ? "unchanged" : instantlyCampaignId,
+    instantlyApiKey: instantlyApiKey === undefined ? "unchanged" : instantlyApiKey === null ? "cleared" : "updated",
   });
 }

@@ -1,22 +1,30 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { getInstantlyConfig } from "@/lib/instantly-config";
 import { C } from "@/lib/design";
 import { UserCircle } from "lucide-react";
 import AccountsClient from "./AccountsClient";
 import PageHero from "@/components/PageHero";
 
-const INSTANTLY_KEY = process.env.INSTANTLY_API_KEY!;
 const AIRCALL_AUTH = Buffer.from(`${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`).toString("base64");
 
-async function getInstantlyPool() {
+async function getInstantlyPool(bioId: string | null) {
+  // Per-tenant Instantly API key (e.g. Arqy uses a different Hypergrowth
+  // subscription than SWL). Falls back to env var INSTANTLY_API_KEY when
+  // the tenant has no key set, or when there's no scope (super-admin
+  // without impersonation, who shouldn't be hitting this page anyway).
+  const apiKey = bioId
+    ? (await getInstantlyConfig(bioId))?.apiKey ?? ""
+    : (process.env.INSTANTLY_API_KEY ?? "");
+  if (!apiKey) return null;
   try {
     // 60s revalidate — Instantly accounts (warmup score, daily limits) are
     // updated by Instantly itself on a slow rhythm and don't need second-
-    // precision on this page. Without this cache, every navigation between
-    // pages that mention accounts re-pegs Instantly's slow API (~1.5s typical).
+    // precision. Per-tenant cache tag so different Instantly accounts don't
+    // share each other's listings in the route cache.
     const res = await fetch("https://api.instantly.ai/api/v2/accounts?limit=100", {
-      headers: { Authorization: `Bearer ${INSTANTLY_KEY}` },
-      next: { revalidate: 60, tags: ["instantly-accounts"] },
+      headers: { Authorization: `Bearer ${apiKey}` },
+      next: { revalidate: 60, tags: [`instantly-accounts-${bioId ?? "env"}`] },
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -140,7 +148,7 @@ async function getData() {
     aircall,
   ] = await Promise.all([
     sellersQuery,
-    getInstantlyPool(),
+    getInstantlyPool(userCompanyBioId),
     getAircallUsage(),
   ]);
 

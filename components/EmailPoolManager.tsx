@@ -31,6 +31,9 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
   const [accounts, setAccounts] = useState<PoolAccount[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [campaignId, setCampaignId] = useState<string>("");
+  const [apiKey, setApiKey] = useState<string>("");
+  const [apiKeyPreview, setApiKeyPreview] = useState<string | null>(null);
+  const [accountSource, setAccountSource] = useState<"tenant" | "env">("env");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -38,6 +41,7 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
     let alive = true;
     setLoading(true);
     setError(null);
+    setApiKey(""); // never pre-fill the secret; user types a new one to overwrite
     fetch("/api/settings/email-pool", { cache: "no-store" })
       .then(r => r.json())
       .then(d => {
@@ -47,6 +51,8 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
         setAccounts(list);
         setSelected(new Set(list.filter(a => a.isMine).map(a => a.email)));
         setCampaignId(typeof d.instantlyCampaignId === "string" ? d.instantlyCampaignId : "");
+        setApiKeyPreview(typeof d.instantlyApiKeyPreview === "string" ? d.instantlyApiKeyPreview : null);
+        setAccountSource(d.instantlyAccountSource === "tenant" ? "tenant" : "env");
       })
       .catch(() => alive && setError("Failed to load Instantly pool"))
       .finally(() => alive && setLoading(false));
@@ -72,6 +78,10 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
         body: JSON.stringify({
           emails: Array.from(selected),
           instantlyCampaignId: campaignId.trim(),
+          // Only send the API key when the user typed something — undefined
+          // means "leave as-is" so a refresh that rendered "********" doesn't
+          // wipe the existing key on save.
+          ...(apiKey.trim().length > 0 ? { instantlyApiKey: apiKey.trim() } : {}),
         }),
       });
       const d = await res.json();
@@ -129,24 +139,49 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          {/* Instantly campaign UUID — required for the dispatcher.
-              Without it every email step fails with a clear error. */}
-          <div className="mb-5 pb-4 border-b" style={{ borderColor: C.border }}>
-            <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>
-              Instantly campaign ID
-            </label>
-            <input
-              type="text"
-              value={campaignId}
-              onChange={(e) => setCampaignId(e.target.value)}
-              placeholder="e.g. 0193a8c5-…"
-              className="w-full px-3 py-2 text-sm font-mono rounded-lg border outline-none"
-              style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
-            />
-            <p className="text-[10px] mt-1.5" style={{ color: C.textDim }}>
-              UUID of the Instantly campaign this tenant sends through (template:
-              subject = <code>{"{{subject_line}}"}</code>, body = <code>{"{{personalization}}"}</code>).
-            </p>
+          {/* Instantly account credentials — API key + campaign UUID.
+              Both required for the dispatcher; without them email steps fail
+              with a clear error. The API key is per-tenant: leave blank to
+              use the default SWL account, or paste your own key when the
+              tenant's inboxes live in a separate Instantly subscription. */}
+          <div className="mb-5 pb-4 border-b space-y-3" style={{ borderColor: C.border }}>
+            <div>
+              <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>
+                Instantly API key
+              </label>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder={apiKeyPreview ?? "Leave empty to use the default SWL account"}
+                autoComplete="off"
+                className="w-full px-3 py-2 text-sm font-mono rounded-lg border outline-none"
+                style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
+              />
+              <p className="text-[10px] mt-1.5" style={{ color: C.textDim }}>
+                {accountSource === "tenant"
+                  ? <>Currently using <b>this tenant's own</b> Instantly account ({apiKeyPreview}). Paste a new key to overwrite, or leave empty to keep the current one.</>
+                  : <>Currently using the <b>default SWL</b> Instantly account. Paste a key here only if this tenant has its own Instantly subscription.</>
+                }
+              </p>
+            </div>
+            <div>
+              <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>
+                Instantly campaign ID
+              </label>
+              <input
+                type="text"
+                value={campaignId}
+                onChange={(e) => setCampaignId(e.target.value)}
+                placeholder="e.g. 0193a8c5-…"
+                className="w-full px-3 py-2 text-sm font-mono rounded-lg border outline-none"
+                style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
+              />
+              <p className="text-[10px] mt-1.5" style={{ color: C.textDim }}>
+                UUID of the Instantly campaign this tenant sends through (template:
+                subject = <code>{"{{subject_line}}"}</code>, body = <code>{"{{personalization}}"}</code>).
+              </p>
+            </div>
           </div>
 
           {loading ? (
