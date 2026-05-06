@@ -78,7 +78,17 @@ async function getData(id: string) {
     ? await supabase.from("lead_replies").select("lead_id, classification, reply_text, received_at, channel").in("lead_id", leadIds).order("received_at", { ascending: false })
     : { data: [] };
 
-  const connectionNote = campRequest?.message_prompts?.channelMessages?.connectionRequest ?? "";
+  // Source of truth for the connection note is `campaign_messages.content`
+  // at step_number=0 (LinkedIn). The edit-flow endpoint writes there, the
+  // dispatcher reads from there — the UI must read from there too, otherwise
+  // a copy edited via /campaigns/[id]/edit appears stale here. Fall back to
+  // the campaign_request template only when no step-0 row exists yet.
+  const step0Linkedin = (messages ?? []).find(
+    (m: any) => m.step_number === 0 && m.channel === "linkedin",
+  );
+  const connectionNote = (step0Linkedin?.content as string | null | undefined)
+    ?? campRequest?.message_prompts?.channelMessages?.connectionRequest
+    ?? "";
   const messageTemplates: { channel: string; body: string; subject?: string }[] =
     campRequest?.message_prompts?.channelMessages?.steps ?? [];
   const autoReplies = campRequest?.message_prompts?.channelMessages?.autoReplies ?? {};
