@@ -59,6 +59,7 @@ async function getData() {
       .from("company_bios")
       .select("id, company_name, industry, logo_url, location, created_at")
       .or("is_demo.is.null,is_demo.eq.false")
+      .is("archived_at", null)
       .order("created_at", { ascending: false }),
     // 2) All ICP profiles
     supabase

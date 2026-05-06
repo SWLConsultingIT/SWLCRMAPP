@@ -1051,11 +1051,12 @@ const teamSizeOptions = ["1-5", "6-10", "11-25", "26-50", "51-100", "101-250", "
 
 const languageOptions = ["Spanish", "English", "Portuguese", "French", "German", "Italian", "Chinese", "Japanese", "Korean", "Arabic", "Hindi"];
 
+import ArchiveCompanyModal from "@/components/ArchiveCompanyModal";
+
 function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; onSave: (b: CompanyBio) => void; onCancel: () => void; onDelete?: () => void; isNew: boolean }) {
   const [form, setForm] = useState<CompanyBio>(bio);
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newService, setNewService] = useState("");
 
@@ -1527,36 +1528,22 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
           )}
         </div>
 
-        {!isNew && onDelete && (
-          !confirmDelete ? (
-            <button onClick={() => setConfirmDelete(true)}
-              className="flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-xs font-medium transition-opacity hover:opacity-80"
-              style={{ color: C.red }}>
-              <Trash2 size={13} /> Delete company
-            </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-xs" style={{ color: C.red }}>Are you sure?</span>
-              <button onClick={async () => {
-                setDeleting(true);
-                const supabase = getSupabaseBrowser();
-                await supabase.from("company_bios").delete().eq("id", form.id!);
-                onDelete();
-              }}
-                disabled={deleting}
-                className="rounded-lg px-4 py-2 text-xs font-semibold"
-                style={{ backgroundColor: C.red, color: "#fff" }}>
-                {deleting ? "Deleting…" : "Yes, delete"}
-              </button>
-              <button onClick={() => setConfirmDelete(false)}
-                className="rounded-lg px-3 py-2 text-xs font-medium"
-                style={{ color: C.textMuted, backgroundColor: C.surface }}>
-                No
-              </button>
-            </div>
-          )
+        {!isNew && onDelete && form.id && (
+          <button onClick={() => setShowArchiveModal(true)}
+            className="flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-xs font-medium transition-opacity hover:opacity-80"
+            style={{ color: C.red }}>
+            <Trash2 size={13} /> Archive company
+          </button>
         )}
       </div>
+
+      {showArchiveModal && form.id && (
+        <ArchiveCompanyModal
+          bioId={form.id}
+          onClose={() => setShowArchiveModal(false)}
+          onArchived={() => { setShowArchiveModal(false); onDelete?.(); }}
+        />
+      )}
     </div>
   );
 }

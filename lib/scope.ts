@@ -131,7 +131,7 @@ export const getUserScope = cache(async function getUserScope(): Promise<UserSco
   const svc = getSupabaseService();
   const { data: profile } = await svc
     .from("user_profiles")
-    .select("role, tier, company_bio_id")
+    .select("role, tier, company_bio_id, company_bios(archived_at)")
     .eq("user_id", user.id)
     .single();
 
@@ -140,7 +140,14 @@ export const getUserScope = cache(async function getUserScope(): Promise<UserSco
   // a row is missing it (shouldn't happen, but null-safe).
   const tier: Tier = (profile?.tier as Tier | undefined)
     ?? (role === "admin" ? "super_admin" : "owner");
-  const ownBioId = profile?.company_bio_id ?? null;
+
+  // If the user's bio has been archived, treat them as if they had no scope —
+  // they shouldn't be able to operate within a soft-deleted tenant. Super
+  // admins still see the archived bio in /admin/recovery to restore it.
+  const rawBios = (profile as unknown as { company_bios?: unknown })?.company_bios;
+  const bioRow = Array.isArray(rawBios) ? rawBios[0] : rawBios;
+  const bioArchived = !!(bioRow as { archived_at?: string | null } | null)?.archived_at;
+  const ownBioId = bioArchived ? null : (profile?.company_bio_id ?? null);
 
   // Demo impersonation only applies to admins. We verify the cookie value
   // points at a real is_demo=true tenant before honoring it — otherwise a
