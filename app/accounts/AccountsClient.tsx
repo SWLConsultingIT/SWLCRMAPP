@@ -130,8 +130,21 @@ function AddAccountModal({
   const [sellerId, setSellerId] = useState<string | null>(existingSeller?.id ?? null);
   const [authWindow, setAuthWindow] = useState<Window | null>(null);
 
+  // Stored outside React state so the popup reference is available before the
+  // backend round-trip resolves. Using state would re-render and the stale
+  // reference inside the async callback can't be relied on.
+  const [authUrl, setAuthUrlState] = useState<string | null>(null);
+
   async function handleStartConnection() {
     if (!name.trim()) { setError("Name is required"); return; }
+    // 1. OPEN THE POPUP FIRST, synchronously, while we still have the user's
+    //    click as a "trusted gesture". If we wait for fetch() to resolve,
+    //    Chrome/Safari/Firefox will silently block window.open() because the
+    //    gesture has been lost. We open it on about:blank now and navigate
+    //    once the backend hands us the real Unipile URL.
+    const w = window.open("about:blank", "unipile-auth", "width=720,height=800");
+    setAuthWindow(w);
+
     setSaving(true); setError(null);
     const res = await fetch("/api/unipile/hosted-link", {
       method: "POST",
@@ -144,15 +157,21 @@ function AddAccountModal({
     });
     setSaving(false);
     if (!res.ok) {
+      try { w?.close(); } catch { /* ignore */ }
       const data = await res.json().catch(() => ({}));
       setError(data.error ?? "Failed to start LinkedIn connection");
       return;
     }
-    const { sellerId: sid, authUrl } = await res.json();
+    const { sellerId: sid, authUrl: url } = await res.json();
     setSellerId(sid);
     setStep("connecting");
-    const w = window.open(authUrl, "unipile-auth", "width=720,height=800");
-    setAuthWindow(w);
+    setAuthUrlState(url);
+
+    // 2. Navigate the pre-opened window to the Unipile auth URL.
+    //    If w is null, the browser blocked it — surface a manual link instead.
+    if (w && !w.closed) {
+      try { w.location.href = url; } catch { /* ignore — user may have closed it */ }
+    }
   }
 
   // Poll connection status while the popup is open
@@ -294,9 +313,26 @@ function AddAccountModal({
               <Loader2 size={24} className="animate-spin" style={{ color: "#0A66C2" }} />
             </div>
             <p className="text-sm font-medium mb-1" style={{ color: C.textPrimary }}>Waiting for LinkedIn authentication…</p>
-            <p className="text-xs" style={{ color: C.textMuted }}>Complete the login in the Unipile window. This modal will update automatically.</p>
+            <p className="text-xs" style={{ color: C.textMuted }}>
+              Complete the login in the Unipile window. This modal will update automatically.
+            </p>
+
+            {/* If the popup is closed/blocked, expose a real link the user can click directly.
+                The click is a fresh user gesture so popup blockers won't intervene. */}
+            {authUrl && (
+              <a
+                href={authUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block mt-4 text-xs font-semibold underline"
+                style={{ color: "#0A66C2" }}
+              >
+                Don&apos;t see the Unipile window? Open it manually →
+              </a>
+            )}
+
             <p className="text-[10px] mt-6" style={{ color: C.textDim }}>
-              If you closed the window, <button onClick={() => setStep("form")} className="underline" style={{ color: "#0A66C2" }}>try again</button>.
+              If you closed the window, <button onClick={() => { setStep("form"); setAuthUrlState(null); }} className="underline" style={{ color: "#0A66C2" }}>try again</button>.
             </p>
           </div>
         )}
