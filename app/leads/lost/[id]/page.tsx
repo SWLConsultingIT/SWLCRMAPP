@@ -14,6 +14,10 @@ import {
   User, TrendingDown, Sparkles, Clock, Gauge,
 } from "lucide-react";
 
+// Without this Next.js can serve a stale prerender of the page even after
+// campaign_messages updates. The timeline must always reflect current state.
+export const dynamic = "force-dynamic";
+
 const gold = "var(--brand, #c9a83a)";
 
 const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
