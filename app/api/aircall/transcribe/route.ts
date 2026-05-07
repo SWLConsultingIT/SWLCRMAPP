@@ -37,12 +37,18 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 });
 
-  // Aircall recordings are presigned URLs — public for ~24h after the call.
-  // No auth header needed when fetching.
-  const audioRes = await fetch(call.recording_url);
+  // Aircall recording URLs require Basic auth with the Aircall API
+  // credentials — they are NOT presigned/public. Without the header,
+  // Aircall returns 403.
+  const aircallAuth = Buffer.from(
+    `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`,
+  ).toString("base64");
+  const audioRes = await fetch(call.recording_url, {
+    headers: { Authorization: `Basic ${aircallAuth}` },
+  });
   if (!audioRes.ok) {
     return NextResponse.json({
-      error: `Failed to fetch recording (Aircall ${audioRes.status}). The recording may have expired.`,
+      error: `Failed to fetch recording (Aircall ${audioRes.status}). The recording may have expired or auth is misconfigured.`,
     }, { status: 502 });
   }
   const audioBlob = await audioRes.blob();
