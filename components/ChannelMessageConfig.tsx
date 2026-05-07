@@ -415,8 +415,8 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
               onChange={e => onChange({ ...channelMessages, connectionRequest: e.target.value })}
               placeholder={inlinePlaceholders.connectionRequest}
             />
-            <p className="text-xs text-right" style={{ color: (channelMessages.connectionRequest?.length || 0) > 300 ? C.red : C.textDim }}>
-              {channelMessages.connectionRequest?.length || 0}/300
+            <p className="text-xs text-right" style={{ color: (channelMessages.connectionRequest?.length || 0) > 200 ? C.red : C.textDim }}>
+              {channelMessages.connectionRequest?.length || 0}/200
             </p>
 
             {/* SECONDARY: small prompt helper for AI — optional. */}

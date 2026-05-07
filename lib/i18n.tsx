@@ -192,7 +192,7 @@ const en: Dict = {
   "wiz.step.promptHelperPlaceholder": "e.g. Mention our company, propose a 15-min call about [topic], end with a soft CTA.",
   "wiz.connReq.title": "LinkedIn Connection Request",
   "wiz.connReq.desc": "Sent when requesting to connect. The orchestrator skips this if already connected.",
-  "wiz.connReq.hint": "Short note: who you are + why you want to connect. Max 300 characters.",
+  "wiz.connReq.hint": "Short note: who you are + why you want to connect. Max 200 characters.",
   "wiz.replies.title": "Auto-Replies",
   "wiz.replies.desc": "When the lead responds, these templates are used automatically. The campaign stops after any response.",
   "wiz.replies.posTitle": "Positive response",

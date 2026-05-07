@@ -135,8 +135,37 @@ export async function POST(req: NextRequest) {
     }
     const data = await res.json() as { messages?: { step: number; channel: string; type: string; subject: string | null; body: string }[]; connectionRequest?: string | null };
 
+    // Workflow Y3gQXLpaWjpP37XP currently emits `subject: null` for every email
+    // step (the LLM call only produces body text, no subject generation logic).
+    // Derive a usable subject from the first sentence of the body (≤55 chars,
+    // strip greeting, drop trailing punctuation). Real fix is to make the
+    // workflow emit a subject; this is the safety net so emails are sendable
+    // until that's done.
+    const deriveSubject = (rawBody: string): string => {
+      if (!rawBody) return "";
+      let text = rawBody.replace(/\r\n/g, "\n").trim();
+      // Strip salutation if present
+      text = text.replace(/^(hola|hi|hello|hey|buenas)\s+[^,.\n]+[,.\n]\s*/i, "");
+      // First sentence — period, newline or question mark
+      const firstSentence = text.split(/[\.\?\n]/)[0]?.trim() ?? "";
+      let subject = firstSentence.length > 0 ? firstSentence : text.slice(0, 80);
+      // Cap to 55 chars (Instantly subjects have a 60-char soft limit)
+      if (subject.length > 55) subject = subject.slice(0, 52).trimEnd() + "…";
+      return subject;
+    };
+
+    const fillEmailSubjects = (msgs: typeof data.messages) => {
+      if (!Array.isArray(msgs)) return msgs;
+      return msgs.map(m => {
+        if (m?.channel === "email" && (!m.subject || !m.subject.trim())) {
+          return { ...m, subject: deriveSubject(m.body || "") };
+        }
+        return m;
+      });
+    };
+
     if (body.sequence && !body.target_step) {
-      return NextResponse.json(data);
+      return NextResponse.json({ ...data, messages: fillEmailSubjects(data.messages) });
     }
 
     const msg = Array.isArray(data.messages) && data.messages.length > 0
@@ -146,7 +175,10 @@ export async function POST(req: NextRequest) {
     if (body.fieldType === "connectionNote") {
       return NextResponse.json({ content: data.connectionRequest ?? msg.body ?? "" });
     }
-    return NextResponse.json({ content: msg.body ?? "", subject: msg.subject ?? "" });
+    const subject = msg.subject && msg.subject.trim().length > 0
+      ? msg.subject
+      : (msg.channel === "email" ? deriveSubject(msg.body || "") : "");
+    return NextResponse.json({ content: msg.body ?? "", subject });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: msg }, { status: 500 });
