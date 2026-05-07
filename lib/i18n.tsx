@@ -407,7 +407,7 @@ const es: Dict = {
   "wiz.step.promptHelperPlaceholder": "ej: Mencionar nuestra empresa, proponer una llamada de 15 min sobre [tema], cerrar con un CTA suave.",
   "wiz.connReq.title": "Solicitud de conexión en LinkedIn",
   "wiz.connReq.desc": "Se envía al pedir conexión. El orquestador se la saltea si ya están conectados.",
-  "wiz.connReq.hint": "Nota corta: quién sos + por qué querés conectar. Máx 300 caracteres.",
+  "wiz.connReq.hint": "Nota corta: quién sos + por qué querés conectar. Máx 200 caracteres.",
   "wiz.replies.title": "Auto-respuestas",
   "wiz.replies.desc": "Cuando el lead responde, se usan estas plantillas automáticamente. La campaña se detiene después de cualquier respuesta.",
   "wiz.replies.posTitle": "Respuesta positiva",
