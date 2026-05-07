@@ -118,11 +118,14 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
     const tenantBioId = (leadForBio as any)?.company_bio_id ?? null;
     if (tenantBioId) {
+      // Honor shared sellers (admin assigns via "Sellers shared with this
+      // client" toggle). Without the OR clause this fallback would skip
+      // shared sellers and silently leave campaigns sellerless.
       const { data: firstSeller } = await supabase
         .from("sellers")
         .select("id")
         .eq("active", true)
-        .eq("company_bio_id", tenantBioId)
+        .or(`company_bio_id.eq.${tenantBioId},shared_with_company_bio_ids.cs.{${tenantBioId}}`)
         .order("name", { ascending: true })
         .limit(1)
         .maybeSingle();

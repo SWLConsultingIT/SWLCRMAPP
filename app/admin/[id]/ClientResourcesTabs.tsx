@@ -9,7 +9,7 @@ const gold = "var(--brand, #c9a83a)";
 
 type Props = { companyBioId: string; companyName: string };
 
-type SellerRow = { id: string; name: string; active: boolean; company_bio_id: string | null; linkedin_status: string | null; linkedin_status_note: string | null };
+type SellerRow = { id: string; name: string; active: boolean; company_bio_id: string | null; shared_with_company_bio_ids: string[] | null; linkedin_status: string | null; linkedin_status_note: string | null };
 type AircallNumber = { id: number; name: string; digits: string; country: string };
 type InstantlyEmail = { email: string; dailyLimit: number; warmupScore: number; setupPending: boolean };
 
@@ -75,48 +75,126 @@ export default function ClientResourcesTabs({ companyBioId, companyName }: Props
 // legacy ClientUsers function was removed when this was wired up.
 
 // ═══ SELLERS ════════════════════════════════════════════════════════════════
+// Two groups in this view:
+//   - "Owned by this client": sellers whose company_bio_id IS this client.
+//   - "Shared from other tenants": sellers owned by a different tenant that
+//     have been granted access to this client (admin can toggle).
+// Toggle persistence goes through PATCH /api/admin/sellers-access — never a
+// direct browser write to the sellers table (RLS would block it anyway).
 function ClientSellers({ companyBioId }: { companyBioId: string }) {
   const [sellers, setSellers] = useState<SellerRow[]>([]);
+  const [companies, setCompanies] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/admin/sellers")
-      .then(r => r.json())
-      .then(d => setSellers((d.sellers ?? []).filter((s: SellerRow) => s.company_bio_id === companyBioId)))
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch("/api/admin/sellers-access").then(r => r.json()),
+      fetch("/api/admin/aircall-access").then(r => r.json()),
+    ]).then(([sellersData, aircallData]) => {
+      setSellers((sellersData.sellers ?? []) as SellerRow[]);
+      const map: Record<string, string> = {};
+      for (const c of (aircallData.companies ?? []) as { id: string; company_name: string }[]) {
+        map[c.id] = c.company_name;
+      }
+      setCompanies(map);
+    }).finally(() => setLoading(false));
   }, [companyBioId]);
+
+  async function toggleShare(seller: SellerRow, nextShared: boolean) {
+    setSaving(true);
+    setSellers(prev => prev.map(s => {
+      if (s.id !== seller.id) return s;
+      const cur = s.shared_with_company_bio_ids ?? [];
+      const upd = nextShared ? [...cur.filter(x => x !== companyBioId), companyBioId] : cur.filter(x => x !== companyBioId);
+      return { ...s, shared_with_company_bio_ids: upd };
+    }));
+    await fetch("/api/admin/sellers-access", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sellerId: seller.id, companyBioId, shared: nextShared }),
+    });
+    setSaving(false);
+  }
 
   if (loading) return <Spinner />;
 
-  if (sellers.length === 0) return (
-    <EmptyState icon={Share2} text="No sellers assigned to this client" sub="Sellers with LinkedIn accounts appear here. Assign them from the global Sellers view." />
-  );
+  const owned = sellers.filter(s => s.company_bio_id === companyBioId);
+  const sharable = sellers.filter(s => s.company_bio_id !== companyBioId);
+
+  if (sellers.length === 0) {
+    return <EmptyState icon={Share2} text="No sellers in the system yet" sub="Add sellers from the global Sellers view first." />;
+  }
+
+  const renderRow = (seller: SellerRow, mode: "owned" | "share") => {
+    const statusMeta = seller.linkedin_status ? linkedinStatusMeta[seller.linkedin_status] : null;
+    const isShared = (seller.shared_with_company_bio_ids ?? []).includes(companyBioId);
+    const ownerLabel = seller.company_bio_id ? (companies[seller.company_bio_id] ?? "Other tenant") : "Unassigned";
+    return (
+      <div key={seller.id} className="flex items-center gap-4 py-3">
+        <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+          style={{ background: seller.active ? `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` : C.border, color: seller.active ? "#fff" : "#9CA3AF" }}>
+          {seller.name[0]?.toUpperCase() ?? "?"}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{seller.name}</p>
+          <p className="text-[11px]" style={{ color: C.textDim }}>
+            {mode === "owned" ? (seller.active ? "Active · primary owner" : "Inactive · primary owner") : `Owned by ${ownerLabel}${seller.active ? "" : " · inactive"}`}
+            {seller.linkedin_status_note ? ` · ${seller.linkedin_status_note}` : ""}
+          </p>
+        </div>
+        {statusMeta && (
+          <span className="text-[10px] font-bold px-2 py-1 rounded-full"
+            style={{ color: statusMeta.color, backgroundColor: statusMeta.bg }}>
+            {statusMeta.label}
+          </span>
+        )}
+        {mode === "share" && (
+          <button onClick={() => toggleShare(seller, !isShared)} disabled={saving}
+            className="text-xs font-semibold px-3 py-1.5 rounded-md border transition-[opacity,transform,box-shadow,background-color,border-color] disabled:opacity-60"
+            style={{
+              borderColor: isShared ? "#7C3AED" : C.border,
+              backgroundColor: isShared ? "#7C3AED10" : C.bg,
+              color: isShared ? "#7C3AED" : C.textBody,
+            }}>
+            {isShared ? <><CheckCircle size={11} className="inline mr-1" /> Shared</> : "Share with this client"}
+          </button>
+        )}
+      </div>
+    );
+  };
 
   return (
-    <div className="divide-y" style={{ borderColor: C.border }}>
-      {sellers.map(seller => {
-        const statusMeta = seller.linkedin_status ? linkedinStatusMeta[seller.linkedin_status] : null;
-        return (
-          <div key={seller.id} className="flex items-center gap-4 py-3">
-            <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-              style={{ background: seller.active ? `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` : C.border, color: seller.active ? "#fff" : "#9CA3AF" }}>
-              {seller.name[0]?.toUpperCase() ?? "?"}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{seller.name}</p>
-              <p className="text-[11px]" style={{ color: C.textDim }}>
-                {seller.active ? "Active seller" : "Inactive"}{seller.linkedin_status_note ? ` · ${seller.linkedin_status_note}` : ""}
-              </p>
-            </div>
-            {statusMeta && (
-              <span className="text-[10px] font-bold px-2 py-1 rounded-full"
-                style={{ color: statusMeta.color, backgroundColor: statusMeta.bg }}>
-                {statusMeta.label}
-              </span>
-            )}
+    <div className="space-y-5">
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>
+          Owned sellers
+        </p>
+        {owned.length === 0 ? (
+          <p className="text-xs italic py-2" style={{ color: C.textDim }}>None — this client doesn&apos;t own any seller accounts directly.</p>
+        ) : (
+          <div className="divide-y" style={{ borderColor: C.border }}>
+            {owned.map(s => renderRow(s, "owned"))}
           </div>
-        );
-      })}
+        )}
+      </div>
+
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>
+          Sellers from other tenants
+        </p>
+        <p className="text-[11px] mb-2" style={{ color: C.textDim }}>
+          {saving && <Loader2 size={11} className="inline animate-spin mr-1" />}
+          Toggle to grant this client access to the seller&apos;s LinkedIn capacity. The seller&apos;s daily cap is shared across every tenant they serve.
+        </p>
+        {sharable.length === 0 ? (
+          <p className="text-xs italic py-2" style={{ color: C.textDim }}>No sellers from other tenants available.</p>
+        ) : (
+          <div className="divide-y" style={{ borderColor: C.border }}>
+            {sharable.map(s => renderRow(s, "share"))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

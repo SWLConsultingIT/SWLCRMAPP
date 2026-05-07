@@ -161,7 +161,9 @@ export default function NewLeadCampaignWizard() {
         .select("id, name, unipile_account_id, email_account, linkedin_daily_limit, email_daily_limit")
         .eq("active", true)
         .order("name");
-      if (leadData.company_bio_id) sellerQ.eq("company_bio_id", leadData.company_bio_id);
+      // Tenant scope: own sellers + sellers shared from other tenants (admin
+      // assigns via "Sellers shared with this client" in /admin/[id]).
+      if (leadData.company_bio_id) sellerQ.or(`company_bio_id.eq.${leadData.company_bio_id},shared_with_company_bio_ids.cs.{${leadData.company_bio_id}}`);
       const [{ data: profileData }, { data: sellerList }] = await Promise.all([
         leadData.icp_profile_id
           ? supabase.from("icp_profiles").select("*").eq("id", leadData.icp_profile_id).single()
