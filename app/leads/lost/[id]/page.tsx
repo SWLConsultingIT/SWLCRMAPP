@@ -133,7 +133,7 @@ async function getLostLeadData(leadId: string) {
 
   const [{ data: campaigns }, { data: replies }, profileResult, { data: calls }] = await Promise.all([
     supabase.from("campaigns")
-      .select("id, name, status, channel, current_step, sequence_steps, last_step_at, created_at, sellers(name)")
+      .select("id, name, status, channel, current_step, sequence_steps, last_step_at, completed_at, stop_reason, created_at, sellers(name)")
       .eq("lead_id", leadId)
       .order("created_at", { ascending: true }),
     supabase.from("lead_replies")
@@ -149,58 +149,82 @@ async function getLostLeadData(leadId: string) {
       .order("started_at", { ascending: true }),
   ]);
 
-  // Get message templates from campaign_requests
-  const campNames = [...new Set((campaigns ?? []).map(c => c.name))];
-  const { data: campRequests } = campNames.length > 0
-    ? await supabase.from("campaign_requests").select("name, message_prompts").in("name", campNames)
+  // Pull the actual sent/skipped messages from campaign_messages (not templates).
+  // The previous version reconstructed the timeline from campaign_requests
+  // templates, which (a) had raw `{{first_name}}` placeholders, (b) had no
+  // sent_at so everything sorted to the top, and (c) missed the implicit
+  // step_number=0 LinkedIn invite that lives outside sequence_steps[].
+  const campIds = (campaigns ?? []).map(c => c.id);
+  const { data: campaignMessages } = campIds.length > 0
+    ? await supabase
+        .from("campaign_messages")
+        .select("id, campaign_id, step_number, channel, content, status, sent_at, metadata")
+        .in("campaign_id", campIds)
+        .order("step_number", { ascending: true })
     : { data: [] };
 
-  const templatesByName: Record<string, any[]> = {};
-  for (const cr of campRequests ?? []) {
-    templatesByName[cr.name] = cr.message_prompts?.channelMessages?.steps ?? [];
+  const messagesByCampaign: Record<string, any[]> = {};
+  for (const m of campaignMessages ?? []) {
+    if (!messagesByCampaign[m.campaign_id]) messagesByCampaign[m.campaign_id] = [];
+    messagesByCampaign[m.campaign_id].push(m);
   }
 
-  // Build timeline
-  const timeline: { type: string; date: string | null; channel: string; content: string | null; classification?: string; step?: number; meta?: string }[] = [];
+  // Personalize on the fly so the timeline shows what the lead actually saw,
+  // not raw `{{first_name}}` placeholders.
+  const personalize = (text: string | null): string | null => {
+    if (!text) return text;
+    return text
+      .replaceAll("{{first_name}}", lead.primary_first_name ?? "")
+      .replaceAll("{{last_name}}", lead.primary_last_name ?? "")
+      .replaceAll("{{full_name}}", `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim())
+      .replaceAll("{{company_name}}", lead.company_name ?? "")
+      .replaceAll("{{company}}", lead.company_name ?? "")
+      .replaceAll("{{firstName}}", lead.primary_first_name ?? "")
+      .replaceAll("{{companyName}}", lead.company_name ?? "");
+  };
 
-  // Add campaign start
+  // Build timeline
+  const timeline: { type: string; date: string | null; channel: string; content: string | null; classification?: string; step?: number; meta?: string; status?: string }[] = [];
+
   for (const c of campaigns ?? []) {
     timeline.push({ type: "campaign_start", date: c.created_at, channel: c.channel, content: `Campaign "${c.name}" started`, meta: `${Array.isArray(c.sequence_steps) ? c.sequence_steps.length : 0} steps · ${(c.sellers as any)?.name ?? "Unassigned"}` });
 
-    // Add sent messages (from templates)
-    const templates = templatesByName[c.name] ?? [];
-    const steps = Array.isArray(c.sequence_steps) ? c.sequence_steps : [];
-    const stepsDone = c.current_step ?? 0;
-
-    for (let i = 0; i < Math.min(stepsDone, steps.length); i++) {
-      const stepChannel = steps[i]?.channel ?? c.channel;
-      const tmpl = templates[i];
+    const msgs = messagesByCampaign[c.id] ?? [];
+    for (const m of msgs) {
+      // Skip queued/draft — they never reached the lead.
+      if (m.status !== "sent" && m.status !== "skipped") continue;
+      const subject = (m.metadata as { subject?: string } | null | undefined)?.subject;
       timeline.push({
         type: "message_sent",
-        date: null, // we don't have exact dates for template-based messages
-        channel: stepChannel,
-        content: tmpl?.body ?? null,
-        step: i + 1,
-        meta: tmpl?.subject ? `Subject: ${tmpl.subject}` : undefined,
+        date: m.sent_at,
+        channel: m.channel,
+        content: personalize(m.content),
+        step: m.step_number,
+        status: m.status,
+        meta: subject ? `Subject: ${subject}` : undefined,
       });
     }
 
-    // Add campaign end if completed/failed
     if (c.status === "completed" || c.status === "failed") {
-      timeline.push({ type: "campaign_end", date: c.last_step_at, channel: c.channel, content: `Campaign ${c.status}` });
+      timeline.push({
+        type: "campaign_end",
+        date: (c as any).completed_at ?? c.last_step_at,
+        channel: c.channel,
+        content: `Campaign ${c.status}${(c as any).stop_reason ? ` — ${String((c as any).stop_reason).replaceAll("_", " ")}` : ""}`,
+      });
     }
   }
 
-  // Add replies
   for (const r of replies ?? []) {
     timeline.push({ type: "reply", date: r.received_at, channel: r.channel, content: r.reply_text, classification: r.classification });
   }
 
-  // Sort by date (nulls first)
+  // Chronological sort. Nulls go LAST (not first) so undated rows don't
+  // hijack the top of the timeline.
   timeline.sort((a, b) => {
     if (!a.date && !b.date) return 0;
-    if (!a.date) return -1;
-    if (!b.date) return 1;
+    if (!a.date) return 1;
+    if (!b.date) return -1;
     return new Date(a.date).getTime() - new Date(b.date).getTime();
   });
 
@@ -485,7 +509,17 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
                             <div className="flex items-center gap-2 mb-0.5">
                               {isMsg && (
                                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: `${chMeta.color}12`, color: chMeta.color }}>
-                                  Step {item.step} · {chMeta.label}
+                                  {item.step === 0 ? `Connection Request · ${chMeta.label}` : `Step ${item.step} · ${chMeta.label}`}
+                                </span>
+                              )}
+                              {isMsg && item.status === "skipped" && (
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: C.surface, color: C.textMuted }}>
+                                  Skipped (already connected)
+                                </span>
+                              )}
+                              {isMsg && item.status === "sent" && (
+                                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: C.greenLight, color: C.green }}>
+                                  Sent
                                 </span>
                               )}
                               {isReply && cls && (
