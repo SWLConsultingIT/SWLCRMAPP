@@ -24,12 +24,14 @@ export async function POST(req: NextRequest) {
   const svc = getSupabaseService();
   const { data: call, error: fetchErr } = await svc
     .from("calls")
-    .select("id, recording_url, transcript")
+    .select("id, recording_url, transcript, aircall_call_id")
     .eq("id", callId)
     .maybeSingle();
   if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 });
   if (!call) return NextResponse.json({ error: "call not found" }, { status: 404 });
-  if (!call.recording_url) return NextResponse.json({ error: "no recording on this call" }, { status: 400 });
+  if (!call.aircall_call_id) {
+    return NextResponse.json({ error: "no aircall_call_id — cannot fetch recording" }, { status: 400 });
+  }
   if (call.transcript && call.transcript.length > 0) {
     return NextResponse.json({ ok: true, alreadyTranscribed: true, transcriptLength: call.transcript.length });
   }
@@ -37,18 +39,35 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 });
 
-  // Aircall recording URLs require Basic auth with the Aircall API
-  // credentials — they are NOT presigned/public. Without the header,
-  // Aircall returns 403.
+  // The recording_url stored in our DB is a presigned S3 URL with a short
+  // expiry (~36 min). For older calls the saved URL is dead. Always pull a
+  // fresh URL from Aircall at transcription time. GET /v1/calls/{id} returns
+  // the call resource with a freshly-signed `recording` field on every read.
   const aircallAuth = Buffer.from(
     `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`,
   ).toString("base64");
-  const audioRes = await fetch(call.recording_url, {
+  const callRes = await fetch(`https://api.aircall.io/v1/calls/${call.aircall_call_id}`, {
     headers: { Authorization: `Basic ${aircallAuth}` },
   });
+  if (!callRes.ok) {
+    return NextResponse.json({
+      error: `Aircall call lookup failed (${callRes.status})`,
+    }, { status: 502 });
+  }
+  const callData = await callRes.json() as { call?: { recording?: string | null; asset?: string | null } };
+  const freshRecordingUrl = callData?.call?.recording ?? callData?.call?.asset ?? null;
+  if (!freshRecordingUrl) {
+    return NextResponse.json({
+      error: "Aircall returned no recording URL — the recording may have been deleted or never produced",
+    }, { status: 502 });
+  }
+
+  // The fresh URL is presigned S3 — it self-authenticates via X-Amz-* query
+  // params. Do NOT add a Basic auth header here; S3 rejects it with 400.
+  const audioRes = await fetch(freshRecordingUrl);
   if (!audioRes.ok) {
     return NextResponse.json({
-      error: `Failed to fetch recording (Aircall ${audioRes.status}). The recording may have expired or auth is misconfigured.`,
+      error: `Failed to fetch recording from S3 (${audioRes.status})`,
     }, { status: 502 });
   }
   const audioBlob = await audioRes.blob();
