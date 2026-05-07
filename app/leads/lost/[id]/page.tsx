@@ -190,17 +190,29 @@ async function getLostLeadData(leadId: string) {
     timeline.push({ type: "campaign_start", date: c.created_at, channel: c.channel, content: `Campaign "${c.name}" started`, meta: `${Array.isArray(c.sequence_steps) ? c.sequence_steps.length : 0} steps · ${(c.sellers as any)?.name ?? "Unassigned"}` });
 
     const msgs = messagesByCampaign[c.id] ?? [];
+    const currentStep = c.current_step ?? 0;
     for (const m of msgs) {
-      // Skip queued/draft — they never reached the lead.
-      if (m.status !== "sent" && m.status !== "skipped") continue;
+      // Email messages live on Instantly's side: the dispatcher never flips
+      // them to 'sent' in our DB even after Instantly delivers them, so they
+      // stay 'queued'. Treat them as sent once the campaign has progressed
+      // past their step_number (or the campaign is completed).
+      const emailHandledByInstantly = m.channel === "email"
+        && m.status === "queued"
+        && (currentStep > m.step_number || c.status === "completed" || c.status === "failed");
+      const include = m.status === "sent" || m.status === "skipped" || emailHandledByInstantly;
+      if (!include) continue;
+
       const subject = (m.metadata as { subject?: string } | null | undefined)?.subject;
+      const displayStatus = emailHandledByInstantly ? "sent" : m.status;
       timeline.push({
         type: "message_sent",
-        date: m.sent_at,
+        // Email queued rows have no sent_at; fall back to the campaign's
+        // last_step_at as an approximation so they sort in the right place.
+        date: m.sent_at ?? (emailHandledByInstantly ? c.last_step_at ?? c.created_at : null),
         channel: m.channel,
         content: personalize(m.content),
         step: m.step_number,
-        status: m.status,
+        status: displayStatus,
         meta: subject ? `Subject: ${subject}` : undefined,
       });
     }
