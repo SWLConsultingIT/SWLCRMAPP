@@ -2,41 +2,63 @@ import { getSupabaseService } from "@/lib/supabase-service";
 
 // Per-tenant Instantly config resolver.
 //
-// Default behaviour: every tenant uses the SWL Instantly account (env var
-// INSTANTLY_API_KEY). When a tenant has `company_bios.instantly_api_key`
-// set, the dispatcher targets that account instead. This handles the case
-// where a tenant's inboxes already live in a separate Instantly subscription
-// (e.g. Arqy's emails were provisioned under a different Hypergrowth plan)
-// and we don't want to migrate inboxes just to centralise the API key.
+// Resolution order:
+//   1. Tenant has `instantly_workspace_id` → look up workspace, use its api_key.
+//   2. Tenant has legacy `instantly_api_key` set inline → use that.
+//   3. Fall back to env var `INSTANTLY_API_KEY` (default SWL account).
 //
-// `apiKey` is required to call Instantly. `campaignId` is the dispatch
-// target — the same Instantly account can host multiple tenant campaigns,
-// so the campaign is the per-tenant routing key inside the chosen account.
+// `apiKey` is the Bearer token used for every Instantly call related to
+// this tenant. `campaignId` is the dispatch target — Instantly is
+// campaign-based, so the campaign UUID is the per-tenant routing key
+// inside the chosen workspace.
 
 export type InstantlyConfig = {
   apiKey: string;
   campaignId: string | null;
-  source: "tenant" | "env";
+  workspaceId: string | null;
+  workspaceLabel: string | null;
+  source: "workspace" | "tenant_legacy" | "env";
 };
 
 export async function getInstantlyConfig(companyBioId: string): Promise<InstantlyConfig | null> {
   const svc = getSupabaseService();
   const { data: bio } = await svc
     .from("company_bios")
-    .select("instantly_api_key, instantly_campaign_id")
+    .select("instantly_api_key, instantly_campaign_id, instantly_workspace_id, instantly_workspaces(id, label, api_key)")
     .eq("id", companyBioId)
     .maybeSingle();
 
-  const tenantKey = (bio as any)?.instantly_api_key as string | null | undefined;
   const campaignId = ((bio as any)?.instantly_campaign_id as string | null | undefined) ?? null;
+  const ws = (bio as any)?.instantly_workspaces as { id: string; label: string; api_key: string } | null | undefined;
+  const legacyKey = (bio as any)?.instantly_api_key as string | null | undefined;
   const envKey = process.env.INSTANTLY_API_KEY ?? "";
 
-  const apiKey = tenantKey && tenantKey.trim().length > 0 ? tenantKey : envKey;
-  if (!apiKey) return null;
+  if (ws?.api_key && ws.api_key.trim().length > 0) {
+    return {
+      apiKey: ws.api_key,
+      campaignId,
+      workspaceId: ws.id,
+      workspaceLabel: ws.label,
+      source: "workspace",
+    };
+  }
 
+  if (legacyKey && legacyKey.trim().length > 0) {
+    return {
+      apiKey: legacyKey,
+      campaignId,
+      workspaceId: null,
+      workspaceLabel: null,
+      source: "tenant_legacy",
+    };
+  }
+
+  if (!envKey) return null;
   return {
-    apiKey,
+    apiKey: envKey,
     campaignId,
-    source: tenantKey && tenantKey.trim().length > 0 ? "tenant" : "env",
+    workspaceId: null,
+    workspaceLabel: null,
+    source: "env",
   };
 }

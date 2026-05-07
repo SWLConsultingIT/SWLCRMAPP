@@ -7,7 +7,7 @@ import {
   Building2, Users, Megaphone, Clock, ChevronRight,
   Target, Search, X, CheckCircle, ArrowRight, Shield,
   Trash2, Loader2, Share2, AlertTriangle, Phone, Mail,
-  Activity, Theater, Zap,
+  Activity, Theater, Zap, Plus, Edit3,
 } from "lucide-react";
 import AdminActions from "./AdminActions";
 import PageHero from "@/components/PageHero";
@@ -435,48 +435,84 @@ function AircallAccessTab() {
 }
 
 type InstantlyEmail = { email: string; dailyLimit: number; warmupScore: number; setupPending: boolean };
-type CompanyWithEmails = { id: string; company_name: string; email_accounts: string[] | null };
+type WorkspaceSection = {
+  workspaceId: string | null;
+  label: string;
+  accountUserId: string | null;
+  notes: string | null;
+  isEnvFallback: boolean;
+  inboxes: InstantlyEmail[];
+  error: string | null;
+};
+type CompanyWithEmails = {
+  id: string;
+  company_name: string;
+  email_accounts: string[];
+  instantly_workspace_id: string | null;
+  instantly_campaign_id: string | null;
+};
+type WorkspaceRow = { id: string; label: string; account_user_id: string | null; notes: string | null };
 
 function EmailAccessTab() {
-  const [emails, setEmails] = useState<InstantlyEmail[]>([]);
+  const [sections, setSections] = useState<WorkspaceSection[]>([]);
   const [companies, setCompanies] = useState<CompanyWithEmails[]>([]);
+  const [workspaces, setWorkspaces] = useState<WorkspaceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [showAddWorkspace, setShowAddWorkspace] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/admin/email-access")
-      .then(r => r.json())
-      .then(d => { setEmails(d.emails ?? []); setCompanies(d.companies ?? []); })
-      .finally(() => setLoading(false));
-  }, []);
+  async function reload() {
+    setLoading(true);
+    try {
+      const [accessRes, wsRes] = await Promise.all([
+        fetch("/api/admin/email-access").then(r => r.json()),
+        fetch("/api/admin/instantly/workspaces").then(r => r.json()),
+      ]);
+      setSections(accessRes.sections ?? []);
+      setCompanies(accessRes.companies ?? []);
+      setWorkspaces(wsRes.workspaces ?? []);
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => { reload(); }, []);
 
-  async function toggleEmail(companyId: string, email: string) {
-    const company = companies.find(c => c.id === companyId);
-    if (!company) return;
-    const current = company.email_accounts ?? [];
-    const next = current.includes(email) ? current.filter(e => e !== email) : [...current, email];
+  // Flatten all inboxes across workspaces, with the workspace each one
+  // belongs to so the assignment UI can show the source.
+  const allInboxes = sections.flatMap(s => s.inboxes.map(i => ({ ...i, workspaceLabel: s.label, workspaceId: s.workspaceId })));
 
-    setSaving(companyId);
-    setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, email_accounts: next } : c));
+  async function patchCompany(id: string, payload: Record<string, unknown>) {
+    setSaving(id);
     try {
       await fetch("/api/admin/email-access", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyBioId: companyId, emailAccounts: next }),
+        body: JSON.stringify({ companyBioId: id, ...payload }),
       });
     } finally {
       setSaving(null);
     }
   }
 
-  // Group emails by domain for cleaner UI
-  const emailsByDomain = emails.reduce<Record<string, InstantlyEmail[]>>((acc, e) => {
-    const domain = e.email.split("@")[1] ?? "other";
-    if (!acc[domain]) acc[domain] = [];
-    acc[domain].push(e);
-    return acc;
-  }, {});
+  async function toggleEmail(companyId: string, email: string) {
+    const company = companies.find(c => c.id === companyId);
+    if (!company) return;
+    const current = company.email_accounts ?? [];
+    const next = current.includes(email) ? current.filter(e => e !== email) : [...current, email];
+    setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, email_accounts: next } : c));
+    await patchCompany(companyId, { emailAccounts: next });
+  }
+
+  async function setWorkspaceForCompany(companyId: string, workspaceId: string | null) {
+    setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, instantly_workspace_id: workspaceId } : c));
+    await patchCompany(companyId, { instantlyWorkspaceId: workspaceId });
+  }
+
+  async function setCampaignIdForCompany(companyId: string, campaignId: string | null) {
+    setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, instantly_campaign_id: campaignId } : c));
+    await patchCompany(companyId, { instantlyCampaignId: campaignId });
+  }
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
@@ -484,12 +520,48 @@ function EmailAccessTab() {
     </div>
   );
 
+  const totalInboxes = allInboxes.length;
+
   return (
     <div className="space-y-4">
+      {/* Workspaces management section */}
+      <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: C.textBody }}>Instantly workspaces</p>
+            <p className="text-[11px]" style={{ color: C.textDim }}>
+              {sections.length} {sections.length === 1 ? "workspace" : "workspaces"} · {totalInboxes} {totalInboxes === 1 ? "inbox" : "inboxes"} total
+            </p>
+          </div>
+          <button
+            onClick={() => setShowAddWorkspace(true)}
+            className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg"
+            style={{ backgroundColor: "#7C3AED12", color: "#7C3AED" }}
+          >
+            <Plus size={11} /> Add workspace
+          </button>
+        </div>
+        <div>
+          {sections.length === 0 ? (
+            <p className="text-xs italic px-5 py-6" style={{ color: C.textDim }}>
+              No workspaces registered. Add one to start listing inboxes.
+            </p>
+          ) : sections.map((s, i) => (
+            <WorkspaceRow
+              key={s.workspaceId ?? "env"}
+              section={s}
+              isLast={i === sections.length - 1}
+              onChanged={reload}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Tenant assignments */}
       <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <p className="text-xs" style={{ color: C.textBody }}>
-          <span className="font-semibold">One shared Instantly account with {emails.length} emails.</span>
-          <span style={{ color: C.textMuted }}> Assign to each client which emails they can use (typically their own domains). If no emails are assigned, the client won&apos;t see any in the Accounts page or campaign creation (admins still see all).</span>
+          <span className="font-semibold">{totalInboxes} inboxes available across {sections.length} workspaces.</span>
+          <span style={{ color: C.textMuted }}> Assign each tenant which inboxes they can use, plus the workspace + Instantly campaign UUID the dispatcher routes through.</span>
         </p>
       </div>
 
@@ -497,6 +569,7 @@ function EmailAccessTab() {
         {companies.map((company, i) => {
           const assigned = company.email_accounts ?? [];
           const isExpanded = expandedId === company.id;
+          const tenantWs = workspaces.find(w => w.id === company.instantly_workspace_id);
           return (
             <div key={company.id} style={{ borderBottom: i < companies.length - 1 ? `1px solid ${C.border}` : "none" }}>
               <button
@@ -510,7 +583,9 @@ function EmailAccessTab() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{company.company_name}</p>
                   <p className="text-[11px]" style={{ color: C.textDim }}>
-                    {assigned.length === 0 ? "No emails assigned" : `${assigned.length} email${assigned.length > 1 ? "s" : ""} assigned`}
+                    {assigned.length === 0 ? "No inboxes assigned" : `${assigned.length} inbox${assigned.length > 1 ? "es" : ""}`}
+                    {tenantWs && <span> · {tenantWs.label}</span>}
+                    {!company.instantly_campaign_id && <span style={{ color: "#D97706" }}> · ⚠ no campaign</span>}
                   </p>
                 </div>
                 {saving === company.id && <Loader2 size={14} className="animate-spin" style={{ color: C.textDim }} />}
@@ -523,77 +598,319 @@ function EmailAccessTab() {
 
               {isExpanded && (
                 <div className="px-5 pb-5 pt-1 space-y-4">
-                  {Object.keys(emailsByDomain).length === 0 ? (
-                    <p className="text-xs italic" style={{ color: C.textDim }}>No Instantly emails available.</p>
-                  ) : (
-                    Object.entries(emailsByDomain).sort((a, b) => a[0].localeCompare(b[0])).map(([domain, list]) => {
-                      const allAssignedInDomain = list.every(e => assigned.includes(e.email));
-                      const someAssignedInDomain = list.some(e => assigned.includes(e.email));
-                      return (
-                        <div key={domain}>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textMuted }}>
-                              {domain} <span className="font-medium" style={{ color: C.textDim }}>({list.length})</span>
-                            </p>
-                            <button
-                              onClick={() => {
-                                const next = allAssignedInDomain
-                                  ? assigned.filter(e => !list.some(l => l.email === e))
-                                  : [...new Set([...assigned, ...list.map(l => l.email)])];
-                                setSaving(company.id);
-                                setCompanies(prev => prev.map(c => c.id === company.id ? { ...c, email_accounts: next } : c));
-                                fetch("/api/admin/email-access", {
-                                  method: "PATCH",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ companyBioId: company.id, emailAccounts: next }),
-                                }).finally(() => setSaving(null));
-                              }}
-                              className="text-[10px] font-semibold"
-                              style={{ color: allAssignedInDomain ? C.red : "#7C3AED" }}
-                            >
-                              {allAssignedInDomain ? "Unassign all" : someAssignedInDomain ? "Assign rest" : "Assign all"}
-                            </button>
-                          </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            {list.map(e => {
-                              const isAssigned = assigned.includes(e.email);
-                              return (
-                                <button
-                                  key={e.email}
-                                  onClick={() => toggleEmail(company.id, e.email)}
-                                  disabled={saving === company.id}
-                                  className="rounded-lg border p-3 flex items-center gap-3 text-left transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm disabled:opacity-60"
-                                  style={{
-                                    borderColor: isAssigned ? "#7C3AED" : C.border,
-                                    backgroundColor: isAssigned ? "#7C3AED08" : C.bg,
-                                    borderWidth: isAssigned ? 2 : 1,
-                                  }}
-                                >
-                                  <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: "#7C3AED15" }}>
-                                    <Mail size={11} style={{ color: "#7C3AED" }} />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-[11px] font-semibold truncate" style={{ color: C.textPrimary }}>
-                                      {e.email}
-                                    </p>
-                                    <p className="text-[10px]" style={{ color: C.textMuted }}>
-                                      {e.setupPending ? "Warming up" : `${e.dailyLimit}/d · score ${e.warmupScore}`}
-                                    </p>
-                                  </div>
-                                  {isAssigned && <CheckCircle size={13} style={{ color: "#7C3AED" }} />}
-                                </button>
-                              );
-                            })}
-                          </div>
+                  {/* Workspace + campaign config */}
+                  <div className="grid grid-cols-2 gap-3 p-3 rounded-lg" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Workspace</label>
+                      <select
+                        value={company.instantly_workspace_id ?? ""}
+                        onChange={e => setWorkspaceForCompany(company.id, e.target.value || null)}
+                        disabled={saving === company.id}
+                        className="w-full text-xs px-2.5 py-1.5 rounded border outline-none"
+                        style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
+                      >
+                        <option value="">— Use env fallback —</option>
+                        {workspaces.map(w => (
+                          <option key={w.id} value={w.id}>{w.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Instantly campaign UUID</label>
+                      <input
+                        type="text"
+                        defaultValue={company.instantly_campaign_id ?? ""}
+                        onBlur={e => {
+                          const v = e.target.value.trim();
+                          if (v !== (company.instantly_campaign_id ?? "")) {
+                            setCampaignIdForCompany(company.id, v || null);
+                          }
+                        }}
+                        placeholder="0193a8c5-…"
+                        className="w-full text-xs font-mono px-2.5 py-1.5 rounded border outline-none"
+                        style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Inbox grid grouped by workspace + domain */}
+                  {sections.length === 0 ? (
+                    <p className="text-xs italic" style={{ color: C.textDim }}>No workspaces registered.</p>
+                  ) : sections.map(section => {
+                    const sectionInboxes = section.inboxes;
+                    if (sectionInboxes.length === 0) return null;
+                    const byDomain = sectionInboxes.reduce<Record<string, InstantlyEmail[]>>((acc, e) => {
+                      const dom = e.email.split("@")[1] ?? "other";
+                      (acc[dom] ??= []).push(e);
+                      return acc;
+                    }, {});
+                    const sectionAssignedCount = sectionInboxes.filter(e => assigned.includes(e.email)).length;
+                    return (
+                      <div key={section.workspaceId ?? "env"} className="space-y-2">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+                            style={{ backgroundColor: "#7C3AED12", color: "#7C3AED" }}>
+                            {section.label}
+                          </span>
+                          <span className="text-[10px]" style={{ color: C.textDim }}>
+                            {sectionAssignedCount}/{sectionInboxes.length} assigned
+                          </span>
+                          {section.error && (
+                            <span className="text-[10px]" style={{ color: C.red }}>· {section.error}</span>
+                          )}
                         </div>
-                      );
-                    })
-                  )}
+                        {Object.entries(byDomain).sort((a, b) => a[0].localeCompare(b[0])).map(([domain, list]) => {
+                          const allAssignedInDomain = list.every(e => assigned.includes(e.email));
+                          const someAssignedInDomain = list.some(e => assigned.includes(e.email));
+                          return (
+                            <div key={`${section.workspaceId ?? "env"}-${domain}`}>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <p className="text-[10px] font-medium" style={{ color: C.textMuted }}>
+                                  {domain} <span style={{ color: C.textDim }}>({list.length})</span>
+                                </p>
+                                <button
+                                  onClick={() => {
+                                    const next = allAssignedInDomain
+                                      ? assigned.filter(e => !list.some(l => l.email === e))
+                                      : Array.from(new Set([...assigned, ...list.map(l => l.email)]));
+                                    setCompanies(prev => prev.map(c => c.id === company.id ? { ...c, email_accounts: next } : c));
+                                    patchCompany(company.id, { emailAccounts: next });
+                                  }}
+                                  className="text-[10px] font-semibold"
+                                  style={{ color: allAssignedInDomain ? C.red : "#7C3AED" }}
+                                >
+                                  {allAssignedInDomain ? "Unassign all" : someAssignedInDomain ? "Assign rest" : "Assign all"}
+                                </button>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                {list.map(e => {
+                                  const isAssigned = assigned.includes(e.email);
+                                  return (
+                                    <button
+                                      key={e.email}
+                                      onClick={() => toggleEmail(company.id, e.email)}
+                                      disabled={saving === company.id}
+                                      className="rounded-lg border p-3 flex items-center gap-3 text-left transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm disabled:opacity-60"
+                                      style={{
+                                        borderColor: isAssigned ? "#7C3AED" : C.border,
+                                        backgroundColor: isAssigned ? "#7C3AED08" : C.bg,
+                                        borderWidth: isAssigned ? 2 : 1,
+                                      }}
+                                    >
+                                      <div className="w-7 h-7 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: "#7C3AED15" }}>
+                                        <Mail size={11} style={{ color: "#7C3AED" }} />
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-[11px] font-semibold truncate" style={{ color: C.textPrimary }}>{e.email}</p>
+                                        <p className="text-[10px]" style={{ color: C.textMuted }}>
+                                          {e.setupPending ? "Warming up" : `${e.dailyLimit}/d · score ${e.warmupScore}`}
+                                        </p>
+                                      </div>
+                                      {isAssigned && <CheckCircle size={13} style={{ color: "#7C3AED" }} />}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
           );
         })}
+      </div>
+
+      {showAddWorkspace && <AddWorkspaceModal onClose={() => setShowAddWorkspace(false)} onCreated={() => { setShowAddWorkspace(false); reload(); }} />}
+    </div>
+  );
+}
+
+function WorkspaceRow({ section, isLast, onChanged }: { section: WorkspaceSection; isLast: boolean; onChanged: () => void }) {
+  const [editing, setEditing] = useState(false);
+  return (
+    <div className="px-5 py-3" style={{ borderBottom: isLast ? "none" : `1px solid ${C.border}` }}>
+      <div className="flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold" style={{ color: C.textPrimary }}>{section.label}</span>
+            {section.isEnvFallback && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"
+                style={{ backgroundColor: C.surface, color: C.textMuted }}>env</span>
+            )}
+            {section.error && (
+              <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider"
+                style={{ backgroundColor: `${C.red}15`, color: C.red }}>error</span>
+            )}
+          </div>
+          <p className="text-[11px]" style={{ color: C.textDim }}>
+            {section.inboxes.length} inboxes
+            {section.accountUserId && <span> · account {section.accountUserId.slice(0, 8)}…</span>}
+            {section.error && <span style={{ color: C.red }}> · {section.error}</span>}
+          </p>
+          {section.notes && <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>{section.notes}</p>}
+        </div>
+        {!section.isEnvFallback && section.workspaceId && (
+          <button
+            onClick={() => setEditing(true)}
+            className="text-[10px] font-semibold inline-flex items-center gap-1"
+            style={{ color: C.textMuted }}
+          >
+            <Edit3 size={10} /> Edit
+          </button>
+        )}
+      </div>
+      {editing && section.workspaceId && (
+        <EditWorkspaceModal
+          id={section.workspaceId}
+          initialLabel={section.label}
+          initialNotes={section.notes ?? ""}
+          onClose={() => setEditing(false)}
+          onSaved={() => { setEditing(false); onChanged(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function AddWorkspaceModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [label, setLabel] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function save() {
+    setSaving(true); setErr(null);
+    try {
+      const res = await fetch("/api/admin/instantly/workspaces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label, apiKey, notes: notes || undefined }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setErr(d.error ?? "Failed"); return; }
+      onCreated();
+    } catch (e: any) {
+      setErr(e?.message ?? "Network error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }} onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }} onClick={e => e.stopPropagation()}>
+        <h2 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>Add Instantly workspace</h2>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Label</label>
+            <input value={label} onChange={e => setLabel(e.target.value)} placeholder="e.g. SWL Main, Pathway, Hypergrowth Arqy"
+              className="w-full text-sm px-3 py-2 rounded-lg border outline-none" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>API key</label>
+            <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} autoComplete="off" placeholder="Bearer token from Instantly settings"
+              className="w-full text-sm font-mono px-3 py-2 rounded-lg border outline-none" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Notes (optional)</label>
+            <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. billed to fran@swl, inbox pool 50/d"
+              className="w-full text-sm px-3 py-2 rounded-lg border outline-none" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
+          </div>
+          {err && <p className="text-xs" style={{ color: C.red }}>{err}</p>}
+        </div>
+        <div className="flex justify-end gap-2 mt-5">
+          <button onClick={onClose} disabled={saving} className="text-xs font-medium px-3 py-2 rounded-lg border" style={{ borderColor: C.border, color: C.textBody }}>Cancel</button>
+          <button onClick={save} disabled={saving || !label.trim() || !apiKey.trim()} className="text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-50 inline-flex items-center gap-1.5" style={{ backgroundColor: "#7C3AED", color: "white" }}>
+            {saving && <Loader2 size={11} className="animate-spin" />} Create
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditWorkspaceModal({ id, initialLabel, initialNotes, onClose, onSaved }: { id: string; initialLabel: string; initialNotes: string; onClose: () => void; onSaved: () => void }) {
+  const [label, setLabel] = useState(initialLabel);
+  const [apiKey, setApiKey] = useState("");
+  const [notes, setNotes] = useState(initialNotes);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  async function save() {
+    setSaving(true); setErr(null);
+    try {
+      const res = await fetch(`/api/admin/instantly/workspaces/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label, notes, ...(apiKey.trim() ? { apiKey: apiKey.trim() } : {}) }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setErr(d.error ?? "Failed"); return; }
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function destroy() {
+    setSaving(true); setErr(null);
+    try {
+      const res = await fetch(`/api/admin/instantly/workspaces/${id}`, { method: "DELETE" });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { setErr(d.error ?? "Delete failed"); return; }
+      onSaved();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }} onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }} onClick={e => e.stopPropagation()}>
+        <h2 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>Edit workspace</h2>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Label</label>
+            <input value={label} onChange={e => setLabel(e.target.value)}
+              className="w-full text-sm px-3 py-2 rounded-lg border outline-none" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>New API key (leave empty to keep current)</label>
+            <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} autoComplete="off"
+              className="w-full text-sm font-mono px-3 py-2 rounded-lg border outline-none" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Notes</label>
+            <input value={notes} onChange={e => setNotes(e.target.value)}
+              className="w-full text-sm px-3 py-2 rounded-lg border outline-none" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
+          </div>
+          {err && <p className="text-xs" style={{ color: C.red }}>{err}</p>}
+        </div>
+        <div className="flex items-center justify-between mt-5">
+          {!confirmingDelete ? (
+            <button onClick={() => setConfirmingDelete(true)} disabled={saving} className="text-xs font-semibold inline-flex items-center gap-1" style={{ color: C.red }}>
+              <Trash2 size={11} /> Delete
+            </button>
+          ) : (
+            <div className="inline-flex items-center gap-2">
+              <span className="text-[10px]" style={{ color: C.textBody }}>Tenants using this revert to env.</span>
+              <button onClick={destroy} disabled={saving} className="text-[10px] font-semibold px-2 py-1 rounded" style={{ backgroundColor: C.red, color: "white" }}>Confirm delete</button>
+              <button onClick={() => setConfirmingDelete(false)} disabled={saving} className="text-[10px] font-medium px-2 py-1 rounded" style={{ backgroundColor: C.surface, color: C.textBody }}>Cancel</button>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button onClick={onClose} disabled={saving} className="text-xs font-medium px-3 py-2 rounded-lg border" style={{ borderColor: C.border, color: C.textBody }}>Close</button>
+            <button onClick={save} disabled={saving || !label.trim()} className="text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-50 inline-flex items-center gap-1.5" style={{ backgroundColor: "#7C3AED", color: "white" }}>
+              {saving && <Loader2 size={11} className="animate-spin" />} Save
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
