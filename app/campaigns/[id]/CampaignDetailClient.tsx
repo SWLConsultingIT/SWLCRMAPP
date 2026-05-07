@@ -482,10 +482,14 @@ export default function CampaignDetailClient({
               const inviteIsSent = inviteStatus === "sent";
               const inviteIsSkipped = inviteStatus === "skipped";
               const inviteOpen = expandedStep === -1;
-              return (<>
-              {/* Step 0 — LinkedIn Connection Request (always rendered when the
-                  campaign uses LinkedIn anywhere; lives outside sequence_steps[]). */}
-              {showInviteCard && (
+              // Position the invite right before the FIRST LinkedIn step in the
+              // sequence. If LinkedIn is the first step it sits at the top; if
+              // email is first and LinkedIn comes later, the invite shows after
+              // the email (which is what actually happens chronologically — the
+              // invite is now scheduled to fire ~24h before the LinkedIn DM).
+              const firstLinkedinIdx = sequence.findIndex(s => s.channel === "linkedin");
+              const inviteDay = firstLinkedinIdx >= 0 ? Math.max(0, (dayPerStep[firstLinkedinIdx] ?? 0) - 1) : 0;
+              const renderInvite = () => (
                 <div style={{ borderBottom: `1px solid ${C.border}` }}>
                   <button
                     onClick={() => setExpandedStep(inviteOpen ? null : -1)}
@@ -498,7 +502,7 @@ export default function CampaignDetailClient({
                       style={{ backgroundColor: "#0A66C212", color: "#0A66C2" }}>
                       <Share2 size={11} /> LinkedIn
                     </span>
-                    <span className="text-xs" style={{ color: C.textDim }}>Day 0</span>
+                    <span className="text-xs" style={{ color: C.textDim }}>Day {inviteDay}</span>
                     <span className="text-[10px] px-1.5 py-0.5 rounded"
                       style={{ backgroundColor: "#0A66C212", color: "#0A66C2" }}>+ connection note</span>
                     <div className="flex-1" />
@@ -528,7 +532,8 @@ export default function CampaignDetailClient({
                     </div>
                   )}
                 </div>
-              )}
+              );
+              return (<>
               {sequence.map((step, i) => {
               const meta = channelMeta[step.channel] ?? channelMeta.linkedin;
               const Icon = meta.icon;
@@ -544,11 +549,17 @@ export default function CampaignDetailClient({
               const isCurrent = i === currentStep;
               const isOpen = expandedStep === i;
               const isEditing = editingIdx === i;
-              // Show connection note inside first LinkedIn step (with its skipped/sent status)
-              const showConnNote = i === 0 && step.channel === "linkedin" && (!!connectionNote || !!connReqMsg);
+              // The connection-note inline badge (next to the step header)
+              // belongs only on the FIRST LinkedIn step in the sequence — that's
+              // the step the invite is gating. It used to be hardcoded to i===0
+              // which broke when LinkedIn wasn't the first step.
+              const showConnNote = i === firstLinkedinIdx && (!!connectionNote || !!connReqMsg);
+              const renderInviteBefore = showInviteCard && i === firstLinkedinIdx;
 
               return (
-                <div key={i} style={{ borderBottom: i < sequence.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                <div key={i}>
+                {renderInviteBefore && renderInvite()}
+                <div style={{ borderBottom: i < sequence.length - 1 ? `1px solid ${C.border}` : "none" }}>
                   <button onClick={() => setExpandedStep(isOpen ? null : i)}
                     className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-gray-50">
                     <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
@@ -616,6 +627,7 @@ export default function CampaignDetailClient({
                       )}
                     </div>
                   )}
+                </div>
                 </div>
               );
             })}

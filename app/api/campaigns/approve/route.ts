@@ -164,13 +164,37 @@ export async function POST(req: NextRequest) {
     // Create campaign_messages: connection request (if LinkedIn) + all steps
     const messageInserts: any[] = [];
 
-    // Add connection request as step 0 if LinkedIn and connectionRequest exists.
+    // Compute when the first LinkedIn step actually fires (cumulative days
+    // from campaign start). The connection request is scheduled to fire one
+    // day before that, giving the lead ~24h to accept before we try to DM.
+    // If LinkedIn is the first step (Day 0), invite fires Day 0 too.
+    let firstLinkedinCumDay: number | null = null;
+    let cumDays = 0;
+    for (let i = 0; i < sequence.length; i++) {
+      cumDays += i === 0 ? 0 : (sequence[i].daysAfter ?? 0);
+      if (sequence[i].channel === "linkedin" && firstLinkedinCumDay === null) {
+        firstLinkedinCumDay = cumDays;
+        break;
+      }
+    }
+
+    // Add connection request as step 0 if LinkedIn is anywhere in the sequence.
     // We seed it as `queued` so /api/cron/dispatch-queue picks it up on the next
-    // tick, calls Unipile, and only flips it to 'sent' when LinkedIn confirms.
-    // Steps 1+ stay as 'draft' until the connection is accepted (the
+    // eligible tick, calls Unipile, and only flips it to 'sent' when LinkedIn
+    // confirms. Steps 1+ stay as 'draft' until the connection is accepted (the
     // BESFOHaqTt2Ki0Vw "Registro de Nueva Conexion" workflow then queues them).
+    //
+    // eligible_at scheduling: when LinkedIn isn't the first step, we hold the
+    // invite until ~24h before the first LinkedIn DM. Sending it earlier than
+    // the email would surface in the timeline before the email and feel out
+    // of order; sending it AT the LinkedIn DM day is too late (lead needs time
+    // to accept). One day's lead time is the right tradeoff.
     const connectionRequest = prompts.channelMessages?.connectionRequest ?? "";
     if (connectionRequest && channels.includes("linkedin")) {
+      const inviteOffsetDays = Math.max(0, (firstLinkedinCumDay ?? 0) - 1);
+      const eligibleAt = inviteOffsetDays > 0
+        ? new Date(Date.now() + inviteOffsetDays * 86400000).toISOString()
+        : null;
       messageInserts.push({
         campaign_id: campaign.id,
         lead_id: leadId,
@@ -179,6 +203,7 @@ export async function POST(req: NextRequest) {
         content: connectionRequest,
         status: "queued",
         created_at: new Date().toISOString(),
+        metadata: eligibleAt ? { eligible_at: eligibleAt } : null,
       });
     }
 
