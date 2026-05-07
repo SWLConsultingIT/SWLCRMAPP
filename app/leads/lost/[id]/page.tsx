@@ -154,13 +154,13 @@ async function getLostLeadData(leadId: string) {
   ]);
 
   // Pull the actual sent/skipped messages from campaign_messages (not templates).
-  // The previous version reconstructed the timeline from campaign_requests
-  // templates, which (a) had raw `{{first_name}}` placeholders, (b) had no
-  // sent_at so everything sorted to the top, and (c) missed the implicit
-  // step_number=0 LinkedIn invite that lives outside sequence_steps[].
+  // Use the service key — campaign_messages has RLS on with zero policies,
+  // so the cookie-based client returns nothing for non-superadmin users
+  // (and also nothing on a stale Next prerender). Service key bypasses RLS.
   const campIds = (campaigns ?? []).map(c => c.id);
+  const svc = getSupabaseService();
   const { data: campaignMessages } = campIds.length > 0
-    ? await supabase
+    ? await svc
         .from("campaign_messages")
         .select("id, campaign_id, step_number, channel, content, status, sent_at, metadata")
         .in("campaign_id", campIds)
