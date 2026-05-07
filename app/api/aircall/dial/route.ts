@@ -29,12 +29,28 @@ export async function POST(req: NextRequest) {
 
   const svc = getSupabaseService();
 
-  // Validate numberId belongs to this tenant (or fall back to tenant's first
-  // claimed number, or the global default if the tenant has none claimed).
+  // Decide which tenant's Aircall pool to validate against:
+  //   - super_admin dialing on behalf of a specific lead → use the LEAD's
+  //     tenant. Without this, a super_admin viewing an Arqy lead would only
+  //     be able to dial from SWL numbers (their own tenant) which defeats
+  //     the per-tenant Aircall pool.
+  //   - regular tenant user → always use viewer's tenant.
+  let dialingBioId: string = scope.companyBioId;
+  if (leadId && canViewSwlAdmin(scope.tier)) {
+    const { data: leadForBio } = await svc
+      .from("leads")
+      .select("company_bio_id")
+      .eq("id", leadId)
+      .maybeSingle();
+    const leadBio = (leadForBio as any)?.company_bio_id as string | null | undefined;
+    if (leadBio) dialingBioId = leadBio;
+  }
+
+  // Validate numberId belongs to the dialing tenant's pool.
   const { data: bio } = await svc
     .from("company_bios")
     .select("aircall_number_ids")
-    .eq("id", scope.companyBioId)
+    .eq("id", dialingBioId)
     .maybeSingle();
   const allowedNumbers = ((bio as any)?.aircall_number_ids as number[] | null) ?? [];
   let resolvedNumberId: number | null = null;

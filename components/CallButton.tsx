@@ -45,7 +45,10 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
   const [picker, setPicker] = useState(false);
 
   useEffect(() => {
-    fetch("/api/aircall/numbers")
+    // Pass leadId so the API scopes to the LEAD's tenant (not the viewer's).
+    // Super_admin viewing a SWL lead must NOT see Pathway/Arqy numbers in the
+    // picker — that previously caused cross-tenant dialing.
+    fetch(`/api/aircall/numbers?leadId=${encodeURIComponent(leadId)}`)
       .then(r => r.json())
       .then((d: { numbers: AircallNumber[] }) => {
         setNumbers(d.numbers ?? []);
@@ -54,7 +57,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
         else if (d.numbers?.[0]) setSelectedNumberId(d.numbers[0].id);
       })
       .catch(() => {});
-  }, [defaultNumberId]);
+  }, [defaultNumberId, leadId]);
 
   if (!phone) {
     return (
