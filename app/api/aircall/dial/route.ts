@@ -96,12 +96,48 @@ export async function POST(req: NextRequest) {
   //     signed in have availability_status='available' (it's their default
   //     state). Filtering by this field is wrong — it matches everyone.
   //
-  // Pick the first user with `available === true`. If none, the dial would
-  // fail silently (queued but never rung), so return an explicit 503.
+  // Resolution order:
+  //   1. Caller passed aircallUserId explicitly (advanced case).
+  //   2. Caller passed sellerId → use sellers.aircall_user_id (the binding
+  //      configured by super_admin in /admin/[id] Aircall tab). Without
+  //      this, when multiple sellers are signed in the call would ring on
+  //      whichever Aircall user the API listed first — stealing calls.
+  //   3. Fall back to "first user with available=true" globally.
+  //
+  // After resolving, validate the user is actually `available=true`. If
+  // not, returning 503 makes the failure explicit instead of queuing a
+  // call that nobody will ever pick up.
   let resolvedUserId: number | null = aircallUserId ? Number(aircallUserId) : null;
+  // Try to resolve via the seller binding. Caller may pass sellerId
+  // explicitly, or we infer the seller from the logged-in user's id
+  // (sellers.user_id = scope.userId). The latter is what makes the
+  // common "user clicks Call" path Just Work without UI plumbing.
+  if (!resolvedUserId) {
+    let lookupSellerId: string | null = sellerId ?? null;
+    if (!lookupSellerId) {
+      const { data: meSeller } = await svc
+        .from("sellers")
+        .select("id")
+        .eq("user_id", scope.userId)
+        .maybeSingle();
+      lookupSellerId = (meSeller as { id?: string } | null)?.id ?? null;
+    }
+    if (lookupSellerId) {
+      const { data: seller } = await svc
+        .from("sellers")
+        .select("aircall_user_id")
+        .eq("id", lookupSellerId)
+        .maybeSingle();
+      const sellerAircall = (seller as { aircall_user_id?: string | null } | null)?.aircall_user_id ?? null;
+      if (sellerAircall) {
+        const parsed = Number(sellerAircall);
+        if (Number.isFinite(parsed)) resolvedUserId = parsed;
+      }
+    }
+  }
   if (!resolvedUserId) {
     try {
-      const usersRes = await fetch("https://api.aircall.io/v1/users", {
+      const usersRes = await fetch("https://api.aircall.io/v1/users?per_page=50", {
         headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
       });
       if (usersRes.ok) {
@@ -113,6 +149,25 @@ export async function POST(req: NextRequest) {
       }
     } catch {
       // fall through to error below
+    }
+  } else {
+    // The caller (or seller binding) gave us a specific user_id — verify
+    // they're signed in. Otherwise the call queues forever.
+    try {
+      const userRes = await fetch(`https://api.aircall.io/v1/users/${resolvedUserId}`, {
+        headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
+      });
+      if (userRes.ok) {
+        const userData = await userRes.json();
+        if (userData?.user?.available !== true) {
+          return NextResponse.json({
+            error: `Aircall user ${resolvedUserId} is not signed in — open the Aircall app first.`,
+          }, { status: 503 });
+        }
+      }
+    } catch {
+      // If availability check fails, proceed anyway — Aircall will reject
+      // hard on the dial POST and we'll surface that error.
     }
   }
   if (!resolvedUserId) {

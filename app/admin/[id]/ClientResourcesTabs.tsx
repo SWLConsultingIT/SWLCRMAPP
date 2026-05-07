@@ -200,21 +200,35 @@ function ClientSellers({ companyBioId }: { companyBioId: string }) {
 }
 
 // ═══ AIRCALL ═══════════════════════════════════════════════════════════════
+type AircallUser = { id: number; name: string; email: string | null; available: boolean | null };
+type SellerAircallRow = { id: string; name: string; aircall_user_id: string | null; company_bio_id: string | null; active: boolean };
+
 function ClientAircall({ companyBioId }: { companyBioId: string }) {
   const [numbers, setNumbers] = useState<AircallNumber[]>([]);
   const [assigned, setAssigned] = useState<number[]>([]);
+  const [aircallUsers, setAircallUsers] = useState<AircallUser[]>([]);
+  const [sellersInScope, setSellersInScope] = useState<SellerAircallRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/admin/aircall-access")
-      .then(r => r.json())
-      .then(d => {
-        setNumbers(d.numbers ?? []);
-        const me = (d.companies ?? []).find((c: any) => c.id === companyBioId);
-        setAssigned(me?.aircall_number_ids ?? []);
-      })
-      .finally(() => setLoading(false));
+    Promise.all([
+      fetch("/api/admin/aircall-access").then(r => r.json()),
+      fetch("/api/admin/aircall-users").then(r => r.json()),
+      fetch("/api/admin/sellers-access").then(r => r.json()),
+    ]).then(([accessData, usersData, sellersData]) => {
+      setNumbers(accessData.numbers ?? []);
+      const me = (accessData.companies ?? []).find((c: any) => c.id === companyBioId);
+      setAssigned(me?.aircall_number_ids ?? []);
+      setAircallUsers(usersData.aircallUsers ?? []);
+      // Sellers shown here = owned by THIS tenant or shared with it. The
+      // aircall_user_id field is global to the seller (one Aircall account
+      // per real human), but we surface it from the per-client tab so the
+      // admin sees the binding alongside the tenant's other resources.
+      const allSellers = (sellersData.sellers ?? []) as Array<SellerAircallRow & { shared_with_company_bio_ids?: string[] | null }>;
+      const inScope = allSellers.filter(s => s.company_bio_id === companyBioId || (s.shared_with_company_bio_ids ?? []).includes(companyBioId));
+      setSellersInScope(inScope);
+    }).finally(() => setLoading(false));
   }, [companyBioId]);
 
   async function toggle(numberId: number) {
@@ -229,39 +243,105 @@ function ClientAircall({ companyBioId }: { companyBioId: string }) {
     setSaving(false);
   }
 
+  async function setSellerAircallUser(sellerId: string, aircallUserId: string | null) {
+    setSellersInScope(prev => prev.map(s => s.id === sellerId ? { ...s, aircall_user_id: aircallUserId } : s));
+    setSaving(true);
+    await fetch("/api/admin/aircall-users", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sellerId, aircallUserId }),
+    });
+    setSaving(false);
+  }
+
   const flags: Record<string, string> = { DE: "🇩🇪", US: "🇺🇸", AR: "🇦🇷", BR: "🇧🇷", MX: "🇲🇽", ES: "🇪🇸", FR: "🇫🇷", UK: "🇬🇧", GB: "🇬🇧" };
 
   if (loading) return <Spinner />;
 
-  if (numbers.length === 0) return <EmptyState icon={Phone} text="No Aircall numbers available" />;
-
   return (
-    <div>
-      <p className="text-xs mb-3" style={{ color: C.textMuted }}>
-        {saving && <Loader2 size={11} className="inline animate-spin mr-1" />}
-        Click to toggle access.
-      </p>
-      <div className="grid grid-cols-2 gap-2">
-        {numbers.map(n => {
-          const isAssigned = assigned.includes(n.id);
-          return (
-            <button key={n.id} onClick={() => toggle(n.id)} disabled={saving}
-              className="rounded-lg border p-3 flex items-center gap-3 text-left transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm disabled:opacity-60"
-              style={{
-                borderColor: isAssigned ? C.phone : C.border,
-                backgroundColor: isAssigned ? `${C.phone}08` : C.bg,
-                borderWidth: isAssigned ? 2 : 1,
-              }}
-            >
-              <span className="text-xl shrink-0">{flags[n.country] ?? "📞"}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold truncate" style={{ color: C.textPrimary }}>{n.name || n.country}</p>
-                <p className="text-[10px] tabular-nums" style={{ color: C.textMuted }}>{n.digits}</p>
-              </div>
-              {isAssigned && <CheckCircle size={14} style={{ color: C.phone }} />}
-            </button>
-          );
-        })}
+    <div className="space-y-6">
+      {/* Numbers section */}
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>
+          Numbers
+        </p>
+        <p className="text-xs mb-3" style={{ color: C.textDim }}>
+          {saving && <Loader2 size={11} className="inline animate-spin mr-1" />}
+          Click to toggle which Aircall numbers this client can dial from.
+        </p>
+        {numbers.length === 0 ? (
+          <p className="text-xs italic" style={{ color: C.textDim }}>No Aircall numbers available in the workspace.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            {numbers.map(n => {
+              const isAssigned = assigned.includes(n.id);
+              return (
+                <button key={n.id} onClick={() => toggle(n.id)} disabled={saving}
+                  className="rounded-lg border p-3 flex items-center gap-3 text-left transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm disabled:opacity-60"
+                  style={{
+                    borderColor: isAssigned ? C.phone : C.border,
+                    backgroundColor: isAssigned ? `${C.phone}08` : C.bg,
+                    borderWidth: isAssigned ? 2 : 1,
+                  }}
+                >
+                  <span className="text-xl shrink-0">{flags[n.country] ?? "📞"}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold truncate" style={{ color: C.textPrimary }}>{n.name || n.country}</p>
+                    <p className="text-[10px] tabular-nums" style={{ color: C.textMuted }}>{n.digits}</p>
+                  </div>
+                  {isAssigned && <CheckCircle size={14} style={{ color: C.phone }} />}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Seller → Aircall user mapping */}
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>
+          Seller → Aircall user
+        </p>
+        <p className="text-xs mb-3" style={{ color: C.textDim }}>
+          Each seller dials from THEIR Aircall user. Without this binding the dispatcher falls back to "first available user" globally — which can ring on the wrong device when multiple sellers are signed in. Required when scaling beyond one active seller.
+        </p>
+        {sellersInScope.length === 0 ? (
+          <p className="text-xs italic" style={{ color: C.textDim }}>No sellers in scope for this client. Owned + shared sellers appear here.</p>
+        ) : (
+          <div className="divide-y" style={{ borderColor: C.border }}>
+            {sellersInScope.map(s => {
+              const currentUser = aircallUsers.find(u => String(u.id) === s.aircall_user_id);
+              return (
+                <div key={s.id} className="flex items-center gap-3 py-2.5">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+                    style={{ background: s.active ? `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` : C.border, color: s.active ? "#fff" : "#9CA3AF" }}>
+                    {s.name[0]?.toUpperCase() ?? "?"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{s.name}</p>
+                    <p className="text-[10px]" style={{ color: C.textDim }}>
+                      {currentUser ? `→ ${currentUser.name}${currentUser.email ? ` (${currentUser.email})` : ""}` : "No Aircall user assigned — falls back to first available"}
+                    </p>
+                  </div>
+                  <select
+                    value={s.aircall_user_id ?? ""}
+                    onChange={e => setSellerAircallUser(s.id, e.target.value || null)}
+                    disabled={saving}
+                    className="text-xs rounded-md border px-2 py-1.5 disabled:opacity-60"
+                    style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textBody, minWidth: "180px" }}
+                  >
+                    <option value="">— None (auto)</option>
+                    {aircallUsers.map(u => (
+                      <option key={u.id} value={String(u.id)}>
+                        {u.name}{u.available ? " 🟢" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

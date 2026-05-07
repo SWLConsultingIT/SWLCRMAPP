@@ -126,6 +126,7 @@ type SellerRow = {
   name: string | null;
   call_daily_limit: number | null;
   active: boolean | null;
+  aircall_user_id: string | null;
 };
 
 function authorized(req: NextRequest, scopeRole: string | null): boolean {
@@ -282,7 +283,8 @@ async function processSellerBatch(
   svc: ReturnType<typeof getSupabaseService>,
   seller: SellerRow,
   sentToday: number,
-  availableAircallUserId: number,
+  availableUserIdSet: Set<number>,
+  fallbackAvailableUserId: number,
 ): Promise<SellerBatchResult> {
   const result: SellerBatchResult = {
     sellerId: seller.id,
@@ -291,6 +293,23 @@ async function processSellerBatch(
     outcomes: [],
     blockedReason: null,
   };
+
+  // Per-seller Aircall user resolution.
+  //   - If seller.aircall_user_id is set: only dispatch when THAT user is
+  //     `available=true`. Don't silently steal a different user's device —
+  //     that's the bug we're fixing.
+  //   - If unset: legacy behavior — use whichever Aircall user is available.
+  let aircallUserId: number;
+  if (seller.aircall_user_id) {
+    const mapped = Number(seller.aircall_user_id);
+    if (!Number.isFinite(mapped) || !availableUserIdSet.has(mapped)) {
+      result.blockedReason = `seller's Aircall user ${seller.aircall_user_id} is not signed in`;
+      return result;
+    }
+    aircallUserId = mapped;
+  } else {
+    aircallUserId = fallbackAvailableUserId;
+  }
 
   const dailyLimit = seller.call_daily_limit ?? 30;
   const remaining = dailyLimit - sentToday;
@@ -327,7 +346,7 @@ async function processSellerBatch(
 
   for (const msg of batch) {
     result.attempted += 1;
-    const outcome = await dispatchOneCall(svc, msg, seller, availableAircallUserId);
+    const outcome = await dispatchOneCall(svc, msg, seller, aircallUserId);
     result.outcomes.push(outcome);
   }
   return result;
@@ -342,34 +361,37 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Aircall preflight: is there an available user signed into the app?
-  // Without this, every message we'd "dispatch" would be queued by Aircall
-  // and never actually rung. Better to skip entirely and surface the reason
-  // than to mark messages sent prematurely.
-  let availableUserId: number | null = null;
+  // Aircall preflight: pull the list of all users + availability ONCE per
+  // tick so each seller's batch can resolve its own user_id without N round
+  // trips.
+  let aircallUsers: Array<{ id: number; available: boolean }> = [];
   try {
-    const usersRes = await fetch("https://api.aircall.io/v1/users", {
+    const usersRes = await fetch("https://api.aircall.io/v1/users?per_page=50", {
       headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
     });
     if (usersRes.ok) {
       const usersData = await usersRes.json();
-      const candidate = (usersData?.users ?? []).find((u: any) => u?.available === true);
-      if (candidate?.id) availableUserId = Number(candidate.id);
+      aircallUsers = (usersData?.users ?? [])
+        .map((u: any) => ({ id: Number(u?.id), available: u?.available === true }))
+        .filter((u: any) => Number.isFinite(u.id));
     }
   } catch {}
+  const fallbackAvailableUserId = aircallUsers.find(u => u.available)?.id ?? null;
 
-  if (!availableUserId) {
+  if (aircallUsers.length === 0 || !fallbackAvailableUserId) {
+    // No user is signed in at all → nothing we can dispatch this tick.
     return NextResponse.json({
       ok: true, processed: 0,
       reason: "no Aircall user signed in — skipping tick",
     });
   }
+  const availableUserIdSet = new Set(aircallUsers.filter(u => u.available).map(u => u.id));
 
   const svc = getSupabaseService();
 
   const { data: sellers } = await svc
     .from("sellers")
-    .select("id, name, call_daily_limit, active")
+    .select("id, name, call_daily_limit, active, aircall_user_id")
     .eq("active", true);
   const activeSellers = (sellers ?? []) as SellerRow[];
 
@@ -392,9 +414,10 @@ async function handle(req: NextRequest) {
     if (sid) sentCounts[sid] = (sentCounts[sid] ?? 0) + 1;
   }
 
-  // Process every seller's batch in parallel.
+  // Process every seller's batch in parallel. Each seller resolves its own
+  // Aircall user_id via the per-seller resolver inside processSellerBatch.
   const sellerResults = await Promise.all(
-    activeSellers.map((s) => processSellerBatch(svc, s, sentCounts[s.id] ?? 0, availableUserId!)),
+    activeSellers.map((s) => processSellerBatch(svc, s, sentCounts[s.id] ?? 0, availableUserIdSet, fallbackAvailableUserId)),
   );
 
   let processed = 0;
@@ -410,7 +433,7 @@ async function handle(req: NextRequest) {
     ok: true,
     processed,
     failed,
-    aircall_user_id: availableUserId,
+    fallback_aircall_user_id: fallbackAvailableUserId,
     sellers: sellerResults.map((r) => ({
       sellerId: r.sellerId,
       sellerName: r.sellerName,
