@@ -30,7 +30,6 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
   const [saving, setSaving] = useState(false);
   const [accounts, setAccounts] = useState<PoolAccount[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [campaignId, setCampaignId] = useState<string>("");
   const [apiKey, setApiKey] = useState<string>("");
   const [apiKeyPreview, setApiKeyPreview] = useState<string | null>(null);
   const [accountSource, setAccountSource] = useState<"tenant" | "env">("env");
@@ -50,7 +49,6 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
         const list = (d.accounts ?? []) as PoolAccount[];
         setAccounts(list);
         setSelected(new Set(list.filter(a => a.isMine).map(a => a.email)));
-        setCampaignId(typeof d.instantlyCampaignId === "string" ? d.instantlyCampaignId : "");
         setApiKeyPreview(typeof d.instantlyApiKeyPreview === "string" ? d.instantlyApiKeyPreview : null);
         setAccountSource(d.instantlyAccountSource === "tenant" ? "tenant" : "env");
       })
@@ -77,7 +75,6 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           emails: Array.from(selected),
-          instantlyCampaignId: campaignId.trim(),
           // Only send the API key when the user typed something — undefined
           // means "leave as-is" so a refresh that rendered "********" doesn't
           // wipe the existing key on save.
@@ -163,23 +160,6 @@ export default function EmailPoolManager({ open, onClose }: { open: boolean; onC
                   ? <>Currently using <b>this tenant's own</b> Instantly account ({apiKeyPreview}). Paste a new key to overwrite, or leave empty to keep the current one.</>
                   : <>Currently using the <b>default SWL</b> Instantly account. Paste a key here only if this tenant has its own Instantly subscription.</>
                 }
-              </p>
-            </div>
-            <div>
-              <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>
-                Instantly campaign ID
-              </label>
-              <input
-                type="text"
-                value={campaignId}
-                onChange={(e) => setCampaignId(e.target.value)}
-                placeholder="e.g. 0193a8c5-…"
-                className="w-full px-3 py-2 text-sm font-mono rounded-lg border outline-none"
-                style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
-              />
-              <p className="text-[10px] mt-1.5" style={{ color: C.textDim }}>
-                UUID of the Instantly campaign this tenant sends through (template:
-                subject = <code>{"{{subject_line}}"}</code>, body = <code>{"{{personalization}}"}</code>).
               </p>
             </div>
           </div>

@@ -509,11 +509,6 @@ function EmailAccessTab() {
     await patchCompany(companyId, { instantlyWorkspaceId: workspaceId });
   }
 
-  async function setCampaignIdForCompany(companyId: string, campaignId: string | null) {
-    setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, instantly_campaign_id: campaignId } : c));
-    await patchCompany(companyId, { instantlyCampaignId: campaignId });
-  }
-
   if (loading) return (
     <div className="flex items-center justify-center py-20">
       <Loader2 size={20} className="animate-spin" style={{ color: C.textDim }} />
@@ -561,7 +556,7 @@ function EmailAccessTab() {
       <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <p className="text-xs" style={{ color: C.textBody }}>
           <span className="font-semibold">{totalInboxes} inboxes available across {sections.length} workspaces.</span>
-          <span style={{ color: C.textMuted }}> Assign each tenant which inboxes they can use, plus the workspace + Instantly campaign UUID the dispatcher routes through.</span>
+          <span style={{ color: C.textMuted }}> Assign each tenant which inboxes they can use + the Instantly workspace the dispatcher routes through. Sync Approved Campaigns creates one Instantly campaign per approved request automatically — no manual campaign UUID needed.</span>
         </p>
       </div>
 
@@ -585,7 +580,6 @@ function EmailAccessTab() {
                   <p className="text-[11px]" style={{ color: C.textDim }}>
                     {assigned.length === 0 ? "No inboxes assigned" : `${assigned.length} inbox${assigned.length > 1 ? "es" : ""}`}
                     {tenantWs && <span> · {tenantWs.label}</span>}
-                    {!company.instantly_campaign_id && <span style={{ color: "#D97706" }}> · ⚠ no campaign</span>}
                   </p>
                 </div>
                 {saving === company.id && <Loader2 size={14} className="animate-spin" style={{ color: C.textDim }} />}
@@ -598,39 +592,21 @@ function EmailAccessTab() {
 
               {isExpanded && (
                 <div className="px-5 pb-5 pt-1 space-y-4">
-                  {/* Workspace + campaign config */}
-                  <div className="grid grid-cols-2 gap-3 p-3 rounded-lg" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Workspace</label>
-                      <select
-                        value={company.instantly_workspace_id ?? ""}
-                        onChange={e => setWorkspaceForCompany(company.id, e.target.value || null)}
-                        disabled={saving === company.id}
-                        className="w-full text-xs px-2.5 py-1.5 rounded border outline-none"
-                        style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
-                      >
-                        <option value="">— Use env fallback —</option>
-                        {workspaces.map(w => (
-                          <option key={w.id} value={w.id}>{w.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Instantly campaign UUID</label>
-                      <input
-                        type="text"
-                        defaultValue={company.instantly_campaign_id ?? ""}
-                        onBlur={e => {
-                          const v = e.target.value.trim();
-                          if (v !== (company.instantly_campaign_id ?? "")) {
-                            setCampaignIdForCompany(company.id, v || null);
-                          }
-                        }}
-                        placeholder="0193a8c5-…"
-                        className="w-full text-xs font-mono px-2.5 py-1.5 rounded border outline-none"
-                        style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
-                      />
-                    </div>
+                  {/* Workspace selector */}
+                  <div className="p-3 rounded-lg" style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Instantly workspace</label>
+                    <select
+                      value={company.instantly_workspace_id ?? ""}
+                      onChange={e => setWorkspaceForCompany(company.id, e.target.value || null)}
+                      disabled={saving === company.id}
+                      className="w-full text-xs px-2.5 py-1.5 rounded border outline-none"
+                      style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
+                    >
+                      <option value="">— Use env fallback —</option>
+                      {workspaces.map(w => (
+                        <option key={w.id} value={w.id}>{w.label}</option>
+                      ))}
+                    </select>
                   </div>
 
                   {/* Inbox grid grouped by workspace + domain */}

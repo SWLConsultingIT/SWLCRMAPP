@@ -201,7 +201,6 @@ type WorkspaceSection = {
 function ClientEmails({ companyBioId }: { companyBioId: string }) {
   const [sections, setSections] = useState<WorkspaceSection[]>([]);
   const [assigned, setAssigned] = useState<string[]>([]);
-  const [campaignId, setCampaignId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -212,7 +211,6 @@ function ClientEmails({ companyBioId }: { companyBioId: string }) {
       setSections(d.sections ?? []);
       const me = (d.companies ?? []).find((c: any) => c.id === companyBioId);
       setAssigned(me?.email_accounts ?? []);
-      setCampaignId(me?.instantly_campaign_id ?? "");
     } finally {
       setLoading(false);
     }
@@ -256,12 +254,6 @@ function ClientEmails({ companyBioId }: { companyBioId: string }) {
       if (ws) payload.instantlyWorkspaceId = ws;
     }
     await patch(payload);
-  }
-
-  async function saveCampaignId(v: string) {
-    const trimmed = v.trim();
-    setCampaignId(trimmed);
-    await patch({ instantlyCampaignId: trimmed || null });
   }
 
   if (loading) return <Spinner />;
@@ -354,25 +346,6 @@ function ClientEmails({ companyBioId }: { companyBioId: string }) {
           </div>
         );
       })}
-
-      {/* Instantly campaign UUID — required for the dispatcher to send. */}
-      <div className="pt-3 border-t" style={{ borderColor: C.border }}>
-        <label className="block text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>
-          Instantly campaign UUID
-        </label>
-        <input
-          type="text"
-          defaultValue={campaignId}
-          onBlur={e => { if (e.target.value.trim() !== campaignId) saveCampaignId(e.target.value); }}
-          placeholder="0193a8c5-… (UUID of the passthrough campaign in this tenant's Instantly workspace)"
-          className="w-full text-xs font-mono px-3 py-2 rounded-lg border outline-none"
-          style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
-        />
-        <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
-          Required for outgoing email. The campaign must use{" "}
-          <code>{"{{subject_line}}"}</code> as subject and <code>{"{{personalization}}"}</code> as body so the CRM&apos;s personalized content gets sent verbatim.
-        </p>
-      </div>
     </div>
   );
 }
