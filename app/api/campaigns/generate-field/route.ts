@@ -135,6 +135,35 @@ export async function POST(req: NextRequest) {
     }
     const data = await res.json() as { messages?: { step: number; channel: string; type: string; subject: string | null; body: string }[]; connectionRequest?: string | null };
 
+    // Workflow Y3gQXLpaWjpP37XP's `fixHallucinatedSignature()` doesn't catch
+    // every case — short signatures (just "Fran" / "Juan") on the last line
+    // slip through. Rather than baking the seller's literal name into the
+    // saved template (where it'd survive across reassignments), we replace
+    // any 1-3 word last line with the {{seller_name}} placeholder so the
+    // dispatcher can substitute the real name at send time.
+    const replaceTrailingSignature = (rawBody: string): string => {
+      if (!rawBody) return rawBody;
+      const lines = rawBody.replace(/\r\n/g, "\n").split("\n");
+      // Find last non-empty line
+      let lastIdx = lines.length - 1;
+      while (lastIdx >= 0 && !lines[lastIdx].trim()) lastIdx -= 1;
+      if (lastIdx < 0) return rawBody;
+      const last = lines[lastIdx].trim();
+      // Accept signature if:
+      //   - 1 to 3 whitespace-separated tokens
+      //   - Doesn't end in sentence punctuation (. ? !)
+      //   - Total length < 40 chars (avoids killing real sentences)
+      //   - Already contains {{seller_name}} → leave alone
+      if (last.includes("{{seller_name}}")) return rawBody;
+      const tokens = last.split(/\s+/).filter(Boolean);
+      if (tokens.length === 0 || tokens.length > 3) return rawBody;
+      if (/[.?!]$/.test(last)) return rawBody;
+      if (last.length > 40) return rawBody;
+      // Drop common dash prefix used in email signatures ("— Juan")
+      lines[lastIdx] = "{{seller_name}}";
+      return lines.join("\n");
+    };
+
     // Workflow Y3gQXLpaWjpP37XP currently emits `subject: null` for every email
     // step (the LLM call only produces body text, no subject generation logic).
     // Derive a usable subject from the first sentence of the body (≤55 chars,
@@ -154,18 +183,20 @@ export async function POST(req: NextRequest) {
       return subject;
     };
 
-    const fillEmailSubjects = (msgs: typeof data.messages) => {
-      if (!Array.isArray(msgs)) return msgs;
-      return msgs.map(m => {
-        if (m?.channel === "email" && (!m.subject || !m.subject.trim())) {
-          return { ...m, subject: deriveSubject(m.body || "") };
-        }
-        return m;
-      });
+    const fixOne = (m: { channel: string; subject: string | null; body: string }) => {
+      const fixedBody = replaceTrailingSignature(m.body || "");
+      const subject = m.subject && m.subject.trim().length > 0
+        ? m.subject
+        : (m.channel === "email" ? deriveSubject(fixedBody) : null);
+      return { ...m, body: fixedBody, subject };
     };
 
     if (body.sequence && !body.target_step) {
-      return NextResponse.json({ ...data, messages: fillEmailSubjects(data.messages) });
+      return NextResponse.json({
+        ...data,
+        messages: Array.isArray(data.messages) ? data.messages.map(fixOne) : data.messages,
+        connectionRequest: data.connectionRequest ? replaceTrailingSignature(data.connectionRequest) : data.connectionRequest,
+      });
     }
 
     const msg = Array.isArray(data.messages) && data.messages.length > 0
@@ -173,12 +204,14 @@ export async function POST(req: NextRequest) {
       : null;
     if (!msg) return NextResponse.json({ content: "", subject: "" });
     if (body.fieldType === "connectionNote") {
-      return NextResponse.json({ content: data.connectionRequest ?? msg.body ?? "" });
+      const conn = data.connectionRequest ?? msg.body ?? "";
+      return NextResponse.json({ content: replaceTrailingSignature(conn) });
     }
+    const fixedBody = replaceTrailingSignature(msg.body || "");
     const subject = msg.subject && msg.subject.trim().length > 0
       ? msg.subject
-      : (msg.channel === "email" ? deriveSubject(msg.body || "") : "");
-    return NextResponse.json({ content: msg.body ?? "", subject });
+      : (msg.channel === "email" ? deriveSubject(fixedBody) : "");
+    return NextResponse.json({ content: fixedBody, subject });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: msg }, { status: 500 });
