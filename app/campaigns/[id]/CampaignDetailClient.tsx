@@ -475,8 +475,61 @@ export default function CampaignDetailClient({
               // If step_number 0 exists (connection request slot), sequence steps are offset by 1
               const hasConnReqSlot = messages.some(m => m.step_number === 0);
               const stepOffset = hasConnReqSlot ? 1 : 0;
-              const connReqMsg = messages.find(m => m.step_number === 0) ?? null;
-              return sequence.map((step, i) => {
+              const connReqMsg = messages.find(m => m.step_number === 0 && m.channel === "linkedin") ?? null;
+              const showInviteCard = !!connReqMsg || !!connectionNote;
+              const inviteBody = connReqMsg?.content ?? connectionNote ?? "";
+              const inviteStatus = connReqMsg?.status ?? null;
+              const inviteIsSent = inviteStatus === "sent";
+              const inviteIsSkipped = inviteStatus === "skipped";
+              const inviteOpen = expandedStep === -1;
+              return (<>
+              {/* Step 0 — LinkedIn Connection Request (always rendered when the
+                  campaign uses LinkedIn anywhere; lives outside sequence_steps[]). */}
+              {showInviteCard && (
+                <div style={{ borderBottom: `1px solid ${C.border}` }}>
+                  <button
+                    onClick={() => setExpandedStep(inviteOpen ? null : -1)}
+                    className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-gray-50">
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: inviteIsSent ? "#0A66C2" : inviteIsSkipped ? C.green : C.border }}>
+                      {inviteIsSent ? <Check size={12} color="#fff" /> : <Share2 size={12} color="#fff" />}
+                    </div>
+                    <span className="flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-md"
+                      style={{ backgroundColor: "#0A66C212", color: "#0A66C2" }}>
+                      <Share2 size={11} /> LinkedIn
+                    </span>
+                    <span className="text-xs" style={{ color: C.textDim }}>Day 0</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded"
+                      style={{ backgroundColor: "#0A66C212", color: "#0A66C2" }}>+ connection note</span>
+                    <div className="flex-1" />
+                    {inviteIsSent && (
+                      <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md"
+                        style={{ backgroundColor: C.greenLight, color: C.green }}><Send size={10} /> Sent</span>
+                    )}
+                    {inviteIsSkipped && (
+                      <span className="text-xs px-2 py-0.5 rounded-md"
+                        style={{ backgroundColor: C.surface, color: C.textMuted }}>Skipped (already connected)</span>
+                    )}
+                    {!inviteIsSent && !inviteIsSkipped && (
+                      <span className="text-xs px-2 py-0.5 rounded-md"
+                        style={{ backgroundColor: C.surface, color: C.textMuted }}>{inviteStatus ?? "queued"}</span>
+                    )}
+                  </button>
+                  {inviteOpen && (
+                    <div className="px-5 pb-4 pt-1">
+                      <div className="rounded-lg border p-4" style={{ borderColor: "#0A66C220", backgroundColor: "#0A66C206" }}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Share2 size={12} style={{ color: "#0A66C2" }} />
+                          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#0A66C2" }}>Connection Request Note</span>
+                          <span className="text-[10px]" style={{ color: C.textDim }}>· {inviteBody.length}/200 chars</span>
+                        </div>
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{inviteBody}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {sequence.map((step, i) => {
               const meta = channelMeta[step.channel] ?? channelMeta.linkedin;
               const Icon = meta.icon;
               const msg = messages.find(m => m.step_number === i + stepOffset) ?? null;
@@ -565,7 +618,8 @@ export default function CampaignDetailClient({
                   )}
                 </div>
               );
-            });
+            })}
+            </>);
           })()}
           </div>
 
