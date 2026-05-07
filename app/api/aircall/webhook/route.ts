@@ -81,6 +81,20 @@ export async function POST(req: NextRequest) {
 
   const updated = await patchRes.json().catch(() => []);
 
+  // Kick off Whisper transcription if a recording just arrived. Fire-and-forget
+  // — the webhook should return 200 quickly so Aircall doesn't retry. The
+  // transcribe endpoint is idempotent so duplicate triggers (e.g., from
+  // call.ended + a later call.created update) are safe.
+  const updatedRow = Array.isArray(updated) && updated[0] ? updated[0] : null;
+  if (updatedRow?.id && update.recording_url && !updatedRow.transcript) {
+    const origin = req.nextUrl.origin;
+    fetch(`${origin}/api/aircall/transcribe`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ callId: updatedRow.id }),
+    }).catch(() => { /* don't fail the webhook on transcription error */ });
+  }
+
   if (Array.isArray(updated) && updated.length === 0 && call.direction === "inbound" && call.raw_digits) {
     const digits = call.raw_digits.replace(/[^\d+]/g, "");
     const last10 = digits.slice(-10);
