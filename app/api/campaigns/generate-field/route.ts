@@ -161,6 +161,19 @@ export async function POST(req: NextRequest) {
       if (last.length > 40) return rawBody;
       // Drop common dash prefix used in email signatures ("— Juan")
       lines[lastIdx] = "{{seller_name}}";
+      // V7 Pro sometimes emits two identical name lines as the signature
+      // ("Fran\nFran"). Once we replace the last one with {{seller_name}},
+      // we end up with "Fran\n{{seller_name}}" — dedupe by also collapsing
+      // a preceding 1-3 token line (with the same shape rules) into nothing.
+      if (lastIdx - 1 >= 0) {
+        const prev = lines[lastIdx - 1].trim();
+        if (prev && prev.length <= 40 && !/[.?!]$/.test(prev)) {
+          const prevTokens = prev.split(/\s+/).filter(Boolean);
+          if (prevTokens.length >= 1 && prevTokens.length <= 3) {
+            lines.splice(lastIdx - 1, 1);
+          }
+        }
+      }
       return lines.join("\n");
     };
 

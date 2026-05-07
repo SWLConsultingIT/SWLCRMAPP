@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import Link from "next/link";
 import {
@@ -125,21 +124,21 @@ export default function CampaignDetailClient({
   async function addLeadsToCampaign(leadIds: string[]) {
     if (leadIds.length === 0) return;
     setAdding(true);
-    // Get seller from first campaign in group
-    const firstCamp = allCampaigns[0];
-    for (const leadId of leadIds) {
-      await supabase.from("campaigns").insert({
-        lead_id: leadId,
-        seller_id: firstCamp?.sellers?.id ?? null,
-        name: campaignName,
-        channel: sequence[0]?.channel ?? "linkedin",
-        status: "active",
-        current_step: 0,
-        sequence_steps: sequence,
-        started_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-      });
-      await supabase.from("leads").update({ status: "contacted", current_channel: sequence[0]?.channel ?? "linkedin" }).eq("id", leadId);
+    // Server enforces tenant isolation: leads from a different company_bio than
+    // the campaign's seller are rejected. Don't INSERT directly from the browser.
+    const res = await fetch(`/api/campaigns/${campaignId}/add-leads`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leadIds }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(`Could not add leads: ${err.error ?? res.statusText}`);
+    } else {
+      const data = await res.json() as { added?: number; rejected?: string[] };
+      if (data.rejected && data.rejected.length > 0) {
+        alert(`Added ${data.added ?? 0} leads. ${data.rejected.length} skipped (different tenant).`);
+      }
     }
     setAdding(false);
     setAddSelected(new Set());

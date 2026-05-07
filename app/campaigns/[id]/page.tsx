@@ -30,7 +30,7 @@ async function getCampaign(id: string) {
   const supabase = await getSupabaseServer();
   const { data } = await supabase
     .from("campaigns")
-    .select("*, leads(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, company_industry, icp_profile_id), sellers(name)")
+    .select("*, leads(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, company_industry, icp_profile_id), sellers(name, company_bio_id)")
     .eq("id", id)
     .single();
   return data;
@@ -60,19 +60,25 @@ async function getSiblingCampaigns(campaignName: string, excludeId: string) {
   return data ?? [];
 }
 
-async function getUnlinkedLeadsByProfile() {
+async function getUnlinkedLeadsByProfile(companyBioId: string | null) {
   const supabase = await getSupabaseServer();
+  // Tenant scope: leads + icp_profiles + active campaigns must all belong to the
+  // same company_bio. Without this filter, super-admins viewing a campaign would
+  // see leads from every tenant in the "Add Leads" tab.
+  if (!companyBioId) return [];
+
   const { data: activeCampLeadIds } = await supabase
     .from("campaigns").select("lead_id").in("status", ["active", "paused"]);
   const activeSet = new Set((activeCampLeadIds ?? []).map(c => c.lead_id).filter(Boolean));
 
   const { data: allLeads } = await supabase
     .from("leads")
-    .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, lead_score, allow_linkedin, allow_email, allow_call, icp_profile_id")
+    .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, lead_score, allow_linkedin, allow_email, allow_call, icp_profile_id, company_bio_id")
+    .eq("company_bio_id", companyBioId)
     .order("created_at", { ascending: false }).limit(200);
 
   const { data: profiles } = await supabase
-    .from("icp_profiles").select("id, profile_name").eq("status", "approved");
+    .from("icp_profiles").select("id, profile_name").eq("status", "approved").eq("company_bio_id", companyBioId);
   const profileMap: Record<string, string> = {};
   (profiles ?? []).forEach(p => { profileMap[p.id] = p.profile_name; });
 
@@ -92,10 +98,17 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const campaign = await getCampaign(id);
   if (!campaign) notFound();
 
+  // Tenant scope for the "Add Leads" tab — campaign → seller → company_bio.
+  // Falls back to campaign.company_bio_id (if column exists) or null (no leads shown).
+  const tenantBioId =
+    (campaign.sellers?.company_bio_id as string | null | undefined) ??
+    (campaign.company_bio_id as string | null | undefined) ??
+    null;
+
   const [messages, siblings, unlinkedLeads, campRequest] = await Promise.all([
     getMessages(id),
     getSiblingCampaigns(campaign.name, id),
-    getUnlinkedLeadsByProfile(),
+    getUnlinkedLeadsByProfile(tenantBioId),
     // Always pull the most recent APPROVED request — when a request is edited
     // the rejected version is kept in the table, so filtering by name alone
     // can return the rejected (and now-stale) message_prompts.
