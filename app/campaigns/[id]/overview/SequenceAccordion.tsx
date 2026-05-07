@@ -37,14 +37,83 @@ export default function SequenceAccordion({
     });
   };
 
+  // The LinkedIn connection request lives at campaign_messages.step_number=0
+  // and is implicit — it's not part of sequence_steps[]. Render it as the
+  // first card whenever it exists so the detail view reflects everything in
+  // the campaign, not just the wizard's sequence entries.
+  const inviteMsg = messages.find(m => m.step_number === 0 && m.channel === "linkedin") ?? null;
+  const showInviteCard = !!inviteMsg || !!connectionNote;
+  const inviteBody = inviteMsg?.content ?? connectionNote ?? "";
+  const inviteStatus = inviteMsg?.status ?? null;
+  const inviteIsSent = inviteStatus === "sent";
+  const inviteIsSkipped = inviteStatus === "skipped";
+
   return (
     <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
       <div className="px-5 py-3 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
         <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Outreach Sequence</p>
       </div>
+
+      {/* Step 0 — LinkedIn Connection Request (always rendered when the
+          campaign uses LinkedIn anywhere; lives outside sequence_steps[]). */}
+      {showInviteCard && (() => {
+        const isOpen = expanded.has(-1);
+        return (
+          <div style={{ borderBottom: `1px solid ${C.border}` }}>
+            <button
+              onClick={() => toggle(-1)}
+              className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-gray-50"
+              style={{ cursor: "pointer" }}
+            >
+              <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                style={{ backgroundColor: inviteIsSent ? "#0A66C2" : inviteIsSkipped ? C.green : C.border }}>
+                {inviteIsSent ? <Check size={12} color="#fff" /> : <Share2 size={12} color="#fff" />}
+              </div>
+              <span className="flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-md"
+                style={{ backgroundColor: "#0A66C212", color: "#0A66C2" }}>
+                <Share2 size={11} /> LinkedIn
+              </span>
+              <span className="text-xs" style={{ color: C.textDim }}>Day 0</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded"
+                style={{ backgroundColor: "#0A66C212", color: "#0A66C2" }}>+ connection note</span>
+              <div className="flex-1" />
+              {inviteIsSent && (
+                <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md"
+                  style={{ backgroundColor: C.greenLight, color: C.green }}>Sent</span>
+              )}
+              {inviteIsSkipped && (
+                <span className="text-xs px-2 py-0.5 rounded-md"
+                  style={{ backgroundColor: C.surface, color: C.textMuted }}>Skipped (already connected)</span>
+              )}
+              {!inviteIsSent && !inviteIsSkipped && (
+                <span className="text-xs px-2 py-0.5 rounded-md"
+                  style={{ backgroundColor: C.surface, color: C.textMuted }}>{inviteStatus ?? "queued"}</span>
+              )}
+              <ChevronDown size={14}
+                style={{ color: C.textDim, transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s ease", flexShrink: 0 }} />
+            </button>
+
+            {isOpen && (
+              <div className="px-5 pb-4 pt-1">
+                <div className="rounded-lg border p-4" style={{ borderColor: "#0A66C220", backgroundColor: "#0A66C206" }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Share2 size={12} style={{ color: "#0A66C2" }} />
+                    <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#0A66C2" }}>Connection Request Note</span>
+                    <span className="text-[10px]" style={{ color: C.textDim }}>· {inviteBody.length}/200 chars</span>
+                  </div>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{inviteBody}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
       {sequence.map((step, i) => {
         const meta = channelMeta[step.channel] ?? channelMeta.linkedin;
         const Icon = meta.icon;
+        // Real campaign_messages indexing: sequence index i maps to step_number = i + 1
+        // because step_number 0 is reserved for the implicit LinkedIn invite.
         const msg = messages.find(m => m.step_number === i + 1) ?? null;
         const tmpl = messageTemplates[i] ?? null;
         const displayBody: string | null = msg?.content ?? tmpl?.body ?? null;
@@ -53,9 +122,8 @@ export default function SequenceAccordion({
         const isSent = msg?.status === "sent";
         const isPast = i < currentStep;
         const isCurrent = i === currentStep;
-        const showConnNote = i === 0 && step.channel === "linkedin" && !!connectionNote;
         const isOpen = expanded.has(i);
-        const hasContent = !!displayBody || showConnNote;
+        const hasContent = !!displayBody;
 
         return (
           <div key={i} style={{ borderBottom: i < sequence.length - 1 ? `1px solid ${C.border}` : "none" }}>
@@ -70,7 +138,6 @@ export default function SequenceAccordion({
               </div>
               <span className="flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: `${meta.color}12`, color: meta.color }}><Icon size={11} /> {meta.label}</span>
               <span className="text-xs" style={{ color: C.textDim }}>Day {dayPerStep[i] ?? 0}{i > 0 ? ` (+${step.daysAfter}d)` : ""}</span>
-              {showConnNote && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: "#0A66C212", color: "#0A66C2" }}>+ connection note</span>}
               <div className="flex-1" />
               {isSent && <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: C.greenLight, color: C.green }}>Sent</span>}
               {!isSent && <span className="text-xs px-2 py-0.5 rounded-md" style={{ backgroundColor: isCurrent ? `color-mix(in srgb, ${gold} 8%, transparent)` : C.surface, color: isCurrent ? gold : C.textMuted }}>{isCurrent ? "Up Next" : "Pending"}</span>}
@@ -89,15 +156,6 @@ export default function SequenceAccordion({
 
             {isOpen && (
               <div className="px-5 pb-4 pt-1 space-y-3">
-                {showConnNote && (
-                  <div className="rounded-lg border p-4" style={{ borderColor: "#0A66C220", backgroundColor: "#0A66C206" }}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <Share2 size={12} style={{ color: "#0A66C2" }} />
-                      <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#0A66C2" }}>Connection Request Note</span>
-                    </div>
-                    <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{connectionNote}</p>
-                  </div>
-                )}
 
                 {displayBody && (
                   <div className="rounded-lg border p-4" style={{ borderColor: isSent ? `${C.green}30` : isCurrent ? `color-mix(in srgb, ${gold} 19%, transparent)` : C.border, backgroundColor: isSent ? `${C.green}04` : isCurrent ? `color-mix(in srgb, ${gold} 2%, transparent)` : C.bg }}>
