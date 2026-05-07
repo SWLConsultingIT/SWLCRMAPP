@@ -236,12 +236,23 @@ async function getLostLeadData(leadId: string) {
   }
 
   // Chronological sort. Nulls go LAST (not first) so undated rows don't
-  // hijack the top of the timeline.
+  // hijack the top of the timeline. When two events share a timestamp
+  // (common: campaign.completed_at = lead_replies.received_at because the
+  // reply IS what closed the campaign), break the tie by event type so
+  // the causal order is preserved: start → message → reply → end.
+  const typeOrder: Record<string, number> = {
+    campaign_start: 0,
+    message_sent: 1,
+    reply: 2,
+    campaign_end: 3,
+  };
   timeline.sort((a, b) => {
     if (!a.date && !b.date) return 0;
     if (!a.date) return 1;
     if (!b.date) return -1;
-    return new Date(a.date).getTime() - new Date(b.date).getTime();
+    const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+    if (dateDiff !== 0) return dateDiff;
+    return (typeOrder[a.type] ?? 99) - (typeOrder[b.type] ?? 99);
   });
 
   // Determine loss reason
