@@ -34,6 +34,83 @@ const CRON_SECRET = process.env.CRON_SECRET ?? "";
 const RATE_LIMIT_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 const BATCH_SIZE_PER_SELLER = 3;
 
+// Business hours: 09:00-18:00 local Mon-Fri. We check this in the LEAD's
+// timezone (best-effort from company_country) so we never dial somebody at
+// 3 AM their time. Outside the window the message is requeued with
+// eligible_at = next business window start, so the dispatcher just skips it
+// until then instead of failing.
+const BUSINESS_START_HOUR = 9;
+const BUSINESS_END_HOUR = 18;
+
+const COUNTRY_TZ: Record<string, string> = {
+  GB: "Europe/London", UK: "Europe/London",
+  IE: "Europe/Dublin",
+  US: "America/New_York", USA: "America/New_York",
+  CA: "America/Toronto",
+  AR: "America/Argentina/Buenos_Aires",
+  ES: "Europe/Madrid",
+  FR: "Europe/Paris",
+  DE: "Europe/Berlin",
+  IT: "Europe/Rome",
+  NL: "Europe/Amsterdam",
+  PT: "Europe/Lisbon",
+  CH: "Europe/Zurich",
+  AT: "Europe/Vienna",
+  BE: "Europe/Brussels",
+  AU: "Australia/Sydney",
+  MX: "America/Mexico_City",
+  BR: "America/Sao_Paulo",
+};
+
+function resolveTimezone(country: string | null | undefined): string {
+  if (!country) return "Europe/London"; // safe Western-business default
+  const k = country.trim().toUpperCase();
+  return COUNTRY_TZ[k] ?? "Europe/London";
+}
+
+function nowPartsInTz(tz: string): { hour: number; weekday: number } {
+  const fmt = new Intl.DateTimeFormat("en-GB", {
+    timeZone: tz, weekday: "short", hour: "2-digit", hour12: false,
+  });
+  const parts = fmt.formatToParts(new Date());
+  const hourStr = parts.find(p => p.type === "hour")?.value ?? "0";
+  const wd = parts.find(p => p.type === "weekday")?.value ?? "Mon";
+  // Intl returns "00".."23" (or "24" for midnight in some locales)
+  const hour = Number(hourStr) % 24;
+  // Normalize weekday string to 0=Sun..6=Sat
+  const weekdayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const weekday = weekdayMap[wd] ?? 1;
+  return { hour, weekday };
+}
+
+function isBusinessHours(tz: string): boolean {
+  const { hour, weekday } = nowPartsInTz(tz);
+  if (weekday === 0 || weekday === 6) return false; // weekend
+  return hour >= BUSINESS_START_HOUR && hour < BUSINESS_END_HOUR;
+}
+
+function nextBusinessWindowStartUTC(tz: string): string {
+  // Walk forward in 1-hour steps from now until we hit the start of the
+  // next business window. Capped at 7 days as a safety stop.
+  const now = new Date();
+  for (let h = 1; h <= 7 * 24; h += 1) {
+    const candidate = new Date(now.getTime() + h * 60 * 60 * 1000);
+    const fmt = new Intl.DateTimeFormat("en-GB", {
+      timeZone: tz, weekday: "short", hour: "2-digit", hour12: false,
+    });
+    const parts = fmt.formatToParts(candidate);
+    const hour = Number(parts.find(p => p.type === "hour")?.value ?? "0") % 24;
+    const wd = parts.find(p => p.type === "weekday")?.value ?? "Mon";
+    const weekdayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+    const weekday = weekdayMap[wd] ?? 1;
+    if (weekday !== 0 && weekday !== 6 && hour === BUSINESS_START_HOUR) {
+      return candidate.toISOString();
+    }
+  }
+  // Fallback: 12h from now (should never hit)
+  return new Date(now.getTime() + 12 * 60 * 60 * 1000).toISOString();
+}
+
 type QueuedRow = {
   id: string;
   campaign_id: string;
@@ -96,7 +173,7 @@ async function dispatchOneCall(
   // Hydrate lead + campaign + tenant.
   const [{ data: lead }, { data: campaign }] = await Promise.all([
     svc.from("leads")
-      .select("id, primary_first_name, primary_last_name, primary_phone, primary_secondary_phone, company_bio_id")
+      .select("id, primary_first_name, primary_last_name, primary_phone, primary_secondary_phone, company_bio_id, company_country")
       .eq("id", candidate.lead_id).maybeSingle(),
     svc.from("campaigns")
       .select("id, seller_id, name, aircall_number_id")
@@ -104,6 +181,19 @@ async function dispatchOneCall(
   ]);
   if (!lead || !campaign) {
     return await failMessage(svc, candidate.id, candidate.lead_id, "lead or campaign missing");
+  }
+
+  // Business-hours guard: never dial a lead at 3 AM their time. Skip + requeue
+  // with eligible_at set to the next 09:00 local Mon-Fri so the dispatcher
+  // ignores this row until then. Cooldown machinery and daily caps still apply.
+  const tz = resolveTimezone((lead as any).company_country);
+  if (!isBusinessHours(tz)) {
+    const eligibleAt = nextBusinessWindowStartUTC(tz);
+    await svc.from("campaign_messages").update({
+      status: "queued",
+      metadata: { eligible_at: eligibleAt, deferred_by: "business-hours", deferred_tz: tz },
+    }).eq("id", candidate.id);
+    return { kind: "skipped", msgId: candidate.id, leadId: lead.id, reason: `outside business hours (${tz}); requeued for ${eligibleAt}` };
   }
 
   // Phone resolution + E.164 normalization.
