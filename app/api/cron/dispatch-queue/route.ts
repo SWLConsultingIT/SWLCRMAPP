@@ -49,6 +49,11 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // LinkedIn rate-limit pools), so they can each fire 1 per tick in parallel
 // without burst-flagging any single account.
 const BATCH_SIZE_PER_SELLER = 1;
+// Hard floor on the spacing between consecutive successful invites/DMs from
+// the SAME seller. Independent of BATCH_SIZE — if BATCH ever gets bumped or
+// a manual reset claims many messages at once, this guard still prevents
+// burst. We use the seller's most recent sent_at to enforce it.
+const MIN_INTER_SEND_MS = 3 * 60 * 1000;
 
 type QueuedRow = {
   id: string;
@@ -546,6 +551,27 @@ async function processSellerBatch(
     return result;
   }
 
+  // Min-spacing guard: if this seller sent any LinkedIn message within the
+  // last MIN_INTER_SEND_MS, skip this tick entirely. Defends against:
+  //   - Future BATCH_SIZE_PER_SELLER bumps
+  //   - Manual resets that flood the queue (e.g., reassigning 8 leads to
+  //     a fresh seller — what happened today with Nathan)
+  //   - Concurrent ticks racing on the same seller
+  const sinceMinSpacing = new Date(Date.now() - MIN_INTER_SEND_MS).toISOString();
+  const { data: recentSends } = await svc
+    .from("campaign_messages")
+    .select("id, sent_at, campaigns!inner(seller_id)")
+    .eq("status", "sent")
+    .eq("channel", "linkedin")
+    .eq("campaigns.seller_id", seller.id)
+    .gte("sent_at", sinceMinSpacing)
+    .limit(1);
+  if (recentSends && recentSends.length > 0) {
+    const ageSec = Math.round((Date.now() - new Date((recentSends[0] as any).sent_at).getTime()) / 1000);
+    result.blockedReason = `min-spacing guard: last send was ${ageSec}s ago (need ${MIN_INTER_SEND_MS / 1000}s)`;
+    return result;
+  }
+
   const batchSize = Math.min(remaining, BATCH_SIZE_PER_SELLER);
 
   // Pull a window of queued messages for this seller, filter eligible.
@@ -575,10 +601,15 @@ async function processSellerBatch(
   const batch = eligible.slice(0, batchSize) as QueuedRow[];
 
   // Sequential dispatch within seller. Stop on rate_limit (the cascade
-  // already pauses the rest of this seller's queue for 4h).
-  for (const msg of batch) {
+  // already pauses the rest of this seller's queue for 4h). For batches
+  // larger than 1 (currently never, but defensive), wait MIN_INTER_SEND_MS
+  // between consecutive sends so they look human-paced.
+  for (let i = 0; i < batch.length; i += 1) {
+    if (i > 0) {
+      await new Promise(r => setTimeout(r, MIN_INTER_SEND_MS));
+    }
     result.attempted += 1;
-    const outcome = await dispatchOneMessage(svc, msg, seller);
+    const outcome = await dispatchOneMessage(svc, batch[i], seller);
     result.outcomes.push(outcome);
     if (outcome.kind === "rate_limited") break;
   }
