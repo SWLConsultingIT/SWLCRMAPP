@@ -549,12 +549,12 @@ export default function CampaignDetailClient({
               const isCurrent = i === currentStep;
               const isOpen = expandedStep === i;
               const isEditing = editingIdx === i;
-              // The connection-note inline badge (next to the step header)
-              // belongs only on the FIRST LinkedIn step in the sequence — that's
-              // the step the invite is gating. It used to be hardcoded to i===0
-              // which broke when LinkedIn wasn't the first step.
-              const showConnNote = i === firstLinkedinIdx && (!!connectionNote || !!connReqMsg);
+              // Inline "+ connection note" badge is redundant when the invite
+              // card is already rendering as a standalone row right above this
+              // step (showInviteCard). Only fall back to the inline badge if
+              // for some reason the standalone isn't being shown.
               const renderInviteBefore = showInviteCard && i === firstLinkedinIdx;
+              const showConnNote = !showInviteCard && i === firstLinkedinIdx && (!!connectionNote || !!connReqMsg);
 
               return (
                 <div key={i}>
@@ -577,21 +577,6 @@ export default function CampaignDetailClient({
                   {isOpen && (
                     <div className="px-5 pb-4 pt-1 fade-in space-y-3">
                       {/* Connection request note — only in first LinkedIn step */}
-                      {showConnNote && (
-                        <div className="rounded-lg border p-4" style={{ borderColor: "#0A66C220", backgroundColor: "#0A66C206" }}>
-                          <div className="flex items-center gap-2 mb-2">
-                            <Share2 size={12} style={{ color: "#0A66C2" }} />
-                            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#0A66C2" }}>LinkedIn — Connection Request Note</span>
-                            {connReqMsg?.status === "skipped" && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ backgroundColor: C.surface, color: C.textMuted }}>Skipped — already connected</span>
-                            )}
-                            {connReqMsg?.status === "sent" && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded font-semibold" style={{ backgroundColor: C.greenLight, color: C.green }}>Sent</span>
-                            )}
-                          </div>
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{connectionNote || connReqMsg?.content}</p>
-                        </div>
-                      )}
                       {/* Step message */}
                       {displayBody && !isEditing && (
                         <div className="rounded-lg border p-4 relative" style={{ borderColor: isSent ? `${C.green}30` : isCurrent ? `color-mix(in srgb, ${gold} 19%, transparent)` : C.border, backgroundColor: isSent ? `${C.green}04` : isCurrent ? `color-mix(in srgb, ${gold} 2%, transparent)` : C.bg }}>
