@@ -6,6 +6,8 @@ import { UserCircle } from "lucide-react";
 import AccountsClient from "./AccountsClient";
 import PageHero from "@/components/PageHero";
 
+export const dynamic = "force-dynamic";
+
 const AIRCALL_AUTH = Buffer.from(`${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`).toString("base64");
 
 async function getInstantlyPool(bioId: string | null) {

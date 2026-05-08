@@ -7,6 +7,8 @@ import CampaignTabs from "./CampaignTabs";
 import ActiveCampaignsView from "@/components/ActiveCampaignsView";
 import NewCampaignView from "@/components/NewCampaignView";
 
+export const dynamic = "force-dynamic";
+
 const gold = "var(--brand, #c9a83a)";
 
 async function getData() {

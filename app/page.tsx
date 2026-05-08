@@ -10,6 +10,11 @@ import DashboardTabs from "@/components/DashboardTabs";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
 import ReportsPage from "@/app/reports/page";
 
+// Skip the static-or-PPR optimization attempt — this page is fully
+// user-scoped (counts vary per tenant) so static gen is wasted work
+// that adds 200-500ms before falling back to dynamic on every cold request.
+export const dynamic = "force-dynamic";
+
 const gold = "var(--brand, #c9a83a)";
 
 const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
@@ -65,17 +70,18 @@ async function getDashboardData() {
     ? supabase.from("icp_profiles").select("*", { count: "exact", head: true }).eq("company_bio_id", bioId).eq("status", "pending")
     : supabase.from("icp_profiles").select("*", { count: "exact", head: true }).eq("status", "pending");
 
-  // Campaign requests: filter via icp_profile_id if scoped
-  let pendingCampReviewsQ;
-  if (bioId) {
-    const { data: profs } = await supabase.from("icp_profiles").select("id").eq("company_bio_id", bioId);
-    const profIds = (profs ?? []).map(p => p.id);
-    pendingCampReviewsQ = profIds.length > 0
-      ? supabase.from("campaign_requests").select("*", { count: "exact", head: true }).eq("status", "pending_review").in("icp_profile_id", profIds)
-      : Promise.resolve({ count: 0 } as any);
-  } else {
-    pendingCampReviewsQ = supabase.from("campaign_requests").select("*", { count: "exact", head: true }).eq("status", "pending_review");
-  }
+  // Campaign requests: when scoped, filter to requests whose icp_profile
+  // belongs to this tenant. We do this via a join in one round-trip
+  // (campaign_requests!inner(icp_profiles)) instead of fetching profile IDs
+  // first and then filtering — that serial await blocked the parallel
+  // batch below for ~150-200ms.
+  const pendingCampReviewsQ = bioId
+    ? supabase
+        .from("campaign_requests")
+        .select("*, icp_profiles!inner(company_bio_id)", { count: "exact", head: true })
+        .eq("status", "pending_review")
+        .eq("icp_profiles.company_bio_id", bioId)
+    : supabase.from("campaign_requests").select("*", { count: "exact", head: true }).eq("status", "pending_review");
 
   const recentRepliesQ = bioId
     ? supabase.from("lead_replies")

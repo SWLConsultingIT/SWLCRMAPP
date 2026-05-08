@@ -12,6 +12,8 @@ import Link from "next/link";
 import LeadsCampaignsClient from "@/components/LeadsCampaignsClient";
 import PageHero from "@/components/PageHero";
 
+// Tenant-scoped + auth-gated → never static. Skip the optimization attempt.
+export const dynamic = "force-dynamic";
 
 async function getData() {
   const supabase = await getSupabaseServer();

@@ -2,6 +2,8 @@ import { getSupabaseServer } from "@/lib/supabase-server";
 import { getUserScope } from "@/lib/scope";
 import OpportunitiesClient from "./OpportunitiesClient";
 
+export const dynamic = "force-dynamic";
+
 async function getOpportunities() {
   const supabase = await getSupabaseServer();
   const scope = await getUserScope();

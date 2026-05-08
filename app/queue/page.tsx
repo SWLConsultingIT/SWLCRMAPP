@@ -3,6 +3,8 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, getMyAssignedSellerIds } from "@/lib/scope";
 import QueueClient from "./QueueClient";
 
+export const dynamic = "force-dynamic";
+
 async function getQueueData() {
   const supabase = await getSupabaseServer();
 
