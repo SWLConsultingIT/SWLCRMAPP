@@ -108,10 +108,13 @@ export async function POST(req: NextRequest) {
   // not, returning 503 makes the failure explicit instead of queuing a
   // call that nobody will ever pick up.
   let resolvedUserId: number | null = aircallUserId ? Number(aircallUserId) : null;
-  // Try to resolve via the seller binding. Caller may pass sellerId
-  // explicitly, or we infer the seller from the logged-in user's id
-  // (sellers.user_id = scope.userId). The latter is what makes the
-  // common "user clicks Call" path Just Work without UI plumbing.
+  // Resolution chain (first match wins):
+  //   1. caller passed aircallUserId (advanced override)
+  //   2. seller's aircall_user_id (per-seller binding)
+  //   3. lead's tenant default (company_bios.aircall_user_id)
+  //   4. fall back below to "first available globally"
+  // (3) is the typical client setup: one shared inbox like sales@arqy.io
+  // handles all calls for that tenant. Most tenants only need that.
   if (!resolvedUserId) {
     let lookupSellerId: string | null = sellerId ?? null;
     if (!lookupSellerId) {
@@ -131,6 +134,32 @@ export async function POST(req: NextRequest) {
       const sellerAircall = (seller as { aircall_user_id?: string | null } | null)?.aircall_user_id ?? null;
       if (sellerAircall) {
         const parsed = Number(sellerAircall);
+        if (Number.isFinite(parsed)) resolvedUserId = parsed;
+      }
+    }
+  }
+  // Step 3: lead's tenant default. The numbers picker already scopes by the
+  // lead's company_bio_id; we use the same source of truth here. Falls back
+  // to viewer's tenant if no leadId (manual queue dial without lead context).
+  if (!resolvedUserId) {
+    let dialingBio: string | null = scope.companyBioId;
+    if (leadId) {
+      const { data: leadForBio } = await svc
+        .from("leads")
+        .select("company_bio_id")
+        .eq("id", leadId)
+        .maybeSingle();
+      dialingBio = ((leadForBio as { company_bio_id?: string | null } | null)?.company_bio_id) ?? dialingBio;
+    }
+    if (dialingBio) {
+      const { data: bio } = await svc
+        .from("company_bios")
+        .select("aircall_user_id")
+        .eq("id", dialingBio)
+        .maybeSingle();
+      const tenantUser = (bio as { aircall_user_id?: string | null } | null)?.aircall_user_id ?? null;
+      if (tenantUser) {
+        const parsed = Number(tenantUser);
         if (Number.isFinite(parsed)) resolvedUserId = parsed;
       }
     }

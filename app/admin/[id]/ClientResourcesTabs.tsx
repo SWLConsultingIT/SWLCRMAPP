@@ -206,6 +206,7 @@ type SellerAircallRow = { id: string; name: string; aircall_user_id: string | nu
 function ClientAircall({ companyBioId }: { companyBioId: string }) {
   const [numbers, setNumbers] = useState<AircallNumber[]>([]);
   const [assigned, setAssigned] = useState<number[]>([]);
+  const [tenantUserId, setTenantUserId] = useState<string | null>(null);
   const [aircallUsers, setAircallUsers] = useState<AircallUser[]>([]);
   const [sellersInScope, setSellersInScope] = useState<SellerAircallRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -220,6 +221,7 @@ function ClientAircall({ companyBioId }: { companyBioId: string }) {
       setNumbers(accessData.numbers ?? []);
       const me = (accessData.companies ?? []).find((c: any) => c.id === companyBioId);
       setAssigned(me?.aircall_number_ids ?? []);
+      setTenantUserId(me?.aircall_user_id ?? null);
       setAircallUsers(usersData.aircallUsers ?? []);
       // Sellers shown here = owned by THIS tenant or shared with it. The
       // aircall_user_id field is global to the seller (one Aircall account
@@ -250,6 +252,17 @@ function ClientAircall({ companyBioId }: { companyBioId: string }) {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sellerId, aircallUserId }),
+    });
+    setSaving(false);
+  }
+
+  async function setTenantAircallUser(aircallUserId: string | null) {
+    setTenantUserId(aircallUserId);
+    setSaving(true);
+    await fetch("/api/admin/aircall-access", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ companyBioId, aircallUserId }),
     });
     setSaving(false);
   }
@@ -295,6 +308,33 @@ function ClientAircall({ companyBioId }: { companyBioId: string }) {
             })}
           </div>
         )}
+      </div>
+
+      {/* Tenant default Aircall user */}
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>
+          Tenant default Aircall user
+        </p>
+        <p className="text-xs mb-3" style={{ color: C.textDim }}>
+          The Aircall user that picks up calls placed for THIS tenant&apos;s leads. Resolution order at dial time: per-seller binding (below) → this tenant default → first available globally. Setting this is enough for tenants where one shared inbox handles all calls (e.g. sales@arqy.io).
+        </p>
+        <div className="flex items-center gap-3">
+          <select
+            value={tenantUserId ?? ""}
+            onChange={e => setTenantAircallUser(e.target.value || null)}
+            disabled={saving}
+            className="text-xs rounded-md border px-3 py-2 disabled:opacity-60 flex-1 max-w-md"
+            style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textBody }}
+          >
+            <option value="">— None (auto / first available)</option>
+            {aircallUsers.map(u => (
+              <option key={u.id} value={String(u.id)}>
+                {u.name}{u.email ? ` (${u.email})` : ""}{u.available ? " 🟢" : ""}
+              </option>
+            ))}
+          </select>
+          {saving && <Loader2 size={11} className="animate-spin" style={{ color: C.textMuted }} />}
+        </div>
       </div>
 
       {/* Seller → Aircall user mapping */}

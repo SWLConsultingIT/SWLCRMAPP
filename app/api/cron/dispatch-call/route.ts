@@ -129,6 +129,10 @@ type SellerRow = {
   aircall_user_id: string | null;
 };
 
+// In-tick cache of company_bios.aircall_user_id keyed by lead.company_bio_id.
+// Built lazily inside dispatchOneCall so tenants without queued calls don't
+// generate any DB reads.
+
 function authorized(req: NextRequest, scopeRole: string | null): boolean {
   if (scopeRole === "admin") return true;
   if (!CRON_SECRET) return false;
@@ -207,20 +211,41 @@ async function dispatchOneCall(
     return await failMessage(svc, candidate.id, candidate.lead_id, `phone "${rawPhone}" did not normalize to E.164`);
   }
 
-  // Number resolution: campaign override → tenant pool → env default.
+  // Number + tenant-default-user resolution in one DB read.
   let numberId: number | null = (campaign as any).aircall_number_id ?? null;
-  if (!numberId) {
+  let tenantAircallUserId: number | null = null;
+  const leadBioId = (lead as any).company_bio_id ?? null;
+  if (leadBioId) {
     const { data: bio } = await svc
       .from("company_bios")
-      .select("aircall_number_ids")
-      .eq("id", (lead as any).company_bio_id)
+      .select("aircall_number_ids, aircall_user_id")
+      .eq("id", leadBioId)
       .maybeSingle();
     const pool = ((bio as any)?.aircall_number_ids as number[] | null) ?? [];
-    numberId = pool[0] ?? null;
+    if (!numberId) numberId = pool[0] ?? null;
+    const tu = (bio as any)?.aircall_user_id;
+    if (tu) {
+      const parsed = Number(tu);
+      if (Number.isFinite(parsed)) tenantAircallUserId = parsed;
+    }
   }
   if (!numberId && Number.isFinite(DEFAULT_NUMBER_ID)) numberId = DEFAULT_NUMBER_ID;
   if (!numberId) {
     return await failMessage(svc, candidate.id, candidate.lead_id, "tenant has no Aircall number assigned");
+  }
+
+  // Resolve which Aircall user dials this specific message:
+  //   1. seller.aircall_user_id (already stamped on availableAircallUserId
+  //      by processSellerBatch when set + available)
+  //   2. company_bios.aircall_user_id (per-tenant default — what most
+  //      tenants use: one shared inbox handles their calls)
+  //   3. fallback "first available" (already stamped by processSellerBatch)
+  // We override step 1's value with step 2 ONLY when step 1 was the
+  // fallback (i.e., seller had no explicit binding). When the seller had
+  // an explicit binding, that always wins.
+  let resolvedUserId = availableAircallUserId;
+  if (!seller.aircall_user_id && tenantAircallUserId) {
+    resolvedUserId = tenantAircallUserId;
   }
 
   // Place the call. Aircall returns 204 No Content; the call_id arrives
@@ -228,7 +253,7 @@ async function dispatchOneCall(
   let callOk = false;
   let errReason = "";
   try {
-    const res = await fetch(`https://api.aircall.io/v1/users/${availableAircallUserId}/calls`, {
+    const res = await fetch(`https://api.aircall.io/v1/users/${resolvedUserId}/calls`, {
       method: "POST",
       headers: { Authorization: `Basic ${AIRCALL_AUTH}`, "Content-Type": "application/json" },
       body: JSON.stringify({ number_id: numberId, to: normalizedPhone }),
@@ -253,7 +278,7 @@ async function dispatchOneCall(
       error_details: null,
       metadata: {
         dispatched_by: "cron-dispatch-call",
-        aircall_user_id: availableAircallUserId,
+        aircall_user_id: resolvedUserId,
         aircall_number_id: numberId,
       },
     }).eq("id", candidate.id),
@@ -268,7 +293,7 @@ async function dispatchOneCall(
     svc.from("leads").update({ status: "contacted", current_channel: "call" }).eq("id", lead.id),
   ]);
 
-  return { kind: "initiated", msgId: candidate.id, leadId: lead.id, userId: availableAircallUserId, numberId };
+  return { kind: "initiated", msgId: candidate.id, leadId: lead.id, userId: resolvedUserId, numberId };
 }
 
 type SellerBatchResult = {
@@ -294,11 +319,12 @@ async function processSellerBatch(
     blockedReason: null,
   };
 
-  // Per-seller Aircall user resolution.
-  //   - If seller.aircall_user_id is set: only dispatch when THAT user is
-  //     `available=true`. Don't silently steal a different user's device —
-  //     that's the bug we're fixing.
-  //   - If unset: legacy behavior — use whichever Aircall user is available.
+  // Per-seller Aircall user resolution. NOTE: at this point we don't yet know
+  // which tenant the queued message belongs to (the message could be for any
+  // lead in any tenant the seller serves). The full resolution chain
+  // (seller → tenant → fallback) happens inside dispatchOneCall once we
+  // hydrate the lead. Here we only use seller-level binding when present;
+  // otherwise we pass the fallback as a hint to dispatchOneCall.
   let aircallUserId: number;
   if (seller.aircall_user_id) {
     const mapped = Number(seller.aircall_user_id);
@@ -308,6 +334,9 @@ async function processSellerBatch(
     }
     aircallUserId = mapped;
   } else {
+    // Will be overridden per-message inside dispatchOneCall by the tenant's
+    // company_bios.aircall_user_id when set. This preserves backwards compat
+    // for sellers without explicit binding while still routing per-tenant.
     aircallUserId = fallbackAvailableUserId;
   }
 

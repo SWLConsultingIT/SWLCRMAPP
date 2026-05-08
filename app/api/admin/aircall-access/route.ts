@@ -17,7 +17,7 @@ export async function GET() {
       headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
       next: { revalidate: 300 },
     }),
-    supabase.from("company_bios").select("id, company_name, aircall_number_ids").order("company_name"),
+    supabase.from("company_bios").select("id, company_name, aircall_number_ids, aircall_user_id").order("company_name"),
   ]);
   const { numbers = [] } = (await res.json()) as { numbers: AircallNumber[] };
   return NextResponse.json({ numbers, companies: bios ?? [] });
@@ -26,13 +26,25 @@ export async function GET() {
 export async function PATCH(req: NextRequest) {
   const guard = await requireAdminApi();
   if (guard instanceof NextResponse) return guard;
-  const { companyBioId, aircallNumberIds } = await req.json();
+  const body = await req.json();
+  const { companyBioId, aircallNumberIds, aircallUserId } = body;
   if (!companyBioId) return NextResponse.json({ error: "Missing companyBioId" }, { status: 400 });
   const supabase = getSupabaseService();
-  const { error } = await supabase
-    .from("company_bios")
-    .update({ aircall_number_ids: Array.isArray(aircallNumberIds) ? aircallNumberIds : null })
-    .eq("id", companyBioId);
+  // Build patch object — only update fields that were sent. Lets the UI
+  // mutate numbers and the tenant default user independently.
+  const patch: Record<string, unknown> = {};
+  if (Object.prototype.hasOwnProperty.call(body, "aircallNumberIds")) {
+    patch.aircall_number_ids = Array.isArray(aircallNumberIds) ? aircallNumberIds : null;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "aircallUserId")) {
+    patch.aircall_user_id = aircallUserId === null || aircallUserId === undefined || aircallUserId === ""
+      ? null
+      : String(aircallUserId);
+  }
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
+  }
+  const { error } = await supabase.from("company_bios").update(patch).eq("id", companyBioId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
 }
