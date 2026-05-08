@@ -40,10 +40,15 @@ const CRON_SECRET = process.env.CRON_SECRET ?? "";
 const NOTE_MAX_LEN = 200;
 const RATE_LIMIT_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
-// Maximum messages to dispatch per seller per tick. Conservative to avoid
-// LinkedIn burst protection. With 96 ticks/day a seller can reach a 50/day
-// cap on its own pace.
-const BATCH_SIZE_PER_SELLER = 5;
+// Maximum messages to dispatch per seller per tick. Set to 1 because firing
+// multiple invites within the same ~30s tick is the #1 detection trigger
+// for LinkedIn — what matters is the inter-request spacing, not the daily
+// total. With BATCH=1 and a 15-min tick, each seller sends at most 1 invite
+// every 15 min (~96 opportunities/day, clipped by linkedin_daily_limit).
+// Different sellers are decoupled (different Unipile accounts → different
+// LinkedIn rate-limit pools), so they can each fire 1 per tick in parallel
+// without burst-flagging any single account.
+const BATCH_SIZE_PER_SELLER = 1;
 
 type QueuedRow = {
   id: string;
