@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, CheckCircle2, ChevronRight, ArrowLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Mail, ChevronRight, ArrowLeft } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 
 export default function ForgotPasswordPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -15,11 +17,19 @@ export default function ForgotPasswordPage() {
     setError(""); setLoading(true);
     try {
       const supabase = getSupabaseBrowser();
+      // The redirectTo is a fallback for legacy email templates that still ship a link.
+      // The new flow is code-based — the user types the OTP on /reset-password.
       const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
-      if (authError) setError(authError.message);
-      else setDone(true);
+      if (authError) {
+        setError(authError.message);
+      } else {
+        setDone(true);
+        setTimeout(() => {
+          router.push(`/reset-password?email=${encodeURIComponent(email)}`);
+        }, 800);
+      }
     } finally {
       setLoading(false);
     }
@@ -40,16 +50,13 @@ export default function ForgotPasswordPage() {
 
         {done ? (
           <div className="text-center">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6" style={{ backgroundColor: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.3)" }}>
-              <CheckCircle2 size={32} style={{ color: "#22C55E" }} />
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6" style={{ backgroundColor: "rgba(183,152,50,0.1)", border: "1px solid rgba(183,152,50,0.3)" }}>
+              <Mail size={28} style={{ color: "#b79832" }} />
             </div>
             <h2 className="text-2xl font-bold mb-2" style={{ color: "#f8fafc", fontFamily: "var(--font-outfit)" }}>Check your email</h2>
-            <p className="text-sm leading-relaxed mb-6" style={{ color: "rgba(217,222,226,0.6)" }}>
-              If an account exists for <strong style={{ color: "#f8fafc" }}>{email}</strong>, we sent a link to reset your password.
+            <p className="text-sm leading-relaxed" style={{ color: "rgba(217,222,226,0.6)" }}>
+              If an account exists for <strong style={{ color: "#f8fafc" }}>{email}</strong>, we sent a 6-digit code. Redirecting…
             </p>
-            <a href="/login" className="text-xs font-semibold hover:underline" style={{ color: "#b79832" }}>
-              Back to login
-            </a>
           </div>
         ) : (
           <>
