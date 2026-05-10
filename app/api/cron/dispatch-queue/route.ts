@@ -102,13 +102,22 @@ function nameMatches(
   expectedLast: string | null,
   apiFirst: string,
   apiLast: string,
+  slug: string,
 ): boolean {
   const ef = (expectedFirst ?? "").trim().toLowerCase();
   const el = (expectedLast ?? "").trim().toLowerCase();
   const af = apiFirst.trim().toLowerCase();
   const al = apiLast.trim().toLowerCase();
   if (!ef || !el || !af || !al) return false;
-  return af.startsWith(ef.slice(0, 3)) && al.startsWith(el.slice(0, 3));
+  // Last name must match exactly — primary identity guard.
+  if (al !== el) return false;
+  // First name: bidirectional 3-char prefix covers most variants (Jen↔Jennifer, Mike↔Michael).
+  if (af.startsWith(ef.slice(0, 3)) || ef.startsWith(af.slice(0, 3))) return true;
+  // First name diverges (James↔Jim, Bob↔Robert). Only trust identity when LinkedIn appended
+  // a globally-unique random suffix (7+ alphanumeric chars containing a digit) to the slug,
+  // which guarantees the slug points to one specific profile. Suffix + last-name exact = same person.
+  const tail = slug.split("-").pop() ?? "";
+  return tail.length >= 6 && /\d/.test(tail);
 }
 
 function personalizeNote(template: string, lead: LeadRow, seller: SellerRow): string {
@@ -351,7 +360,7 @@ async function dispatchOneMessage(
       invitationStatus = userResp?.invitation?.status ?? null;
       const apiFirst = userResp?.first_name ?? "";
       const apiLast = userResp?.last_name ?? "";
-      if (!nameMatches(lead.primary_first_name, lead.primary_last_name, apiFirst, apiLast)) {
+      if (!nameMatches(lead.primary_first_name, lead.primary_last_name, apiFirst, apiLast, slug)) {
         return await failMessage(
           svc, candidate.id, candidate.lead_id,
           `name mismatch — expected "${lead.primary_first_name} ${lead.primary_last_name}", Unipile returned "${apiFirst} ${apiLast}" for slug "${slug}"`,
@@ -359,6 +368,14 @@ async function dispatchOneMessage(
       }
       if (!providerId) {
         return await failMessage(svc, candidate.id, candidate.lead_id, "Unipile did not return a provider_id");
+      }
+      // Identity confirmed. If the lead's first_name differs from what LinkedIn shows
+      // (e.g., CRM has "James" but profile is "Jim"), auto-correct so the outgoing
+      // note addresses them by the name they actually use.
+      const apiFirstTrim = apiFirst.trim();
+      if (apiFirstTrim && apiFirstTrim.toLowerCase() !== (lead.primary_first_name ?? "").trim().toLowerCase()) {
+        await svc.from("leads").update({ primary_first_name: apiFirstTrim }).eq("id", lead.id);
+        lead.primary_first_name = apiFirstTrim;
       }
       if (!lead.linkedin_internal_id) {
         await svc.from("leads").update({ linkedin_internal_id: providerId }).eq("id", lead.id);
