@@ -7,6 +7,13 @@ import { getSupabaseService } from "@/lib/supabase-service";
  * sees the app as if they belonged to a specific (is_demo=true) tenant. */
 export const DEMO_SESSION_COOKIE = "demo_session_bio_id";
 
+/** Cookie name for the multi-tenant switcher. Any user (super_admin, owner,
+ * or otherwise) can switch their active tenant if they have a membership in
+ * it. Falls back to `user_profiles.company_bio_id` when unset. Distinct from
+ * DEMO_SESSION_COOKIE because demo impersonation is admin-only and pretends
+ * to be `client` role; this cookie keeps the real role intact. */
+export const ACTIVE_TENANT_COOKIE = "active_tenant_bio_id";
+
 /**
  * RBAC tiers (from migration 010, 2026-05-04).
  * - super_admin: SWL ops, cross-tenant. Sees /admin/* SWL views.
@@ -183,6 +190,35 @@ export const getUserScope = cache(async function getUserScope(): Promise<UserSco
           demoBioId: demoBio.id,
         };
       }
+    }
+  }
+
+  // Multi-tenant switcher: if the user has explicitly switched to a tenant
+  // (via TenantSwitcher → /api/auth/switch-tenant), honor that. We validate
+  // the membership server-side here so a tampered cookie can't grant access
+  // to a tenant the user doesn't belong to.
+  const cookieStore = await cookies();
+  const activeCookie = cookieStore.get(ACTIVE_TENANT_COOKIE)?.value ?? null;
+  if (activeCookie && activeCookie !== ownBioId) {
+    const { data: membership } = await svc
+      .from("user_company_memberships")
+      .select("company_bio_id, tier, company_bios(archived_at, is_demo)")
+      .eq("user_id", user.id)
+      .eq("company_bio_id", activeCookie)
+      .maybeSingle();
+    const memBio = (membership as { company_bios?: { archived_at?: string | null; is_demo?: boolean } | { archived_at?: string | null; is_demo?: boolean }[] } | null)?.company_bios;
+    const memBioRow = Array.isArray(memBio) ? memBio[0] : memBio;
+    if (membership && !memBioRow?.archived_at) {
+      const switchedTier = (membership.tier as Tier | undefined) ?? tier;
+      return {
+        userId: user.id,
+        role: switchedTier === "super_admin" ? "admin" : "client",
+        tier: switchedTier,
+        companyBioId: activeCookie,
+        isScoped: true,
+        isDemoMode: false,
+        demoBioId: null,
+      };
     }
   }
 

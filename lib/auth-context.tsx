@@ -45,9 +45,17 @@ export type DemoMode =
   | { active: false }
   | { active: true; bioId: string; companyName: string | null; logoUrl: string | null };
 
+export type Membership = {
+  companyBioId: string;
+  companyName: string | null;
+  logoUrl: string | null;
+  tier: string;
+};
+
 type AuthState = {
   user: AuthUser | null;
   demoMode: DemoMode;
+  memberships: Membership[];
   loading: boolean;
   /** Force a refetch from /api/auth/me — useful after a mutation that changes role/tenant. */
   refetch: () => Promise<void>;
@@ -59,6 +67,7 @@ type AuthState = {
 const AuthContext = createContext<AuthState>({
   user: null,
   demoMode: { active: false },
+  memberships: [],
   loading: true,
   refetch: async () => {},
   clearAuth: () => {},
@@ -67,6 +76,7 @@ const AuthContext = createContext<AuthState>({
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [demoMode, setDemoMode] = useState<DemoMode>({ active: false });
+  const [memberships, setMemberships] = useState<Membership[]>([]);
   const [loading, setLoading] = useState(true);
   // Track in-flight fetch so concurrent triggers (mount + visibilitychange)
   // don't fire two requests at once.
@@ -80,17 +90,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (res.status === 401) {
           setUser(null);
           setDemoMode({ active: false });
+          setMemberships([]);
           handleAuthFailure();
           return;
         }
         if (!res.ok) {
           setUser(null);
           setDemoMode({ active: false });
+          setMemberships([]);
           return;
         }
         const data = await res.json();
         setUser(data.user ?? null);
         setDemoMode(data.demoMode ?? { active: false });
+        setMemberships(Array.isArray(data.memberships) ? data.memberships : []);
       } catch {
         // Network errors — keep last-known user, don't blow up the UI.
       } finally {
@@ -118,10 +131,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // updates the moment auth state changes, not on the next navigation.
   useEffect(() => {
     const sb = getSupabaseBrowser();
-    const { data: sub } = sb.auth.onAuthStateChange((event) => {
+    const { data: sub } = sb.auth.onAuthStateChange((event: string) => {
       if (event === "SIGNED_OUT") {
         setUser(null);
         setDemoMode({ active: false });
+        setMemberships([]);
       } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
         fetchAuth();
       }
@@ -132,10 +146,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const clearAuth = useCallback(() => {
     setUser(null);
     setDemoMode({ active: false });
+    setMemberships([]);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, demoMode, loading, refetch: fetchAuth, clearAuth }}>
+    <AuthContext.Provider value={{ user, demoMode, memberships, loading, refetch: fetchAuth, clearAuth }}>
       {children}
     </AuthContext.Provider>
   );

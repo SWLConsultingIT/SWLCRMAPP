@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { DEMO_SESSION_COOKIE } from "@/lib/scope";
+import { DEMO_SESSION_COOKIE, ACTIVE_TENANT_COOKIE } from "@/lib/scope";
 
 export async function GET() {
   const supabase = await getSupabaseServer();
@@ -95,17 +95,62 @@ export async function GET() {
     });
   }
 
+  // Multi-tenant switcher: honor ACTIVE_TENANT_COOKIE if it points at a bio
+  // the user has membership in. Falls back to user_profiles.company_bio_id.
+  // We validate server-side so a tampered cookie can't redirect the UI into
+  // a tenant the user doesn't belong to.
+  const cookieStoreActive = await cookies();
+  const activeCookie = cookieStoreActive.get(ACTIVE_TENANT_COOKIE)?.value ?? null;
+  let effectiveBioId: string | null = profile?.company_bio_id ?? null;
+  let effectiveBioName: string | null = bio?.company_name ?? null;
+  let effectiveBioLogo: string | null = bio?.logo_url ?? null;
+  let effectiveTier: string = tier;
+  if (activeCookie && activeCookie !== effectiveBioId) {
+    const { data: m } = await svc
+      .from("user_company_memberships")
+      .select("tier, company_bios(id, company_name, logo_url, archived_at)")
+      .eq("user_id", user.id)
+      .eq("company_bio_id", activeCookie)
+      .maybeSingle();
+    type ActiveBio = { id: string; company_name: string | null; logo_url: string | null; archived_at: string | null };
+    const aBioRaw = (m as { company_bios?: ActiveBio | ActiveBio[] | null } | null)?.company_bios;
+    const aBio = Array.isArray(aBioRaw) ? aBioRaw[0] : aBioRaw;
+    if (aBio && !aBio.archived_at) {
+      effectiveBioId = aBio.id;
+      effectiveBioName = aBio.company_name;
+      effectiveBioLogo = aBio.logo_url;
+      effectiveTier = (m?.tier as string | undefined) ?? tier;
+    }
+  }
+
+  // Full membership list so the TenantSwitcher dropdown renders without a
+  // separate round-trip when /me is the first fetch on app boot.
+  const { data: memData } = await svc
+    .from("user_company_memberships")
+    .select("company_bio_id, tier, company_bios(id, company_name, logo_url, archived_at)")
+    .eq("user_id", user.id);
+  type MemBio = { id: string; company_name: string | null; logo_url: string | null; archived_at: string | null };
+  type MemRow = { company_bio_id: string; tier: string; company_bios: MemBio | MemBio[] | null };
+  const memberships = (memData ?? []).map((row: unknown) => {
+    const r = row as MemRow;
+    const bioRaw = r.company_bios;
+    const b = Array.isArray(bioRaw) ? bioRaw[0] : bioRaw;
+    if (!b || b.archived_at) return null;
+    return { companyBioId: r.company_bio_id, companyName: b.company_name, logoUrl: b.logo_url, tier: r.tier };
+  }).filter((m): m is NonNullable<typeof m> => m !== null);
+
   return NextResponse.json({
     user: {
       id: user.id,
       email: user.email,
       displayName,
       role,
-      tier,
-      companyBioId: profile?.company_bio_id ?? null,
-      companyName: bio?.company_name ?? null,
-      companyLogoUrl: bio?.logo_url ?? null,
+      tier: effectiveTier,
+      companyBioId: effectiveBioId,
+      companyName: effectiveBioName,
+      companyLogoUrl: effectiveBioLogo,
     },
+    memberships,
     demoMode,
   }, {
     // No-store on auth payload. The earlier 30s cache was eating logout/login

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { useLocale } from "@/lib/i18n";
 import { useAuthUser } from "@/lib/auth-context";
+import TenantSwitcher from "@/components/TenantSwitcher";
 import {
   LayoutDashboard, Users, Megaphone,
   Building2, Target, Shield, ChevronDown, Bell, Trophy, UserCircle, Settings,
@@ -183,6 +184,9 @@ export default function Sidebar() {
           }}
         />
       </div>
+
+      {/* Tenant switcher — only renders for users with ≥2 memberships. */}
+      <TenantSwitcher />
 
       {/* Navigation */}
       <nav className="relative flex-1 px-3 py-4 space-y-5 overflow-y-auto">
