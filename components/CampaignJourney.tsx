@@ -101,6 +101,11 @@ function CampaignBlock({
   const steps: string[] = rawSteps.map((s: any) => typeof s === "string" ? s : s?.channel ?? "unknown");
   const currentStep = campaign.current_step ?? 0;
   const st = statusBadge(campaign.status);
+  // Connection request lives at step_number = 0 in DB (dispatched separately
+  // from the DM sequence). UI used to ignore it, so "0 of 3 steps completed"
+  // showed even after the invite went out. Surface it as a pre-step.
+  const connectionMsg = campMessages.find(m => m.step_number === 0) ?? null;
+  const connectionSent = connectionMsg?.status === "sent";
 
   async function saveMessage(msgId: string) {
     setSaving(true);
@@ -166,7 +171,10 @@ function CampaignBlock({
             <span>Completed: <span className="font-medium" style={{ color: C.textBody }}>{formatDate(campaign.completed_at)}</span></span>
           )}
           {steps.length > 0 && (
-            <span>{currentStep > 0 ? currentStep - 1 : 0} of {steps.length} steps completed</span>
+            <span>
+              {connectionSent && <>Invite sent · </>}
+              {currentStep > 0 ? currentStep - 1 : 0} of {steps.length} follow-ups completed
+            </span>
           )}
         </div>
       </button>
@@ -176,6 +184,66 @@ function CampaignBlock({
         <div className="border-t" style={{ borderColor: C.border }}>
           {steps.length > 0 ? (
             <div className="px-5 py-4">
+              {/* Connection request — pre-step, only when a step_number=0 message exists */}
+              {connectionMsg && (
+                <div className="flex gap-4 pb-4 mb-2 border-b" style={{ borderColor: C.border, minHeight: 56 }}>
+                  <div className="flex flex-col items-center shrink-0" style={{ width: 36 }}>
+                    {connectionSent ? (
+                      <div className="rounded-full flex items-center justify-center shrink-0"
+                        style={{ width: 36, height: 36, backgroundColor: "#DCFCE7" }}>
+                        <CheckCircle2 size={20} style={{ color: "#22C55E" }} />
+                      </div>
+                    ) : (
+                      <div className="rounded-full flex items-center justify-center shrink-0"
+                        style={{ width: 36, height: 36, backgroundColor: C.surface, border: "2px solid #E5E7EB" }}>
+                        <LinkedInIcon size={16} />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1" style={{ paddingTop: 2 }}>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded"
+                          style={{
+                            backgroundColor: connectionSent ? "#DCFCE7" : C.surface,
+                            color: connectionSent ? "#22C55E" : "#9CA3AF",
+                          }}>
+                          Invite
+                        </span>
+                        <LinkedInIcon size={13} />
+                        <span className="text-sm font-medium" style={{ color: C.textBody }}>
+                          Connection Request
+                        </span>
+                      </div>
+                      <div className="shrink-0">
+                        <span className="text-xs font-bold px-2 py-0.5 rounded"
+                          style={{
+                            color: connectionSent ? "#22C55E" : "#9CA3AF",
+                            backgroundColor: connectionSent ? "#DCFCE7" : C.surface,
+                          }}>
+                          {connectionSent ? "SENT" : (connectionMsg.status ?? "PENDING").toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                    {connectionMsg.sent_at && (
+                      <div className="flex items-center gap-4 mt-1.5 text-xs" style={{ color: C.textMuted }}>
+                        <span>
+                          Sent: <span className="font-medium" style={{ color: C.textBody }}>
+                            {new Date(connectionMsg.sent_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                            {" · "}
+                            {new Date(connectionMsg.sent_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </span>
+                      </div>
+                    )}
+                    {connectionMsg.content && (
+                      <div className="mt-2 text-xs whitespace-pre-wrap rounded-lg p-3" style={{ color: C.textBody, backgroundColor: C.surface }}>
+                        {connectionMsg.content}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               {steps.map((stepChannel, idx) => {
                 const stepNum = idx + 1;
                 const isCompleted = stepNum < currentStep;

@@ -199,10 +199,18 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   });
   const currentStep = campaign?.current_step ?? 0;
   const campDone = campaign?.status === 'completed' || campaign?.status === 'failed';
-  const stepPct = campDone ? 100 : steps.length > 0 ? Math.round((currentStep / steps.length) * 100) : 0;
   const campMsgsForStepper = campaign
     ? messages.filter((m: any) => m.campaign_id === campaign.id).sort((a: any, b: any) => (a.step_number ?? 0) - (b.step_number ?? 0))
     : [];
+  // Connection request (step_number = 0) is dispatched separately from the
+  // DM sequence but should count toward overall progress in the stepper.
+  const connectionStepMsg = campMsgsForStepper.find((m: any) => m.step_number === 0) ?? null;
+  const connectionStepSent = connectionStepMsg?.status === 'sent';
+  const effectiveDenominator = steps.length + (connectionStepMsg ? 1 : 0);
+  const effectiveNumerator = currentStep + (connectionStepSent ? 1 : 0);
+  const stepPct = campDone ? 100 : effectiveDenominator > 0
+    ? Math.round((effectiveNumerator / effectiveDenominator) * 100)
+    : 0;
 
   // Build activity items scoped to this lead only
   type ActivityItem = {
@@ -422,6 +430,33 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
           {/* Horizontal stepper */}
           <div className="relative flex items-start justify-between px-4">
+            {/* Connection-request pre-step (step_number=0 in DB). Only rendered when the
+                campaign actually has a connection-request message; otherwise the sequence
+                starts directly at step 1 (e.g. email-first or call-first campaigns). */}
+            {connectionStepMsg && (
+              <div key="invite" className="flex flex-col items-center relative" style={{ flex: 1, minWidth: 100 }}>
+                <div className="relative z-10 mb-3 flex items-center justify-center" style={{ height: 68 }}>
+                  {connectionStepSent ? (
+                    <div className="rounded-full flex items-center justify-center"
+                      style={{ width: 48, height: 48, backgroundColor: "#DCFCE7" }}>
+                      <CheckCircle2 size={26} style={{ color: "#22C55E" }} />
+                    </div>
+                  ) : (
+                    <div className="rounded-full"
+                      style={{ width: 40, height: 40, backgroundColor: "#D1D5DB" }} />
+                  )}
+                </div>
+                <p className="text-center leading-tight px-1"
+                  style={{ color: connectionStepSent ? C.textBody : "#9CA3AF", fontWeight: 500, fontSize: 12 }}>
+                  Invite
+                </p>
+                {connectionStepMsg.sent_at && (
+                  <p className="text-xs text-center mt-1" style={{ color: C.textMuted }}>
+                    {new Date(connectionStepMsg.sent_at).toLocaleDateString("en-GB", { month: "short", day: "numeric" })}
+                  </p>
+                )}
+              </div>
+            )}
             {steps.map((stepLabel: string, idx: number) => {
               const stepNum = idx + 1;
               const isCurrent = stepNum === currentStep;
