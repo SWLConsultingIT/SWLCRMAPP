@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, Trash2 } from "lucide-react";
+import { Phone, Trash2, Sparkles, Loader2 } from "lucide-react";
 import { C } from "@/lib/design";
 import CallClassifier from "@/components/CallClassifier";
 
@@ -39,6 +39,7 @@ const statusBg: Record<string, string> = {
 export default function CallCard({ call, compact = false }: { call: CallRecord; compact?: boolean }) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const mins = call.duration ? Math.floor(call.duration / 60) : null;
   const secs = call.duration ? call.duration % 60 : null;
   const durLabel = mins !== null ? `${mins}m ${secs}s` : null;
@@ -62,6 +63,30 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
       setDeleting(false);
     }
   }
+
+  async function handleTranscribe() {
+    if (transcribing) return;
+    setTranscribing(true);
+    try {
+      const res = await fetch(`/api/aircall/transcribe`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callId: call.id }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(`Couldn't transcribe: ${body.error ?? res.statusText}`);
+        setTranscribing(false);
+        return;
+      }
+      router.refresh();
+    } catch (e: any) {
+      alert(`Couldn't transcribe: ${e?.message ?? "network error"}`);
+      setTranscribing(false);
+    }
+  }
+
+  const canTranscribe = !!call.recording_url && !call.transcript && !!call.aircall_call_id;
 
   return (
     <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -121,6 +146,28 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
       {call.recording_url && (
         <div className="mt-3">
           <audio controls src={call.recording_url} className="w-full h-8" />
+        </div>
+      )}
+      {canTranscribe && (
+        <div className="mt-3 flex justify-end">
+          <button
+            type="button"
+            onClick={handleTranscribe}
+            disabled={transcribing}
+            className="text-xs font-medium px-3 py-1.5 rounded-md border inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
+            style={{ color: C.textBody, borderColor: C.border, backgroundColor: C.surface }}
+            title="Transcribe with Whisper (uses fresh recording URL from Aircall)"
+          >
+            {transcribing ? (
+              <>
+                <Loader2 size={12} className="animate-spin" /> Transcribing…
+              </>
+            ) : (
+              <>
+                <Sparkles size={12} /> Transcribe
+              </>
+            )}
+          </button>
         </div>
       )}
       {!compact && (
