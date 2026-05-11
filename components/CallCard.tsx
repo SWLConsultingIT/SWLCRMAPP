@@ -1,6 +1,8 @@
 "use client";
 
-import { Phone } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Phone, Trash2 } from "lucide-react";
 import { C } from "@/lib/design";
 import CallClassifier from "@/components/CallClassifier";
 
@@ -35,10 +37,31 @@ const statusBg: Record<string, string> = {
 };
 
 export default function CallCard({ call, compact = false }: { call: CallRecord; compact?: boolean }) {
+  const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
   const mins = call.duration ? Math.floor(call.duration / 60) : null;
   const secs = call.duration ? call.duration % 60 : null;
   const durLabel = mins !== null ? `${mins}m ${secs}s` : null;
   const sc = call.status ?? "initiated";
+
+  async function handleDelete() {
+    if (deleting) return;
+    if (!confirm("Delete this call from the lead history? This can't be undone (a fresh Aircall sync will repull if it still exists upstream).")) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/calls/${call.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        alert(`Couldn't delete: ${body.error ?? res.statusText}`);
+        setDeleting(false);
+        return;
+      }
+      router.refresh();
+    } catch (e: any) {
+      alert(`Couldn't delete: ${e?.message ?? "network error"}`);
+      setDeleting(false);
+    }
+  }
 
   return (
     <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -68,6 +91,19 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
             style={{ backgroundColor: statusBg[sc] ?? C.surface, color: statusColor[sc] ?? C.textMuted }}>
             {sc}
           </span>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting}
+            aria-label="Delete call"
+            title="Delete call"
+            className="ml-1 p-1.5 rounded transition-colors disabled:opacity-50"
+            style={{ color: C.textMuted, backgroundColor: "transparent" }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = C.red; e.currentTarget.style.backgroundColor = C.redLight; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = C.textMuted; e.currentTarget.style.backgroundColor = "transparent"; }}
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
       </div>
       {call.transcript && (
