@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   if (!scope.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!scope.companyBioId) return NextResponse.json({ error: "No tenant" }, { status: 403 });
 
-  const { phone, leadId, sellerId, aircallUserId, numberId } = await req.json();
+  const { phone, leadId, aircallUserId, numberId } = await req.json();
   if (!phone) return NextResponse.json({ error: "Phone number required" }, { status: 400 });
 
   // Aircall requires strict E.164: leading "+" then digits only, no spaces,
@@ -86,61 +86,23 @@ export async function POST(req: NextRequest) {
 
   // Resolve which Aircall user makes the call.
   //
-  // Aircall has TWO availability fields and they look similar but mean
-  // different things:
-  //   - `available` (boolean): is the user actually signed into the Aircall
-  //     app right now? This is what matters for dialing — if false, the call
-  //     gets queued by the API but no device will ever ring.
-  //   - `availability_status` (string): a soft status like "available",
-  //     "do_not_disturb", "in_call", "after_call". Even users who are NOT
-  //     signed in have availability_status='available' (it's their default
-  //     state). Filtering by this field is wrong — it matches everyone.
+  // Model: one Aircall user per tenant (company_bio). Every team member of a
+  // tenant dials through that shared user — e.g., anyone working under Arqy
+  // calls via sales@arqy.io. This keeps Aircall workspaces isolated per
+  // tenant: Arqy users only see Arqy's number, never SWL's.
   //
   // Resolution order:
-  //   1. Caller passed aircallUserId explicitly (advanced case).
-  //   2. Caller passed sellerId → use sellers.aircall_user_id (the binding
-  //      configured by super_admin in /admin/[id] Aircall tab). Without
-  //      this, when multiple sellers are signed in the call would ring on
-  //      whichever Aircall user the API listed first — stealing calls.
-  //   3. Fall back to "first user with available=true" globally.
+  //   1. Explicit aircallUserId from caller (advanced override / testing).
+  //   2. company_bios.aircall_user_id of the dialing tenant.
+  //   3. "First user with available=true" globally (last-resort fallback).
   //
-  // After resolving, validate the user is actually `available=true`. If
-  // not, returning 503 makes the failure explicit instead of queuing a
-  // call that nobody will ever pick up.
+  // Note on availability fields: Aircall exposes `available` (boolean — is
+  // the user signed in?) AND `availability_status` (soft string). Only
+  // `available=true` indicates the device will actually ring; the soft
+  // status defaults to "available" even for offline users.
   let resolvedUserId: number | null = aircallUserId ? Number(aircallUserId) : null;
-  // Resolution chain (first match wins):
-  //   1. caller passed aircallUserId (advanced override)
-  //   2. seller's aircall_user_id (per-seller binding)
-  //   3. lead's tenant default (company_bios.aircall_user_id)
-  //   4. fall back below to "first available globally"
-  // (3) is the typical client setup: one shared inbox like sales@arqy.io
-  // handles all calls for that tenant. Most tenants only need that.
-  if (!resolvedUserId) {
-    let lookupSellerId: string | null = sellerId ?? null;
-    if (!lookupSellerId) {
-      const { data: meSeller } = await svc
-        .from("sellers")
-        .select("id")
-        .eq("user_id", scope.userId)
-        .maybeSingle();
-      lookupSellerId = (meSeller as { id?: string } | null)?.id ?? null;
-    }
-    if (lookupSellerId) {
-      const { data: seller } = await svc
-        .from("sellers")
-        .select("aircall_user_id")
-        .eq("id", lookupSellerId)
-        .maybeSingle();
-      const sellerAircall = (seller as { aircall_user_id?: string | null } | null)?.aircall_user_id ?? null;
-      if (sellerAircall) {
-        const parsed = Number(sellerAircall);
-        if (Number.isFinite(parsed)) resolvedUserId = parsed;
-      }
-    }
-  }
-  // Step 3: lead's tenant default. The numbers picker already scopes by the
-  // lead's company_bio_id; we use the same source of truth here. Falls back
-  // to viewer's tenant if no leadId (manual queue dial without lead context).
+  // Step 2: tenant default. Use the LEAD's bio when present (so super_admin
+  // dialing across tenants picks the right Aircall user), else viewer's.
   if (!resolvedUserId) {
     let dialingBio: string | null = scope.companyBioId;
     if (leadId) {
@@ -180,7 +142,7 @@ export async function POST(req: NextRequest) {
       // fall through to error below
     }
   } else {
-    // The caller (or seller binding) gave us a specific user_id — verify
+    // The caller (or tenant default) gave us a specific user_id — verify
     // they're signed in. Otherwise the call queues forever.
     try {
       const userRes = await fetch(`https://api.aircall.io/v1/users/${resolvedUserId}`, {
@@ -230,7 +192,7 @@ export async function POST(req: NextRequest) {
     await svc.from("calls").insert({
       aircall_call_id: callId,
       lead_id: leadId,
-      seller_id: sellerId ?? null,
+      seller_id: null,
       direction: "outbound",
       status: "initiated",
       phone_number: phone,

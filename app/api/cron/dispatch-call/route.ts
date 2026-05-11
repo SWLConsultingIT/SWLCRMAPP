@@ -234,19 +234,12 @@ async function dispatchOneCall(
     return await failMessage(svc, candidate.id, candidate.lead_id, "tenant has no Aircall number assigned");
   }
 
-  // Resolve which Aircall user dials this specific message:
-  //   1. seller.aircall_user_id (already stamped on availableAircallUserId
-  //      by processSellerBatch when set + available)
-  //   2. company_bios.aircall_user_id (per-tenant default — what most
-  //      tenants use: one shared inbox handles their calls)
-  //   3. fallback "first available" (already stamped by processSellerBatch)
-  // We override step 1's value with step 2 ONLY when step 1 was the
-  // fallback (i.e., seller had no explicit binding). When the seller had
-  // an explicit binding, that always wins.
-  let resolvedUserId = availableAircallUserId;
-  if (!seller.aircall_user_id && tenantAircallUserId) {
-    resolvedUserId = tenantAircallUserId;
-  }
+  // Resolve which Aircall user dials this message. Model is one Aircall user
+  // per tenant — everyone working under a given tenant calls through that
+  // shared inbox (e.g., sales@arqy.io for Arqy leads). Falls back to
+  // "first available" only if the tenant has no Aircall user configured
+  // yet (mostly during onboarding before company_bios.aircall_user_id is set).
+  const resolvedUserId = tenantAircallUserId ?? availableAircallUserId;
 
   // Place the call. Aircall returns 204 No Content; the call_id arrives
   // later via webhook.
