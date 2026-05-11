@@ -159,9 +159,14 @@ async function fetchReliability(): Promise<ReliabilityData> {
     await Promise.all(sellersQ.data.map(async (s: any) => {
       if (!s.unipile_account_id) return;
       try {
+        // Always fetch fresh — the previous 60s revalidate window produced
+        // false ghost-sent rows (2026-05-11 incident): 3 recent invitations
+        // showed in Unipile via direct curl but the dashboard's cached page
+        // copy didn't include them, so reconciliation marked them as ghost.
+        // Reliability is a diagnostic surface; staleness defeats its purpose.
         const res = await fetch(
           `${UNIPILE_BASE}/api/v1/users/invite/sent?account_id=${encodeURIComponent(s.unipile_account_id)}&limit=100`,
-          { headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" }, next: { revalidate: 60, tags: [`unipile-invites-${s.id}`] } },
+          { headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" }, cache: "no-store" },
         );
         const body = await res.json().catch(() => ({}));
         if (!res.ok) {
