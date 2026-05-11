@@ -68,6 +68,25 @@ const channelMeta: Record<string, { icon: React.ElementType; color: string; labe
   call:     { icon: Phone,  color: C.phone,    label: "Call" },
 };
 
+// LinkedIn invite notes cap at 200 chars POST placeholder interpolation.
+// If the AI returns 220 chars of template, expansion can push it to ~250+
+// and the dispatcher will reject it (post 2026-05-11 dispatcher patch).
+// Clamp client-side at the budget, cutting at the last sentence boundary
+// so the text reads naturally instead of mid-word.
+function clampToCharBudget(text: string, budget: number): string {
+  if (!text) return text;
+  if (text.length <= budget) return text;
+  const trimmed = text.slice(0, budget);
+  const lastPunct = Math.max(
+    trimmed.lastIndexOf("."),
+    trimmed.lastIndexOf("?"),
+    trimmed.lastIndexOf("!"),
+  );
+  if (lastPunct > Math.floor(budget * 0.6)) return trimmed.slice(0, lastPunct + 1).trimEnd();
+  const lastSpace = trimmed.lastIndexOf(" ");
+  return (lastSpace > 30 ? trimmed.slice(0, lastSpace) : trimmed).trimEnd() + "…";
+}
+
 function classifySteps(sequence: { channel: string; daysAfter: number }[]): { type: string; channel: string; label: string; hasSubject: boolean }[] {
   const counters: Record<string, number> = {};
   let introduced = false;
@@ -225,8 +244,12 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         const currentReplies = channelMessages.autoReplies || { positive: "", negative: "", question: "" };
 
         if (fieldType === "connectionNote") {
-          // Connection request is a separate field
-          onChange({ ...channelMessages, connectionRequest: data.content, steps: currentSteps, autoReplies: currentReplies });
+          // Connection request is a separate field. Even though V7 Pro's
+          // Sanitize Output v2 caps at 195 chars projected, ENFORCE here too —
+          // (a) belt-and-braces if the workflow ever drifts, (b) keeps the
+          // wizard internally consistent with the 200-char textarea maxLength.
+          const trimmed = clampToCharBudget(data.content, 200);
+          onChange({ ...channelMessages, connectionRequest: trimmed, steps: currentSteps, autoReplies: currentReplies });
         } else if (idx !== undefined) {
           currentSteps[idx] = {
             ...currentSteps[idx],
@@ -268,7 +291,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           body: JSON.stringify({ channel: "linkedin", fieldType: "connectionNote", leadId, icpProfileId, language, signals, sequence_meta: sequence, user_prompt: channelMessages.connectionRequestPrompt ?? "" }),
         });
         const crData = await crRes.json();
-        if (crData.content) connRequest = crData.content;
+        if (crData.content) connRequest = clampToCharBudget(crData.content, 200);
         onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
       }
 
@@ -406,9 +429,13 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           <div className="px-5 py-4 space-y-2">
             <p className="text-xs" style={{ color: C.textMuted }}>{t("wiz.connReq.hint")}</p>
 
-            {/* PRIMARY: the message. AI generation lands here. Always editable. */}
+            {/* PRIMARY: the message. AI generation lands here. Always editable.
+                LinkedIn invite notes are hard-capped at 200 chars by the
+                dispatcher; we enforce here too so the wizard can't save an
+                oversize template that would later get rejected. */}
             <textarea
               rows={expanded.has("conn") ? 10 : 2}
+              maxLength={200}
               className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
               style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
               value={channelMessages.connectionRequest || ""}
@@ -418,6 +445,11 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
             <p className="text-xs text-right" style={{ color: (channelMessages.connectionRequest?.length || 0) > 200 ? C.red : C.textDim }}>
               {channelMessages.connectionRequest?.length || 0}/200
             </p>
+            {(channelMessages.connectionRequest?.length || 0) > 195 && (
+              <p className="text-[11px]" style={{ color: C.red }}>
+                Heads up: placeholder expansion (first name + company) may push this past LinkedIn&apos;s 200-char cap. Tighten to ~180 to leave margin.
+              </p>
+            )}
 
             {/* SECONDARY: small prompt helper for AI — optional. */}
             <div className="pt-2">

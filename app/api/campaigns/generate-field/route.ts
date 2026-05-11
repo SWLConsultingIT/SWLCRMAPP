@@ -196,8 +196,25 @@ export async function POST(req: NextRequest) {
       return subject;
     };
 
-    const fixOne = (m: { channel: string; subject: string | null; body: string }) => {
-      const fixedBody = replaceTrailingSignature(m.body || "");
+    // LinkedIn connection notes are 200-char capped by the dispatcher. The
+    // V7 Pro Sanitize Output v2 enforces 195 chars projected, but if anything
+    // upstream drifts (manual_override bypass, regression in the workflow,
+    // etc.) we still want this endpoint to never hand the wizard a value
+    // that would later fail the dispatcher. Clamp at last sentence boundary.
+    const clampConnectionRequest = (raw: string | null | undefined): string => {
+      if (!raw) return raw ?? "";
+      if (raw.length <= 200) return raw;
+      const trimmed = raw.slice(0, 200);
+      const lastPunct = Math.max(trimmed.lastIndexOf("."), trimmed.lastIndexOf("?"), trimmed.lastIndexOf("!"));
+      if (lastPunct > 120) return trimmed.slice(0, lastPunct + 1).trimEnd();
+      const lastSpace = trimmed.lastIndexOf(" ");
+      return (lastSpace > 30 ? trimmed.slice(0, lastSpace) : trimmed).trimEnd() + "…";
+    };
+
+    const fixOne = (m: { channel: string; subject: string | null; body: string; type?: string }) => {
+      const fixedBody = m.type === "LINKEDIN_CONNECTION_REQUEST"
+        ? clampConnectionRequest(replaceTrailingSignature(m.body || ""))
+        : replaceTrailingSignature(m.body || "");
       const subject = m.subject && m.subject.trim().length > 0
         ? m.subject
         : (m.channel === "email" ? deriveSubject(fixedBody) : null);
@@ -208,7 +225,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         ...data,
         messages: Array.isArray(data.messages) ? data.messages.map(fixOne) : data.messages,
-        connectionRequest: data.connectionRequest ? replaceTrailingSignature(data.connectionRequest) : data.connectionRequest,
+        connectionRequest: data.connectionRequest ? clampConnectionRequest(replaceTrailingSignature(data.connectionRequest)) : data.connectionRequest,
       });
     }
 
@@ -218,7 +235,7 @@ export async function POST(req: NextRequest) {
     if (!msg) return NextResponse.json({ content: "", subject: "" });
     if (body.fieldType === "connectionNote") {
       const conn = data.connectionRequest ?? msg.body ?? "";
-      return NextResponse.json({ content: replaceTrailingSignature(conn) });
+      return NextResponse.json({ content: clampConnectionRequest(replaceTrailingSignature(conn)) });
     }
     const fixedBody = replaceTrailingSignature(msg.body || "");
     const subject = msg.subject && msg.subject.trim().length > 0
