@@ -34,6 +34,12 @@ type Campaign = {
     primary_title_role?: string | null;
     lead_score?: number | null;
     is_priority?: boolean | null;
+    primary_linkedin_url?: string | null;
+    primary_work_email?: string | null;
+    primary_phone?: string | null;
+    allow_linkedin?: boolean | null;
+    allow_email?: boolean | null;
+    allow_call?: boolean | null;
   } | null;
   sellers: { name: string } | null;
   step_0?: Step0State;
@@ -56,10 +62,18 @@ function deriveCardBadge(camp: Campaign): CardBadge | null {
     return { label: "FAILED", color: "#DC2626", bg: "#FEE2E2" };
   }
   if (s.status === "skipped") {
-    // Lead's allow_linkedin was set to false (no URL on file, locked profile,
-    // or manually disabled). Surface this distinctly from "queued" so admins
-    // don't confuse "will never send" with "about to send".
-    return { label: "BLOCKED", color: "#DC2626", bg: "#FEE2E2" };
+    // Lead's channel was disabled (no data, invalid data, or manually off).
+    // Show the SPECIFIC reason so admins know what to do about it instead of
+    // a generic "BLOCKED" that hides the why. Channel is read from the step
+    // itself in the future; for now the kanban step 0 is LinkedIn-only so we
+    // resolve the reason against the lead's LinkedIn fields.
+    const url = camp.leads?.primary_linkedin_url ?? null;
+    const looksLikeLinkedIn = !!url && /linkedin\.com\/in\//i.test(url);
+    if (!url) return { label: "NO LINKEDIN", color: "#DC2626", bg: "#FEE2E2" };
+    if (!looksLikeLinkedIn) return { label: "BAD URL", color: "#DC2626", bg: "#FEE2E2" };
+    // Has a valid-shape LinkedIn URL but allow_linkedin=false. Most common
+    // reason: Unipile flagged the profile as locked / not reachable.
+    return { label: "LOCKED PROFILE", color: "#DC2626", bg: "#FEE2E2" };
   }
   if (s.status === "dispatching") {
     return { label: "SENDING…", color: "#7C3AED", bg: "#EDE9FE" };

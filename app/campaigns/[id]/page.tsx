@@ -52,7 +52,7 @@ async function getSiblingCampaigns(campaignName: string, excludeId: string) {
   const supabase = await getSupabaseServer();
   const { data } = await supabase
     .from("campaigns")
-    .select("id, status, current_step, sequence_steps, channel, last_step_at, seller_id, leads(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_phone, lead_score, is_priority), sellers(name)")
+    .select("id, status, current_step, sequence_steps, channel, last_step_at, seller_id, leads(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, lead_score, is_priority, allow_linkedin, allow_email, allow_call), sellers(name)")
     .eq("name", campaignName)
     .neq("id", excludeId)
     .order("created_at", { ascending: false })

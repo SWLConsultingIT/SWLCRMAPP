@@ -353,6 +353,7 @@ function LostLeadsView({ leads }: { leads: LostLead[] }) {
   const [filter, setFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [recovering, setRecovering] = useState(false);
 
   const filtered = leads.filter(l => {
     if (filter === "negative" && l.reason !== "negative") return false;
@@ -387,6 +388,26 @@ function LostLeadsView({ leads }: { leads: LostLead[] }) {
     const ids = [...selected];
     await supabase.from("leads").delete().in("id", ids);
     setDeleting(false);
+    setSelected(new Set());
+    window.location.reload();
+  }
+
+  // Recover = bring lead back to a contactable state so it can be added to a
+  // new campaign. We don't touch the old closed_lost campaign rows — those
+  // stay as history — but we flip the lead-level flags so the dispatcher and
+  // the campaign picker treat the lead as fresh again.
+  async function recoverSelected() {
+    const n = selected.size;
+    if (!window.confirm(`Recover ${n} lead${n > 1 ? "s" : ""}? They'll be marked as contactable again and you can add them to a new campaign.`)) return;
+    setRecovering(true);
+    const ids = [...selected];
+    await Promise.all([
+      supabase.from("leads").update({ status: "new", responded: false }).in("id", ids),
+      // Best-effort: drop suppressions if a row exists. Errors if the table or
+      // rows aren't present, which is fine — recover is idempotent.
+      supabase.from("lead_suppressions").delete().in("lead_id", ids),
+    ]);
+    setRecovering(false);
     setSelected(new Set());
     window.location.reload();
   }
@@ -439,12 +460,21 @@ function LostLeadsView({ leads }: { leads: LostLead[] }) {
         </button>
 
         {selected.size > 0 && (
-          <button onClick={deleteSelected} disabled={deleting}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
-            style={{ backgroundColor: C.red, color: "#fff", opacity: deleting ? 0.6 : 1 }}>
-            <Trash2 size={12} />
-            {deleting ? "Deleting…" : `Delete ${selected.size} lead${selected.size > 1 ? "s" : ""}`}
-          </button>
+          <>
+            <button onClick={recoverSelected} disabled={recovering || deleting}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
+              style={{ backgroundColor: gold, color: "#04070d", opacity: (recovering || deleting) ? 0.6 : 1 }}
+              title="Mark these leads as contactable again so you can add them to a new campaign">
+              <RefreshCw size={12} className={recovering ? "animate-spin" : ""} />
+              {recovering ? "Recovering…" : `Recover ${selected.size} lead${selected.size > 1 ? "s" : ""}`}
+            </button>
+            <button onClick={deleteSelected} disabled={deleting || recovering}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
+              style={{ backgroundColor: C.red, color: "#fff", opacity: (deleting || recovering) ? 0.6 : 1 }}>
+              <Trash2 size={12} />
+              {deleting ? "Deleting…" : `Delete ${selected.size} lead${selected.size > 1 ? "s" : ""}`}
+            </button>
+          </>
         )}
       </div>
 
