@@ -6,7 +6,7 @@ import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
 import {
   ArrowLeft, ArrowRight, Check, Share2, Mail, Phone,
-  Loader2, Send, Megaphone, Plus, Trash2, Globe, Settings,
+  Loader2, Send, Megaphone, Plus, Trash2, Globe, Settings, AlertTriangle,
 } from "lucide-react";
 import ChannelMessageConfig, { type ChannelMessages } from "@/components/ChannelMessageConfig";
 import SignalPicker from "@/components/SignalPicker";
@@ -133,6 +133,23 @@ export default function NewCampaignWizard() {
   const [aircallNumbers, setAircallNumbers] = useState<{ id: number; name: string; digits: string; country: string }[]>([]);
   const [selectedAircallNumberId, setSelectedAircallNumberId] = useState<number | null>(null);
 
+  // Channel coverage across the leads chosen for this campaign. Counted once
+  // up front so the Sequence step can warn the operator BEFORE launch when
+  // a channel is in the flow but some leads are missing the data for it
+  // (no LinkedIn URL, no email, no phone). Without this guard, those leads
+  // sit silently and the dispatcher fails them at send time, which is what
+  // happened on Pathway 2026-05-11 — admin discovered 9 BLOCKED only after
+  // they showed up in Failed Messages.
+  //
+  // missing[channel] holds the names of leads that CAN'T be reached on that
+  // channel — used in the warning so admin sees exactly who's blocked, not
+  // just an aggregate count.
+  const [coverage, setCoverage] = useState<{
+    total: number;
+    linkedin: number; email: number; call: number;
+    missing: { linkedin: string[]; email: string[]; call: string[] };
+  }>({ total: 0, linkedin: 0, email: 0, call: 0, missing: { linkedin: [], email: [], call: [] } });
+
   // Sequence builder
   const [sequence, setSequence] = useState<SequenceStep[]>([
     { channel: "linkedin", daysAfter: 0 },
@@ -188,17 +205,40 @@ export default function NewCampaignWizard() {
         if (d.numbers?.length === 1) setSelectedAircallNumberId(d.numbers[0].id);
       } catch {}
 
-      // Count leads: either selected or all in profile
-      let count = 0;
+      // Count leads + channel coverage in one pass. We fetch the channel-relevant
+      // columns for the selected/profile leads and tally per-channel availability.
+      // Cheap: 4 fields × ~100 rows = a few KB. Keeps the Sequence step honest
+      // about whether a chosen channel will actually reach all the leads.
+      let coverageQ = supabase
+        .from("leads")
+        .select("id, primary_first_name, primary_last_name, primary_linkedin_url, primary_work_email, primary_personal_email, primary_phone, allow_linkedin, allow_email, allow_call")
+        .eq("icp_profile_id", profileId);
+      if (isPartialSelection) coverageQ = coverageQ.in("id", selectedLeadIds);
+      const { data: covRows } = await coverageQ;
+      const rows = covRows ?? [];
+      const isValidLi = (u: string | null) => !!u && /linkedin\.com\/in\//i.test(u);
+      const fullName = (r: any) => `${r.primary_first_name ?? ""} ${r.primary_last_name ?? ""}`.trim() || "Unknown";
+      const okLi   = (r: any) => isValidLi(r.primary_linkedin_url) && r.allow_linkedin !== false;
+      const okMail = (r: any) => (r.primary_work_email || r.primary_personal_email) && r.allow_email !== false;
+      const okCall = (r: any) => r.primary_phone && r.allow_call !== false;
+      const cov = {
+        total: rows.length,
+        linkedin: rows.filter(okLi).length,
+        email:    rows.filter(okMail).length,
+        call:     rows.filter(okCall).length,
+        missing: {
+          linkedin: rows.filter((r: any) => !okLi(r)).map(fullName),
+          email:    rows.filter((r: any) => !okMail(r)).map(fullName),
+          call:     rows.filter((r: any) => !okCall(r)).map(fullName),
+        },
+      };
+      setCoverage(cov);
+
+      let count = rows.length;
       if (isPartialSelection) {
-        count = selectedLeadIds.length;
-        // Fetch names for display
-        const { data: names } = await supabase
-          .from("leads")
-          .select("primary_first_name, primary_last_name")
-          .in("id", selectedLeadIds);
-        setSelectedLeadNames((names ?? []).map(n => `${n.primary_first_name ?? ""} ${n.primary_last_name ?? ""}`.trim()));
-      } else {
+        setSelectedLeadNames(rows.map((n: any) => `${n.primary_first_name ?? ""} ${n.primary_last_name ?? ""}`.trim()));
+      } else if (count === 0) {
+        // Defensive: profile may have leads but we read 0 — fall back to count query.
         const { count: totalCount } = await supabase
           .from("leads")
           .select("*", { count: "exact", head: true })
@@ -501,6 +541,72 @@ export default function NewCampaignWizard() {
             <p className="text-xs mt-4 pt-3 border-t" style={{ borderColor: C.border, color: C.textMuted }}>
               {leadsCount} leads · {sequence.length} steps · {totalDays} days · {[...new Set(sequence.map(s => s.channel))].length} channels
             </p>
+
+            {/* Channel coverage warnings — surface missing data BEFORE launch.
+                Per-channel breakdown with the actual lead names that will be
+                blocked. Different leads may fail on different channels (a lead
+                with email-only but no LinkedIn appears under LinkedIn only). */}
+            {(() => {
+              const usedChannels = [...new Set(sequence.map(s => s.channel))] as Array<"linkedin" | "email" | "call">;
+              const gaps = usedChannels
+                .map(ch => ({ ch, reachable: coverage[ch], blockedNames: coverage.missing[ch] }))
+                .filter(x => x.blockedNames.length > 0);
+              if (gaps.length === 0 || coverage.total === 0) return null;
+              const label = (ch: string) => channelOptions.find(o => o.key === ch)?.label ?? ch;
+              const color = (ch: string) => channelOptions.find(o => o.key === ch)?.color ?? "#64748B";
+              const PREVIEW = 6;
+              return (
+                <div className="mt-4 rounded-lg border p-4"
+                  style={{ borderColor: "#FDE68A", backgroundColor: "#FFFBEB" }}>
+                  <div className="flex items-start gap-2.5 mb-3">
+                    <AlertTriangle size={16} style={{ color: "#D97706" }} className="shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-bold mb-0.5" style={{ color: "#92400E" }}>
+                        Some leads can&apos;t be reached on every channel in this sequence.
+                      </p>
+                      <p className="text-xs" style={{ color: "#92400E" }}>
+                        For each channel below, the listed leads will sit blocked on the steps that use it — they won&apos;t fail loudly, they just won&apos;t send. A lead with only email and no LinkedIn would appear under LinkedIn only.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5 pl-7">
+                    {gaps.map(g => {
+                      const shown = g.blockedNames.slice(0, PREVIEW);
+                      const extra = g.blockedNames.length - shown.length;
+                      return (
+                        <div key={g.ch} className="rounded-md border bg-white p-2.5"
+                          style={{ borderColor: "#FDE68A" }}>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs font-bold flex items-center gap-1.5" style={{ color: color(g.ch) }}>
+                              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color(g.ch) }} />
+                              {label(g.ch)}
+                              <span className="font-medium" style={{ color: "#78350F" }}>
+                                · {g.reachable} / {coverage.total} reachable
+                              </span>
+                            </span>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider"
+                              style={{ backgroundColor: "#DC2626", color: "#fff" }}>
+                              {g.blockedNames.length} blocked
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {shown.map((n, idx) => (
+                              <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded"
+                                style={{ backgroundColor: "#F3F4F6", color: "#374151" }}>{n}</span>
+                            ))}
+                            {extra > 0 && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                                style={{ color: "#78350F" }}>+ {extra} more</span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
