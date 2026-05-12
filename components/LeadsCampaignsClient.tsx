@@ -393,20 +393,28 @@ function LostLeadsView({ leads }: { leads: LostLead[] }) {
   }
 
   // Recover = bring lead back to a contactable state so it can be added to a
-  // new campaign. We don't touch the old closed_lost campaign rows — those
-  // stay as history — but we flip the lead-level flags so the dispatcher and
-  // the campaign picker treat the lead as fresh again.
+  // new campaign. "Lost" in the page query is derived from the lead having at
+  // least one completed/failed campaign (and no active one), so resetting the
+  // lead row alone isn't enough — we must also retire the old completed/failed
+  // campaigns so they stop counting as "lost history". We use status='archived'
+  // which the page query doesn't match, preserving the rows for audit while
+  // taking them out of the Lost bucket.
   async function recoverSelected() {
     const n = selected.size;
-    if (!window.confirm(`Recover ${n} lead${n > 1 ? "s" : ""}? They'll be marked as contactable again and you can add them to a new campaign.`)) return;
+    if (!window.confirm(`Recover ${n} lead${n > 1 ? "s" : ""}? Their finished campaigns will be archived (kept for history) and the lead becomes contactable again. You'll be able to add them to a new campaign.`)) return;
     setRecovering(true);
     const ids = [...selected];
-    await Promise.all([
-      supabase.from("leads").update({ status: "new", responded: false }).in("id", ids),
-      // Best-effort: drop suppressions if a row exists. Errors if the table or
-      // rows aren't present, which is fine — recover is idempotent.
-      supabase.from("lead_suppressions").delete().in("lead_id", ids),
+    const [leadUpd, campUpd, suppDel] = await Promise.all([
+      supabase.from("leads").update({ status: "new", responded: false }).in("id", ids).select("id"),
+      supabase.from("campaigns").update({ status: "archived" }).in("lead_id", ids).in("status", ["completed", "failed"]).select("id"),
+      // Best-effort: drop suppressions if a row exists. Errors if the table is missing — recover is idempotent.
+      supabase.from("lead_suppressions").delete().in("lead_id", ids).select("lead_id"),
     ]);
+    if (leadUpd.error || campUpd.error) {
+      setRecovering(false);
+      window.alert(`Recover failed:\n${leadUpd.error?.message ?? ""}\n${campUpd.error?.message ?? ""}`);
+      return;
+    }
     setRecovering(false);
     setSelected(new Set());
     window.location.reload();
