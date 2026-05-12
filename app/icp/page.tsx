@@ -27,7 +27,29 @@ type IcpProfile = {
   notes: string;
   status: "pending" | "reviewed" | "approved" | "rejected";
   created_at: string;
+  executed_at: string | null;
+  leads_uploaded: number | null;
+  leads_requested: number | null;
 };
+
+function formatRelative(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return null;
+  const diffMs = Date.now() - then;
+  const day = 86_400_000;
+  const days = Math.floor(diffMs / day);
+  if (days < 1) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days}d ago`;
+  if (days < 30) return `${Math.floor(days / 7)}w ago`;
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function isRecentUpload(iso: string | null | undefined): boolean {
+  if (!iso) return false;
+  return Date.now() - new Date(iso).getTime() < 7 * 86_400_000;
+}
 
 const emptyForm = {
   profile_name: "",
@@ -319,15 +341,32 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
       {/* Header */}
       <div className="p-6 flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-3 mb-1">
+          <div className="flex items-center gap-3 mb-1 flex-wrap">
             <h2 className="text-xl font-bold" style={{ color: C.textPrimary }}>{profile.profile_name}</h2>
             <span className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold"
               style={{ backgroundColor: st.bg, color: st.color }}>
               <Clock size={11} /> {st.label}
             </span>
+            {isRecentUpload(profile.executed_at) && (
+              <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                style={{ backgroundColor: gold, color: "#04070d" }}>
+                NEW
+              </span>
+            )}
+            {(profile.leads_uploaded ?? 0) > 0 && (
+              <span className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full"
+                style={{ backgroundColor: C.greenLight, color: C.green }}>
+                <Users size={11} /> {profile.leads_uploaded} {profile.leads_uploaded === 1 ? "lead uploaded" : "leads uploaded"}
+              </span>
+            )}
           </div>
-          <p className="text-xs" style={{ color: C.textMuted }}>
-            Created {new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+          <p className="text-xs flex items-center gap-3" style={{ color: C.textMuted }}>
+            <span>Created {new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
+            {profile.executed_at && (
+              <span style={{ color: C.green }}>
+                · Leads uploaded {new Date(profile.executed_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+              </span>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -720,8 +759,27 @@ export default function LeadGenPage() {
                     <Target size={18} style={{ color: gold }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-sm" style={{ color: C.textPrimary }}>{p.profile_name}</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-sm" style={{ color: C.textPrimary }}>{p.profile_name}</h3>
+                      {isRecentUpload(p.executed_at) && (
+                        <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                          style={{ backgroundColor: gold, color: "#04070d" }}>
+                          NEW
+                        </span>
+                      )}
+                      {(p.leads_uploaded ?? 0) > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                          style={{ backgroundColor: C.greenLight, color: C.green }}>
+                          <Users size={9} /> {p.leads_uploaded} {p.leads_uploaded === 1 ? "lead" : "leads"}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-4 text-xs mt-0.5" style={{ color: C.textMuted }}>
+                      {p.executed_at && (
+                        <span className="flex items-center gap-1" style={{ color: C.green }}>
+                          <Clock size={10} /> Uploaded {formatRelative(p.executed_at)}
+                        </span>
+                      )}
                       {tags.length > 0 && (
                         <span className="flex items-center gap-1">
                           <Briefcase size={10} /> {tags.slice(0, 3).join(", ")}{tags.length > 3 ? ` +${tags.length - 3}` : ""}

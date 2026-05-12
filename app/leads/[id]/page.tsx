@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   Mail, Phone, Building2,
-  ExternalLink, CheckCircle2,
+  ExternalLink, CheckCircle2, AlertTriangle,
 } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
 import CompanyTabs from "@/components/CompanyTabs";
@@ -154,14 +154,27 @@ function ScoreRing({ score, color }: { score: number; color: string }) {
   );
 }
 
-// Channel permission row
+function isValidLinkedInUrl(url: string | null | undefined): boolean {
+  if (!url) return false;
+  try {
+    const u = new URL(url);
+    return /(^|\.)linkedin\.com$/i.test(u.hostname) && /\/in\//.test(u.pathname);
+  } catch {
+    return false;
+  }
+}
+
+// Channel permission row. `hasData(lead)` decides whether the channel actually
+// has the underlying contact info — flagging mis-configured leads like an
+// allow_linkedin=true with no primary_linkedin_url, which is what makes
+// dispatch fail downstream with "no LinkedIn slug on lead".
 const CHANNELS = [
-  { key: "allow_linkedin",  icon: <LinkedInIcon size={14} />,     activeColor: "#0A66C2" },
-  { key: "allow_email",     icon: <span className="text-sm">✉️</span>, activeColor: C.green },
-  { key: "allow_call",      icon: <span className="text-sm">📱</span>, activeColor: C.phone },
-  { key: "allow_whatsapp",  icon: <span className="text-sm">💬</span>, activeColor: "#25D366" },
-  { key: "allow_instagram", icon: <span className="text-sm">📸</span>, activeColor: "#E1306C" },
-  { key: "allow_sms",       icon: <span className="text-sm">💬</span>, activeColor: C.blue },
+  { key: "allow_linkedin",  icon: <LinkedInIcon size={14} />,            activeColor: "#0A66C2", hasData: (l: any) => isValidLinkedInUrl(l?.primary_linkedin_url) },
+  { key: "allow_email",     icon: <span className="text-sm">✉️</span>, activeColor: C.green,    hasData: (l: any) => !!l?.primary_work_email || !!l?.primary_personal_email },
+  { key: "allow_call",      icon: <span className="text-sm">📱</span>, activeColor: C.phone,    hasData: (l: any) => !!l?.primary_phone || !!l?.primary_secondary_phone },
+  { key: "allow_whatsapp",  icon: <span className="text-sm">💬</span>, activeColor: "#25D366",  hasData: (l: any) => !!l?.whatsapp_number || !!l?.primary_phone },
+  { key: "allow_instagram", icon: <span className="text-sm">📸</span>, activeColor: "#E1306C",  hasData: (l: any) => !!l?.primary_instagram },
+  { key: "allow_sms",       icon: <span className="text-sm">💬</span>, activeColor: C.blue,     hasData: (l: any) => !!l?.primary_phone },
 ];
 
 // ── Page ──
@@ -359,20 +372,30 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             <div className="flex items-center gap-1.5">
               {CHANNELS.map(ch => {
                 const allowed = lead[ch.key] !== false;
+                const hasData = ch.hasData(lead);
+                const ready = allowed && hasData;
+                const broken = allowed && !hasData;
+                const label = ch.key.replace("allow_", "");
                 return (
                   <div key={ch.key}
                     className="w-8 h-8 rounded-full flex items-center justify-center border relative"
-                    title={ch.key.replace("allow_", "")}
+                    title={broken ? `${label} allowed but no contact data on file — dispatch will fail` : ready ? `${label}: ready` : `${label}: blocked`}
                     style={{
-                      backgroundColor: allowed ? "#F0FDF4" : "#F9FAFB",
-                      borderColor: allowed ? "#BBF7D0" : C.border,
+                      backgroundColor: ready ? "#F0FDF4" : broken ? "#FEF3C7" : "#F9FAFB",
+                      borderColor: ready ? "#BBF7D0" : broken ? "#FDE68A" : C.border,
                       opacity: allowed ? 1 : 0.45,
                     }}>
                     {ch.icon}
-                    {allowed && (
+                    {ready && (
                       <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full flex items-center justify-center"
                         style={{ backgroundColor: C.green }}>
                         <span style={{ color: "#fff", fontSize: 7, lineHeight: 1 }}>✓</span>
+                      </div>
+                    )}
+                    {broken && (
+                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full flex items-center justify-center"
+                        style={{ backgroundColor: "#D97706" }}>
+                        <AlertTriangle size={7} color="#fff" />
                       </div>
                     )}
                   </div>
@@ -614,17 +637,40 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                     </div>
                   </div>
                 )}
-                {lead.primary_linkedin_url && (
-                  <div className="flex items-center gap-2.5 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
-                    <LinkedInIcon size={14} />
-                    <div>
-                      <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>LinkedIn</p>
-                      <a href={lead.primary_linkedin_url} target="_blank" rel="noopener"
-                        className="text-sm font-medium hover:underline flex items-center gap-1"
-                        style={{ color: "#0A66C2" }}>View Profile <ExternalLink size={11} /></a>
+                {(() => {
+                  const url = lead.primary_linkedin_url as string | null;
+                  const valid = isValidLinkedInUrl(url);
+                  if (!url && lead.allow_linkedin === false) return null;
+                  return (
+                    <div className="flex items-start gap-2.5 p-3 rounded-lg min-w-0"
+                      style={{ backgroundColor: !url || !valid ? "#FEF3C7" : C.bg, border: !url || !valid ? "1px solid #FDE68A" : "none" }}>
+                      <LinkedInIcon size={14} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>LinkedIn</p>
+                        {url && valid && (
+                          <a href={url} target="_blank" rel="noopener"
+                            className="text-sm font-medium hover:underline flex items-center gap-1 break-all"
+                            style={{ color: "#0A66C2" }}>{url.replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//, "")} <ExternalLink size={11} className="shrink-0" /></a>
+                        )}
+                        {url && !valid && (
+                          <>
+                            <p className="text-xs font-semibold mb-1 flex items-center gap-1" style={{ color: "#92400E" }}>
+                              <AlertTriangle size={11} /> URL is not a LinkedIn profile
+                            </p>
+                            <a href={url} target="_blank" rel="noopener"
+                              className="text-xs hover:underline break-all"
+                              style={{ color: "#92400E" }}>{url}</a>
+                          </>
+                        )}
+                        {!url && (
+                          <p className="text-xs font-semibold flex items-center gap-1" style={{ color: "#92400E" }}>
+                            <AlertTriangle size={11} /> No LinkedIn URL on file — dispatch will fail
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
 
               {/* Assigned Seller + Channel permissions */}
