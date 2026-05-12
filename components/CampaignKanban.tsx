@@ -55,6 +55,12 @@ function deriveCardBadge(camp: Campaign): CardBadge | null {
   if (s.status === "failed") {
     return { label: "FAILED", color: "#DC2626", bg: "#FEE2E2" };
   }
+  if (s.status === "skipped") {
+    // Lead's allow_linkedin was set to false (no URL on file, locked profile,
+    // or manually disabled). Surface this distinctly from "queued" so admins
+    // don't confuse "will never send" with "about to send".
+    return { label: "BLOCKED", color: "#DC2626", bg: "#FEE2E2" };
+  }
   if (s.status === "dispatching") {
     return { label: "SENDING…", color: "#7C3AED", bg: "#EDE9FE" };
   }
