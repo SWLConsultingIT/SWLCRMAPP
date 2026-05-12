@@ -114,7 +114,9 @@ export default function ReadyToLaunchGroup({ profileId, profileName, profileDeta
       <div className="p-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {leads.map(lead => {
           const isSelected = selected.has(lead.id);
-          const name = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
+          const personName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim();
+          const name = personName || lead.company_name || "Unknown";
+          const hasPerson = !!personName;
           const badge = lead.lead_score ? scoreBadge(lead.lead_score) : null;
 
           return (
@@ -145,7 +147,7 @@ export default function ReadyToLaunchGroup({ profileId, profileName, profileDeta
                     )}
                   </div>
                   <p className="text-[10px] truncate" style={{ color: C.textMuted }}>
-                    {lead.company_name ?? "—"}
+                    {hasPerson ? (lead.company_name ?? "—") : "Company-only (no contact yet)"}
                   </p>
 
                   {/* Channels available */}

@@ -97,6 +97,59 @@ function extractLinkedinSlug(url: string | null): string | null {
   return m ? m[1].toLowerCase() : null;
 }
 
+// Credentials people append to their LinkedIn display name (academic, legal,
+// engineering, accounting, medical, honours). Stripped before name matching so
+// "Hiral Shah ACA" still matches "Hiral Shah" on file. Match is case-insensitive
+// against tokens already lowercased.
+const NAME_SUFFIX_TOKENS = new Set([
+  // academic
+  "bsc", "ba", "beng", "ma", "msc", "mba", "meng", "mphil", "phd", "dphil", "edd", "msci",
+  // legal
+  "llb", "llm", "jd", "barrister",
+  // engineering
+  "ceng", "ieng", "engtech", "miet", "mice", "mimeche", "mistructe", "fiet", "fice", "fimeche",
+  // accounting/finance/insurance
+  "aca", "fca", "acma", "fcma", "acca", "fcca", "cpa", "cfa", "cima", "fsidip", "afa", "acii", "fcii", "cipfa", "aat",
+  // medical
+  "md", "mbbs", "mbchb", "mrcp", "frcp", "mrcs", "frcs", "mrcgp", "bds", "rgn", "rmn",
+  // honours / awards
+  "hons", "obe", "mbe", "cbe", "dbe", "kbe", "kcmg", "gcmg", "qc", "kc",
+  // hr / misc
+  "chartered", "fchartered", "mcipd", "fcipd", "mipm", "fmaat",
+]);
+
+// Strip emoji, parenthesised content, and trailing credential tokens (FSIDip,
+// LLB (Hons), ACA, MBE, 💚, etc) from a name so identity matching survives the
+// vanity suffixes people add on LinkedIn.
+function stripNameNoise(raw: string): string {
+  // 1. Drop emoji + symbols + parens content + commas
+  let s = raw
+    .replace(/\p{Extended_Pictographic}/gu, " ")
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, " ")
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/[,;|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  // 2. Repeatedly strip credential tokens from the END
+  const isSuffix = (tok: string) => {
+    const t = tok.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+    if (!t) return true; // pure punctuation token
+    if (NAME_SUFFIX_TOKENS.has(t)) return true;
+    // All-uppercase short token (2-6 chars, no digits) — almost always a credential
+    if (/^[A-Z]{2,6}$/.test(tok) && tok === tok.toUpperCase()) return true;
+    return false;
+  };
+  for (;;) {
+    const parts = s.split(" ");
+    if (parts.length <= 1) break;
+    if (isSuffix(parts[parts.length - 1])) {
+      parts.pop();
+      s = parts.join(" ").trim();
+    } else break;
+  }
+  return s;
+}
+
 function nameMatches(
   expectedFirst: string | null,
   expectedLast: string | null,
@@ -104,12 +157,16 @@ function nameMatches(
   apiLast: string,
   slug: string,
 ): boolean {
-  const ef = (expectedFirst ?? "").trim().toLowerCase();
-  const el = (expectedLast ?? "").trim().toLowerCase();
-  const af = apiFirst.trim().toLowerCase();
-  const al = apiLast.trim().toLowerCase();
+  const efRaw = (expectedFirst ?? "").trim();
+  const elRaw = (expectedLast ?? "").trim();
+  const afRaw = stripNameNoise(apiFirst);
+  const alRaw = stripNameNoise(apiLast);
+  const ef = stripNameNoise(efRaw).toLowerCase();
+  const el = stripNameNoise(elRaw).toLowerCase();
+  const af = afRaw.toLowerCase();
+  const al = alRaw.toLowerCase();
   if (!ef || !el || !af || !al) return false;
-  // Last name must match exactly — primary identity guard.
+  // Last name must match exactly after credential stripping — primary identity guard.
   if (al !== el) return false;
   // First name: bidirectional 3-char prefix covers most variants (Jen↔Jennifer, Mike↔Michael).
   if (af.startsWith(ef.slice(0, 3)) || ef.startsWith(af.slice(0, 3))) return true;

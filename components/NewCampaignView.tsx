@@ -223,7 +223,9 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
                         <div className="p-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                           {visibleLeads.map(lead => {
                             const isSelected = selected.has(lead.id);
-                            const name = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
+                            const personName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim();
+                            const name = personName || lead.company_name || "Unknown";
+                            const hasPerson = !!personName;
                             const badge = lead.lead_score ? scoreBadge(lead.lead_score) : null;
 
                             return (
@@ -247,7 +249,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
                                         <span className="text-[8px] font-bold px-1 py-0.5 rounded shrink-0" style={{ backgroundColor: badge.bg, color: badge.color }}>{badge.label}</span>
                                       )}
                                     </div>
-                                    <p className="text-[10px] truncate" style={{ color: C.textMuted }}>{lead.company_name ?? "—"}</p>
+                                    <p className="text-[10px] truncate" style={{ color: C.textMuted }}>{hasPerson ? (lead.company_name ?? "—") : "Company-only (no contact yet)"}</p>
                                     <div className="flex items-center gap-2 mt-1.5">
                                       {lead.primary_linkedin_url && <span className="text-[9px] flex items-center gap-0.5" style={{ color: "#0A66C2" }}><Share2 size={8} /> LinkedIn</span>}
                                       {lead.primary_work_email && <span className="text-[9px] flex items-center gap-0.5" style={{ color: "#7C3AED" }}><Mail size={8} /> Email</span>}
