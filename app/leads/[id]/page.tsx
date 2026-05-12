@@ -352,6 +352,19 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   style={{ color: score.color, backgroundColor: score.bg }}>
                   {score.label}
                 </span>
+                {lead.created_at && (Date.now() - new Date(lead.created_at).getTime() < 7 * 86_400_000) && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full"
+                    style={{ backgroundColor: gold, color: "#04070d" }}>
+                    NEW
+                  </span>
+                )}
+                {lead.created_at && (
+                  <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
+                    title="When this lead was added to the platform"
+                    style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
+                    Added {new Date(lead.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                  </span>
+                )}
                 {lead.assigned_seller && (
                   <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
                     style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
