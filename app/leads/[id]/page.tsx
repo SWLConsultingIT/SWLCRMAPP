@@ -653,13 +653,29 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 {(() => {
                   const url = lead.primary_linkedin_url as string | null;
                   const valid = isValidLinkedInUrl(url);
-                  if (!url && lead.allow_linkedin === false) return null;
+                  const disabled = lead.allow_linkedin === false;
+                  // Always show the LinkedIn card — even when allow_linkedin=false — so
+                  // the admin can SEE the underlying state (URL present/absent/invalid)
+                  // and decide whether to re-enable. Hiding the card hides the data
+                  // needed to triage it.
+                  const isWarn = !valid && !disabled;
                   return (
                     <div className="flex items-start gap-2.5 p-3 rounded-lg min-w-0"
-                      style={{ backgroundColor: !url || !valid ? "#FEF3C7" : C.bg, border: !url || !valid ? "1px solid #FDE68A" : "none" }}>
+                      style={{
+                        backgroundColor: disabled ? "#F3F4F6" : isWarn ? "#FEF3C7" : C.bg,
+                        border: disabled ? "1px solid #E5E7EB" : isWarn ? "1px solid #FDE68A" : "none",
+                        opacity: disabled ? 0.85 : 1,
+                      }}>
                       <LinkedInIcon size={14} />
                       <div className="min-w-0 flex-1">
-                        <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>LinkedIn</p>
+                        <p className="text-xs uppercase tracking-wider mb-0.5 flex items-center gap-2"
+                          style={{ color: C.textDim, fontSize: 10 }}>
+                          LinkedIn
+                          {disabled && (
+                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider"
+                              style={{ backgroundColor: "#DC2626", color: "#fff" }}>Disabled</span>
+                          )}
+                        </p>
                         {url && valid && (
                           <a href={url} target="_blank" rel="noopener"
                             className="text-sm font-medium hover:underline flex items-center gap-1 break-all"
@@ -676,8 +692,9 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                           </>
                         )}
                         {!url && (
-                          <p className="text-xs font-semibold flex items-center gap-1" style={{ color: "#92400E" }}>
-                            <AlertTriangle size={11} /> No LinkedIn URL on file — dispatch will fail
+                          <p className="text-xs font-semibold flex items-center gap-1"
+                            style={{ color: disabled ? C.textMuted : "#92400E" }}>
+                            <AlertTriangle size={11} /> No LinkedIn URL on file{disabled ? "" : " — dispatch will fail"}
                           </p>
                         )}
                       </div>
