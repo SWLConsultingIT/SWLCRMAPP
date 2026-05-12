@@ -19,7 +19,14 @@ type Lead = {
   primary_linkedin_url: string | null;
   lead_score: number | null;
   status: string | null;
+  created_at?: string | null;
 };
+
+function isNewLead(iso: string | null | undefined): boolean {
+  if (!iso) return false;
+  const ageMs = Date.now() - new Date(iso).getTime();
+  return ageMs < 7 * 86_400_000;
+}
 
 type LeadGroup = {
   profileId: string | null;
@@ -161,6 +168,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
               const someGroupSelected = groupIds.some(id => selected.has(id));
               const hasLinkedin = group.leads.filter(l => l.primary_linkedin_url).length;
               const hasEmail = group.leads.filter(l => l.primary_work_email).length;
+              const newCount = group.leads.filter(l => isNewLead(l.created_at)).length;
 
               return (
                 <div
@@ -189,6 +197,13 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
                       {group.profileDetail && <p className="text-xs truncate" style={{ color: C.textDim }}>{group.profileDetail}</p>}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
+                      {newCount > 0 && (
+                        <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 px-2 py-0.5 rounded-md"
+                          style={{ backgroundColor: gold, color: "#04070d" }}
+                          title={`${newCount} lead${newCount === 1 ? "" : "s"} added in the last 7 days`}>
+                          {newCount} new
+                        </span>
+                      )}
                       {hasLinkedin > 0 && (
                         <span className="text-[10px] font-semibold flex items-center gap-1 px-2 py-0.5 rounded-md" style={{ backgroundColor: "#0A66C212", color: "#0A66C2" }}>
                           <Share2 size={9} /> {hasLinkedin}
@@ -226,6 +241,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
                             const personName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim();
                             const name = personName || lead.company_name || "Unknown";
                             const hasPerson = !!personName;
+                            const isNew = isNewLead(lead.created_at);
                             const badge = lead.lead_score ? scoreBadge(lead.lead_score) : null;
 
                             return (
@@ -245,6 +261,10 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
                                     <div className="flex items-center gap-1.5 mb-0.5">
                                       <Link href={`/leads/${lead.id}`} onClick={e => e.stopPropagation()}
                                         className="text-xs font-semibold hover:underline truncate" style={{ color: C.textPrimary }}>{name}</Link>
+                                      {isNew && (
+                                        <span className="text-[8px] font-bold px-1 py-0.5 rounded shrink-0 uppercase tracking-wider"
+                                          style={{ backgroundColor: gold, color: "#04070d" }}>NEW</span>
+                                      )}
                                       {badge && (
                                         <span className="text-[8px] font-bold px-1 py-0.5 rounded shrink-0" style={{ backgroundColor: badge.bg, color: badge.color }}>{badge.label}</span>
                                       )}

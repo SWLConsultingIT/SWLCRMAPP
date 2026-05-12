@@ -3,11 +3,13 @@ import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
 import { redirect } from "next/navigation";
 import Breadcrumb from "@/components/Breadcrumb";
 import { C } from "@/lib/design";
-import { AlertTriangle, CheckCircle2, Clock, Send, Zap, Hourglass, Snowflake, Activity, MessageSquare, TrendingUp } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Send, Hourglass, Snowflake, Activity, MessageSquare, TrendingUp } from "lucide-react";
 import ReliabilityActions from "./ReliabilityActions";
 import RetryButton from "./RetryButton";
 import { CancelCooldownButton, PauseCampaignButton } from "./CooldownActions";
 import HideNoiseToggle from "./HideNoiseToggle";
+import CollapsibleSection from "./CollapsibleSection";
+import AutoRefresh from "./AutoRefresh";
 
 // Reliability dashboard.
 //
@@ -388,14 +390,17 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
     <div className="p-6 w-full max-w-6xl mx-auto">
       <Breadcrumb crumbs={[{ label: "Admin", href: "/admin" }, { label: "Reliability" }]} />
 
-      <div className="flex items-end justify-between mb-6">
+      <div className="flex items-end justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold mb-1" style={{ color: C.textPrimary }}>Reliability</h1>
           <p className="text-sm" style={{ color: C.textMuted }}>
-            DB ↔ Unipile reconciliation. Refreshed {formatTime(fetchedAt)}.
+            DB ↔ Unipile reconciliation. Server fetched {formatTime(fetchedAt)}.
           </p>
         </div>
-        <ReliabilityActions />
+        <div className="flex items-center gap-3">
+          <AutoRefresh />
+          <ReliabilityActions />
+        </div>
       </div>
 
       {/* KPI ribbon — pipeline view at a glance */}
@@ -463,7 +468,12 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
 
       {/* Cooldown / rate-limited messages — most actionable */}
       {queueHealth.queuedCooldown.length > 0 && (
-        <Section title={`Cooldown — frozen by rate limit (${queueHealth.queuedCooldown.length})`} accent="#D97706">
+        <CollapsibleSection
+          title="Cooldown — frozen by rate limit"
+          accent="#D97706"
+          count={queueHealth.queuedCooldown.length}
+          defaultOpen={queueHealth.queuedCooldown.length > 0}
+          hint="Frozen 4h after rate limit">
           <div className="px-4 py-2.5 text-[11px]" style={{ color: C.textMuted, backgroundColor: C.surface, borderBottom: `1px solid ${C.border}` }}>
             Each row was rate-limited by LinkedIn (or cascaded from a sibling). Dispatcher skips them until the cooldown expires. Use Force retry only if you've verified the seller's account isn't blocked.
           </div>
@@ -496,12 +506,16 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
               })}
             </tbody>
           </Table>
-        </Section>
+        </CollapsibleSection>
       )}
 
       {/* Ready to dispatch */}
       {queueHealth.queuedReady.length > 0 && (
-        <Section title={`Ready — will dispatch on next tick (${queueHealth.queuedReady.length})`} accent={C.linkedin}>
+        <CollapsibleSection
+          title="Ready — will dispatch on next tick"
+          accent={C.linkedin}
+          count={queueHealth.queuedReady.length}
+          hint="Pending next 15-min tick">
           {queueHealth.queuedByCampaign.size > 0 && (
             <div className="px-4 py-2.5 flex flex-wrap items-center gap-2 text-[11px]" style={{ backgroundColor: C.surface, borderBottom: `1px solid ${C.border}`, color: C.textMuted }}>
               Per-campaign panic pause:
@@ -537,12 +551,16 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
               ))}
             </tbody>
           </Table>
-        </Section>
+        </CollapsibleSection>
       )}
 
       {/* Waiting acceptance — step 1+ post-accept timer */}
       {queueHealth.queuedWaiting.length > 0 && (
-        <Section title={`Waiting — step 1+ awaiting eligible_at (${queueHealth.queuedWaiting.length})`} accent="#7C3AED">
+        <CollapsibleSection
+          title="Waiting — step 1+ awaiting eligible_at"
+          accent="#7C3AED"
+          count={queueHealth.queuedWaiting.length}
+          hint="Scheduled, not yet due">
           <Table>
             <thead>
               <Th>Lead</Th>
@@ -564,12 +582,16 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
               ))}
             </tbody>
           </Table>
-        </Section>
+        </CollapsibleSection>
       )}
 
       {/* Dispatching */}
       {queueHealth.dispatching.length > 0 && (
-        <Section title={`Dispatching — currently being sent (${queueHealth.dispatching.length})`} accent="#7C3AED">
+        <CollapsibleSection
+          title="Dispatching — currently being sent"
+          accent="#7C3AED"
+          count={queueHealth.dispatching.length}
+          defaultOpen={queueHealth.dispatching.length > 0}>
           <Table>
             <thead>
               <Th>Lead</Th>
@@ -586,12 +608,17 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
               ))}
             </tbody>
           </Table>
-        </Section>
+        </CollapsibleSection>
       )}
 
       {/* Failed messages */}
       {(failedVisible.length > 0 || failedHiddenCount > 0) && (
-        <Section title={`Failed messages (${failedVisible.length}${failedHiddenCount > 0 ? ` of ${queueHealth.failed.length}` : ""})`} accent={C.red}>
+        <CollapsibleSection
+          title="Failed messages"
+          accent={C.red}
+          count={failedVisible.length}
+          defaultOpen={failedVisible.length > 0}
+          hint={failedHiddenCount > 0 ? `${failedHiddenCount} hidden older than ${NOISE_DAYS}d` : "Needs attention"}>
           {failedHiddenCount > 0 && (
             <div className="px-4 py-2 text-[11px] flex items-center gap-2" style={{ backgroundColor: C.surface, borderBottom: `1px solid ${C.border}`, color: C.textMuted }}>
               <span>Hiding {failedHiddenCount} row(s) older than {NOISE_DAYS}d.</span>
@@ -622,12 +649,16 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
               ))}
             </tbody>
           </Table>
-        </Section>
+        </CollapsibleSection>
       )}
 
       {/* Stuck (7-21d, still pending) */}
       {queueHealth.stuck.length > 0 && (
-        <Section title={`Stuck — invite sent 7-21d ago, no acceptance yet (${queueHealth.stuck.length})`} accent="#D97706">
+        <CollapsibleSection
+          title="Stuck — invite sent 7-21d ago, no acceptance yet"
+          accent="#D97706"
+          count={queueHealth.stuck.length}
+          defaultOpen={queueHealth.stuck.length > 0}>
           <Table>
             <thead>
               <Th>Sent</Th>
@@ -652,12 +683,16 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
               })}
             </tbody>
           </Table>
-        </Section>
+        </CollapsibleSection>
       )}
 
       {/* Expired (≥21d) */}
       {queueHealth.expired.length > 0 && (
-        <Section title={`Expired — invite ≥21d old, LinkedIn auto-cleared (${queueHealth.expired.length})`} accent={C.textDim}>
+        <CollapsibleSection
+          title="Expired — invite ≥21d old, LinkedIn auto-cleared"
+          accent={C.textDim}
+          count={queueHealth.expired.length}
+          hint="History only">
           <Table>
             <thead>
               <Th>Sent</Th>
@@ -682,12 +717,16 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
               })}
             </tbody>
           </Table>
-        </Section>
+        </CollapsibleSection>
       )}
 
       {/* Skipped */}
       {(skippedVisible.length > 0 || skippedHiddenCount > 0) && (
-        <Section title={`Skipped (${skippedVisible.length}${skippedHiddenCount > 0 ? ` of ${queueHealth.skipped.length}` : ""})`} accent="#6B7280">
+        <CollapsibleSection
+          title="Skipped"
+          accent="#6B7280"
+          count={skippedVisible.length}
+          hint={skippedHiddenCount > 0 ? `${skippedHiddenCount} hidden older than ${NOISE_DAYS}d` : "Won't dispatch"}>
           {skippedHiddenCount > 0 && (
             <div className="px-4 py-2 text-[11px] flex items-center gap-2" style={{ backgroundColor: C.surface, borderBottom: `1px solid ${C.border}`, color: C.textMuted }}>
               <span>Hiding {skippedHiddenCount} row(s) older than {NOISE_DAYS}d.</span>
@@ -712,14 +751,17 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
               ))}
             </tbody>
           </Table>
-        </Section>
+        </CollapsibleSection>
       )}
 
       {/* Ghost-sent reconciliation */}
       {sentVsUnipile.rows.length > 0 && (
-        <Section
-          title={`Sent in last 24h: ${sentVsUnipile.matchedCount}/${sentVsUnipile.rows.length} matched in Unipile`}
-          accent={sentVsUnipile.ghostCount > 0 ? C.red : C.green}>
+        <CollapsibleSection
+          title={`Sent in last 24h — ${sentVsUnipile.matchedCount}/${sentVsUnipile.rows.length} matched in Unipile`}
+          accent={sentVsUnipile.ghostCount > 0 ? C.red : C.green}
+          count={sentVsUnipile.rows.length}
+          defaultOpen={sentVsUnipile.ghostCount > 0}
+          hint={sentVsUnipile.ghostCount > 0 ? `${sentVsUnipile.ghostCount} ghosts` : "All matched"}>
           <Table>
             <thead>
               <Th>Sent at</Th>
@@ -744,11 +786,11 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
               ))}
             </tbody>
           </Table>
-        </Section>
+        </CollapsibleSection>
       )}
 
       {/* Seller / Unipile health — now with acceptance rate + rate-limit indicator */}
-      <Section title="Seller / Unipile account health" accent={C.gold}>
+      <CollapsibleSection title="Seller / Unipile account health" accent={C.gold} hint="Per-seller drill-down">
         <Table>
           <thead>
             <Th>Seller</Th>
@@ -828,7 +870,7 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
             })}
           </tbody>
         </Table>
-      </Section>
+      </CollapsibleSection>
     </div>
   );
 }
@@ -855,18 +897,6 @@ function Kpi({ label, value, sub, icon: Icon, color }: { label: string; value: s
       </div>
       <div className="text-2xl font-bold tabular-nums" style={{ color }}>{value}</div>
       <div className="text-[11px] mt-0.5" style={{ color: C.textDim }}>{sub}</div>
-    </div>
-  );
-}
-
-function Section({ title, accent, children }: { title: string; accent: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-      <div className="px-4 py-2.5 border-b flex items-center gap-2" style={{ borderColor: C.border }}>
-        <Zap size={12} style={{ color: accent }} />
-        <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: accent }}>{title}</span>
-      </div>
-      <div>{children}</div>
     </div>
   );
 }
