@@ -21,6 +21,11 @@ import PersonalizedInfoPanel from "@/components/PersonalizedInfoPanel";
 import LeadSummaryTab from "@/components/LeadSummaryTab";
 import LeadStatsBar from "@/components/LeadStatsBar";
 
+// Bypass Next's render cache. Without this, the page snapshots messages +
+// campaign state at build time and a freshly-sent step 1 keeps showing
+// "Message pending" until the user hard-refreshes.
+export const dynamic = "force-dynamic";
+
 const gold = "var(--brand, #c9a83a)";
 const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";
 

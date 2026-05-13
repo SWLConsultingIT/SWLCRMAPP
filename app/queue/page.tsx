@@ -57,13 +57,14 @@ async function getQueueData() {
   // The webhook (BESFOHaqTt2Ki0Vw) flips step_number=1 from draft→queued and
   // writes queued_by + accepted_at into metadata. We use those rows directly
   // as the source of truth — no extra table needed.
-  const fourteenDaysAgo = new Date(Date.now() - 14 * 86400000).toISOString();
+  // Note: campaign_messages has no updated_at column. We rely on the
+  // queued_by marker (set only on acceptance flow) + a generous row cap to
+  // keep this bounded, and surface freshness via metadata.accepted_at.
   let acceptQuery = supabase.from("campaign_messages")
-    .select("id, lead_id, campaign_id, updated_at, metadata, leads!inner(primary_first_name, primary_last_name, company_name, company_bio_id), campaigns!inner(name, seller_id)")
+    .select("id, lead_id, campaign_id, sent_at, created_at, metadata, leads!inner(primary_first_name, primary_last_name, company_name, company_bio_id), campaigns!inner(name, seller_id)")
     .eq("step_number", 1)
-    .gte("updated_at", fourteenDaysAgo)
     .in("metadata->>queued_by", ["registro-nueva-conexion-webhook", "retroactive-fix-event-field-bug-2026-05-13"])
-    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
     .limit(30);
   if (scopedCompanyBioId) acceptQuery = acceptQuery.eq("leads.company_bio_id", scopedCompanyBioId);
   if (sellerIds !== null) {
@@ -173,7 +174,7 @@ async function getQueueData() {
       const lead = a.leads;
       const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
       const meta = (a.metadata ?? {}) as Record<string, unknown>;
-      const acceptedAt = (typeof meta.accepted_at === "string" && meta.accepted_at) ? meta.accepted_at : a.updated_at;
+      const acceptedAt = (typeof meta.accepted_at === "string" && meta.accepted_at) ? meta.accepted_at : (a.sent_at ?? a.created_at);
       return {
         id: `accept-${a.id}`,
         leadId: a.lead_id,
