@@ -5,7 +5,7 @@ import Link from "next/link";
 import { C } from "@/lib/design";
 import {
   Users, Zap, Megaphone, ArrowRight, Target, CheckCircle,
-  Share2, Mail, Check,
+  Share2, Mail, Check, Phone,
 } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
@@ -17,6 +17,7 @@ type Lead = {
   company_name: string | null;
   primary_work_email: string | null;
   primary_linkedin_url: string | null;
+  primary_phone: string | null;
   lead_score: number | null;
   status: string | null;
   created_at?: string | null;
@@ -168,6 +169,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
               const someGroupSelected = groupIds.some(id => selected.has(id));
               const hasLinkedin = group.leads.filter(l => l.primary_linkedin_url).length;
               const hasEmail = group.leads.filter(l => l.primary_work_email).length;
+              const hasPhone = group.leads.filter(l => l.primary_phone).length;
               const newCount = group.leads.filter(l => isNewLead(l.created_at)).length;
 
               return (
@@ -212,6 +214,11 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
                       {hasEmail > 0 && (
                         <span className="text-[10px] font-semibold flex items-center gap-1 px-2 py-0.5 rounded-md" style={{ backgroundColor: "#7C3AED12", color: "#7C3AED" }}>
                           <Mail size={9} /> {hasEmail}
+                        </span>
+                      )}
+                      {hasPhone > 0 && (
+                        <span className="text-[10px] font-semibold flex items-center gap-1 px-2 py-0.5 rounded-md" style={{ backgroundColor: "#F9731612", color: "#F97316" }}>
+                          <Phone size={9} /> {hasPhone}
                         </span>
                       )}
                     </div>
@@ -273,7 +280,8 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
                                     <div className="flex items-center gap-2 mt-1.5">
                                       {lead.primary_linkedin_url && <span className="text-[9px] flex items-center gap-0.5" style={{ color: "#0A66C2" }}><Share2 size={8} /> LinkedIn</span>}
                                       {lead.primary_work_email && <span className="text-[9px] flex items-center gap-0.5" style={{ color: "#7C3AED" }}><Mail size={8} /> Email</span>}
-                                      {!lead.primary_linkedin_url && !lead.primary_work_email && <span className="text-[9px]" style={{ color: C.textDim }}>No channels</span>}
+                                      {lead.primary_phone && <span className="text-[9px] flex items-center gap-0.5" style={{ color: "#F97316" }}><Phone size={8} /> Phone</span>}
+                                      {!lead.primary_linkedin_url && !lead.primary_work_email && !lead.primary_phone && <span className="text-[9px]" style={{ color: C.textDim }}>No channels</span>}
                                     </div>
                                   </div>
                                 </div>
