@@ -240,12 +240,17 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   const contactName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
   const activityItems: ActivityItem[] = [];
 
+  // Sent messages: prefer the dispatcher-captured rendered_content over the
+  // raw template so the activity feed shows what the lead actually received
+  // ("Hi Steve, …") rather than the placeholder version ("Hi {{first_name}}, …").
   messages.filter((m: any) => m.status === "sent").forEach((m: any) => {
+    const rendered = (m.metadata as Record<string, unknown> | null)?.rendered_content;
+    const displayed = typeof rendered === "string" && rendered.length > 0 ? rendered : (m.content ?? null);
     activityItems.push({
       id: m.id, type: "message_sent",
       contactName,
       channel: m.channel ?? campaign?.channel ?? "email",
-      content: m.content ?? null,
+      content: displayed,
       timestamp: m.sent_at,
       stepNumber: m.step_number,
     });
