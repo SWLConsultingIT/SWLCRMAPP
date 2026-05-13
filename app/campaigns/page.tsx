@@ -23,9 +23,16 @@ async function getData() {
 
   const campLeadsQ = supabase.from("campaigns").select("lead_id, leads!inner(company_bio_id)").in("status", ["active", "paused", "completed"]);
 
+  // Archived leads must not appear in the New Campaign picker. They were
+  // showing up because the only filter was status; an admin operation that
+  // sets archived=true without flipping status (e.g. manual cleanup, an
+  // import that defaults archived to true) used to surface them as
+  // selectable, then bite later when the wizard's channel coverage check
+  // failed because allow_* flags were defaulted-false on archived rows.
   const leadsQ = supabase.from("leads")
     .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, icp_profile_id, company_bio_id, created_at")
     .not("status", "in", "(closed_lost,qualified)")
+    .neq("archived", true)
     .order("created_at", { ascending: false });
 
   const icpQ = supabase.from("icp_profiles").select("id, profile_name, target_industries, target_roles").eq("status", "approved");
