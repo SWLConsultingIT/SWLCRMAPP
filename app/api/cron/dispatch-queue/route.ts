@@ -558,9 +558,15 @@ async function dispatchOneMessage(
       sent_at: now,
       provider_message_id: providerMessageId,
       error_details: null,
+      // Merge with prior metadata so accept-flow markers (queued_by,
+      // accepted_at, eligible_at) survive the dispatch. The webhook sets
+      // those in metadata before we send; clobbering them here erases the
+      // engagement signal that the Queue page relies on.
       metadata: {
+        ...(candidate.metadata ?? {}),
         dispatched_by: "cron-dispatch-queue",
         truncated_note: truncated,
+        rendered_content: outgoing,
         ...(chatId ? { chat_id: chatId } : {}),
       },
     }).eq("id", candidate.id),

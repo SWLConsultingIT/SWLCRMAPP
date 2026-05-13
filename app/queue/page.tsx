@@ -52,6 +52,24 @@ async function getQueueData() {
     replyQuery = replyQuery.in("campaigns.seller_id", sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"]);
   }
 
+  // LinkedIn connection accepts. We surface accepts as a Reply-like signal:
+  // the lead engaged with our outreach, even though they did not text back.
+  // The webhook (BESFOHaqTt2Ki0Vw) flips step_number=1 from draft→queued and
+  // writes queued_by + accepted_at into metadata. We use those rows directly
+  // as the source of truth — no extra table needed.
+  const fourteenDaysAgo = new Date(Date.now() - 14 * 86400000).toISOString();
+  let acceptQuery = supabase.from("campaign_messages")
+    .select("id, lead_id, campaign_id, updated_at, metadata, leads!inner(primary_first_name, primary_last_name, company_name, company_bio_id), campaigns!inner(name, seller_id)")
+    .eq("step_number", 1)
+    .gte("updated_at", fourteenDaysAgo)
+    .in("metadata->>queued_by", ["registro-nueva-conexion-webhook", "retroactive-fix-event-field-bug-2026-05-13"])
+    .order("updated_at", { ascending: false })
+    .limit(30);
+  if (scopedCompanyBioId) acceptQuery = acceptQuery.eq("leads.company_bio_id", scopedCompanyBioId);
+  if (sellerIds !== null) {
+    acceptQuery = acceptQuery.in("campaigns.seller_id", sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"]);
+  }
+
   // Pending campaign requests
   let pendingCampQuery = supabase.from("campaign_requests")
     .select("id, name, target_leads_count, created_at, icp_profile_id")
@@ -88,11 +106,12 @@ async function getQueueData() {
   const [
     { data: activeCampaigns },
     { data: recentReplies },
+    { data: recentAccepts },
     { data: pendingCampaigns },
     { data: pendingProfiles },
     { data: resolvedCamps },
     { data: resolvedProfs },
-  ] = await Promise.all([campQuery, replyQuery, pendingCampQuery, pendingProfQuery, resolvedCampQuery, resolvedProfQuery]);
+  ] = await Promise.all([campQuery, replyQuery, acceptQuery, pendingCampQuery, pendingProfQuery, resolvedCampQuery, resolvedProfQuery]);
 
   // Pending Calls
   const now = Date.now();
@@ -128,23 +147,47 @@ async function getQueueData() {
     }
   }
 
-  // New Replies
-  const newReplies = (recentReplies ?? []).map((r: any) => {
-    const lead = r.leads;
-    const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
-    return {
-      id: r.id,
-      leadId: r.lead_id,
-      leadName,
-      company: lead?.company_name ?? null,
-      channel: r.channel ?? "unknown",
-      classification: r.classification,
-      replyText: r.reply_text,
-      receivedAt: r.received_at,
-      campaignName: (r.campaigns as any)?.name ?? null,
-      requiresHumanReview: r.requires_human_review ?? false,
-    };
-  });
+  // New Replies — merge spontaneous replies AND LinkedIn connection accepts.
+  // Accepts use classification='connection_accepted' so QueueClient can label
+  // them ("Accepted") without a reply_text body. They sort by accepted_at so
+  // the newest engagement floats to the top regardless of whether it was a
+  // text reply or just an accept.
+  const newReplies = [
+    ...(recentReplies ?? []).map((r: any) => {
+      const lead = r.leads;
+      const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
+      return {
+        id: r.id,
+        leadId: r.lead_id,
+        leadName,
+        company: lead?.company_name ?? null,
+        channel: r.channel ?? "unknown",
+        classification: r.classification,
+        replyText: r.reply_text,
+        receivedAt: r.received_at,
+        campaignName: (r.campaigns as any)?.name ?? null,
+        requiresHumanReview: r.requires_human_review ?? false,
+      };
+    }),
+    ...(recentAccepts ?? []).map((a: any) => {
+      const lead = a.leads;
+      const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
+      const meta = (a.metadata ?? {}) as Record<string, unknown>;
+      const acceptedAt = (typeof meta.accepted_at === "string" && meta.accepted_at) ? meta.accepted_at : a.updated_at;
+      return {
+        id: `accept-${a.id}`,
+        leadId: a.lead_id,
+        leadName,
+        company: lead?.company_name ?? null,
+        channel: "linkedin",
+        classification: "connection_accepted",
+        replyText: null,
+        receivedAt: acceptedAt,
+        campaignName: (a.campaigns as any)?.name ?? null,
+        requiresHumanReview: false,
+      };
+    }),
+  ].sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
 
   // Pending Reviews
   const pendingReviews = [

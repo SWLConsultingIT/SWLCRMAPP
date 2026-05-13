@@ -87,7 +87,7 @@ async function getMessages(leadId: string) {
   const supabase = await getSupabaseServer();
   const { data } = await supabase
     .from("campaign_messages")
-    .select("id, campaign_id, step_number, channel, content, status, sent_at")
+    .select("id, campaign_id, step_number, channel, content, status, sent_at, metadata")
     .eq("lead_id", leadId)
     .order("step_number", { ascending: true });
   return data ?? [];

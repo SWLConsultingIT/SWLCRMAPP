@@ -30,7 +30,20 @@ type Message = {
   content: string | null;
   status: string | null;
   sent_at: string | null;
+  metadata: Record<string, unknown> | null;
 };
+
+// Sent messages snapshot the exact text that left the dispatcher in
+// metadata.rendered_content (see app/api/cron/dispatch-queue/route.ts).
+// Fall back to the raw template (with {{first_name}} placeholders) for
+// drafts, queued, or older sent rows that pre-date the snapshot.
+function displayContent(msg: Message): string {
+  if (msg.status === "sent") {
+    const rendered = (msg.metadata as Record<string, unknown> | null)?.rendered_content;
+    if (typeof rendered === "string" && rendered.length > 0) return rendered;
+  }
+  return msg.content ?? "";
+}
 
 type Reply = {
   id: string;
@@ -397,7 +410,7 @@ function CampaignBlock({
                               ) : (
                                 <div className="px-3.5 py-3 rounded-lg border text-sm leading-relaxed whitespace-pre-wrap"
                                   style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textBody }}>
-                                  {msg.content}
+                                  {displayContent(msg)}
                                 </div>
                               )
                             )}
@@ -445,13 +458,16 @@ function CampaignBlock({
                         </button>
                       )}
                     </div>
-                    {msg.content && (
-                      <div className="mt-2 ml-2">
-                        <p className="text-sm leading-relaxed" style={{ color: C.textBody }}>
-                          {isExpanded ? msg.content : `${msg.content.substring(0, 120)}${msg.content.length > 120 ? "…" : ""}`}
-                        </p>
-                      </div>
-                    )}
+                    {msg.content && (() => {
+                      const shown = displayContent(msg);
+                      return (
+                        <div className="mt-2 ml-2">
+                          <p className="text-sm leading-relaxed" style={{ color: C.textBody }}>
+                            {isExpanded ? shown : `${shown.substring(0, 120)}${shown.length > 120 ? "…" : ""}`}
+                          </p>
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })}

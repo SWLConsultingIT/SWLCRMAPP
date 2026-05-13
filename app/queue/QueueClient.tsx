@@ -78,11 +78,12 @@ const channelMeta: Record<string, { icon: typeof Share2; color: string; label: s
 };
 
 const classificationMeta: Record<string, { color: string; bg: string; label: string }> = {
-  positive:       { color: C.green,   bg: C.greenLight, label: "Positive" },
-  meeting_intent: { color: C.green,   bg: C.greenLight, label: "Meeting Intent" },
-  negative:       { color: C.red,     bg: C.redLight,   label: "Negative" },
-  needs_info:     { color: "#D97706", bg: "#FFFBEB",    label: "Needs Info" },
-  not_now:        { color: C.textMuted, bg: C.surface,  label: "Not Now" },
+  positive:            { color: C.green,    bg: C.greenLight, label: "Positive" },
+  meeting_intent:      { color: C.green,    bg: C.greenLight, label: "Meeting Intent" },
+  negative:            { color: C.red,      bg: C.redLight,   label: "Negative" },
+  needs_info:          { color: "#D97706",  bg: "#FFFBEB",    label: "Needs Info" },
+  not_now:             { color: C.textMuted, bg: C.surface,   label: "Not Now" },
+  connection_accepted: { color: "#0A66C2",  bg: "#E7F2FB",    label: "Accepted Connection" },
 };
 
 function timeAgo(iso: string | null) {
@@ -312,6 +313,12 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                         <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: cls.bg, borderColor: cls.color + "20" }}>
                           <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>
                             &ldquo;{r.replyText}&rdquo;
+                          </p>
+                        </div>
+                      ) : r.classification === "connection_accepted" ? (
+                        <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: cls.bg, borderColor: cls.color + "20" }}>
+                          <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>
+                            Accepted your LinkedIn connection request. First DM will go out in the next dispatch tick.
                           </p>
                         </div>
                       ) : (
