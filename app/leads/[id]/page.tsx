@@ -184,17 +184,66 @@ const CHANNELS = [
 
 // ── Page ──
 
+// Mirrors the placeholder substitution that the dispatcher does at send time
+// (see app/api/cron/dispatch-queue/route.ts → personalizeNote). Used as a
+// fallback for messages that were sent before metadata.rendered_content was
+// being captured. Reads the current lead/seller — close enough for
+// "what was sent" since the dispatcher also writes back any LinkedIn name
+// correction onto the lead before dispatching.
+function renderTemplateFallback(
+  template: string,
+  lead: any,
+  sellerName: string | null,
+): string {
+  const first = lead?.primary_first_name ?? "there";
+  const last = lead?.primary_last_name ?? "";
+  const full = `${first} ${last}`.trim();
+  const company = lead?.company_name ?? "";
+  const role = lead?.primary_title_role ?? "";
+  const seller = sellerName ?? "";
+  return (template ?? "")
+    .replaceAll("{{first_name}}", first)
+    .replaceAll("{{last_name}}", last)
+    .replaceAll("{{full_name}}", full)
+    .replaceAll("{{company_name}}", company)
+    .replaceAll("{{company}}", company)
+    .replaceAll("{{role}}", role)
+    .replaceAll("{{title}}", role)
+    .replaceAll("{{seller_name}}", seller)
+    .replaceAll("{{seller_company}}", "");
+}
+
 export default async function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const lead = await getLead(id);
   if (!lead) notFound();
 
-  const [campaign, messages, replies, calls] = await Promise.all([
+  const [campaign, rawMessages, replies, calls] = await Promise.all([
     getCampaign(id),
     getMessages(id),
     getReplies(id),
     getCalls(id),
   ]);
+
+  // Pre-render messages once on the server so every downstream component
+  // (Campaign tab, Recent Activity tab, stepper) shows the same actual
+  // text the lead received instead of the raw {{first_name}} template.
+  const sellerName = (campaign as any)?.sellers?.name ?? null;
+  const messages = (rawMessages ?? []).map((m: any) => {
+    const meta = (m.metadata ?? {}) as Record<string, unknown>;
+    if (typeof meta.rendered_content === "string" && meta.rendered_content.length > 0) {
+      return m;
+    }
+    if (m.status !== "sent" || !m.content) return m;
+    return {
+      ...m,
+      metadata: {
+        ...meta,
+        rendered_content: renderTemplateFallback(m.content, lead, sellerName),
+        rendered_source: "fallback-server-render",
+      },
+    };
+  });
 
   const score = scoreBadge(lead.lead_score, lead.is_priority);
   const st = statusMap[lead.status] ?? statusMap.new;
