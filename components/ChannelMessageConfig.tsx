@@ -592,7 +592,14 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         })}
       </div>
 
-      {/* ═══ AUTO-REPLIES (reactive, separate) ═══ */}
+      {/* ═══ AUTO-REPLIES (reactive, separate) ═══
+          Only the LinkedIn Response Handler (h2uBZscVnZy0utLD) reads the
+          positive/negative templates from campaign_request.message_prompts.
+          The Email Reply Handler (EartyXv9hlVVFqvt) ignores them entirely
+          and always generates AI replies in the tenant's voice. Hide the
+          whole block for sequences that don't include LinkedIn so sellers
+          don't waste time filling fields that get ignored. */}
+      {sequence.some(s => s.channel === "linkedin") && (
       <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
         <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
           <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("wiz.replies.title")}</p>
@@ -718,6 +725,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
