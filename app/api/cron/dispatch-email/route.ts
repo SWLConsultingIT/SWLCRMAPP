@@ -245,10 +245,11 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ ok: true, processed: 0, reason });
   }
 
-  // 2. Atomic claim
+  // 2. Atomic claim — stamp dispatching_since so the reaper cron can recover
+  // the row if we crash before flipping to 'sent' / 'failed'.
   const { data: lockedRows, error: lockErr } = await svc
     .from("campaign_messages")
-    .update({ status: "dispatching" })
+    .update({ status: "dispatching", dispatching_since: new Date().toISOString() })
     .eq("id", candidate.id)
     .eq("status", "queued")
     .select("id");

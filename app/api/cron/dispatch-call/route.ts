@@ -164,10 +164,11 @@ async function dispatchOneCall(
   seller: SellerRow,
   availableAircallUserId: number,
 ): Promise<DispatchOutcome> {
-  // Atomic claim: queued → dispatching
+  // Atomic claim: queued → dispatching. Stamp dispatching_since so the reaper
+  // cron can recover this row if we crash before reaching 'sent' / 'failed'.
   const { data: lockedRows } = await svc
     .from("campaign_messages")
-    .update({ status: "dispatching" })
+    .update({ status: "dispatching", dispatching_since: new Date().toISOString() })
     .eq("id", candidate.id)
     .eq("status", "queued")
     .select("id");

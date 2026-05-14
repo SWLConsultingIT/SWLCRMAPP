@@ -372,7 +372,7 @@ async function dispatchOneMessage(
   // here; only one wins.
   const { data: lockedRows, error: lockErr } = await svc
     .from("campaign_messages")
-    .update({ status: "dispatching" })
+    .update({ status: "dispatching", dispatching_since: new Date().toISOString() })
     .eq("id", candidate.id)
     .eq("status", "queued")
     .select("id");
