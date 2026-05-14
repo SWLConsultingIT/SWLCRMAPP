@@ -1,7 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "node:crypto";
 
 const SB_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1`;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
+const AIRCALL_WEBHOOK_SECRET = process.env.AIRCALL_WEBHOOK_SECRET ?? "";
+
+/**
+ * HMAC validation in LOG-ONLY mode. If AIRCALL_WEBHOOK_SECRET is unset we
+ * skip silently (current behavior, pre-2026-05-14). If it's set we compute
+ * the expected signature and warn on mismatch — but DO NOT reject the
+ * request until we've confirmed via logs that legitimate Aircall traffic
+ * carries the header. Once we see clean traffic, flip the early return
+ * below from a `console.warn` to a 401 response.
+ *
+ * Aircall convention: header `X-Aircall-Signature` = hex HMAC-SHA256(body)
+ * using the signing key from Aircall Dashboard → Integrations → Public API.
+ */
+function verifyAircallSignature(rawBody: string, presentedSignature: string | null): { valid: boolean; reason?: string } {
+  if (!AIRCALL_WEBHOOK_SECRET) return { valid: true, reason: "no secret configured" };
+  if (!presentedSignature) return { valid: false, reason: "missing X-Aircall-Signature header" };
+  const expected = crypto.createHmac("sha256", AIRCALL_WEBHOOK_SECRET).update(rawBody).digest("hex");
+  const a = Buffer.from(expected, "hex");
+  const b = Buffer.from(presentedSignature, "hex");
+  if (a.length !== b.length) return { valid: false, reason: "length mismatch" };
+  return { valid: crypto.timingSafeEqual(a, b), reason: undefined };
+}
 
 type AircallCall = {
   id: number;
@@ -48,7 +71,25 @@ function mapStatus(ev: string | undefined, call: AircallCall): string {
 }
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json()) as AircallEvent;
+  // Read raw body once so we can verify the HMAC and then parse it. Doing
+  // `req.json()` first would consume the stream and leave us unable to
+  // re-hash the original bytes.
+  const rawBody = await req.text();
+  const sigCheck = verifyAircallSignature(rawBody, req.headers.get("x-aircall-signature"));
+  if (!sigCheck.valid) {
+    // LOG-ONLY mode: log + keep processing so we don't break legitimate
+    // Aircall traffic if their header format differs from our assumption.
+    // Flip this to `return NextResponse.json({ error: "bad signature" },
+    // { status: 401 })` once logs confirm 100% valid traffic.
+    console.warn("[aircall-webhook] invalid signature (log-only mode):", sigCheck.reason);
+  }
+
+  let body: AircallEvent;
+  try {
+    body = JSON.parse(rawBody) as AircallEvent;
+  } catch {
+    return NextResponse.json({ error: "invalid json" }, { status: 400 });
+  }
   const call = body.data;
   if (!call?.id) return NextResponse.json({ ignored: true });
 
@@ -105,13 +146,17 @@ export async function POST(req: NextRequest) {
     const rows = await lookup.json().catch(() => []);
     const leadId = Array.isArray(rows) && rows[0]?.id ? rows[0].id : null;
 
-    await fetch(`${SB_URL}/calls`, {
+    // Upsert on aircall_call_id (UNIQUE partial index, migration 018) so a
+    // retried Aircall webhook (normal behavior) doesn't create duplicate
+    // rows. `resolution=merge-duplicates` makes PostgREST treat a UNIQUE
+    // collision as an UPDATE on the conflicting row instead of 23505 error.
+    await fetch(`${SB_URL}/calls?on_conflict=aircall_call_id`, {
       method: "POST",
       headers: {
         apikey: SB_KEY,
         Authorization: `Bearer ${SB_KEY}`,
         "Content-Type": "application/json",
-        Prefer: "return=minimal",
+        Prefer: "return=minimal,resolution=merge-duplicates",
       },
       body: JSON.stringify({
         aircall_call_id: call.id,
