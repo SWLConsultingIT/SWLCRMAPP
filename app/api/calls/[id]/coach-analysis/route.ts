@@ -45,7 +45,11 @@ export async function POST(
   const { data: call, error: callErr } = await svc
     .from("calls")
     .select(
-      "id, lead_id, direction, duration, transcript, coach_analysis, coach_score, coach_generated_at, coach_model, leads!inner(primary_first_name, primary_last_name, primary_title_role, company_bio_id, company_bios!inner(name))"
+      // company_bios uses `company_name` (not `name`). The original draft of
+      // this endpoint asked for `name` which 400'd PostgREST silently and
+      // surfaced as "Call not found" — confusing bug. Always query the
+      // actual column.
+      "id, lead_id, direction, duration, transcript, coach_analysis, coach_score, coach_generated_at, coach_model, leads!inner(primary_first_name, primary_last_name, primary_title_role, company_bio_id, company_bios!inner(company_name))"
     )
     .eq("id", callId)
     .maybeSingle();
@@ -84,7 +88,7 @@ export async function POST(
   }
 
   const userMessage = buildCoachUserMessage({
-    companyName: companyBio?.name ?? "Unknown Company",
+    companyName: companyBio?.company_name ?? "Unknown Company",
     leadName: `${lead?.primary_first_name ?? ""} ${lead?.primary_last_name ?? ""}`.trim() || "Unknown Lead",
     leadRole: lead?.primary_title_role ?? null,
     campaignName: null, // not in the select for now; can enrich later
