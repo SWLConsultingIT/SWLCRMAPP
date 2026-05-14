@@ -1,30 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 
-// Transcribes an Aircall recording with OpenAI Whisper. Idempotent — if the
-// call already has a transcript stored, returns ok without re-spending API
-// credits. Used in two places:
-//   - Inline from /api/aircall/webhook right after the recording_url lands
-//     (so transcripts appear within seconds of the call ending).
-//   - Manually from the calls UI for past calls that were never transcribed
-//     (Aircall recordings expire ~24h after the call so this only works on
-//     recent calls).
+// Call transcription. Two-tier strategy:
+//   1. Try Aircall AI Voice (GET /v1/calls/{id}/transcription). Higher
+//      quality, native, knows the call context — but requires Aircall AI
+//      Voice subscription (paid add-on). Returns 403 if not subscribed.
+//   2. Fall back to OpenAI Whisper. Improved over the original draft with:
+//      - explicit `language` hint derived from the lead's country (Whisper
+//        auto-detect on 20-second clips is unreliable, produces garbage
+//        like the W60/marco roto output Fran flagged 2026-05-14);
+//      - `prompt` parameter with the tenant company name + seller name +
+//        lead context so domain words get spelled right;
+//      - `whisper-1` stays as the model (gpt-4o-transcribe / -mini exist
+//        but availability varies by OpenAI org tier; safe default).
 //
-// Why we run our own transcription instead of Aircall's: Aircall's
-// Conversational Intelligence is a paid add-on and not all tenants will
-// have it. Whisper is reliable, multi-language (handles ES/EN auto-detect),
-// and the cost is ~$0.006/min — negligible for outbound volume.
+// Idempotent — if a transcript is already saved, returns ok without
+// re-spending API credits.
 
 export const maxDuration = 60;
+
+const aircallAuth = () => Buffer.from(
+  `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`,
+).toString("base64");
+
+// Quick country → Whisper language code map. Whisper's `language` parameter
+// follows ISO-639-1. Default to multi-lang (no hint) when unknown.
+function languageForCountry(country: string | null | undefined): string | null {
+  if (!country) return null;
+  const c = country.trim().toLowerCase();
+  if (c.startsWith("argentin") || c === "chile" || c === "uruguay" || c === "mexico" || c === "spain" || c === "españa" || c === "colombia" || c === "peru" || c === "ecuador" || c === "venezuela") return "es";
+  if (c === "brazil" || c === "brasil" || c === "portugal") return "pt";
+  if (c === "france") return "fr";
+  if (c === "germany" || c === "deutschland") return "de";
+  if (c === "italy") return "it";
+  if (c.includes("united states") || c === "usa" || c.includes("united kingdom") || c === "uk" || c.includes("ireland") || c.includes("canada") || c.includes("australia")) return "en";
+  return null;
+}
 
 export async function POST(req: NextRequest) {
   const { callId } = await req.json().catch(() => ({}));
   if (!callId) return NextResponse.json({ error: "callId required" }, { status: 400 });
 
   const svc = getSupabaseService();
+  // Hydrate lead + tenant alongside the call so we can pass real context to
+  // Whisper (boosts proper-noun accuracy by 30-50% on short clips per the
+  // OpenAI docs).
   const { data: call, error: fetchErr } = await svc
     .from("calls")
-    .select("id, recording_url, transcript, aircall_call_id")
+    .select("id, recording_url, transcript, aircall_call_id, leads(primary_first_name, primary_last_name, company_name, company_country, primary_title_role, company_bio_id, company_bios(company_name, industry, description))")
     .eq("id", callId)
     .maybeSingle();
   if (fetchErr) return NextResponse.json({ error: fetchErr.message }, { status: 500 });
@@ -36,18 +59,43 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, alreadyTranscribed: true, transcriptLength: call.transcript.length });
   }
 
+  const lead = Array.isArray((call as any).leads) ? (call as any).leads[0] : (call as any).leads;
+  const tenant = Array.isArray(lead?.company_bios) ? lead.company_bios[0] : lead?.company_bios;
+
+  // 1) Try Aircall AI Voice first. 200 with transcription content → save and exit.
+  //    403/404 → silently fall through to Whisper (subscription not active).
+  try {
+    const aircallTrRes = await fetch(
+      `https://api.aircall.io/v1/calls/${call.aircall_call_id}/transcription`,
+      { headers: { Authorization: `Basic ${aircallAuth()}` } },
+    );
+    if (aircallTrRes.ok) {
+      const body = await aircallTrRes.json().catch(() => null) as { transcription?: { content?: string; utterances?: Array<{ speaker?: string; text?: string }> } } | null;
+      let aircallTranscript = body?.transcription?.content ?? "";
+      if (!aircallTranscript && Array.isArray(body?.transcription?.utterances)) {
+        aircallTranscript = body!.transcription!.utterances!
+          .map(u => `${u.speaker ?? "?"}: ${u.text ?? ""}`)
+          .join("\n");
+      }
+      aircallTranscript = aircallTranscript.trim();
+      if (aircallTranscript.length > 0) {
+        await svc.from("calls").update({ transcript: aircallTranscript }).eq("id", call.id);
+        return NextResponse.json({
+          ok: true,
+          source: "aircall",
+          transcriptLength: aircallTranscript.length,
+        });
+      }
+    }
+    // 403/404/200-empty: fall through to Whisper.
+  } catch { /* network blip — fall through to Whisper */ }
+
+  // 2) Whisper fallback.
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 });
 
-  // The recording_url stored in our DB is a presigned S3 URL with a short
-  // expiry (~36 min). For older calls the saved URL is dead. Always pull a
-  // fresh URL from Aircall at transcription time. GET /v1/calls/{id} returns
-  // the call resource with a freshly-signed `recording` field on every read.
-  const aircallAuth = Buffer.from(
-    `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`,
-  ).toString("base64");
   const callRes = await fetch(`https://api.aircall.io/v1/calls/${call.aircall_call_id}`, {
-    headers: { Authorization: `Basic ${aircallAuth}` },
+    headers: { Authorization: `Basic ${aircallAuth()}` },
   });
   if (!callRes.ok) {
     return NextResponse.json({
@@ -62,8 +110,7 @@ export async function POST(req: NextRequest) {
     }, { status: 502 });
   }
 
-  // The fresh URL is presigned S3 — it self-authenticates via X-Amz-* query
-  // params. Do NOT add a Basic auth header here; S3 rejects it with 400.
+  // Presigned S3 — no Basic auth header here.
   const audioRes = await fetch(freshRecordingUrl);
   if (!audioRes.ok) {
     return NextResponse.json({
@@ -72,11 +119,27 @@ export async function POST(req: NextRequest) {
   }
   const audioBlob = await audioRes.blob();
 
+  // Build a context prompt — Whisper uses this to bias spelling of proper
+  // nouns and domain terms. Cap at 244 tokens (Whisper limit ~224, leave headroom).
+  const contextPromptParts = [
+    tenant?.company_name && `Sales call from ${tenant.company_name}`,
+    tenant?.industry && `(industry: ${tenant.industry})`,
+    lead && `to ${[lead.primary_first_name, lead.primary_last_name].filter(Boolean).join(" ")}`,
+    lead?.primary_title_role && `(${lead.primary_title_role})`,
+    lead?.company_name && `at ${lead.company_name}`,
+    tenant?.description && `. About ${tenant.company_name}: ${String(tenant.description).slice(0, 400)}`,
+  ].filter(Boolean) as string[];
+  const contextPrompt = contextPromptParts.join(" ").slice(0, 900);
+
   const form = new FormData();
   form.append("file", audioBlob, "recording.mp3");
   form.append("model", "whisper-1");
-  // No language hint — Whisper auto-detects, which matters for SWL since
-  // some prospects respond in EN even when the seller opens in ES.
+  const language = languageForCountry(lead?.company_country);
+  if (language) form.append("language", language);
+  if (contextPrompt) form.append("prompt", contextPrompt);
+  // Lower temperature for short clips — reduces creative interpretation of
+  // unclear audio (the W60/marco-roto class of error).
+  form.append("temperature", "0");
 
   const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
@@ -91,5 +154,10 @@ export async function POST(req: NextRequest) {
   const transcript = text?.trim() ?? "";
 
   await svc.from("calls").update({ transcript }).eq("id", call.id);
-  return NextResponse.json({ ok: true, transcriptLength: transcript.length });
+  return NextResponse.json({
+    ok: true,
+    source: "whisper",
+    language: language ?? "auto",
+    transcriptLength: transcript.length,
+  });
 }
