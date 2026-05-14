@@ -120,6 +120,18 @@ export async function POST(req: NextRequest) {
     }, { status: 502 });
   }
   const audioBlob = await audioRes.blob();
+  // Detect actual content-type and use the matching extension. Aircall
+  // recordings can come through as mp3 OR wav depending on the codec config
+  // on the number. gpt-4o-mini-transcribe is strict about format vs filename
+  // — sending a wav as recording.mp3 trips "Audio file might be corrupted".
+  const contentType = (audioRes.headers.get("content-type") || "").toLowerCase();
+  const extension =
+    contentType.includes("wav")    ? "wav" :
+    contentType.includes("m4a") || contentType.includes("mp4") ? "m4a" :
+    contentType.includes("ogg")    ? "ogg" :
+    contentType.includes("webm")   ? "webm" :
+    "mp3"; // default — Aircall's most common output
+  const audioFilename = `recording.${extension}`;
 
   // Build a context prompt — the model uses this to bias spelling of proper
   // nouns and domain terms. Cap at 900 chars (~250 tokens, well under any
@@ -136,12 +148,12 @@ export async function POST(req: NextRequest) {
   const language = languageForCountry(lead?.company_country);
 
   // Try gpt-4o-mini-transcribe first — noticeably better than whisper-1 on
-  // short noisy phone audio, ~85% accuracy vs ~60%. If the OpenAI account
-  // tier doesn't have access to it (400/404), fall back to whisper-1 so the
-  // endpoint never just breaks on an account limit.
+  // short noisy phone audio, ~85% accuracy vs ~60%. Whisper-1 is more
+  // permissive about format / corrupt audio though, so we fall back to it
+  // on ANY error from the newer model (not just "model not available").
   async function transcribeWith(model: string, includeTemperature: boolean) {
     const form = new FormData();
-    form.append("file", audioBlob, "recording.mp3");
+    form.append("file", audioBlob, audioFilename);
     form.append("model", model);
     if (language) form.append("language", language);
     if (contextPrompt) form.append("prompt", contextPrompt);
@@ -156,19 +168,21 @@ export async function POST(req: NextRequest) {
 
   let modelUsed = "gpt-4o-mini-transcribe";
   let openaiRes = await transcribeWith(modelUsed, false);
-  if (!openaiRes.ok && (openaiRes.status === 400 || openaiRes.status === 404)) {
-    const errText = await openaiRes.text();
-    // Account doesn't have access to the new model — fall back gracefully.
-    if (errText.includes("model") || errText.includes("not found")) {
-      modelUsed = "whisper-1";
-      openaiRes = await transcribeWith(modelUsed, true);
-    } else {
-      return NextResponse.json({ error: `Transcription failed: ${errText}` }, { status: 502 });
-    }
+  let firstAttemptError: string | null = null;
+  if (!openaiRes.ok) {
+    firstAttemptError = await openaiRes.text();
+    // gpt-4o-mini-transcribe is stricter about audio format and rejects some
+    // edge-case mp3 variants that whisper-1 accepts. Always retry on whisper-1
+    // before surfacing the error — better a slightly-lower-quality transcript
+    // than no transcript at all.
+    modelUsed = "whisper-1";
+    openaiRes = await transcribeWith(modelUsed, true);
   }
   if (!openaiRes.ok) {
-    const errText = await openaiRes.text();
-    return NextResponse.json({ error: `Transcription failed: ${errText}` }, { status: 502 });
+    const secondErr = await openaiRes.text();
+    return NextResponse.json({
+      error: `Transcription failed on both models. gpt-4o-mini-transcribe: ${firstAttemptError ?? "n/a"} — whisper-1: ${secondErr}`,
+    }, { status: 502 });
   }
   const { text } = await openaiRes.json() as { text?: string };
   const transcript = text?.trim() ?? "";

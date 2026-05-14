@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, Trash2, Sparkles, Loader2, RotateCw } from "lucide-react";
+import { Phone, Trash2, Sparkles, Loader2, RotateCw, AlertCircle, X } from "lucide-react";
 import { C } from "@/lib/design";
 import CallClassifier from "@/components/CallClassifier";
 import CallCoachAnalysis from "@/components/CallCoachAnalysis";
@@ -48,6 +48,11 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  // Inline error replaces the native alert() popups — they were ugly
+  // and got in the way of the auth bar at the top of the page.
+  const [transcribeError, setTranscribeError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [showRetranscribeConfirm, setShowRetranscribeConfirm] = useState(false);
   const mins = call.duration ? Math.floor(call.duration / 60) : null;
   const secs = call.duration ? call.duration % 60 : null;
   const durLabel = mins !== null ? `${mins}m ${secs}s` : null;
@@ -57,25 +62,36 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
     if (deleting) return;
     if (!confirm("Delete this call from the lead history? This can't be undone (a fresh Aircall sync will repull if it still exists upstream).")) return;
     setDeleting(true);
+    setDeleteError(null);
     try {
       const res = await fetch(`/api/calls/${call.id}`, { method: "DELETE" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        alert(`Couldn't delete: ${body.error ?? res.statusText}`);
+        setDeleteError(body.error ?? `Couldn't delete (${res.status})`);
         setDeleting(false);
         return;
       }
       router.refresh();
     } catch (e: any) {
-      alert(`Couldn't delete: ${e?.message ?? "network error"}`);
+      setDeleteError(e?.message ?? "Network error");
       setDeleting(false);
     }
   }
 
   async function handleTranscribe(force = false) {
     if (transcribing) return;
-    if (force && !confirm("Re-transcribe this call? This will replace the existing transcript and cost ~$0.003.")) return;
+    if (force) {
+      // Surface the cost-confirm as an inline state, not a native confirm() —
+      // those popups land at the top of the browser viewport, way above the
+      // call card, and look unprofessional next to the auth bar.
+      if (!showRetranscribeConfirm) {
+        setShowRetranscribeConfirm(true);
+        return;
+      }
+      setShowRetranscribeConfirm(false);
+    }
     setTranscribing(true);
+    setTranscribeError(null);
     try {
       const res = await fetch(`/api/aircall/transcribe`, {
         method: "POST",
@@ -84,13 +100,13 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        alert(`Couldn't transcribe: ${body.error ?? res.statusText}`);
+        setTranscribeError(body.error ?? `Couldn't transcribe (${res.status})`);
         setTranscribing(false);
         return;
       }
       router.refresh();
     } catch (e: any) {
-      alert(`Couldn't transcribe: ${e?.message ?? "network error"}`);
+      setTranscribeError(e?.message ?? "Network error");
       setTranscribing(false);
     }
   }
@@ -145,12 +161,12 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
         <div className="rounded-lg p-3 mt-2" style={{ backgroundColor: C.bg }}>
           <div className="flex items-center justify-between mb-1.5">
             <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>Transcript</p>
-            {canRetranscribe && (
+            {canRetranscribe && !showRetranscribeConfirm && (
               <button
                 type="button"
                 onClick={() => handleTranscribe(true)}
                 disabled={transcribing}
-                title="Re-transcribe with gpt-4o-mini (fixes bad transcripts; costs ~$0.003)"
+                title="Re-transcribe with the newer model (fixes bad transcripts; costs ~$0.003)"
                 className="p-1 rounded inline-flex items-center gap-1 transition-colors disabled:opacity-50"
                 style={{ color: C.textMuted }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = "#b79832"; }}
@@ -164,6 +180,44 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
             )}
           </div>
           <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{call.transcript}</p>
+          {showRetranscribeConfirm && (
+            <div className="mt-3 p-2.5 rounded border flex items-center justify-between gap-2"
+              style={{ backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }}>
+              <p className="text-[11px]" style={{ color: "#92400E" }}>
+                Replace this transcript? Cost ~$0.003.
+              </p>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  onClick={() => setShowRetranscribeConfirm(false)}
+                  className="text-[11px] font-medium px-2.5 py-1 rounded-md"
+                  style={{ color: "#92400E" }}>
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleTranscribe(true)}
+                  disabled={transcribing}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-md inline-flex items-center gap-1 disabled:opacity-50"
+                  style={{ backgroundColor: "#D97706", color: "#fff" }}>
+                  {transcribing ? <Loader2 size={10} className="animate-spin" /> : <RotateCw size={10} />}
+                  Confirm
+                </button>
+              </div>
+            </div>
+          )}
+          {transcribeError && (
+            <div className="mt-3 p-2.5 rounded border flex items-start justify-between gap-2"
+              style={{ backgroundColor: C.redLight, borderColor: `${C.red}40` }}>
+              <div className="flex items-start gap-2 min-w-0">
+                <AlertCircle size={12} className="mt-0.5 shrink-0" style={{ color: C.red }} />
+                <p className="text-[11px] leading-relaxed" style={{ color: C.red }}>
+                  Couldn't transcribe: {transcribeError.length > 200 ? transcribeError.slice(0, 200) + "…" : transcribeError}
+                </p>
+              </div>
+              <button onClick={() => setTranscribeError(null)} className="shrink-0 p-0.5" style={{ color: C.red }}>
+                <X size={12} />
+              </button>
+            </div>
+          )}
         </div>
       )}
       {call.notes && (
@@ -178,14 +232,14 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
         </div>
       )}
       {canTranscribe && (
-        <div className="mt-3 flex justify-end">
+        <div className="mt-3 flex flex-col items-end gap-2">
           <button
             type="button"
-            onClick={handleTranscribe}
+            onClick={() => handleTranscribe(false)}
             disabled={transcribing}
             className="text-xs font-medium px-3 py-1.5 rounded-md border inline-flex items-center gap-1.5 transition-colors disabled:opacity-60"
             style={{ color: C.textBody, borderColor: C.border, backgroundColor: C.surface }}
-            title="Transcribe with Whisper (uses fresh recording URL from Aircall)"
+            title="Transcribe with gpt-4o-mini-transcribe (fetches a fresh recording URL from Aircall)"
           >
             {transcribing ? (
               <>
@@ -196,6 +250,34 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
                 <Sparkles size={12} /> Transcribe
               </>
             )}
+          </button>
+          {transcribeError && (
+            <div className="w-full p-2.5 rounded border flex items-start justify-between gap-2"
+              style={{ backgroundColor: C.redLight, borderColor: `${C.red}40` }}>
+              <div className="flex items-start gap-2 min-w-0">
+                <AlertCircle size={12} className="mt-0.5 shrink-0" style={{ color: C.red }} />
+                <p className="text-[11px] leading-relaxed" style={{ color: C.red }}>
+                  Couldn't transcribe: {transcribeError.length > 200 ? transcribeError.slice(0, 200) + "…" : transcribeError}
+                </p>
+              </div>
+              <button onClick={() => setTranscribeError(null)} className="shrink-0 p-0.5" style={{ color: C.red }}>
+                <X size={12} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+      {deleteError && (
+        <div className="mt-3 p-2.5 rounded border flex items-start justify-between gap-2"
+          style={{ backgroundColor: C.redLight, borderColor: `${C.red}40` }}>
+          <div className="flex items-start gap-2 min-w-0">
+            <AlertCircle size={12} className="mt-0.5 shrink-0" style={{ color: C.red }} />
+            <p className="text-[11px] leading-relaxed" style={{ color: C.red }}>
+              Couldn't delete: {deleteError.length > 200 ? deleteError.slice(0, 200) + "…" : deleteError}
+            </p>
+          </div>
+          <button onClick={() => setDeleteError(null)} className="shrink-0 p-0.5" style={{ color: C.red }}>
+            <X size={12} />
           </button>
         </div>
       )}
