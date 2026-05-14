@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   const svc = getSupabaseService();
   const { data, error } = await svc
     .from("calls")
-    .select("id, aircall_call_id, lead_id, direction, status, duration, phone_number, recording_url, transcript, notes, started_at, ended_at, classification, ai_confidence, ai_summary, coach_analysis, coach_score, coach_generated_at, coach_model")
+    .select("id, aircall_call_id, lead_id, direction, status, duration, phone_number, recording_url, transcript, notes, started_at, ended_at, classification, ai_confidence, ai_summary, coach_analysis, coach_score, coach_generated_at, coach_model, summary, summary_generated_at")
     .in("lead_id", ids)
     .order("started_at", { ascending: false });
 

@@ -6,6 +6,7 @@ import { Phone, Trash2, Sparkles, Loader2 } from "lucide-react";
 import { C } from "@/lib/design";
 import CallClassifier from "@/components/CallClassifier";
 import CallCoachAnalysis from "@/components/CallCoachAnalysis";
+import CallSummary from "@/components/CallSummary";
 
 export type CallRecord = {
   id: string;
@@ -26,6 +27,8 @@ export type CallRecord = {
   coach_score?: number | null;
   coach_generated_at?: string | null;
   coach_model?: string | null;
+  summary?: string | null;
+  summary_generated_at?: string | null;
 };
 
 const statusColor: Record<string, string> = {
@@ -174,6 +177,14 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
             )}
           </button>
         </div>
+      )}
+      {!compact && (
+        <CallSummary
+          callId={call.id}
+          hasTranscript={!!call.transcript && call.transcript.trim().length >= 10}
+          initialSummary={call.summary ?? null}
+          initialGeneratedAt={call.summary_generated_at ?? null}
+        />
       )}
       {!compact && (
         <CallClassifier

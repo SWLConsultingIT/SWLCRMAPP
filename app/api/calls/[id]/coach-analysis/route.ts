@@ -1,16 +1,17 @@
 // AI Sales Coach analysis for a single call.
 //
 // POST /api/calls/{id}/coach-analysis
-//   Body: optional { force: boolean } — if true, re-generate even if cached.
 //
-// Returns the markdown analysis + extracted 0-10 score. First call for a
-// given call_id costs ~$0.05 (Opus 4.7 with adaptive thinking + effort=high
-// + prompt caching on the static system prompt). Subsequent reads hit the
-// cached column for free.
+// One generation per call by design (Fran 2026-05-14: "una vez por
+// llamada"). Once `coach_analysis` is set we always return cached — no
+// `force` knob exposed publicly. To prevent double-spend on rapid
+// clicks before the cache write lands, we stamp `coach_generating_at`
+// at the start of the run and gate new requests on it within a 90-second
+// window. On failure we clear the lock so the user can retry.
 //
-// Tenant isolation: the call's lead.company_bio_id must equal the caller's
-// scoped tenant. Super-admins are scoped to their own bio on operational
-// pages per lib/scope.ts — see feedback_trust_central_scope.md.
+// Model: Sonnet 4.6 (downgraded from Opus 4.7 — same structure quality
+// for this task, ~60% cheaper, ~2x faster). Cost ~$0.02 per call,
+// shared across the prompt-cached system text.
 
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
@@ -22,10 +23,11 @@ import {
   extractCoachScore,
 } from "@/lib/prompts/call-coach";
 
-const MODEL = "claude-opus-4-7";
+const MODEL = "claude-sonnet-4-6";
+const GENERATION_LOCK_MS = 90 * 1000;
 
 export async function POST(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: callId } = await params;
@@ -35,21 +37,12 @@ export async function POST(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { force } = await req.json().catch(() => ({ force: false }));
-
   const svc = getSupabaseService();
 
-  // Fetch the call + lead + tenant in one round-trip. Inner join on leads
-  // ensures we only return rows whose lead exists; we then enforce tenant
-  // scope manually below (service-role bypasses RLS).
   const { data: call, error: callErr } = await svc
     .from("calls")
     .select(
-      // company_bios uses `company_name` (not `name`). The original draft of
-      // this endpoint asked for `name` which 400'd PostgREST silently and
-      // surfaced as "Call not found" — confusing bug. Always query the
-      // actual column.
-      "id, lead_id, direction, duration, transcript, coach_analysis, coach_score, coach_generated_at, coach_model, leads!inner(primary_first_name, primary_last_name, primary_title_role, company_bio_id, company_bios!inner(company_name))"
+      "id, lead_id, direction, duration, transcript, coach_analysis, coach_score, coach_generated_at, coach_model, coach_generating_at, leads!inner(primary_first_name, primary_last_name, primary_title_role, company_bio_id, company_bios!inner(company_name))"
     )
     .eq("id", callId)
     .maybeSingle();
@@ -58,9 +51,6 @@ export async function POST(
     return NextResponse.json({ error: "Call not found" }, { status: 404 });
   }
 
-  // Tenant gate. The leads + company_bios join returned a nested object —
-  // PostgREST shapes it as an array unless we asked for a single row, so
-  // we normalize both shapes.
   const lead = Array.isArray((call as any).leads) ? (call as any).leads[0] : (call as any).leads;
   const companyBio = Array.isArray(lead?.company_bios) ? lead.company_bios[0] : lead?.company_bios;
   const leadBioId = lead?.company_bio_id as string | null | undefined;
@@ -69,8 +59,8 @@ export async function POST(
     return NextResponse.json({ error: "Forbidden (cross-tenant)" }, { status: 403 });
   }
 
-  // Return cached unless force=1.
-  if (!force && call.coach_analysis) {
+  // Cached result wins — no public force knob.
+  if (call.coach_analysis) {
     return NextResponse.json({
       analysis: call.coach_analysis,
       score: call.coach_score,
@@ -80,6 +70,19 @@ export async function POST(
     });
   }
 
+  // Generation lock — protects against rapid double-click double-spend.
+  const generatingAt = call.coach_generating_at as string | null;
+  if (generatingAt) {
+    const ageMs = Date.now() - new Date(generatingAt).getTime();
+    if (ageMs < GENERATION_LOCK_MS) {
+      return NextResponse.json(
+        { error: "Generation already in progress, please wait", inProgress: true },
+        { status: 409 }
+      );
+    }
+    // Lock is stale (>90s) — assume the previous attempt died; allow new run.
+  }
+
   if (!call.transcript || call.transcript.trim().length < 20) {
     return NextResponse.json(
       { error: "Transcript is empty or too short to analyze" },
@@ -87,11 +90,45 @@ export async function POST(
     );
   }
 
+  // Acquire the lock atomically — re-check no analysis exists in the same
+  // UPDATE so a winning concurrent request's cache write isn't stomped.
+  const lockTime = new Date().toISOString();
+  const { data: locked } = await svc
+    .from("calls")
+    .update({ coach_generating_at: lockTime })
+    .eq("id", callId)
+    .is("coach_analysis", null)
+    .or(`coach_generating_at.is.null,coach_generating_at.lt.${new Date(Date.now() - GENERATION_LOCK_MS).toISOString()}`)
+    .select("id");
+
+  if (!locked || locked.length === 0) {
+    // Either coach_analysis got populated between our SELECT and UPDATE,
+    // or another request took the lock first. Re-read and return current state.
+    const { data: refreshed } = await svc
+      .from("calls")
+      .select("coach_analysis, coach_score, coach_generated_at, coach_model")
+      .eq("id", callId)
+      .maybeSingle();
+    if (refreshed?.coach_analysis) {
+      return NextResponse.json({
+        analysis: refreshed.coach_analysis,
+        score: refreshed.coach_score,
+        generatedAt: refreshed.coach_generated_at,
+        model: refreshed.coach_model,
+        cached: true,
+      });
+    }
+    return NextResponse.json(
+      { error: "Generation already in progress, please wait", inProgress: true },
+      { status: 409 }
+    );
+  }
+
   const userMessage = buildCoachUserMessage({
     companyName: companyBio?.company_name ?? "Unknown Company",
     leadName: `${lead?.primary_first_name ?? ""} ${lead?.primary_last_name ?? ""}`.trim() || "Unknown Lead",
     leadRole: lead?.primary_title_role ?? null,
-    campaignName: null, // not in the select for now; can enrich later
+    campaignName: null,
     callDirection: call.direction ?? null,
     callDuration: call.duration ?? null,
     transcript: call.transcript,
@@ -99,14 +136,11 @@ export async function POST(
 
   const anthropic = new Anthropic();
 
-  // Stream with adaptive thinking — long outputs from Opus 4.7 risk HTTP
-  // timeouts on non-streaming calls. We collect into a final message so the
-  // caller still gets a single JSON response.
   let analysis: string;
   try {
     const stream = anthropic.messages.stream({
       model: MODEL,
-      max_tokens: 16000,
+      max_tokens: 4000, // Sonnet 4.6 doesn't need 16k for this structured output
       thinking: { type: "adaptive" },
       output_config: { effort: "high" },
       system: [
@@ -124,11 +158,14 @@ export async function POST(
       .map((b) => b.text)
       .join("\n");
   } catch (e: any) {
+    // Release the lock so the user can retry.
+    await svc.from("calls").update({ coach_generating_at: null }).eq("id", callId);
     const msg = e?.message ?? String(e);
     return NextResponse.json({ error: `Coach generation failed: ${msg}` }, { status: 502 });
   }
 
   if (!analysis || analysis.length < 50) {
+    await svc.from("calls").update({ coach_generating_at: null }).eq("id", callId);
     return NextResponse.json(
       { error: "Coach returned empty analysis — try again" },
       { status: 502 }
@@ -145,6 +182,7 @@ export async function POST(
       coach_score: score,
       coach_generated_at: nowISO,
       coach_model: MODEL,
+      coach_generating_at: null,
     })
     .eq("id", callId);
 

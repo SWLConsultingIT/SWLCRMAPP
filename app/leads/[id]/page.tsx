@@ -112,7 +112,7 @@ async function getCalls(leadId: string) {
   const key = process.env.SUPABASE_SERVICE_KEY!;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const res = await fetch(
-    `${url}/rest/v1/calls?lead_id=eq.${leadId}&order=started_at.desc&select=id,aircall_call_id,direction,status,duration,phone_number,recording_url,transcript,notes,started_at,ended_at,classification,ai_confidence,ai_summary,coach_analysis,coach_score,coach_generated_at,coach_model`,
+    `${url}/rest/v1/calls?lead_id=eq.${leadId}&order=started_at.desc&select=id,aircall_call_id,direction,status,duration,phone_number,recording_url,transcript,notes,started_at,ended_at,classification,ai_confidence,ai_summary,coach_analysis,coach_score,coach_generated_at,coach_model,summary,summary_generated_at`,
     { headers: { apikey: key, Authorization: `Bearer ${key}` }, cache: "no-store" }
   );
   const data = await res.json().catch(() => []);
