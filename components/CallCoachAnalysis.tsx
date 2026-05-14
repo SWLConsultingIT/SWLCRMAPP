@@ -195,6 +195,12 @@ export default function CallCoachAnalysis(props: {
   const [state, setState] = useState<CoachState>(props.initial);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Open by default RIGHT AFTER generation (so the seller sees the result),
+  // but collapsed by default when the analysis was already cached from a
+  // prior visit (so the call card stays scannable). justGenerated toggles
+  // open the first render after a successful generate().
+  const [expanded, setExpanded] = useState(false);
+  const [justGenerated, setJustGenerated] = useState(false);
 
   async function generate() {
     if (loading || state.analysis) return;
@@ -217,6 +223,8 @@ export default function CallCoachAnalysis(props: {
         generatedAt: body.generatedAt,
         model: body.model,
       });
+      setExpanded(true);
+      setJustGenerated(true);
     } catch (e: any) {
       setError(e?.message ?? "Network error");
     } finally {
@@ -267,8 +275,40 @@ export default function CallCoachAnalysis(props: {
   const restKeys = new Set([assessment?.key, wins?.key, misses?.key, nextImprovements?.key, nextStep?.key, "score"]);
   const rest = sections.filter(s => !restKeys.has(s.key));
 
+  const isOpen = expanded || justGenerated;
+  const sc = scoreColor(state.score);
+
+  // Collapsed: compact header bar with score + assessment teaser + expand toggle.
+  // Expanded: full structured render below the same header (now with collapse toggle).
   return (
     <div className="mt-4 space-y-3">
+      {/* Header bar — always visible, click anywhere to toggle */}
+      <button
+        type="button"
+        onClick={() => { setExpanded(o => !o); setJustGenerated(false); }}
+        className="w-full rounded-xl border px-4 py-3 flex items-center gap-3 text-left transition-[box-shadow] hover:shadow-sm"
+        style={{ borderColor: C.border, backgroundColor: C.card }}
+      >
+        <Sparkles size={14} style={{ color: "#b79832" }} className="shrink-0" />
+        <span className="text-xs font-bold" style={{ color: C.textPrimary }}>
+          AI Coach Analysis
+        </span>
+        {state.score !== null && (
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded shrink-0"
+            style={{ backgroundColor: sc.bg, color: sc.fg, border: `1px solid ${sc.ring}` }}>
+            {state.score}/10
+          </span>
+        )}
+        <span className="flex-1 min-w-0 text-[11px] truncate" style={{ color: C.textMuted }}>
+          {!isOpen && assessment?.lines.join(" ").slice(0, 120)}
+          {!isOpen && (assessment?.lines.join(" ").length ?? 0) > 120 && "…"}
+        </span>
+        {isOpen
+          ? <ChevronUp size={14} style={{ color: C.textMuted }} className="shrink-0" />
+          : <ChevronDown size={14} style={{ color: C.textMuted }} className="shrink-0" />}
+      </button>
+
+      {!isOpen ? null : (<>
       {/* Hero: score + assessment */}
       <Hero score={state.score} assessmentLines={assessment?.lines ?? []} />
 
@@ -295,6 +335,7 @@ export default function CallCoachAnalysis(props: {
           {rest.map(s => <SectionCard key={s.key} section={s} />)}
         </div>
       )}
+      </>)}
     </div>
   );
 }
