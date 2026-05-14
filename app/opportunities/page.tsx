@@ -49,11 +49,17 @@ async function getOpportunities() {
     if (!replyByLead[r.lead_id]) replyByLead[r.lead_id] = r;
   }
 
-  const opportunityLeads = (leads ?? []).filter(l => campByLead[l.id]).map(l => {
-    const camp = campByLead[l.id];
+  // Previously this filtered to `l => campByLead[l.id]`, requiring the lead
+  // to have a campaign. That hid leads that won via manual click-to-call
+  // (no campaign) — a real path where a seller calls a fresh lead, marks
+  // the call Positive, and expects them in Opportunities (Fran 2026-05-14).
+  // Now we show every lead with a positive lead_reply for the tenant;
+  // campaign fields just degrade to null when there isn't one.
+  const opportunityLeads = (leads ?? []).map(l => {
+    const camp = campByLead[l.id] ?? null;
     const reply = replyByLead[l.id];
     const steps = Array.isArray(camp?.sequence_steps) ? camp.sequence_steps.length : 0;
-    const channels = camp ? [...new Set([camp.channel, ...(Array.isArray(camp.sequence_steps) ? camp.sequence_steps.map((s: any) => s.channel) : [])])] : [];
+    const channels = camp ? [...new Set([camp.channel, ...(Array.isArray(camp.sequence_steps) ? camp.sequence_steps.map((s: any) => s.channel) : [])])] : (reply?.channel ? [reply.channel] : []);
     const daysToConvert = reply?.received_at && l.created_at
       ? Math.max(1, Math.round((new Date(reply.received_at).getTime() - new Date(l.created_at).getTime()) / 86400000))
       : null;
