@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, Trash2, Sparkles, Loader2 } from "lucide-react";
+import { Phone, Trash2, Sparkles, Loader2, RotateCw } from "lucide-react";
 import { C } from "@/lib/design";
 import CallClassifier from "@/components/CallClassifier";
 import CallCoachAnalysis from "@/components/CallCoachAnalysis";
@@ -72,14 +72,15 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
     }
   }
 
-  async function handleTranscribe() {
+  async function handleTranscribe(force = false) {
     if (transcribing) return;
+    if (force && !confirm("Re-transcribe this call? This will replace the existing transcript and cost ~$0.003.")) return;
     setTranscribing(true);
     try {
       const res = await fetch(`/api/aircall/transcribe`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ callId: call.id }),
+        body: JSON.stringify({ callId: call.id, force }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -95,6 +96,7 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
   }
 
   const canTranscribe = !!call.recording_url && !call.transcript && !!call.aircall_call_id;
+  const canRetranscribe = !!call.recording_url && !!call.transcript && !!call.aircall_call_id;
 
   return (
     <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -141,7 +143,26 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
       </div>
       {call.transcript && (
         <div className="rounded-lg p-3 mt-2" style={{ backgroundColor: C.bg }}>
-          <p className="text-[10px] uppercase tracking-wider mb-1.5 font-semibold" style={{ color: C.textDim }}>Transcript</p>
+          <div className="flex items-center justify-between mb-1.5">
+            <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>Transcript</p>
+            {canRetranscribe && (
+              <button
+                type="button"
+                onClick={() => handleTranscribe(true)}
+                disabled={transcribing}
+                title="Re-transcribe with gpt-4o-mini (fixes bad transcripts; costs ~$0.003)"
+                className="p-1 rounded inline-flex items-center gap-1 transition-colors disabled:opacity-50"
+                style={{ color: C.textMuted }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = "#b79832"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = C.textMuted; }}
+              >
+                {transcribing
+                  ? <Loader2 size={11} className="animate-spin" />
+                  : <RotateCw size={11} />}
+                <span className="text-[10px] font-medium">Re-transcribe</span>
+              </button>
+            )}
+          </div>
           <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{call.transcript}</p>
         </div>
       )}
