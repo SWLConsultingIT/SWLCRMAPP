@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save, Loader2, Plus, Trash2, Share2, Mail, Phone, MessageCircle, FileText, AlertCircle, X } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Plus, Trash2, Share2, Mail, Phone, MessageCircle, FileText, AlertCircle, X, Sparkles, Upload } from "lucide-react";
 import { C } from "@/lib/design";
 
 const gold = "var(--brand, #c9a83a)";
@@ -39,8 +39,33 @@ function buildStepMessages(connectionRequest: string, steps: Step[]) {
   };
 }
 
+type PendingAttachment = {
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  base64: string;
+};
+
+const MAX_PDF_BYTES = 8 * 1024 * 1024;
+const MAX_PDFS = 5;
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      // strip the data URL prefix "data:application/pdf;base64,"
+      const base64 = result.split(",")[1] ?? "";
+      resolve(base64);
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function NewTemplatePage() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [tagsInput, setTagsInput] = useState("");
@@ -52,6 +77,84 @@ export default function NewTemplatePage() {
   ]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  async function addFiles(files: FileList | File[]) {
+    setGenError(null);
+    const arr = Array.from(files);
+    const newOnes: PendingAttachment[] = [];
+    for (const f of arr) {
+      if (attachments.length + newOnes.length >= MAX_PDFS) {
+        setGenError(`Max ${MAX_PDFS} PDFs at once`);
+        break;
+      }
+      if (f.type !== "application/pdf") {
+        setGenError(`${f.name}: only PDFs supported for now`);
+        continue;
+      }
+      if (f.size > MAX_PDF_BYTES) {
+        setGenError(`${f.name} is >${MAX_PDF_BYTES / 1024 / 1024}MB`);
+        continue;
+      }
+      const base64 = await fileToBase64(f);
+      newOnes.push({ filename: f.name, mimeType: f.type, sizeBytes: f.size, base64 });
+    }
+    if (newOnes.length > 0) {
+      setAttachments(prev => [...prev, ...newOnes]);
+    }
+  }
+
+  function removeAttachment(idx: number) {
+    setAttachments(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  async function generateMessages() {
+    if (generating) return;
+    if (attachments.length === 0) {
+      setGenError("Add at least one PDF first");
+      return;
+    }
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const res = await fetch("/api/templates/generate-messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim() || "Untitled template",
+          description: description.trim() || undefined,
+          channels: Array.from(new Set(steps.map(s => s.channel))),
+          sequence: steps.map(s => ({ channel: s.channel, daysAfter: s.daysAfter })),
+          includesLinkedIn,
+          attachments: attachments.map(a => ({ filename: a.filename, mimeType: a.mimeType, base64: a.base64 })),
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setGenError(body.error ?? `Generation failed (${res.status})`);
+        return;
+      }
+      // Apply the generated messages to current state. Don't clobber the
+      // sequence — the user defined daysAfter/channel; we only fill bodies.
+      if (typeof body.connectionRequest === "string" && includesLinkedIn) {
+        setConnectionRequest(body.connectionRequest);
+      }
+      if (Array.isArray(body.steps)) {
+        setSteps(prev => prev.map((s, i) => {
+          const gen = body.steps.find((g: any) => g.step === i + 1);
+          if (!gen) return s;
+          return { ...s, body: gen.body ?? s.body, subject: gen.subject ?? s.subject };
+        }));
+      }
+    } catch (e: any) {
+      setGenError(e?.message ?? "Network error");
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   function updateStep(i: number, patch: Partial<Step>) {
     setSteps(prev => prev.map((s, idx) => idx === i ? { ...s, ...patch } : s));
@@ -176,6 +279,93 @@ export default function NewTemplatePage() {
             />
           </div>
         </div>
+      </div>
+
+      {/* AI message drafting from PDFs */}
+      <div className="rounded-2xl border p-5 mb-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: C.textPrimary }}>
+              <Sparkles size={14} style={{ color: "#7C3AED" }} /> AI message drafting
+            </h2>
+            <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
+              Drop your sales deck, case studies, or one-pagers — Claude reads them and drafts each step.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={generateMessages}
+            disabled={generating || attachments.length === 0}
+            className="text-xs font-semibold px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 disabled:opacity-50"
+            style={{ backgroundColor: "#7C3AED", color: "#fff" }}>
+            {generating ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+            {generating ? "Generating…" : "Generate messages"}
+          </button>
+        </div>
+
+        {/* Drop area */}
+        <div
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            if (e.dataTransfer.files) void addFiles(e.dataTransfer.files);
+          }}
+          onClick={() => fileInputRef.current?.click()}
+          className="rounded-lg border-2 border-dashed p-6 text-center cursor-pointer transition-colors"
+          style={{
+            borderColor: dragOver ? "#7C3AED" : C.border,
+            backgroundColor: dragOver ? "#F5F3FF" : C.bg,
+          }}>
+          <Upload size={24} className="mx-auto mb-2" style={{ color: dragOver ? "#7C3AED" : C.textDim }} />
+          <p className="text-xs" style={{ color: C.textBody }}>
+            <span className="font-semibold">Drag PDFs here</span> or click to browse
+          </p>
+          <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
+            Up to {MAX_PDFS} files, {MAX_PDF_BYTES / 1024 / 1024}MB each. PDF only for now.
+          </p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf"
+            multiple
+            className="hidden"
+            onChange={(e) => { if (e.target.files) void addFiles(e.target.files); e.target.value = ""; }}
+          />
+        </div>
+
+        {/* Attached files list */}
+        {attachments.length > 0 && (
+          <div className="mt-3 space-y-1.5">
+            {attachments.map((a, i) => (
+              <div key={i} className="flex items-center gap-2 rounded-lg border px-3 py-2"
+                style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                <FileText size={13} style={{ color: "#7C3AED" }} className="shrink-0" />
+                <span className="text-xs flex-1 truncate" style={{ color: C.textBody }}>{a.filename}</span>
+                <span className="text-[10px] shrink-0" style={{ color: C.textMuted }}>
+                  {(a.sizeBytes / 1024).toFixed(0)} KB
+                </span>
+                <button onClick={() => removeAttachment(i)} className="p-1" style={{ color: C.textMuted }}>
+                  <X size={11} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {genError && (
+          <div className="mt-3 rounded-lg border p-2.5 flex items-start justify-between gap-2"
+            style={{ backgroundColor: C.redLight, borderColor: `${C.red}40` }}>
+            <div className="flex items-start gap-2 min-w-0">
+              <AlertCircle size={12} className="mt-0.5 shrink-0" style={{ color: C.red }} />
+              <p className="text-xs leading-relaxed" style={{ color: C.red }}>{genError}</p>
+            </div>
+            <button onClick={() => setGenError(null)} className="shrink-0 p-0.5" style={{ color: C.red }}>
+              <X size={12} />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* LinkedIn connection request toggle */}
