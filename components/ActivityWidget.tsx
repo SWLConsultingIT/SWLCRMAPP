@@ -63,7 +63,9 @@ export default function ActivityWidget() {
       }
     }
     load();
-    const id = setInterval(load, 30_000);
+    // Realtime Presence (below) handles "in-app right now"; this poll only
+    // refreshes last_seen_at history for the admin widget — 2 min is fine.
+    const id = setInterval(load, 2 * 60 * 1000);
     return () => { alive = false; clearInterval(id); };
   }, []);
 

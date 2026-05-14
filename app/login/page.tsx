@@ -30,7 +30,21 @@ export default function LoginPage() {
       const supabase = getSupabaseBrowser();
       const { error: authError } = await supabase.auth.signInWithPassword({ email, password });
       if (authError) {
-        setError("Incorrect credentials. Try again.");
+        // Distinguish credential errors (status 400, user fault) from
+        // infrastructure errors (status 5xx, timeout, DB saturated). Showing
+        // "Incorrect credentials" on every failure caused a real incident
+        // where users retried in a loop and made saturation worse.
+        const status = (authError as { status?: number }).status;
+        const msg = authError.message?.toLowerCase() ?? "";
+        const isCredentialError =
+          status === 400 ||
+          msg.includes("invalid login credentials") ||
+          msg.includes("email not confirmed");
+        setError(
+          isCredentialError
+            ? "Incorrect credentials. Try again."
+            : "Service temporarily unavailable. Try again in a moment."
+        );
         return;
       }
       // Clear legacy localStorage keys (older builds wrote here; cookie is the

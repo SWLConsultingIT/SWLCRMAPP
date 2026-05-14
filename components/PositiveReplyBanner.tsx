@@ -39,7 +39,7 @@ export default function PositiveReplyBanner() {
     }
 
     check();
-    const id = setInterval(check, 30000);
+    const id = setInterval(check, 2 * 60 * 1000);
     return () => clearInterval(id);
   }, []);
 

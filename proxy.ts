@@ -46,29 +46,51 @@ export async function proxy(req: NextRequest) {
     }
   );
 
-  // `getUser()` can throw `AuthApiError: Invalid Refresh Token` when the
-  // refresh token in the cookie has expired or was invalidated server-side
-  // (e.g. after a Supabase project key rotation, manual session revocation,
-  // or simply leaving the tab open past the refresh window). Treat any auth
-  // error as "no user" + clear the stale Supabase cookies so the next request
-  // doesn't keep retrying with the same bad token.
+  // `getUser()` can fail two very different ways and we MUST distinguish them:
+  //   (A) Auth rejection — bad/expired refresh token, project key rotation,
+  //       session revoked. Status 401. Correct response: clear cookies and
+  //       redirect to /login.
+  //   (B) Infrastructure error — Supabase timing out (DB saturated), network
+  //       blip, 5xx from auth service. Status >= 500 or thrown. Correct
+  //       response: KEEP cookies (the session is still valid!) and surface a
+  //       503 so the user retries without losing their session.
+  // Pre-2026-05-14 we conflated these: any failure → clear cookies → redirect
+  // to /login → login also failed (same Supabase saturation) → permanent
+  // lockout. That's how today's incident escalated.
   let user: { id: string } | null = null;
+  let infraError = false;
   try {
-    const { data } = await supabase.auth.getUser();
+    const { data, error } = await supabase.auth.getUser();
+    if (error) {
+      const status = (error as { status?: number }).status;
+      // Treat anything that isn't a clean 4xx as an infra problem.
+      if (!status || status >= 500) infraError = true;
+    }
     user = data.user;
   } catch {
-    user = null;
+    // Thrown errors are network/timeout, never auth-rejection.
+    infraError = true;
   }
 
   if (!user) {
+    if (infraError) {
+      // Don't redirect or clear cookies — the user's session is probably still
+      // valid, we just couldn't verify it. Auto-refresh after 3s so the user
+      // doesn't have to do anything.
+      return new NextResponse(
+        `<!DOCTYPE html><html><head><meta charset="utf-8">
+         <meta http-equiv="refresh" content="3">
+         <title>Service degraded</title>
+         <style>body{margin:0;background:#04070d;color:#d9dee2;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center}.box{max-width:440px;padding:32px}h1{color:#b79832;font-size:18px;margin:0 0 8px}p{color:rgba(217,222,226,0.6);font-size:14px;margin:0 0 16px;line-height:1.5}.spinner{display:inline-block;width:18px;height:18px;border:2px solid rgba(183,152,50,0.2);border-top-color:#b79832;border-radius:50%;animation:s 0.8s linear infinite}@keyframes s{to{transform:rotate(360deg)}}</style></head>
+         <body><div class="box"><h1>Service temporarily slow</h1><p>Auth is taking longer than usual. Retrying automatically…</p><div class="spinner"></div></div></body></html>`,
+        { status: 503, headers: { "content-type": "text/html; charset=utf-8", "retry-after": "3" } }
+      );
+    }
+    // Genuine auth rejection — clear cookies and bounce to /login.
     const redirectRes = NextResponse.redirect(new URL("/login", req.url));
-    // Mirror any Set-Cookie headers Supabase wrote on `response` (e.g. cleared
-    // session cookies) onto the redirect, so the client actually sheds them.
     for (const c of response.cookies.getAll()) {
       redirectRes.cookies.set(c.name, c.value, c);
     }
-    // Belt-and-braces: explicitly clear common Supabase auth cookies in case
-    // the SDK didn't (it doesn't always when the refresh token is malformed).
     for (const name of req.cookies.getAll().map(c => c.name)) {
       if (name.startsWith("sb-") && (name.endsWith("-auth-token") || name.includes("auth-token"))) {
         redirectRes.cookies.set(name, "", { path: "/", maxAge: 0, sameSite: "lax" });
@@ -77,14 +99,15 @@ export async function proxy(req: NextRequest) {
     return redirectRes;
   }
 
-  // Heartbeat — update user_profiles.last_seen_at at most once per 60s. We
+  // Heartbeat — update user_profiles.last_seen_at at most once per 5 min. We
   // throttle via a cookie so the proxy only fires the UPDATE on the first
-  // request of each minute, not on every navigation. The cookie holds the
-  // last write time; if it's missing or stale we write and refresh it.
+  // request of each window, not on every navigation. last_seen_at is only
+  // consumed by admin UIs (ActivityWidget, /api/team) where 5-min granularity
+  // is plenty — a tighter heartbeat just burns disk IO on tiny instances.
   const SEEN_COOKIE = "swl-last-seen-ping";
   const lastPing = req.cookies.get(SEEN_COOKIE)?.value;
   const lastPingMs = lastPing ? Number(lastPing) : 0;
-  const HEARTBEAT_MS = 60 * 1000;
+  const HEARTBEAT_MS = 5 * 60 * 1000;
   if (!lastPingMs || Date.now() - lastPingMs > HEARTBEAT_MS) {
     // Fire and forget — don't block the response on the DB round-trip.
     fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/user_profiles?user_id=eq.${user.id}`, {

@@ -80,7 +80,9 @@ export default function Sidebar() {
       setPendingCount((pendingReview ?? 0) + (pendingExec ?? 0) + (pendingCampaigns ?? 0));
     }
     fetchBadges();
-    const interval = setInterval(fetchBadges, 60000);
+    // Sidebar badges aren't time-critical — 5 min is plenty and avoids
+    // 4 count queries per user per minute hitting Supabase.
+    const interval = setInterval(fetchBadges, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
