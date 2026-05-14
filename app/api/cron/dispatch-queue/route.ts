@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
+import { mapLimit } from "@/lib/concurrency";
+
+// Hard cap on parallel seller batches in a single tick. Each seller's batch
+// opens ~3 DB connections (list queued, hydrate lead+campaign, update on
+// completion). At 60 direct conns on Micro, 5 workers × 3 = 15 conns is a
+// comfortable share that leaves room for other API traffic and Realtime.
+// If sellers ever grow >>5, we still process all of them in this tick — just
+// pipelined through the 5 worker slots.
+const MAX_PARALLEL_SELLERS = 5;
 
 // Cron-driven LinkedIn dispatcher.
 //
@@ -754,11 +763,13 @@ async function handle(req: NextRequest) {
     if (sid) sentCounts[sid] = (sentCounts[sid] ?? 0) + 1;
   }
 
-  // 3. Process every seller's batch in parallel. Different tenants' sellers
-  //    are completely independent — one rate-limited account doesn't slow
-  //    down anyone else.
-  const sellerResults = await Promise.all(
-    activeSellers.map((s) => processSellerBatch(svc, s, sentCounts[s.id] ?? 0)),
+  // 3. Process every seller's batch in parallel, but capped at
+  //    MAX_PARALLEL_SELLERS so we don't fan out N DB conns when N gets
+  //    large. Different tenants' sellers are still independent — one
+  //    rate-limited account doesn't slow down anyone else, we just
+  //    pipeline through worker slots instead of one big Promise.all.
+  const sellerResults = await mapLimit(activeSellers, MAX_PARALLEL_SELLERS,
+    (s) => processSellerBatch(svc, s, sentCounts[s.id] ?? 0),
   );
 
   // 4. Aggregate.

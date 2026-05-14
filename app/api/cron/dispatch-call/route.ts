@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
+import { mapLimit } from "@/lib/concurrency";
+
+// Same rationale as dispatch-queue: cap parallel seller batches so we don't
+// blow past the 60-direct-conn Supabase limit at scale.
+const MAX_PARALLEL_SELLERS = 5;
 
 // Cron-driven Aircall dispatcher.
 //
@@ -437,10 +442,11 @@ async function handle(req: NextRequest) {
     if (sid) sentCounts[sid] = (sentCounts[sid] ?? 0) + 1;
   }
 
-  // Process every seller's batch in parallel. Each seller resolves its own
+  // Process every seller's batch in parallel, capped at MAX_PARALLEL_SELLERS
+  // to keep DB connection pressure bounded. Each seller resolves its own
   // Aircall user_id via the per-seller resolver inside processSellerBatch.
-  const sellerResults = await Promise.all(
-    activeSellers.map((s) => processSellerBatch(svc, s, sentCounts[s.id] ?? 0, availableUserIdSet, fallbackAvailableUserId)),
+  const sellerResults = await mapLimit(activeSellers, MAX_PARALLEL_SELLERS,
+    (s) => processSellerBatch(svc, s, sentCounts[s.id] ?? 0, availableUserIdSet, fallbackAvailableUserId),
   );
 
   let processed = 0;
