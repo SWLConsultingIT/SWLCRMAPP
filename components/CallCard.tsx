@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Phone, Trash2, Sparkles, Loader2 } from "lucide-react";
 import { C } from "@/lib/design";
 import CallClassifier from "@/components/CallClassifier";
+import CallCoachAnalysis from "@/components/CallCoachAnalysis";
 
 export type CallRecord = {
   id: string;
@@ -21,6 +22,10 @@ export type CallRecord = {
   classification: string | null;
   ai_confidence: number | null;
   ai_summary: string | null;
+  coach_analysis?: string | null;
+  coach_score?: number | null;
+  coach_generated_at?: string | null;
+  coach_model?: string | null;
 };
 
 const statusColor: Record<string, string> = {
@@ -176,6 +181,18 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
           current={(call.classification as "positive" | "negative" | "follow_up" | null) ?? null}
           aiConfidence={call.ai_confidence ?? null}
           aiSummary={call.ai_summary ?? null}
+        />
+      )}
+      {!compact && (
+        <CallCoachAnalysis
+          callId={call.id}
+          hasTranscript={!!call.transcript && call.transcript.trim().length >= 20}
+          initial={{
+            analysis: call.coach_analysis ?? null,
+            score: call.coach_score ?? null,
+            generatedAt: call.coach_generated_at ?? null,
+            model: call.coach_model ?? null,
+          }}
         />
       )}
     </div>
