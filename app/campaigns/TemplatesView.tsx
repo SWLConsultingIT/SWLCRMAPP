@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { FileText, Loader2, Search, Share2, Mail, Phone, MessageSquare, X, Trash2, Play, Plus } from "lucide-react";
 import { C } from "@/lib/design";
 
@@ -123,7 +124,7 @@ export default function TemplatesView() {
 
   return (
     <div>
-      {/* Toolbar: search + channel chips */}
+      {/* Toolbar: search + channel chips + new template button */}
       <div className="flex items-center justify-between gap-3 mb-5 flex-wrap">
         <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5 w-full sm:w-72"
           style={{ borderColor: C.border, backgroundColor: C.card }}>
@@ -135,24 +136,31 @@ export default function TemplatesView() {
           {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
         </div>
 
-        <div className="flex items-center gap-1 flex-wrap">
-          {(["linkedin", "email", "call", "whatsapp"] as const).map(ch => {
-            const m = channelMeta[ch];
-            const Icon = m.icon;
-            const active = channelFilter === ch;
-            return (
-              <button key={ch}
-                onClick={() => setChannelFilter(active ? null : ch)}
-                className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md border transition-colors"
-                style={{
-                  backgroundColor: active ? `${m.color}18` : "transparent",
-                  borderColor: active ? `${m.color}40` : C.border,
-                  color: active ? m.color : C.textMuted,
-                }}>
-                <Icon size={11} /> {m.label}
-              </button>
-            );
-          })}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 flex-wrap">
+            {(["linkedin", "email", "call", "whatsapp"] as const).map(ch => {
+              const m = channelMeta[ch];
+              const Icon = m.icon;
+              const active = channelFilter === ch;
+              return (
+                <button key={ch}
+                  onClick={() => setChannelFilter(active ? null : ch)}
+                  className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md border transition-colors"
+                  style={{
+                    backgroundColor: active ? `${m.color}18` : "transparent",
+                    borderColor: active ? `${m.color}40` : C.border,
+                    color: active ? m.color : C.textMuted,
+                  }}>
+                  <Icon size={11} /> {m.label}
+                </button>
+              );
+            })}
+          </div>
+          <Link href="/campaigns/templates/new"
+            className="text-xs font-semibold px-3 py-1.5 rounded-md inline-flex items-center gap-1.5"
+            style={{ backgroundColor: "#7C3AED", color: "#fff" }}>
+            <Plus size={12} /> New Template
+          </Link>
         </div>
       </div>
 
@@ -171,13 +179,20 @@ export default function TemplatesView() {
         <div className="rounded-2xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
           <FileText size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
           <p className="text-sm font-medium" style={{ color: C.textBody }}>
-            {search || channelFilter ? "No templates match" : "No templates saved yet"}
+            {search || channelFilter ? "No templates match" : "No templates yet"}
           </p>
-          <p className="text-xs mt-1 max-w-md mx-auto" style={{ color: C.textMuted }}>
+          <p className="text-xs mt-1 mb-4 max-w-md mx-auto" style={{ color: C.textMuted }}>
             {search || channelFilter
               ? "Try clearing filters."
-              : "Create a campaign, then click “Save as Template” on the edit page. The template will live here so you can reuse it across leads and ICPs."}
+              : "Build a reusable outreach sequence + messages once, apply it to any future campaign in one click."}
           </p>
+          {!search && !channelFilter && (
+            <Link href="/campaigns/templates/new"
+              className="text-xs font-semibold px-4 py-2 rounded-md inline-flex items-center gap-1.5"
+              style={{ backgroundColor: "#7C3AED", color: "#fff" }}>
+              <Plus size={12} /> Create your first template
+            </Link>
+          )}
         </div>
       ) : (
         <div className="space-y-2">

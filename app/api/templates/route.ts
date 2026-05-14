@@ -13,11 +13,29 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 
 type SaveFromCampaignBody = {
+  mode?: "from_campaign";
   campaignId: string;
   name: string;
   description?: string;
   tags?: string[];
 };
+
+type SaveFromScratchBody = {
+  mode: "from_scratch";
+  name: string;
+  description?: string;
+  tags?: string[];
+  channels?: string[];
+  sequence_steps: Array<{ channel: string; daysAfter: number }>;
+  step_messages: {
+    connectionRequest?: string;
+    steps: Array<{ step: number; channel: string; subject?: string | null; body: string }>;
+    autoReplies?: { positive?: string; negative?: string; question?: string };
+  };
+  attachments?: Array<{ filename: string; storage_path?: string; mime_type?: string; size_bytes?: number }>;
+};
+
+type SaveBody = SaveFromCampaignBody | SaveFromScratchBody;
 
 export async function GET(req: NextRequest) {
   const scope = await getUserScope();
@@ -58,19 +76,64 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await req.json()) as SaveFromCampaignBody;
-  if (!body.campaignId || !body.name?.trim()) {
-    return NextResponse.json({ error: "campaignId and name are required" }, { status: 400 });
+  const body = (await req.json()) as SaveBody;
+  if (!body.name?.trim()) {
+    return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
 
   const svc = getSupabaseService();
+
+  // From-scratch path: user defined the sequence + messages directly in the
+  // template editor, no source campaign. Skip the campaign-extraction logic
+  // entirely and write straight to campaign_templates.
+  if (body.mode === "from_scratch") {
+    const fs = body as SaveFromScratchBody;
+    if (!Array.isArray(fs.sequence_steps) || fs.sequence_steps.length === 0) {
+      return NextResponse.json({ error: "sequence_steps is required and non-empty" }, { status: 400 });
+    }
+    if (!fs.step_messages || typeof fs.step_messages !== "object") {
+      return NextResponse.json({ error: "step_messages is required" }, { status: 400 });
+    }
+
+    const channels = Array.isArray(fs.channels) && fs.channels.length > 0
+      ? fs.channels
+      : Array.from(new Set(fs.sequence_steps.map(s => s.channel).filter(Boolean))) as string[];
+
+    const { data: created, error: insErr } = await svc
+      .from("campaign_templates")
+      .insert({
+        company_bio_id: scope.companyBioId,
+        name: fs.name.trim(),
+        description: fs.description?.trim() ?? null,
+        sequence_steps: fs.sequence_steps,
+        step_messages: fs.step_messages,
+        attachments: Array.isArray(fs.attachments) ? fs.attachments : [],
+        tags: Array.isArray(fs.tags) ? fs.tags.slice(0, 10) : [],
+        channels,
+        created_by: scope.userId,
+      })
+      .select("id, name")
+      .single();
+
+    if (insErr) {
+      return NextResponse.json({ error: insErr.message }, { status: 500 });
+    }
+    return NextResponse.json({ template: created });
+  }
+
+  // From-campaign path (original): extract sequence + messages + attachments
+  // from an existing campaign + its campaign_messages rows.
+  const fc = body as SaveFromCampaignBody;
+  if (!fc.campaignId) {
+    return NextResponse.json({ error: "campaignId is required when not in from_scratch mode" }, { status: 400 });
+  }
 
   // Pull the source campaign + verify tenant ownership via the lead's bio_id
   // (campaigns table also has company_bio_id but we cross-check both).
   const { data: camp, error: campErr } = await svc
     .from("campaigns")
     .select("id, name, sequence_steps, channel, lead_id, company_bio_id, leads!inner(company_bio_id)")
-    .eq("id", body.campaignId)
+    .eq("id", fc.campaignId)
     .maybeSingle();
 
   if (campErr || !camp) {
@@ -88,7 +151,7 @@ export async function POST(req: NextRequest) {
   const { data: msgs } = await svc
     .from("campaign_messages")
     .select("step_number, channel, content, metadata")
-    .eq("campaign_id", body.campaignId)
+    .eq("campaign_id", fc.campaignId)
     .order("step_number", { ascending: true });
 
   // Shape step_messages like the wizard's `channelMessages` so the apply
@@ -131,12 +194,12 @@ export async function POST(req: NextRequest) {
     .from("campaign_templates")
     .insert({
       company_bio_id: scope.companyBioId,
-      name: body.name.trim(),
-      description: body.description?.trim() ?? null,
+      name: fc.name.trim(),
+      description: fc.description?.trim() ?? null,
       sequence_steps: seqSteps,
       step_messages: stepMessages,
       attachments,
-      tags: Array.isArray(body.tags) ? body.tags.slice(0, 10) : [],
+      tags: Array.isArray(fc.tags) ? fc.tags.slice(0, 10) : [],
       channels,
       created_by: scope.userId,
     })
