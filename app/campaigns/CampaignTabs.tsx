@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { C } from "@/lib/design";
-import { Megaphone, PlusCircle } from "lucide-react";
+import { Megaphone, PlusCircle, FileText } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -13,9 +13,13 @@ export default function CampaignTabs({ readyCount, activeCount, children }: {
 }) {
   const [tab, setTab] = useState(0);
 
+  // Templates: third tab. Lives here (not in the sidebar) so new users don't
+  // see another nav item to learn — they discover templates naturally when
+  // they're already on /campaigns. See feature note 2026-05-14.
   const tabs = [
     { label: "Active Campaigns", icon: Megaphone, count: activeCount, color: gold },
     { label: "New Campaign", icon: PlusCircle, count: readyCount, color: C.blue },
+    { label: "Templates", icon: FileText, count: 0, color: "#7C3AED" },
   ];
 
   return (

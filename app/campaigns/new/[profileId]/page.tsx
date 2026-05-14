@@ -159,6 +159,39 @@ export default function NewCampaignWizard() {
 
   // Channel messages (structured per-channel config)
   const [channelMessages, setChannelMessages] = useState<ChannelMessages>({ steps: [], autoReplies: { positive: "", negative: "", question: "" } });
+
+  // Template apply — checks both the URL (?template_id=X for direct deep
+  // links from elsewhere) and sessionStorage (set by the /templates tab
+  // before navigating through the chooser, since the URL param doesn't
+  // survive the 2-step navigation). The wizard pre-fills sequence +
+  // channelMessages, then clears sessionStorage so refreshing doesn't
+  // reapply it.
+  useEffect(() => {
+    const fromUrl = searchParams.get("template_id");
+    let fromSession: string | null = null;
+    try { fromSession = sessionStorage.getItem("swl-pending-template-id"); } catch { /* SSR/private mode */ }
+    const templateId = fromUrl ?? fromSession;
+    if (!templateId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/templates/${templateId}`, { cache: "no-store" });
+        if (!res.ok) return;
+        const body = await res.json().catch(() => ({}));
+        const t = body.template;
+        if (cancelled || !t) return;
+        if (Array.isArray(t.sequence_steps) && t.sequence_steps.length > 0) {
+          setSequence(t.sequence_steps as SequenceStep[]);
+        }
+        if (t.step_messages && typeof t.step_messages === "object") {
+          setChannelMessages(t.step_messages as ChannelMessages);
+        }
+        try { sessionStorage.removeItem("swl-pending-template-id"); } catch { /* no-op */ }
+      } catch { /* template apply is best-effort; never block the wizard */ }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [selectedSignals, setSelectedSignals] = useState<string[]>([]);
   // Enrichment from a representative lead in this ICP — drives which signal chips render.
   // Each tenant has different enrichment keys; for Pathway they're rfa_*/ch_*, for another client they might be something else.

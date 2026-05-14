@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { LinkedInIcon, EmailIcon, PhoneIcon, WhatsAppIcon } from "@/components/SocialIcons";
 import MessageAttachments, { type Attachment } from "@/components/MessageAttachments";
+import SaveAsTemplateButton from "@/components/SaveAsTemplateButton";
 
 const gold = C.gold;
 
@@ -718,6 +719,7 @@ export default function FlowEditorPage() {
           style={{ backgroundColor: `${C.red}12`, color: C.red, border: `1px solid ${C.red}30` }}>
           Cancel
         </Link>
+        <SaveAsTemplateButton campaignId={campaignId} defaultName={flowName} />
         <button onClick={handleSave} disabled={saving || !flowName.trim()}
           className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] cursor-pointer hover:shadow-sm disabled:opacity-40"
           style={{ backgroundColor: C.goldGlow, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>

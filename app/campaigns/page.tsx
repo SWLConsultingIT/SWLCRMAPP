@@ -4,6 +4,7 @@ import { C } from "@/lib/design";
 import { Megaphone, TrendingUp, MessageSquare, Users } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import CampaignTabs from "./CampaignTabs";
+import TemplatesView from "./TemplatesView";
 import ActiveCampaignsView from "@/components/ActiveCampaignsView";
 import NewCampaignView from "@/components/NewCampaignView";
 
@@ -200,6 +201,9 @@ export default async function CampaignsPage() {
           })}
           totalUncampaigned={totalUncampaigned}
         />
+
+        {/* ═══ TAB 2: TEMPLATES ═══ */}
+        <TemplatesView />
       </CampaignTabs>
     </div>
   );
