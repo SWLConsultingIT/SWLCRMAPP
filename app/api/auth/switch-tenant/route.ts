@@ -44,11 +44,17 @@ export async function POST(req: NextRequest) {
   if (!membership) return NextResponse.json({ error: "No membership in that tenant" }, { status: 403 });
   if (bio?.archived_at) return NextResponse.json({ error: "Tenant archived" }, { status: 403 });
 
+  // 12h maxAge — long enough for a normal working day, short enough that a
+  // browser left open over the weekend doesn't carry yesterday's tenant
+  // scope into Monday morning. The cookie is also cleared on logout (see
+  // /api/auth/logout) so a fresh login can never inherit a previous user's
+  // tenant scope.
   cookieStore.set(ACTIVE_TENANT_COOKIE, companyBioId, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
+    maxAge: 60 * 60 * 12,
   });
 
   return NextResponse.json({ ok: true, companyBioId });
