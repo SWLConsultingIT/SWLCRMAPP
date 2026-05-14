@@ -210,23 +210,15 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Add regular step messages. LinkedIn-led campaigns: steps 1+ stay as
-    // 'draft' until the connection accept webhook (BESFOHaqTt2Ki0Vw) flips
-    // step 1 to 'queued'. Pure call/email campaigns: there is no
-    // connection-request gate, so the FIRST step must be 'queued' on
-    // approve or no dispatcher ever picks it up (bug #call-only-stuck,
-    // 36 Pathway Invoice Finance campaigns sat at draft for ~24h).
-    //
-    // Subsequent steps (i >= 1) still seed as draft — the per-step
-    // cascade in dispatch-* flips step N+1 to queued after step N sends.
-    const hasLinkedInGate = connectionRequest && channels.includes("linkedin");
+    // Add regular step messages (step 1, 2, 3...) as draft. They are activated
+    // only after the connection request is accepted.
     messages.forEach((msg, i) => messageInserts.push({
       campaign_id: campaign.id,
       lead_id: leadId,
       step_number: (msg.step ?? i + 1),
       channel: msg.channel ?? sequence[i]?.channel ?? primaryChannel,
       content: msg.body ?? "",
-      status: (!hasLinkedInGate && i === 0) ? "queued" : "draft",
+      status: "draft",
       created_at: new Date().toISOString(),
     }));
 
