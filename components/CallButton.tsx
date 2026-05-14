@@ -34,11 +34,15 @@ type Props = {
   phone: string | null;
   leadId: string;
   size?: "sm" | "md" | "lg";
-  variant?: "solid" | "soft";
+  variant?: "solid" | "soft" | "ghost";
+  // Override the default "Call {phone}" idle label. Used by the queue's
+  // "Awaiting Outcome" sub-tab where the primary action is classifying,
+  // not dialing again.
+  label?: string;
   defaultNumberId?: number | null;
 };
 
-export default function CallButton({ phone, leadId, size = "md", variant = "solid", defaultNumberId }: Props) {
+export default function CallButton({ phone, leadId, size = "md", variant = "solid", label, defaultNumberId }: Props) {
   const [numbers, setNumbers] = useState<AircallNumber[]>([]);
   const [selectedNumberId, setSelectedNumberId] = useState<number | null>(null);
   const [state, setState] = useState<"idle" | "calling" | "called" | "error">("idle");
@@ -103,6 +107,8 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
 
   const baseStyle = variant === "solid"
     ? { backgroundColor: "#F97316", color: "#fff" }
+    : variant === "ghost"
+    ? { backgroundColor: "transparent", color: "#EA580C", border: `1px solid ${C.border}` }
     : { backgroundColor: "#FFF7ED", color: "#EA580C", border: "1px solid #FED7AA" };
 
   const selected = numbers.find(n => n.id === selectedNumberId);
@@ -122,7 +128,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
         {state === "calling" ? <><Loader2 size={iconSize} className="animate-spin" /> Calling…</>
           : state === "called" ? <><CheckCheck size={iconSize} /> Call initiated</>
           : state === "error" ? <><PhoneOff size={iconSize} /> Failed</>
-          : <><Phone size={iconSize} /> Call {phone}</>
+          : <><Phone size={iconSize} /> {label ?? `Call ${phone}`}</>
         }
       </button>
 

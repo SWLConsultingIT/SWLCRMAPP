@@ -198,13 +198,25 @@ function InlineClassifier({ call }: { call: PendingCall }) {
 // ─── Main ──────────────────────────────────────────────────────────────────────
 export default function QueueClient({ pendingCalls, newReplies, pendingReviews, updates }: Props) {
   const [tab, setTab] = useState(0);
+  // Sub-tab inside "Calls": 0 = To Call (no call yet OR follow-up pending),
+  // 1 = Awaiting Outcome (already called, classification still null).
+  const [callSubTab, setCallSubTab] = useState<0 | 1>(0);
   const [search, setSearch] = useState("");
+
+  // Split pending calls by classification state. Positive/negative would
+  // already have dropped the entry from the queue (campaign ended), so we
+  // only need to handle null + follow_up here.
+  const callsToMake = pendingCalls.filter(c => !c.latestCall || c.latestCall.classification === "follow_up");
+  const callsAwaitingOutcome = pendingCalls.filter(c => c.latestCall && c.latestCall.classification === null);
 
   const totalCount = pendingCalls.length + newReplies.length + pendingReviews.length + updates.length;
   const needsReviewCount = newReplies.filter(r => r.requiresHumanReview).length;
 
-  const filteredCalls = !search ? pendingCalls
-    : pendingCalls.filter(c => `${c.leadName} ${c.company} ${c.campaignName}`.toLowerCase().includes(search.toLowerCase()));
+  const applyCallSearch = (list: PendingCall[]) => !search ? list
+    : list.filter(c => `${c.leadName} ${c.company} ${c.campaignName}`.toLowerCase().includes(search.toLowerCase()));
+
+  const filteredCallsToMake = applyCallSearch(callsToMake);
+  const filteredCallsAwaiting = applyCallSearch(callsAwaitingOutcome);
   const filteredReplies = !search ? newReplies
     : newReplies.filter(r => `${r.leadName} ${r.company} ${r.campaignName} ${r.replyText}`.toLowerCase().includes(search.toLowerCase()));
   const filteredReviews = !search ? pendingReviews
@@ -213,7 +225,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
     : updates.filter(u => `${u.name} ${u.subtitle}`.toLowerCase().includes(search.toLowerCase()));
 
   const tabs = [
-    { label: "Pending Calls",   count: pendingCalls.length,   color: "#F97316",  reviewCount: 0 },
+    { label: "Calls",           count: pendingCalls.length,   color: "#F97316",  reviewCount: 0 },
     { label: "New Replies",     count: newReplies.length,     color: C.blue,     reviewCount: needsReviewCount },
     { label: "Pending Reviews", count: pendingReviews.length, color: gold,       reviewCount: 0 },
     { label: "Updates",         count: updates.length,        color: "#7C3AED",  reviewCount: 0 },
@@ -266,96 +278,135 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
         </div>
       </div>
 
-      {/* ═══ Tab 0: Pending Calls ═══ */}
-      {tab === 0 && (
-        filteredCalls.length === 0 ? (
-          <div className="rounded-2xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-            <CheckCircle size={28} className="mx-auto mb-3" style={{ color: C.green }} />
-            <p className="text-sm font-medium" style={{ color: C.textBody }}>
-              {search ? "No calls match your search" : "No pending calls"}
-            </p>
-            <p className="text-xs mt-1" style={{ color: C.textMuted }}>Calls appear when a campaign sequence reaches a call step.</p>
-          </div>
-        ) : (
+      {/* ═══ Tab 0: Calls (To Call / Awaiting Outcome) ═══ */}
+      {tab === 0 && (() => {
+        const activeList = callSubTab === 0 ? filteredCallsToMake : filteredCallsAwaiting;
+        const emptyCopy = callSubTab === 0
+          ? { title: search ? "No calls match your search" : "No calls to make", hint: "Calls appear when a campaign sequence reaches a call step." }
+          : { title: search ? "No calls match your search" : "Nothing to classify", hint: "Once you call a lead, it shows up here until you log the outcome." };
+
+        return (
           <>
-            <div className="space-y-3">
-              {filteredCalls.map(call => {
-                const urgency = classifyUrgency(call.isOverdue ? call.overdueDays ?? 0 : null);
-                const UIcon = urgency.icon;
-                const isEscalated = urgency.level === "critical" || urgency.level === "stuck";
+            {/* Sub-tab nav */}
+            <div className="flex items-center gap-1 mb-4 rounded-lg border p-1 w-fit"
+              style={{ borderColor: C.border, backgroundColor: C.card }}>
+              {([
+                { idx: 0 as const, label: "To Call",           count: callsToMake.length,           icon: PhoneCall },
+                { idx: 1 as const, label: "Awaiting Outcome",  count: callsAwaitingOutcome.length,  icon: Clock     },
+              ]).map(s => {
+                const active = callSubTab === s.idx;
+                const Icon = s.icon;
                 return (
-                  <div key={call.id} className="rounded-2xl border transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-md" style={{ backgroundColor: C.card, borderColor: isEscalated ? urgency.border : C.border, borderLeftWidth: isEscalated ? 3 : 1, borderLeftColor: isEscalated ? urgency.color : undefined, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
-                    <div className="flex items-center gap-4 px-5 py-4">
-                      {/* Avatar */}
-                      <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
-                        style={{ background: "linear-gradient(135deg, #F97316, #FB923C)", color: "#fff" }}>
-                        <PhoneCall size={22} />
-                      </div>
-
-                      {/* Lead info */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                          <Link href={call.leadId ? `/leads/${call.leadId}` : "#"}
-                            className="text-sm font-bold hover:underline" style={{ color: C.textPrimary }}>
-                            {call.leadName}
-                          </Link>
-                          {call.company && <span className="text-xs" style={{ color: C.textMuted }}>· {call.company}</span>}
-                          {call.isOverdue && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
-                              style={{ backgroundColor: urgency.bg, color: urgency.color, border: `1px solid ${urgency.border}` }}>
-                              <UIcon size={9} /> {urgency.label}
-                            </span>
-                          )}
-                        </div>
-                        {call.role && <p className="text-xs" style={{ color: C.textMuted }}>{call.role}</p>}
-                        <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
-                          {call.campaignName} · Step {call.currentStep + 1}/{call.totalSteps}
-                          {call.lastStepAt && <> · Last activity {timeAgo(call.lastStepAt)}</>}
-                          {call.isOverdue && <> · {urgency.hint}</>}
-                        </p>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-2 shrink-0">
-                        {call.leadId ? (
-                          <CallButton phone={call.phone} leadId={call.leadId} size="md" defaultNumberId={call.aircallNumberId ?? null} />
-                        ) : (
-                          <span className="flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-xs"
-                            style={{ backgroundColor: C.surface, color: C.textDim }}>
-                            <PhoneOff size={12} /> No lead linked
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Inline classifier — shows when there's a call to
-                        classify. Positive/Negative close the campaign so the
-                        entry drops out on next refresh. Follow-up just labels
-                        and keeps the entry alive until the next call. */}
-                    <InlineClassifier call={call} />
-
-                    {/* Footer bar */}
-                    <div className="border-t px-5 py-3 flex items-center gap-4 rounded-b-xl"
-                      style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                      <Link href={call.leadId ? `/leads/${call.leadId}` : "#"}
-                        className="text-[10px] font-medium hover:underline flex items-center gap-1" style={{ color: gold }}>
-                        <User size={10} /> Lead Profile
-                      </Link>
-                      <Link href={`/campaigns/${call.campaignId}`}
-                        className="text-[10px] font-medium hover:underline flex items-center gap-1" style={{ color: gold }}>
-                        <Megaphone size={10} /> Campaign
-                      </Link>
-                      {call.email && (
-                        <span className="text-[10px] ml-auto" style={{ color: C.textDim }}>{call.email}</span>
-                      )}
-                    </div>
-                  </div>
+                  <button key={s.idx} onClick={() => setCallSubTab(s.idx)}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md transition-colors"
+                    style={{
+                      backgroundColor: active ? "#F9731618" : "transparent",
+                      color: active ? "#F97316" : C.textMuted,
+                    }}>
+                    <Icon size={11} /> {s.label}
+                    {s.count > 0 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-0.5"
+                        style={{ backgroundColor: active ? "#F9731628" : C.surface, color: active ? "#F97316" : C.textDim }}>
+                        {s.count}
+                      </span>
+                    )}
+                  </button>
                 );
               })}
             </div>
+
+            {activeList.length === 0 ? (
+              <div className="rounded-2xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+                <CheckCircle size={28} className="mx-auto mb-3" style={{ color: C.green }} />
+                <p className="text-sm font-medium" style={{ color: C.textBody }}>{emptyCopy.title}</p>
+                <p className="text-xs mt-1" style={{ color: C.textMuted }}>{emptyCopy.hint}</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {activeList.map(call => {
+                  const urgency = classifyUrgency(call.isOverdue ? call.overdueDays ?? 0 : null);
+                  const UIcon = urgency.icon;
+                  const isEscalated = urgency.level === "critical" || urgency.level === "stuck";
+                  const awaitingOutcome = callSubTab === 1;
+                  return (
+                    <div key={call.id} className="rounded-2xl border transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-md" style={{ backgroundColor: C.card, borderColor: isEscalated ? urgency.border : C.border, borderLeftWidth: isEscalated ? 3 : 1, borderLeftColor: isEscalated ? urgency.color : undefined, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
+                      <div className="flex items-center gap-4 px-5 py-4">
+                        {/* Avatar */}
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
+                          style={{ background: "linear-gradient(135deg, #F97316, #FB923C)", color: "#fff" }}>
+                          <PhoneCall size={22} />
+                        </div>
+
+                        {/* Lead info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                            <Link href={call.leadId ? `/leads/${call.leadId}` : "#"}
+                              className="text-sm font-bold hover:underline" style={{ color: C.textPrimary }}>
+                              {call.leadName}
+                            </Link>
+                            {call.company && <span className="text-xs" style={{ color: C.textMuted }}>· {call.company}</span>}
+                            {call.isOverdue && !awaitingOutcome && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                                style={{ backgroundColor: urgency.bg, color: urgency.color, border: `1px solid ${urgency.border}` }}>
+                                <UIcon size={9} /> {urgency.label}
+                              </span>
+                            )}
+                          </div>
+                          {call.role && <p className="text-xs" style={{ color: C.textMuted }}>{call.role}</p>}
+                          <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
+                            {call.campaignName} · Step {call.currentStep + 1}/{call.totalSteps}
+                            {call.lastStepAt && <> · Last activity {timeAgo(call.lastStepAt)}</>}
+                            {call.isOverdue && !awaitingOutcome && <> · {urgency.hint}</>}
+                          </p>
+                        </div>
+
+                        {/* Actions — in "awaiting outcome" the Call button is
+                            demoted to a small "Call again" link so the inline
+                            classify buttons below become the primary action. */}
+                        <div className="flex items-center gap-2 shrink-0">
+                          {call.leadId ? (
+                            awaitingOutcome ? (
+                              <CallButton phone={call.phone} leadId={call.leadId} size="sm" variant="ghost" label="Call again" defaultNumberId={call.aircallNumberId ?? null} />
+                            ) : (
+                              <CallButton phone={call.phone} leadId={call.leadId} size="md" defaultNumberId={call.aircallNumberId ?? null} />
+                            )
+                          ) : (
+                            <span className="flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-xs"
+                              style={{ backgroundColor: C.surface, color: C.textDim }}>
+                              <PhoneOff size={12} /> No lead linked
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Inline classifier — shows in Awaiting Outcome with
+                          the 3 outcome buttons. In To Call sub-tab it only
+                          appears for entries with a follow-up logged. */}
+                      <InlineClassifier call={call} />
+
+                      {/* Footer bar */}
+                      <div className="border-t px-5 py-3 flex items-center gap-4 rounded-b-xl"
+                        style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                        <Link href={call.leadId ? `/leads/${call.leadId}` : "#"}
+                          className="text-[10px] font-medium hover:underline flex items-center gap-1" style={{ color: gold }}>
+                          <User size={10} /> Lead Profile
+                        </Link>
+                        <Link href={`/campaigns/${call.campaignId}`}
+                          className="text-[10px] font-medium hover:underline flex items-center gap-1" style={{ color: gold }}>
+                          <Megaphone size={10} /> Campaign
+                        </Link>
+                        {call.email && (
+                          <span className="text-[10px] ml-auto" style={{ color: C.textDim }}>{call.email}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </>
-        )
-      )}
+        );
+      })()}
 
       {/* ═══ Tab 1: New Replies ═══ */}
       {tab === 1 && (
