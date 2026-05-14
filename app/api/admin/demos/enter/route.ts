@@ -36,7 +36,12 @@ export async function POST(req: NextRequest) {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 8, // 8h — demo sessions die at end of working day
+    // 2h instead of 8h. 8h was leaving stale demo identities pegged into
+    // admin sessions across the day, producing cross-tenant data leaks
+    // (Queue / Pending Calls showed wrong tenant's data on 2026-05-13).
+    // Demo walkthroughs rarely exceed an hour; 2h is generous + safer.
+    // Users can re-enter the demo if they need to extend.
+    maxAge: 60 * 60 * 2,
   });
 
   return NextResponse.json({ ok: true, bioId: bio.id, companyName: bio.company_name });

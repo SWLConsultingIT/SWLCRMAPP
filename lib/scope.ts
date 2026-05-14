@@ -156,10 +156,14 @@ export const getUserScope = cache(async function getUserScope(): Promise<UserSco
   const bioArchived = !!(bioRow as { archived_at?: string | null } | null)?.archived_at;
   const ownBioId = bioArchived ? null : (profile?.company_bio_id ?? null);
 
-  // Demo impersonation only applies to admins. We verify the cookie value
-  // points at a real is_demo=true tenant before honoring it — otherwise a
-  // stale cookie would silently leak data from a real client tenant.
-  if (role === "admin") {
+  // Demo impersonation only applies to SWL SUPER_ADMINS. The earlier check
+  // `role === "admin"` was too permissive — any tenant owner (which also
+  // carries role='admin' from the legacy column) hit the demo branch and,
+  // if a stale demo cookie was lying around, got silently impersonated
+  // into another tenant. Cross-tenant leak class. The Pending Calls /
+  // Queue tabs of an SWL admin showing Pathway leads on 2026-05-13 was
+  // exactly this. Gate strictly on tier='super_admin' going forward.
+  if (tier === "super_admin") {
     const cookieStore = await cookies();
     const demoBioId = cookieStore.get(DEMO_SESSION_COOKIE)?.value ?? null;
     if (demoBioId) {

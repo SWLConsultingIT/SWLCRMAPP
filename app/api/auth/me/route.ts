@@ -44,11 +44,15 @@ export async function GET() {
   const tier = (profile?.tier as string | null | undefined)
     ?? (role === "admin" ? "super_admin" : "owner");
 
-  // Demo impersonation surface: if admin AND a valid demo cookie is set, expose
-  // the demo tenant's id + name so the UI can render the banner without an
-  // additional round-trip. Cookie is HttpOnly so client JS can't read it directly.
+  // Demo impersonation surface: if SUPER_ADMIN AND a valid demo cookie is set,
+  // expose the demo tenant's id + name so the UI can render the banner without
+  // an additional round-trip. Cookie is HttpOnly so client JS can't read it
+  // directly. We gate on tier='super_admin' rather than role='admin' to keep
+  // tenant owners (also role='admin' from legacy column) out of the demo branch
+  // — they should never be impersonating another tenant. Matches the scope.ts
+  // 2026-05-13 hardening.
   let demoMode: { active: false } | { active: true; bioId: string; companyName: string | null; logoUrl: string | null } = { active: false };
-  if (role === "admin") {
+  if (tier === "super_admin") {
     const cookieStore = await cookies();
     const demoBioId = cookieStore.get(DEMO_SESSION_COOKIE)?.value ?? null;
     if (demoBioId) {
