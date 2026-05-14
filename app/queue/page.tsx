@@ -117,38 +117,82 @@ async function getQueueData() {
     { data: resolvedProfs },
   ] = await Promise.all([campQuery, replyQuery, acceptQuery, pendingCampQuery, pendingProfQuery, resolvedCampQuery, resolvedProfQuery]);
 
-  // Pending Calls
+  // Pending Calls — also enrich with the LATEST call per lead so the UI can
+  // show inline classification (Positive/Negative/Follow-up) right in the
+  // queue instead of forcing the seller into the lead detail. Without this
+  // step, sellers call but never classify, and the entry sits in /queue
+  // forever even though the call already happened (incident 2026-05-14:
+  // Graeme had 36 stuck entries because no classification loop closed them).
   const now = Date.now();
-  const pendingCalls: any[] = [];
+  const pendingCallCandidates: any[] = [];
+  const candidateLeadIds: string[] = [];
   for (const c of activeCampaigns ?? []) {
     const steps = Array.isArray(c.sequence_steps) ? c.sequence_steps : [];
     const currentStepIdx = c.current_step ?? 0;
     if (steps[currentStepIdx]?.channel === "call") {
-      const lead = c.leads as any;
-      const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
-      const daysAfter = steps[currentStepIdx]?.daysAfter ?? 0;
-      const dueAt = c.last_step_at ? new Date(c.last_step_at).getTime() + daysAfter * 86400000 : null;
-      const isOverdue = dueAt !== null && now > dueAt;
-      const overdueDays = isOverdue && dueAt ? Math.floor((now - dueAt) / 86400000) : 0;
-
-      pendingCalls.push({
-        id: c.id,
-        campaignId: c.id,
-        campaignName: c.name,
-        currentStep: currentStepIdx,
-        totalSteps: steps.length,
-        leadId: c.lead_id,
-        leadName,
-        company: lead?.company_name ?? null,
-        role: lead?.primary_title_role ?? null,
-        phone: lead?.primary_phone ?? null,
-        email: lead?.primary_work_email ?? null,
-        lastStepAt: c.last_step_at,
-        isOverdue,
-        overdueDays,
-        aircallNumberId: (c as any).aircall_number_id ?? null,
-      });
+      pendingCallCandidates.push({ c, currentStepIdx, steps });
+      if (c.lead_id) candidateLeadIds.push(c.lead_id as string);
     }
+  }
+
+  // Fetch latest call per lead in one round-trip. The dispatcher uses
+  // service-role internally; here we use the user-scoped client so RLS still
+  // applies (defense in depth in case scope was bypassed upstream).
+  let latestCallByLead = new Map<string, { id: string; started_at: string | null; classification: string | null }>();
+  if (candidateLeadIds.length > 0) {
+    const { data: callRows } = await supabase
+      .from("calls")
+      .select("id, lead_id, started_at, classification, created_at")
+      .in("lead_id", candidateLeadIds)
+      .order("created_at", { ascending: false });
+    for (const cr of callRows ?? []) {
+      const lid = (cr as any).lead_id as string | null;
+      if (!lid) continue;
+      // First entry wins because we ordered by created_at desc.
+      if (!latestCallByLead.has(lid)) {
+        latestCallByLead.set(lid, {
+          id: (cr as any).id,
+          started_at: (cr as any).started_at,
+          classification: (cr as any).classification,
+        });
+      }
+    }
+  }
+
+  const pendingCalls: any[] = [];
+  for (const { c, currentStepIdx, steps } of pendingCallCandidates) {
+    const lead = c.leads as any;
+    const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
+    const daysAfter = steps[currentStepIdx]?.daysAfter ?? 0;
+    const dueAt = c.last_step_at ? new Date(c.last_step_at).getTime() + daysAfter * 86400000 : null;
+    const isOverdue = dueAt !== null && now > dueAt;
+    const overdueDays = isOverdue && dueAt ? Math.floor((now - dueAt) / 86400000) : 0;
+    const latestCall = c.lead_id ? latestCallByLead.get(c.lead_id as string) ?? null : null;
+
+    pendingCalls.push({
+      id: c.id,
+      campaignId: c.id,
+      campaignName: c.name,
+      currentStep: currentStepIdx,
+      totalSteps: steps.length,
+      leadId: c.lead_id,
+      leadName,
+      company: lead?.company_name ?? null,
+      role: lead?.primary_title_role ?? null,
+      phone: lead?.primary_phone ?? null,
+      email: lead?.primary_work_email ?? null,
+      lastStepAt: c.last_step_at,
+      isOverdue,
+      overdueDays,
+      aircallNumberId: (c as any).aircall_number_id ?? null,
+      latestCall: latestCall
+        ? {
+            id: latestCall.id,
+            startedAt: latestCall.started_at,
+            classification: latestCall.classification as "positive" | "negative" | "follow_up" | null,
+          }
+        : null,
+    });
   }
 
   // New Replies — merge spontaneous replies AND LinkedIn connection accepts.

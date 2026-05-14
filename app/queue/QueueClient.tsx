@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import {
   Phone, Share2, Mail, Megaphone, Target,
   ChevronRight, CheckCircle, Search, X,
   PhoneCall, User, PhoneOff, Bell, AlertTriangle, XCircle, Sparkles,
+  ThumbsUp, ThumbsDown, Clock, Loader2,
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import CallButton from "@/components/CallButton";
@@ -30,6 +32,11 @@ type PendingCall = {
   isOverdue?: boolean;
   overdueDays?: number;
   aircallNumberId?: number | null;
+  latestCall: {
+    id: string;
+    startedAt: string | null;
+    classification: "positive" | "negative" | "follow_up" | null;
+  } | null;
 };
 
 type NewReply = {
@@ -94,6 +101,98 @@ function timeAgo(iso: string | null) {
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h ago`;
   return `${Math.floor(h / 24)}d ago`;
+}
+
+// Inline classifier for /queue Pending Calls. Reuses /api/calls/[id]/classify
+// (same endpoint used in the lead detail CallCard) so the cascade is shared:
+// Positive → campaign paused + lead qualified → entry drops out of /queue.
+// Negative → campaign failed + lead closed_lost → entry drops out of /queue.
+// Follow-up → just labels the call; campaign stays active so the entry
+// stays in /queue with a "Follow-up logged" badge until the seller calls
+// again and classifies it definitively.
+function InlineClassifier({ call }: { call: PendingCall }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState<"positive" | "negative" | "follow_up" | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function classify(c: "positive" | "negative" | "follow_up") {
+    if (!call.latestCall) return;
+    setBusy(c);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/calls/${call.latestCall.id}/classify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ classification: c }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setErr(body.error ?? `Failed (${res.status})`);
+        setBusy(null);
+        return;
+      }
+      router.refresh();
+    } catch (e: any) {
+      setErr(e?.message ?? "Network error");
+      setBusy(null);
+    }
+  }
+
+  if (!call.latestCall) return null;
+
+  // Follow-up already logged: show the badge + a re-classify hint.
+  if (call.latestCall.classification === "follow_up") {
+    return (
+      <div className="border-t px-5 py-2.5 flex items-center gap-2 text-[11px] flex-wrap"
+        style={{ borderColor: C.border, backgroundColor: "#FFFBEB" }}>
+        <Clock size={11} style={{ color: "#D97706" }} />
+        <span style={{ color: "#92400E", fontWeight: 600 }}>
+          Follow-up logged {timeAgo(call.latestCall.startedAt)}
+        </span>
+        <span style={{ color: C.textMuted }}>
+          · Call again to update outcome
+        </span>
+        {err && <span className="ml-auto" style={{ color: C.red }}>{err}</span>}
+      </div>
+    );
+  }
+
+  // Call exists, no classification yet → render the 3 buttons.
+  // The 'positive'/'negative' actions close the campaign (entry will then
+  // disappear from /queue on the next router.refresh()).
+  return (
+    <div className="border-t px-5 py-2.5 flex items-center gap-2 flex-wrap"
+      style={{ borderColor: C.border, backgroundColor: C.bg }}>
+      <span className="text-[11px] font-semibold mr-1" style={{ color: C.textBody }}>
+        Called {timeAgo(call.latestCall.startedAt)} — outcome?
+      </span>
+      <button
+        onClick={() => classify("positive")}
+        disabled={busy !== null}
+        className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
+        style={{ backgroundColor: C.greenLight, borderColor: `${C.green}40`, color: C.green }}>
+        {busy === "positive" ? <Loader2 size={10} className="animate-spin" /> : <ThumbsUp size={10} />}
+        Positive
+      </button>
+      <button
+        onClick={() => classify("negative")}
+        disabled={busy !== null}
+        className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
+        style={{ backgroundColor: C.redLight, borderColor: `${C.red}40`, color: C.red }}>
+        {busy === "negative" ? <Loader2 size={10} className="animate-spin" /> : <ThumbsDown size={10} />}
+        Negative
+      </button>
+      <button
+        onClick={() => classify("follow_up")}
+        disabled={busy !== null}
+        className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
+        style={{ backgroundColor: "#FEF3C7", borderColor: "#FDE68A", color: "#D97706" }}>
+        {busy === "follow_up" ? <Loader2 size={10} className="animate-spin" /> : <Clock size={10} />}
+        Follow-up
+      </button>
+      {err && <span className="text-[11px]" style={{ color: C.red }}>{err}</span>}
+    </div>
+  );
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
@@ -228,6 +327,12 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                         )}
                       </div>
                     </div>
+
+                    {/* Inline classifier — shows when there's a call to
+                        classify. Positive/Negative close the campaign so the
+                        entry drops out on next refresh. Follow-up just labels
+                        and keeps the entry alive until the next call. */}
+                    <InlineClassifier call={call} />
 
                     {/* Footer bar */}
                     <div className="border-t px-5 py-3 flex items-center gap-4 rounded-b-xl"
