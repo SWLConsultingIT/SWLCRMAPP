@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Phone, Loader2, CheckCheck, PhoneOff, ChevronDown } from "lucide-react";
 import { C } from "@/lib/design";
 
@@ -43,6 +44,7 @@ type Props = {
 };
 
 export default function CallButton({ phone, leadId, size = "md", variant = "solid", label, defaultNumberId }: Props) {
+  const router = useRouter();
   const [numbers, setNumbers] = useState<AircallNumber[]>([]);
   const [selectedNumberId, setSelectedNumberId] = useState<number | null>(null);
   const [state, setState] = useState<"idle" | "calling" | "called" | "error">("idle");
@@ -90,6 +92,10 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
       });
       if (res.ok) {
         setState("called");
+        // Refresh server components so the lead moves from "To Call" to
+        // "Awaiting Outcome" in /queue immediately — the dial endpoint already
+        // inserted a calls row with status=initiated + classification=null.
+        router.refresh();
         setTimeout(() => setState("idle"), 4000);
       } else {
         setState("error");
