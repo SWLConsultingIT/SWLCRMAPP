@@ -8,13 +8,16 @@ export const dynamic = "force-dynamic";
 async function getQueueData() {
   const supabase = await getSupabaseServer();
 
-  // Resolve user scope via the central helper so tier + companyBioId stay
-  // consistent with the rest of the app. Previous bespoke profile-fetch
-  // duplicated logic and missed the seller-tier filter.
+  // Resolve user scope via the central helper. Trust scope.isScoped — it
+  // already encodes the rule that super_admins on operational pages
+  // (Queue/Leads/Campaigns/Opportunities) are scoped to their OWN bio,
+  // not given a cross-tenant firehose. Previously this file re-derived
+  // isScoped as `tier !== 'super_admin' && companyBioId`, which inverted
+  // that intent and let a super_admin signed into SWL see Pathway's
+  // pending calls + replies (cross-tenant data leak, 2026-05-14).
+  // The cross-tenant SWL view lives in /admin and /admin/[id], not here.
   const scope = await getUserScope();
-  const userCompanyBioId: string | null = scope.companyBioId;
-  const isScoped = scope.tier !== "super_admin" && !!userCompanyBioId;
-  const scopedCompanyBioId = isScoped ? userCompanyBioId! : null;
+  const scopedCompanyBioId = scope.isScoped ? scope.companyBioId : null;
 
   // For tier='seller', restrict campaigns/leads to those whose seller_id is
   // in the user's linked sellers. null → no extra filter.
