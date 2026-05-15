@@ -8,6 +8,7 @@ import {
   ExternalLink, Search, X, ChevronRight,
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
+import EmptyState from "@/components/EmptyState";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -116,12 +117,21 @@ export default function OpportunitiesClient({ leads }: Props) {
 
       {/* Table */}
       {filtered.length === 0 ? (
-        <div className="rounded-2xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-          <Trophy size={32} className="mx-auto mb-3" style={{ color: C.textDim }} />
-          <p className="text-sm font-medium" style={{ color: C.textBody }}>
-            {search || profileFilter !== "all" || channelFilter !== "all" ? "No opportunities match your filters" : "No opportunities yet"}
-          </p>
-        </div>
+        (search || profileFilter !== "all" || channelFilter !== "all") ? (
+          <EmptyState
+            icon={Trophy}
+            title="No opportunities match your filters"
+            description="Adjust the search or clear the channel/profile filters to widen the view."
+          />
+        ) : (
+          <EmptyState
+            icon={Trophy}
+            title="No opportunities yet"
+            description="When a lead replies positively to a campaign — or a call is classified Positive — they show up here. Run a campaign or log a Positive outcome on a call to get started."
+            primaryCta={{ label: "Start a campaign", href: "/campaigns/new" }}
+            secondaryCta={{ label: "View pending calls", href: "/queue" }}
+          />
+        )
       ) : (
         <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
           <table className="w-full text-left">

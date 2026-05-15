@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import { useAuthUser } from "@/lib/auth-context";
+import EmptyState from "@/components/EmptyState";
 import {
   Share2, Mail, Phone, AlertTriangle,
   Users, Calendar, X, Plus, Trash2, Loader2, Shield, Pencil, Save,
@@ -974,10 +975,11 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
           </div>
 
           {filteredDates.length === 0 ? (
-            <div className="rounded-2xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-              <Calendar size={24} className="mx-auto mb-3" style={{ color: C.textDim }} />
-              <p className="text-sm" style={{ color: C.textDim }}>No usage data for this period</p>
-            </div>
+            <EmptyState
+              icon={Calendar}
+              title="No usage data for this period"
+              description="Adjust the date, channel, or seller filter — or wait for the next dispatch tick to populate today's usage."
+            />
           ) : (
             <div className="space-y-4">
               {filteredDates.map(date => {

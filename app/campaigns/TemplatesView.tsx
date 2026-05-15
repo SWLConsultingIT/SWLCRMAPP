@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FileText, Loader2, Search, Share2, Mail, Phone, MessageSquare, X, Trash2, Play, Plus } from "lucide-react";
 import { C } from "@/lib/design";
+import EmptyState from "@/components/EmptyState";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -176,24 +177,24 @@ export default function TemplatesView() {
           <button onClick={load} className="text-xs mt-2 underline" style={{ color: gold }}>Try again</button>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <FileText size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-          <p className="text-sm font-medium" style={{ color: C.textBody }}>
-            {search || channelFilter ? "No templates match" : "No templates yet"}
-          </p>
-          <p className="text-xs mt-1 mb-4 max-w-md mx-auto" style={{ color: C.textMuted }}>
-            {search || channelFilter
-              ? "Try clearing filters."
-              : "Build a reusable outreach sequence + messages once, apply it to any future campaign in one click."}
-          </p>
-          {!search && !channelFilter && (
-            <Link href="/campaigns/templates/new"
-              className="text-xs font-semibold px-4 py-2 rounded-md inline-flex items-center gap-1.5"
-              style={{ backgroundColor: "#7C3AED", color: "#fff" }}>
-              <Plus size={12} /> Create your first template
-            </Link>
-          )}
-        </div>
+        (search || channelFilter) ? (
+          <EmptyState
+            icon={FileText}
+            title="No templates match"
+            description="Try clearing the search or channel filter to see your full library."
+            accent="#7C3AED"
+            accentSoft="color-mix(in srgb, #7C3AED 12%, transparent)"
+          />
+        ) : (
+          <EmptyState
+            icon={FileText}
+            title="No templates yet"
+            description="Build a reusable outreach sequence + messages once, then apply it to any future campaign in one click. Templates support PDF attachments so the AI can pull context from your sales decks."
+            primaryCta={{ label: "Create your first template", href: "/campaigns/templates/new" }}
+            accent="#7C3AED"
+            accentSoft="color-mix(in srgb, #7C3AED 12%, transparent)"
+          />
+        )
       ) : (
         <div className="space-y-2">
           {filtered.map(t => (
