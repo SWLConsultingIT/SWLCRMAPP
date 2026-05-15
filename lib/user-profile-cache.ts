@@ -23,17 +23,22 @@
 // raw profile row — so the cookie-driven branches (demo impersonation,
 // tenant switcher) still execute fresh each request.
 
+// Carry every column that any caller needs so the cache is the single
+// source of truth and no endpoint falls back to a direct SELECT.
+//   - role, tier, company_bio_id: used by scope.ts (auth + RBAC)
+//   - company_bios join: archived_at gates lockout, company_name + logo_url
+//     drive the top header / tenant switcher in /api/auth/me
+export type CachedBioJoin = {
+  archived_at: string | null;
+  company_name?: string | null;
+  logo_url?: string | null;
+};
+
 export type CachedProfileRow = {
   role: string | null;
   tier: string | null;
   company_bio_id: string | null;
-  // Mirrors the company_bios(archived_at) join used in scope.ts. We cache
-  // it together so we don't fall back to a second query when the join shape
-  // is what we ultimately need.
-  company_bios:
-    | { archived_at: string | null }
-    | { archived_at: string | null }[]
-    | null;
+  company_bios: CachedBioJoin | CachedBioJoin[] | null;
 };
 
 type Entry = { value: CachedProfileRow; expires: number };
@@ -71,4 +76,36 @@ export function invalidateProfileCache(userId: string): void {
 /** Clear the entire cache. Reserved for tests / explicit admin actions. */
 export function clearProfileCache(): void {
   store.clear();
+}
+
+/**
+ * One-call accessor used by every authenticated read site (scope.ts,
+ * /api/auth/me, lib/auth-admin.ts). Hits the cache first; on miss runs
+ * the canonical SELECT and stores the result so subsequent callers in
+ * the same worker get the cached row.
+ *
+ * Pass any Supabase client that can SELECT user_profiles (service role
+ * for unrestricted reads). Returns null if the row doesn't exist.
+ */
+export async function getOrFetchProfile(
+  userId: string,
+  svc: {
+    from: (t: string) => {
+      select: (cols: string) => {
+        eq: (col: string, val: string) => {
+          single: () => Promise<{ data: CachedProfileRow | null; error: unknown }>;
+        };
+      };
+    };
+  },
+): Promise<CachedProfileRow | null> {
+  const cached = getCachedProfile(userId);
+  if (cached) return cached;
+  const { data } = await svc
+    .from("user_profiles")
+    .select("role, tier, company_bio_id, company_bios(archived_at, company_name, logo_url)")
+    .eq("user_id", userId)
+    .single();
+  if (data) setCachedProfile(userId, data);
+  return data ?? null;
 }

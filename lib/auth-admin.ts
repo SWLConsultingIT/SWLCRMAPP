@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { getOrFetchProfile } from "@/lib/user-profile-cache";
 
 // SWL super-admin gates — used by every /admin/* page and /api/admin/* route
 // to restrict cross-tenant SWL operational tools (reliability, demos, etc.)
@@ -25,13 +26,7 @@ export async function requireAdminPage() {
   const { data: { user } } = await sb.auth.getUser();
   if (!user) redirect("/login");
 
-  const svc = getSupabaseService();
-  const { data: profile } = await svc
-    .from("user_profiles")
-    .select("role, tier")
-    .eq("user_id", user.id)
-    .single();
-
+  const profile = await getOrFetchProfile(user.id, getSupabaseService());
   if (!isSuperAdmin(profile)) redirect("/");
   return user;
 }
@@ -41,13 +36,7 @@ export async function requireAdminApi(): Promise<{ user: { id: string } } | Next
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const svc = getSupabaseService();
-  const { data: profile } = await svc
-    .from("user_profiles")
-    .select("role, tier")
-    .eq("user_id", user.id)
-    .single();
-
+  const profile = await getOrFetchProfile(user.id, getSupabaseService());
   if (!isSuperAdmin(profile)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   return { user };
 }

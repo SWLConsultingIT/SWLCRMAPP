@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { DEMO_SESSION_COOKIE, ACTIVE_TENANT_COOKIE } from "@/lib/scope";
+import { getOrFetchProfile } from "@/lib/user-profile-cache";
 
 export async function GET() {
   const supabase = await getSupabaseServer();
@@ -21,15 +22,12 @@ export async function GET() {
     return NextResponse.json({ user: null });
   }
 
-  // Single query with FK join — supabase-js unfolds it via the foreign-key
-  // relationship between user_profiles.company_bio_id → company_bios.id.
-  // Saves a sequential round-trip (~400-600ms in the wild).
+  // Read through the shared in-proc profile cache (60s TTL) so this
+  // route — which AuthContext calls on every page mount + tab visibility
+  // change — doesn't keep hitting user_profiles. Before this change
+  // /api/auth/me drove ~30 SELECTs/sec to user_profiles on its own.
   const svc = getSupabaseService();
-  const { data: profile } = await svc
-    .from("user_profiles")
-    .select("company_bio_id, role, tier, company_bios(company_name, logo_url)")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const profile = await getOrFetchProfile(user.id, svc);
 
   // The embedded relation can come back as an object or a single-item array
   // depending on supabase-js version; handle both shapes defensively.

@@ -2,7 +2,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import { getCachedProfile, setCachedProfile, type CachedProfileRow } from "@/lib/user-profile-cache";
+import { getOrFetchProfile } from "@/lib/user-profile-cache";
 
 /** Cookie name for admin "demo impersonation". When set, an admin user
  * sees the app as if they belonged to a specific (is_demo=true) tenant. */
@@ -139,19 +139,9 @@ export const getUserScope = cache(async function getUserScope(): Promise<UserSco
   const svc = getSupabaseService();
   // Process-level cache (60s TTL) to keep this off the hot path. user_profiles
   // was the single most-queried table during the 2026-05-15 saturation
-  // (proxy + every server component re-fetches it per request). Invalidated
-  // on tenant switch, demo enter/exit, login, and role changes — see
-  // lib/user-profile-cache.ts.
-  let profile: CachedProfileRow | null = getCachedProfile(user.id);
-  if (!profile) {
-    const { data } = await svc
-      .from("user_profiles")
-      .select("role, tier, company_bio_id, company_bios(archived_at)")
-      .eq("user_id", user.id)
-      .single();
-    profile = (data as CachedProfileRow | null) ?? null;
-    if (profile) setCachedProfile(user.id, profile);
-  }
+  // (proxy + every server component re-fetches it per request). Shared
+  // accessor so /api/auth/me + lib/auth-admin.ts also hit the cache.
+  const profile = await getOrFetchProfile(user.id, svc);
 
   const role = (profile?.role ?? "client") as "admin" | "client";
   // tier was backfilled in migration 010 from role; defensive fallback in case
