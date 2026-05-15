@@ -133,31 +133,28 @@ export async function POST(req: NextRequest) {
     "mp3"; // default — Aircall's most common output
   const audioFilename = `recording.${extension}`;
 
-  // Build a context prompt — the model uses this to bias spelling of proper
-  // nouns and domain terms. Cap at 900 chars (~250 tokens, well under any
-  // model's prompt limit).
-  const contextPromptParts = [
-    tenant?.company_name && `Sales call from ${tenant.company_name}`,
-    tenant?.industry && `(industry: ${tenant.industry})`,
-    lead && `to ${[lead.primary_first_name, lead.primary_last_name].filter(Boolean).join(" ")}`,
-    lead?.primary_title_role && `(${lead.primary_title_role})`,
-    lead?.company_name && `at ${lead.company_name}`,
-    tenant?.description && `. About ${tenant.company_name}: ${String(tenant.description).slice(0, 400)}`,
-  ].filter(Boolean) as string[];
-  const contextPrompt = contextPromptParts.join(" ").slice(0, 900);
   const language = languageForCountry(lead?.company_country);
 
-  // Try gpt-4o-mini-transcribe first — noticeably better than whisper-1 on
-  // short noisy phone audio, ~85% accuracy vs ~60%. Whisper-1 is more
-  // permissive about format / corrupt audio though, so we fall back to it
-  // on ANY error from the newer model (not just "model not available").
-  async function transcribeWith(model: string, includeTemperature: boolean) {
+  // FAITHFULNESS over polish (2026-05-15). Earlier draft passed a `prompt`
+  // built from tenant + lead context to bias proper-noun spelling. Side
+  // effect: Whisper used the prompt as a *vocabulary hint* and inserted
+  // fabricated phrases consistent with the prompt vibe — Pathway's first
+  // listened-through call showed an angry UK lead, but the transcript
+  // had a polite "lovely day". The model invented British niceties because
+  // the prompt told it the call was UK sales. Now: no prompt, temperature 0,
+  // verbose_json so we can drop low-confidence and repeating segments
+  // (Whisper's most common hallucination patterns).
+  async function transcribeWith(model: string) {
     const form = new FormData();
     form.append("file", audioBlob, audioFilename);
     form.append("model", model);
     if (language) form.append("language", language);
-    if (contextPrompt) form.append("prompt", contextPrompt);
-    if (includeTemperature) form.append("temperature", "0");
+    form.append("temperature", "0");
+    // verbose_json only supported on whisper-1; gpt-4o-mini-transcribe needs
+    // plain `json`. Caller chooses based on model.
+    if (model === "whisper-1") {
+      form.append("response_format", "verbose_json");
+    }
     const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}` },
@@ -166,26 +163,70 @@ export async function POST(req: NextRequest) {
     return res;
   }
 
-  let modelUsed = "gpt-4o-mini-transcribe";
-  let openaiRes = await transcribeWith(modelUsed, false);
+  // whisper-1 as primary now. It's more conservative on telephony audio with
+  // temperature=0 + verbose_json + no prompt. gpt-4o-mini-transcribe is the
+  // fallback for the few audio formats whisper-1 chokes on.
+  let modelUsed = "whisper-1";
+  let openaiRes = await transcribeWith(modelUsed);
   let firstAttemptError: string | null = null;
   if (!openaiRes.ok) {
     firstAttemptError = await openaiRes.text();
-    // gpt-4o-mini-transcribe is stricter about audio format and rejects some
-    // edge-case mp3 variants that whisper-1 accepts. Always retry on whisper-1
-    // before surfacing the error — better a slightly-lower-quality transcript
-    // than no transcript at all.
-    modelUsed = "whisper-1";
-    openaiRes = await transcribeWith(modelUsed, true);
+    modelUsed = "gpt-4o-mini-transcribe";
+    openaiRes = await transcribeWith(modelUsed);
   }
   if (!openaiRes.ok) {
     const secondErr = await openaiRes.text();
     return NextResponse.json({
-      error: `Transcription failed on both models. gpt-4o-mini-transcribe: ${firstAttemptError ?? "n/a"} — whisper-1: ${secondErr}`,
+      error: `Transcription failed on both models. whisper-1: ${firstAttemptError ?? "n/a"} — gpt-4o-mini-transcribe: ${secondErr}`,
     }, { status: 502 });
   }
-  const { text } = await openaiRes.json() as { text?: string };
-  const transcript = text?.trim() ?? "";
+
+  // Parse the response. With verbose_json from whisper-1, we get per-segment
+  // confidence + repetition signals to filter hallucinations. With plain
+  // json from the fallback, we just get `text`.
+  let transcript = "";
+  if (modelUsed === "whisper-1") {
+    type Segment = { text: string; avg_logprob?: number; no_speech_prob?: number; compression_ratio?: number };
+    const json = await openaiRes.json() as { text?: string; segments?: Segment[] };
+    const segments = Array.isArray(json.segments) ? json.segments : [];
+    if (segments.length > 0) {
+      // Drop hallucinated segments. Whisper's three canary signals:
+      //  - no_speech_prob > 0.6 → mostly silence/background, anything
+      //    transcribed is invented
+      //  - avg_logprob < -1   → model uncertainty, output is filler
+      //  - compression_ratio > 2.4 → repetitive output, classic loop
+      //    ("thank you thank you thank you")
+      const cleaned = segments
+        .filter(s =>
+          (s.no_speech_prob ?? 0) < 0.6
+          && (s.avg_logprob ?? 0) > -1
+          && (s.compression_ratio ?? 0) < 2.4
+        )
+        .map(s => s.text.trim())
+        .filter(Boolean);
+      transcript = cleaned.join(" ").trim();
+    } else {
+      transcript = (json.text ?? "").trim();
+    }
+  } else {
+    const json = await openaiRes.json() as { text?: string };
+    transcript = (json.text ?? "").trim();
+  }
+
+  // Strip the most common Whisper hallucination phrases — these almost
+  // always come from training-data leakage on silence. Keep the list short
+  // and exact to avoid false positives on real conversation.
+  const hallucinationCanaries = [
+    /\bthank you for watching\b/gi,
+    /\bsubscribe\b.*?\bchannel\b/gi,
+    /\bthanks for listening\b/gi,
+    /\bplease subscribe\b/gi,
+  ];
+  for (const re of hallucinationCanaries) {
+    transcript = transcript.replace(re, "").trim();
+  }
+  // Collapse double spaces left behind.
+  transcript = transcript.replace(/\s{2,}/g, " ").trim();
 
   await svc.from("calls").update({ transcript }).eq("id", call.id);
   return NextResponse.json({
