@@ -20,12 +20,18 @@ const GENERATION_LOCK_MS = 90 * 1000;
 const SYSTEM_PROMPT = `You write brutally concise call summaries for B2B sales operators. One or two sentences max. State exactly what happened and whether the call moved the deal forward, was negative, or needs follow-up. Do not add coaching, do not add commentary, do not add disclaimers. If the call has too little signal (under 10 seconds, voicemail, no answer), say so plainly.`;
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: callId } = await params;
+  // Dual-auth: regular user cookie session (manual click in CallCard) OR
+  // internal Bearer CRON_SECRET (auto-pipeline kicked off by the transcribe
+  // webhook). Same pattern the cron endpoints use.
+  const auth = req.headers.get("authorization") ?? "";
+  const presented = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+  const cronOk = !!process.env.CRON_SECRET && presented === process.env.CRON_SECRET;
   const scope = await getUserScope();
-  if (!scope.userId) {
+  if (!cronOk && !scope.userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

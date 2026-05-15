@@ -229,6 +229,27 @@ export async function POST(req: NextRequest) {
   transcript = transcript.replace(/\s{2,}/g, " ").trim();
 
   await svc.from("calls").update({ transcript }).eq("id", call.id);
+
+  // Auto-pipeline (2026-05-15): once the transcript lands, kick off summary
+  // + coach analysis in parallel so the seller never has to click "Generate"
+  // for them. Both endpoints are idempotent (locked via summary_generating_at
+  // and coach_generating_at — see migration 022) so a concurrent manual click
+  // from the UI is safe. Fire-and-forget so the webhook returns 200 fast.
+  // Only chain when we actually got useful text — empty transcript means
+  // there's nothing to analyze and we'd waste a paid LLM call.
+  if (transcript.length > 0 && process.env.CRON_SECRET) {
+    const origin = req.nextUrl.origin;
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.CRON_SECRET}`,
+    };
+    // Both endpoints are idempotent (locked via summary_generating_at and
+    // coach_generating_at — see migration 022) so a concurrent manual click
+    // from the UI is safe.
+    fetch(`${origin}/api/calls/${call.id}/summary`, { method: "POST", headers }).catch(() => { /* downstream lock handles repeats */ });
+    fetch(`${origin}/api/calls/${call.id}/coach-analysis`, { method: "POST", headers }).catch(() => { /* downstream lock handles repeats */ });
+  }
+
   return NextResponse.json({
     ok: true,
     source: modelUsed,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Sparkles, Loader2, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Target, MessageSquare, Mic, Shield, TrendingUp, AlertTriangle, Award, X, Quote, ArrowRight, ListChecks } from "lucide-react";
 import { C } from "@/lib/design";
 
@@ -201,6 +201,43 @@ export default function CallCoachAnalysis(props: {
   // open the first render after a successful generate().
   const [expanded, setExpanded] = useState(false);
   const [justGenerated, setJustGenerated] = useState(false);
+  const [autoPolling, setAutoPolling] = useState(false);
+  const pollAttemptsRef = useRef(0);
+
+  // Auto-pipeline (2026-05-15): when the transcribe webhook fires it also
+  // kicks off coach-analysis in the background. Poll the lightweight GET
+  // for up to ~3 min (coach analysis can take 10-20s; pad for slow days).
+  useEffect(() => {
+    if (!props.hasTranscript || state.analysis) return;
+    setAutoPolling(true);
+    pollAttemptsRef.current = 0;
+    const interval = setInterval(async () => {
+      pollAttemptsRef.current += 1;
+      if (pollAttemptsRef.current > 45) {
+        setAutoPolling(false);
+        clearInterval(interval);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/calls/${props.callId}`, { cache: "no-store" });
+        if (res.ok) {
+          const body = await res.json();
+          if (body.coach_analysis) {
+            setState({
+              analysis: body.coach_analysis,
+              score: body.coach_score ?? null,
+              generatedAt: body.coach_generated_at ?? null,
+              model: body.coach_model ?? null,
+            });
+            setAutoPolling(false);
+            clearInterval(interval);
+          }
+        }
+      } catch { /* keep polling */ }
+    }, 4000);
+    return () => { clearInterval(interval); setAutoPolling(false); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [props.callId, props.hasTranscript]);
 
   async function generate() {
     if (loading || state.analysis) return;
@@ -233,6 +270,20 @@ export default function CallCoachAnalysis(props: {
   }
 
   if (!props.hasTranscript) return null;
+
+  // Auto-pipeline polling — soft "generating" state until coach analysis
+  // lands or we exhaust the poll window.
+  if (!state.analysis && autoPolling) {
+    return (
+      <div className="mt-3 rounded-lg border px-3 py-2.5 flex items-center gap-2"
+        style={{ borderColor: C.border, backgroundColor: C.bg }}>
+        <Loader2 size={12} className="animate-spin" style={{ color: "#b79832" }} />
+        <p className="text-xs" style={{ color: C.textMuted }}>
+          <span className="font-semibold" style={{ color: C.textBody }}>AI Coach analysis</span> — generating in background…
+        </p>
+      </div>
+    );
+  }
 
   // No analysis yet — show "Generate" CTA.
   if (!state.analysis) {
