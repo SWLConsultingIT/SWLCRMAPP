@@ -186,8 +186,33 @@ export async function POST(req: NextRequest) {
     }, { status: 503 });
   }
 
+  // Race condition fix (2026-05-15): INSERT the dial row BEFORE telling
+  // Aircall to call. Aircall fires the call.created webhook within ~200ms
+  // of the dial POST returning, and the webhook reconciliation in
+  // app/api/aircall/webhook/route.ts looks for an existing dial row by
+  // phone + recent time window. If the INSERT happens AFTER the POST,
+  // Aircall can webhook us before our row exists → reconciliation finds 0
+  // candidates → a duplicate row gets created. Inserting first guarantees
+  // the dial row is queryable by the time Aircall fires.
+  //
+  // If Aircall later rejects the dial (rate limit, bad number), we clean
+  // up the orphan dial row below. Acceptable failure mode — the user gets
+  // the same error message either way.
+  let insertedDialId: string | null = null;
+  if (leadId) {
+    const { data: inserted } = await svc.from("calls").insert({
+      aircall_call_id: null,
+      lead_id: leadId,
+      seller_id: null,
+      direction: "outbound",
+      status: "initiated",
+      phone_number: phone,
+      started_at: new Date().toISOString(),
+    }).select("id").single();
+    insertedDialId = (inserted as { id?: string } | null)?.id ?? null;
+  }
+
   // Aircall outbound endpoint: POST /v1/users/{user_id}/calls
-  // (Old /v1/calls returns 404 — that's a deprecated path.)
   // Returns 204 No Content on success — body is empty, the actual call_id
   // comes later via webhook (call.created).
   const res = await fetch(`https://api.aircall.io/v1/users/${resolvedUserId}/calls`, {
@@ -200,24 +225,14 @@ export async function POST(req: NextRequest) {
   });
 
   if (!res.ok) {
+    // Aircall rejected the dial — clean up the dial row we just inserted
+    // so it doesn't sit in /queue forever as a phantom "initiated" entry.
+    if (insertedDialId) {
+      await svc.from("calls").delete().eq("id", insertedDialId);
+    }
     const err = await res.text();
     return NextResponse.json({ error: err || `Aircall ${res.status}` }, { status: res.status });
   }
 
-  // 204 No Content — no body, no call_id yet. The webhook fills it in.
-  const callId: string | null = null;
-
-  if (leadId) {
-    await svc.from("calls").insert({
-      aircall_call_id: callId,
-      lead_id: leadId,
-      seller_id: null,
-      direction: "outbound",
-      status: "initiated",
-      phone_number: phone,
-      started_at: new Date().toISOString(),
-    });
-  }
-
-  return NextResponse.json({ success: true, callId });
+  return NextResponse.json({ success: true, callId: null });
 }
