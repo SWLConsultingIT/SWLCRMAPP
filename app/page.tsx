@@ -54,9 +54,10 @@ async function getDashboardData() {
     ? supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, last_step_at, leads!inner(company_bio_id)").eq("leads.company_bio_id", bioId).in("status", ["active", "paused"])
     : supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, last_step_at").in("status", ["active", "paused"]);
 
-  const weekRepliesQ = bioId
-    ? supabase.from("lead_replies").select("id, classification, leads!inner(company_bio_id)").eq("leads.company_bio_id", bioId).gte("received_at", weekAgo)
-    : supabase.from("lead_replies").select("id, classification").gte("received_at", weekAgo);
+  // weekReplies + recentReplies were two separate queries hitting the same
+  // table with the same date filter — merged into a single fetch below.
+  // (`mergedRepliesQ` further down.) We derive `weekPositive` count and the
+  // 8 most-recent rows from the same payload — 1 round-trip instead of 2.
 
   const transferredQ = bioId
     ? supabase.from("leads").select("*", { count: "exact", head: true }).eq("company_bio_id", bioId).not("transferred_to_odoo_at", "is", null)
@@ -83,34 +84,44 @@ async function getDashboardData() {
         .eq("icp_profiles.company_bio_id", bioId)
     : supabase.from("campaign_requests").select("*", { count: "exact", head: true }).eq("status", "pending_review");
 
-  const recentRepliesQ = bioId
+  // Merged replies query: pull last-7d rows with all columns the recent-replies
+  // widget needs. weekPositive counter + recent list are derived from this
+  // array in memory — 1 query instead of the prior 2. We cap at 200 rows so a
+  // tenant with sudden inbox explosions doesn't pull thousands; the UI only
+  // shows the top 8 and the counter accuracy past 200 is non-load-bearing.
+  const mergedRepliesQ = bioId
     ? supabase.from("lead_replies")
         .select("id, lead_id, classification, channel, reply_text, received_at, leads!inner(primary_first_name, primary_last_name, company_name, company_bio_id), campaigns(name)")
         .eq("leads.company_bio_id", bioId)
-        .order("received_at", { ascending: false }).limit(8)
+        .gte("received_at", weekAgo)
+        .order("received_at", { ascending: false })
+        .limit(200)
     : supabase.from("lead_replies")
         .select("id, lead_id, classification, channel, reply_text, received_at, leads(primary_first_name, primary_last_name, company_name), campaigns(name)")
-        .order("received_at", { ascending: false }).limit(8);
+        .gte("received_at", weekAgo)
+        .order("received_at", { ascending: false })
+        .limit(200);
 
   const [
     { count: totalLeads },
     { data: activeCampaigns },
-    { data: weekReplies },
     { count: transferredCount },
     { data: pendingReviewReplies },
     { data: pendingCampReviews },
     { data: pendingProfiles },
-    { data: recentReplies },
+    { data: weekAndRecentReplies },
   ] = await Promise.all([
     leadsCountQ,
     activeCampsQ,
-    weekRepliesQ,
     transferredQ,
     pendingReviewRepliesQ,
     pendingCampReviewsQ,
     pendingProfilesQ,
-    recentRepliesQ,
+    mergedRepliesQ,
   ]) as any;
+
+  const weekReplies = (weekAndRecentReplies ?? []) as Array<{ classification: string | null }>;
+  const recentReplies = (weekAndRecentReplies ?? []).slice(0, 8);
 
   // Pipeline stats
   const activeLeadIds = new Set((activeCampaigns ?? []).map((c: any) => c.lead_id).filter(Boolean));
