@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { invalidateProfileCache } from "@/lib/user-profile-cache";
 
 export async function POST(req: NextRequest) {
   const supabase = await getSupabaseServer();
@@ -68,5 +69,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: profErr.message }, { status: 500 });
   }
 
+  invalidateProfileCache(user.id);
   return NextResponse.json({ ok: true, company_bio_id: bio.id });
 }

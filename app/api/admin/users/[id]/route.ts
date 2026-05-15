@@ -1,5 +1,6 @@
 import { getSupabaseService } from "@/lib/supabase-service";
 import { requireAdminApi } from "@/lib/auth-admin";
+import { invalidateProfileCache } from "@/lib/user-profile-cache";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -18,6 +19,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .upsert({ user_id: id, ...update }, { onConflict: "user_id" });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  invalidateProfileCache(id);
   return NextResponse.json({ ok: true });
 }
 
@@ -28,5 +30,6 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   const supabase = getSupabaseService();
   const { error } = await supabase.from("user_profiles").delete().eq("user_id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  invalidateProfileCache(id);
   return NextResponse.json({ ok: true });
 }

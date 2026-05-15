@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, canManageTeam, type Tier } from "@/lib/scope";
+import { invalidateProfileCache } from "@/lib/user-profile-cache";
 
 // Manage one team member: change tier (PATCH) or remove (DELETE).
 //
@@ -82,6 +83,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ userId: s
     .eq("user_id", userId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  invalidateProfileCache(userId);
   return NextResponse.json({ ok: true, tier: newTier });
 }
 
@@ -117,6 +119,8 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ userId:
   // Profile first (the FK + RLS constraints), then auth user.
   const { error: profileErr } = await svc.from("user_profiles").delete().eq("user_id", userId);
   if (profileErr) return NextResponse.json({ error: profileErr.message }, { status: 500 });
+
+  invalidateProfileCache(userId);
 
   // Best-effort auth user delete; log but don't fail the response if Supabase
   // refuses (the profile is gone, which is what gates app access anyway).
