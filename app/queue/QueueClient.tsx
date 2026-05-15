@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { C } from "@/lib/design";
@@ -208,6 +208,43 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
   const [callSubTab, setCallSubTab] = useState<0 | 1 | 2>(0);
   const [search, setSearch] = useState("");
 
+  // Date filter for the notification tabs (Replies / Reviews / Updates).
+  // Calls tab ignores this — call work is operational and shouldn't be
+  // hidden by an age cutoff.
+  type DateRange = "today" | "7d" | "30d" | "all";
+  const [dateRange, setDateRange] = useState<DateRange>("30d");
+  const dateCutoffMs = (() => {
+    if (dateRange === "today") return new Date(new Date().toDateString()).getTime();
+    if (dateRange === "7d")    return Date.now() - 7  * 86400000;
+    if (dateRange === "30d")   return Date.now() - 30 * 86400000;
+    return 0;
+  })();
+
+  // Per-browser dismissal so a seller can clear notifications they've
+  // already actioned without affecting other teammates. Stored in
+  // localStorage as a set of "queue-dismissed-{id}" entries. Cleared on
+  // logout (browser already drops localStorage on incognito close).
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem("swl-queue-dismissed");
+      if (raw) setDismissed(new Set(JSON.parse(raw)));
+    } catch { /* ignore */ }
+  }, []);
+  const dismiss = (id: string) => {
+    setDismissed(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      try { window.localStorage.setItem("swl-queue-dismissed", JSON.stringify(Array.from(next))); } catch { /* ignore */ }
+      return next;
+    });
+  };
+  const clearDismissed = () => {
+    setDismissed(new Set());
+    try { window.localStorage.removeItem("swl-queue-dismissed"); } catch { /* ignore */ }
+  };
+
   // Split pending calls by classification state. Positive/negative would
   // already have dropped the entry from the queue (campaign ended).
   const callsToMake = pendingCalls.filter(c => !c.latestCall);
@@ -223,12 +260,23 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
   const filteredCallsToMake = applyCallSearch(callsToMake);
   const filteredCallsAwaiting = applyCallSearch(callsAwaitingOutcome);
   const filteredCallsFollowUp = applyCallSearch(callsFollowUp);
-  const filteredReplies = !search ? newReplies
-    : newReplies.filter(r => `${r.leadName} ${r.company} ${r.campaignName} ${r.replyText}`.toLowerCase().includes(search.toLowerCase()));
-  const filteredReviews = !search ? pendingReviews
-    : pendingReviews.filter(r => `${r.name} ${r.subtitle}`.toLowerCase().includes(search.toLowerCase()));
-  const filteredUpdates = !search ? updates
-    : updates.filter(u => `${u.name} ${u.subtitle}`.toLowerCase().includes(search.toLowerCase()));
+  // Notification tabs (Replies / Reviews / Updates) get date + dismissal
+  // filters on top of the search. Calls ignore these.
+  const passesDate = (iso: string) => new Date(iso).getTime() >= dateCutoffMs;
+  const passesSearch = (haystack: string) => !search || haystack.toLowerCase().includes(search.toLowerCase());
+
+  const filteredReplies = newReplies
+    .filter(r => !dismissed.has(r.id))
+    .filter(r => passesDate(r.receivedAt))
+    .filter(r => passesSearch(`${r.leadName} ${r.company} ${r.campaignName} ${r.replyText}`));
+  const filteredReviews = pendingReviews
+    .filter(r => !dismissed.has(r.id))
+    .filter(r => passesDate(r.createdAt))
+    .filter(r => passesSearch(`${r.name} ${r.subtitle}`));
+  const filteredUpdates = updates
+    .filter(u => !dismissed.has(u.id))
+    .filter(u => passesDate(u.createdAt))
+    .filter(u => passesSearch(`${u.name} ${u.subtitle}`));
 
   const tabs = [
     { label: "Calls",           count: pendingCalls.length,   color: "#F97316",  reviewCount: 0 },
@@ -274,13 +322,37 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
           );
         })}
         <div className="flex-1" />
-        <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5 mb-1"
-          style={{ borderColor: C.border, backgroundColor: C.card }}>
-          <Search size={13} style={{ color: C.textDim }} />
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search..." className="bg-transparent text-sm outline-none w-36"
-            style={{ color: C.textPrimary }} />
-          {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
+        <div className="flex items-center gap-2 mb-1">
+          {/* Date filter — only affects notification tabs. Calls keep all. */}
+          {tab !== 0 && (
+            <select
+              value={dateRange}
+              onChange={e => setDateRange(e.target.value as DateRange)}
+              className="rounded-lg border px-2.5 py-1.5 text-xs font-medium outline-none"
+              style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}>
+              <option value="today">Today</option>
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+              <option value="all">All time</option>
+            </select>
+          )}
+          {/* Restore button when stuff has been dismissed locally. */}
+          {dismissed.size > 0 && tab !== 0 && (
+            <button onClick={clearDismissed}
+              className="text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-colors"
+              style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.card }}
+              title={`Restore ${dismissed.size} dismissed item${dismissed.size === 1 ? "" : "s"}`}>
+              Restore {dismissed.size}
+            </button>
+          )}
+          <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5"
+            style={{ borderColor: C.border, backgroundColor: C.card }}>
+            <Search size={13} style={{ color: C.textDim }} />
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Search..." className="bg-transparent text-sm outline-none w-36"
+              style={{ color: C.textPrimary }} />
+            {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
+          </div>
         </div>
       </div>
 
@@ -497,6 +569,15 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                       <span className="text-[10px]" style={{ color: C.textDim }}>{timeAgo(r.receivedAt)}</span>
                       <ChevronRight size={13} style={{ color: C.textDim }} />
                     </div>
+                    {/* Dismiss button — preventDefault so it doesn't follow
+                        the parent <Link>. Reveals on hover (group-hover). */}
+                    <button
+                      onClick={e => { e.preventDefault(); e.stopPropagation(); dismiss(r.id); }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-black/[0.05] shrink-0 self-start"
+                      title="Dismiss this notification"
+                      style={{ color: C.textDim }}>
+                      <X size={13} />
+                    </button>
                   </Link>
                 );
               })}
@@ -604,7 +685,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
 
               return (
                 <Link key={u.id} href={u.href}
-                  className="flex items-start gap-4 px-5 py-4 transition-colors hover:bg-black/[0.015]"
+                  className="flex items-start gap-4 px-5 py-4 transition-colors hover:bg-black/[0.015] group"
                   style={{
                     borderTop: i > 0 ? `1px solid ${C.border}` : "none",
                     borderLeft: `3px solid ${color}`,
@@ -627,6 +708,13 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                     <span className="text-[10px]" style={{ color: C.textDim }}>{timeAgo(u.createdAt)}</span>
                     <ChevronRight size={13} style={{ color: C.textDim }} />
                   </div>
+                  <button
+                    onClick={e => { e.preventDefault(); e.stopPropagation(); dismiss(u.id); }}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-black/[0.05] shrink-0 self-start"
+                    title="Dismiss this update"
+                    style={{ color: C.textDim }}>
+                    <X size={13} />
+                  </button>
                 </Link>
               );
             })}
