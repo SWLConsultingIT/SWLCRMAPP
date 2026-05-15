@@ -202,7 +202,7 @@ export default async function DashboardPage() {
   const data = await getDashboardData();
 
   return (
-    <div className="p-6 w-full">
+    <div className="p-4 sm:p-6 w-full">
       <ReliabilityBanner />
       <DashboardHero />
 

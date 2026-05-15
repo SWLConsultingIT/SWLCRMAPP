@@ -72,7 +72,7 @@ export default function OpportunitiesClient({ leads }: Props) {
   const selectStyle = { color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` };
 
   return (
-    <div className="p-6 w-full">
+    <div className="p-4 sm:p-6 w-full">
       <PageHero
         icon={Trophy}
         section="Operations"
@@ -133,8 +133,8 @@ export default function OpportunitiesClient({ leads }: Props) {
           />
         )
       ) : (
-        <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-          <table className="w-full text-left">
+        <div className="rounded-2xl border overflow-x-auto" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+          <table className="w-full text-left min-w-[640px]">
             <thead>
               <tr style={{ backgroundColor: C.bg }}>
                 <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Lead</th>

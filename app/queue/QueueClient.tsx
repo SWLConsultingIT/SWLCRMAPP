@@ -286,7 +286,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
   ];
 
   return (
-    <div className="p-6 w-full">
+    <div className="p-4 sm:p-6 w-full">
       <PageHero
         icon={Bell}
         section="Operations"
