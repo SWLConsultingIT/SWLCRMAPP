@@ -23,6 +23,7 @@ type SellerCard = {
   unipileId: string | null;
   linkedin: { sent: number; limit: number; pct: number };
   calls: number;
+  isShared: boolean;
 };
 
 type HistoryEntry = {
@@ -727,7 +728,16 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                       <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
                         style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>{seller.name[0]}</div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{seller.name}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-sm font-bold truncate" style={{ color: C.textPrimary }}>{seller.name}</p>
+                          {seller.isShared && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                              style={{ backgroundColor: "#7C3AED15", color: "#7C3AED", border: "1px solid #7C3AED30" }}
+                              title="Shared from another tenant via admin">
+                              Shared
+                            </span>
+                          )}
+                        </div>
                         {seller.hasLinkedin
                           ? <p className="text-[10px] font-mono mt-0.5" style={{ color: C.textDim }}>{seller.unipileId?.slice(0, 14)}…</p>
                           : <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>No Unipile configured</p>}
@@ -747,12 +757,12 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                       )}
                     </div>
                     <div className="px-5 py-3 border-t flex justify-end gap-2" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                      {!seller.hasLinkedin && (
+                      {!seller.hasLinkedin && !seller.isShared && (
                         <button onClick={() => setReconnectTarget(seller)}
                           className="flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-md transition-opacity hover:opacity-80 mr-auto"
                           style={{ backgroundColor: "#0A66C2", color: "#fff" }}><Share2 size={10} /> Connect Unipile</button>
                       )}
-                      {!seller.hasLinkedin && isAdmin && (
+                      {!seller.hasLinkedin && !seller.isShared && isAdmin && (
                         <button onClick={() => setLinkTarget(seller)}
                           className="flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-md transition-opacity hover:opacity-80"
                           style={{ backgroundColor: "#0A66C215", color: "#0A66C2", border: "1px solid #0A66C230" }}><Share2 size={10} /> Link existing</button>
@@ -760,12 +770,16 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                       <Link href={`/accounts/linkedin/${seller.id}`}
                         className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-md transition-opacity hover:opacity-80"
                         style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}><TrendingUp size={10} /> Details</Link>
-                      <button onClick={() => setEditTarget(seller)}
-                        className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-md transition-opacity hover:opacity-80"
-                        style={{ backgroundColor: C.blueLight, color: C.blue }}><Pencil size={10} /> Edit</button>
-                      <button onClick={() => setDeleteTarget({ id: seller.id, name: seller.name })}
-                        className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-md transition-opacity hover:opacity-80"
-                        style={{ backgroundColor: C.redLight, color: C.red }}><Trash2 size={10} /> Remove</button>
+                      {!seller.isShared && (
+                        <button onClick={() => setEditTarget(seller)}
+                          className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-md transition-opacity hover:opacity-80"
+                          style={{ backgroundColor: C.blueLight, color: C.blue }}><Pencil size={10} /> Edit</button>
+                      )}
+                      {!seller.isShared && (
+                        <button onClick={() => setDeleteTarget({ id: seller.id, name: seller.name })}
+                          className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-md transition-opacity hover:opacity-80"
+                          style={{ backgroundColor: C.redLight, color: C.red }}><Trash2 size={10} /> Remove</button>
+                      )}
                     </div>
                   </div>
                 );

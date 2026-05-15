@@ -135,13 +135,14 @@ async function getData() {
     allowedAircallIds = (bio?.aircall_number_ids as number[] | null) ?? [];
   }
 
-  // Sellers always scoped to the current bio. No cross-tenant leak.
+  // Sellers scoped to the current bio: own sellers + sellers shared from other
+  // tenants via admin "Sellers shared with this client". No cross-tenant leak.
   let sellersQuery = supabase.from("sellers")
-    .select("id, name, unipile_account_id, linkedin_daily_limit, active, company_bio_id")
+    .select("id, name, unipile_account_id, linkedin_daily_limit, active, company_bio_id, shared_with_company_bio_ids")
     .eq("active", true)
     .order("name");
   if (userCompanyBioId) {
-    sellersQuery = sellersQuery.eq("company_bio_id", userCompanyBioId);
+    sellersQuery = sellersQuery.or(`company_bio_id.eq.${userCompanyBioId},shared_with_company_bio_ids.cs.{${userCompanyBioId}}`);
   }
 
   const [
@@ -245,6 +246,9 @@ async function getData() {
       unipileId: s.unipile_account_id,
       linkedin: { sent: usage.linkedin, limit: linkedinLimit, pct: Math.min(linkedinPct, 100) },
       calls: usage.call,
+      // Seller is "shared" when the viewer's tenant is NOT its primary owner.
+      // Used by the UI to badge the card and gate destructive actions.
+      isShared: !!userCompanyBioId && s.company_bio_id !== userCompanyBioId,
     };
   });
 
