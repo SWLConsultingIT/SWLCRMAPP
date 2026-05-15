@@ -198,16 +198,21 @@ function InlineClassifier({ call }: { call: PendingCall }) {
 // ─── Main ──────────────────────────────────────────────────────────────────────
 export default function QueueClient({ pendingCalls, newReplies, pendingReviews, updates }: Props) {
   const [tab, setTab] = useState(0);
-  // Sub-tab inside "Calls": 0 = To Call (no call yet OR follow-up pending),
-  // 1 = Awaiting Outcome (already called, classification still null).
-  const [callSubTab, setCallSubTab] = useState<0 | 1>(0);
+  // Sub-tabs inside "Calls":
+  //   0 = To Call (no latestCall — never been dialed for this campaign step)
+  //   1 = Awaiting Outcome (latestCall exists, classification null)
+  //   2 = Follow-ups (latestCall.classification === 'follow_up' — seller logged
+  //       intent to call again later; was previously inflating To Call with
+  //       items that don't need attention right now per Pathway feedback
+  //       2026-05-15).
+  const [callSubTab, setCallSubTab] = useState<0 | 1 | 2>(0);
   const [search, setSearch] = useState("");
 
   // Split pending calls by classification state. Positive/negative would
-  // already have dropped the entry from the queue (campaign ended), so we
-  // only need to handle null + follow_up here.
-  const callsToMake = pendingCalls.filter(c => !c.latestCall || c.latestCall.classification === "follow_up");
+  // already have dropped the entry from the queue (campaign ended).
+  const callsToMake = pendingCalls.filter(c => !c.latestCall);
   const callsAwaitingOutcome = pendingCalls.filter(c => c.latestCall && c.latestCall.classification === null);
+  const callsFollowUp = pendingCalls.filter(c => c.latestCall?.classification === "follow_up");
 
   const totalCount = pendingCalls.length + newReplies.length + pendingReviews.length + updates.length;
   const needsReviewCount = newReplies.filter(r => r.requiresHumanReview).length;
@@ -217,6 +222,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
 
   const filteredCallsToMake = applyCallSearch(callsToMake);
   const filteredCallsAwaiting = applyCallSearch(callsAwaitingOutcome);
+  const filteredCallsFollowUp = applyCallSearch(callsFollowUp);
   const filteredReplies = !search ? newReplies
     : newReplies.filter(r => `${r.leadName} ${r.company} ${r.campaignName} ${r.replyText}`.toLowerCase().includes(search.toLowerCase()));
   const filteredReviews = !search ? pendingReviews
@@ -278,12 +284,16 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
         </div>
       </div>
 
-      {/* ═══ Tab 0: Calls (To Call / Awaiting Outcome) ═══ */}
+      {/* ═══ Tab 0: Calls (To Call / Awaiting Outcome / Follow-ups) ═══ */}
       {tab === 0 && (() => {
-        const activeList = callSubTab === 0 ? filteredCallsToMake : filteredCallsAwaiting;
+        const activeList = callSubTab === 0 ? filteredCallsToMake
+          : callSubTab === 1 ? filteredCallsAwaiting
+          : filteredCallsFollowUp;
         const emptyCopy = callSubTab === 0
           ? { title: search ? "No calls match your search" : "No calls to make", hint: "Calls appear when a campaign sequence reaches a call step." }
-          : { title: search ? "No calls match your search" : "Nothing to classify", hint: "Once you call a lead, it shows up here until you log the outcome." };
+          : callSubTab === 1
+          ? { title: search ? "No calls match your search" : "Nothing to classify", hint: "Once you call a lead, it shows up here until you log the outcome." }
+          : { title: search ? "No follow-ups match your search" : "No follow-ups scheduled", hint: "Leads you classified as Follow-up live here until you call them again." };
 
         return (
           <>
@@ -293,6 +303,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
               {([
                 { idx: 0 as const, label: "To Call",           count: callsToMake.length,           icon: PhoneCall },
                 { idx: 1 as const, label: "Awaiting Outcome",  count: callsAwaitingOutcome.length,  icon: Clock     },
+                { idx: 2 as const, label: "Follow-ups",        count: callsFollowUp.length,         icon: Clock     },
               ]).map(s => {
                 const active = callSubTab === s.idx;
                 const Icon = s.icon;
@@ -328,6 +339,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                   const UIcon = urgency.icon;
                   const isEscalated = urgency.level === "critical" || urgency.level === "stuck";
                   const awaitingOutcome = callSubTab === 1;
+                  const isFollowUp = callSubTab === 2;
                   return (
                     <div key={call.id} className="rounded-2xl border transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-md" style={{ backgroundColor: C.card, borderColor: isEscalated ? urgency.border : C.border, borderLeftWidth: isEscalated ? 3 : 1, borderLeftColor: isEscalated ? urgency.color : undefined, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
                       <div className="flex items-center gap-4 px-5 py-4">
