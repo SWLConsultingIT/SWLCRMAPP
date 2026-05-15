@@ -99,7 +99,7 @@ export default function ChangePasswordModal({ open, onClose, userEmail }: Props)
             <p className="text-xs mt-1" style={{ color: C.textMuted }}>Your new password is now active.</p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <form onSubmit={handleSubmit} className="p-5 space-y-4">
             {error && (
               <div className="flex items-start gap-2 rounded-lg border px-3 py-2"
                 style={{ backgroundColor: C.redLight, borderColor: `${C.red}30` }}>

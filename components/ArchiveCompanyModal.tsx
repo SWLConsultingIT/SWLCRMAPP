@@ -59,7 +59,7 @@ export default function ArchiveCompanyModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.55)" }}>
-      <div className="rounded-2xl border p-6 w-full max-w-lg shadow-2xl" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="rounded-2xl border p-5 w-full max-w-lg shadow-2xl" style={{ backgroundColor: C.card, borderColor: C.border }}>
 
         {/* Header */}
         <div className="flex items-start justify-between mb-4">
