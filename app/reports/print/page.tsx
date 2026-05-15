@@ -1,7 +1,37 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseService } from "@/lib/supabase-service";
+import { getUserScope } from "@/lib/scope";
 import { C } from "@/lib/design";
 import PrintTrigger from "./PrintTrigger";
 import PrintActions from "./PrintActions";
+
+type Branding = {
+  companyName: string;
+  logoUrl: string | null;
+  brandColor: string;
+};
+
+async function getBranding(): Promise<Branding> {
+  // Header / footer adopt the tenant's name + logo so the exported PDF lands
+  // in the client's inbox as their report, not as a SWL-template handover.
+  // primary_color only overrides when use_brand_colors is on; otherwise we
+  // keep the GrowthAI gold so internal SWL reports stay on-brand.
+  const fallback: Branding = { companyName: "SWL Consulting", logoUrl: null, brandColor: "#c9a83a" };
+  const scope = await getUserScope();
+  if (!scope.companyBioId) return fallback;
+  const svc = getSupabaseService();
+  const { data: bio } = await svc
+    .from("company_bios")
+    .select("company_name, logo_url, primary_color, use_brand_colors")
+    .eq("id", scope.companyBioId)
+    .maybeSingle();
+  if (!bio) return fallback;
+  return {
+    companyName: bio.company_name ?? fallback.companyName,
+    logoUrl: bio.logo_url ?? null,
+    brandColor: bio.use_brand_colors && bio.primary_color ? bio.primary_color : fallback.brandColor,
+  };
+}
 
 async function getReportData() {
   const supabase = await getSupabaseServer();
@@ -136,7 +166,7 @@ const classLabel: Record<string, string> = { positive: "Positive", meeting_inten
 const classColor: Record<string, string> = { positive: "#16A34A", meeting_intent: "#059669", negative: "#DC2626", question: "#D97706", unclassified: "#9CA3AF" };
 
 export default async function ReportsPrintPage() {
-  const data = await getReportData();
+  const [data, brand] = await Promise.all([getReportData(), getBranding()]);
   const totalReplies = Object.values(data.replyBreakdown).reduce((a, b) => a + b, 0);
 
   return (
@@ -155,14 +185,19 @@ export default async function ReportsPrintPage() {
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px", fontSize: 13 }}>
 
         {/* ── Header ── */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, paddingBottom: 16, borderBottom: "2px solid var(--brand, #c9a83a)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, paddingBottom: 16, borderBottom: `2px solid ${brand.brandColor}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: "linear-gradient(135deg, var(--brand, #c9a83a), color-mix(in srgb, var(--brand, #c9a83a) 72%, white))", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ color: "#fff", fontWeight: 800, fontSize: 18 }}>⚡</span>
-            </div>
+            {brand.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={brand.logoUrl} alt={brand.companyName} style={{ width: 44, height: 44, borderRadius: 12, objectFit: "contain", background: "#fff", border: "1px solid #E5E7EB" }} />
+            ) : (
+              <div style={{ width: 44, height: 44, borderRadius: 12, background: `linear-gradient(135deg, ${brand.brandColor}, color-mix(in srgb, ${brand.brandColor} 72%, white))`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ color: "#fff", fontWeight: 800, fontSize: 18 }}>⚡</span>
+              </div>
+            )}
             <div>
-              <p style={{ fontWeight: 800, fontSize: 18, color: "#111827", margin: 0 }}>GrowthAI — Sales Engine</p>
-              <p style={{ fontSize: 11, color: "#6B7280", margin: "2px 0 0" }}>SWL Consulting · Performance Report</p>
+              <p style={{ fontWeight: 800, fontSize: 18, color: "#111827", margin: 0 }}>{brand.companyName}</p>
+              <p style={{ fontSize: 11, color: "#6B7280", margin: "2px 0 0" }}>Performance Report</p>
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
@@ -359,7 +394,7 @@ export default async function ReportsPrintPage() {
 
         {/* ── Footer ── */}
         <div style={{ paddingTop: 16, borderTop: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <p style={{ fontSize: 10, color: "#9CA3AF", margin: 0 }}>GrowthAI Sales Engine · SWL Consulting · Confidential</p>
+          <p style={{ fontSize: 10, color: "#9CA3AF", margin: 0 }}>{brand.companyName} · Confidential · Powered by GrowthAI</p>
           <p style={{ fontSize: 10, color: "#9CA3AF", margin: 0 }}>{data.generatedAt}</p>
         </div>
 
