@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { C } from "@/lib/design";
-import { Mail, PlusCircle, ChevronDown, ChevronUp, MessageSquare, StickyNote } from "lucide-react";
+import { Mail, PlusCircle, ChevronDown, ChevronUp, MessageSquare, StickyNote, Trash2, Loader2 } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
 
 type ActivityItem = {
@@ -20,9 +20,16 @@ type ActivityItem = {
 };
 
 type Note = {
+  // Legacy fields kept so existing callers compile; new fields come from
+  // /api/leads/[id]/notes after the post-2026-05-15 refactor.
+  id?: string;
   author: string;
   text: string;
   time: string;
+  // New: real fields hydrated from the API.
+  created_at?: string;
+  created_by?: string | null;
+  author_name?: string | null;
 };
 
 function ChannelIcon({ channel, size = 14 }: { channel: string; size?: number }) {
@@ -81,6 +88,35 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
   const [savingNote, setSavingNote] = useState(false);
   const [notes, setNotes] = useState(initialNotes);
   const [noteError, setNoteError] = useState("");
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+
+  // Hydrate notes from /api/leads/[id]/notes on mount so the SSR-passed
+  // `initialNotes` (which is the legacy lead.seller_notes single-string)
+  // gets replaced with real per-note rows including author + timestamp.
+  useEffect(() => {
+    if (!leadId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/leads/${leadId}/notes`, { cache: "no-store" });
+        if (!res.ok) return;
+        const { notes: rows } = await res.json();
+        if (cancelled || !Array.isArray(rows)) return;
+        setNotes(rows.map((r: { id: string; content: string; created_at: string; created_by: string | null; author_name: string | null }) => ({
+          id: r.id,
+          author: r.author_name ?? "Team",
+          author_name: r.author_name,
+          text: r.content,
+          time: timeAgo(r.created_at),
+          created_at: r.created_at,
+          created_by: r.created_by,
+        })));
+      } catch {
+        /* keep initialNotes on network error */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [leadId]);
 
   const contacts = [...new Set(activities.map(a => a.contactName))];
   const needsReviewCount = activities.filter(a => a.requiresReview).length;
@@ -435,7 +471,21 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                       body: JSON.stringify({ content: noteText.trim() }),
                     });
                     if (res.ok) {
-                      setNotes(prev => [...prev, { author: "Team", text: noteText.trim(), time: "Just now" }]);
+                      const { note } = await res.json();
+                      // Prepend so the newest note is on top (matches the
+                      // DESC order the GET endpoint returns).
+                      setNotes(prev => [
+                        {
+                          id: note.id,
+                          author: note.author_name ?? "Team",
+                          author_name: note.author_name,
+                          text: note.content,
+                          time: timeAgo(note.created_at),
+                          created_at: note.created_at,
+                          created_by: note.created_by,
+                        },
+                        ...prev,
+                      ]);
                       setNoteText("");
                     } else {
                       const data = await res.json();
@@ -456,24 +506,57 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
 
           {notes.length > 0 ? (
             <div className="space-y-4">
-              {notes.map((note, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
-                    style={{ backgroundColor: "var(--brand, #c9a83a)" }}>
-                    {note.author[0]}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-semibold" style={{ color: C.textPrimary }}>{note.author}</span>
-                      <span className="text-xs" style={{ color: C.textDim }}>{note.time}</span>
+              {notes.map((note, i) => {
+                const key = note.id ?? `legacy-${i}`;
+                const canDelete = !!note.id && !!leadId;
+                const isDeleting = deletingNoteId === note.id;
+                return (
+                  <div key={key} className="flex items-start gap-3 group">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
+                      style={{ backgroundColor: "var(--brand, #c9a83a)" }}>
+                      {(note.author_name ?? note.author ?? "?")[0]?.toUpperCase()}
                     </div>
-                    <p className="text-sm leading-relaxed" style={{ color: C.textBody }}>{note.text}</p>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1 gap-2">
+                        <span className="text-sm font-semibold truncate" style={{ color: C.textPrimary }}>
+                          {note.author_name ?? note.author}
+                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-xs tabular-nums" style={{ color: C.textDim }}>
+                            {note.created_at ? timeAgo(note.created_at) : note.time}
+                          </span>
+                          {canDelete && (
+                            <button
+                              onClick={async () => {
+                                if (!note.id || !leadId) return;
+                                if (!confirm("Delete this note?")) return;
+                                setDeletingNoteId(note.id);
+                                try {
+                                  const res = await fetch(`/api/leads/${leadId}/notes?noteId=${note.id}`, { method: "DELETE" });
+                                  if (res.ok) {
+                                    setNotes(prev => prev.filter(n => n.id !== note.id));
+                                  }
+                                } finally {
+                                  setDeletingNoteId(null);
+                                }
+                              }}
+                              disabled={isDeleting}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-black/[0.04]"
+                              title="Delete note"
+                              style={{ color: C.textDim }}>
+                              {isDeleting ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{note.text}</p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
-            <p className="text-xs text-center py-3" style={{ color: C.textDim }}>No notes yet</p>
+            <p className="text-xs text-center py-3" style={{ color: C.textDim }}>No notes yet — write the first one above.</p>
           )}
         </div>
 
