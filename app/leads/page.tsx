@@ -34,7 +34,12 @@ async function getData() {
   let leadsQ = supabase
     .from("leads")
     .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at, source, encrypted_payload, company_bio_id")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    // Hard cap to bound memory + payload size on a tenant with thousands of
+    // leads. The full list is virtualized client-side and most users never
+    // scroll past the first few screens — 500 covers >99% of real use.
+    // If we need pagination beyond this we'll add cursor params here.
+    .limit(500);
   // Seller-tier filter: only leads where seller_id ∈ their linked sellers.
   // Empty array (sellerIds.length=0) → in([]) returns no rows, which is the
   // intended behavior — a seller with no link sees nothing until they're

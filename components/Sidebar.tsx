@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { useLocale } from "@/lib/i18n";
 import { useAuthUser } from "@/lib/auth-context";
 import TenantSwitcher from "@/components/TenantSwitcher";
@@ -68,22 +67,24 @@ export default function Sidebar() {
   const tier = authUser?.tier ?? null;
 
   useEffect(() => {
+    let cancelled = false;
     async function fetchBadges() {
-      const sb = getSupabaseBrowser();
-      const [{ count: calls }, { count: pendingReview }, { count: pendingExec }, { count: pendingCampaigns }] = await Promise.all([
-        sb.from("campaigns").select("*", { count: "exact", head: true }).eq("status", "active").eq("channel", "call"),
-        sb.from("icp_profiles").select("*", { count: "exact", head: true }).eq("status", "pending"),
-        sb.from("icp_profiles").select("*", { count: "exact", head: true }).eq("status", "approved").in("execution_status", ["not_started", "in_progress"]),
-        sb.from("campaign_requests").select("*", { count: "exact", head: true }).eq("status", "pending_review"),
-      ]);
-      setCallCount(calls ?? 0);
-      setPendingCount((pendingReview ?? 0) + (pendingExec ?? 0) + (pendingCampaigns ?? 0));
+      try {
+        const res = await fetch("/api/sidebar/badges", { cache: "no-store" });
+        if (!res.ok) return;
+        const { calls, pending } = await res.json();
+        if (cancelled) return;
+        setCallCount(calls ?? 0);
+        setPendingCount(pending ?? 0);
+      } catch {
+        // Silent — non-critical UI; will retry on next interval.
+      }
     }
     fetchBadges();
-    // Sidebar badges aren't time-critical — 5 min is plenty and avoids
-    // 4 count queries per user per minute hitting Supabase.
+    // Sidebar badges aren't time-critical. The endpoint batches 4 counts
+    // into one round-trip so the cost is ~1 request/5min/user.
     const interval = setInterval(fetchBadges, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+    return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
   // Show the Admin sidebar item to anyone who has access to a tier-scoped
