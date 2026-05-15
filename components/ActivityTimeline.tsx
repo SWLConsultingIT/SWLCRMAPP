@@ -445,6 +445,11 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
           <div className="flex items-center gap-2 mb-4 relative">
             <StickyNote size={14} style={{ color: "var(--brand, #c9a83a)" }} />
             <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: C.textPrimary }}>Team Notes</h3>
+            {notes.length > 0 && (
+              <span className="text-[10px] font-semibold ml-auto tabular-nums" style={{ color: C.textDim }}>
+                {notes.length} {notes.length === 1 ? "note" : "notes"}
+              </span>
+            )}
           </div>
 
           <div className="mb-4">
@@ -505,7 +510,12 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
           </div>
 
           {notes.length > 0 ? (
-            <div className="space-y-4">
+            <div
+              className="space-y-4 overflow-y-auto pr-1"
+              // Cap the visible notes area so adding many doesn't push the
+              // composer + rest of the page down. Scrolls inside the card.
+              // Roughly fits ~5 notes before scroll kicks in.
+              style={{ maxHeight: 360 }}>
               {notes.map((note, i) => {
                 const key = note.id ?? `legacy-${i}`;
                 const canDelete = !!note.id && !!leadId;
