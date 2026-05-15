@@ -11,6 +11,9 @@ const PUBLIC_PATHS = [
   // Cron endpoints authenticate via CRON_SECRET inside the route handler,
   // so they must skip the Supabase session redirect in this middleware.
   "/api/cron",
+  // Public uptime probe consumed by external monitors (UptimeRobot etc).
+  // Returns 200/503 only; no data exposure.
+  "/api/health",
 ];
 
 export async function proxy(req: NextRequest) {
