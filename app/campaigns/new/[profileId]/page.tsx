@@ -371,37 +371,36 @@ export default function NewCampaignWizard() {
 
   return (
     <div className="p-6 w-full">
-      {/* Header */}
-      <button onClick={() => router.push("/campaigns")} className="flex items-center gap-1.5 text-xs font-medium mb-3 transition-colors hover:opacity-80" style={{ color: C.textMuted }}>
-        <ArrowLeft size={13} /> Back to Campaigns
+      {/* Header — single-line meta, smaller h1, tighter gaps (UX pass 2026-05-15). */}
+      <button onClick={() => router.push("/campaigns")} className="flex items-center gap-1.5 text-[11px] font-medium mb-2 transition-colors hover:opacity-80" style={{ color: C.textMuted }}>
+        <ArrowLeft size={12} /> Back to Campaigns
       </button>
-      <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>New Flow</p>
-        <h1 className="text-2xl font-bold flex items-center gap-2.5" style={{ color: C.textPrimary }}>
-          <Megaphone size={22} style={{ color: gold }} /> Configure Outreach Flow
+      <div className="mb-4 flex items-baseline gap-3 flex-wrap">
+        <h1 className="text-[20px] font-bold flex items-center gap-2" style={{ color: C.textPrimary }}>
+          <Megaphone size={18} style={{ color: gold }} /> Configure Outreach Flow
         </h1>
-        <p className="text-sm mt-1" style={{ color: C.textMuted }}>
-          {profile?.profile_name} — {leadsCount} {isPartialSelection ? "selected" : ""} leads
+        <p className="text-xs" style={{ color: C.textMuted }}>
+          {profile?.profile_name} · {leadsCount} {isPartialSelection ? "selected" : ""} lead{leadsCount === 1 ? "" : "s"}
         </p>
-        {isPartialSelection && selectedLeadNames.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {selectedLeadNames.slice(0, 8).map((name, i) => (
-              <span key={i} className="text-xs px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>{name}</span>
-            ))}
-            {selectedLeadNames.length > 8 && (
-              <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: C.bg, color: C.textMuted }}>
-                +{selectedLeadNames.length - 8} more
-              </span>
-            )}
-          </div>
-        )}
       </div>
+      {isPartialSelection && selectedLeadNames.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-1.5">
+          {selectedLeadNames.slice(0, 8).map((name, i) => (
+            <span key={i} className="text-[11px] px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>{name}</span>
+          ))}
+          {selectedLeadNames.length > 8 && (
+            <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ backgroundColor: C.bg, color: C.textMuted }}>
+              +{selectedLeadNames.length - 8} more
+            </span>
+          )}
+        </div>
+      )}
 
-      <div className="h-px mb-6" style={{ background: `linear-gradient(90deg, ${gold} 0%, color-mix(in srgb, var(--brand, #c9a83a) 15%, transparent) 40%, transparent 100%)` }} />
+      <div className="h-px mb-5" style={{ background: `linear-gradient(90deg, ${gold} 0%, color-mix(in srgb, var(--brand, #c9a83a) 15%, transparent) 40%, transparent 100%)` }} />
 
       {/* Step indicator */}
-      <div className="flex items-center gap-1 mb-8">
+      <div className="flex items-center gap-1 mb-6">
         {WIZARD_STEPS.map((s, i) => (
           <div key={s} className="flex items-center gap-1">
             <button onClick={() => i < wizardStep && setWizardStep(i)} disabled={i > wizardStep}
@@ -417,44 +416,43 @@ export default function NewCampaignWizard() {
 
       {/* ═══ STEP 0: SEQUENCE BUILDER (with flow name) ═══ */}
       {wizardStep === 0 && (
-        <div className="space-y-5">
-          {/* Flow name */}
-          <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <h2 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>Flow Name</h2>
+        <div className="space-y-4">
+          {/* Flow name + templates combined — 2 visual fragments collapsed into
+              one card to reduce stacked-card noise. */}
+          <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <label className="text-[11px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: C.textMuted }}>Flow Name</label>
             <input
               type="text"
               value={campaignName}
               onChange={e => setCampaignName(e.target.value)}
               placeholder="e.g. LATAM SaaS Leaders — LinkedIn + Email"
-              className="w-full rounded-lg px-4 py-3 text-base font-semibold focus:outline-none"
+              className="w-full rounded-lg px-3 py-2.5 text-sm font-semibold focus:outline-none"
               style={{ color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` }}
             />
-          </div>
-
-          {/* Templates */}
-          <div className="rounded-xl border p-5 mb-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Start from a template</p>
-            <div className="flex gap-2 flex-wrap">
-              {sequenceTemplates.map(tpl => (
-                <button key={tpl.name}
-                  onClick={() => { setSequence(tpl.steps.map(s => ({ ...s }))); setChannelMessages({ steps: [], autoReplies: { positive: "", negative: "", question: "" } }); }}
-                  className="rounded-lg border px-4 py-2.5 text-left transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm"
-                  style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                  <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{tpl.name}</p>
-                  <p className="text-xs" style={{ color: C.textDim }}>{tpl.desc}</p>
-                </button>
-              ))}
+            <div className="mt-4 pt-4 border-t" style={{ borderColor: C.border }}>
+              <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>Start from a template</p>
+              <div className="flex gap-2 flex-wrap">
+                {sequenceTemplates.map(tpl => (
+                  <button key={tpl.name}
+                    onClick={() => { setSequence(tpl.steps.map(s => ({ ...s }))); setChannelMessages({ steps: [], autoReplies: { positive: "", negative: "", question: "" } }); }}
+                    className="rounded-lg border px-3 py-2 text-left transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm"
+                    style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                    <p className="text-[12px] font-semibold" style={{ color: C.textPrimary }}>{tpl.name}</p>
+                    <p className="text-[11px]" style={{ color: C.textDim }}>{tpl.desc}</p>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-            <div className="flex items-center justify-between mb-5">
+          <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Build Your Sequence</h2>
-                <p className="text-xs mt-0.5" style={{ color: C.textDim }}>Define the channel and timing for each step. Pick a template above or customize freely.</p>
+                <h2 className="text-[13px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Build Your Sequence</h2>
+                <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>Define the channel and timing for each step. Pick a template above or customize freely.</p>
               </div>
               <div className="text-right">
-                <p className="text-xs" style={{ color: C.textMuted }}>{sequence.length} steps · ~{totalDays} days</p>
+                <p className="text-[11px]" style={{ color: C.textMuted }}>{sequence.length} steps · ~{totalDays} days</p>
               </div>
             </div>
 
