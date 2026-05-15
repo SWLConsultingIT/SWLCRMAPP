@@ -9,9 +9,12 @@ const gold = "var(--brand, #c9a83a)";
 export default function DashboardTabs({ children }: { children: React.ReactNode[] }) {
   const [tab, setTab] = useState(0);
 
+  // "Live" = operational pipeline right now (active campaigns, fresh replies,
+  // alerts). "Reports" = historical trends and benchmarks. The old "Overview"
+  // label confused users into thinking it was a summary of Reports.
   const tabs = [
-    { label: "Overview", icon: LayoutDashboard, color: gold },
-    { label: "Reports",  icon: BarChart3,       color: C.accent },
+    { label: "Live",    sub: "Pipeline right now",      icon: LayoutDashboard, color: gold },
+    { label: "Reports", sub: "Trends & benchmarks",     icon: BarChart3,       color: C.accent },
   ];
 
   return (
@@ -24,14 +27,19 @@ export default function DashboardTabs({ children }: { children: React.ReactNode[
             <button
               key={t.label}
               onClick={() => setTab(i)}
-              className="flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] relative rounded-t-lg"
+              className="flex items-start gap-2 px-5 py-2.5 text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] relative rounded-t-lg text-left"
               style={{
                 color: active ? t.color : C.textMuted,
                 backgroundColor: active ? `${t.color}08` : "transparent",
               }}
             >
-              <Icon size={15} style={{ opacity: active ? 1 : 0.7 }} />
-              {t.label}
+              <Icon size={15} className="mt-0.5" style={{ opacity: active ? 1 : 0.7 }} />
+              <div className="flex flex-col leading-tight">
+                <span>{t.label}</span>
+                <span className="text-[10px] font-normal" style={{ color: active ? t.color : C.textDim, opacity: active ? 0.7 : 1 }}>
+                  {t.sub}
+                </span>
+              </div>
               {active && (
                 <div
                   className="absolute bottom-0 left-2 right-2 rounded-t"
