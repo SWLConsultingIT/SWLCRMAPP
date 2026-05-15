@@ -85,7 +85,7 @@ function ProfileSection({ user }: { user: ProfileUser }) {
       <SectionHeader icon={User} title={t("profile.title")} description={t("profile.subtitle")} />
 
       {/* Identity card */}
-      <div className="rounded-2xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+      <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
         <div className="flex items-center gap-4 mb-5">
           <div className="w-16 h-16 rounded-full flex items-center justify-center text-xl font-bold shrink-0"
             style={{ background: `linear-gradient(135deg, ${roleColor}, ${roleColor}CC)`, color: "#fff" }}>
@@ -103,7 +103,7 @@ function ProfileSection({ user }: { user: ProfileUser }) {
       </div>
 
       {/* Security */}
-      <div className="rounded-2xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+      <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("profile.password")}</h3>
         </div>
@@ -131,7 +131,7 @@ function PreferencesSection() {
     <div className="space-y-5">
       <SectionHeader icon={SlidersHorizontal} title={t("prefs.title")} description={t("prefs.subtitle")} />
 
-      <div className="rounded-2xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+      <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
         <h3 className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>{t("prefs.theme")}</h3>
         <p className="text-xs mb-4" style={{ color: C.textMuted }}>{t("prefs.themeHelp")}</p>
         <div className="grid grid-cols-2 gap-3">
@@ -199,7 +199,7 @@ function BrandingCard() {
   }
 
   return (
-    <div className="rounded-2xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+    <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
       <div className="flex items-center justify-between mb-1">
         <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Branding</h3>
       </div>
@@ -279,7 +279,7 @@ function LanguageCard() {
     { id: "es", label: "Español", flag: "🇦🇷" },
   ];
   return (
-    <div className="rounded-2xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+    <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
       <h3 className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>{t("prefs.language")}</h3>
       <p className="text-xs mb-4" style={{ color: C.textMuted }}>{t("prefs.languageHelp")}</p>
       <div className="grid grid-cols-2 gap-3">
@@ -320,7 +320,7 @@ function OperationsSection({ callMode }: { callMode: "manual" | "auto" }) {
     <div className="space-y-5">
       <SectionHeader icon={Phone} title={t("ops.title")} description={t("ops.subtitle")} />
 
-      <div className="rounded-2xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+      <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
         <div className="mb-4">
           <h3 className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>{t("ops.callClass")}</h3>
           <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>

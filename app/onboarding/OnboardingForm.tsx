@@ -132,7 +132,7 @@ export default function OnboardingForm({ displayName, email }: { displayName: st
         </div>
 
         {/* Card */}
-        <div className="rounded-2xl p-6 space-y-4" style={{
+        <div className="rounded-2xl p-5 space-y-4" style={{
           backgroundColor: "rgba(255,255,255,0.02)",
           border: "1px solid rgba(255,255,255,0.08)",
           boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
