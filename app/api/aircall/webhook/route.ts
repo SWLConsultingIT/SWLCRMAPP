@@ -136,6 +136,49 @@ export async function POST(req: NextRequest) {
     }).catch(() => { /* don't fail the webhook on transcription error */ });
   }
 
+  // Outbound reconciliation: the /api/aircall/dial endpoint inserts a row
+  // BEFORE Aircall returns (their POST /v1/users/{id}/calls returns 204 with
+  // no body, so we never learn the aircall_call_id at dial time). When the
+  // webhook later fires with the assigned id, the PATCH-by-aircall_call_id
+  // misses, and unless we link the rows here we end up with duplicates:
+  //   - "initiated" row from dial: has lead_id, aircall_call_id=null
+  //   - whatever the sync cron inserts later: has aircall_call_id, no lead_id
+  // The fix is to match the recent dial-created row by phone digits (last 10
+  // because formatting differs — Aircall returns "+44115...", we may have
+  // stored "+44 115 ..." with spaces from the lead's primary_phone). One-time
+  // pass; if no match, fall through to the existing inbound-create branch.
+  if (
+    Array.isArray(updated) && updated.length === 0
+    && call.direction === "outbound"
+    && call.raw_digits
+  ) {
+    const sinceIso = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const recentRes = await fetch(
+      `${SB_URL}/calls?aircall_call_id=is.null&direction=eq.outbound&started_at=gte.${sinceIso}&select=id,phone_number&order=started_at.desc&limit=20`,
+      { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
+    );
+    const candidates = await recentRes.json().catch(() => []);
+    const wantDigits = call.raw_digits.replace(/[^\d]/g, "").slice(-10);
+    const match = Array.isArray(candidates)
+      ? candidates.find((r: { phone_number?: string | null }) =>
+          ((r.phone_number ?? "").replace(/[^\d]/g, "").slice(-10) === wantDigits)
+        )
+      : null;
+    if (match?.id) {
+      await fetch(`${SB_URL}/calls?id=eq.${match.id}`, {
+        method: "PATCH",
+        headers: {
+          apikey: SB_KEY,
+          Authorization: `Bearer ${SB_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "return=minimal",
+        },
+        body: JSON.stringify({ aircall_call_id: call.id, ...update }),
+      });
+      return NextResponse.json({ ok: true, status, linked: match.id });
+    }
+  }
+
   if (Array.isArray(updated) && updated.length === 0 && call.direction === "inbound" && call.raw_digits) {
     const digits = call.raw_digits.replace(/[^\d+]/g, "");
     const last10 = digits.slice(-10);

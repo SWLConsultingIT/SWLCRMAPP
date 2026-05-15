@@ -86,44 +86,63 @@ export async function POST(req: NextRequest) {
 
   // Resolve which Aircall user makes the call.
   //
-  // Model: one Aircall user per tenant (company_bio). Every team member of a
-  // tenant dials through that shared user — e.g., anyone working under Arqy
-  // calls via sales@arqy.io. This keeps Aircall workspaces isolated per
-  // tenant: Arqy users only see Arqy's number, never SWL's.
-  //
-  // Resolution order:
+  // Resolution order (refined 2026-05-15 after Pathway reported "the call
+  // rings the wrong teammate" — both Andy and Graeme dialed against the
+  // tenant-default Aircall user, so whoever had the Aircall Phone open in
+  // foreground would pick up regardless of who clicked Call):
   //   1. Explicit aircallUserId from caller (advanced override / testing).
-  //   2. company_bios.aircall_user_id of the dialing tenant.
-  //   3. "First user with available=true" globally (last-resort fallback).
+  //   2. sellers.aircall_user_id of the *calling user* in the dialing
+  //      tenant. This is the per-seller binding configured in
+  //      /admin/<tenant>/Aircall. Each teammate dials as their own Aircall
+  //      user → only their device rings.
+  //   3. company_bios.aircall_user_id of the dialing tenant — the legacy
+  //      shared-user fallback for tenants that haven't migrated yet.
+  //   4. "First user with available=true" globally (last-resort fallback).
   //
   // Note on availability fields: Aircall exposes `available` (boolean — is
   // the user signed in?) AND `availability_status` (soft string). Only
   // `available=true` indicates the device will actually ring; the soft
   // status defaults to "available" even for offline users.
   let resolvedUserId: number | null = aircallUserId ? Number(aircallUserId) : null;
-  // Step 2: tenant default. Use the LEAD's bio when present (so super_admin
-  // dialing across tenants picks the right Aircall user), else viewer's.
-  if (!resolvedUserId) {
-    let dialingBio: string | null = scope.companyBioId;
-    if (leadId) {
-      const { data: leadForBio } = await svc
-        .from("leads")
-        .select("company_bio_id")
-        .eq("id", leadId)
-        .maybeSingle();
-      dialingBio = ((leadForBio as { company_bio_id?: string | null } | null)?.company_bio_id) ?? dialingBio;
+  // Resolve dialingBio once — used by both the seller lookup (step 2)
+  // and the tenant-default lookup (step 3) so super_admins dialing across
+  // tenants pick the right Aircall identity.
+  let dialingBio: string | null = scope.companyBioId;
+  if (!resolvedUserId && leadId) {
+    const { data: leadForBio } = await svc
+      .from("leads")
+      .select("company_bio_id")
+      .eq("id", leadId)
+      .maybeSingle();
+    dialingBio = ((leadForBio as { company_bio_id?: string | null } | null)?.company_bio_id) ?? dialingBio;
+  }
+  // Step 2: per-seller binding. The user clicking Call may have a sellers
+  // row in this tenant with their own aircall_user_id — prefer that.
+  if (!resolvedUserId && dialingBio) {
+    const { data: sellerRow } = await svc
+      .from("sellers")
+      .select("aircall_user_id")
+      .eq("user_id", scope.userId)
+      .eq("company_bio_id", dialingBio)
+      .maybeSingle();
+    const sellerUser = (sellerRow as { aircall_user_id?: string | null } | null)?.aircall_user_id ?? null;
+    if (sellerUser) {
+      const parsed = Number(sellerUser);
+      if (Number.isFinite(parsed)) resolvedUserId = parsed;
     }
-    if (dialingBio) {
-      const { data: bio } = await svc
-        .from("company_bios")
-        .select("aircall_user_id")
-        .eq("id", dialingBio)
-        .maybeSingle();
-      const tenantUser = (bio as { aircall_user_id?: string | null } | null)?.aircall_user_id ?? null;
-      if (tenantUser) {
-        const parsed = Number(tenantUser);
-        if (Number.isFinite(parsed)) resolvedUserId = parsed;
-      }
+  }
+  // Step 3: tenant default — used by tenants that share one Aircall user
+  // across teammates, or as a fallback for users without a sellers row.
+  if (!resolvedUserId && dialingBio) {
+    const { data: bio } = await svc
+      .from("company_bios")
+      .select("aircall_user_id")
+      .eq("id", dialingBio)
+      .maybeSingle();
+    const tenantUser = (bio as { aircall_user_id?: string | null } | null)?.aircall_user_id ?? null;
+    if (tenantUser) {
+      const parsed = Number(tenantUser);
+      if (Number.isFinite(parsed)) resolvedUserId = parsed;
     }
   }
   if (!resolvedUserId) {
