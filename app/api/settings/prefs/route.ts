@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { getOrFetchProfile, invalidateProfileCache } from "@/lib/user-profile-cache";
 
 const THEME_COOKIE = "swl-theme";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -29,13 +30,10 @@ export async function GET() {
   // post-auth refetch could restore dark.
   if (!user) return NextResponse.json({ authenticated: false });
 
-  const svc = getSupabaseService();
-  const { data: profile } = await svc
-    .from("user_profiles")
-    .select("theme, locale")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
+  // Read from the shared in-proc profile cache. ThemeProvider + LocaleProvider
+  // fire this on every first paint — was the #1 user_profiles read at 147
+  // calls/min on 2026-05-15.
+  const profile = await getOrFetchProfile(user.id, getSupabaseService());
   const theme = profile?.theme === "dark" ? "dark" : "light";
   const locale = profile?.locale ?? "en";
 
@@ -67,6 +65,9 @@ export async function PATCH(req: NextRequest) {
     .update(update)
     .eq("user_id", user.id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Drop the cached row so the next theme/locale read returns the new value.
+  invalidateProfileCache(user.id);
 
   const res = NextResponse.json({ ok: true, ...update });
   if (update.theme === "light" || update.theme === "dark") {

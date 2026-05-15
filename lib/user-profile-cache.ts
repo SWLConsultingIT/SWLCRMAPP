@@ -25,19 +25,27 @@
 
 // Carry every column that any caller needs so the cache is the single
 // source of truth and no endpoint falls back to a direct SELECT.
-//   - role, tier, company_bio_id: used by scope.ts (auth + RBAC)
-//   - company_bios join: archived_at gates lockout, company_name + logo_url
-//     drive the top header / tenant switcher in /api/auth/me
+//   - role, tier, company_bio_id: scope.ts (auth + RBAC)
+//   - theme, locale: /api/settings/prefs (called by ThemeProvider on every
+//     first paint — was the #1 read on user_profiles at 147 calls/min)
+//   - company_bios.archived_at: gates lockout
+//   - company_bios.company_name + logo_url: /api/auth/me header
+//   - company_bios.primary_color + use_brand_colors: /api/settings/branding
+//     (74 calls/min on first paint via BrandProvider)
 export type CachedBioJoin = {
   archived_at: string | null;
   company_name?: string | null;
   logo_url?: string | null;
+  primary_color?: string | null;
+  use_brand_colors?: boolean | null;
 };
 
 export type CachedProfileRow = {
   role: string | null;
   tier: string | null;
   company_bio_id: string | null;
+  theme?: string | null;
+  locale?: string | null;
   company_bios: CachedBioJoin | CachedBioJoin[] | null;
 };
 
@@ -103,7 +111,7 @@ export async function getOrFetchProfile(
   if (cached) return cached;
   const { data } = await svc
     .from("user_profiles")
-    .select("role, tier, company_bio_id, company_bios(archived_at, company_name, logo_url)")
+    .select("role, tier, company_bio_id, theme, locale, company_bios(archived_at, company_name, logo_url, primary_color, use_brand_colors)")
     .eq("user_id", userId)
     .single();
   if (data) setCachedProfile(userId, data);

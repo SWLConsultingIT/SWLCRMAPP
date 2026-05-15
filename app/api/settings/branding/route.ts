@@ -1,34 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { getOrFetchProfile, invalidateProfileCache } from "@/lib/user-profile-cache";
 
 export async function GET() {
   const supabase = await getSupabaseServer();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Single query — join user_profiles → company_bios via FK relationship.
-  // Was 2 sequential queries (~1.3s wall-clock); now ~400-600ms.
-  const svc = getSupabaseService();
-  const { data: profile } = await svc
-    .from("user_profiles")
-    .select("company_bio_id, company_bios(primary_color, use_brand_colors, logo_url)")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const rawBios = (profile as unknown as { company_bios?: unknown })?.company_bios;
-  const bio = Array.isArray(rawBios)
-    ? (rawBios[0] as { primary_color: string | null; use_brand_colors: boolean | null; logo_url: string | null } | undefined) ?? null
-    : (rawBios as { primary_color: string | null; use_brand_colors: boolean | null; logo_url: string | null } | null) ?? null;
+  // Read from the shared in-proc profile cache. BrandProvider fires this on
+  // every first paint — was the #2 user_profiles read at 74 calls/min on
+  // 2026-05-15. The cache row carries company_bios.primary_color +
+  // use_brand_colors + logo_url so we don't fall back to a direct join.
+  const profile = await getOrFetchProfile(user.id, getSupabaseService());
+  const rawBios = profile?.company_bios;
+  const bio = Array.isArray(rawBios) ? rawBios[0] ?? null : rawBios ?? null;
 
   return NextResponse.json({
     primary_color: bio?.primary_color ?? null,
     use_brand_colors: bio?.use_brand_colors ?? false,
     logo_url: bio?.logo_url ?? null,
   }, {
-    // Branding edits should be visible immediately — uploading a logo via
-    // /company-bios and going back to Settings used to show the stale cached
-    // value for up to 60s. Bypass any browser/Vercel cache for this endpoint.
+    // Browser-side cache headers stay no-store so a logo upload is visible
+    // immediately on the next request; the server's in-proc cache (60s TTL)
+    // is invalidated explicitly in the PATCH handler below + on
+    // /api/company-bios mutations elsewhere, so this stays consistent.
     headers: { "Cache-Control": "no-store" },
   });
 }
@@ -61,5 +57,10 @@ export async function PATCH(req: NextRequest) {
     .eq("id", profile.company_bio_id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Invalidate this user's cached row so the new branding shows up on the
+  // very next render. Other users in the same tenant will see it after the
+  // 60s TTL elapses on their cached rows — acceptable for branding edits.
+  invalidateProfileCache(user.id);
   return NextResponse.json({ ok: true, primary_color, use_brand_colors });
 }
