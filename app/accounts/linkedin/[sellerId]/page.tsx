@@ -17,22 +17,77 @@ const linkedinStatusMeta: Record<string, { label: string; color: string; bg: str
   warning:    { label: "Warning",    color: "#7C3AED", bg: "#EDE9FE" },
 };
 
+type CampaignRow = {
+  name: string;
+  channel: string;
+  leads: number;
+  active: number;
+  sent: number;
+  replied: number;
+  positive: number;
+  startedAt: string | null;
+};
+
 async function getSellerDetail(sellerId: string) {
   const supabase = await getSupabaseServer();
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
   const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString();
 
-  const [{ data: seller }, { data: todayMsgs }, { data: weekMsgs }, { data: monthMsgs }, { data: activeCamps }, { data: replies }] = await Promise.all([
+  const [{ data: seller }, { data: todayMsgs }, { data: weekMsgs }, { data: monthMsgs }, { data: allCamps }, { data: replies }] = await Promise.all([
     supabase.from("sellers").select("*").eq("id", sellerId).single(),
     supabase.from("campaign_messages").select("id, status, sent_at, channel").eq("seller_id", sellerId).gte("sent_at", today.toISOString()),
     supabase.from("campaign_messages").select("id, status").eq("seller_id", sellerId).gte("sent_at", weekAgo).eq("channel", "linkedin"),
     supabase.from("campaign_messages").select("id, status, sent_at, step_number, channel, content, campaign_id").eq("seller_id", sellerId).gte("sent_at", monthAgo).eq("channel", "linkedin").order("sent_at", { ascending: false }).limit(20),
-    supabase.from("campaigns").select("id, name, current_step, sequence_steps, status, leads(primary_first_name, primary_last_name, company_name)").eq("seller_id", sellerId).eq("status", "active").limit(10),
+    // Pull EVERY campaign owned by this seller (not just active) so the
+    // breakdown shows lifetime work, not just live pipelines.
+    supabase.from("campaigns").select("id, name, channel, status, created_at, lead_id").eq("seller_id", sellerId),
     supabase.from("lead_replies").select("id, classification, received_at, reply_text, lead_id, leads(primary_first_name, primary_last_name)").eq("channel", "linkedin").gte("received_at", weekAgo).order("received_at", { ascending: false }).limit(20),
   ]);
 
-  return { seller, todayMsgs: todayMsgs ?? [], weekMsgs: weekMsgs ?? [], monthMsgs: monthMsgs ?? [], activeCamps: activeCamps ?? [], replies: replies ?? [] };
+  // Build per-campaign-name aggregates so the seller view shows one row per
+  // campaign sequence (e.g. "UK Architects · LinkedIn") instead of one row
+  // per lead. Counts roll up message-level and reply-level metrics for this
+  // seller's slice of each campaign.
+  const camps = allCamps ?? [];
+  const campIds = camps.map(c => c.id);
+  const [{ data: campMsgs }, { data: campReplies }] = campIds.length > 0
+    ? await Promise.all([
+        supabase.from("campaign_messages").select("campaign_id, status").in("campaign_id", campIds).eq("seller_id", sellerId),
+        supabase.from("lead_replies").select("campaign_id, classification").in("campaign_id", campIds),
+      ])
+    : [{ data: [] }, { data: [] }];
+
+  const sentByCamp: Record<string, number> = {};
+  for (const m of campMsgs ?? []) if (m.status === "sent" || m.status === "delivered") sentByCamp[m.campaign_id] = (sentByCamp[m.campaign_id] ?? 0) + 1;
+  const repliedByCamp: Record<string, number> = {};
+  const positiveByCamp: Record<string, number> = {};
+  for (const r of campReplies ?? []) {
+    repliedByCamp[r.campaign_id] = (repliedByCamp[r.campaign_id] ?? 0) + 1;
+    if (r.classification === "positive" || r.classification === "meeting_intent") {
+      positiveByCamp[r.campaign_id] = (positiveByCamp[r.campaign_id] ?? 0) + 1;
+    }
+  }
+
+  const groups: Record<string, CampaignRow & { leadIds: Set<string> }> = {};
+  for (const c of camps) {
+    const key = `${c.name} · ${c.channel}`;
+    if (!groups[key]) groups[key] = {
+      name: c.name, channel: c.channel, leads: 0, active: 0, sent: 0, replied: 0, positive: 0, startedAt: c.created_at, leadIds: new Set(),
+    };
+    const g = groups[key];
+    if (c.lead_id) g.leadIds.add(c.lead_id);
+    if (c.status === "active") g.active++;
+    g.sent += sentByCamp[c.id] ?? 0;
+    g.replied += repliedByCamp[c.id] ?? 0;
+    g.positive += positiveByCamp[c.id] ?? 0;
+    if (c.created_at && (!g.startedAt || c.created_at < g.startedAt)) g.startedAt = c.created_at;
+  }
+  const campaignBreakdown: CampaignRow[] = Object.values(groups)
+    .map(g => ({ ...g, leads: g.leadIds.size }))
+    .sort((a, b) => b.active - a.active || b.sent - a.sent);
+
+  return { seller, todayMsgs: todayMsgs ?? [], weekMsgs: weekMsgs ?? [], monthMsgs: monthMsgs ?? [], campaignBreakdown, replies: replies ?? [] };
 }
 
 function timeAgo(iso: string | null) {
@@ -47,8 +102,9 @@ function timeAgo(iso: string | null) {
 
 export default async function LinkedInAccountDetail({ params }: { params: Promise<{ sellerId: string }> }) {
   const { sellerId } = await params;
-  const { seller, todayMsgs, weekMsgs, monthMsgs, activeCamps, replies } = await getSellerDetail(sellerId);
+  const { seller, todayMsgs, weekMsgs, monthMsgs, campaignBreakdown, replies } = await getSellerDetail(sellerId);
   if (!seller) notFound();
+  const activeCampaignsCount = campaignBreakdown.reduce((s, c) => s + c.active, 0);
 
   const linkedinTodayCount = todayMsgs.filter(m => m.channel === "linkedin").length;
   const dailyLimit = seller.linkedin_daily_limit ?? 50;
@@ -146,7 +202,7 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
           { label: "Sent this week",   value: weekSent,       sub: "LinkedIn messages", color: C.linkedin, icon: Send },
           { label: "Reply rate",       value: `${replyRate}%`, sub: `${replies.length} replies`, color: C.green,    icon: MessageSquare },
           { label: "Fail rate",        value: `${failRate}%`,  sub: `${weekFailed} failed`,      color: failRate > 10 ? C.red : C.textMuted, icon: AlertTriangle },
-          { label: "Active campaigns", value: activeCamps.length, sub: "in progress",             color: gold,       icon: Users },
+          { label: "Active campaigns", value: activeCampaignsCount, sub: "in progress",             color: gold,       icon: Users },
         ].map(({ label, value, sub, color, icon: Icon }) => (
           <div key={label} className="rounded-2xl border p-4" style={{ background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${color} 5%, var(--c-card)) 100%)`, borderColor: C.border, borderTop: `3px solid ${color}`, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
             <div className="flex items-center justify-between mb-2">
@@ -207,34 +263,71 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
           )}
         </div>
 
-        {/* Active campaigns */}
+        {/* Campaign breakdown — one row per campaign sequence */}
         <div className="rounded-2xl border" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
           <div className="px-5 py-3 border-b flex items-center gap-2" style={{ borderColor: C.border }}>
             <Users size={14} style={{ color: C.textMuted }} />
-            <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Active Campaigns ({activeCamps.length})</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Campaigns ({campaignBreakdown.length})</h3>
           </div>
-          {activeCamps.length === 0 ? (
+          {campaignBreakdown.length === 0 ? (
             <div className="py-12 text-center">
               <Users size={22} className="mx-auto mb-2" style={{ color: C.textDim }} />
-              <p className="text-xs" style={{ color: C.textMuted }}>No active campaigns</p>
+              <p className="text-xs" style={{ color: C.textMuted }}>No campaigns yet</p>
             </div>
           ) : (
-            <div className="max-h-[400px] overflow-y-auto">
-              {activeCamps.map((c: any, i: number) => {
-                const leadName = `${c.leads?.primary_first_name ?? ""} ${c.leads?.primary_last_name ?? ""}`.trim() || "Unknown";
-                const totalSteps = Array.isArray(c.sequence_steps) ? c.sequence_steps.length : 0;
-                return (
-                  <Link key={c.id} href={`/campaigns/${c.id}`}
-                    className="px-5 py-3 flex items-center gap-3 hover:bg-black/[0.015] transition-colors"
-                    style={{ borderTop: i > 0 ? `1px solid ${C.border}` : "none", display: "flex" }}>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold truncate" style={{ color: C.textPrimary }}>{leadName}</p>
-                      <p className="text-[10px]" style={{ color: C.textMuted }}>{c.leads?.company_name ?? "—"}</p>
-                      <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>{c.name} · Step {c.current_step + 1}/{totalSteps}</p>
-                    </div>
-                  </Link>
-                );
-              })}
+            <div className="max-h-[420px] overflow-y-auto">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0" style={{ backgroundColor: C.bg, borderBottom: `1px solid ${C.border}` }}>
+                  <tr>
+                    <th className="text-left px-4 py-2 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Campaign</th>
+                    <th className="text-center px-2 py-2 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Leads</th>
+                    <th className="text-center px-2 py-2 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Sent</th>
+                    <th className="text-center px-2 py-2 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Replied</th>
+                    <th className="text-center px-2 py-2 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Positive</th>
+                    <th className="text-right px-4 py-2 font-semibold uppercase tracking-wider text-[10px]" style={{ color: C.textMuted }}>Started</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {campaignBreakdown.map((c, i) => {
+                    const replyPct = c.sent > 0 ? Math.round((c.replied / c.sent) * 100) : 0;
+                    return (
+                      <tr key={`${c.name}-${c.channel}`} style={{ borderTop: i > 0 ? `1px solid ${C.border}` : "none" }}>
+                        <td className="px-4 py-2.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase" style={{ backgroundColor: `${C.linkedin}15`, color: C.linkedin }}>
+                              {c.channel}
+                            </span>
+                            <span className="font-semibold truncate" style={{ color: C.textPrimary }}>{c.name}</span>
+                            {c.active > 0 && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>
+                                {c.active} active
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="text-center tabular-nums" style={{ color: C.textBody }}>{c.leads}</td>
+                        <td className="text-center tabular-nums" style={{ color: C.textBody }}>{c.sent}</td>
+                        <td className="text-center tabular-nums">
+                          <span style={{ color: c.replied > 0 ? C.blue : C.textDim, fontWeight: c.replied > 0 ? 600 : 400 }}>
+                            {c.replied}
+                          </span>
+                          {c.sent > 0 && (
+                            <span className="text-[10px] ml-1" style={{ color: C.textDim }}>({replyPct}%)</span>
+                          )}
+                        </td>
+                        <td className="text-center tabular-nums">
+                          <span style={{ color: c.positive > 0 ? C.green : C.textDim, fontWeight: c.positive > 0 ? 600 : 400 }}>
+                            {c.positive}
+                          </span>
+                        </td>
+                        <td className="text-right text-[10px]" style={{ color: C.textMuted }}>
+                          {c.startedAt ? timeAgo(c.startedAt) : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>
