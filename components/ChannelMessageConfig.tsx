@@ -5,7 +5,7 @@ import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 import {
   Share2, Mail, Phone, Sparkles, Loader2,
-  ThumbsUp, ThumbsDown, Maximize2, Minimize2,
+  ThumbsUp, ThumbsDown, Maximize2, Minimize2, Plus,
 } from "lucide-react";
 
 const gold = C.gold;
@@ -189,12 +189,22 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   const typeDescriptions = typeDescriptionsByLocale[placeholderLocale];
   const [aiLoading, setAiLoading] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // AI prompt is hidden by default to declutter each step card. Auto-expands
+  // when there's existing content so users with saved prompts always see them.
+  const [aiPromptOpen, setAiPromptOpen] = useState<Set<string>>(new Set());
 
   const toggleExpand = (key: string) => setExpanded(prev => {
     const next = new Set(prev);
     next.has(key) ? next.delete(key) : next.add(key);
     return next;
   });
+  const toggleAiPrompt = (key: string) => setAiPromptOpen(prev => {
+    const next = new Set(prev);
+    next.has(key) ? next.delete(key) : next.add(key);
+    return next;
+  });
+  const isAiPromptOpen = (key: string, content: string | undefined | null) =>
+    aiPromptOpen.has(key) || (content !== undefined && content !== null && content.length > 0);
 
   const classified = classifySteps(sequence);
 
@@ -401,38 +411,34 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
       {/* ═══ LINKEDIN CONNECTION REQUEST (always shown if LinkedIn is in sequence) ═══ */}
       {sequence.some(s => s.channel === "linkedin") && (
         <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${C.linkedin}` }}>
-          <div className="px-5 py-3 flex items-center justify-between border-b"
+          {/* Single-row header — title + Day + AI button. Description moved into
+              textarea placeholder/title attr to claw back ~32px of vertical space. */}
+          <div className="px-4 py-2.5 flex items-center gap-2.5 border-b"
             style={{ borderColor: C.border, background: `${C.linkedin}06` }}>
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: C.linkedin }}>
-                <Share2 size={14} color="#fff" />
-              </div>
-              <div>
-                <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{t("wiz.connReq.title")}</span>
-                <p className="text-xs" style={{ color: C.textMuted }}>{t("wiz.connReq.desc")}</p>
-              </div>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: C.linkedin }}>
+              <Share2 size={12} color="#fff" />
             </div>
-            <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold truncate" style={{ color: C.textPrimary }}>
+              {t("wiz.connReq.title")}
+            </span>
+            <span className="text-[11px] shrink-0" style={{ color: C.textMuted }}>· Max 200</span>
+            <div className="ml-auto flex items-center gap-1.5">
               <button onClick={() => toggleExpand("conn")} title={expanded.has("conn") ? "Collapse" : "Expand"}
-                className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs transition-opacity hover:opacity-80"
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-opacity hover:opacity-80"
                 style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}>
-                {expanded.has("conn") ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+                {expanded.has("conn") ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
               </button>
               <button onClick={() => generateField("connectionNote", undefined)} disabled={!!aiLoading}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity disabled:opacity-50"
-                style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
-                {aiLoading === "connectionNote:" ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                className="flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-opacity disabled:opacity-50"
+                style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`, color: gold }}>
+                {aiLoading === "connectionNote:" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
                 AI
               </button>
             </div>
           </div>
-          <div className="px-5 py-4 space-y-2">
-            <p className="text-xs" style={{ color: C.textMuted }}>{t("wiz.connReq.hint")}</p>
-
-            {/* PRIMARY: the message. AI generation lands here. Always editable.
-                LinkedIn invite notes are hard-capped at 200 chars by the
-                dispatcher; we enforce here too so the wizard can't save an
-                oversize template that would later get rejected. */}
+          <div className="px-4 py-3 space-y-1.5">
+            {/* PRIMARY: the message. Char counter folded into a single line
+                with the label so the float-right counter doesn't take its own row. */}
             <textarea
               rows={expanded.has("conn") ? 10 : 2}
               maxLength={200}
@@ -441,43 +447,48 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
               value={channelMessages.connectionRequest || ""}
               onChange={e => onChange({ ...channelMessages, connectionRequest: e.target.value })}
               placeholder={inlinePlaceholders.connectionRequest}
+              title={t("wiz.connReq.hint")}
             />
-            <p className="text-xs text-right" style={{ color: (channelMessages.connectionRequest?.length || 0) > 200 ? C.red : C.textDim }}>
-              {channelMessages.connectionRequest?.length || 0}/200
-            </p>
+            <div className="flex items-center justify-between text-[10px]">
+              <span style={{ color: C.textDim }}>{t("wiz.connReq.hint")}</span>
+              <span style={{ color: (channelMessages.connectionRequest?.length || 0) > 200 ? C.red : C.textDim }}>
+                {channelMessages.connectionRequest?.length || 0}/200
+              </span>
+            </div>
             {(channelMessages.connectionRequest?.length || 0) > 195 && (
               <p className="text-[11px]" style={{ color: C.red }}>
                 Heads up: placeholder expansion (first name + company) may push this past LinkedIn&apos;s 200-char cap. Tighten to ~180 to leave margin.
               </p>
             )}
 
-            {/* SECONDARY: small prompt helper for AI — optional. */}
-            <div className="pt-2">
-              <div className="flex items-center gap-1.5 mb-1">
-                <Sparkles size={10} style={{ color: gold }} />
-                <label className="text-[10px] font-semibold" style={{ color: C.textMuted }}>
-                  {t("wiz.step.promptHelper")}
-                </label>
+            {/* SECONDARY: AI prompt — hidden by default. Click "+ Customize"
+                to reveal. Auto-stays open when there's saved content so users
+                with existing prompts never lose them. */}
+            {!isAiPromptOpen("conn", channelMessages.connectionRequestPrompt) ? (
+              <button onClick={() => toggleAiPrompt("conn")}
+                className="inline-flex items-center gap-1 text-[10px] font-medium hover:underline pt-1"
+                style={{ color: gold }}>
+                <Plus size={10} /> {t("wiz.step.promptHelper")}
+              </button>
+            ) : (
+              <div className="pt-1.5">
+                <textarea
+                  rows={2}
+                  className="w-full rounded-lg border px-3 py-1.5 text-xs focus:outline-none resize-none"
+                  style={{
+                    borderColor: `color-mix(in srgb, ${gold} 18%, transparent)`,
+                    color: C.textPrimary,
+                    backgroundColor: `color-mix(in srgb, ${gold} 2%, var(--c-bg))`,
+                  }}
+                  value={channelMessages.connectionRequestPrompt ?? ""}
+                  onChange={e => onChange({ ...channelMessages, connectionRequestPrompt: e.target.value })}
+                  placeholder={locale === "es"
+                    ? "ej: Mencionar que vimos su perfil, presentación corta y por qué queremos conectar."
+                    : "e.g. Mention we saw their profile, short intro, and why we want to connect."
+                  }
+                />
               </div>
-              <textarea
-                rows={2}
-                className="w-full rounded-lg border px-3 py-1.5 text-xs focus:outline-none resize-none"
-                style={{
-                  borderColor: `color-mix(in srgb, ${gold} 18%, transparent)`,
-                  color: C.textPrimary,
-                  backgroundColor: `color-mix(in srgb, ${gold} 2%, var(--c-bg))`,
-                }}
-                value={channelMessages.connectionRequestPrompt ?? ""}
-                onChange={e => onChange({ ...channelMessages, connectionRequestPrompt: e.target.value })}
-                placeholder={locale === "es"
-                  ? "ej: Mencionar que vimos su perfil, presentación corta y por qué queremos conectar."
-                  : "e.g. Mention we saw their profile, short intro, and why we want to connect."
-                }
-              />
-              <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>
-                {t("wiz.step.promptHelperHint")}
-              </p>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -496,51 +507,42 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           const loadingKey = `${fieldType}:${i}`;
 
           return (
-            <div key={i} className="relative flex gap-4 mb-4">
+            <div key={i} className="relative flex gap-3 mb-3">
               {/* Step indicator */}
               <div className="relative z-10 shrink-0">
-                <div className="w-10 h-10 rounded-full flex items-center justify-center"
+                <div className="w-9 h-9 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: meta.color, border: "3px solid #fff" }}>
-                  <Icon size={16} color="#fff" />
+                  <Icon size={14} color="#fff" />
                 </div>
               </div>
 
-              {/* Content */}
+              {/* Content — single-row header, no standalone description, AI
+                  prompt collapsed by default. Bring total card height down
+                  ~40% vs the prior layout without removing any field. */}
               <div className="flex-1 rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                {/* Header */}
-                <div className="px-5 py-3 flex items-center justify-between border-b"
+                <div className="px-4 py-2.5 flex items-center gap-2 border-b"
                   style={{ borderColor: C.border, background: `${meta.color}06` }}>
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-sm font-bold" style={{ color: C.textPrimary }}>Step {i + 1}</span>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: `${meta.color}15`, color: meta.color }}>
-                      {cls.label}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs tabular-nums font-medium" style={{ color: C.textDim }}>Day {dayPerStep[i]}</span>
+                  <span className="text-sm font-semibold shrink-0" style={{ color: C.textPrimary }}>Step {i + 1}</span>
+                  <span className="text-[11px] font-medium px-1.5 py-0.5 rounded shrink-0" style={{ backgroundColor: `${meta.color}15`, color: meta.color }}>
+                    {cls.label}
+                  </span>
+                  <span className="text-[11px] tabular-nums shrink-0" style={{ color: C.textDim }}>· Day {dayPerStep[i]}</span>
+                  <div className="ml-auto flex items-center gap-1.5">
                     <button onClick={() => toggleExpand(`step-${i}`)} title={expanded.has(`step-${i}`) ? "Collapse" : "Expand"}
-                      className="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs transition-opacity hover:opacity-80"
+                      className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-opacity hover:opacity-80"
                       style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}>
-                      {expanded.has(`step-${i}`) ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+                      {expanded.has(`step-${i}`) ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
                     </button>
                     <button onClick={() => generateField(fieldType, i)} disabled={!!aiLoading}
-                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity disabled:opacity-50"
-                      style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
-                      {aiLoading === loadingKey ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                      className="flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-opacity disabled:opacity-50"
+                      style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`, color: gold }}>
+                      {aiLoading === loadingKey ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
                       AI
                     </button>
                   </div>
                 </div>
 
-                {/* Description (intent guidance) */}
-                <div className="px-5 pt-3">
-                  <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
-                    {typeDescriptions[cls.type] || "Write what this message should say."}
-                  </p>
-                </div>
-
-                {/* Fields */}
-                <div className="px-5 py-3 space-y-2">
+                <div className="px-4 py-2.5 space-y-1.5">
                   {isEmail && (
                     <input
                       className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
@@ -551,40 +553,42 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                     />
                   )}
 
-                  {/* PRIMARY: the message. AI generation lands here. Always editable. */}
+                  {/* PRIMARY: the message. The intent description that used to
+                      live above is now the placeholder + title attr — same info,
+                      contextual to the empty input, doesn't waste vertical space. */}
                   <textarea
-                    rows={expanded.has(`step-${i}`) ? 18 : (cls.type === "EMAIL_INTRO" ? 7 : cls.type.includes("CALL") ? 6 : 5)}
+                    rows={expanded.has(`step-${i}`) ? 18 : (cls.type === "EMAIL_INTRO" ? 6 : cls.type.includes("CALL") ? 5 : 4)}
                     className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
                     style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
                     value={step?.body || ""}
                     onChange={e => updateStep(i, "body", e.target.value)}
-                    placeholder={inlinePlaceholders.fallback}
+                    placeholder={typeDescriptions[cls.type] || inlinePlaceholders.fallback}
+                    title={typeDescriptions[cls.type] || ""}
                   />
 
-                  {/* SECONDARY: small prompt helper for AI — optional. */}
-                  <div className="pt-2">
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <Sparkles size={10} style={{ color: gold }} />
-                      <label className="text-[10px] font-semibold" style={{ color: C.textMuted }}>
-                        {t("wiz.step.promptHelper")}
-                      </label>
+                  {/* SECONDARY: AI prompt — collapsed by default. */}
+                  {!isAiPromptOpen(`step-${i}`, step?.user_prompt) ? (
+                    <button onClick={() => toggleAiPrompt(`step-${i}`)}
+                      className="inline-flex items-center gap-1 text-[10px] font-medium hover:underline pt-0.5"
+                      style={{ color: gold }}>
+                      <Plus size={10} /> {t("wiz.step.promptHelper")}
+                    </button>
+                  ) : (
+                    <div className="pt-1">
+                      <textarea
+                        rows={2}
+                        className="w-full rounded-lg border px-3 py-1.5 text-xs focus:outline-none resize-none"
+                        style={{
+                          borderColor: `color-mix(in srgb, ${gold} 18%, transparent)`,
+                          color: C.textPrimary,
+                          backgroundColor: `color-mix(in srgb, ${gold} 2%, var(--c-bg))`,
+                        }}
+                        value={step?.user_prompt ?? ""}
+                        onChange={e => updateStep(i, "user_prompt", e.target.value)}
+                        placeholder={typePlaceholders[cls.type] || t("wiz.step.promptHelperPlaceholder")}
+                      />
                     </div>
-                    <textarea
-                      rows={2}
-                      className="w-full rounded-lg border px-3 py-1.5 text-xs focus:outline-none resize-none"
-                      style={{
-                        borderColor: `color-mix(in srgb, ${gold} 18%, transparent)`,
-                        color: C.textPrimary,
-                        backgroundColor: `color-mix(in srgb, ${gold} 2%, var(--c-bg))`,
-                      }}
-                      value={step?.user_prompt ?? ""}
-                      onChange={e => updateStep(i, "user_prompt", e.target.value)}
-                      placeholder={typePlaceholders[cls.type] || t("wiz.step.promptHelperPlaceholder")}
-                    />
-                    <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>
-                      {t("wiz.step.promptHelperHint")}
-                    </p>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>

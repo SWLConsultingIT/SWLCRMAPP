@@ -191,15 +191,17 @@ export default function Sidebar() {
       {/* Tenant switcher — only renders for users with ≥2 memberships. */}
       <TenantSwitcher />
 
-      {/* Navigation */}
-      <nav className="relative flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+      {/* Navigation — tightened 2026-05-15 (UX pass): nav padding y-4→y-3,
+          section gaps space-y-5→space-y-3, item py-2→py-1.5, gap-3→gap-2.5.
+          Same items, ~150px less vertical. */}
+      <nav className="relative flex-1 px-3 py-3 space-y-3 overflow-y-auto">
         {visibleSections.map((section) => {
           const isCollapsed = collapsed[section.labelKey];
           return (
             <div key={section.labelKey}>
               <button
                 onClick={() => toggleSection(section.labelKey)}
-                className="flex items-center justify-between w-full px-3 mb-1.5"
+                className="flex items-center justify-between w-full px-3 mb-1"
               >
                 <span className="text-[9px] font-bold tracking-[0.16em] uppercase"
                   style={{ color: section.labelKey === "nav.section.growth" ? GOLD : TEXT_MUTED }}>
@@ -225,7 +227,7 @@ export default function Sidebar() {
                   <Link
                     key={href}
                     href={href}
-                    className="flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-[opacity,transform,box-shadow,background-color,border-color] duration-150 relative"
+                    className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-[13px] font-medium transition-[opacity,transform,box-shadow,background-color,border-color] duration-150 relative"
                     style={active ? {
                       background: `linear-gradient(90deg, color-mix(in srgb, ${GOLD} 18%, transparent) 0%, color-mix(in srgb, ${GOLD} 4%, transparent) 100%)`,
                       color: GOLD,

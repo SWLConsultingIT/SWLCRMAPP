@@ -96,6 +96,33 @@ export const T = {
   numMd:       "text-[20px] font-semibold tabular",
 } as const;
 
+// ── Border radius scale (use these instead of ad-hoc rounded-* classes) ────
+// Three sizes only: small interactive (chips, inline buttons), medium
+// surfaces (inputs, cards), large containers (modal-style surfaces, top-level
+// cards). Migration target — new components must use these; old components
+// can use rounded-md/rounded-lg/rounded-2xl directly until a sweep.
+//   R.sm  → 6px  → rounded-md
+//   R.md  → 10px → rounded-[10px]
+//   R.lg  → 16px → rounded-2xl
+export const R = {
+  sm: "rounded-md",
+  md: "rounded-[10px]",
+  lg: "rounded-2xl",
+} as const;
+
+// ── Text grays (3-level system) ─────────────────────────────────────────────
+// Canonical hierarchy going forward. Maps onto the underlying 4-level CSS
+// vars so existing code stays correct, but new components should pick from:
+//   TX.primary    → main copy (titles, key data)
+//   TX.secondary  → labels, helper text, less emphasis
+//   TX.tertiary   → metadata, timestamps, the most muted lane
+// (C.textPrimary / textBody / textMuted / textDim still exist for migration.)
+export const TX = {
+  primary:    "var(--c-textPrimary)",
+  secondary:  "var(--c-textMuted)",
+  tertiary:   "var(--c-textDim)",
+} as const;
+
 // ── Hover / interaction system (single source of truth) ─────────────────────
 // Use these className strings instead of ad-hoc `hover:opacity-80` /
 // `hover:scale-[1.02]` mixes. All transitions are explicit (never `all`) and
