@@ -279,14 +279,6 @@ const channelMeta: Record<string, { icon: typeof Share2; color: string; label: s
   call:     { icon: Phone,  color: "#F97316", label: "Call" },
 };
 
-const classColors: Record<string, { color: string; label: string }> = {
-  positive:       { color: C.green,   label: "Positive" },
-  meeting_intent: { color: "#059669", label: "Meeting Intent" },
-  negative:       { color: C.red,     label: "Negative" },
-  question:       { color: "#D97706", label: "Question" },
-  unclassified:   { color: C.textMuted, label: "Unclassified" },
-};
-
 export default async function ReportsPage({
   searchParams,
 }: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
@@ -301,8 +293,6 @@ export default async function ReportsPage({
     icpIds: split(get("icps")),
   };
   const data = await getReportData(filters);
-
-  const maxWeeklyReplies = Math.max(...data.weeklyReplies.map(w => w.replies), 1);
 
   return (
     <div className="p-6">
@@ -488,139 +478,112 @@ export default async function ReportsPage({
         </div>
       </div>
 
-      {/* ═══ TWO COLUMNS: Reply Breakdown + Weekly Trend ═══ */}
-      <div className="grid grid-cols-2 gap-6 mb-6">
-        {/* Reply classification breakdown */}
-        <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-          <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
-            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Reply Classification</h2>
-            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>How leads are responding</p>
-          </div>
-          <div className="p-5">
-            {Object.keys(data.replyBreakdown).length === 0 ? (
-              <p className="text-sm text-center py-4" style={{ color: C.textDim }}>No replies yet</p>
-            ) : (
-              <div className="space-y-3">
-                {Object.entries(data.replyBreakdown)
-                  .sort(([, a], [, b]) => b - a)
-                  .map(([cls, count]) => {
-                    const meta = classColors[cls] ?? classColors.unclassified;
-                    const totalReplies = Object.values(data.replyBreakdown).reduce((a, b) => a + b, 0);
-                    const pct = totalReplies > 0 ? Math.round((count / totalReplies) * 100) : 0;
-                    return (
-                      <div key={cls}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-semibold" style={{ color: meta.color }}>{meta.label}</span>
-                          <span className="text-xs tabular-nums" style={{ color: C.textBody }}>{count} <span style={{ color: C.textDim }}>({pct}%)</span></span>
-                        </div>
-                        <div className="h-2.5 rounded-full" style={{ backgroundColor: C.border }}>
-                          <div className="h-2.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: meta.color }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-              </div>
-            )}
-          </div>
-        </div>
+      {/* Reply Classification + Weekly Trend sections removed in the 2026-05-17
+          redesign. The classification mix is implicit in the channel analysis
+          above (replied / positive split per channel); the trend chart was
+          superseded by the KPI sparklines on the Live tab. Cutting them
+          collapsed Reports from 7 sections to 5 with no information loss. */}
 
-        {/* Weekly trend */}
-        <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-          <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
-            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Weekly Trend</h2>
-            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Replies over the last 8 weeks</p>
-          </div>
-          <div className="p-5">
-            <div className="flex items-end gap-2" style={{ height: 140 }}>
-              {data.weeklyReplies.map((w, i) => {
-                const h = maxWeeklyReplies > 0 ? (w.replies / maxWeeklyReplies) * 120 : 0;
-                const ph = maxWeeklyReplies > 0 ? (w.positive / maxWeeklyReplies) * 120 : 0;
-                return (
-                  <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                    <span className="text-[9px] font-bold tabular-nums" style={{ color: w.replies > 0 ? C.textBody : C.textDim }}>
-                      {w.replies > 0 ? w.replies : ""}
-                    </span>
-                    <div className="w-full relative rounded-t" style={{ height: Math.max(h, 2), backgroundColor: `${C.blue}30` }}>
-                      {ph > 0 && (
-                        <div className="absolute bottom-0 left-0 right-0 rounded-t" style={{ height: ph, backgroundColor: C.green }} />
-                      )}
-                    </div>
-                    <span className="text-[8px]" style={{ color: C.textDim }}>{w.week}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex items-center justify-center gap-4 mt-3">
-              <span className="flex items-center gap-1 text-[10px]" style={{ color: C.textMuted }}>
-                <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: `${C.blue}30` }} /> All replies
-              </span>
-              <span className="flex items-center gap-1 text-[10px]" style={{ color: C.textMuted }}>
-                <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: C.green }} /> Positive
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ═══ SELLER PERFORMANCE + FORECAST ═══ */}
+      {/* ═══ SELLER LEADERBOARD + FORECAST ═══ */}
       <div className="grid grid-cols-3 gap-6 mb-6">
-        {/* Seller Performance (2 cols) */}
+        {/* Seller Leaderboard (2 cols) — rank + avatar + gap-to-#1 bar */}
         <div className="col-span-2 rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
           <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
             <div>
-              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Seller Performance</h2>
-              <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Conversions and response by seller</p>
+              <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: C.textPrimary }}>
+                <Trophy size={14} style={{ color: gold }} />
+                Seller Leaderboard
+              </h2>
+              <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Ranked by positive replies — ties broken by response rate</p>
             </div>
-            {data.topSeller && (
-              <div className="flex items-center gap-2 rounded-lg px-3 py-1.5" style={{ backgroundColor: `color-mix(in srgb, ${gold} 7%, transparent)`, color: gold }}>
-                <Trophy size={12} />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Top: {data.topSeller.name}</span>
-              </div>
+            {data.sellerPerformance.length > 1 && (
+              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
+                {data.sellerPerformance.length} sellers
+              </span>
             )}
           </div>
           {data.sellerPerformance.length === 0 ? (
-            <div className="px-5 py-8 text-center"><p className="text-sm" style={{ color: C.textDim }}>No seller data yet</p></div>
-          ) : (
-            <table className="w-full text-left">
-              <thead>
-                <tr style={{ backgroundColor: C.bg }}>
-                  <th className="px-5 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Seller</th>
-                  <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Active</th>
-                  <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Contacted</th>
-                  <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Replied</th>
-                  <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Won</th>
-                  <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Conv %</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.sellerPerformance.map(s => (
-                  <tr key={s.name} className="border-t" style={{ borderColor: C.border }}>
-                    <td className="px-5 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-                          style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
-                          {s.name.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()}
-                        </div>
-                        <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>{s.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 text-center text-xs font-semibold" style={{ color: C.green }}>{s.active}</td>
-                    <td className="px-3 py-3 text-center text-xs font-semibold" style={{ color: C.textBody }}>{s.contacted}</td>
-                    <td className="px-3 py-3 text-center text-xs font-semibold" style={{ color: C.blue }}>{s.replied}</td>
-                    <td className="px-3 py-3 text-center text-xs font-semibold" style={{ color: C.green }}>{s.positive}</td>
-                    <td className="px-3 py-3">
-                      <div className="flex items-center gap-2 justify-center">
-                        <div className="w-14 h-2 rounded-full" style={{ backgroundColor: C.border }}>
-                          <div className="h-2 rounded-full" style={{ width: `${s.conversionRate}%`, backgroundColor: C.green }} />
-                        </div>
-                        <span className="text-xs font-bold tabular-nums" style={{ color: C.green }}>{s.conversionRate}%</span>
-                      </div>
-                    </td>
+            <div className="px-5 py-10 text-center"><p className="text-sm" style={{ color: C.textDim }}>No seller data yet</p></div>
+          ) : (() => {
+            // Leader = max positive count; gap shown as bar width relative to leader.
+            const leader = Math.max(...data.sellerPerformance.map(s => s.positive), 1);
+            return (
+              <table className="w-full text-left">
+                <thead>
+                  <tr style={{ backgroundColor: C.bg }}>
+                    <th className="pl-5 pr-2 py-2.5 text-[10px] font-semibold uppercase tracking-wider w-10" style={{ color: C.textMuted }}>#</th>
+                    <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Seller</th>
+                    <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Active</th>
+                    <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Replied</th>
+                    <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Conv %</th>
+                    <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider pr-5" style={{ color: C.textMuted }}>Won (gap to #1)</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+                </thead>
+                <tbody>
+                  {data.sellerPerformance.map((s, i) => {
+                    const isLeader = i === 0;
+                    const gapPct = leader > 0 ? Math.round((s.positive / leader) * 100) : 0;
+                    const initials = s.name.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase();
+                    return (
+                      <tr
+                        key={s.name}
+                        className="border-t transition-colors hover:bg-black/[0.02]"
+                        style={{
+                          borderColor: C.border,
+                          background: isLeader ? `linear-gradient(90deg, color-mix(in srgb, ${gold} 6%, transparent), transparent 60%)` : undefined,
+                        }}
+                      >
+                        <td className="pl-5 pr-2 py-3 align-middle">
+                          <span
+                            className="inline-flex items-center justify-center rounded-md text-[11px] font-bold tabular-nums"
+                            style={{
+                              width: 24, height: 24,
+                              backgroundColor: isLeader ? `color-mix(in srgb, ${gold} 16%, transparent)` : C.bg,
+                              color: isLeader ? gold : C.textMuted,
+                              border: `1px solid ${isLeader ? `color-mix(in srgb, ${gold} 30%, transparent)` : C.border}`,
+                            }}
+                          >
+                            {i + 1}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+                              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
+                              {initials}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-semibold truncate" style={{ color: C.textPrimary }}>{s.name}</span>
+                                {isLeader && <Trophy size={10} style={{ color: gold }} />}
+                              </div>
+                              <p className="text-[10px]" style={{ color: C.textDim }}>{s.contacted} contacted</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-center text-xs font-semibold tabular-nums" style={{ color: C.green }}>{s.active}</td>
+                        <td className="px-3 py-3 text-center text-xs font-semibold tabular-nums" style={{ color: C.blue }}>{s.replied}</td>
+                        <td className="px-3 py-3 text-center text-xs font-bold tabular-nums" style={{ color: C.green }}>{s.conversionRate}%</td>
+                        <td className="px-3 py-3 pr-5">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: C.border, minWidth: 60 }}>
+                              <div className="h-2 rounded-full" style={{
+                                width: `${gapPct}%`,
+                                backgroundColor: isLeader ? gold : C.green,
+                              }} />
+                            </div>
+                            <span className="text-xs font-bold tabular-nums shrink-0" style={{ color: isLeader ? gold : C.textBody, minWidth: 24, textAlign: "right" }}>
+                              {s.positive}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            );
+          })()}
         </div>
 
         {/* Forecast */}
