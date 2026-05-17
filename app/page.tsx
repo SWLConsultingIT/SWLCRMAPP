@@ -69,7 +69,9 @@ async function getDashboardData(filters: DashboardFilterValues) {
   // Date window: explicit `from` / `to` overrides the default 7-day reply
   // window so KPI cards and "recent replies" both honour the same range.
   // `to` is treated as inclusive — anything sent that calendar day counts.
-  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+  const now = Date.now();
+  const weekAgo = new Date(now - 7 * 86400000).toISOString();
+  const twoWeeksAgo = new Date(now - 14 * 86400000).toISOString();
   const fromIso = filters.from ? new Date(`${filters.from}T00:00:00Z`).toISOString() : weekAgo;
   const toIso = filters.to ? new Date(`${filters.to}T23:59:59Z`).toISOString() : null;
 
@@ -157,6 +159,28 @@ async function getDashboardData(filters: DashboardFilterValues) {
   if (filters.icpIds.length > 0) mergedRepliesQ = mergedRepliesQ.in("leads.icp_profile_id", filters.icpIds);
   if (campaignIdsForFilter) mergedRepliesQ = mergedRepliesQ.in("campaign_id", campaignIdsForFilter);
 
+  // 14-day trend windows for KPI deltas + sparklines. Two-week window so we
+  // can split into current 7d vs prior 7d for the delta calc. ICP filter only
+  // applies to the leads creation query — replies/transfers already join
+  // through `leads` so we filter at the join. Date filter from the bar is
+  // intentionally NOT applied to trend windows: the spark/delta are about
+  // "the last 14 days" by definition, independent of the date filter view.
+  let leadTrendQ = bioId
+    ? supabase.from("leads").select("created_at, transferred_to_odoo_at").eq("company_bio_id", bioId).gte("created_at", twoWeeksAgo)
+    : supabase.from("leads").select("created_at, transferred_to_odoo_at").gte("created_at", twoWeeksAgo);
+  if (filters.icpIds.length > 0) leadTrendQ = leadTrendQ.in("icp_profile_id", filters.icpIds);
+
+  let transferTrendQ = bioId
+    ? supabase.from("leads").select("transferred_to_odoo_at").eq("company_bio_id", bioId).gte("transferred_to_odoo_at", twoWeeksAgo)
+    : supabase.from("leads").select("transferred_to_odoo_at").gte("transferred_to_odoo_at", twoWeeksAgo);
+  if (filters.icpIds.length > 0) transferTrendQ = transferTrendQ.in("icp_profile_id", filters.icpIds);
+
+  let replyTrendQ = bioId
+    ? supabase.from("lead_replies").select("received_at, classification, leads!inner(company_bio_id, icp_profile_id), campaign_id").eq("leads.company_bio_id", bioId).gte("received_at", twoWeeksAgo)
+    : supabase.from("lead_replies").select("received_at, classification, campaign_id").gte("received_at", twoWeeksAgo);
+  if (filters.icpIds.length > 0) replyTrendQ = replyTrendQ.in("leads.icp_profile_id", filters.icpIds);
+  if (campaignIdsForFilter) replyTrendQ = replyTrendQ.in("campaign_id", campaignIdsForFilter);
+
   const [
     { count: totalLeads },
     { data: activeCampaigns },
@@ -165,6 +189,9 @@ async function getDashboardData(filters: DashboardFilterValues) {
     { data: pendingCampReviews },
     { data: pendingProfiles },
     { data: weekAndRecentReplies },
+    { data: leadTrend },
+    { data: transferTrend },
+    { data: replyTrend },
   ] = await Promise.all([
     leadsCountQ,
     activeCampsQ,
@@ -173,6 +200,9 @@ async function getDashboardData(filters: DashboardFilterValues) {
     pendingCampReviewsQ,
     pendingProfilesQ,
     mergedRepliesQ,
+    leadTrendQ,
+    transferTrendQ,
+    replyTrendQ,
   ]) as any;
 
   const weekReplies = (weekAndRecentReplies ?? []) as Array<{ classification: string | null }>;
@@ -231,6 +261,69 @@ async function getDashboardData(filters: DashboardFilterValues) {
     };
   });
 
+  // ── Compute deltas + sparklines from the 14d trend payloads ──
+  // Day buckets: index 0 = 13d ago, ... index 13 = today. Current 7d = idx 7..13,
+  // prior 7d = idx 0..6. Delta = (current - prior)/prior * 100; if prior is 0
+  // and current > 0 we report null (undefined growth, no meaningful %).
+  const dayStart = (offset: number) => new Date(now - offset * 86400000).setHours(0, 0, 0, 0);
+  const dayIdx = (iso: string | null) => {
+    if (!iso) return -1;
+    const t = new Date(iso).getTime();
+    for (let i = 0; i < 14; i++) {
+      const start = dayStart(13 - i);
+      const end = start + 86400000;
+      if (t >= start && t < end) return i;
+    }
+    return -1;
+  };
+  const bucket = (rows: Array<{ at: string | null }>): number[] => {
+    const b = Array(14).fill(0);
+    for (const r of rows) {
+      const i = dayIdx(r.at);
+      if (i >= 0) b[i]++;
+    }
+    return b;
+  };
+  const split = (b: number[]) => ({
+    prior: b.slice(0, 7).reduce((a, c) => a + c, 0),
+    current: b.slice(7).reduce((a, c) => a + c, 0),
+    spark: b.slice(7),
+  });
+  const pctDelta = (current: number, prior: number): number | null => {
+    if (prior === 0) return current === 0 ? 0 : null;
+    return ((current - prior) / prior) * 100;
+  };
+
+  const leadCreatedBuckets   = bucket((leadTrend     ?? []).map((r: any) => ({ at: r.created_at })));
+  const transferBuckets      = bucket((transferTrend ?? []).map((r: any) => ({ at: r.transferred_to_odoo_at })));
+  const replyBuckets         = bucket((replyTrend    ?? []).map((r: any) => ({ at: r.received_at })));
+  const positiveReplyBuckets = bucket((replyTrend    ?? [])
+    .filter((r: any) => r.classification === "positive" || r.classification === "meeting_intent")
+    .map((r: any) => ({ at: r.received_at })));
+
+  const leadsSplit     = split(leadCreatedBuckets);
+  const transferSplit  = split(transferBuckets);
+  const replySplit     = split(replyBuckets);
+  const positiveSplit  = split(positiveReplyBuckets);
+
+  // totalLeads delta = leads created this 7d vs prior 7d. leadsInCampaign is
+  // a point-in-time snapshot (no historical), so we skip delta but show a
+  // sparkline of new-leads-added per day as a proxy for pipeline momentum.
+  const deltas = {
+    totalLeads:        pctDelta(leadsSplit.current,    leadsSplit.prior),
+    leadsInCampaign:   null,
+    weekRepliesCount:  pctDelta(replySplit.current,    replySplit.prior),
+    weekPositive:      pctDelta(positiveSplit.current, positiveSplit.prior),
+    transferred:       pctDelta(transferSplit.current, transferSplit.prior),
+  };
+  const sparks = {
+    totalLeads:        leadsSplit.spark,
+    leadsInCampaign:   leadsSplit.spark, // proxy: new leads/day
+    weekRepliesCount:  replySplit.spark,
+    weekPositive:      positiveSplit.spark,
+    transferred:       transferSplit.spark,
+  };
+
   return {
     totalLeads: totalLeads ?? 0,
     leadsInCampaign: activeLeadIds.size,
@@ -238,6 +331,8 @@ async function getDashboardData(filters: DashboardFilterValues) {
     weekRepliesCount: (weekReplies ?? []).length,
     weekPositive,
     transferred: transferredCount ?? 0,
+    deltas,
+    sparks,
     alerts,
     topCampaigns,
     recentReplies: formattedReplies,
@@ -299,13 +394,17 @@ export default async function DashboardPage({
       <DashboardTabs>
         {/* ═══ TAB 0: OVERVIEW ═══ */}
         <div>
-          <DashboardStats data={{
-            totalLeads: data.totalLeads,
-            leadsInCampaign: data.leadsInCampaign,
-            weekRepliesCount: data.weekRepliesCount,
-            weekPositive: data.weekPositive,
-            transferred: data.transferred,
-          }} />
+          <DashboardStats
+            data={{
+              totalLeads: data.totalLeads,
+              leadsInCampaign: data.leadsInCampaign,
+              weekRepliesCount: data.weekRepliesCount,
+              weekPositive: data.weekPositive,
+              transferred: data.transferred,
+            }}
+            deltas={data.deltas}
+            sparks={data.sparks}
+          />
 
           {/* Alerts */}
           {data.alerts.length > 0 && (
