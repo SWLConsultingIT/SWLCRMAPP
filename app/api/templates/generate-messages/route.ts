@@ -1,25 +1,24 @@
 // Generate first-draft per-step messages for a new template using Claude
-// Sonnet 4.6 with document content blocks. Accepts up to 5 PDFs (≤8MB each)
-// as base64 in the request body alongside the template's metadata.
+// Sonnet 4.6 with document content blocks. Two modes (AUTHORED vs
+// DETECTED) — see body below. Three new knobs since 2026-05-17:
 //
-// Two modes, controlled by whether the caller passes a `sequence`:
-//   1. AUTHORED sequence — user already picked channels + days; AI fills in
-//      message bodies. (Legacy behavior.)
-//   2. DETECTED sequence — caller omits `sequence`; AI reads the PDFs to
-//      extract the cadence (e.g. "Day 1 LinkedIn invite → Day 3 follow-up
-//      email → Day 7 call") and drafts messages for the detected steps. If
-//      the PDFs don't describe a cadence, AI proposes a sensible default for
-//      the tenant's industry + the detected ICP.
+//   * tone_preset    — Conservative/Balanced/Direct/Spicy/Custom — bolt the
+//                      matching style guide onto the system prompt.
+//   * voice_anchor   — optional seller_id. When set, we load that seller's
+//                      voice_examples (3-shot) and embed them as anchor.
+//   * source_excerpt — model returns the snippet from the PDFs that each
+//                      step's body was anchored to, so the wizard can show
+//                      "the AI didn't invent — here's the source".
 //
-// The output JSON always includes `detected_sequence` so the UI can render
-// the cadence in both modes without branching.
-//
-// Cost: Sonnet 4.6 + ~5 PDFs at ~1500 tokens each = ~$0.03-0.05 per run.
+// All generated bodies pass through `sanitize()` so what the wizard previews
+// matches what the n8n dispatcher eventually sends (anti-fluff, anti-reintro,
+// length cap, auto-signature).
 
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
+import { sanitize } from "@/lib/sanitize-output";
 
 const MODEL = "claude-sonnet-4-6";
 const MAX_PDFS = 5;
@@ -28,43 +27,48 @@ const MAX_PDF_BYTES = 8 * 1024 * 1024;
 export const maxDuration = 60;
 
 type SeqStep = { channel: string; daysAfter: number };
+type TonePreset = "conservative" | "balanced" | "direct" | "spicy" | "custom";
 
 type Body = {
   name?: string;
   description?: string;
   channels?: string[];
-  /** Optional. When omitted/empty, AI proposes a sequence from the PDFs. */
   sequence?: SeqStep[];
   includesLinkedIn?: boolean;
   attachments: Array<{ filename: string; mimeType: string; base64: string }>;
   language?: string;
+  tone_preset?: TonePreset;
+  tone_custom_notes?: string;
+  voice_anchor_seller_id?: string;
 };
 
-const SYSTEM_PROMPT = `You are an elite B2B outbound copywriter inside a sales operating system. You read the tenant's supporting documents (sales decks, case studies, playbooks, one-pagers) and produce two things at once:
+const SYSTEM_PROMPT_BASE = `You are an elite B2B outbound copywriter inside a sales operating system. You read the tenant's supporting documents (sales decks, case studies, playbooks, one-pagers) and produce three things at once:
 
 1. A SEQUENCE of touchpoints — channel + daysAfter for each step
 2. The DRAFT MESSAGE for each step in that sequence
+3. A SOURCE EXCERPT per step — the literal snippet from the PDFs (≤120 chars) that anchored each draft
 
 You will be told whether the sequence is AUTHORED (the user already chose channels + days and you must honour them exactly) or DETECTED (you must extract it from the PDFs or propose a sensible default).
 
 In DETECTED mode:
-- If the PDF describes a cadence ("Day 1 LinkedIn invite, Day 3 follow-up email, Day 7 call"), use it verbatim — same channels, same day numbers.
+- If the PDF describes a cadence ("Day 1 LinkedIn invite, Day 3 follow-up email, Day 7 call"), use it verbatim.
 - If multiple cadences appear, prefer the one for the specific ICP / role the tenant is targeting.
-- If no cadence is described, propose a default appropriate for the tenant's industry and the ICP described in the PDFs:
-    • Professional services / consultative: LinkedIn invite (day 0) → LinkedIn DM (day 3) → Email (day 7) → Call (day 12).
-    • High-volume / transactional: Email (day 0) → LinkedIn invite (day 2) → Email (day 5).
-  Pick 3-6 steps total. Use channels: linkedin, email, call, whatsapp.
+- If none is described, propose a default appropriate for the tenant's industry / ICP (3-6 steps).
+  • Consultative: LinkedIn invite (day 0) → LinkedIn DM (day 3) → Email (day 7) → Call (day 12).
+  • Transactional: Email (day 0) → LinkedIn invite (day 2) → Email (day 5).
 
 Message rules (apply to both modes):
-- Match the tone of the source PDFs. Consultative? Write consultative. Direct? Mirror that.
 - Use {{first_name}}, {{company_name}}, {{seller_name}} where they feel natural. Never force.
-- LinkedIn invite (step 0 channel = linkedin and includesLinkedIn=true): MAX 280 chars, opener-only, no value pitch.
-- LinkedIn DMs (step N>0, channel=linkedin): 400-700 chars, conversational, one specific hook tied to PDF content.
+- LinkedIn invite (step 0, channel=linkedin, includesLinkedIn=true): MAX 280 chars, opener-only, no value pitch.
+- LinkedIn DMs (later steps, channel=linkedin): 400-700 chars, conversational, one specific hook tied to PDF content.
 - Emails: subject ≤60 chars + body 80-150 words, scannable, one clear CTA.
 - Calls: 2-3 short bullets the seller will say out loud, NOT a script.
 - WhatsApp: 200-400 chars, friendly but professional.
 - Never invent facts the PDFs don't support.
 - Write in the language of the source PDFs unless the user explicitly requested a different language.
+- Anti-fluff: do NOT start with "I hope this finds you well", "I came across your profile", "Quick question for you", "Sorry to bother". The system strips these post-hoc anyway.
+- Anti-reintro for steps after step 1: do NOT re-introduce yourself ("I'm <name> from <company>") — the previous step already did that.
+- Auto-signature: never close with "Best, <Name>" or "— <Name>" — leave the body unsigned; the dispatcher attaches the seller's name.
 
 Output must be valid JSON exactly matching:
 {
@@ -73,17 +77,27 @@ Output must be valid JSON exactly matching:
     ...
   ],
   "connectionRequest": "string or empty if no linkedin invite",
+  "connectionRequestSource": "≤120 char excerpt or empty",
   "steps": [
-    { "step": 1, "channel": "...", "subject": "string or null", "body": "..." },
+    { "step": 1, "channel": "...", "subject": "string or null", "body": "...", "source_excerpt": "≤120 char snippet or empty" },
     ...
   ]
 }
 
 - detected_sequence MUST equal what you used to draft the steps.
 - In AUTHORED mode, detected_sequence MUST mirror the input sequence exactly.
-- connectionRequest is the body of the LinkedIn invite when present (step 0). Empty string otherwise.
+- connectionRequest is the body of the LinkedIn invite when present. Empty string otherwise.
 - steps must have one entry per item in detected_sequence (matching channel + order).
+- source_excerpt: a verbatim ≤120-char chunk lifted from the PDFs that justifies that step's hook. Empty string ok if generic step. Do NOT paraphrase — copy literally.
 - No prose outside the JSON. No markdown fence. Just the JSON object.`;
+
+const TONE_GUIDES: Record<TonePreset, string> = {
+  conservative: `TONE: CONSERVATIVE. Formal register. No hype, no "transform", "10x", "game-changing". One concrete benefit per message, no superlatives. CTAs are soft asks ("would a 15-minute call next week be useful?"). For legal/healthcare/banking targets — never overpromise.`,
+  balanced:     `TONE: BALANCED. Conversational professional. One hook tied to the PDF, one clear CTA. Allow light enthusiasm but no fluff. Default for most B2B outbound.`,
+  direct:       `TONE: DIRECT. Blunt opener, sharp CTA. Skip pleasantries. Lead with the problem you solve in the first sentence. Use short sentences. Suitable for technical buyers and operators.`,
+  spicy:        `TONE: SPICY. Contrarian opener. Challenge a common belief in their industry. Higher reply rates, higher unsubscribe risk — only use when the user explicitly picks this. Never insulting, never gossipy.`,
+  custom:       `TONE: CUSTOM. Follow the additional style notes appended below verbatim.`,
+};
 
 export async function POST(req: NextRequest) {
   const scope = await getUserScope();
@@ -119,17 +133,39 @@ export async function POST(req: NextRequest) {
 
   const authoredSequence = Array.isArray(body.sequence) && body.sequence.length > 0;
   const includesLinkedIn = body.includesLinkedIn ?? (authoredSequence ? body.sequence!.some(s => s.channel === "linkedin") : true);
+  const tonePreset: TonePreset = body.tone_preset ?? "balanced";
 
   const svc = getSupabaseService();
-  const { data: bio } = await svc
-    .from("company_bios")
-    .select("company_name, industry, description, value_proposition, main_services, tone_of_voice")
-    .eq("id", scope.companyBioId)
-    .maybeSingle();
+  const [bioRes, sellerRes] = await Promise.all([
+    svc.from("company_bios")
+      .select("company_name, industry, description, value_proposition, main_services, tone_of_voice")
+      .eq("id", scope.companyBioId)
+      .maybeSingle(),
+    body.voice_anchor_seller_id
+      ? svc.from("sellers").select("id, name, voice_examples").eq("id", body.voice_anchor_seller_id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  const bio = bioRes.data;
+  const seller = sellerRes.data as { id: string; name: string; voice_examples: unknown } | null;
 
   const sequenceBlock = authoredSequence
     ? `MODE: AUTHORED\nSEQUENCE (use exactly):\n${body.sequence!.map((s, i) => `  Step ${i + 1}: ${s.channel} — daysAfter ${s.daysAfter}`).join("\n")}`
     : `MODE: DETECTED\nExtract the cadence from the PDFs. If none is described, propose a sensible default for the tenant's industry / ICP (3-6 steps). Return whatever you used in detected_sequence.`;
+
+  // Voice anchor block (few-shot). Only added when the seller exposes
+  // voice_examples — otherwise omitted entirely so the prompt doesn't carry
+  // dead weight. Expected shape: array of { context?: string, sample: string }.
+  let voiceBlock = "";
+  if (seller && Array.isArray(seller.voice_examples) && seller.voice_examples.length > 0) {
+    const examples = (seller.voice_examples as Array<{ context?: string; sample?: string }>).slice(0, 3);
+    voiceBlock = [
+      `VOICE ANCHOR: write in the voice of ${seller.name}. Match their cadence, slang, sentence length. Examples of how ${seller.name} actually writes:`,
+      ...examples.map((ex, i) => `  Example ${i + 1}${ex.context ? ` (${ex.context})` : ""}: """${(ex.sample ?? "").slice(0, 400)}"""`),
+    ].join("\n");
+  }
+
+  const toneBlock = TONE_GUIDES[tonePreset]
+    + (tonePreset === "custom" && body.tone_custom_notes ? `\nADDITIONAL NOTES: ${body.tone_custom_notes.slice(0, 800)}` : "");
 
   const specText = [
     body.name ? `TEMPLATE: ${body.name}` : `TEMPLATE: (untitled — name comes later)`,
@@ -140,8 +176,12 @@ export async function POST(req: NextRequest) {
     bio?.industry ? `  Industry: ${bio.industry}` : null,
     bio?.description ? `  About: ${String(bio.description).slice(0, 500)}` : null,
     bio?.value_proposition ? `  Value prop: ${String(bio.value_proposition).slice(0, 300)}` : null,
-    bio?.tone_of_voice ? `  Tone: ${bio.tone_of_voice}` : null,
+    bio?.tone_of_voice ? `  Tenant tone: ${bio.tone_of_voice}` : null,
     "",
+    toneBlock,
+    "",
+    voiceBlock || null,
+    voiceBlock ? "" : null,
     sequenceBlock,
     "",
     `LINKEDIN INVITE: ${includesLinkedIn ? "include (step 0, max 280 chars)" : "omit"}`,
@@ -149,7 +189,7 @@ export async function POST(req: NextRequest) {
     body.language ? `LANGUAGE: ${body.language}` : "LANGUAGE: match the source PDFs",
     "",
     "Read the attached PDFs. Then return the JSON described in the system prompt — exactly that shape, no extras, no markdown.",
-  ].filter(Boolean).join("\n");
+  ].filter(v => v !== null).join("\n");
 
   const userContent: Anthropic.ContentBlockParam[] = [
     ...body.attachments.map(a => ({
@@ -169,8 +209,8 @@ export async function POST(req: NextRequest) {
   try {
     const response = await anthropic.messages.create({
       model: MODEL,
-      max_tokens: 4000,
-      system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
+      max_tokens: 4500,
+      system: [{ type: "text", text: SYSTEM_PROMPT_BASE, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: userContent }],
     });
     rawOutput = response.content
@@ -188,10 +228,12 @@ export async function POST(req: NextRequest) {
     .replace(/```\s*$/, "")
     .trim();
 
+  type RawStep = { step: number; channel: string; subject?: string | null; body: string; source_excerpt?: string };
   let parsed: {
     detected_sequence?: SeqStep[];
     connectionRequest?: string;
-    steps?: Array<{ step: number; channel: string; subject?: string | null; body: string }>;
+    connectionRequestSource?: string;
+    steps?: RawStep[];
   };
   try {
     parsed = JSON.parse(cleaned);
@@ -205,19 +247,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Model output missing steps[] array" }, { status: 502 });
   }
 
-  // Defensive: in AUTHORED mode the detected_sequence should mirror input.
-  // If the model omitted it or returned something off, fall back to the
-  // authored sequence — the steps[] already carries the channel per step.
   const detected_sequence = Array.isArray(parsed.detected_sequence) && parsed.detected_sequence.length > 0
     ? parsed.detected_sequence
     : authoredSequence
       ? body.sequence!
       : parsed.steps.map(s => ({ channel: s.channel, daysAfter: 0 }));
 
+  // Apply Sanitize parity to every body before returning. The wizard previews
+  // exactly what the n8n dispatcher will send.
+  const sanitizedSteps = parsed.steps.map((s, i) => ({
+    step: s.step,
+    channel: s.channel,
+    subject: s.subject ?? null,
+    body: sanitize(s.body ?? "", {
+      channel: (s.channel as any) ?? "email",
+      stepIndex: i,
+      isConnectionRequest: false,
+    }),
+    source_excerpt: (s.source_excerpt ?? "").slice(0, 200),
+  }));
+
+  const sanitizedInvite = parsed.connectionRequest
+    ? sanitize(parsed.connectionRequest, { channel: "linkedin", stepIndex: 0, isConnectionRequest: true })
+    : "";
+
   return NextResponse.json({
     detected_sequence,
-    connectionRequest: parsed.connectionRequest ?? "",
-    steps: parsed.steps,
+    connectionRequest: sanitizedInvite,
+    connectionRequestSource: (parsed.connectionRequestSource ?? "").slice(0, 200),
+    steps: sanitizedSteps,
     model: MODEL,
+    tone_preset: tonePreset,
+    voice_anchor_seller_id: seller?.id ?? null,
   });
 }

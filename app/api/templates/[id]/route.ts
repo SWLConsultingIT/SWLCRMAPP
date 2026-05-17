@@ -13,7 +13,7 @@ async function loadOwned(id: string, companyBioId: string | null) {
   const svc = getSupabaseService();
   const { data } = await svc
     .from("campaign_templates")
-    .select("id, name, description, sequence_steps, step_messages, attachments, tags, channels, usage_count, last_used_at, created_at")
+    .select("id, name, description, sequence_steps, step_messages, attachments, tags, channels, usage_count, last_used_at, created_at, tone_preset, tone_custom_notes, rewrite_mode, voice_anchor_seller_id")
     .eq("id", id)
     .eq("company_bio_id", companyBioId)
     .maybeSingle();

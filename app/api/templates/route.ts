@@ -29,10 +29,15 @@ type SaveFromScratchBody = {
   sequence_steps: Array<{ channel: string; daysAfter: number }>;
   step_messages: {
     connectionRequest?: string;
-    steps: Array<{ step: number; channel: string; subject?: string | null; body: string }>;
+    steps: Array<{ step: number; channel: string; subject?: string | null; body: string; source_excerpt?: string; variants?: string[] }>;
     autoReplies?: { positive?: string; negative?: string; question?: string };
   };
   attachments?: Array<{ filename: string; storage_path?: string; mime_type?: string; size_bytes?: number }>;
+  // New (2026-05-17) — see migration 025.
+  tone_preset?: "conservative" | "balanced" | "direct" | "spicy" | "custom";
+  tone_custom_notes?: string;
+  rewrite_mode?: "verbatim" | "personalize" | "rewrite_with_source";
+  voice_anchor_seller_id?: string | null;
 };
 
 type SaveBody = SaveFromCampaignBody | SaveFromScratchBody;
@@ -99,19 +104,29 @@ export async function POST(req: NextRequest) {
       ? fs.channels
       : Array.from(new Set(fs.sequence_steps.map(s => s.channel).filter(Boolean))) as string[];
 
+    // tone_preset / rewrite_mode / voice_anchor_seller_id are validated by
+    // CHECK constraints in migration 025; bad values still get rejected at
+    // the DB layer. We only forward them when present so the column defaults
+    // ("balanced" / "personalize" / NULL) apply on omit.
+    const insertRow: Record<string, unknown> = {
+      company_bio_id: scope.companyBioId,
+      name: fs.name.trim(),
+      description: fs.description?.trim() ?? null,
+      sequence_steps: fs.sequence_steps,
+      step_messages: fs.step_messages,
+      attachments: Array.isArray(fs.attachments) ? fs.attachments : [],
+      tags: Array.isArray(fs.tags) ? fs.tags.slice(0, 10) : [],
+      channels,
+      created_by: scope.userId,
+    };
+    if (fs.tone_preset) insertRow.tone_preset = fs.tone_preset;
+    if (fs.tone_custom_notes) insertRow.tone_custom_notes = fs.tone_custom_notes.slice(0, 1500);
+    if (fs.rewrite_mode) insertRow.rewrite_mode = fs.rewrite_mode;
+    if (fs.voice_anchor_seller_id !== undefined) insertRow.voice_anchor_seller_id = fs.voice_anchor_seller_id;
+
     const { data: created, error: insErr } = await svc
       .from("campaign_templates")
-      .insert({
-        company_bio_id: scope.companyBioId,
-        name: fs.name.trim(),
-        description: fs.description?.trim() ?? null,
-        sequence_steps: fs.sequence_steps,
-        step_messages: fs.step_messages,
-        attachments: Array.isArray(fs.attachments) ? fs.attachments : [],
-        tags: Array.isArray(fs.tags) ? fs.tags.slice(0, 10) : [],
-        channels,
-        created_by: scope.userId,
-      })
+      .insert(insertRow)
       .select("id, name")
       .single();
 

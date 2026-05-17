@@ -3,10 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 const N8N_WEBHOOK_URL = "https://n8n.srv949269.hstgr.cloud/webhook/generate-campaign-messages-v3";
 
 export async function POST(req: NextRequest) {
-  const { sequence, companyBio, icpProfile, lead, language, signals, sequence_id } = await req.json();
+  const { sequence, companyBio, icpProfile, lead, language, signals, sequence_id, template_id } = await req.json();
 
   // Build the payload for n8n
-  // n8n will fetch fresh data from Supabase using the IDs
+  // n8n will fetch fresh data from Supabase using the IDs (incl. the template
+  // when template_id is set — that's how n8n can read tone_preset /
+  // rewrite_mode / voice_anchor_seller_id / attachments per campaign).
   const payload: Record<string, any> = {
     sequence: sequence ?? [],
     language: language ?? "es",
@@ -20,6 +22,9 @@ export async function POST(req: NextRequest) {
   if (lead?.company_bio_id) payload.company_bio_id = lead.company_bio_id;
   if (icpProfile?.id) payload.icp_profile_id = icpProfile.id;
   if (companyBio?.id) payload.company_bio_id = companyBio.id;
+  // template_id unlocks tone / rewrite_mode / voice anchor / source PDFs
+  // on the n8n side. Optional — campaigns without a template still work.
+  if (template_id) payload.template_id = template_id;
 
   try {
     const res = await fetch(N8N_WEBHOOK_URL, {

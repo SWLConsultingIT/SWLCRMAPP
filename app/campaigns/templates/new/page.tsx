@@ -44,7 +44,29 @@ type Step = {
   /** Marks step 0 as a LinkedIn connection request — gets a 300-char cap,
    *  different placeholder, and is serialized as `connectionRequest` on save. */
   isConnectionRequest?: boolean;
+  /** Verbatim PDF snippet (≤200 chars) the AI used as anchor for this step. */
+  sourceExcerpt?: string;
+  /** Optional A/B variants. When non-empty, the dispatcher 50/50-splits between
+   *  `body` (variant A) and `variants[0]` (variant B). */
+  variants?: string[];
 };
+
+type TonePreset = "conservative" | "balanced" | "direct" | "spicy" | "custom";
+type RewriteMode = "verbatim" | "personalize" | "rewrite_with_source";
+
+const TONE_PRESETS: Array<{ id: TonePreset; label: string; desc: string }> = [
+  { id: "conservative", label: "Conservative", desc: "Formal, safe, no hype. For legal / healthcare / banking targets." },
+  { id: "balanced",     label: "Balanced",     desc: "Conversational professional. One hook, one CTA. Default." },
+  { id: "direct",       label: "Direct",       desc: "Blunt opener, sharp CTA. For technical buyers + operators." },
+  { id: "spicy",        label: "Spicy",        desc: "Contrarian. Higher reply rate + higher unsubscribe risk." },
+  { id: "custom",       label: "Custom",       desc: "Paste your own style guide / examples." },
+];
+
+const REWRITE_MODES: Array<{ id: RewriteMode; label: string; desc: string }> = [
+  { id: "verbatim",            label: "Verbatim",                desc: "Use template body as-is. Only {{first_name}} / {{seller_name}} get substituted." },
+  { id: "personalize",         label: "Personalize per lead",    desc: "Light per-lead rewrite. Default." },
+  { id: "rewrite_with_source", label: "Rewrite from source PDF", desc: "Claude reads the PDFs per lead and rewrites anchored to source. Most flexible." },
+];
 
 type PendingAttachment = {
   filename: string;
@@ -102,6 +124,13 @@ export default function NewTemplatePage() {
   // ── Sequence (step 2) ──────────────────────────────────────────────────
   const [steps, setSteps] = useState<Step[]>([]);
 
+  // ── Tone / rewrite / voice (carry through both generators) ─────────────
+  const [tonePreset, setTonePreset] = useState<TonePreset>("balanced");
+  const [toneCustom, setToneCustom] = useState("");
+  const [rewriteMode, setRewriteMode] = useState<RewriteMode>("personalize");
+  const [voiceAnchor, setVoiceAnchor] = useState<string | null>(null);
+  const [voiceOptions, setVoiceOptions] = useState<Array<{ id: string; name: string }>>([]);
+
   // ── PDF source state ───────────────────────────────────────────────────
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [generating, setGenerating] = useState(false);
@@ -128,6 +157,26 @@ export default function NewTemplatePage() {
       .catch(() => setImportables([]))
       .finally(() => setImportLoading(false));
   }, [source, importables]);
+
+  // Load active sellers for the voice anchor dropdown. Cheap query, runs once.
+  useEffect(() => {
+    fetch("/api/sellers?active=1", { cache: "no-store" })
+      .then(r => r.ok ? r.json() : { sellers: [] })
+      .then(d => {
+        const opts = Array.isArray(d.sellers) ? d.sellers.map((s: any) => ({ id: s.id, name: s.name })) : [];
+        setVoiceOptions(opts);
+      })
+      .catch(() => setVoiceOptions([]));
+  }, []);
+
+  // Carry tone/rewrite/voice from an imported template so the wizard reflects
+  // what the source template captured. Otherwise defaults stand.
+  function applyImportedSettings(tpl: any) {
+    if (tpl.tone_preset) setTonePreset(tpl.tone_preset);
+    if (typeof tpl.tone_custom_notes === "string") setToneCustom(tpl.tone_custom_notes);
+    if (tpl.rewrite_mode) setRewriteMode(tpl.rewrite_mode);
+    if (tpl.voice_anchor_seller_id !== undefined) setVoiceAnchor(tpl.voice_anchor_seller_id);
+  }
 
   // ── Step 1: source picking ─────────────────────────────────────────────
   function pickScratch() {
@@ -175,6 +224,7 @@ export default function NewTemplatePage() {
       setName(`${tpl.name} (copy)`);
       setDescription(tpl.description ?? "");
       setTagsInput((tpl.tags ?? []).join(", "));
+      applyImportedSettings(tpl);
       setWizardStep("sequence");
     } catch (e: any) {
       setError(e?.message ?? "Couldn't import that template");
@@ -220,10 +270,14 @@ export default function NewTemplatePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // No `sequence` field → backend runs in DETECTED mode and extracts the
-        // cadence from the PDFs (or proposes a sensible default).
+        // cadence from the PDFs. We DO forward tone + voice anchor so the
+        // detected/drafted output already reflects the user's choices.
         body: JSON.stringify({
           attachments: attachments.map(a => ({ filename: a.filename, mimeType: a.mimeType, base64: a.base64 })),
           includesLinkedIn: true,
+          tone_preset: tonePreset,
+          tone_custom_notes: tonePreset === "custom" ? toneCustom : undefined,
+          voice_anchor_seller_id: voiceAnchor ?? undefined,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -232,13 +286,14 @@ export default function NewTemplatePage() {
         return;
       }
       const detected: { channel: string; daysAfter: number }[] = Array.isArray(body.detected_sequence) ? body.detected_sequence : [];
-      const draftedSteps: { step: number; channel: string; subject?: string | null; body: string }[] = Array.isArray(body.steps) ? body.steps : [];
+      const draftedSteps: { step: number; channel: string; subject?: string | null; body: string; source_excerpt?: string }[] = Array.isArray(body.steps) ? body.steps : [];
       const connectionRequest: string = typeof body.connectionRequest === "string" ? body.connectionRequest : "";
+      const connectionRequestSource: string = typeof body.connectionRequestSource === "string" ? body.connectionRequestSource : "";
 
       const builtSteps: Step[] = [];
       // If the backend detected a LinkedIn invite, add it as step 0.
       if (connectionRequest.trim().length > 0) {
-        builtSteps.push({ channel: "linkedin", daysAfter: 0, body: connectionRequest, isConnectionRequest: true });
+        builtSteps.push({ channel: "linkedin", daysAfter: 0, body: connectionRequest, isConnectionRequest: true, sourceExcerpt: connectionRequestSource });
       }
       // Then map detected_sequence rows to drafted step bodies in order.
       for (let i = 0; i < detected.length; i++) {
@@ -250,6 +305,7 @@ export default function NewTemplatePage() {
           daysAfter: d.daysAfter ?? 0,
           subject: draft?.subject ?? undefined,
           body: draft?.body ?? "",
+          sourceExcerpt: draft?.source_excerpt ?? undefined,
         });
       }
       if (builtSteps.length === 0) builtSteps.push(...DEFAULT_SCRATCH_STEPS);
@@ -293,11 +349,16 @@ export default function NewTemplatePage() {
     const sequence_steps = steps.map(s => ({ channel: s.channel, daysAfter: s.daysAfter }));
     const channels = Array.from(new Set(sequence_steps.map(s => s.channel)));
     const connectionRequest = hasConnectionRequest ? steps[0].body : "";
+    // source_excerpt + variants[] carry through the JSONB column so the n8n
+    // per-lead generator (when wired) and the dispatcher (for A/B splits) can
+    // read them later. The template POST endpoint forwards them verbatim.
     const messageSteps = bodySteps.map((s, i) => ({
       step: i + 1,
       channel: s.channel,
       subject: s.channel === "email" ? (s.subject ?? null) : null,
       body: s.body,
+      source_excerpt: s.sourceExcerpt ?? "",
+      variants: Array.isArray(s.variants) && s.variants.length > 0 ? s.variants.slice(0, 1) : undefined,
     }));
 
     try {
@@ -316,6 +377,10 @@ export default function NewTemplatePage() {
             steps: messageSteps,
             autoReplies: { positive: "", negative: "", question: "" },
           },
+          tone_preset: tonePreset,
+          tone_custom_notes: tonePreset === "custom" ? toneCustom.trim() : undefined,
+          rewrite_mode: rewriteMode,
+          voice_anchor_seller_id: voiceAnchor,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -351,6 +416,18 @@ export default function NewTemplatePage() {
 
       {/* Wizard progress */}
       <WizardProgress current={wizardStep} />
+
+      {/* Always-visible tone + voice strip on step 1 so the AI generation that
+          happens IN step 1 already honours them. Persisted into the template
+          on save and forwarded to the n8n per-lead generator at apply time. */}
+      {wizardStep === "source" && (
+        <ToneAndVoiceBar
+          tonePreset={tonePreset} setTonePreset={setTonePreset}
+          toneCustom={toneCustom} setToneCustom={setToneCustom}
+          voiceAnchor={voiceAnchor} setVoiceAnchor={setVoiceAnchor}
+          voiceOptions={voiceOptions}
+        />
+      )}
 
       {/* ─── STEP 1: SOURCE ──────────────────────────────────────────────── */}
       {wizardStep === "source" && (
@@ -396,10 +473,87 @@ export default function NewTemplatePage() {
           description={description} setDescription={setDescription}
           tagsInput={tagsInput} setTagsInput={setTagsInput}
           steps={steps}
+          tonePreset={tonePreset}
+          rewriteMode={rewriteMode} setRewriteMode={setRewriteMode}
+          voiceAnchor={voiceAnchor}
+          voiceOptions={voiceOptions}
           error={error} setError={setError}
           saving={saving}
           onBack={() => setWizardStep("sequence")}
           onSave={save}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Tone + voice anchor strip (Step 1) ──────────────────────────────────
+// Sits above the source picker so AI generation that happens in Step 1
+// already reflects these choices. Both flow through to the persisted
+// template so the n8n per-lead generator can honour them at apply time.
+function ToneAndVoiceBar(props: {
+  tonePreset: TonePreset; setTonePreset: (v: TonePreset) => void;
+  toneCustom: string; setToneCustom: (v: string) => void;
+  voiceAnchor: string | null; setVoiceAnchor: (v: string | null) => void;
+  voiceOptions: Array<{ id: string; name: string }>;
+}) {
+  const { tonePreset, setTonePreset, toneCustom, setToneCustom, voiceAnchor, setVoiceAnchor, voiceOptions } = props;
+  const currentTone = TONE_PRESETS.find(t => t.id === tonePreset);
+  return (
+    <div className="rounded-2xl border p-4 mb-5"
+      style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="flex flex-wrap items-center gap-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-wider font-semibold mb-1.5" style={{ color: C.textMuted }}>Tone</p>
+          <div className="flex flex-wrap gap-1.5">
+            {TONE_PRESETS.map(p => {
+              const active = p.id === tonePreset;
+              return (
+                <button key={p.id} type="button" onClick={() => setTonePreset(p.id)}
+                  title={p.desc}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-md border transition-colors"
+                  style={{
+                    backgroundColor: active ? accentSoft(15) : C.bg,
+                    borderColor: active ? accentSoft(40) : C.border,
+                    color: active ? ACCENT : C.textBody,
+                  }}>
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="h-10 w-px hidden md:block" style={{ backgroundColor: C.border }} />
+
+        <div className="min-w-[180px]">
+          <p className="text-[10px] uppercase tracking-wider font-semibold mb-1.5" style={{ color: C.textMuted }}>Voice anchor <span className="opacity-60 normal-case font-normal">(optional)</span></p>
+          <select
+            value={voiceAnchor ?? ""}
+            onChange={e => setVoiceAnchor(e.target.value || null)}
+            className="text-xs rounded border px-2 py-1 outline-none w-full"
+            style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textBody }}>
+            <option value="">No anchor — use tenant tone</option>
+            {voiceOptions.map(o => (
+              <option key={o.id} value={o.id}>{o.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {currentTone && (
+        <p className="text-[11px] mt-2.5" style={{ color: C.textMuted }}>{currentTone.desc}</p>
+      )}
+
+      {tonePreset === "custom" && (
+        <textarea
+          value={toneCustom}
+          onChange={e => setToneCustom(e.target.value)}
+          placeholder="Paste your style guide / writing examples. Anything here gets appended verbatim to the AI's instructions."
+          rows={3}
+          maxLength={1500}
+          className="w-full mt-2 rounded border px-2 py-1.5 text-xs outline-none resize-vertical"
+          style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
         />
       )}
     </div>
@@ -813,6 +967,55 @@ function SequenceStep(props: {
                   LinkedIn caps invites at 300 chars · {300 - s.body.length} left
                 </p>
               )}
+
+              {/* Source excerpt — verbatim PDF snippet the AI anchored on.
+                  Empty for scratch/imported templates that never went through
+                  generation. Disclosure pattern so it doesn't crowd the page. */}
+              {s.sourceExcerpt && s.sourceExcerpt.length > 0 && (
+                <details className="mt-2 group">
+                  <summary className="text-[10px] cursor-pointer inline-flex items-center gap-1 select-none"
+                    style={{ color: C.textMuted }}>
+                    <FileText size={10} /> Source from PDF
+                  </summary>
+                  <p className="text-[11px] mt-1.5 pl-3 italic"
+                    style={{ color: C.textBody, borderLeft: `2px solid ${accentSoft(40)}` }}>
+                    “{s.sourceExcerpt}”
+                  </p>
+                </details>
+              )}
+
+              {/* A/B variant — second body that the dispatcher 50/50-splits
+                  with `body`. Hidden by default; "Add variant B" reveals. */}
+              {!isInvite && (
+                Array.isArray(s.variants) && s.variants.length > 0 ? (
+                  <div className="mt-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] uppercase tracking-wider font-semibold"
+                        style={{ color: ACCENT }}>Variant B (A/B test)</span>
+                      <button type="button"
+                        onClick={() => updateStep(i, { variants: undefined })}
+                        className="text-[10px]" style={{ color: C.textMuted }}>
+                        Remove variant
+                      </button>
+                    </div>
+                    <textarea
+                      value={s.variants[0] ?? ""}
+                      onChange={e => updateStep(i, { variants: [e.target.value] })}
+                      placeholder="Variant B — same step, different angle. Dispatcher splits 50/50."
+                      rows={3}
+                      className="w-full rounded border px-2 py-1.5 text-xs outline-none resize-vertical"
+                      style={{ borderColor: accentSoft(40), backgroundColor: C.card, color: C.textPrimary }}
+                    />
+                  </div>
+                ) : (
+                  <button type="button"
+                    onClick={() => updateStep(i, { variants: [""] })}
+                    className="text-[10px] mt-2 font-semibold inline-flex items-center gap-1"
+                    style={{ color: ACCENT }}>
+                    <Plus size={10} /> Add A/B variant
+                  </button>
+                )
+              )}
             </div>
           );
         })}
@@ -841,12 +1044,23 @@ function IdentityStep(props: {
   description: string; setDescription: (v: string) => void;
   tagsInput: string; setTagsInput: (v: string) => void;
   steps: Step[];
+  tonePreset: TonePreset;
+  rewriteMode: RewriteMode; setRewriteMode: (v: RewriteMode) => void;
+  voiceAnchor: string | null;
+  voiceOptions: Array<{ id: string; name: string }>;
   error: string | null; setError: (e: string | null) => void;
   saving: boolean;
   onBack: () => void;
   onSave: () => void;
 }) {
-  const { name, setName, description, setDescription, tagsInput, setTagsInput, steps, error, setError, saving, onBack, onSave } = props;
+  const {
+    name, setName, description, setDescription, tagsInput, setTagsInput, steps,
+    tonePreset, rewriteMode, setRewriteMode, voiceAnchor, voiceOptions,
+    error, setError, saving, onBack, onSave,
+  } = props;
+  const toneLabel = TONE_PRESETS.find(t => t.id === tonePreset)?.label ?? tonePreset;
+  const voiceLabel = voiceAnchor ? (voiceOptions.find(v => v.id === voiceAnchor)?.name ?? "—") : null;
+  const variantsCount = steps.filter(s => Array.isArray(s.variants) && s.variants.length > 0).length;
   return (
     <div className="rounded-2xl border" style={{ backgroundColor: C.card, borderColor: C.border }}>
       <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
@@ -895,10 +1109,38 @@ function IdentityStep(props: {
           />
         </div>
 
+        {/* Rewrite mode picker — only meaningful at apply-time, so it sits at
+            the Save step. Pills mirror the tone preset row in Step 1. */}
+        <div>
+          <label className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>
+            How should the AI rewrite per lead?
+          </label>
+          <div className="flex flex-wrap gap-1.5 mt-1.5">
+            {REWRITE_MODES.map(p => {
+              const active = p.id === rewriteMode;
+              return (
+                <button key={p.id} type="button" onClick={() => setRewriteMode(p.id)}
+                  title={p.desc}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-md border transition-colors"
+                  style={{
+                    backgroundColor: active ? accentSoft(15) : C.bg,
+                    borderColor: active ? accentSoft(40) : C.border,
+                    color: active ? ACCENT : C.textBody,
+                  }}>
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[11px] mt-2" style={{ color: C.textMuted }}>
+            {REWRITE_MODES.find(m => m.id === rewriteMode)?.desc}
+          </p>
+        </div>
+
         {/* Quick recap so the user can confirm what they're about to save */}
         <div className="rounded-lg border p-3" style={{ borderColor: C.border, backgroundColor: C.bg }}>
           <p className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: C.textMuted }}>Recap</p>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
             {steps.map((s, i) => {
               const meta = channelMeta[s.channel];
               const Icon = meta.icon;
@@ -911,6 +1153,28 @@ function IdentityStep(props: {
                 </div>
               );
             })}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-[10px]">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border"
+              style={{ borderColor: accentSoft(40), backgroundColor: accentSoft(10), color: ACCENT }}>
+              Tone · {toneLabel}
+            </span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border"
+              style={{ borderColor: accentSoft(40), backgroundColor: accentSoft(10), color: ACCENT }}>
+              Rewrite · {REWRITE_MODES.find(m => m.id === rewriteMode)?.label}
+            </span>
+            {voiceLabel && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border"
+                style={{ borderColor: accentSoft(40), backgroundColor: accentSoft(10), color: ACCENT }}>
+                Voice · {voiceLabel}
+              </span>
+            )}
+            {variantsCount > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border"
+                style={{ borderColor: "#16A34A40", backgroundColor: "#DCFCE7", color: "#16A34A" }}>
+                A/B · {variantsCount} step{variantsCount === 1 ? "" : "s"}
+              </span>
+            )}
           </div>
         </div>
       </div>
