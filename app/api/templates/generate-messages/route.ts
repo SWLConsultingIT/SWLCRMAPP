@@ -1,15 +1,20 @@
 // Generate first-draft per-step messages for a new template using Claude
 // Sonnet 4.6 with document content blocks. Accepts up to 5 PDFs (≤8MB each)
-// as base64 in the request body alongside the template's metadata + sequence.
+// as base64 in the request body alongside the template's metadata.
 //
-// Claude reads the PDFs (sales decks, case studies, one-pagers) and drafts
-// messages in the same language the user is writing in, using their company
-// + ICP context. The output is editable in the UI — this just removes the
-// blank-page problem.
+// Two modes, controlled by whether the caller passes a `sequence`:
+//   1. AUTHORED sequence — user already picked channels + days; AI fills in
+//      message bodies. (Legacy behavior.)
+//   2. DETECTED sequence — caller omits `sequence`; AI reads the PDFs to
+//      extract the cadence (e.g. "Day 1 LinkedIn invite → Day 3 follow-up
+//      email → Day 7 call") and drafts messages for the detected steps. If
+//      the PDFs don't describe a cadence, AI proposes a sensible default for
+//      the tenant's industry + the detected ICP.
+//
+// The output JSON always includes `detected_sequence` so the UI can render
+// the cadence in both modes without branching.
 //
 // Cost: Sonnet 4.6 + ~5 PDFs at ~1500 tokens each = ~$0.03-0.05 per run.
-// Cheap enough to be re-run with different sequences, expensive enough to
-// not auto-fire — always button-triggered.
 
 import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
@@ -18,48 +23,67 @@ import { getUserScope } from "@/lib/scope";
 
 const MODEL = "claude-sonnet-4-6";
 const MAX_PDFS = 5;
-const MAX_PDF_BYTES = 8 * 1024 * 1024; // 8 MB per file — well under Anthropic's 32MB limit
+const MAX_PDF_BYTES = 8 * 1024 * 1024;
 
 export const maxDuration = 60;
 
+type SeqStep = { channel: string; daysAfter: number };
+
 type Body = {
-  name: string;
+  name?: string;
   description?: string;
   channels?: string[];
-  sequence: Array<{ channel: string; daysAfter: number }>;
+  /** Optional. When omitted/empty, AI proposes a sequence from the PDFs. */
+  sequence?: SeqStep[];
   includesLinkedIn?: boolean;
   attachments: Array<{ filename: string; mimeType: string; base64: string }>;
-  language?: string; // 'es' | 'en' | etc — drives output language
+  language?: string;
 };
 
-const SYSTEM_PROMPT = `You are an elite B2B outbound copywriter inside a sales operating system. Given:
-- a tenant's company name + a description of what they sell,
-- a sequence of touchpoints (channel + daysAfter),
-- and supporting documents (sales decks, case studies, one-pagers) provided as PDFs,
+const SYSTEM_PROMPT = `You are an elite B2B outbound copywriter inside a sales operating system. You read the tenant's supporting documents (sales decks, case studies, playbooks, one-pagers) and produce two things at once:
 
-your job is to draft the body of each step in the sequence so the seller can use it as a starting point. The output is editable in the UI; aim for a quality first draft, not perfection.
+1. A SEQUENCE of touchpoints — channel + daysAfter for each step
+2. The DRAFT MESSAGE for each step in that sequence
 
-Rules:
-- Match the tone of the source PDFs. If they're consultative and analytical, write that way. If they're sharp and direct, mirror that.
-- Use the variables {{first_name}}, {{company_name}}, and {{seller_name}} where they make the message feel personal. Don't force them — natural placement only.
-- LinkedIn invite (when step 0 channel = linkedin and the user opts in): MAX 280 characters, opener-only, no value pitch.
-- LinkedIn DMs: 400-700 characters, conversational, one specific hook tied to the PDF content.
-- Emails: subject + body. Subject ≤60 chars, no clickbait. Body 80-150 words, scannable, one clear CTA.
-- Calls: 2-3 short bullets the seller will say out loud, NOT a script to read verbatim.
-- WhatsApp: 200-400 characters, friendly but professional.
-- Never invent facts the PDF doesn't support.
+You will be told whether the sequence is AUTHORED (the user already chose channels + days and you must honour them exactly) or DETECTED (you must extract it from the PDFs or propose a sensible default).
+
+In DETECTED mode:
+- If the PDF describes a cadence ("Day 1 LinkedIn invite, Day 3 follow-up email, Day 7 call"), use it verbatim — same channels, same day numbers.
+- If multiple cadences appear, prefer the one for the specific ICP / role the tenant is targeting.
+- If no cadence is described, propose a default appropriate for the tenant's industry and the ICP described in the PDFs:
+    • Professional services / consultative: LinkedIn invite (day 0) → LinkedIn DM (day 3) → Email (day 7) → Call (day 12).
+    • High-volume / transactional: Email (day 0) → LinkedIn invite (day 2) → Email (day 5).
+  Pick 3-6 steps total. Use channels: linkedin, email, call, whatsapp.
+
+Message rules (apply to both modes):
+- Match the tone of the source PDFs. Consultative? Write consultative. Direct? Mirror that.
+- Use {{first_name}}, {{company_name}}, {{seller_name}} where they feel natural. Never force.
+- LinkedIn invite (step 0 channel = linkedin and includesLinkedIn=true): MAX 280 chars, opener-only, no value pitch.
+- LinkedIn DMs (step N>0, channel=linkedin): 400-700 chars, conversational, one specific hook tied to PDF content.
+- Emails: subject ≤60 chars + body 80-150 words, scannable, one clear CTA.
+- Calls: 2-3 short bullets the seller will say out loud, NOT a script.
+- WhatsApp: 200-400 chars, friendly but professional.
+- Never invent facts the PDFs don't support.
 - Write in the language of the source PDFs unless the user explicitly requested a different language.
 
 Output must be valid JSON exactly matching:
 {
-  "connectionRequest": "string or empty if includesLinkedIn=false",
+  "detected_sequence": [
+    { "channel": "linkedin|email|call|whatsapp", "daysAfter": 0 },
+    ...
+  ],
+  "connectionRequest": "string or empty if no linkedin invite",
   "steps": [
     { "step": 1, "channel": "...", "subject": "string or null", "body": "..." },
     ...
   ]
 }
 
-No prose outside the JSON. No markdown fence. Just the JSON object.`;
+- detected_sequence MUST equal what you used to draft the steps.
+- In AUTHORED mode, detected_sequence MUST mirror the input sequence exactly.
+- connectionRequest is the body of the LinkedIn invite when present (step 0). Empty string otherwise.
+- steps must have one entry per item in detected_sequence (matching channel + order).
+- No prose outside the JSON. No markdown fence. Just the JSON object.`;
 
 export async function POST(req: NextRequest) {
   const scope = await getUserScope();
@@ -74,9 +98,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  if (!body.name?.trim() || !Array.isArray(body.sequence) || body.sequence.length === 0) {
-    return NextResponse.json({ error: "name and non-empty sequence required" }, { status: 400 });
-  }
   if (!Array.isArray(body.attachments) || body.attachments.length === 0) {
     return NextResponse.json({ error: "At least one PDF attachment required" }, { status: 400 });
   }
@@ -87,7 +108,6 @@ export async function POST(req: NextRequest) {
     if (!a.base64 || !a.filename) {
       return NextResponse.json({ error: "Each attachment needs filename + base64" }, { status: 400 });
     }
-    // Rough byte estimate: base64 length * 3/4
     const estBytes = (a.base64.length * 3) / 4;
     if (estBytes > MAX_PDF_BYTES) {
       return NextResponse.json({ error: `${a.filename} exceeds ${MAX_PDF_BYTES / 1024 / 1024}MB limit` }, { status: 400 });
@@ -97,7 +117,9 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Pull the tenant's company bio so Claude has business context.
+  const authoredSequence = Array.isArray(body.sequence) && body.sequence.length > 0;
+  const includesLinkedIn = body.includesLinkedIn ?? (authoredSequence ? body.sequence!.some(s => s.channel === "linkedin") : true);
+
   const svc = getSupabaseService();
   const { data: bio } = await svc
     .from("company_bios")
@@ -105,14 +127,12 @@ export async function POST(req: NextRequest) {
     .eq("id", scope.companyBioId)
     .maybeSingle();
 
-  // Build the user message: structured spec + the PDFs as document blocks.
-  const sequenceLines = body.sequence.map((s, i) =>
-    `  Step ${i + 1}: ${s.channel} — daysAfter ${s.daysAfter}`
-  ).join("\n");
-  const includesLinkedIn = body.includesLinkedIn ?? body.sequence.some(s => s.channel === "linkedin");
+  const sequenceBlock = authoredSequence
+    ? `MODE: AUTHORED\nSEQUENCE (use exactly):\n${body.sequence!.map((s, i) => `  Step ${i + 1}: ${s.channel} — daysAfter ${s.daysAfter}`).join("\n")}`
+    : `MODE: DETECTED\nExtract the cadence from the PDFs. If none is described, propose a sensible default for the tenant's industry / ICP (3-6 steps). Return whatever you used in detected_sequence.`;
 
   const specText = [
-    `TEMPLATE: ${body.name}`,
+    body.name ? `TEMPLATE: ${body.name}` : `TEMPLATE: (untitled — name comes later)`,
     body.description ? `DESCRIPTION: ${body.description}` : null,
     "",
     "TENANT:",
@@ -122,17 +142,15 @@ export async function POST(req: NextRequest) {
     bio?.value_proposition ? `  Value prop: ${String(bio.value_proposition).slice(0, 300)}` : null,
     bio?.tone_of_voice ? `  Tone: ${bio.tone_of_voice}` : null,
     "",
-    "SEQUENCE:",
-    includesLinkedIn ? "  Step 0: linkedin connection request (max 280 chars)" : null,
-    sequenceLines,
+    sequenceBlock,
+    "",
+    `LINKEDIN INVITE: ${includesLinkedIn ? "include (step 0, max 280 chars)" : "omit"}`,
     "",
     body.language ? `LANGUAGE: ${body.language}` : "LANGUAGE: match the source PDFs",
     "",
     "Read the attached PDFs. Then return the JSON described in the system prompt — exactly that shape, no extras, no markdown.",
   ].filter(Boolean).join("\n");
 
-  // Document blocks first, then the text instruction last (Claude pays
-  // strongest attention to the most-recent message content).
   const userContent: Anthropic.ContentBlockParam[] = [
     ...body.attachments.map(a => ({
       type: "document" as const,
@@ -164,15 +182,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Generation failed: ${e?.message ?? "unknown"}` }, { status: 502 });
   }
 
-  // Strip an accidental markdown fence — defensive even though the prompt
-  // says no fences.
   const cleaned = rawOutput
     .replace(/^```json\s*/i, "")
     .replace(/^```\s*/, "")
     .replace(/```\s*$/, "")
     .trim();
 
-  let parsed: { connectionRequest?: string; steps?: Array<{ step: number; channel: string; subject?: string | null; body: string }> };
+  let parsed: {
+    detected_sequence?: SeqStep[];
+    connectionRequest?: string;
+    steps?: Array<{ step: number; channel: string; subject?: string | null; body: string }>;
+  };
   try {
     parsed = JSON.parse(cleaned);
   } catch {
@@ -185,7 +205,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Model output missing steps[] array" }, { status: 502 });
   }
 
+  // Defensive: in AUTHORED mode the detected_sequence should mirror input.
+  // If the model omitted it or returned something off, fall back to the
+  // authored sequence — the steps[] already carries the channel per step.
+  const detected_sequence = Array.isArray(parsed.detected_sequence) && parsed.detected_sequence.length > 0
+    ? parsed.detected_sequence
+    : authoredSequence
+      ? body.sequence!
+      : parsed.steps.map(s => ({ channel: s.channel, daysAfter: 0 }));
+
   return NextResponse.json({
+    detected_sequence,
     connectionRequest: parsed.connectionRequest ?? "",
     steps: parsed.steps,
     model: MODEL,
