@@ -6,18 +6,28 @@ const SB_URL = "https://uljoengwmmwdqpcxnbjs.supabase.co/rest/v1";
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
 const H = { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json" };
 
-// List sellers for a tenant — used by the Team UI invite modal so admins can
-// link a seller-tier user to an existing seller record. Returns id, name, and
-// the current user_id link (if any) so the UI can disable already-linked
-// sellers in the picker.
+// List sellers for a tenant.
 //
-// Authorization: super_admin (any tenant) or owner/manager of the requested tenant.
+// Two modes (kept on one endpoint to avoid proliferation):
+//
+//   - Admin mode (default): used by the Team UI invite modal. Returns
+//     `{ id, name, userId }` for tenant-owned sellers only. Gated to
+//     owner/manager/super_admin via canViewAdminMenu.
+//
+//   - Usable mode (?usable=1): used by campaign-launch flows. Returns the
+//     sellers a tenant can actually use — own + shared via admin "Sellers
+//     shared with this client". No admin gate (every authed user in the
+//     tenant needs this to launch a campaign). Returns
+//     `{ id, name, linkedin_daily_limit, active }`.
 export async function GET(req: NextRequest) {
   const scope = await getUserScope();
   if (!scope.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!canViewAdminMenu(scope.tier)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const url = new URL(req.url);
+  const usable = url.searchParams.get("usable") === "1" || url.searchParams.get("active") === "1";
+
+  // Resolve tenant — super_admin can override via ?bioId, everyone else is
+  // pinned to their own scope.
   const requestedBioId = url.searchParams.get("bioId");
   let bioId: string | null;
   if (scope.tier === "super_admin") {
@@ -28,6 +38,25 @@ export async function GET(req: NextRequest) {
   if (!bioId) return NextResponse.json({ error: "No tenant" }, { status: 400 });
 
   const svc = getSupabaseService();
+
+  if (usable) {
+    const { data } = await svc
+      .from("sellers")
+      .select("id, name, linkedin_daily_limit, active, company_bio_id, shared_with_company_bio_ids")
+      .or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`)
+      .eq("active", true)
+      .order("name", { ascending: true });
+    return NextResponse.json({
+      sellers: (data ?? []).map(s => ({
+        id: s.id as string,
+        name: (s.name as string) ?? "(unnamed)",
+        linkedin_daily_limit: (s.linkedin_daily_limit as number | null) ?? null,
+      })),
+    });
+  }
+
+  // Admin mode (existing behavior — must stay gated).
+  if (!canViewAdminMenu(scope.tier)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const { data } = await svc
     .from("sellers")
     .select("id, name, user_id")

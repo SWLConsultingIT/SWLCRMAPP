@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { C } from "@/lib/design";
 import EmptyState from "@/components/EmptyState";
+import TemplateLaunchModal from "@/components/TemplateLaunchModal";
 
 // 2026-05-17 — Templates organized by ICP.
 // Default view: "By ICP" with collapsible sections per ICP. A "Needs ICP"
@@ -78,6 +79,7 @@ export default function TemplatesView() {
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [launchTarget, setLaunchTarget] = useState<TemplateListItem | null>(null);
 
   async function load() {
     setLoading(true);
@@ -224,8 +226,10 @@ export default function TemplatesView() {
   }
 
   function handleUse(t: TemplateListItem) {
-    try { sessionStorage.setItem("swl-pending-template-id", t.id); } catch { /* private mode */ }
-    router.push("/campaigns/new");
+    // Open the launch modal directly — much faster than routing through the
+    // generic /campaigns/new chooser since the template already knows its
+    // ICP. The user picks sellers + leads and we bulk-create from there.
+    setLaunchTarget(t);
   }
 
   function toggleSection(key: string) {
@@ -401,6 +405,15 @@ export default function TemplatesView() {
             </div>
           ))}
         </div>
+      )}
+
+      {launchTarget && (
+        <TemplateLaunchModal
+          templateId={launchTarget.id}
+          templateName={launchTarget.name}
+          icpProfileId={launchTarget.icp_profile_id}
+          onClose={() => setLaunchTarget(null)}
+        />
       )}
     </div>
   );

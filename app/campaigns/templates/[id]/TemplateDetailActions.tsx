@@ -6,6 +6,7 @@ import {
   Play, MoreHorizontal, Copy, FolderTree, Trash2, X, ArrowRight, Loader2,
 } from "lucide-react";
 import { C } from "@/lib/design";
+import TemplateLaunchModal from "@/components/TemplateLaunchModal";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -23,6 +24,7 @@ export default function TemplateDetailActions({
   const [menuOpen, setMenuOpen] = useState(false);
   const [submenu, setSubmenu] = useState<"main" | "duplicate" | "move">("main");
   const [busy, setBusy] = useState(false);
+  const [launchOpen, setLaunchOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -35,8 +37,10 @@ export default function TemplateDetailActions({
   }, [menuOpen]);
 
   function handleUse() {
-    try { sessionStorage.setItem("swl-pending-template-id", templateId); } catch { /* private mode */ }
-    router.push("/campaigns/new");
+    // Open the launch modal directly. Old flow (sessionStorage + navigate to
+    // /campaigns/new) is no longer needed — the template knows its ICP, the
+    // modal knows everything else.
+    setLaunchOpen(true);
   }
 
   async function handleAssign(icpId: string) {
@@ -145,6 +149,15 @@ export default function TemplateDetailActions({
             title="Move to which ICP?" excludeId={currentIcpId} onCancel={() => setSubmenu("main")} />
         )}
       </div>
+
+      {launchOpen && (
+        <TemplateLaunchModal
+          templateId={templateId}
+          templateName={templateName}
+          icpProfileId={currentIcpId}
+          onClose={() => setLaunchOpen(false)}
+        />
+      )}
     </div>
   );
 }
