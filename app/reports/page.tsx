@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import KpiCard from "@/components/KpiCard";
+import CollapsibleCard from "@/components/CollapsibleCard";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -318,11 +319,17 @@ export default async function ReportsPage({
       </div>
 
       {/* ═══ CAMPAIGN COMPARISON TABLE ═══ */}
-      <div className="rounded-2xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-        <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
-          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Campaign Comparison</h2>
-          <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Performance breakdown by campaign</p>
-        </div>
+      <div className="mb-5">
+      <CollapsibleCard
+        title="Campaign Comparison"
+        description="Performance breakdown by campaign"
+        storageKey="reports.campaignComparison"
+        rightSlot={data.campaignComparison.length > 0 ? (
+          <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
+            {data.campaignComparison.length} campaigns
+          </span>
+        ) : null}
+      >
         {data.campaignComparison.length === 0 ? (
           <div className="px-5 py-8 text-center">
             <p className="text-sm" style={{ color: C.textDim }}>No campaigns yet</p>
@@ -382,20 +389,26 @@ export default async function ReportsPage({
           </table>
           </div>
         )}
+      </CollapsibleCard>
       </div>
 
       {/* ═══ TWO COLUMNS: ICP Performance + Channel Analysis ═══ */}
-      <div className="grid grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
         {/* ICP Profile Performance */}
-        <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-          <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
-            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>ICP Profile Performance</h2>
-            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Which profiles generate the best results</p>
-          </div>
+        <CollapsibleCard
+          title="ICP Profile Performance"
+          description="Which profiles generate the best results"
+          storageKey="reports.icpPerformance"
+          rightSlot={data.profilePerformance.length > 0 ? (
+            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
+              {data.profilePerformance.length} ICPs
+            </span>
+          ) : null}
+        >
           {data.profilePerformance.length === 0 ? (
             <div className="px-5 py-8 text-center"><p className="text-sm" style={{ color: C.textDim }}>No data yet</p></div>
           ) : (
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-4 max-h-[480px] overflow-y-auto">
               {data.profilePerformance.map(p => {
                 const respRate = p.contacted > 0 ? Math.round((p.replied / p.contacted) * 100) : 0;
                 const convRate = p.contacted > 0 ? Math.round((p.positive / p.contacted) * 100) : 0;
@@ -430,14 +443,19 @@ export default async function ReportsPage({
               })}
             </div>
           )}
-        </div>
+        </CollapsibleCard>
 
         {/* Channel Analysis */}
-        <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-          <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
-            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Channel Analysis</h2>
-            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Performance by outreach channel</p>
-          </div>
+        <CollapsibleCard
+          title="Channel Analysis"
+          description="Performance by outreach channel"
+          storageKey="reports.channelAnalysis"
+          rightSlot={data.channelAnalysis.length > 0 ? (
+            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
+              {data.channelAnalysis.length} channels
+            </span>
+          ) : null}
+        >
           {data.channelAnalysis.length === 0 ? (
             <div className="px-5 py-8 text-center"><p className="text-sm" style={{ color: C.textDim }}>No data yet</p></div>
           ) : (
@@ -481,7 +499,7 @@ export default async function ReportsPage({
               })}
             </div>
           )}
-        </div>
+        </CollapsibleCard>
       </div>
 
       {/* Reply Classification + Weekly Trend sections removed in the 2026-05-17
@@ -491,23 +509,20 @@ export default async function ReportsPage({
           collapsed Reports from 7 sections to 5 with no information loss. */}
 
       {/* ═══ SELLER LEADERBOARD + FORECAST ═══ */}
-      <div className="grid grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
         {/* Seller Leaderboard (2 cols) — rank + avatar + gap-to-#1 bar */}
-        <div className="col-span-2 rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-          <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
-            <div>
-              <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: C.textPrimary }}>
-                <Trophy size={14} style={{ color: gold }} />
-                Seller Leaderboard
-              </h2>
-              <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Ranked by positive replies — ties broken by response rate</p>
-            </div>
-            {data.sellerPerformance.length > 1 && (
-              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-                {data.sellerPerformance.length} sellers
-              </span>
-            )}
-          </div>
+        <div className="lg:col-span-2">
+        <CollapsibleCard
+          title="Seller Leaderboard"
+          description="Ranked by positive replies — ties broken by response rate"
+          icon={<Trophy size={14} style={{ color: gold }} />}
+          storageKey="reports.sellerLeaderboard"
+          rightSlot={data.sellerPerformance.length > 1 ? (
+            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
+              {data.sellerPerformance.length} sellers
+            </span>
+          ) : null}
+        >
           {data.sellerPerformance.length === 0 ? (
             <div className="px-5 py-10 text-center"><p className="text-sm" style={{ color: C.textDim }}>No seller data yet</p></div>
           ) : (() => {
@@ -592,17 +607,16 @@ export default async function ReportsPage({
               </div>
             );
           })()}
+        </CollapsibleCard>
         </div>
 
         {/* Forecast */}
-        <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `3px solid ${gold}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-          <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
-            <div className="flex items-center gap-2">
-              <TrendingUp size={14} style={{ color: gold }} />
-              <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Forecast</h2>
-            </div>
-            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>End-of-month projection</p>
-          </div>
+        <CollapsibleCard
+          title="Forecast"
+          description="End-of-month projection"
+          icon={<TrendingUp size={14} style={{ color: gold }} />}
+          storageKey="reports.forecast"
+        >
           <div className="p-5 space-y-5">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-widest mb-1" style={{ color: C.textDim }}>Based on velocity</p>
@@ -634,16 +648,17 @@ export default async function ReportsPage({
               </p>
             </div>
           </div>
-        </div>
+        </CollapsibleCard>
       </div>
 
       {/* ═══ RESPONSE BY STEP NUMBER ═══ */}
       {Object.keys(data.stepReplies).length > 0 && (
-        <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-          <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
-            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Response by Sequence Step</h2>
-            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Which step in the sequence generates the most replies</p>
-          </div>
+        <CollapsibleCard
+          title="Response by Sequence Step"
+          description="Which step in the sequence generates the most replies"
+          storageKey="reports.responseByStep"
+          defaultOpen={false}
+        >
           <div className="p-5 flex items-end gap-6 justify-center" style={{ minHeight: 120 }}>
             {Object.entries(data.stepReplies)
               .sort(([a], [b]) => Number(a) - Number(b))
@@ -661,7 +676,7 @@ export default async function ReportsPage({
                 );
               })}
           </div>
-        </div>
+        </CollapsibleCard>
       )}
     </div>
   );

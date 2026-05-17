@@ -184,25 +184,33 @@ export default async function ReportsPrintPage() {
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "32px 24px", fontSize: 13 }}>
 
-        {/* ── Header ── */}
+        {/* ── Header ── GrowthAI / SWL is the primary brand: it's the engine
+            that built the report and the artifact that leaves the building
+            should be obviously ours. The tenant is the SUBJECT of the report,
+            placed prominently as "Prepared for <Tenant>" on the right with
+            their logo when available. */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, paddingBottom: 16, borderBottom: `2px solid ${brand.brandColor}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            {brand.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={brand.logoUrl} alt={brand.companyName} style={{ width: 44, height: 44, borderRadius: 12, objectFit: "contain", background: "#fff", border: "1px solid #E5E7EB" }} />
-            ) : (
-              <div style={{ width: 44, height: 44, borderRadius: 12, background: `linear-gradient(135deg, ${brand.brandColor}, color-mix(in srgb, ${brand.brandColor} 72%, white))`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <span style={{ color: "#fff", fontWeight: 800, fontSize: 18 }}>⚡</span>
-              </div>
-            )}
+            <div style={{ width: 44, height: 44, borderRadius: 12, background: `linear-gradient(135deg, ${brand.brandColor}, color-mix(in srgb, ${brand.brandColor} 72%, white))`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 2px 8px color-mix(in srgb, ${brand.brandColor} 30%, transparent)` }}>
+              <span style={{ color: "#fff", fontWeight: 800, fontSize: 20 }}>⚡</span>
+            </div>
             <div>
-              <p style={{ fontWeight: 800, fontSize: 18, color: "#111827", margin: 0 }}>{brand.companyName}</p>
-              <p style={{ fontSize: 11, color: "#6B7280", margin: "2px 0 0" }}>Performance Report</p>
+              <p style={{ fontWeight: 800, fontSize: 18, color: "#111827", margin: 0, letterSpacing: "-0.01em" }}>
+                GrowthAI <span style={{ color: brand.brandColor }}>— Sales Engine</span>
+              </p>
+              <p style={{ fontSize: 11, color: "#6B7280", margin: "2px 0 0" }}>by SWL Consulting · Performance Report</p>
             </div>
           </div>
-          <div style={{ textAlign: "right" }}>
-            <p style={{ fontSize: 11, color: "#6B7280", margin: 0 }}>Generated</p>
-            <p style={{ fontSize: 12, fontWeight: 600, color: "#374151", margin: "2px 0 0" }}>{data.generatedAt}</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ textAlign: "right" }}>
+              <p style={{ fontSize: 10, color: "#6B7280", margin: 0, textTransform: "uppercase", letterSpacing: "0.08em" }}>Prepared for</p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: "#111827", margin: "2px 0 0" }}>{brand.companyName}</p>
+              <p style={{ fontSize: 10, color: "#9CA3AF", margin: "2px 0 0" }}>{data.generatedAt}</p>
+            </div>
+            {brand.logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={brand.logoUrl} alt={brand.companyName} style={{ width: 40, height: 40, borderRadius: 8, objectFit: "contain", background: "#fff", border: "1px solid #E5E7EB" }} />
+            )}
           </div>
         </div>
 
@@ -394,7 +402,11 @@ export default async function ReportsPrintPage() {
 
         {/* ── Footer ── */}
         <div style={{ paddingTop: 16, borderTop: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <p style={{ fontSize: 10, color: "#9CA3AF", margin: 0 }}>{brand.companyName} · Confidential · Powered by GrowthAI</p>
+          <p style={{ fontSize: 10, color: "#9CA3AF", margin: 0 }}>
+            GrowthAI Sales Engine · SWL Consulting · Confidential
+            <span style={{ color: "#D1D5DB", margin: "0 6px" }}>·</span>
+            Prepared for {brand.companyName}
+          </p>
           <p style={{ fontSize: 10, color: "#9CA3AF", margin: 0 }}>{data.generatedAt}</p>
         </div>
 

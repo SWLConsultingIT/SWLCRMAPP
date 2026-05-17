@@ -9,6 +9,7 @@ import DashboardHero from "@/components/DashboardHero";
 import DashboardStats from "@/components/DashboardStats";
 import DashboardTabs from "@/components/DashboardTabs";
 import DashboardFilters from "@/components/DashboardFilters";
+import CollapsibleCard from "@/components/CollapsibleCard";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
 import ReportsPage from "@/app/reports/page";
 
@@ -437,16 +438,15 @@ export default async function DashboardPage({
           {/* Two-thirds Active Campaigns (operational priority) + one-third
               Recent Replies (reactive). On narrow screens the grid collapses
               to a single column so the campaigns table always reads first. */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             {/* Active Campaigns (2/3) */}
-            <div className="lg:col-span-2 rounded-xl border overflow-hidden card-shadow" style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
-                <div>
-                  <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Active Campaigns</h2>
-                  <p className="text-[10px] mt-0.5" style={{ color: C.textMuted }}>{data.activeCampaignCount} active across {data.topCampaigns.length} campaigns</p>
-                </div>
-                <Link href="/leads" className="text-[10px] font-semibold hover:underline" style={{ color: gold }}>View all</Link>
-              </div>
+            <div className="lg:col-span-2">
+            <CollapsibleCard
+              title="Active Campaigns"
+              description={`${data.activeCampaignCount} active across ${data.topCampaigns.length} campaigns`}
+              storageKey="live.activeCampaigns"
+              rightSlot={<Link href="/leads" className="text-[10px] font-semibold hover:underline" style={{ color: gold }}>View all</Link>}
+            >
               {data.topCampaigns.length === 0 ? (
                 <div className="px-5 py-10 text-center">
                   <p className="text-sm" style={{ color: C.textDim }}>No active campaigns</p>
@@ -485,17 +485,16 @@ export default async function DashboardPage({
                   </Link>
                 ))
               )}
+            </CollapsibleCard>
             </div>
 
             {/* Recent Replies (1/3 sidebar) */}
-            <div className="rounded-xl border overflow-hidden card-shadow" style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
-                <div>
-                  <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Recent Replies</h2>
-                  <p className="text-[10px] mt-0.5" style={{ color: C.textMuted }}>Latest responses</p>
-                </div>
-                <Link href="/queue" className="text-[10px] font-semibold hover:underline" style={{ color: gold }}>Queue</Link>
-              </div>
+            <CollapsibleCard
+              title="Recent Replies"
+              description="Latest responses"
+              storageKey="live.recentReplies"
+              rightSlot={<Link href="/queue" className="text-[10px] font-semibold hover:underline" style={{ color: gold }}>Queue</Link>}
+            >
               {data.recentReplies.length === 0 ? (
                 <div className="px-5 py-10 text-center">
                   <p className="text-sm" style={{ color: C.textDim }}>No replies yet</p>
@@ -534,7 +533,7 @@ export default async function DashboardPage({
                   );
                 })
               )}
-            </div>
+            </CollapsibleCard>
           </div>
         </div>
 
