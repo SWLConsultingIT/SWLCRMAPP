@@ -293,6 +293,11 @@ export default async function ReportsPage({
     icpIds: split(get("icps")),
   };
   const data = await getReportData(filters);
+  // Leader board precompute outside JSX so the conditional render isn't an
+  // IIFE inside the tree (avoids any chance of a React/RSC quirk and makes
+  // the "leader" reference safe to use in JSX without optional chaining).
+  const sellers = data.sellerPerformance ?? [];
+  const leaderPositive = sellers.length > 0 ? Math.max(...sellers.map(s => s.positive ?? 0), 1) : 1;
 
   return (
     <div className="p-6">
@@ -498,19 +503,16 @@ export default async function ReportsPage({
               </h2>
               <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Ranked by positive replies — ties broken by response rate</p>
             </div>
-            {data.sellerPerformance.length > 1 && (
+            {sellers.length > 1 && (
               <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-                {data.sellerPerformance.length} sellers
+                {sellers.length} sellers
               </span>
             )}
           </div>
-          {data.sellerPerformance.length === 0 ? (
+          {sellers.length === 0 ? (
             <div className="px-5 py-10 text-center"><p className="text-sm" style={{ color: C.textDim }}>No seller data yet</p></div>
-          ) : (() => {
-            // Leader = max positive count; gap shown as bar width relative to leader.
-            const leader = Math.max(...data.sellerPerformance.map(s => s.positive), 1);
-            return (
-              <div className="max-h-[480px] overflow-y-auto">
+          ) : (
+            <div className="max-h-[480px] overflow-y-auto">
               <table className="w-full text-left">
                 <thead className="sticky top-0 z-10" style={{ backgroundColor: C.bg, boxShadow: `0 1px 0 ${C.border}` }}>
                   <tr>
@@ -523,10 +525,12 @@ export default async function ReportsPage({
                   </tr>
                 </thead>
                 <tbody>
-                  {data.sellerPerformance.map((s, i) => {
+                  {sellers.map((s, i) => {
                     const isLeader = i === 0;
-                    const gapPct = leader > 0 ? Math.round((s.positive / leader) * 100) : 0;
-                    const initials = s.name.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase();
+                    const positive = s.positive ?? 0;
+                    const gapPct = leaderPositive > 0 ? Math.round((positive / leaderPositive) * 100) : 0;
+                    const nameStr = s.name ?? "Unassigned";
+                    const initials = nameStr.split(" ").map(w => w[0] ?? "").slice(0, 2).join("").toUpperCase() || "?";
                     return (
                       <tr
                         key={s.name}
@@ -557,16 +561,16 @@ export default async function ReportsPage({
                             </div>
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-semibold truncate" style={{ color: C.textPrimary }}>{s.name}</span>
+                                <span className="text-xs font-semibold truncate" style={{ color: C.textPrimary }}>{nameStr}</span>
                                 {isLeader && <Trophy size={10} style={{ color: gold }} />}
                               </div>
-                              <p className="text-[10px]" style={{ color: C.textDim }}>{s.contacted} contacted</p>
+                              <p className="text-[10px]" style={{ color: C.textDim }}>{s.contacted ?? 0} contacted</p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-3 py-3 text-center text-xs font-semibold tabular-nums" style={{ color: C.green }}>{s.active}</td>
-                        <td className="px-3 py-3 text-center text-xs font-semibold tabular-nums" style={{ color: C.blue }}>{s.replied}</td>
-                        <td className="px-3 py-3 text-center text-xs font-bold tabular-nums" style={{ color: C.green }}>{s.conversionRate}%</td>
+                        <td className="px-3 py-3 text-center text-xs font-semibold tabular-nums" style={{ color: C.green }}>{s.active ?? 0}</td>
+                        <td className="px-3 py-3 text-center text-xs font-semibold tabular-nums" style={{ color: C.blue }}>{s.replied ?? 0}</td>
+                        <td className="px-3 py-3 text-center text-xs font-bold tabular-nums" style={{ color: C.green }}>{s.conversionRate ?? 0}%</td>
                         <td className="px-3 py-3 pr-5">
                           <div className="flex items-center gap-2">
                             <div className="flex-1 h-2 rounded-full" style={{ backgroundColor: C.border, minWidth: 60 }}>
@@ -576,7 +580,7 @@ export default async function ReportsPage({
                               }} />
                             </div>
                             <span className="text-xs font-bold tabular-nums shrink-0" style={{ color: isLeader ? gold : C.textBody, minWidth: 24, textAlign: "right" }}>
-                              {s.positive}
+                              {positive}
                             </span>
                           </div>
                         </td>
@@ -585,9 +589,8 @@ export default async function ReportsPage({
                   })}
                 </tbody>
               </table>
-              </div>
-            );
-          })()}
+            </div>
+          )}
         </div>
 
         {/* Forecast */}

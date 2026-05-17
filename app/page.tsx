@@ -75,34 +75,47 @@ async function getDashboardData(filters: DashboardFilterValues) {
   const fromIso = filters.from ? new Date(`${filters.from}T00:00:00Z`).toISOString() : weekAgo;
   const toIso = filters.to ? new Date(`${filters.to}T23:59:59Z`).toISOString() : null;
 
-  // Pre-resolve campaign IDs from the requested campaign names so subsequent
-  // counts can use `.in("campaign_id", ids)` without an extra join layer.
-  // `q` is typed as any: branching the select() string yields divergent inner-
-  // join shapes that the supabase-js inferred type can't reconcile, and the
-  // narrowing is irrelevant — we only read `id` off the row.
+  // Pre-resolve the lead/campaign scope from any "dimension" filter (campaign,
+  // seller, ICP). The Live KPIs are mostly counts on the `leads` table — to
+  // make them respect a campaign or seller selection we need lead IDs that
+  // match the chosen campaigns/sellers. ICP is already a column on `leads`
+  // (no join needed) so it's threaded directly into the leaf queries below.
+  //
+  // The resolver runs in ONE query, returning campaign IDs + lead IDs at once.
+  // Sentinel `["__none__"]` is used when filters intersect to zero rows so
+  // downstream `.in()` still narrows to an empty set instead of falling back
+  // to "unfiltered" semantics.
   let campaignIdsForFilter: string[] | null = null;
-  if (filters.campaignNames.length > 0) {
+  let leadIdsForFilter: string[] | null = null;
+  const needsCampaignResolve = filters.campaignNames.length > 0 || filters.sellerIds.length > 0;
+  if (needsCampaignResolve) {
     const selectCols = filters.icpIds.length > 0
-      ? "id, leads!inner(company_bio_id, icp_profile_id)"
-      : "id, leads!inner(company_bio_id)";
-    let q: any = supabase.from("campaigns").select(selectCols).in("name", filters.campaignNames);
+      ? "id, lead_id, leads!inner(company_bio_id, icp_profile_id)"
+      : "id, lead_id, leads!inner(company_bio_id)";
+    let q: any = supabase.from("campaigns").select(selectCols);
     if (bioId) q = q.eq("leads.company_bio_id", bioId);
+    if (filters.campaignNames.length > 0) q = q.in("name", filters.campaignNames);
     if (filters.sellerIds.length > 0) q = q.in("seller_id", filters.sellerIds);
     if (filters.icpIds.length > 0) q = q.in("leads.icp_profile_id", filters.icpIds);
     const { data } = await q;
-    const ids = (data ?? []).map((c: { id: string }) => c.id);
-    campaignIdsForFilter = ids.length > 0 ? ids : ["__none__"]; // sentinel: zero results
+    const rows = (data ?? []) as Array<{ id: string; lead_id: string | null }>;
+    const cIds = rows.map(r => r.id);
+    const lIds = Array.from(new Set(rows.map(r => r.lead_id).filter((x): x is string => !!x)));
+    campaignIdsForFilter = cIds.length > 0 ? cIds : ["__none__"];
+    leadIdsForFilter = lIds.length > 0 ? lIds : ["__none__"];
   }
 
-  // Leads scope: direct eq on company_bio_id. ICP + date filters apply too —
-  // alert counts (pending review etc.) stay unfiltered below because those are
-  // operational signals that should remain visible regardless of the view.
+  // Leads scope: ICP + date filters apply directly; campaign/seller filters
+  // come through `leadIdsForFilter` resolved above so the count actually drops
+  // when the user picks a slice. Alert counters stay unfiltered (operational
+  // signals must remain visible no matter the view).
   let leadsCountQ = bioId
     ? supabase.from("leads").select("*", { count: "exact", head: true }).eq("company_bio_id", bioId)
     : supabase.from("leads").select("*", { count: "exact", head: true });
   if (filters.icpIds.length > 0) leadsCountQ = leadsCountQ.in("icp_profile_id", filters.icpIds);
   if (filters.from) leadsCountQ = leadsCountQ.gte("created_at", fromIso);
   if (toIso) leadsCountQ = leadsCountQ.lte("created_at", toIso);
+  if (leadIdsForFilter) leadsCountQ = leadsCountQ.in("id", leadIdsForFilter);
 
   let activeCampsQ = bioId
     ? supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, last_step_at, leads!inner(company_bio_id, icp_profile_id)").eq("leads.company_bio_id", bioId).in("status", ["active", "paused"])
@@ -117,6 +130,7 @@ async function getDashboardData(filters: DashboardFilterValues) {
   if (filters.icpIds.length > 0) transferredQ = transferredQ.in("icp_profile_id", filters.icpIds);
   if (filters.from) transferredQ = transferredQ.gte("transferred_to_odoo_at", fromIso);
   if (toIso) transferredQ = transferredQ.lte("transferred_to_odoo_at", toIso);
+  if (leadIdsForFilter) transferredQ = transferredQ.in("id", leadIdsForFilter);
 
   const pendingReviewRepliesQ = bioId
     ? supabase.from("lead_replies").select("*, leads!inner(company_bio_id)", { count: "exact", head: true }).eq("leads.company_bio_id", bioId).eq("requires_human_review", true).eq("review_status", "pending")
@@ -169,11 +183,13 @@ async function getDashboardData(filters: DashboardFilterValues) {
     ? supabase.from("leads").select("created_at, transferred_to_odoo_at").eq("company_bio_id", bioId).gte("created_at", twoWeeksAgo)
     : supabase.from("leads").select("created_at, transferred_to_odoo_at").gte("created_at", twoWeeksAgo);
   if (filters.icpIds.length > 0) leadTrendQ = leadTrendQ.in("icp_profile_id", filters.icpIds);
+  if (leadIdsForFilter) leadTrendQ = leadTrendQ.in("id", leadIdsForFilter);
 
   let transferTrendQ = bioId
     ? supabase.from("leads").select("transferred_to_odoo_at").eq("company_bio_id", bioId).gte("transferred_to_odoo_at", twoWeeksAgo)
     : supabase.from("leads").select("transferred_to_odoo_at").gte("transferred_to_odoo_at", twoWeeksAgo);
   if (filters.icpIds.length > 0) transferTrendQ = transferTrendQ.in("icp_profile_id", filters.icpIds);
+  if (leadIdsForFilter) transferTrendQ = transferTrendQ.in("id", leadIdsForFilter);
 
   let replyTrendQ = bioId
     ? supabase.from("lead_replies").select("received_at, classification, leads!inner(company_bio_id, icp_profile_id), campaign_id").eq("leads.company_bio_id", bioId).gte("received_at", twoWeeksAgo)
