@@ -9,7 +9,15 @@ import PageHero from "@/components/PageHero";
 
 const gold = "var(--brand, #c9a83a)";
 
-async function getReportData() {
+type ReportFilters = {
+  from: string | null;
+  to: string | null;
+  campaignNames: string[];
+  sellerIds: string[];
+  icpIds: string[];
+};
+
+async function getReportData(filters: ReportFilters) {
   const supabase = await getSupabaseServer();
   const scope = await getUserScope();
   const bioId = scope.isScoped ? scope.companyBioId! : null;
@@ -37,10 +45,44 @@ async function getReportData() {
     bioId ? sellersQ.eq("company_bio_id", bioId) : sellersQ,
   ]) as any;
 
-  const leads = allLeads ?? [];
-  const campaigns = allCampaigns ?? [];
-  const replies = allReplies ?? [];
-  const messages = allMessages ?? [];
+  // In-memory filtering: this page already pulls all tenant rows for
+  // aggregation, so applying date / campaign / seller / ICP filters here
+  // costs one extra pass instead of a redesign of every group-by.
+  const fromMs = filters.from ? new Date(`${filters.from}T00:00:00Z`).getTime() : null;
+  const toMs   = filters.to   ? new Date(`${filters.to}T23:59:59Z`).getTime()   : null;
+  const campSet = filters.campaignNames.length > 0 ? new Set(filters.campaignNames) : null;
+  const sellerSet = filters.sellerIds.length > 0 ? new Set(filters.sellerIds) : null;
+  const icpSet = filters.icpIds.length > 0 ? new Set(filters.icpIds) : null;
+
+  const leads = (allLeads ?? []).filter((l: any) => {
+    if (icpSet && !icpSet.has(l.icp_profile_id)) return false;
+    if (fromMs && new Date(l.created_at).getTime() < fromMs) return false;
+    if (toMs   && new Date(l.created_at).getTime() > toMs)   return false;
+    return true;
+  });
+  const leadIdSet = new Set(leads.map((l: any) => l.id));
+
+  const campaigns = (allCampaigns ?? []).filter((c: any) => {
+    if (campSet && !campSet.has(c.name)) return false;
+    if (sellerSet && !sellerSet.has(c.seller_id)) return false;
+    if (icpSet && c.lead_id && !leadIdSet.has(c.lead_id)) return false; // narrow via leads filter
+    return true;
+  });
+  const campaignIdSet = new Set(campaigns.map((c: any) => c.id));
+
+  const replies = (allReplies ?? []).filter((r: any) => {
+    if (fromMs && new Date(r.received_at).getTime() < fromMs) return false;
+    if (toMs   && new Date(r.received_at).getTime() > toMs)   return false;
+    if (icpSet && r.lead_id && !leadIdSet.has(r.lead_id)) return false;
+    if ((campSet || sellerSet) && r.campaign_id && !campaignIdSet.has(r.campaign_id)) return false;
+    return true;
+  });
+  const messages = (allMessages ?? []).filter((m: any) => {
+    if (fromMs && m.sent_at && new Date(m.sent_at).getTime() < fromMs) return false;
+    if (toMs   && m.sent_at && new Date(m.sent_at).getTime() > toMs)   return false;
+    if ((campSet || sellerSet || icpSet) && m.campaign_id && !campaignIdSet.has(m.campaign_id)) return false;
+    return true;
+  });
   const profiles = allProfiles ?? [];
 
   const profileMap: Record<string, string> = {};
@@ -244,8 +286,20 @@ const classColors: Record<string, { color: string; label: string }> = {
   unclassified:   { color: C.textMuted, label: "Unclassified" },
 };
 
-export default async function ReportsPage() {
-  const data = await getReportData();
+export default async function ReportsPage({
+  searchParams,
+}: { searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
+  const sp = searchParams ? await searchParams : {};
+  const get = (k: string) => (Array.isArray(sp[k]) ? (sp[k] as string[])[0] : sp[k]) as string | undefined;
+  const split = (v: string | undefined) => (v ?? "").split(",").map(s => s.trim()).filter(Boolean);
+  const filters: ReportFilters = {
+    from: get("from") ?? null,
+    to: get("to") ?? null,
+    campaignNames: split(get("campaigns")),
+    sellerIds: split(get("sellers")),
+    icpIds: split(get("icps")),
+  };
+  const data = await getReportData(filters);
 
   const maxWeeklyReplies = Math.max(...data.weeklyReplies.map(w => w.replies), 1);
 

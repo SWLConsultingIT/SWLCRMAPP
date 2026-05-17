@@ -1,4 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import { redirect } from "next/navigation";
 import { C } from "@/lib/design";
@@ -7,8 +8,29 @@ import Link from "next/link";
 import DashboardHero from "@/components/DashboardHero";
 import DashboardStats from "@/components/DashboardStats";
 import DashboardTabs from "@/components/DashboardTabs";
+import DashboardFilters from "@/components/DashboardFilters";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
 import ReportsPage from "@/app/reports/page";
+
+export type DashboardFilterValues = {
+  from: string | null;       // ISO date "YYYY-MM-DD"
+  to: string | null;
+  campaignNames: string[];   // filter by campaign.name (groups of leads share a name)
+  sellerIds: string[];
+  icpIds: string[];
+};
+
+function parseFilters(sp: Record<string, string | string[] | undefined>): DashboardFilterValues {
+  const get = (k: string) => (Array.isArray(sp[k]) ? (sp[k] as string[])[0] : sp[k]) as string | undefined;
+  const split = (v: string | undefined) => (v ?? "").split(",").map(s => s.trim()).filter(Boolean);
+  return {
+    from: get("from") ?? null,
+    to: get("to") ?? null,
+    campaignNames: split(get("campaigns")),
+    sellerIds: split(get("sellers")),
+    icpIds: split(get("icps")),
+  };
+}
 
 // Skip the static-or-PPR optimization attempt — this page is fully
 // user-scoped (counts vary per tenant) so static gen is wasted work
@@ -39,29 +61,62 @@ function timeAgo(iso: string) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-async function getDashboardData() {
+async function getDashboardData(filters: DashboardFilterValues) {
   const supabase = await getSupabaseServer();
-  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
   const scope = await getUserScope();
   const bioId = scope.isScoped ? scope.companyBioId! : null;
 
-  // Leads scope: direct eq on company_bio_id
-  const leadsCountQ = bioId
+  // Date window: explicit `from` / `to` overrides the default 7-day reply
+  // window so KPI cards and "recent replies" both honour the same range.
+  // `to` is treated as inclusive — anything sent that calendar day counts.
+  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+  const fromIso = filters.from ? new Date(`${filters.from}T00:00:00Z`).toISOString() : weekAgo;
+  const toIso = filters.to ? new Date(`${filters.to}T23:59:59Z`).toISOString() : null;
+
+  // Pre-resolve campaign IDs from the requested campaign names so subsequent
+  // counts can use `.in("campaign_id", ids)` without an extra join layer.
+  let campaignIdsForFilter: string[] | null = null;
+  if (filters.campaignNames.length > 0) {
+    let q = supabase.from("campaigns").select("id, leads!inner(company_bio_id)").in("name", filters.campaignNames);
+    if (bioId) q = q.eq("leads.company_bio_id", bioId);
+    if (filters.sellerIds.length > 0) q = q.in("seller_id", filters.sellerIds);
+    if (filters.icpIds.length > 0) {
+      q = supabase
+        .from("campaigns")
+        .select("id, leads!inner(company_bio_id, icp_profile_id)")
+        .in("name", filters.campaignNames)
+        .in("leads.icp_profile_id", filters.icpIds);
+      if (bioId) q = q.eq("leads.company_bio_id", bioId);
+      if (filters.sellerIds.length > 0) q = q.in("seller_id", filters.sellerIds);
+    }
+    const { data } = await q;
+    campaignIdsForFilter = (data ?? []).map((c: { id: string }) => c.id);
+    if (campaignIdsForFilter.length === 0) campaignIdsForFilter = ["__none__"]; // sentinel: zero results
+  }
+
+  // Leads scope: direct eq on company_bio_id. ICP + date filters apply too —
+  // alert counts (pending review etc.) stay unfiltered below because those are
+  // operational signals that should remain visible regardless of the view.
+  let leadsCountQ = bioId
     ? supabase.from("leads").select("*", { count: "exact", head: true }).eq("company_bio_id", bioId)
     : supabase.from("leads").select("*", { count: "exact", head: true });
+  if (filters.icpIds.length > 0) leadsCountQ = leadsCountQ.in("icp_profile_id", filters.icpIds);
+  if (filters.from) leadsCountQ = leadsCountQ.gte("created_at", fromIso);
+  if (toIso) leadsCountQ = leadsCountQ.lte("created_at", toIso);
 
-  const activeCampsQ = bioId
-    ? supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, last_step_at, leads!inner(company_bio_id)").eq("leads.company_bio_id", bioId).in("status", ["active", "paused"])
-    : supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, last_step_at").in("status", ["active", "paused"]);
+  let activeCampsQ = bioId
+    ? supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, last_step_at, leads!inner(company_bio_id, icp_profile_id)").eq("leads.company_bio_id", bioId).in("status", ["active", "paused"])
+    : supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, last_step_at, leads(icp_profile_id)").in("status", ["active", "paused"]);
+  if (filters.campaignNames.length > 0) activeCampsQ = activeCampsQ.in("name", filters.campaignNames);
+  if (filters.sellerIds.length > 0) activeCampsQ = activeCampsQ.in("seller_id", filters.sellerIds);
+  if (filters.icpIds.length > 0) activeCampsQ = activeCampsQ.in("leads.icp_profile_id", filters.icpIds);
 
-  // weekReplies + recentReplies were two separate queries hitting the same
-  // table with the same date filter — merged into a single fetch below.
-  // (`mergedRepliesQ` further down.) We derive `weekPositive` count and the
-  // 8 most-recent rows from the same payload — 1 round-trip instead of 2.
-
-  const transferredQ = bioId
+  let transferredQ = bioId
     ? supabase.from("leads").select("*", { count: "exact", head: true }).eq("company_bio_id", bioId).not("transferred_to_odoo_at", "is", null)
     : supabase.from("leads").select("*", { count: "exact", head: true }).not("transferred_to_odoo_at", "is", null);
+  if (filters.icpIds.length > 0) transferredQ = transferredQ.in("icp_profile_id", filters.icpIds);
+  if (filters.from) transferredQ = transferredQ.gte("transferred_to_odoo_at", fromIso);
+  if (toIso) transferredQ = transferredQ.lte("transferred_to_odoo_at", toIso);
 
   const pendingReviewRepliesQ = bioId
     ? supabase.from("lead_replies").select("*, leads!inner(company_bio_id)", { count: "exact", head: true }).eq("leads.company_bio_id", bioId).eq("requires_human_review", true).eq("review_status", "pending")
@@ -84,23 +139,25 @@ async function getDashboardData() {
         .eq("icp_profiles.company_bio_id", bioId)
     : supabase.from("campaign_requests").select("*", { count: "exact", head: true }).eq("status", "pending_review");
 
-  // Merged replies query: pull last-7d rows with all columns the recent-replies
-  // widget needs. weekPositive counter + recent list are derived from this
-  // array in memory — 1 query instead of the prior 2. We cap at 200 rows so a
-  // tenant with sudden inbox explosions doesn't pull thousands; the UI only
-  // shows the top 8 and the counter accuracy past 200 is non-load-bearing.
-  const mergedRepliesQ = bioId
+  // Merged replies query: pull date-windowed rows for the widget. The default
+  // window is 7d; an explicit `from` overrides it. weekPositive + recent are
+  // both derived from this single payload. 200-row cap defends against inbox
+  // explosions; widget shows top 8 and downstream counters tolerate the trim.
+  let mergedRepliesQ = bioId
     ? supabase.from("lead_replies")
-        .select("id, lead_id, classification, channel, reply_text, received_at, leads!inner(primary_first_name, primary_last_name, company_name, company_bio_id), campaigns(name)")
+        .select("id, lead_id, classification, channel, reply_text, received_at, campaign_id, leads!inner(primary_first_name, primary_last_name, company_name, company_bio_id, icp_profile_id), campaigns(name)")
         .eq("leads.company_bio_id", bioId)
-        .gte("received_at", weekAgo)
+        .gte("received_at", fromIso)
         .order("received_at", { ascending: false })
         .limit(200)
     : supabase.from("lead_replies")
-        .select("id, lead_id, classification, channel, reply_text, received_at, leads(primary_first_name, primary_last_name, company_name), campaigns(name)")
-        .gte("received_at", weekAgo)
+        .select("id, lead_id, classification, channel, reply_text, received_at, campaign_id, leads(primary_first_name, primary_last_name, company_name, icp_profile_id), campaigns(name)")
+        .gte("received_at", fromIso)
         .order("received_at", { ascending: false })
         .limit(200);
+  if (toIso) mergedRepliesQ = mergedRepliesQ.lte("received_at", toIso);
+  if (filters.icpIds.length > 0) mergedRepliesQ = mergedRepliesQ.in("leads.icp_profile_id", filters.icpIds);
+  if (campaignIdsForFilter) mergedRepliesQ = mergedRepliesQ.in("campaign_id", campaignIdsForFilter);
 
   const [
     { count: totalLeads },
@@ -189,7 +246,34 @@ async function getDashboardData() {
   };
 }
 
-export default async function DashboardPage() {
+async function getFilterOptions(bioId: string | null) {
+  // Distinct campaign names + active sellers + approved ICPs for the dropdowns.
+  // Service role bypasses RLS so the listings are consistent regardless of the
+  // caller's tier (Arqy user vs SWL super_admin); company_bio_id still gates
+  // the rows we surface.
+  const svc = getSupabaseService();
+  const campsQ = bioId
+    ? svc.from("campaigns").select("name, leads!inner(company_bio_id)").eq("leads.company_bio_id", bioId)
+    : svc.from("campaigns").select("name");
+  const sellersQ = bioId
+    ? svc.from("sellers").select("id, name").or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`).eq("active", true).order("name")
+    : svc.from("sellers").select("id, name").eq("active", true).order("name");
+  const icpsQ = bioId
+    ? svc.from("icp_profiles").select("id, profile_name").eq("company_bio_id", bioId).order("profile_name")
+    : svc.from("icp_profiles").select("id, profile_name").order("profile_name");
+
+  const [{ data: camps }, { data: sellers }, { data: icps }] = await Promise.all([campsQ, sellersQ, icpsQ]);
+  const uniqueNames = Array.from(new Set((camps ?? []).map((c: { name: string }) => c.name).filter(Boolean))).sort();
+  return {
+    campaigns: uniqueNames.map(n => ({ id: n, label: n })),
+    sellers: (sellers ?? []).map((s: { id: string; name: string }) => ({ id: s.id, label: s.name })),
+    icps: (icps ?? []).map((p: { id: string; profile_name: string }) => ({ id: p.id, label: p.profile_name })),
+  };
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   // Force new clients through onboarding if they haven't completed company_bio yet.
   const scope = await getUserScope();
   // super_admin (SWL ops) doesn't need a tenant — they operate cross-tenant.
@@ -199,12 +283,20 @@ export default async function DashboardPage() {
     redirect("/onboarding");
   }
 
-  const data = await getDashboardData();
+  const sp = await searchParams;
+  const filters = parseFilters(sp);
+  const bioId = scope.isScoped ? scope.companyBioId! : null;
+  const [data, options] = await Promise.all([
+    getDashboardData(filters),
+    getFilterOptions(bioId),
+  ]);
 
   return (
     <div className="p-4 sm:p-6 w-full">
       <ReliabilityBanner />
       <DashboardHero />
+
+      <DashboardFilters campaigns={options.campaigns} sellers={options.sellers} icps={options.icps} />
 
       <DashboardTabs>
         {/* ═══ TAB 0: OVERVIEW ═══ */}
@@ -333,7 +425,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* ═══ TAB 1: REPORTS ═══ */}
-        <ReportsPage />
+        <ReportsPage searchParams={Promise.resolve(sp)} />
       </DashboardTabs>
     </div>
   );
