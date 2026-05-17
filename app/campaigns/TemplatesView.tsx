@@ -333,14 +333,19 @@ export default function TemplatesView() {
             const collapsed = collapsedSections[group.key] ?? false;
             const isOrphan = group.isOrphan;
             return (
-              <div key={group.key} className="rounded-xl border overflow-hidden"
+              // overflow-visible (not hidden): the row-action dropdown needs
+              // to escape the section box. Header button gets explicit
+              // rounded-t corners so its hover bg still respects the card
+              // shape; bottom rows are subtle enough that the missing clip
+              // isn't visible.
+              <div key={group.key} className="rounded-xl border"
                 style={{
                   backgroundColor: C.card,
                   borderColor: isOrphan ? "#FBBF2440" : C.border,
                   boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
                 }}>
                 <button onClick={() => toggleSection(group.key)}
-                  className="w-full px-4 py-3 flex items-center gap-2 text-left transition-colors hover:bg-black/[0.02]"
+                  className="w-full px-4 py-3 flex items-center gap-2 text-left transition-colors hover:bg-black/[0.02] rounded-t-xl"
                   style={{ borderBottom: collapsed ? "none" : `1px solid ${C.border}` }}>
                   {collapsed ? <ChevronRight size={14} style={{ color: C.textMuted }} /> : <ChevronDown size={14} style={{ color: C.textMuted }} />}
                   {isOrphan && <AlertCircle size={13} style={{ color: "#D97706" }} />}
