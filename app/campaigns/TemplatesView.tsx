@@ -427,9 +427,11 @@ function TemplateRow({
   return (
     <div className="px-4 py-3 flex items-start gap-4 transition-colors hover:bg-black/[0.015]"
       style={{ borderTop: "1px solid transparent" }}>
-      <div className="flex-1 min-w-0">
+      <Link href={`/campaigns/templates/${t.id}`}
+        className="flex-1 min-w-0 group"
+        style={{ textDecoration: "none" }}>
         <div className="flex items-center gap-2 flex-wrap mb-1">
-          <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t.name}</p>
+          <p className="text-sm font-semibold group-hover:underline" style={{ color: C.textPrimary }}>{t.name}</p>
           {t.channels.map(ch => <ChannelChip key={ch} ch={ch} />)}
           {t.tags.slice(0, 3).map(tag => (
             <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded"
@@ -444,7 +446,7 @@ function TemplateRow({
         <p className="text-[10px]" style={{ color: C.textDim }}>
           Used {t.usage_count}× · Last {timeAgo(t.last_used_at)}
         </p>
-      </div>
+      </Link>
       <div className="flex items-center gap-1 shrink-0 relative">
         {showAssignAsMain ? (
           <div className="relative" onClick={e => e.stopPropagation()}>
