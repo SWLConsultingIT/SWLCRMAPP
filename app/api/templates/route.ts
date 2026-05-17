@@ -38,6 +38,8 @@ type SaveFromScratchBody = {
   tone_custom_notes?: string;
   rewrite_mode?: "verbatim" | "personalize" | "rewrite_with_source";
   voice_anchor_seller_id?: string | null;
+  // Migration 026 — required for new templates (validated below).
+  icp_profile_id?: string;
 };
 
 type SaveBody = SaveFromCampaignBody | SaveFromScratchBody;
@@ -53,13 +55,18 @@ export async function GET(req: NextRequest) {
   const searchQ = url.searchParams.get("q")?.trim() ?? "";
   const channel = url.searchParams.get("channel")?.trim();
 
+  // icp_id query filter: when set, only return templates for that ICP.
+  // "needs_icp" sentinel returns templates with NULL icp_profile_id so the
+  // TemplatesView can surface a "Needs ICP" bucket.
+  const icpId = url.searchParams.get("icp_id")?.trim();
+
   let q = svc
     .from("campaign_templates")
-    .select("id, name, description, channels, tags, usage_count, last_used_at, created_at, updated_at")
+    .select("id, name, description, channels, tags, usage_count, last_used_at, created_at, updated_at, icp_profile_id, tone_preset, rewrite_mode")
     .eq("company_bio_id", scope.companyBioId)
     .order("usage_count", { ascending: false })
     .order("updated_at", { ascending: false })
-    .limit(100);
+    .limit(500);
 
   if (searchQ.length > 0) {
     // ilike on name OR description. PostgREST or/ilike compose.
@@ -67,6 +74,11 @@ export async function GET(req: NextRequest) {
   }
   if (channel) {
     q = q.contains("channels", [channel]);
+  }
+  if (icpId === "needs_icp") {
+    q = q.is("icp_profile_id", null);
+  } else if (icpId) {
+    q = q.eq("icp_profile_id", icpId);
   }
 
   const { data, error } = await q;
@@ -99,6 +111,22 @@ export async function POST(req: NextRequest) {
     if (!fs.step_messages || typeof fs.step_messages !== "object") {
       return NextResponse.json({ error: "step_messages is required" }, { status: 400 });
     }
+    // New templates must declare which ICP they target. Legacy templates
+    // (created pre-migration-026) are allowed to be NULL and surface in the
+    // "Needs ICP" bucket — but the wizard never sends a NULL for new ones.
+    if (!fs.icp_profile_id) {
+      return NextResponse.json({ error: "icp_profile_id is required — templates must target a specific ICP" }, { status: 400 });
+    }
+    // Verify the ICP belongs to this tenant (defence in depth — RLS would
+    // catch a cross-tenant FK violation but a 400 with a clear message is
+    // friendlier than a 500 from a constraint).
+    {
+      const { data: ownIcp } = await svc
+        .from("icp_profiles").select("id").eq("id", fs.icp_profile_id).eq("company_bio_id", scope.companyBioId).maybeSingle();
+      if (!ownIcp) {
+        return NextResponse.json({ error: "icp_profile_id not found in this tenant" }, { status: 400 });
+      }
+    }
 
     const channels = Array.isArray(fs.channels) && fs.channels.length > 0
       ? fs.channels
@@ -123,6 +151,7 @@ export async function POST(req: NextRequest) {
     if (fs.tone_custom_notes) insertRow.tone_custom_notes = fs.tone_custom_notes.slice(0, 1500);
     if (fs.rewrite_mode) insertRow.rewrite_mode = fs.rewrite_mode;
     if (fs.voice_anchor_seller_id !== undefined) insertRow.voice_anchor_seller_id = fs.voice_anchor_seller_id;
+    insertRow.icp_profile_id = fs.icp_profile_id;
 
     const { data: created, error: insErr } = await svc
       .from("campaign_templates")

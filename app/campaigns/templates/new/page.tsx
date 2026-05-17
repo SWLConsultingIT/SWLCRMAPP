@@ -131,6 +131,12 @@ export default function NewTemplatePage() {
   const [voiceAnchor, setVoiceAnchor] = useState<string | null>(null);
   const [voiceOptions, setVoiceOptions] = useState<Array<{ id: string; name: string }>>([]);
 
+  // ── ICP target (required for new templates) ────────────────────────────
+  // Loaded once at mount. Picking an ICP gates the source picker — you can't
+  // generate / import / start a template without knowing what it targets.
+  const [icpProfileId, setIcpProfileId] = useState<string | null>(null);
+  const [icpOptions, setIcpOptions] = useState<Array<{ id: string; profile_name: string }>>([]);
+
   // ── PDF source state ───────────────────────────────────────────────────
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [generating, setGenerating] = useState(false);
@@ -169,6 +175,17 @@ export default function NewTemplatePage() {
       .catch(() => setVoiceOptions([]));
   }, []);
 
+  // ICPs of the current tenant — populates the required picker in Step 1.
+  useEffect(() => {
+    fetch("/api/icp?status=approved", { cache: "no-store" })
+      .then(r => r.ok ? r.json() : { icps: [] })
+      .then(d => {
+        const list = Array.isArray(d.icps) ? d.icps : Array.isArray(d) ? d : [];
+        setIcpOptions(list.map((i: any) => ({ id: i.id, profile_name: i.profile_name ?? i.name ?? "Untitled ICP" })));
+      })
+      .catch(() => setIcpOptions([]));
+  }, []);
+
   // Carry tone/rewrite/voice from an imported template so the wizard reflects
   // what the source template captured. Otherwise defaults stand.
   function applyImportedSettings(tpl: any) {
@@ -176,6 +193,9 @@ export default function NewTemplatePage() {
     if (typeof tpl.tone_custom_notes === "string") setToneCustom(tpl.tone_custom_notes);
     if (tpl.rewrite_mode) setRewriteMode(tpl.rewrite_mode);
     if (tpl.voice_anchor_seller_id !== undefined) setVoiceAnchor(tpl.voice_anchor_seller_id);
+    // Don't auto-override icpProfileId if the user already picked one. Only
+    // adopt the source template's ICP if no choice has been made yet.
+    if (!icpProfileId && tpl.icp_profile_id) setIcpProfileId(tpl.icp_profile_id);
   }
 
   // ── Step 1: source picking ─────────────────────────────────────────────
@@ -336,6 +356,7 @@ export default function NewTemplatePage() {
   // ── Save (step 3 → server) ─────────────────────────────────────────────
   async function save() {
     if (saving) return;
+    if (!icpProfileId) { setError("Pick an ICP before saving — go back to step 1"); return; }
     if (!name.trim()) { setError("Template name is required"); return; }
     if (steps.length === 0) { setError("Add at least one step"); return; }
     const bodySteps = steps.filter(s => !s.isConnectionRequest);
@@ -381,6 +402,7 @@ export default function NewTemplatePage() {
           tone_custom_notes: tonePreset === "custom" ? toneCustom.trim() : undefined,
           rewrite_mode: rewriteMode,
           voice_anchor_seller_id: voiceAnchor,
+          icp_profile_id: icpProfileId,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -417,11 +439,13 @@ export default function NewTemplatePage() {
       {/* Wizard progress */}
       <WizardProgress current={wizardStep} />
 
-      {/* Always-visible tone + voice strip on step 1 so the AI generation that
-          happens IN step 1 already honours them. Persisted into the template
-          on save and forwarded to the n8n per-lead generator at apply time. */}
+      {/* Setup bar (Step 1 only): ICP target is required + tone + voice. ICP
+          must be picked before any source action — the AI generation in
+          Step 1 needs to know who it's writing for. */}
       {wizardStep === "source" && (
-        <ToneAndVoiceBar
+        <SetupBar
+          icpProfileId={icpProfileId} setIcpProfileId={setIcpProfileId}
+          icpOptions={icpOptions}
           tonePreset={tonePreset} setTonePreset={setTonePreset}
           toneCustom={toneCustom} setToneCustom={setToneCustom}
           voiceAnchor={voiceAnchor} setVoiceAnchor={setVoiceAnchor}
@@ -432,6 +456,7 @@ export default function NewTemplatePage() {
       {/* ─── STEP 1: SOURCE ──────────────────────────────────────────────── */}
       {wizardStep === "source" && (
         <SourceStep
+          locked={!icpProfileId}
           source={source}
           setSource={setSource}
           attachments={attachments}
@@ -487,21 +512,54 @@ export default function NewTemplatePage() {
   );
 }
 
-// ─── Tone + voice anchor strip (Step 1) ──────────────────────────────────
-// Sits above the source picker so AI generation that happens in Step 1
-// already reflects these choices. Both flow through to the persisted
-// template so the n8n per-lead generator can honour them at apply time.
-function ToneAndVoiceBar(props: {
+// ─── Setup bar (Step 1) ──────────────────────────────────────────────────
+// ICP target (required) + tone + voice anchor. Sits above the source picker
+// so AI generation in Step 1 already knows who it's writing for and in what
+// style. All three flow into the persisted template + the n8n per-lead
+// generator at apply time.
+function SetupBar(props: {
+  icpProfileId: string | null; setIcpProfileId: (v: string | null) => void;
+  icpOptions: Array<{ id: string; profile_name: string }>;
   tonePreset: TonePreset; setTonePreset: (v: TonePreset) => void;
   toneCustom: string; setToneCustom: (v: string) => void;
   voiceAnchor: string | null; setVoiceAnchor: (v: string | null) => void;
   voiceOptions: Array<{ id: string; name: string }>;
 }) {
-  const { tonePreset, setTonePreset, toneCustom, setToneCustom, voiceAnchor, setVoiceAnchor, voiceOptions } = props;
+  const { icpProfileId, setIcpProfileId, icpOptions, tonePreset, setTonePreset, toneCustom, setToneCustom, voiceAnchor, setVoiceAnchor, voiceOptions } = props;
   const currentTone = TONE_PRESETS.find(t => t.id === tonePreset);
   return (
     <div className="rounded-2xl border p-4 mb-5"
       style={{ backgroundColor: C.card, borderColor: C.border }}>
+      {/* ICP picker — required. Without it the user can't proceed to source. */}
+      <div className="mb-3 pb-3 border-b" style={{ borderColor: C.border }}>
+        <label className="text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5" style={{ color: C.textMuted }}>
+          ICP target <span style={{ color: C.red }}>*</span>
+          {!icpProfileId && (
+            <span className="text-[10px] font-normal normal-case" style={{ color: C.textDim }}>
+              · pick which ICP this template targets — messages will be drafted for them
+            </span>
+          )}
+        </label>
+        <select
+          value={icpProfileId ?? ""}
+          onChange={e => setIcpProfileId(e.target.value || null)}
+          className="w-full mt-1.5 rounded-lg border px-3 py-2 text-sm outline-none"
+          style={{
+            borderColor: icpProfileId ? C.border : accentSoft(40),
+            backgroundColor: icpProfileId ? C.bg : accentSoft(8),
+            color: C.textPrimary,
+          }}>
+          <option value="">— Choose an ICP —</option>
+          {icpOptions.map(o => (
+            <option key={o.id} value={o.id}>{o.profile_name}</option>
+          ))}
+        </select>
+        {icpOptions.length === 0 && (
+          <p className="text-[11px] mt-1.5" style={{ color: C.textMuted }}>
+            No ICPs yet. <a href="/icp" className="font-semibold underline" style={{ color: ACCENT }}>Create an ICP first</a> — templates are scoped to a target.
+          </p>
+        )}
+      </div>
       <div className="flex flex-wrap items-center gap-3">
         <div>
           <p className="text-[10px] uppercase tracking-wider font-semibold mb-1.5" style={{ color: C.textMuted }}>Tone</p>
@@ -601,6 +659,7 @@ function WizardProgress({ current }: { current: WizardStep }) {
 
 // ─── Step 1: source picker ───────────────────────────────────────────────
 function SourceStep(props: {
+  locked: boolean;
   source: Source; setSource: (s: Source) => void;
   attachments: PendingAttachment[]; dragOver: boolean;
   setDragOver: (v: boolean) => void;
@@ -617,12 +676,29 @@ function SourceStep(props: {
   importFromTemplate: (id: string) => Promise<void>;
 }) {
   const {
+    locked,
     source, setSource,
     attachments, dragOver, setDragOver, addFiles, removeAttachment,
     generating, genError, setGenError, generate, pickScratch,
     fileInputRef,
     importables, importLoading, importingId, importFromTemplate,
   } = props;
+
+  // Source picker is gated on the SetupBar's ICP selection — without an ICP
+  // the AI generation can't reason about who it's writing to.
+  if (locked) {
+    return (
+      <div className="rounded-2xl border p-6 text-center"
+        style={{ backgroundColor: C.card, borderColor: C.border, opacity: 0.7 }}>
+        <p className="text-sm font-semibold" style={{ color: C.textMuted }}>
+          Pick an ICP above to continue.
+        </p>
+        <p className="text-xs mt-1" style={{ color: C.textDim }}>
+          Templates are scoped to a single ICP so the messages stay relevant.
+        </p>
+      </div>
+    );
+  }
 
   // The 3-up source picker is only shown when no source has been chosen.
   // Once a source is picked, the relevant detail UI takes over the area below.
