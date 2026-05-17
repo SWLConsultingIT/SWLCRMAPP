@@ -438,7 +438,7 @@ export default async function DashboardPage({
           {/* Two-thirds Active Campaigns (operational priority) + one-third
               Recent Replies (reactive). On narrow screens the grid collapses
               to a single column so the campaigns table always reads first. */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
             {/* Active Campaigns (2/3) */}
             <div className="lg:col-span-2">
             <CollapsibleCard

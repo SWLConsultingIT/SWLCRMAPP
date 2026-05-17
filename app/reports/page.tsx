@@ -393,7 +393,10 @@ export default async function ReportsPage({
       </div>
 
       {/* ═══ TWO COLUMNS: ICP Performance + Channel Analysis ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+      {/* items-start: prevent grid row from stretching every cell to match the
+          tallest one — when one card collapses, the open neighbour shouldn't
+          pull a huge empty box next to it. */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5 items-start">
         {/* ICP Profile Performance */}
         <CollapsibleCard
           title="ICP Profile Performance"
@@ -509,7 +512,7 @@ export default async function ReportsPage({
           collapsed Reports from 7 sections to 5 with no information loss. */}
 
       {/* ═══ SELLER LEADERBOARD + FORECAST ═══ */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5 items-start">
         {/* Seller Leaderboard (2 cols) — rank + avatar + gap-to-#1 bar */}
         <div className="lg:col-span-2">
         <CollapsibleCard
