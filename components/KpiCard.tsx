@@ -1,6 +1,10 @@
-"use client";
+// No "use client" directive: KpiCard has no state, effects or event handlers.
+// Staying a server component lets server-rendered pages (like /reports) pass
+// React elements (e.g. <MessageSquare />) directly without tripping the RSC
+// "Functions cannot be passed directly to Client Components" boundary error
+// that fires when a LucideIcon component (function) crosses server→client.
 
-import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
 import { C } from "@/lib/design";
 
@@ -9,7 +13,10 @@ export type KpiTone = "neutral" | "brand" | "positive" | "info" | "warning" | "d
 export type KpiCardProps = {
   label: string;
   value: string | number;
-  icon: LucideIcon;
+  /** Pre-rendered icon element. Pass `<MessageSquare size={14} />`, not the
+   *  component reference. The tone color is forwarded for callers that want
+   *  to colour the icon to match the card accent. */
+  icon: ReactNode;
   tone?: KpiTone;
   /** Numeric delta vs prior period. Positive = growth, negative = decline. */
   delta?: number | null;
@@ -37,7 +44,7 @@ const TONE_COLOR: Record<KpiTone, string> = {
 };
 
 export default function KpiCard({
-  label, value, icon: Icon, tone = "neutral",
+  label, value, icon, tone = "neutral",
   delta = null, deltaUnit = "%", deltaInverted = false,
   spark = null, sub,
 }: KpiCardProps) {
@@ -70,7 +77,7 @@ export default function KpiCard({
         >
           {label}
         </span>
-        <Icon size={14} style={{ color: accent, opacity: 0.85 }} />
+        <span style={{ color: accent, opacity: 0.85, display: "inline-flex" }}>{icon}</span>
       </div>
 
       <div className="flex items-baseline gap-2 mb-1">

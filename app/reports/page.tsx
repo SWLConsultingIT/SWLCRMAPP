@@ -305,12 +305,16 @@ export default async function ReportsPage({
       />
 
       {/* ═══ KPI CARDS ═══ */}
+      {/* Icons are pre-rendered (<Icon />) instead of passed as components
+          (Icon) so they survive the RSC server→client boundary into
+          KpiCard. The plain-function form throws "Functions cannot be
+          passed directly to Client Components" at runtime. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
-        <KpiCard label="Response Rate"   value={`${data.responseRate}%`}                          icon={MessageSquare} tone="info"     sub={`${data.repliedCount}/${data.contactedLeads} replied`} />
-        <KpiCard label="Conversion Rate" value={`${data.conversionRate}%`}                        icon={TrendingUp}    tone="positive" sub={`${data.positiveCount} positive of ${data.contactedLeads}`} />
-        <KpiCard label="Avg Steps to Convert" value={data.avgSteps > 0 ? data.avgSteps : "—"}     icon={Zap}           tone="brand"    sub={data.avgSteps > 0 ? "steps until positive reply" : "no conversions yet"} />
-        <KpiCard label="Best Campaign"   value={data.bestCampaign ? `${data.bestCampaign.conversionRate}%` : "—"} icon={Trophy} tone="neutral" sub={data.bestCampaign?.name ?? "no data"} />
-        <KpiCard label="Best Channel"    value={data.bestChannel ? `${data.bestChannel.responseRate}%` : "—"}     icon={Target} tone="neutral" sub={data.bestChannel?.channel ?? "no data"} />
+        <KpiCard label="Response Rate"   value={`${data.responseRate}%`}                          icon={<MessageSquare size={14} />} tone="info"     sub={`${data.repliedCount}/${data.contactedLeads} replied`} />
+        <KpiCard label="Conversion Rate" value={`${data.conversionRate}%`}                        icon={<TrendingUp size={14} />}    tone="positive" sub={`${data.positiveCount} positive of ${data.contactedLeads}`} />
+        <KpiCard label="Avg Steps to Convert" value={data.avgSteps > 0 ? data.avgSteps : "—"}     icon={<Zap size={14} />}           tone="brand"    sub={data.avgSteps > 0 ? "steps until positive reply" : "no conversions yet"} />
+        <KpiCard label="Best Campaign"   value={data.bestCampaign ? `${data.bestCampaign.conversionRate}%` : "—"} icon={<Trophy size={14} />} tone="neutral" sub={data.bestCampaign?.name ?? "no data"} />
+        <KpiCard label="Best Channel"    value={data.bestChannel ? `${data.bestChannel.responseRate}%` : "—"}     icon={<Target size={14} />} tone="neutral" sub={data.bestChannel?.channel ?? "no data"} />
       </div>
 
       {/* ═══ CAMPAIGN COMPARISON TABLE ═══ */}

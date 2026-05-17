@@ -26,12 +26,14 @@ const KPI_TONE: Record<keyof Stats, KpiTone> = {
   transferred:       "neutral",
 };
 
+// Pre-rendered icon elements so KpiCard (server component) doesn't receive
+// a function across an RSC boundary. KpiCard renders this node as-is.
 const KPI_ICON = {
-  totalLeads:       Users,
-  leadsInCampaign:  Megaphone,
-  weekRepliesCount: MessageSquare,
-  weekPositive:     TrendingUp,
-  transferred:      CheckCircle,
+  totalLeads:       <Users size={14} />,
+  leadsInCampaign:  <Megaphone size={14} />,
+  weekRepliesCount: <MessageSquare size={14} />,
+  weekPositive:     <TrendingUp size={14} />,
+  transferred:      <CheckCircle size={14} />,
 } as const;
 
 export default function DashboardStats({
