@@ -1,12 +1,26 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save, Loader2, Plus, Trash2, Share2, Mail, Phone, MessageCircle, FileText, AlertCircle, X, Sparkles, Upload } from "lucide-react";
+import {
+  ArrowLeft, ArrowRight, Save, Loader2, Plus, Trash2,
+  Share2, Mail, Phone, MessageCircle, FileText, AlertCircle,
+  X, Sparkles, Upload, Copy, FilePlus2, Check,
+} from "lucide-react";
 import { C } from "@/lib/design";
 
-const gold = "var(--brand, #c9a83a)";
+// 3-step wizard for creating a template:
+//   1. SOURCE     — pick how to start (PDF upload / import / scratch)
+//   2. SEQUENCE   — edit the cadence + per-step message body
+//   3. IDENTITY   — Name / Description / Tags and save
+//
+// Step 0 (the LinkedIn connection request) lives INSIDE the sequence array as
+// an entry with channel="linkedin" + isConnectionRequest=true, so the user
+// edits it in the same place as every other touchpoint. On save it's split
+// back out into the `connectionRequest` field expected by the API.
+
+const ACCENT = "#7C3AED";
 
 type Channel = "linkedin" | "email" | "call" | "whatsapp";
 
@@ -22,22 +36,10 @@ type Step = {
   daysAfter: number;
   subject?: string;
   body: string;
+  /** Marks step 0 as a LinkedIn connection request — gets a 300-char cap,
+   *  different placeholder, and is serialized as `connectionRequest` on save. */
+  isConnectionRequest?: boolean;
 };
-
-// Build the wizard-compatible step_messages payload from the editor state.
-// The wizard expects: { connectionRequest, steps: [{step, channel, subject?, body}], autoReplies }
-function buildStepMessages(connectionRequest: string, steps: Step[]) {
-  return {
-    connectionRequest,
-    steps: steps.map((s, i) => ({
-      step: i + 1,
-      channel: s.channel,
-      subject: s.channel === "email" ? (s.subject ?? null) : null,
-      body: s.body,
-    })),
-    autoReplies: { positive: "", negative: "", question: "" },
-  };
-}
 
 type PendingAttachment = {
   filename: string;
@@ -46,15 +48,32 @@ type PendingAttachment = {
   base64: string;
 };
 
+type WizardStep = "source" | "sequence" | "identity";
+type Source = "pdf" | "import" | "scratch" | null;
+
+type ImportableTemplate = {
+  id: string;
+  name: string;
+  description: string | null;
+  channels: string[];
+  tags: string[];
+  usage_count: number;
+};
+
 const MAX_PDF_BYTES = 8 * 1024 * 1024;
 const MAX_PDFS = 5;
+
+const DEFAULT_SCRATCH_STEPS: Step[] = [
+  { channel: "linkedin", daysAfter: 0, body: "", isConnectionRequest: true },
+  { channel: "linkedin", daysAfter: 3, body: "" },
+  { channel: "email",    daysAfter: 7, body: "" },
+];
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
       const result = typeof reader.result === "string" ? reader.result : "";
-      // strip the data URL prefix "data:application/pdf;base64,"
       const base64 = result.split(",")[1] ?? "";
       resolve(base64);
     };
@@ -65,23 +84,101 @@ function fileToBase64(file: File): Promise<string> {
 
 export default function NewTemplatePage() {
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Wizard ──────────────────────────────────────────────────────────────
+  const [wizardStep, setWizardStep] = useState<WizardStep>("source");
+  const [source, setSource] = useState<Source>(null);
+
+  // ── Identity (step 3) ──────────────────────────────────────────────────
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [tagsInput, setTagsInput] = useState("");
-  const [includesLinkedIn, setIncludesLinkedIn] = useState(true);
-  const [connectionRequest, setConnectionRequest] = useState("");
-  const [steps, setSteps] = useState<Step[]>([
-    { channel: "linkedin", daysAfter: 1, body: "" },
-    { channel: "email",    daysAfter: 3, body: "" },
-  ]);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  // ── Sequence (step 2) ──────────────────────────────────────────────────
+  const [steps, setSteps] = useState<Step[]>([]);
+
+  // ── PDF source state ───────────────────────────────────────────────────
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Import source state ────────────────────────────────────────────────
+  const [importables, setImportables] = useState<ImportableTemplate[] | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importingId, setImportingId] = useState<string | null>(null);
+
+  // ── Save (step 3 footer) ───────────────────────────────────────────────
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch importables when the user picks the "import" source.
+  useEffect(() => {
+    if (source !== "import" || importables !== null) return;
+    setImportLoading(true);
+    fetch("/api/templates", { cache: "no-store" })
+      .then(r => r.json())
+      .then(data => setImportables(data.templates ?? []))
+      .catch(() => setImportables([]))
+      .finally(() => setImportLoading(false));
+  }, [source, importables]);
+
+  // ── Step 1: source picking ─────────────────────────────────────────────
+  function pickScratch() {
+    setSource("scratch");
+    setSteps(DEFAULT_SCRATCH_STEPS);
+    setWizardStep("sequence");
+  }
+
+  async function importFromTemplate(id: string) {
+    setImportingId(id);
+    try {
+      const res = await fetch(`/api/templates/${id}`, { cache: "no-store" });
+      const data = await res.json();
+      const tpl = data.template;
+      if (!tpl) throw new Error("Template not found");
+      // Reconstruct wizard steps from the imported template.
+      const stepMessages = tpl.step_messages ?? {};
+      const importedSteps: Step[] = [];
+      if (stepMessages.connectionRequest && stepMessages.connectionRequest.length > 0) {
+        importedSteps.push({
+          channel: "linkedin",
+          daysAfter: 0,
+          body: stepMessages.connectionRequest,
+          isConnectionRequest: true,
+        });
+      }
+      const seq = Array.isArray(tpl.sequence_steps) ? tpl.sequence_steps : [];
+      const msgs = Array.isArray(stepMessages.steps) ? stepMessages.steps : [];
+      for (let i = 0; i < seq.length; i++) {
+        const s = seq[i];
+        // sequence_steps may include the connection request as step 0 with
+        // daysAfter=0; skip if we already added it above.
+        if (i === 0 && s.daysAfter === 0 && s.channel === "linkedin" && importedSteps[0]?.isConnectionRequest) continue;
+        const msg = msgs.find((m: any) => m.step === i + 1) ?? msgs[i] ?? {};
+        importedSteps.push({
+          channel: s.channel as Channel,
+          daysAfter: s.daysAfter ?? 0,
+          subject: msg.subject ?? undefined,
+          body: msg.body ?? "",
+        });
+      }
+      if (importedSteps.length === 0) importedSteps.push(...DEFAULT_SCRATCH_STEPS);
+      setSteps(importedSteps);
+      // Pre-fill name with a suggestion so the user can rename in step 3.
+      setName(`${tpl.name} (copy)`);
+      setDescription(tpl.description ?? "");
+      setTagsInput((tpl.tags ?? []).join(", "));
+      setWizardStep("sequence");
+    } catch (e: any) {
+      setError(e?.message ?? "Couldn't import that template");
+    } finally {
+      setImportingId(null);
+    }
+  }
+
+  // ── PDF handling ───────────────────────────────────────────────────────
   async function addFiles(files: FileList | File[]) {
     setGenError(null);
     const arr = Array.from(files);
@@ -102,34 +199,26 @@ export default function NewTemplatePage() {
       const base64 = await fileToBase64(f);
       newOnes.push({ filename: f.name, mimeType: f.type, sizeBytes: f.size, base64 });
     }
-    if (newOnes.length > 0) {
-      setAttachments(prev => [...prev, ...newOnes]);
-    }
+    if (newOnes.length > 0) setAttachments(prev => [...prev, ...newOnes]);
   }
-
   function removeAttachment(idx: number) {
     setAttachments(prev => prev.filter((_, i) => i !== idx));
   }
 
-  async function generateMessages() {
-    if (generating) return;
-    if (attachments.length === 0) {
-      setGenError("Add at least one PDF first");
-      return;
-    }
+  // Extract sequence + draft messages from PDFs, then advance to step 2.
+  async function generateFromPdfs() {
+    if (generating || attachments.length === 0) return;
     setGenerating(true);
     setGenError(null);
     try {
       const res = await fetch("/api/templates/generate-messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        // No `sequence` field → backend runs in DETECTED mode and extracts the
+        // cadence from the PDFs (or proposes a sensible default).
         body: JSON.stringify({
-          name: name.trim() || "Untitled template",
-          description: description.trim() || undefined,
-          channels: Array.from(new Set(steps.map(s => s.channel))),
-          sequence: steps.map(s => ({ channel: s.channel, daysAfter: s.daysAfter })),
-          includesLinkedIn,
           attachments: attachments.map(a => ({ filename: a.filename, mimeType: a.mimeType, base64: a.base64 })),
+          includesLinkedIn: true,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -137,18 +226,30 @@ export default function NewTemplatePage() {
         setGenError(body.error ?? `Generation failed (${res.status})`);
         return;
       }
-      // Apply the generated messages to current state. Don't clobber the
-      // sequence — the user defined daysAfter/channel; we only fill bodies.
-      if (typeof body.connectionRequest === "string" && includesLinkedIn) {
-        setConnectionRequest(body.connectionRequest);
+      const detected: { channel: string; daysAfter: number }[] = Array.isArray(body.detected_sequence) ? body.detected_sequence : [];
+      const draftedSteps: { step: number; channel: string; subject?: string | null; body: string }[] = Array.isArray(body.steps) ? body.steps : [];
+      const connectionRequest: string = typeof body.connectionRequest === "string" ? body.connectionRequest : "";
+
+      const builtSteps: Step[] = [];
+      // If the backend detected a LinkedIn invite, add it as step 0.
+      if (connectionRequest.trim().length > 0) {
+        builtSteps.push({ channel: "linkedin", daysAfter: 0, body: connectionRequest, isConnectionRequest: true });
       }
-      if (Array.isArray(body.steps)) {
-        setSteps(prev => prev.map((s, i) => {
-          const gen = body.steps.find((g: any) => g.step === i + 1);
-          if (!gen) return s;
-          return { ...s, body: gen.body ?? s.body, subject: gen.subject ?? s.subject };
-        }));
+      // Then map detected_sequence rows to drafted step bodies in order.
+      for (let i = 0; i < detected.length; i++) {
+        const d = detected[i];
+        if (i === 0 && builtSteps[0]?.isConnectionRequest && d.channel === "linkedin" && d.daysAfter === 0) continue;
+        const draft = draftedSteps.find(s => s.step === i + 1) ?? draftedSteps[i];
+        builtSteps.push({
+          channel: (d.channel as Channel) ?? "email",
+          daysAfter: d.daysAfter ?? 0,
+          subject: draft?.subject ?? undefined,
+          body: draft?.body ?? "",
+        });
       }
+      if (builtSteps.length === 0) builtSteps.push(...DEFAULT_SCRATCH_STEPS);
+      setSteps(builtSteps);
+      setWizardStep("sequence");
     } catch (e: any) {
       setGenError(e?.message ?? "Network error");
     } finally {
@@ -156,41 +257,43 @@ export default function NewTemplatePage() {
     }
   }
 
+  // ── Sequence editing helpers ───────────────────────────────────────────
   function updateStep(i: number, patch: Partial<Step>) {
     setSteps(prev => prev.map((s, idx) => idx === i ? { ...s, ...patch } : s));
   }
   function addStep() {
-    setSteps(prev => [...prev, { channel: "email", daysAfter: 3, body: "" }]);
+    setSteps(prev => [...prev, { channel: "email", daysAfter: prev.length > 0 ? (prev[prev.length - 1].daysAfter + 3) : 3, body: "" }]);
   }
   function removeStep(i: number) {
     setSteps(prev => prev.filter((_, idx) => idx !== i));
   }
+  function addConnectionRequest() {
+    setSteps(prev => [{ channel: "linkedin", daysAfter: 0, body: "", isConnectionRequest: true }, ...prev]);
+  }
+  const hasConnectionRequest = steps[0]?.isConnectionRequest === true;
 
+  // ── Save (step 3 → server) ─────────────────────────────────────────────
   async function save() {
     if (saving) return;
-    if (!name.trim()) {
-      setError("Template name is required");
-      return;
-    }
-    if (steps.length === 0) {
-      setError("Add at least one step");
-      return;
-    }
-    if (steps.some(s => !s.body.trim())) {
-      setError("Every step needs message content");
-      return;
-    }
+    if (!name.trim()) { setError("Template name is required"); return; }
+    if (steps.length === 0) { setError("Add at least one step"); return; }
+    const bodySteps = steps.filter(s => !s.isConnectionRequest);
+    if (bodySteps.length === 0) { setError("Add at least one outreach step beyond the connection request"); return; }
+    if (steps.some(s => !s.body.trim())) { setError("Every step needs message content"); return; }
 
     setSaving(true);
     setError(null);
 
     const tags = tagsInput.split(",").map(t => t.trim()).filter(Boolean).slice(0, 10);
-    const sequence_steps = [
-      // If LinkedIn invite included, step 0 is the connection request itself.
-      ...(includesLinkedIn ? [{ channel: "linkedin", daysAfter: 0 }] : []),
-      ...steps.map(s => ({ channel: s.channel, daysAfter: s.daysAfter })),
-    ];
+    const sequence_steps = steps.map(s => ({ channel: s.channel, daysAfter: s.daysAfter }));
     const channels = Array.from(new Set(sequence_steps.map(s => s.channel)));
+    const connectionRequest = hasConnectionRequest ? steps[0].body : "";
+    const messageSteps = bodySteps.map((s, i) => ({
+      step: i + 1,
+      channel: s.channel,
+      subject: s.channel === "email" ? (s.subject ?? null) : null,
+      body: s.body,
+    }));
 
     try {
       const res = await fetch("/api/templates", {
@@ -203,7 +306,11 @@ export default function NewTemplatePage() {
           tags,
           channels,
           sequence_steps,
-          step_messages: buildStepMessages(includesLinkedIn ? connectionRequest : "", steps),
+          step_messages: {
+            connectionRequest,
+            steps: messageSteps,
+            autoReplies: { positive: "", negative: "", question: "" },
+          },
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -219,91 +326,197 @@ export default function NewTemplatePage() {
     }
   }
 
+  // ── Render ─────────────────────────────────────────────────────────────
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Link href="/campaigns"
-            className="p-2 rounded-lg border hover:bg-gray-50"
-            style={{ borderColor: C.border, color: C.textBody }}>
-            <ArrowLeft size={14} />
-          </Link>
-          <div>
-            <h1 className="text-xl font-bold" style={{ color: C.textPrimary }}>New Template</h1>
-            <p className="text-xs" style={{ color: C.textMuted }}>
-              Define a reusable sequence + messages. Save once, apply to any future campaign.
-            </p>
-          </div>
+      {/* Header + breadcrumb */}
+      <div className="flex items-center gap-3 mb-5">
+        <Link href="/campaigns"
+          className="p-2 rounded-lg border hover:bg-gray-50"
+          style={{ borderColor: C.border, color: C.textBody }}>
+          <ArrowLeft size={14} />
+        </Link>
+        <div className="flex-1">
+          <h1 className="text-xl font-bold" style={{ color: C.textPrimary }}>New Template</h1>
+          <p className="text-xs" style={{ color: C.textMuted }}>
+            Define a reusable sequence + messages. Save once, apply to any future campaign.
+          </p>
         </div>
       </div>
 
-      {/* Basic info */}
-      <div className="rounded-2xl border p-5 mb-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <h2 className="text-sm font-bold mb-3" style={{ color: C.textPrimary }}>Basic info</h2>
-        <div className="space-y-3">
-          <div>
-            <label className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>
-              Name <span style={{ color: C.red }}>*</span>
-            </label>
-            <input
-              value={name}
-              onChange={e => setName(e.target.value)}
-              placeholder="e.g., Healthcare Asset Finance — CEO Outreach"
-              className="w-full mt-1 rounded-lg border px-3 py-2 text-sm outline-none"
-              style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
-            />
+      {/* Wizard progress */}
+      <WizardProgress current={wizardStep} />
+
+      {/* ─── STEP 1: SOURCE ──────────────────────────────────────────────── */}
+      {wizardStep === "source" && (
+        <SourceStep
+          source={source}
+          setSource={setSource}
+          attachments={attachments}
+          dragOver={dragOver}
+          setDragOver={setDragOver}
+          addFiles={addFiles}
+          removeAttachment={removeAttachment}
+          generating={generating}
+          genError={genError}
+          setGenError={setGenError}
+          generate={generateFromPdfs}
+          pickScratch={pickScratch}
+          fileInputRef={fileInputRef}
+          importables={importables}
+          importLoading={importLoading}
+          importingId={importingId}
+          importFromTemplate={importFromTemplate}
+        />
+      )}
+
+      {/* ─── STEP 2: SEQUENCE ────────────────────────────────────────────── */}
+      {wizardStep === "sequence" && (
+        <SequenceStep
+          steps={steps}
+          hasConnectionRequest={hasConnectionRequest}
+          addConnectionRequest={addConnectionRequest}
+          updateStep={updateStep}
+          addStep={addStep}
+          removeStep={removeStep}
+          onBack={() => setWizardStep("source")}
+          onNext={() => setWizardStep("identity")}
+        />
+      )}
+
+      {/* ─── STEP 3: IDENTITY + SAVE ─────────────────────────────────────── */}
+      {wizardStep === "identity" && (
+        <IdentityStep
+          name={name} setName={setName}
+          description={description} setDescription={setDescription}
+          tagsInput={tagsInput} setTagsInput={setTagsInput}
+          steps={steps}
+          error={error} setError={setError}
+          saving={saving}
+          onBack={() => setWizardStep("sequence")}
+          onSave={save}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Wizard progress strip ───────────────────────────────────────────────
+function WizardProgress({ current }: { current: WizardStep }) {
+  const stepDefs: { key: WizardStep; label: string }[] = [
+    { key: "source",   label: "Source" },
+    { key: "sequence", label: "Sequence" },
+    { key: "identity", label: "Save" },
+  ];
+  const idx = stepDefs.findIndex(s => s.key === current);
+  return (
+    <div className="flex items-center gap-2 mb-5">
+      {stepDefs.map((s, i) => {
+        const active = i === idx;
+        const done = i < idx;
+        return (
+          <div key={s.key} className="flex items-center gap-2">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors"
+              style={{
+                backgroundColor: active ? `${ACCENT}15` : done ? "#DCFCE7" : C.bg,
+                border: `1px solid ${active ? `${ACCENT}40` : done ? "#86EFAC" : C.border}`,
+              }}>
+              <span className="text-[11px] font-bold tabular-nums flex items-center justify-center rounded-full"
+                style={{ width: 18, height: 18, backgroundColor: active ? ACCENT : done ? "#16A34A" : C.border, color: "#fff" }}>
+                {done ? <Check size={11} /> : i + 1}
+              </span>
+              <span className="text-[11px] font-semibold uppercase tracking-wider"
+                style={{ color: active ? ACCENT : done ? "#16A34A" : C.textMuted }}>
+                {s.label}
+              </span>
+            </div>
+            {i < stepDefs.length - 1 && (
+              <div className="h-px flex-1 min-w-[20px]" style={{ backgroundColor: C.border }} />
+            )}
           </div>
-          <div>
-            <label className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>
-              Description
-            </label>
-            <input
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="When should this template be used?"
-              className="w-full mt-1 rounded-lg border px-3 py-2 text-sm outline-none"
-              style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
-            />
-          </div>
-          <div>
-            <label className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>
-              Tags (comma-separated)
-            </label>
-            <input
-              value={tagsInput}
-              onChange={e => setTagsInput(e.target.value)}
-              placeholder="healthcare, asset-finance, c-level"
-              className="w-full mt-1 rounded-lg border px-3 py-2 text-sm outline-none"
-              style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
-            />
-          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Step 1: source picker ───────────────────────────────────────────────
+function SourceStep(props: {
+  source: Source; setSource: (s: Source) => void;
+  attachments: PendingAttachment[]; dragOver: boolean;
+  setDragOver: (v: boolean) => void;
+  addFiles: (files: FileList | File[]) => Promise<void>;
+  removeAttachment: (i: number) => void;
+  generating: boolean; genError: string | null;
+  setGenError: (e: string | null) => void;
+  generate: () => Promise<void>;
+  pickScratch: () => void;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  importables: ImportableTemplate[] | null;
+  importLoading: boolean;
+  importingId: string | null;
+  importFromTemplate: (id: string) => Promise<void>;
+}) {
+  const {
+    source, setSource,
+    attachments, dragOver, setDragOver, addFiles, removeAttachment,
+    generating, genError, setGenError, generate, pickScratch,
+    fileInputRef,
+    importables, importLoading, importingId, importFromTemplate,
+  } = props;
+
+  // The 3-up source picker is only shown when no source has been chosen.
+  // Once a source is picked, the relevant detail UI takes over the area below.
+  if (!source) {
+    return (
+      <div>
+        <h2 className="text-sm font-bold mb-3" style={{ color: C.textPrimary }}>Where does this template come from?</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <SourceCard
+            icon={<Sparkles size={20} style={{ color: ACCENT }} />}
+            title="From a PDF"
+            desc="Drop your playbook, sales deck, or case studies. AI extracts the cadence and drafts every message."
+            badge="Recommended"
+            onClick={() => setSource("pdf")}
+          />
+          <SourceCard
+            icon={<Copy size={20} style={{ color: "#0A66C2" }} />}
+            title="Copy an existing template"
+            desc="Start from one that already works for you and tweak from there."
+            onClick={() => setSource("import")}
+          />
+          <SourceCard
+            icon={<FilePlus2 size={20} style={{ color: C.textBody }} />}
+            title="From scratch"
+            desc="Blank sequence with sensible defaults. You write everything yourself."
+            onClick={pickScratch}
+          />
         </div>
       </div>
+    );
+  }
 
-      {/* AI message drafting from PDFs */}
-      <div className="rounded-2xl border p-5 mb-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <div className="flex items-center justify-between mb-3">
+  // ── PDF source detail ────────────────────────────────────────────────
+  if (source === "pdf") {
+    return (
+      <div className="rounded-2xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: C.textPrimary }}>
-              <Sparkles size={14} style={{ color: "#7C3AED" }} /> AI message drafting
+            <h2 className="text-base font-bold flex items-center gap-2" style={{ color: C.textPrimary }}>
+              <Sparkles size={16} style={{ color: ACCENT }} />
+              Upload your playbook
             </h2>
-            <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
-              Drop your sales deck, case studies, or one-pagers — Claude reads them and drafts each step.
+            <p className="text-xs mt-1" style={{ color: C.textMuted }}>
+              Drop your sales deck, case studies, or one-pagers. Claude reads them, extracts the cadence, and drafts each message. You can edit everything in the next step.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={generateMessages}
-            disabled={generating || attachments.length === 0}
-            className="text-xs font-semibold px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 disabled:opacity-50"
-            style={{ backgroundColor: "#7C3AED", color: "#fff" }}>
-            {generating ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
-            {generating ? "Generating…" : "Generate messages"}
+          <button onClick={() => setSource(null)}
+            className="text-[11px] font-semibold" style={{ color: C.textMuted }}>
+            ← Back to source
           </button>
         </div>
 
-        {/* Drop area */}
+        {/* Drop area — full-width hero */}
         <div
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
@@ -313,17 +526,17 @@ export default function NewTemplatePage() {
             if (e.dataTransfer.files) void addFiles(e.dataTransfer.files);
           }}
           onClick={() => fileInputRef.current?.click()}
-          className="rounded-lg border-2 border-dashed p-6 text-center cursor-pointer transition-colors"
+          className="rounded-xl border-2 border-dashed py-12 px-6 text-center cursor-pointer transition-colors"
           style={{
-            borderColor: dragOver ? "#7C3AED" : C.border,
+            borderColor: dragOver ? ACCENT : C.border,
             backgroundColor: dragOver ? "#F5F3FF" : C.bg,
           }}>
-          <Upload size={24} className="mx-auto mb-2" style={{ color: dragOver ? "#7C3AED" : C.textDim }} />
-          <p className="text-xs" style={{ color: C.textBody }}>
-            <span className="font-semibold">Drag PDFs here</span> or click to browse
+          <Upload size={32} className="mx-auto mb-3" style={{ color: dragOver ? ACCENT : C.textDim }} />
+          <p className="text-sm font-semibold" style={{ color: C.textBody }}>
+            Drop PDFs here or click to browse
           </p>
-          <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
-            Up to {MAX_PDFS} files, {MAX_PDF_BYTES / 1024 / 1024}MB each. PDF only for now.
+          <p className="text-[11px] mt-1" style={{ color: C.textDim }}>
+            Up to {MAX_PDFS} files, {MAX_PDF_BYTES / 1024 / 1024}MB each. PDF only.
           </p>
           <input
             ref={fileInputRef}
@@ -335,13 +548,13 @@ export default function NewTemplatePage() {
           />
         </div>
 
-        {/* Attached files list */}
+        {/* Attached files */}
         {attachments.length > 0 && (
           <div className="mt-3 space-y-1.5">
             {attachments.map((a, i) => (
               <div key={i} className="flex items-center gap-2 rounded-lg border px-3 py-2"
                 style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                <FileText size={13} style={{ color: "#7C3AED" }} className="shrink-0" />
+                <FileText size={13} style={{ color: ACCENT }} className="shrink-0" />
                 <span className="text-xs flex-1 truncate" style={{ color: C.textBody }}>{a.filename}</span>
                 <span className="text-[10px] shrink-0" style={{ color: C.textMuted }}>
                   {(a.sizeBytes / 1024).toFixed(0)} KB
@@ -366,118 +579,339 @@ export default function NewTemplatePage() {
             </button>
           </div>
         )}
-      </div>
 
-      {/* LinkedIn connection request toggle */}
-      <div className="rounded-2xl border p-5 mb-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>LinkedIn connection request</h2>
-          <label className="inline-flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={includesLinkedIn}
-              onChange={e => setIncludesLinkedIn(e.target.checked)}
-              className="sr-only"
-            />
-            <div className="w-9 h-5 rounded-full relative transition-colors"
-              style={{ backgroundColor: includesLinkedIn ? "#0A66C2" : C.border }}>
-              <div className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform"
-                style={{ transform: includesLinkedIn ? "translateX(16px)" : "translateX(0)" }} />
-            </div>
-            <span className="text-xs" style={{ color: C.textBody }}>Include connection request</span>
-          </label>
-        </div>
-        {includesLinkedIn && (
-          <textarea
-            value={connectionRequest}
-            onChange={e => setConnectionRequest(e.target.value)}
-            placeholder="Hi {{first_name}}, noticed your team is scaling — would love to connect."
-            rows={2}
-            maxLength={300}
-            className="w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none"
-            style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
-          />
-        )}
-        {includesLinkedIn && (
-          <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
-            LinkedIn caps connection requests at 300 chars. Variables: <code>{"{{first_name}}"}</code>, <code>{"{{company_name}}"}</code>.
-          </p>
-        )}
-      </div>
-
-      {/* Steps */}
-      <div className="rounded-2xl border p-5 mb-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Sequence steps</h2>
-          <button onClick={addStep}
-            className="text-xs font-medium px-3 py-1.5 rounded-md inline-flex items-center gap-1 border"
-            style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.surface }}>
-            <Plus size={12} /> Add step
+        <div className="flex items-center justify-end mt-5 pt-4 border-t" style={{ borderColor: C.border }}>
+          <button onClick={generate} disabled={generating || attachments.length === 0}
+            className="text-sm font-semibold px-5 py-2.5 rounded-lg inline-flex items-center gap-2 disabled:opacity-50"
+            style={{ backgroundColor: ACCENT, color: "#fff" }}>
+            {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            {generating ? "Reading PDFs…" : "Extract sequence + draft messages"}
+            {!generating && <ArrowRight size={14} />}
           </button>
         </div>
-        <div className="space-y-3">
-          {steps.map((s, i) => {
-            const meta = channelMeta[s.channel];
-            const Icon = meta.icon;
-            return (
-              <div key={i} className="rounded-lg border p-3" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold"
-                    style={{ backgroundColor: `${meta.color}18`, color: meta.color }}>
-                    {i + 1}
+      </div>
+    );
+  }
+
+  // ── Import source detail ─────────────────────────────────────────────
+  if (source === "import") {
+    return (
+      <div className="rounded-2xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-base font-bold flex items-center gap-2" style={{ color: C.textPrimary }}>
+              <Copy size={16} style={{ color: "#0A66C2" }} />
+              Copy from an existing template
+            </h2>
+            <p className="text-xs mt-1" style={{ color: C.textMuted }}>
+              Pick one to copy. You can rename and edit every step in the next pass.
+            </p>
+          </div>
+          <button onClick={() => setSource(null)}
+            className="text-[11px] font-semibold" style={{ color: C.textMuted }}>
+            ← Back to source
+          </button>
+        </div>
+
+        {importLoading && (
+          <div className="py-10 text-center">
+            <Loader2 size={20} className="mx-auto animate-spin mb-2" style={{ color: C.textMuted }} />
+            <p className="text-xs" style={{ color: C.textMuted }}>Loading templates…</p>
+          </div>
+        )}
+        {!importLoading && importables && importables.length === 0 && (
+          <div className="py-10 text-center">
+            <p className="text-sm" style={{ color: C.textDim }}>No templates yet to copy from.</p>
+            <p className="text-[11px] mt-1" style={{ color: C.textDim }}>Try the PDF or scratch options instead.</p>
+          </div>
+        )}
+        {!importLoading && importables && importables.length > 0 && (
+          <div className="space-y-2">
+            {importables.map(t => (
+              <button
+                key={t.id}
+                disabled={importingId !== null}
+                onClick={() => importFromTemplate(t.id)}
+                className="w-full text-left rounded-lg border p-3 transition-colors hover:bg-black/[0.02] disabled:opacity-50"
+                style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate" style={{ color: C.textPrimary }}>{t.name}</p>
+                    {t.description && (
+                      <p className="text-[11px] truncate mt-0.5" style={{ color: C.textMuted }}>{t.description}</p>
+                    )}
+                    <div className="flex items-center gap-2 mt-1.5">
+                      {t.channels.map(ch => {
+                        const meta = channelMeta[ch as Channel];
+                        if (!meta) return null;
+                        const I = meta.icon;
+                        return <I key={ch} size={10} style={{ color: meta.color }} />;
+                      })}
+                      <span className="text-[10px]" style={{ color: C.textDim }}>
+                        used {t.usage_count}×
+                      </span>
+                    </div>
                   </div>
-                  <select
-                    value={s.channel}
-                    onChange={e => updateStep(i, { channel: e.target.value as Channel })}
-                    className="text-xs rounded border px-2 py-1 outline-none"
-                    style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}>
-                    {(Object.keys(channelMeta) as Channel[]).map(ch => (
-                      <option key={ch} value={ch}>{channelMeta[ch].label}</option>
-                    ))}
-                  </select>
-                  <span className="text-[11px]" style={{ color: C.textMuted }}>after</span>
-                  <input
-                    type="number"
-                    value={s.daysAfter}
-                    onChange={e => updateStep(i, { daysAfter: Math.max(0, parseInt(e.target.value || "0", 10)) })}
-                    className="w-14 text-xs rounded border px-2 py-1 outline-none"
-                    style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}
-                  />
-                  <span className="text-[11px]" style={{ color: C.textMuted }}>days</span>
-                  <button onClick={() => removeStep(i)}
-                    className="ml-auto p-1 rounded transition-colors"
-                    style={{ color: C.textMuted }}
-                    onMouseEnter={e => { e.currentTarget.style.color = C.red; }}
-                    onMouseLeave={e => { e.currentTarget.style.color = C.textMuted; }}>
-                    <Trash2 size={12} />
-                  </button>
+                  {importingId === t.id ? (
+                    <Loader2 size={14} className="animate-spin" style={{ color: ACCENT }} />
+                  ) : (
+                    <ArrowRight size={14} style={{ color: C.textMuted }} />
+                  )}
                 </div>
-                {s.channel === "email" && (
-                  <input
-                    value={s.subject ?? ""}
-                    onChange={e => updateStep(i, { subject: e.target.value })}
-                    placeholder="Email subject (optional)"
-                    className="w-full mb-2 rounded border px-2 py-1.5 text-xs outline-none"
-                    style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
-                  />
-                )}
-                <textarea
-                  value={s.body}
-                  onChange={e => updateStep(i, { body: e.target.value })}
-                  placeholder={`What should be said at step ${i + 1}? Use {{first_name}}, {{company_name}}, {{seller_name}} as variables.`}
-                  rows={4}
-                  className="w-full rounded border px-2 py-1.5 text-xs outline-none resize-vertical"
-                  style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
-                />
-              </div>
-            );
-          })}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function SourceCard({
+  icon, title, desc, badge, onClick,
+}: { icon: React.ReactNode; title: string; desc: string; badge?: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick}
+      className="text-left rounded-2xl border p-5 transition-all hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+      style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+          style={{ backgroundColor: `${ACCENT}10` }}>{icon}</div>
+        {badge && (
+          <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+            style={{ backgroundColor: `${ACCENT}15`, color: ACCENT, border: `1px solid ${ACCENT}30` }}>
+            {badge}
+          </span>
+        )}
+      </div>
+      <p className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>{title}</p>
+      <p className="text-[11px] leading-relaxed" style={{ color: C.textMuted }}>{desc}</p>
+    </button>
+  );
+}
+
+// ─── Step 2: sequence editor ─────────────────────────────────────────────
+function SequenceStep(props: {
+  steps: Step[];
+  hasConnectionRequest: boolean;
+  addConnectionRequest: () => void;
+  updateStep: (i: number, patch: Partial<Step>) => void;
+  addStep: () => void;
+  removeStep: (i: number) => void;
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  const { steps, hasConnectionRequest, addConnectionRequest, updateStep, addStep, removeStep, onBack, onNext } = props;
+  const bodyStepCount = steps.filter(s => !s.isConnectionRequest).length;
+  const allBodiesFilled = steps.every(s => s.body.trim().length > 0);
+
+  return (
+    <div className="rounded-2xl border" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
+        <div>
+          <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Sequence</h2>
+          <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
+            {steps.length} {steps.length === 1 ? "step" : "steps"} · {hasConnectionRequest ? "starts with a LinkedIn invite" : "no LinkedIn invite"}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {!hasConnectionRequest && (
+            <button onClick={addConnectionRequest}
+              className="text-[11px] font-semibold px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 border"
+              style={{ borderColor: "#0A66C230", color: "#0A66C2", backgroundColor: "#EFF6FF" }}>
+              <Share2 size={11} /> Add LinkedIn invite
+            </button>
+          )}
+          <button onClick={addStep}
+            className="text-[11px] font-semibold px-3 py-1.5 rounded-md inline-flex items-center gap-1 border"
+            style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.surface }}>
+            <Plus size={11} /> Add step
+          </button>
         </div>
       </div>
 
-      {/* Errors + save */}
+      <div className="p-5 space-y-3">
+        {steps.map((s, i) => {
+          const meta = channelMeta[s.channel];
+          const isInvite = s.isConnectionRequest;
+          return (
+            <div key={i} className="rounded-lg border p-3"
+              style={{
+                borderColor: isInvite ? "#0A66C240" : C.border,
+                backgroundColor: isInvite ? "#EFF6FF" : C.bg,
+              }}>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold"
+                  style={{ backgroundColor: `${meta.color}18`, color: meta.color }}>
+                  {isInvite ? "0" : i + 1}
+                </div>
+                {isInvite ? (
+                  <>
+                    <span className="text-xs font-semibold" style={{ color: "#0A66C2" }}>LinkedIn invite</span>
+                    <span className="text-[10px] uppercase tracking-wider font-semibold"
+                      style={{ color: "#0A66C2" }}>Step 0</span>
+                  </>
+                ) : (
+                  <>
+                    <select
+                      value={s.channel}
+                      onChange={e => updateStep(i, { channel: e.target.value as Channel })}
+                      className="text-xs rounded border px-2 py-1 outline-none"
+                      style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}>
+                      {(Object.keys(channelMeta) as Channel[]).map(ch => (
+                        <option key={ch} value={ch}>{channelMeta[ch].label}</option>
+                      ))}
+                    </select>
+                    <span className="text-[11px]" style={{ color: C.textMuted }}>after</span>
+                    <input
+                      type="number"
+                      value={s.daysAfter}
+                      onChange={e => updateStep(i, { daysAfter: Math.max(0, parseInt(e.target.value || "0", 10)) })}
+                      className="w-14 text-xs rounded border px-2 py-1 outline-none tabular-nums"
+                      style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}
+                    />
+                    <span className="text-[11px]" style={{ color: C.textMuted }}>days</span>
+                  </>
+                )}
+                <button onClick={() => removeStep(i)}
+                  className="ml-auto p-1 rounded transition-colors"
+                  style={{ color: C.textMuted }}
+                  onMouseEnter={e => { e.currentTarget.style.color = C.red; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = C.textMuted; }}>
+                  <Trash2 size={12} />
+                </button>
+              </div>
+              {!isInvite && s.channel === "email" && (
+                <input
+                  value={s.subject ?? ""}
+                  onChange={e => updateStep(i, { subject: e.target.value })}
+                  placeholder="Email subject (optional)"
+                  className="w-full mb-2 rounded border px-2 py-1.5 text-xs outline-none"
+                  style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
+                />
+              )}
+              <textarea
+                value={s.body}
+                onChange={e => updateStep(i, { body: e.target.value })}
+                placeholder={isInvite
+                  ? "Hi {{first_name}}, noticed your team is scaling — would love to connect. (≤300 chars)"
+                  : `What should be said at step ${i + 1}? Use {{first_name}}, {{company_name}}, {{seller_name}} as variables.`}
+                maxLength={isInvite ? 300 : undefined}
+                rows={isInvite ? 2 : 4}
+                className="w-full rounded border px-2 py-1.5 text-xs outline-none resize-vertical"
+                style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
+              />
+              {isInvite && (
+                <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
+                  LinkedIn caps invites at 300 chars · {300 - s.body.length} left
+                </p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="px-5 py-4 border-t flex items-center justify-between" style={{ borderColor: C.border }}>
+        <button onClick={onBack}
+          className="text-sm font-semibold inline-flex items-center gap-1.5 px-3 py-2 rounded-lg"
+          style={{ color: C.textBody }}>
+          <ArrowLeft size={14} /> Back
+        </button>
+        <button onClick={onNext}
+          disabled={bodyStepCount === 0 || !allBodiesFilled}
+          className="text-sm font-semibold px-5 py-2.5 rounded-lg inline-flex items-center gap-2 disabled:opacity-50"
+          style={{ backgroundColor: ACCENT, color: "#fff" }}>
+          Continue <ArrowRight size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Step 3: identity + save ────────────────────────────────────────────
+function IdentityStep(props: {
+  name: string; setName: (v: string) => void;
+  description: string; setDescription: (v: string) => void;
+  tagsInput: string; setTagsInput: (v: string) => void;
+  steps: Step[];
+  error: string | null; setError: (e: string | null) => void;
+  saving: boolean;
+  onBack: () => void;
+  onSave: () => void;
+}) {
+  const { name, setName, description, setDescription, tagsInput, setTagsInput, steps, error, setError, saving, onBack, onSave } = props;
+  return (
+    <div className="rounded-2xl border" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
+        <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Name + tags</h2>
+        <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
+          How will you find this template later? Pick a clear name and tag it for filtering.
+        </p>
+      </div>
+
+      <div className="p-5 space-y-3">
+        <div>
+          <label className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>
+            Name <span style={{ color: C.red }}>*</span>
+          </label>
+          <input
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="e.g., Healthcare Asset Finance — CEO Outreach"
+            className="w-full mt-1 rounded-lg border px-3 py-2 text-sm outline-none"
+            style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
+            autoFocus
+          />
+        </div>
+        <div>
+          <label className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>
+            Description
+          </label>
+          <input
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            placeholder="When should this template be used?"
+            className="w-full mt-1 rounded-lg border px-3 py-2 text-sm outline-none"
+            style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
+          />
+        </div>
+        <div>
+          <label className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>
+            Tags (comma-separated)
+          </label>
+          <input
+            value={tagsInput}
+            onChange={e => setTagsInput(e.target.value)}
+            placeholder="healthcare, asset-finance, c-level"
+            className="w-full mt-1 rounded-lg border px-3 py-2 text-sm outline-none"
+            style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
+          />
+        </div>
+
+        {/* Quick recap so the user can confirm what they're about to save */}
+        <div className="rounded-lg border p-3" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+          <p className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: C.textMuted }}>Recap</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {steps.map((s, i) => {
+              const meta = channelMeta[s.channel];
+              const Icon = meta.icon;
+              return (
+                <div key={i} className="inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md"
+                  style={{ backgroundColor: `${meta.color}10`, color: meta.color, border: `1px solid ${meta.color}30` }}>
+                  <Icon size={10} />
+                  <span className="font-semibold">{s.isConnectionRequest ? "Invite" : meta.label}</span>
+                  <span className="opacity-60">· d{s.daysAfter}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       {error && (
-        <div className="rounded-lg border p-3 mb-4 flex items-start justify-between gap-2"
+        <div className="mx-5 mb-3 rounded-lg border p-3 flex items-start justify-between gap-2"
           style={{ backgroundColor: C.redLight, borderColor: `${C.red}40` }}>
           <div className="flex items-start gap-2 min-w-0">
             <AlertCircle size={12} className="mt-0.5 shrink-0" style={{ color: C.red }} />
@@ -489,16 +923,16 @@ export default function NewTemplatePage() {
         </div>
       )}
 
-      <div className="flex items-center justify-end gap-3 pt-3 border-t" style={{ borderColor: C.border }}>
-        <Link href="/campaigns"
-          className="text-sm font-semibold px-5 py-2.5 rounded-lg border"
-          style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.surface }}>
-          Cancel
-        </Link>
-        <button onClick={save} disabled={saving || !name.trim()}
+      <div className="px-5 py-4 border-t flex items-center justify-between" style={{ borderColor: C.border }}>
+        <button onClick={onBack}
+          className="text-sm font-semibold inline-flex items-center gap-1.5 px-3 py-2 rounded-lg"
+          style={{ color: C.textBody }}>
+          <ArrowLeft size={14} /> Back
+        </button>
+        <button onClick={onSave} disabled={saving || !name.trim()}
           className="text-sm font-semibold px-5 py-2.5 rounded-lg inline-flex items-center gap-2 disabled:opacity-50"
-          style={{ backgroundColor: "#7C3AED", color: "#fff" }}>
-          {saving ? <Loader2 size={14} className="animate-spin" /> : <FileText size={14} />}
+          style={{ backgroundColor: ACCENT, color: "#fff" }}>
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
           {saving ? "Saving…" : "Save Template"}
         </button>
       </div>
