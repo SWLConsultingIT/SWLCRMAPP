@@ -324,9 +324,10 @@ export default async function ReportsPage({
             <p className="text-sm" style={{ color: C.textDim }}>No campaigns yet</p>
           </div>
         ) : (
+          <div className="max-h-[520px] overflow-y-auto">
           <table className="w-full text-left">
-            <thead>
-              <tr style={{ backgroundColor: C.bg }}>
+            <thead className="sticky top-0 z-10" style={{ backgroundColor: C.bg, boxShadow: `0 1px 0 ${C.border}` }}>
+              <tr>
                 <th className="px-5 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Campaign</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Channels</th>
                 <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Leads</th>
@@ -338,7 +339,7 @@ export default async function ReportsPage({
             </thead>
             <tbody>
               {data.campaignComparison.map((c) => (
-                <tr key={c.name} className="border-t" style={{ borderColor: C.border }}>
+                <tr key={c.name} className="border-t transition-colors hover:bg-black/[0.02]" style={{ borderColor: C.border }}>
                   <td className="px-5 py-3">
                     <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{c.name}</p>
                     <p className="text-[10px]" style={{ color: C.textDim }}>{c.totalSteps} steps</p>
@@ -352,9 +353,9 @@ export default async function ReportsPage({
                       })}
                     </div>
                   </td>
-                  <td className="px-3 py-3 text-center text-xs font-semibold" style={{ color: C.textBody }}>{c.leads}</td>
-                  <td className="px-3 py-3 text-center text-xs font-semibold" style={{ color: C.blue }}>{c.replied}</td>
-                  <td className="px-3 py-3 text-center text-xs font-semibold" style={{ color: C.green }}>{c.positive}</td>
+                  <td className="px-3 py-3 text-center text-xs font-semibold tabular-nums" style={{ color: C.textBody }}>{c.leads}</td>
+                  <td className="px-3 py-3 text-center text-xs font-semibold tabular-nums" style={{ color: C.blue }}>{c.replied}</td>
+                  <td className="px-3 py-3 text-center text-xs font-semibold tabular-nums" style={{ color: C.green }}>{c.positive}</td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2 justify-center">
                       <div className="w-14 h-2 rounded-full" style={{ backgroundColor: C.border }}>
@@ -375,6 +376,7 @@ export default async function ReportsPage({
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -508,9 +510,10 @@ export default async function ReportsPage({
             // Leader = max positive count; gap shown as bar width relative to leader.
             const leader = Math.max(...data.sellerPerformance.map(s => s.positive), 1);
             return (
+              <div className="max-h-[480px] overflow-y-auto">
               <table className="w-full text-left">
-                <thead>
-                  <tr style={{ backgroundColor: C.bg }}>
+                <thead className="sticky top-0 z-10" style={{ backgroundColor: C.bg, boxShadow: `0 1px 0 ${C.border}` }}>
+                  <tr>
                     <th className="pl-5 pr-2 py-2.5 text-[10px] font-semibold uppercase tracking-wider w-10" style={{ color: C.textMuted }}>#</th>
                     <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Seller</th>
                     <th className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Active</th>
@@ -582,6 +585,7 @@ export default async function ReportsPage({
                   })}
                 </tbody>
               </table>
+              </div>
             );
           })()}
         </div>
