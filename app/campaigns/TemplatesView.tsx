@@ -159,7 +159,7 @@ export default function TemplatesView() {
           </div>
           <Link href="/campaigns/templates/new"
             className="text-xs font-semibold px-3 py-1.5 rounded-md inline-flex items-center gap-1.5"
-            style={{ backgroundColor: "#7C3AED", color: "#fff" }}>
+            style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
             <Plus size={12} /> New Template
           </Link>
         </div>
@@ -182,8 +182,8 @@ export default function TemplatesView() {
             icon={FileText}
             title="No templates match"
             description="Try clearing the search or channel filter to see your full library."
-            accent="#7C3AED"
-            accentSoft="color-mix(in srgb, #7C3AED 12%, transparent)"
+            accent="var(--brand, #c9a83a)"
+            accentSoft="color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)"
           />
         ) : (
           <EmptyState
@@ -191,8 +191,8 @@ export default function TemplatesView() {
             title="No templates yet"
             description="Build a reusable outreach sequence + messages once, then apply it to any future campaign in one click. Templates support PDF attachments so the AI can pull context from your sales decks."
             primaryCta={{ label: "Create your first template", href: "/campaigns/templates/new" }}
-            accent="#7C3AED"
-            accentSoft="color-mix(in srgb, #7C3AED 12%, transparent)"
+            accent="var(--brand, #c9a83a)"
+            accentSoft="color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)"
           />
         )
       ) : (

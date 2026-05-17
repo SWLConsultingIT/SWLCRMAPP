@@ -20,7 +20,12 @@ import { C } from "@/lib/design";
 // edits it in the same place as every other touchpoint. On save it's split
 // back out into the `connectionRequest` field expected by the API.
 
-const ACCENT = "#7C3AED";
+// Brand-aware accent: gold for SWL, tenant color for clients via the
+// `--brand` cascade. Hex-alpha concatenation (`accent + "15"`) doesn't work
+// with CSS vars, so all soft-fill backgrounds go through `accentSoft()`
+// which builds a proper color-mix() expression.
+const ACCENT = "var(--brand, #c9a83a)";
+const accentSoft = (pct: number) => `color-mix(in srgb, ${ACCENT} ${pct}%, transparent)`;
 
 type Channel = "linkedin" | "email" | "call" | "whatsapp";
 
@@ -418,8 +423,8 @@ function WizardProgress({ current }: { current: WizardStep }) {
           <div key={s.key} className="flex items-center gap-2">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors"
               style={{
-                backgroundColor: active ? `${ACCENT}15` : done ? "#DCFCE7" : C.bg,
-                border: `1px solid ${active ? `${ACCENT}40` : done ? "#86EFAC" : C.border}`,
+                backgroundColor: active ? accentSoft(15) : done ? "#DCFCE7" : C.bg,
+                border: `1px solid ${active ? accentSoft(40) : done ? "#86EFAC" : C.border}`,
               }}>
               <span className="text-[11px] font-bold tabular-nums flex items-center justify-center rounded-full"
                 style={{ width: 18, height: 18, backgroundColor: active ? ACCENT : done ? "#16A34A" : C.border, color: "#fff" }}>
@@ -678,10 +683,10 @@ function SourceCard({
       style={{ backgroundColor: C.card, borderColor: C.border }}>
       <div className="flex items-center gap-2 mb-3">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-          style={{ backgroundColor: `${ACCENT}10` }}>{icon}</div>
+          style={{ backgroundColor: accentSoft(10) }}>{icon}</div>
         {badge && (
           <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
-            style={{ backgroundColor: `${ACCENT}15`, color: ACCENT, border: `1px solid ${ACCENT}30` }}>
+            style={{ backgroundColor: accentSoft(15), color: ACCENT, border: `1px solid ${accentSoft(30)}` }}>
             {badge}
           </span>
         )}
