@@ -408,27 +408,38 @@ export default async function DashboardPage({
 
           {/* Alerts */}
           {data.alerts.length > 0 && (
-            <div className="rounded-xl border px-5 py-4 mb-6 flex items-center gap-4 flex-wrap"
+            <div className="rounded-xl border px-5 py-3 mb-6 flex items-center gap-3 flex-wrap"
               style={{ backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }}>
               <div className="flex items-center gap-2 shrink-0">
-                <AlertTriangle size={16} style={{ color: "#D97706" }} />
-                <span className="text-sm font-semibold" style={{ color: C.textPrimary }}>Needs Attention</span>
+                <AlertTriangle size={15} style={{ color: "#D97706" }} />
+                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#92400E" }}>Needs Attention</span>
               </div>
-              {data.alerts.map((a, i) => (
-                <Link key={i} href={a.href}
-                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-colors hover:bg-orange-50"
-                  style={{ borderColor: "#FBBF24", color: "#B45309", backgroundColor: "#FFFDF5" }}>
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: a.color }} />
-                  {a.count} {a.label}
-                </Link>
-              ))}
+              {data.alerts.map((a, i) => {
+                // Semantic alert colors: amber = needs-human-action (review /
+                // call), blue = awaiting-approval (queued). One color per role,
+                // not one per row.
+                const tone = a.label.includes("approval") ? "info" : "warning";
+                const bg  = tone === "info" ? "#EFF6FF" : "#FFFDF5";
+                const fg  = tone === "info" ? "#1D4ED8" : "#B45309";
+                const bd  = tone === "info" ? "#BFDBFE" : "#FBBF24";
+                return (
+                  <Link key={i} href={a.href}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full border transition-colors hover:opacity-90"
+                    style={{ borderColor: bd, color: fg, backgroundColor: bg }}>
+                    <span className="font-bold tabular-nums">{a.count}</span>
+                    {a.label}
+                  </Link>
+                );
+              })}
             </div>
           )}
 
-          {/* Two columns: Active Campaigns + Recent Replies */}
-          <div className="grid grid-cols-2 gap-6">
-            {/* Active Campaigns */}
-            <div className="rounded-xl border overflow-hidden card-shadow" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          {/* Two-thirds Active Campaigns (operational priority) + one-third
+              Recent Replies (reactive). On narrow screens the grid collapses
+              to a single column so the campaigns table always reads first. */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Active Campaigns (2/3) */}
+            <div className="lg:col-span-2 rounded-xl border overflow-hidden card-shadow" style={{ backgroundColor: C.card, borderColor: C.border }}>
               <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
                 <div>
                   <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Active Campaigns</h2>
@@ -443,10 +454,10 @@ export default async function DashboardPage({
               ) : (
                 data.topCampaigns.map((camp, i) => (
                   <Link key={camp.name} href={`/campaigns/${camp.firstId}`}
-                    className="flex items-center gap-3 px-5 py-3.5 transition-colors hover:bg-black/[0.015] group"
+                    className="flex items-center gap-4 px-5 py-3 transition-colors hover:bg-black/[0.015] group"
                     style={{ borderTop: i > 0 ? `1px solid ${C.border}` : "none" }}>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1.5">
                         <p className="text-xs font-semibold truncate group-hover:underline" style={{ color: C.textPrimary }}>{camp.name}</p>
                         {camp.channels.map(ch => {
                           const meta = channelMeta[ch] ?? channelMeta.email;
@@ -461,23 +472,29 @@ export default async function DashboardPage({
                         <span className="text-[10px] tabular-nums shrink-0" style={{ color: C.textMuted }}>{camp.avgProgress}%</span>
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="text-right shrink-0 hidden sm:block">
                       <p className="text-xs font-bold tabular-nums" style={{ color: C.textPrimary }}>{camp.leads}</p>
                       <p className="text-[9px]" style={{ color: C.textMuted }}>leads</p>
+                    </div>
+                    <div className="text-right shrink-0 hidden md:block" style={{ minWidth: 70 }}>
+                      <p className="text-[10px] tabular-nums" style={{ color: C.textMuted }}>
+                        {camp.lastActivity ? timeAgo(camp.lastActivity) : "—"}
+                      </p>
+                      <p className="text-[9px]" style={{ color: C.textDim }}>last activity</p>
                     </div>
                   </Link>
                 ))
               )}
             </div>
 
-            {/* Recent Replies */}
+            {/* Recent Replies (1/3 sidebar) */}
             <div className="rounded-xl border overflow-hidden card-shadow" style={{ backgroundColor: C.card, borderColor: C.border }}>
               <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
                 <div>
                   <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Recent Replies</h2>
-                  <p className="text-[10px] mt-0.5" style={{ color: C.textMuted }}>Latest responses from leads</p>
+                  <p className="text-[10px] mt-0.5" style={{ color: C.textMuted }}>Latest responses</p>
                 </div>
-                <Link href="/queue" className="text-[10px] font-semibold hover:underline" style={{ color: gold }}>View queue</Link>
+                <Link href="/queue" className="text-[10px] font-semibold hover:underline" style={{ color: gold }}>Queue</Link>
               </div>
               {data.recentReplies.length === 0 ? (
                 <div className="px-5 py-10 text-center">
