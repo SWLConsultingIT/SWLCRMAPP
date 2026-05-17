@@ -6,6 +6,7 @@ import {
   Share2, Mail, Phone, Trophy,
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
+import KpiCard from "@/components/KpiCard";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -314,25 +315,12 @@ export default async function ReportsPage({
       />
 
       {/* ═══ KPI CARDS ═══ */}
-      <div className="grid grid-cols-5 gap-4 mb-8">
-        {[
-          { label: "Response Rate", value: `${data.responseRate}%`, sub: `${data.repliedCount}/${data.contactedLeads} replied`, color: C.blue, icon: MessageSquare },
-          { label: "Conversion Rate", value: `${data.conversionRate}%`, sub: `${data.positiveCount} positive of ${data.contactedLeads}`, color: C.green, icon: TrendingUp },
-          { label: "Avg Steps to Convert", value: data.avgSteps > 0 ? `${data.avgSteps}` : "—", sub: data.avgSteps > 0 ? "steps until positive reply" : "no conversions yet", color: gold, icon: Zap },
-          { label: "Best Campaign", value: data.bestCampaign ? `${data.bestCampaign.conversionRate}%` : "—", sub: data.bestCampaign?.name ?? "no data", color: "#7C3AED", icon: Trophy },
-          { label: "Best Channel", value: data.bestChannel ? `${data.bestChannel.responseRate}%` : "—", sub: data.bestChannel?.channel ?? "no data", color: "#F97316", icon: Target },
-        ].map(({ label, value, sub, color, icon: Icon }) => (
-          <div key={label} className="rounded-2xl border p-4 relative overflow-hidden" style={{ background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${color} 5%, var(--c-card)) 100%)`, borderColor: C.border, borderTop: `3px solid ${color}`, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{label}</span>
-              <div className="rounded-lg p-1.5" style={{ backgroundColor: `${color}15` }}>
-                <Icon size={13} style={{ color }} />
-              </div>
-            </div>
-            <p className="text-2xl font-bold tabular-nums" style={{ color }}>{value}</p>
-            <p className="text-[10px] mt-1 truncate" style={{ color: C.textDim }}>{sub}</p>
-          </div>
-        ))}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
+        <KpiCard label="Response Rate"   value={`${data.responseRate}%`}                          icon={MessageSquare} tone="info"     sub={`${data.repliedCount}/${data.contactedLeads} replied`} />
+        <KpiCard label="Conversion Rate" value={`${data.conversionRate}%`}                        icon={TrendingUp}    tone="positive" sub={`${data.positiveCount} positive of ${data.contactedLeads}`} />
+        <KpiCard label="Avg Steps to Convert" value={data.avgSteps > 0 ? data.avgSteps : "—"}     icon={Zap}           tone="brand"    sub={data.avgSteps > 0 ? "steps until positive reply" : "no conversions yet"} />
+        <KpiCard label="Best Campaign"   value={data.bestCampaign ? `${data.bestCampaign.conversionRate}%` : "—"} icon={Trophy} tone="neutral" sub={data.bestCampaign?.name ?? "no data"} />
+        <KpiCard label="Best Channel"    value={data.bestChannel ? `${data.bestChannel.responseRate}%` : "—"}     icon={Target} tone="neutral" sub={data.bestChannel?.channel ?? "no data"} />
       </div>
 
       {/* ═══ CAMPAIGN COMPARISON TABLE ═══ */}

@@ -75,23 +75,21 @@ async function getDashboardData(filters: DashboardFilterValues) {
 
   // Pre-resolve campaign IDs from the requested campaign names so subsequent
   // counts can use `.in("campaign_id", ids)` without an extra join layer.
+  // `q` is typed as any: branching the select() string yields divergent inner-
+  // join shapes that the supabase-js inferred type can't reconcile, and the
+  // narrowing is irrelevant — we only read `id` off the row.
   let campaignIdsForFilter: string[] | null = null;
   if (filters.campaignNames.length > 0) {
-    let q = supabase.from("campaigns").select("id, leads!inner(company_bio_id)").in("name", filters.campaignNames);
+    const selectCols = filters.icpIds.length > 0
+      ? "id, leads!inner(company_bio_id, icp_profile_id)"
+      : "id, leads!inner(company_bio_id)";
+    let q: any = supabase.from("campaigns").select(selectCols).in("name", filters.campaignNames);
     if (bioId) q = q.eq("leads.company_bio_id", bioId);
     if (filters.sellerIds.length > 0) q = q.in("seller_id", filters.sellerIds);
-    if (filters.icpIds.length > 0) {
-      q = supabase
-        .from("campaigns")
-        .select("id, leads!inner(company_bio_id, icp_profile_id)")
-        .in("name", filters.campaignNames)
-        .in("leads.icp_profile_id", filters.icpIds);
-      if (bioId) q = q.eq("leads.company_bio_id", bioId);
-      if (filters.sellerIds.length > 0) q = q.in("seller_id", filters.sellerIds);
-    }
+    if (filters.icpIds.length > 0) q = q.in("leads.icp_profile_id", filters.icpIds);
     const { data } = await q;
-    campaignIdsForFilter = (data ?? []).map((c: { id: string }) => c.id);
-    if (campaignIdsForFilter.length === 0) campaignIdsForFilter = ["__none__"]; // sentinel: zero results
+    const ids = (data ?? []).map((c: { id: string }) => c.id);
+    campaignIdsForFilter = ids.length > 0 ? ids : ["__none__"]; // sentinel: zero results
   }
 
   // Leads scope: direct eq on company_bio_id. ICP + date filters apply too —
