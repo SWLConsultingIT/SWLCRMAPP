@@ -942,17 +942,61 @@ function SequenceStep(props: {
   const bodyStepCount = steps.filter(s => !s.isConnectionRequest).length;
   const allBodiesFilled = steps.every(s => s.body.trim().length > 0);
 
+  const inviteStep = steps.find(s => s.isConnectionRequest);
+  const bodySteps = steps.filter(s => !s.isConnectionRequest);
+  const hasLinkedInStep = bodySteps.some(s => s.channel === "linkedin");
+
   return (
     <div className="rounded-2xl border" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      {/* LinkedIn connection request — prerequisite, not a numbered step */}
+      {(hasConnectionRequest || hasLinkedInStep) && (
+        <div className="px-5 py-3 border-b flex items-start gap-3" style={{ borderColor: "#0A66C220", backgroundColor: "#EFF6FF" }}>
+          <Share2 size={13} className="mt-0.5 shrink-0" style={{ color: "#0A66C2" }} />
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-semibold mb-1" style={{ color: "#0A66C2" }}>
+              LinkedIn Connection Request <span className="font-normal opacity-60">(sent before first LinkedIn message)</span>
+            </p>
+            <textarea
+              value={inviteStep?.body ?? ""}
+              onChange={e => {
+                if (inviteStep) {
+                  const idx = steps.indexOf(inviteStep);
+                  updateStep(idx, { body: e.target.value });
+                } else {
+                  addConnectionRequest();
+                }
+              }}
+              placeholder="Hi {{first_name}}, noticed your team is scaling — would love to connect. (≤200 chars)"
+              maxLength={200}
+              rows={2}
+              className="w-full rounded border px-2 py-1.5 text-xs outline-none resize-none"
+              style={{ borderColor: "#0A66C230", backgroundColor: "#fff", color: C.textPrimary }}
+            />
+            <p className="text-[10px] mt-0.5" style={{ color: "#0A66C280" }}>
+              200 chars max · {200 - (inviteStep?.body.length ?? 0)} left
+            </p>
+          </div>
+          {hasConnectionRequest && (
+            <button onClick={() => removeStep(steps.indexOf(inviteStep!))}
+              className="p-1 rounded mt-0.5 shrink-0 transition-colors"
+              style={{ color: "#0A66C260" }}
+              onMouseEnter={e => { e.currentTarget.style.color = C.red; }}
+              onMouseLeave={e => { e.currentTarget.style.color = "#0A66C260"; }}>
+              <Trash2 size={12} />
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
         <div>
           <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Sequence</h2>
           <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
-            {steps.length} {steps.length === 1 ? "step" : "steps"} · {hasConnectionRequest ? "starts with a LinkedIn invite" : "no LinkedIn invite"}
+            {bodyStepCount} {bodyStepCount === 1 ? "step" : "steps"}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {!hasConnectionRequest && (
+          {!hasConnectionRequest && !hasLinkedInStep && (
             <button onClick={addConnectionRequest}
               className="text-[11px] font-semibold px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 border"
               style={{ borderColor: "#0A66C230", color: "#0A66C2", backgroundColor: "#EFF6FF" }}>
@@ -971,24 +1015,17 @@ function SequenceStep(props: {
         {steps.map((s, i) => {
           const meta = channelMeta[s.channel];
           const isInvite = s.isConnectionRequest;
+          if (isInvite) return null;
+          const stepNum = hasConnectionRequest ? i : i + 1;
           return (
             <div key={i} className="rounded-lg border p-3"
-              style={{
-                borderColor: isInvite ? "#0A66C240" : C.border,
-                backgroundColor: isInvite ? "#EFF6FF" : C.bg,
-              }}>
+              style={{ borderColor: C.border, backgroundColor: C.bg }}>
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold"
                   style={{ backgroundColor: `${meta.color}18`, color: meta.color }}>
-                  {isInvite ? "0" : i + 1}
+                  {stepNum}
                 </div>
-                {isInvite ? (
-                  <>
-                    <span className="text-xs font-semibold" style={{ color: "#0A66C2" }}>LinkedIn invite</span>
-                    <span className="text-[10px] uppercase tracking-wider font-semibold"
-                      style={{ color: "#0A66C2" }}>Step 0</span>
-                  </>
-                ) : (
+                {(
                   <>
                     <select
                       value={s.channel}
@@ -1030,19 +1067,11 @@ function SequenceStep(props: {
               <textarea
                 value={s.body}
                 onChange={e => updateStep(i, { body: e.target.value })}
-                placeholder={isInvite
-                  ? "Hi {{first_name}}, noticed your team is scaling — would love to connect. (≤300 chars)"
-                  : `What should be said at step ${i + 1}? Use {{first_name}}, {{company_name}}, {{seller_name}} as variables.`}
-                maxLength={isInvite ? 300 : undefined}
-                rows={isInvite ? 2 : 4}
+                placeholder={`What should be said at step ${stepNum}? Use {{first_name}}, {{company_name}}, {{seller_name}} as variables.`}
+                rows={4}
                 className="w-full rounded border px-2 py-1.5 text-xs outline-none resize-vertical"
                 style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
               />
-              {isInvite && (
-                <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
-                  LinkedIn caps invites at 300 chars · {300 - s.body.length} left
-                </p>
-              )}
 
               {/* Source excerpt — verbatim PDF snippet the AI anchored on.
                   Empty for scratch/imported templates that never went through
