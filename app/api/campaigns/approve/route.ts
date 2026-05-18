@@ -104,13 +104,34 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ approved: true, campaignsCreated: 0, message: "No eligible leads found" });
   }
 
-  // 3. Resolve the seller chosen at campaign creation (stored in message_prompts.sellerId).
-  //    Fallback only picks from sellers that share the LEAD's tenant — without
-  //    this scoping, a missing sellerId could fall through to a seller from
-  //    another company_bio (cross-tenant leak in attribution + Unipile send).
+  // 3. Resolve seller assignment per lead.
+  //    Multi-seller: prompts.sellerQuotas = [{ sellerId, quota }] distributes leads
+  //    in order (first quota[0].quota leads → seller 0, next quota[1].quota → seller 1…).
+  //    Single-seller: falls back to prompts.sellerId, then to the first active tenant seller.
+  const sellerQuotas: { sellerId: string; quota: number }[] | null =
+    Array.isArray(prompts.sellerQuotas) && prompts.sellerQuotas.length > 1
+      ? prompts.sellerQuotas
+      : null;
+
+  // Build per-lead seller map when multiple quotas are set.
+  const leadSellerMap = new Map<string, string>();
+  if (sellerQuotas) {
+    let offset = 0;
+    for (const q of sellerQuotas) {
+      const slice = leadIds.slice(offset, offset + q.quota);
+      for (const lid of slice) leadSellerMap.set(lid, q.sellerId);
+      offset += q.quota;
+    }
+    // Any overflow leads (if quotas don't sum to total) → last seller in list.
+    for (let i = offset; i < leadIds.length; i++) {
+      leadSellerMap.set(leadIds[i], sellerQuotas[sellerQuotas.length - 1].sellerId);
+    }
+  }
+
+  // Fallback single-seller (used when no multi-quota or for overflow).
   const chosenSellerId: string | null = prompts.sellerId ?? null;
-  let sellerId: string | null = chosenSellerId;
-  if (!sellerId && leadIds.length > 0) {
+  let fallbackSellerId: string | null = chosenSellerId;
+  if (!fallbackSellerId && leadIds.length > 0) {
     const { data: leadForBio } = await supabase
       .from("leads")
       .select("company_bio_id")
@@ -129,7 +150,7 @@ export async function POST(req: NextRequest) {
         .order("name", { ascending: true })
         .limit(1)
         .maybeSingle();
-      sellerId = firstSeller?.id ?? null;
+      fallbackSellerId = firstSeller?.id ?? null;
     }
   }
 
@@ -138,6 +159,8 @@ export async function POST(req: NextRequest) {
   const errors: string[] = [];
 
   for (const leadId of leadIds) {
+    // Per-lead seller: quota map takes precedence, then fallback single-seller.
+    const sellerId = leadSellerMap.get(leadId) ?? fallbackSellerId;
 
     // Determine the primary channel (first channel in sequence)
     const primaryChannel = sequence[0]?.channel ?? channels[0] ?? "linkedin";
