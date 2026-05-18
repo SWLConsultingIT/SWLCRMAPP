@@ -10,6 +10,16 @@ import { C } from "@/lib/design";
 const gold = "var(--brand, #c9a83a)";
 const ACCENT = gold;
 
+// One distinct color per seller slot (up to 6 sellers).
+const SELLER_COLORS = [
+  { bg: "#DBEAFE", text: "#1D4ED8" }, // blue
+  { bg: "#EDE9FE", text: "#6D28D9" }, // purple
+  { bg: "#FEF3C7", text: "#92400E" }, // amber
+  { bg: "#DCFCE7", text: "#166534" }, // green
+  { bg: "#FCE7F3", text: "#9D174D" }, // pink
+  { bg: "#FFE4E6", text: "#9F1239" }, // rose
+];
+
 type Lead = {
   id: string;
   primary_first_name: string | null;
@@ -162,12 +172,16 @@ export default function TemplateLaunchModal({
     return out;
   }
 
-  // Per-seller projected count for the live summary in the launch button.
-  const perSellerProjection = useMemo(() => {
+  // Per-seller projected count + lead→seller preview map for inline badges.
+  const { perSellerProjection, previewMap } = useMemo(() => {
     const assignments = computeAssignments();
-    const m = new Map<string, number>();
-    for (const a of assignments) m.set(a.seller_id, (m.get(a.seller_id) ?? 0) + 1);
-    return m;
+    const projection = new Map<string, number>();
+    const preview = new Map<string, string>(); // lead_id → seller_id
+    for (const a of assignments) {
+      projection.set(a.seller_id, (projection.get(a.seller_id) ?? 0) + 1);
+      preview.set(a.lead_id, a.seller_id);
+    }
+    return { perSellerProjection: projection, previewMap: preview };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLeads, sellerQuotas]);
 
@@ -256,30 +270,33 @@ export default function TemplateLaunchModal({
                 const projected = perSellerProjection.get(q.sellerId) ?? 0;
                 const sellerObj = sellers.find(s => s.id === q.sellerId);
                 const usedIds = new Set(sellerQuotas.filter((_, i) => i !== idx).map(x => x.sellerId));
+                const clr = SELLER_COLORS[idx % SELLER_COLORS.length];
                 return (
                   <div key={idx} className="flex items-center gap-2 rounded-lg border px-3 py-2"
-                    style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                    style={{ borderColor: clr.text + "40", backgroundColor: clr.bg + "60" }}>
+                    {/* Color swatch */}
+                    <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: clr.text }} />
                     <select value={q.sellerId}
                       onChange={e => updateSellerQuota(idx, { sellerId: e.target.value })}
                       className="text-xs rounded border px-2 py-1 outline-none flex-1"
-                      style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}>
+                      style={{ borderColor: clr.text + "30", backgroundColor: "white", color: C.textBody }}>
                       {sellers.filter(s => s.id === q.sellerId || !usedIds.has(s.id)).map(s => (
                         <option key={s.id} value={s.id}>{s.name}</option>
                       ))}
                     </select>
                     <input type="number" min={0} value={q.quota}
                       onChange={e => updateSellerQuota(idx, { quota: Math.max(0, parseInt(e.target.value || "0", 10)) })}
-                      className="w-20 text-xs rounded border px-2 py-1 outline-none tabular-nums text-center"
-                      style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }} />
-                    <span className="text-[10px]" style={{ color: C.textMuted }}>leads</span>
+                      className="w-16 text-xs rounded border px-2 py-1 outline-none tabular-nums text-center"
+                      style={{ borderColor: clr.text + "30", backgroundColor: "white", color: C.textBody }} />
+                    <span className="text-[10px]" style={{ color: C.textMuted }}>leads max</span>
                     {sellerObj?.linkedin_daily_limit && (
                       <span className="text-[10px]" style={{ color: C.textDim }} title="Seller's LinkedIn daily cap">
                         · cap {sellerObj.linkedin_daily_limit}/d
                       </span>
                     )}
-                    <span className="text-[11px] font-semibold ml-auto tabular-nums"
-                      style={{ color: projected > 0 ? ACCENT : C.textDim }}>
-                      → {projected} selected
+                    <span className="text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: projected > 0 ? clr.bg : C.surface, color: projected > 0 ? clr.text : C.textDim }}>
+                      {projected} leads
                     </span>
                     {sellerQuotas.length > 1 && (
                       <button onClick={() => removeSellerQuota(idx)}
@@ -370,10 +387,18 @@ export default function TemplateLaunchModal({
                   {filteredLeads.map(l => {
                     const checked = selectedLeads.has(l.id);
                     const name = `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || "(unnamed)";
+                    const assignedSellerId = checked ? previewMap.get(l.id) : undefined;
+                    const sellerIdx = assignedSellerId
+                      ? sellerQuotas.findIndex(q => q.sellerId === assignedSellerId)
+                      : -1;
+                    const sellerName = assignedSellerId
+                      ? sellers.find(s => s.id === assignedSellerId)?.name ?? "?"
+                      : null;
+                    const clr = sellerIdx >= 0 ? SELLER_COLORS[sellerIdx % SELLER_COLORS.length] : null;
                     return (
                       <label key={l.id}
                         className="flex items-center gap-2 px-3 py-2 border-b last:border-b-0 cursor-pointer transition-colors hover:bg-black/[0.02]"
-                        style={{ borderColor: C.border, backgroundColor: checked ? accentSoft(8) : "transparent" }}>
+                        style={{ borderColor: C.border, backgroundColor: checked && clr ? clr.bg + "50" : "transparent" }}>
                         <input type="checkbox" checked={checked} onChange={() => toggleLead(l.id)}
                           style={{ accentColor: ACCENT }} />
                         <div className="flex-1 min-w-0">
@@ -386,6 +411,13 @@ export default function TemplateLaunchModal({
                             {l.status && l.status !== "new" && <span> · status: {l.status}</span>}
                           </p>
                         </div>
+                        {clr && sellerName && (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 flex items-center gap-1"
+                            style={{ backgroundColor: clr.bg, color: clr.text, border: `1px solid ${clr.text}30` }}>
+                            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: clr.text }} />
+                            {sellerName}
+                          </span>
+                        )}
                       </label>
                     );
                   })}
