@@ -53,6 +53,8 @@ export async function PATCH(
     description: string | null;
     tone_preset: "conservative" | "balanced" | "direct" | "spicy" | "custom";
     rewrite_mode: "verbatim" | "personalize" | "rewrite_with_source";
+    step_messages: unknown;
+    sequence_steps: unknown;
   }>;
 
   const svc = getSupabaseService();
@@ -73,6 +75,8 @@ export async function PATCH(
   if (body.description !== undefined) patch.description = body.description;
   if (body.tone_preset) patch.tone_preset = body.tone_preset;
   if (body.rewrite_mode) patch.rewrite_mode = body.rewrite_mode;
+  if (body.step_messages !== undefined) patch.step_messages = body.step_messages;
+  if (body.sequence_steps !== undefined) patch.sequence_steps = body.sequence_steps;
 
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
