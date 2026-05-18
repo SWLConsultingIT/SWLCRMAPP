@@ -452,14 +452,18 @@ export default function NewCampaignWizard() {
         body: JSON.stringify(body),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok) { setTplSaveError(json.error ?? "Failed to save template"); setSavingTpl(false); return; }
+      if (!res.ok) {
+        setTplSaveError(json.error ?? "Failed to save template");
+        setSavingTpl(false);
+        return; // keep modal open so user sees the error
+      }
       setTplSaved(true);
-    } catch (e: any) {
-      setTplSaveError(e?.message ?? "Unexpected error");
-    } finally {
-      setSavingTpl(false);
       setShowSavePrompt(false);
       setSubmitted(true);
+    } catch (e: any) {
+      setTplSaveError((e as any)?.message ?? "Unexpected error");
+    } finally {
+      setSavingTpl(false);
     }
   }
 
