@@ -202,6 +202,13 @@ export default function NewCampaignWizard() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [messagesWarning, setMessagesWarning] = useState<string | null>(null);
+  // Save-as-template prompt (shown after successful campaign submit)
+  const [showSavePrompt, setShowSavePrompt] = useState(false);
+  const [tplName, setTplName] = useState("");
+  const [tplDesc, setTplDesc] = useState("");
+  const [savingTpl, setSavingTpl] = useState(false);
+  const [tplSaveError, setTplSaveError] = useState<string | null>(null);
+  const [tplSaved, setTplSaved] = useState(false);
   const [language, setLanguage] = useState("es");
   const [timezone, setTimezone] = useState("America/Argentina/La_Rioja");
 
@@ -415,8 +422,43 @@ export default function NewCampaignWizard() {
       setSubmitError(error.message);
       setSubmitting(false);
     } else {
-      setSubmitted(true);
       setSubmitting(false);
+      // Offer to save as a reusable template before showing the success screen.
+      setTplName(campaignName.trim() || insertData.name);
+      setTplDesc("");
+      setTplSaveError(null);
+      setShowSavePrompt(true);
+    }
+  }
+
+  async function handleSaveTemplate(skip: boolean) {
+    if (skip) { setShowSavePrompt(false); setSubmitted(true); return; }
+    setSavingTpl(true);
+    setTplSaveError(null);
+    try {
+      const body: Record<string, unknown> = {
+        mode: "from_scratch",
+        name: tplName.trim() || campaignName.trim(),
+        description: tplDesc.trim() || null,
+        icp_profile_id: profileId,
+        sequence_steps: sequence,
+        step_messages: channelMessages,
+        channels: [...new Set(sequence.map(s => s.channel))],
+      };
+      const res = await fetch("/api/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) { setTplSaveError(json.error ?? "Failed to save template"); setSavingTpl(false); return; }
+      setTplSaved(true);
+    } catch (e: any) {
+      setTplSaveError(e?.message ?? "Unexpected error");
+    } finally {
+      setSavingTpl(false);
+      setShowSavePrompt(false);
+      setSubmitted(true);
     }
   }
 
@@ -1082,6 +1124,67 @@ export default function NewCampaignWizard() {
       )}
 
       {/* ═══ POST-SUBMIT SUCCESS SCREEN ═══ */}
+      {/* Save-as-template prompt — shown right after submit, before the success screen */}
+      {showSavePrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.55)" }}>
+          <div className="rounded-2xl border p-7 w-full max-w-md shadow-2xl fade-in"
+            style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4"
+              style={{ backgroundColor: "#FEF3C7" }}>
+              <span style={{ fontSize: 22 }}>📋</span>
+            </div>
+            <h2 className="text-lg font-bold mb-1" style={{ color: C.textPrimary }}>Save as template?</h2>
+            <p className="text-sm mb-5" style={{ color: C.textMuted }}>
+              Reuse this sequence and messages for future outreach flows.
+            </p>
+            <div className="space-y-3 mb-5">
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>Template name</label>
+                <input
+                  value={tplName}
+                  onChange={e => setTplName(e.target.value)}
+                  maxLength={100}
+                  placeholder="e.g. LinkedIn + Email 5-step"
+                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                  style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary }}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>Description <span className="font-normal">(optional)</span></label>
+                <input
+                  value={tplDesc}
+                  onChange={e => setTplDesc(e.target.value)}
+                  maxLength={200}
+                  placeholder="Short note about this template…"
+                  className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                  style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary }}
+                />
+              </div>
+              {tplSaveError && (
+                <p className="text-xs" style={{ color: C.red }}>{tplSaveError}</p>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => handleSaveTemplate(true)}
+                disabled={savingTpl}
+                className="flex-1 rounded-lg py-2.5 text-sm font-medium"
+                style={{ backgroundColor: C.surface, color: C.textBody }}>
+                Skip
+              </button>
+              <button
+                onClick={() => handleSaveTemplate(false)}
+                disabled={savingTpl || !tplName.trim()}
+                className="flex-1 rounded-lg py-2.5 text-sm font-semibold flex items-center justify-center gap-2"
+                style={{ backgroundColor: gold, color: "#04070d", opacity: (!tplName.trim() || savingTpl) ? 0.6 : 1 }}>
+                {savingTpl ? <Loader2 size={14} className="animate-spin" /> : null}
+                Save Template
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {submitted && (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
           <div className="rounded-2xl border p-8 w-full max-w-md shadow-2xl text-center fade-in"
@@ -1094,6 +1197,11 @@ export default function NewCampaignWizard() {
             <p className="text-sm mb-1" style={{ color: C.textBody }}>
               Your outreach flow has been submitted for review.
             </p>
+            {tplSaved && (
+              <p className="text-xs mb-1 font-medium" style={{ color: C.green }}>
+                Template &ldquo;{tplName}&rdquo; saved.
+              </p>
+            )}
             <p className="text-sm mb-6" style={{ color: C.textMuted }}>
               The SWL team will review your flow and you will be notified in your <strong>Queue</strong> once it is approved.
             </p>
