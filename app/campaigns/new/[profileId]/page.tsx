@@ -182,11 +182,10 @@ export default function NewCampaignWizard() {
         const body = await res.json().catch(() => ({}));
         const t = body.template;
         if (cancelled || !t) return;
-        if (Array.isArray(t.sequence_steps) && t.sequence_steps.length > 0) {
-          setSequence(t.sequence_steps as SequenceStep[]);
-        }
+        const seq = Array.isArray(t.sequence_steps) ? t.sequence_steps as SequenceStep[] : [];
+        if (seq.length > 0) setSequence(seq);
         if (t.step_messages && typeof t.step_messages === "object") {
-          setChannelMessages(t.step_messages as ChannelMessages);
+          setChannelMessages(alignTemplateMessages(t.step_messages as ChannelMessages, seq));
         }
         try { sessionStorage.removeItem("swl-pending-template-id"); } catch { /* no-op */ }
       } catch { /* template apply is best-effort; never block the wizard */ }
@@ -209,6 +208,7 @@ export default function NewCampaignWizard() {
   const [savingTpl, setSavingTpl] = useState(false);
   const [tplSaveError, setTplSaveError] = useState<string | null>(null);
   const [tplSaved, setTplSaved] = useState(false);
+  const [coverageWarningDismissed, setCoverageWarningDismissed] = useState(false);
   const [language, setLanguage] = useState("es");
   const [timezone, setTimezone] = useState("America/Argentina/La_Rioja");
 
@@ -335,25 +335,26 @@ export default function NewCampaignWizard() {
     setSequence(s => s.map((step, i) => i === idx ? { ...step, [field]: value } : step));
   }
 
-  // ICP template apply helper
-  function applyTemplate(tpl: { name: string; sequence_steps: any[]; step_messages: any }) {
-    if (Array.isArray(tpl.sequence_steps) && tpl.sequence_steps.length > 0) {
-      setSequence(tpl.sequence_steps as SequenceStep[]);
+  // classifySteps() (ChannelMessageConfig) maps ALL sequence steps including LinkedIn D0
+  // as classified[0] = "First DM (Post-Connection)". Template step_messages.steps[] starts
+  // from seq[1] because the AI generator only stores the CR separately. Prepend an empty
+  // LinkedIn placeholder so steps[i] aligns with classified[i] on render.
+  function alignTemplateMessages(msgs: ChannelMessages, seq: SequenceStep[]): ChannelMessages {
+    const isLinkedInD0 = seq[0]?.channel === "linkedin" && seq[0]?.daysAfter === 0;
+    const steps = msgs.steps ?? [];
+    const firstIsNotLinkedIn = steps.length > 0 && steps[0]?.channel !== "linkedin";
+    if (isLinkedInD0 && firstIsNotLinkedIn) {
+      return { ...msgs, steps: [{ step: 0, channel: "linkedin", body: "", subject: undefined } as any, ...steps] };
     }
+    return msgs;
+  }
+
+  // ICP template apply helper (used by the in-wizard dropdown)
+  function applyTemplate(tpl: { name: string; sequence_steps: any[]; step_messages: any }) {
+    const seq = (tpl.sequence_steps ?? []) as SequenceStep[];
+    if (seq.length > 0) setSequence(seq);
     if (tpl.step_messages && typeof tpl.step_messages === "object") {
-      const msgs = tpl.step_messages as ChannelMessages;
-      const seq = (tpl.sequence_steps ?? []) as SequenceStep[];
-      // classifySteps() maps ALL sequence steps including the LinkedIn D0 slot as
-      // classified[0]. Template step_messages.steps[] starts from seq[1] (the CR slot
-      // has no DM body). Prepend an empty LinkedIn placeholder so steps[i] aligns
-      // with classified[i] when ChannelMessageConfig renders.
-      const isLinkedInD0 = seq[0]?.channel === "linkedin" && seq[0]?.daysAfter === 0;
-      const steps = msgs.steps ?? [];
-      const firstIsNotLinkedIn = steps.length > 0 && steps[0]?.channel !== "linkedin";
-      const adjustedSteps = (isLinkedInD0 && firstIsNotLinkedIn)
-        ? [{ step: 0, channel: "linkedin", body: "", subject: undefined } as any, ...steps]
-        : steps;
-      setChannelMessages({ ...msgs, steps: adjustedSteps });
+      setChannelMessages(alignTemplateMessages(tpl.step_messages as ChannelMessages, seq));
     }
     if (!campaignName.trim()) setCampaignName(tpl.name);
   }
@@ -711,7 +712,7 @@ export default function NewCampaignWizard() {
               const gaps = usedChannels
                 .map(ch => ({ ch, reachable: coverage[ch], blockedNames: coverage.missing[ch] }))
                 .filter(x => x.blockedNames.length > 0);
-              if (gaps.length === 0 || coverage.total === 0) return null;
+              if (gaps.length === 0 || coverage.total === 0 || coverageWarningDismissed) return null;
               const label = (ch: string) => channelOptions.find(o => o.key === ch)?.label ?? ch;
               const color = (ch: string) => channelOptions.find(o => o.key === ch)?.color ?? "#64748B";
               const PREVIEW = 6;
@@ -728,6 +729,11 @@ export default function NewCampaignWizard() {
                         For each channel below, the listed leads will sit blocked on the steps that use it — they won&apos;t fail loudly, they just won&apos;t send. A lead with only email and no LinkedIn would appear under LinkedIn only.
                       </p>
                     </div>
+                    <button onClick={() => setCoverageWarningDismissed(true)}
+                      className="shrink-0 opacity-50 hover:opacity-100 transition-opacity ml-1"
+                      style={{ color: "#92400E" }}>
+                      ✕
+                    </button>
                   </div>
 
                   <div className="space-y-2.5 pl-7">
@@ -951,16 +957,57 @@ export default function NewCampaignWizard() {
                       if (!meta) return null;
                       const Icon = meta.icon;
 
-                      let accountValue: string | null = null;
+                      // For LinkedIn: collect all assigned sellers with a Unipile account.
+                      // For other channels: single shared account.
+                      if (ch === "linkedin") {
+                        const assignedSellers = sellerQuotas
+                          .map(q => sellers.find(s => s.id === q.sellerId))
+                          .filter(Boolean) as typeof sellers;
+                        const withLi = assignedSellers.filter(s => s.unipile_account_id);
+                        const missingLi = assignedSellers.filter(s => !s.unipile_account_id);
+                        const isConfigured = withLi.length > 0;
+                        return (
+                          <div key={ch} className="rounded-xl border p-4"
+                            style={{ borderColor: isConfigured ? `${meta.color}30` : C.red + "30", backgroundColor: isConfigured ? `${meta.color}04` : `${C.red}04` }}>
+                            <div className="flex items-center gap-4">
+                              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${meta.color}15` }}>
+                                <Icon size={18} style={{ color: meta.color }} />
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>LinkedIn</p>
+                                <div className="flex flex-wrap gap-1.5 mt-1">
+                                  {withLi.map(s => (
+                                    <span key={s.id} className="text-[11px] px-2 py-0.5 rounded-full font-medium"
+                                      style={{ backgroundColor: `${meta.color}15`, color: meta.color }}>
+                                      {s.name}
+                                    </span>
+                                  ))}
+                                  {missingLi.map(s => (
+                                    <span key={s.id} className="text-[11px] px-2 py-0.5 rounded-full font-medium"
+                                      style={{ backgroundColor: C.redLight, color: C.red }}>
+                                      {s.name} — no account
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                              {isConfigured ? (
+                                <span className="text-[10px] font-semibold flex items-center gap-1 px-2.5 py-1 rounded-full shrink-0" style={{ backgroundColor: C.greenLight, color: C.green }}>
+                                  <Check size={10} /> Ready
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full shrink-0" style={{ backgroundColor: C.redLight, color: C.red }}>
+                                  Missing
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      }
+
                       let accountLabel = "Not configured";
                       let isConfigured = false;
 
-                      if (ch === "linkedin" && selectedSellerObj?.unipile_account_id) {
-                        accountValue = selectedSellerObj.unipile_account_id;
-                        accountLabel = `Unipile — ${selectedSellerObj.name}`;
-                        isConfigured = true;
-                      } else if (ch === "email") {
-                        accountValue = "instantly_pool";
+                      if (ch === "email") {
                         accountLabel = "Instantly — Shared pool";
                         isConfigured = true;
                       } else if (ch === "call") {
