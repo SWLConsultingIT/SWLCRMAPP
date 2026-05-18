@@ -298,6 +298,7 @@ export default function NewTemplatePage() {
           tone_preset: tonePreset,
           tone_custom_notes: tonePreset === "custom" ? toneCustom : undefined,
           voice_anchor_seller_id: voiceAnchor ?? undefined,
+          icp_profile_id: icpProfileId ?? undefined,
         }),
       });
       const body = await res.json().catch(() => ({}));

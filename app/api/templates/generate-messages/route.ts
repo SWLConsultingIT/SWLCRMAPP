@@ -40,6 +40,7 @@ type Body = {
   tone_preset?: TonePreset;
   tone_custom_notes?: string;
   voice_anchor_seller_id?: string;
+  icp_profile_id?: string;
 };
 
 const SYSTEM_PROMPT_BASE = `You are an elite B2B outbound copywriter inside a sales operating system. You read the tenant's supporting documents (sales decks, case studies, playbooks, one-pagers) and produce three things at once:
@@ -59,7 +60,7 @@ In DETECTED mode:
 
 Message rules (apply to both modes):
 - Use {{first_name}}, {{company_name}}, {{seller_name}} where they feel natural. Never force.
-- LinkedIn invite (step 0, channel=linkedin, includesLinkedIn=true): MAX 280 chars, opener-only, no value pitch.
+- LinkedIn invite (step 0, channel=linkedin, includesLinkedIn=true): MAX 200 chars, opener-only, no value pitch.
 - LinkedIn DMs (later steps, channel=linkedin): 400-700 chars, conversational, one specific hook tied to PDF content.
 - Emails: subject ≤60 chars + body 80-150 words, scannable, one clear CTA.
 - Calls: 2-3 short bullets the seller will say out loud, NOT a script.
@@ -136,7 +137,7 @@ export async function POST(req: NextRequest) {
   const tonePreset: TonePreset = body.tone_preset ?? "balanced";
 
   const svc = getSupabaseService();
-  const [bioRes, sellerRes] = await Promise.all([
+  const [bioRes, sellerRes, icpRes] = await Promise.all([
     svc.from("company_bios")
       .select("company_name, industry, description, value_proposition, main_services, tone_of_voice")
       .eq("id", scope.companyBioId)
@@ -144,9 +145,13 @@ export async function POST(req: NextRequest) {
     body.voice_anchor_seller_id
       ? svc.from("sellers").select("id, name, voice_examples").eq("id", body.voice_anchor_seller_id).maybeSingle()
       : Promise.resolve({ data: null }),
+    body.icp_profile_id
+      ? svc.from("icp_profiles").select("id, profile_name, target_industries, target_roles").eq("id", body.icp_profile_id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
   const bio = bioRes.data;
   const seller = sellerRes.data as { id: string; name: string; voice_examples: unknown } | null;
+  const icp = icpRes.data as { id: string; profile_name: string; target_industries: unknown; target_roles: unknown } | null;
 
   const sequenceBlock = authoredSequence
     ? `MODE: AUTHORED\nSEQUENCE (use exactly):\n${body.sequence!.map((s, i) => `  Step ${i + 1}: ${s.channel} — daysAfter ${s.daysAfter}`).join("\n")}`
@@ -167,6 +172,18 @@ export async function POST(req: NextRequest) {
   const toneBlock = TONE_GUIDES[tonePreset]
     + (tonePreset === "custom" && body.tone_custom_notes ? `\nADDITIONAL NOTES: ${body.tone_custom_notes.slice(0, 800)}` : "");
 
+  const icpLines = icp ? [
+    "",
+    "ICP TARGET (this template is for THIS specific audience — if the PDF contains multiple campaigns, extract ONLY the one targeting this ICP):",
+    `  ICP name: ${icp.profile_name}`,
+    Array.isArray(icp.target_roles) && (icp.target_roles as string[]).length > 0
+      ? `  Target roles: ${(icp.target_roles as string[]).join(", ")}`
+      : null,
+    Array.isArray(icp.target_industries) && (icp.target_industries as string[]).length > 0
+      ? `  Target industries: ${(icp.target_industries as string[]).join(", ")}`
+      : null,
+  ].filter(v => v !== null) : [];
+
   const specText = [
     body.name ? `TEMPLATE: ${body.name}` : `TEMPLATE: (untitled — name comes later)`,
     body.description ? `DESCRIPTION: ${body.description}` : null,
@@ -177,6 +194,7 @@ export async function POST(req: NextRequest) {
     bio?.description ? `  About: ${String(bio.description).slice(0, 500)}` : null,
     bio?.value_proposition ? `  Value prop: ${String(bio.value_proposition).slice(0, 300)}` : null,
     bio?.tone_of_voice ? `  Tenant tone: ${bio.tone_of_voice}` : null,
+    ...icpLines,
     "",
     toneBlock,
     "",
