@@ -228,7 +228,12 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
       )}
       {call.recording_url && (
         <div className="mt-3">
-          <audio controls src={call.recording_url} className="w-full h-8" />
+          {/* Always serve through our own endpoint — never the raw Aircall URL.
+              Aircall's S3 presigned URLs expire in hours/days; our /play
+              endpoint lazy-archives the MP3 into Supabase Storage on first
+              request and mints fresh signed URLs every load. From the player's
+              perspective the URL is permanent. */}
+          <audio controls preload="none" src={`/api/aircall/calls/${call.id}/play`} className="w-full h-8" />
         </div>
       )}
       {canTranscribe && (

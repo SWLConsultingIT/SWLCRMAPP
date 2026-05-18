@@ -136,6 +136,16 @@ export async function POST(req: NextRequest) {
     }).catch(() => { /* don't fail the webhook on transcription error */ });
   }
 
+  // Archive the recording into our own Supabase Storage bucket. Aircall's
+  // recording URLs are S3 presigned and expire (hours/days), so without
+  // this archive step old calls stop playing in the UI. Fire-and-forget —
+  // the /play endpoint also has a lazy-archive fallback in case this misses.
+  if (updatedRow?.id && update.recording_url && !updatedRow.recording_storage_path) {
+    import("@/lib/archive-call-recording")
+      .then(m => m.archiveCallRecording(updatedRow.id as string))
+      .catch(() => { /* don't fail webhook on archive error */ });
+  }
+
   // Outbound reconciliation: the /api/aircall/dial endpoint inserts a row
   // BEFORE Aircall returns (their POST /v1/users/{id}/calls returns 204 with
   // no body, so we never learn the aircall_call_id at dial time). When the
