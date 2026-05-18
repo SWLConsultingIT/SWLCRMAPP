@@ -18,11 +18,34 @@ export async function POST(req: NextRequest) {
   const { phone, leadId, aircallUserId, numberId } = await req.json();
   if (!phone) return NextResponse.json({ error: "Phone number required" }, { status: 400 });
 
-  // Aircall requires strict E.164: leading "+" then digits only, no spaces,
-  // dashes or parens. Lead records often have human-formatted numbers
-  // ("+54 9 11 3394 2012") — strip everything except digits and the leading
-  // plus before sending or Aircall returns 400 "Number needs to be E164".
-  const normalizedPhone = "+" + String(phone).replace(/[^\d]/g, "");
+  // Aircall requires strict E.164: leading "+" then digits + a valid country
+  // code. Lead records arrive in many shapes:
+  //   "+54 9 11 3394 2012"   → already E.164, just strip formatting
+  //   "(248) 296-7307"        → US local format, needs +1 prepended
+  //   "0800 123 456"          → impossible to disambiguate, send and let Aircall reject
+  // The pre-2026-05-18 normalizer prepended "+" verbatim → "(248) 296-7307"
+  // became "+2482967307" (Seychelles country code 248) which Aircall rejected
+  // with "Invalid number to call". Pathway lost dials to Kyle Cleland this way.
+  //
+  // Heuristic:
+  //   - If the input starts with "+" → trust it, just strip formatting.
+  //   - Exactly 10 digits + no "+" → assume US (NANP), prepend "+1".
+  //   - Exactly 11 digits starting with "1" → prepend "+".
+  //   - Everything else → fall back to "+" + digits and let Aircall judge.
+  // Proper i18n via libphonenumber is the long-term fix; this covers the
+  // 95% case (US/UK leads from Apollo / ZoomInfo) without the dep.
+  const rawInput = String(phone);
+  const digitsOnly = rawInput.replace(/[^\d]/g, "");
+  let normalizedPhone: string;
+  if (rawInput.trim().startsWith("+")) {
+    normalizedPhone = "+" + digitsOnly;
+  } else if (digitsOnly.length === 10) {
+    normalizedPhone = "+1" + digitsOnly; // NANP fallback (US/Canada)
+  } else if (digitsOnly.length === 11 && digitsOnly.startsWith("1")) {
+    normalizedPhone = "+" + digitsOnly;
+  } else {
+    normalizedPhone = "+" + digitsOnly;
+  }
   if (normalizedPhone.length < 8) {
     return NextResponse.json({ error: `phone "${phone}" did not normalize to a valid number` }, { status: 400 });
   }
@@ -230,8 +253,19 @@ export async function POST(req: NextRequest) {
     if (insertedDialId) {
       await svc.from("calls").delete().eq("id", insertedDialId);
     }
-    const err = await res.text();
-    return NextResponse.json({ error: err || `Aircall ${res.status}` }, { status: res.status });
+    const errBody = await res.text();
+    // Parse Aircall's JSON error so the UI can show the actual reason
+    // ("Invalid number to call") instead of a raw blob. Falls back gracefully.
+    let friendly = `Aircall ${res.status}`;
+    try {
+      const parsed = JSON.parse(errBody);
+      friendly = parsed?.troubleshoot ?? parsed?.message ?? errBody.slice(0, 200);
+    } catch { friendly = errBody.slice(0, 200) || friendly; }
+    return NextResponse.json({
+      error: friendly,
+      aircall_status: res.status,
+      attempted_number: normalizedPhone,
+    }, { status: res.status });
   }
 
   return NextResponse.json({ success: true, callId: null });
