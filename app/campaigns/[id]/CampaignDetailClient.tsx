@@ -73,6 +73,13 @@ export default function CampaignDetailClient({
   const [callingId, setCallingId] = useState<string | null>(null);
   const [calledIds, setCalledIds] = useState<Set<string>>(new Set());
   const [selectedUserId, setSelectedUserId] = useState<number>(AIRCALL_USERS[0].id);
+  // Save-as-template
+  const [showSaveTpl, setShowSaveTpl] = useState(false);
+  const [tplName, setTplName] = useState("");
+  const [tplDesc, setTplDesc] = useState("");
+  const [savingTpl, setSavingTpl] = useState(false);
+  const [tplError, setTplError] = useState<string | null>(null);
+  const [tplDone, setTplDone] = useState(false);
 
   async function handleDial(leadId: string, phone: string) {
     if (!phone || callingId) return;
@@ -86,6 +93,49 @@ export default function CampaignDetailClient({
       if (res.ok) setCalledIds(prev => new Set(prev).add(leadId));
     } finally {
       setCallingId(null);
+    }
+  }
+
+  async function handleSaveAsTemplate() {
+    if (!campaignIcpId) { setTplError("This campaign has no ICP — can't save as template."); return; }
+    setSavingTpl(true);
+    setTplError(null);
+    try {
+      // Reconstruct step_messages from the messages array passed as props.
+      const steps = messages
+        .filter(m => !(m.step_number === 0 && m.channel === "linkedin"))
+        .map(m => ({
+          step: m.step_number,
+          channel: m.channel,
+          subject: (m.metadata as any)?.subject ?? null,
+          body: m.content,
+        }));
+      const step_messages = {
+        connectionRequest: connectionNote ?? "",
+        steps,
+        autoReplies,
+      };
+      const res = await fetch("/api/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "from_scratch",
+          name: tplName.trim() || campaignName,
+          description: tplDesc.trim() || null,
+          icp_profile_id: campaignIcpId,
+          sequence_steps: sequence,
+          step_messages,
+          channels,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) { setTplError(json.error ?? "Failed to save"); return; }
+      setTplDone(true);
+      setTimeout(() => setShowSaveTpl(false), 1500);
+    } catch (e: any) {
+      setTplError(e?.message ?? "Unexpected error");
+    } finally {
+      setSavingTpl(false);
     }
   }
 
@@ -202,6 +252,58 @@ export default function CampaignDetailClient({
 
   return (
     <div>
+      {/* Save-as-template modal (portal-style fixed overlay) */}
+      {showSaveTpl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.55)" }}>
+          <div className="rounded-2xl border p-7 w-full max-w-md shadow-2xl" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            {tplDone ? (
+              <div className="text-center py-4">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3" style={{ backgroundColor: C.greenLight }}>
+                  <Check size={22} style={{ color: C.green }} />
+                </div>
+                <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>Template saved!</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-base font-bold" style={{ color: C.textPrimary }}>Save as Template</h2>
+                  <button onClick={() => setShowSaveTpl(false)} style={{ color: C.textMuted }}><X size={16} /></button>
+                </div>
+                <p className="text-xs mb-4" style={{ color: C.textMuted }}>
+                  Saves the sequence, messages, and auto-replies of <strong>{campaignName}</strong> as a reusable template.
+                </p>
+                <div className="space-y-3 mb-5">
+                  <div>
+                    <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>Template name</label>
+                    <input value={tplName} onChange={e => setTplName(e.target.value)} maxLength={100}
+                      className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                      style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary }} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1" style={{ color: C.textMuted }}>Description <span className="font-normal">(optional)</span></label>
+                    <input value={tplDesc} onChange={e => setTplDesc(e.target.value)} maxLength={200}
+                      placeholder="Short note…"
+                      className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                      style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary }} />
+                  </div>
+                  {tplError && <p className="text-xs" style={{ color: C.red }}>{tplError}</p>}
+                </div>
+                <div className="flex gap-3">
+                  <button onClick={() => setShowSaveTpl(false)} className="flex-1 rounded-lg py-2.5 text-sm font-medium"
+                    style={{ backgroundColor: C.surface, color: C.textBody }}>Cancel</button>
+                  <button onClick={handleSaveAsTemplate} disabled={savingTpl || !tplName.trim()}
+                    className="flex-1 rounded-lg py-2.5 text-sm font-semibold flex items-center justify-center gap-2"
+                    style={{ backgroundColor: gold, color: "#04070d", opacity: (!tplName.trim() || savingTpl) ? 0.6 : 1 }}>
+                    {savingTpl ? <Loader2 size={14} className="animate-spin" /> : <Save size={13} />}
+                    Save Template
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+      <div>
 
       <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
         {tabs.map((t, i) => {
@@ -316,6 +418,12 @@ export default function CampaignDetailClient({
               style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
               <Pencil size={11} /> Edit Flow
             </Link>
+            <button
+              onClick={() => { setTplName(campaignName); setTplDesc(""); setTplError(null); setTplDone(false); setShowSaveTpl(true); }}
+              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold hover:opacity-80"
+              style={{ backgroundColor: C.surface, color: C.textBody, border: `1px solid ${C.border}` }}>
+              <Save size={11} /> Save as Template
+            </button>
             {sellerName && sellerName !== "Unassigned" && (
               <span className="text-xs" style={{ color: C.textMuted }}>Seller: <strong style={{ color: C.textBody }}>{sellerName}</strong></span>
             )}
@@ -807,6 +915,7 @@ export default function CampaignDetailClient({
           </div>
         );
       })()}
+      </div>
     </div>
   );
 }
