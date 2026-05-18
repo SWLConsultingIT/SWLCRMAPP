@@ -577,7 +577,7 @@ export default function NewCampaignWizard() {
                           <select className="rounded-lg border px-2 py-1.5 text-xs font-medium focus:outline-none"
                             style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg, minWidth: 65 }}
                             value={s.daysAfter} onChange={e => updateStep(i, "daysAfter", Number(e.target.value))}>
-                            {[1, 2, 3, 4, 5, 7, 10, 14, 21].map(d => (
+                            {[...new Set([s.daysAfter, 1, 2, 3, 4, 5, 7, 10, 14, 21])].sort((a, b) => a - b).map(d => (
                               <option key={d} value={d}>{d} {d === 1 ? "day" : "days"}</option>
                             ))}
                           </select>
@@ -691,10 +691,18 @@ export default function NewCampaignWizard() {
                                 · {g.reachable} / {coverage.total} reachable
                               </span>
                             </span>
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider"
-                              style={{ backgroundColor: "#DC2626", color: "#fff" }}>
-                              {g.blockedNames.length} blocked
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => setSequence(s => s.filter(step => step.channel !== g.ch))}
+                                className="text-[10px] font-semibold px-2 py-0.5 rounded border transition-colors hover:bg-red-50"
+                                style={{ borderColor: "#DC2626", color: "#DC2626" }}>
+                                Remove {label(g.ch)} steps
+                              </button>
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider"
+                                style={{ backgroundColor: "#DC2626", color: "#fff" }}>
+                                {g.blockedNames.length} blocked
+                              </span>
+                            </div>
                           </div>
                           <div className="flex flex-wrap gap-1">
                             {shown.map((n, idx) => (
