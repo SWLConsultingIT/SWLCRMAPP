@@ -742,78 +742,149 @@ export default function NewCampaignWizard() {
               </p>
 
               {/* Multi-seller with quotas */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <label className="text-xs font-semibold uppercase tracking-wider block" style={{ color: C.textMuted }}>Assigned Sellers</label>
-                    <p className="text-xs mt-0.5" style={{ color: C.textDim }}>
-                      Select one or more sellers and set how many leads each will handle. Extras round-robin.
-                    </p>
-                  </div>
-                  {sellerQuotas.length < sellers.length && (
-                    <button onClick={addSellerQuota}
-                      className="text-[11px] font-semibold px-2.5 py-1 rounded-md border inline-flex items-center gap-1 shrink-0"
-                      style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
-                      <Plus size={11} /> Add seller
-                    </button>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  {sellerQuotas.length === 0 && (
-                    <p className="text-xs text-center py-3 rounded-lg border border-dashed" style={{ color: C.textDim, borderColor: C.border }}>
-                      No sellers added yet. Click <b>Add seller</b>.
-                    </p>
-                  )}
-                  {sellerQuotas.map((q, idx) => {
-                    const clr = SELLER_COLORS[idx % SELLER_COLORS.length];
-                    const usedIds = new Set(sellerQuotas.filter((_, i) => i !== idx).map(x => x.sellerId));
-                    const sellerObj = sellers.find(s => s.id === q.sellerId);
-                    const needsLinkedin = usedChannels.includes("linkedin");
-                    const missingLinkedin = needsLinkedin && !sellerObj?.unipile_account_id;
-                    return (
-                      <div key={idx} className="flex items-center gap-2 rounded-lg border px-3 py-2.5"
-                        style={{ borderColor: clr.text + "40", backgroundColor: clr.bg + "60" }}>
-                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: clr.text }} />
-                        <select value={q.sellerId}
-                          onChange={e => updateSellerQuota(idx, { sellerId: e.target.value })}
-                          className="text-xs rounded border px-2 py-1 outline-none flex-1"
-                          style={{ borderColor: clr.text + "30", backgroundColor: "white", color: C.textBody }}>
-                          {sellers.filter(s => s.id === q.sellerId || !usedIds.has(s.id)).map(s => (
-                            <option key={s.id} value={s.id}>{s.name}</option>
-                          ))}
-                        </select>
-                        <input type="number" min={1} value={q.quota}
-                          onChange={e => updateSellerQuota(idx, { quota: Math.max(1, parseInt(e.target.value || "1", 10)) })}
-                          className="w-16 text-xs rounded border px-2 py-1 outline-none tabular-nums text-center"
-                          style={{ borderColor: clr.text + "30", backgroundColor: "white", color: C.textBody }} />
-                        <span className="text-[10px]" style={{ color: C.textMuted }}>leads max</span>
-                        {missingLinkedin && (
-                          <span className="text-[9px] font-bold" style={{ color: C.red }}>· No LinkedIn</span>
-                        )}
-                        {sellerObj?.linkedin_daily_limit && (
-                          <span className="text-[10px]" style={{ color: C.textDim }}>cap {sellerObj.linkedin_daily_limit}/d</span>
-                        )}
-                        {sellerQuotas.length > 1 && (
-                          <button onClick={() => removeSellerQuota(idx)} className="p-1 rounded ml-auto shrink-0"
-                            style={{ color: C.textMuted }}
-                            onMouseEnter={e => { e.currentTarget.style.color = C.red; }}
-                            onMouseLeave={e => { e.currentTarget.style.color = C.textMuted; }}>
-                            <Trash2 size={11} />
-                          </button>
-                        )}
+              {(() => {
+                const totalCap = sellerQuotas.reduce((s, q) => s + q.quota, 0);
+                const unallocated = leadsCount - totalCap;
+                const isOver = totalCap > leadsCount && leadsCount > 0;
+                const isExact = totalCap === leadsCount && leadsCount > 0;
+
+                function handleQuotaChange(idx: number, raw: string) {
+                  const val = Math.max(1, parseInt(raw || "1", 10));
+                  // With 2 sellers auto-fill the other to cover the total
+                  if (sellerQuotas.length === 2 && leadsCount > 0) {
+                    const otherIdx = idx === 0 ? 1 : 0;
+                    const otherVal = Math.max(1, leadsCount - val);
+                    setSellerQuotas(prev => prev.map((q, i) =>
+                      i === idx ? { ...q, quota: val } : i === otherIdx ? { ...q, quota: otherVal } : q
+                    ));
+                  } else {
+                    updateSellerQuota(idx, { quota: val });
+                  }
+                }
+
+                return (
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <label className="text-xs font-semibold uppercase tracking-wider block" style={{ color: C.textMuted }}>Assigned Sellers</label>
+                        <p className="text-xs mt-0.5" style={{ color: C.textDim }}>
+                          {leadsCount > 0 ? `${leadsCount} leads to distribute` : "Set how many leads each seller handles."}
+                        </p>
                       </div>
-                    );
-                  })}
-                  {sellerQuotas.length > 0 && (
-                    <p className="text-[10px] text-right" style={{ color: C.textDim }}>
-                      Total cap: {sellerQuotas.reduce((s, q) => s + q.quota, 0)} leads · {leadsCount} in flow
-                      {leadsCount > sellerQuotas.reduce((s, q) => s + q.quota, 0) && (
-                        <span style={{ color: "#D97706" }}> · overflow round-robins</span>
+                      {sellerQuotas.length < sellers.length && (
+                        <button onClick={addSellerQuota}
+                          className="text-[11px] font-semibold px-2.5 py-1 rounded-md border inline-flex items-center gap-1 shrink-0"
+                          style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
+                          <Plus size={11} /> Add seller
+                        </button>
                       )}
-                    </p>
-                  )}
-                </div>
-              </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {sellerQuotas.length === 0 && (
+                        <p className="text-xs text-center py-3 rounded-lg border border-dashed" style={{ color: C.textDim, borderColor: C.border }}>
+                          No sellers added yet. Click <b>Add seller</b>.
+                        </p>
+                      )}
+                      {sellerQuotas.map((q, idx) => {
+                        const clr = SELLER_COLORS[idx % SELLER_COLORS.length];
+                        const usedIds = new Set(sellerQuotas.filter((_, i) => i !== idx).map(x => x.sellerId));
+                        const sellerObj = sellers.find(s => s.id === q.sellerId);
+                        const needsLinkedin = usedChannels.includes("linkedin");
+                        const missingLinkedin = needsLinkedin && !sellerObj?.unipile_account_id;
+                        const pct = leadsCount > 0 ? Math.round((q.quota / leadsCount) * 100) : 0;
+                        return (
+                          <div key={idx} className="rounded-xl border px-4 py-3"
+                            style={{ borderColor: clr.text + "35", backgroundColor: clr.bg + "50" }}>
+                            <div className="flex items-center gap-3">
+                              <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: clr.text }} />
+                              <select value={q.sellerId}
+                                onChange={e => updateSellerQuota(idx, { sellerId: e.target.value })}
+                                className="text-sm font-medium rounded-lg border px-2 py-1.5 outline-none flex-1"
+                                style={{ borderColor: clr.text + "25", backgroundColor: "white", color: C.textBody }}>
+                                {sellers.filter(s => s.id === q.sellerId || !usedIds.has(s.id)).map(s => (
+                                  <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                              </select>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <input type="number" min={1} max={leadsCount || undefined} value={q.quota}
+                                  onChange={e => handleQuotaChange(idx, e.target.value)}
+                                  className="w-16 text-sm font-bold rounded-lg border px-2 py-1.5 outline-none tabular-nums text-center"
+                                  style={{ borderColor: clr.text + "40", backgroundColor: "white", color: clr.text }} />
+                                <span className="text-xs" style={{ color: C.textMuted }}>leads</span>
+                                {leadsCount > 0 && (
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                                    style={{ backgroundColor: clr.text + "18", color: clr.text }}>
+                                    {pct}%
+                                  </span>
+                                )}
+                              </div>
+                              {missingLinkedin && (
+                                <span className="text-[9px] font-bold shrink-0" style={{ color: C.red }}>No LinkedIn</span>
+                              )}
+                              {sellerQuotas.length > 1 && (
+                                <button onClick={() => removeSellerQuota(idx)} className="p-1 rounded shrink-0 opacity-30 hover:opacity-100 transition-opacity"
+                                  style={{ color: C.red }}>
+                                  <Trash2 size={11} />
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Per-seller progress bar */}
+                            {leadsCount > 0 && (
+                              <div className="mt-2.5 ml-5">
+                                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: clr.text + "18" }}>
+                                  <div className="h-full rounded-full transition-all duration-200"
+                                    style={{ width: `${Math.min(100, pct)}%`, backgroundColor: clr.text }} />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Total summary bar */}
+                    {sellerQuotas.length > 0 && leadsCount > 0 && (
+                      <div className="mt-3 rounded-xl border px-4 py-3" style={{ backgroundColor: C.bg, borderColor: C.border }}>
+                        {/* Stacked bar */}
+                        <div className="flex h-2 rounded-full overflow-hidden mb-2.5 gap-px">
+                          {sellerQuotas.map((q, idx) => {
+                            const clr = SELLER_COLORS[idx % SELLER_COLORS.length];
+                            const w = Math.min(100, (q.quota / leadsCount) * 100);
+                            return <div key={idx} className="h-full transition-all duration-200" style={{ width: `${w}%`, backgroundColor: clr.text }} />;
+                          })}
+                          {unallocated > 0 && (
+                            <div className="h-full flex-1" style={{ backgroundColor: C.border }} />
+                          )}
+                        </div>
+                        {/* Legend */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 flex-wrap">
+                            {sellerQuotas.map((q, idx) => {
+                              const clr = SELLER_COLORS[idx % SELLER_COLORS.length];
+                              const sel = sellers.find(s => s.id === q.sellerId);
+                              return (
+                                <span key={idx} className="flex items-center gap-1 text-[10px] font-semibold">
+                                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: clr.text }} />
+                                  <span style={{ color: C.textMuted }}>{sel?.name ?? "—"} · {q.quota}</span>
+                                </span>
+                              );
+                            })}
+                          </div>
+                          <span className="text-[11px] font-bold tabular-nums"
+                            style={{ color: isExact ? C.green : isOver ? C.red : "#D97706" }}>
+                            {totalCap}/{leadsCount}
+                            {isExact && " ✓"}
+                            {isOver && " · over cap"}
+                            {!isExact && !isOver && ` · ${unallocated} unassigned`}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Channel accounts (based on selected seller + used channels) */}
               {sellerQuotas.length > 0 && (
