@@ -129,7 +129,9 @@ export default function NewCampaignWizard() {
   const [leadsCount, setLeadsCount] = useState(0);
   const [selectedLeadNames, setSelectedLeadNames] = useState<string[]>([]);
   const [sellers, setSellers] = useState<{ id: string; name: string; unipile_account_id: string | null; email_account: string | null; linkedin_daily_limit: number | null; email_daily_limit: number | null }[]>([]);
-  const [selectedSeller, setSelectedSeller] = useState<string>("");
+  type SellerQuota = { sellerId: string; quota: number };
+  const [sellerQuotas, setSellerQuotas] = useState<SellerQuota[]>([]);
+  const [icpTemplates, setIcpTemplates] = useState<Array<{ id: string; name: string; description: string | null; sequence_steps: any[]; step_messages: any }>>([]);
   const [aircallNumbers, setAircallNumbers] = useState<{ id: number; name: string; digits: string; country: string }[]>([]);
   const [selectedAircallNumberId, setSelectedAircallNumberId] = useState<number | null>(null);
 
@@ -228,7 +230,18 @@ export default function NewCampaignWizard() {
         sellerQ,
       ]);
       setSellers(sellerList ?? []);
-      if (sellerList?.length === 1) setSelectedSeller(sellerList[0].id);
+      if (sellerList && sellerList.length > 0) {
+        setSellerQuotas([{ sellerId: sellerList[0].id, quota: 20 }]);
+      }
+
+      // Load saved templates for this ICP
+      try {
+        const tplRes = await fetch(`/api/templates?icp_profile_id=${profileId}`, { cache: "no-store" });
+        if (tplRes.ok) {
+          const tplBody = await tplRes.json().catch(() => ({}));
+          setIcpTemplates(tplBody.templates ?? []);
+        }
+      } catch {}
 
       // Fetch Aircall numbers
       try {
@@ -315,6 +328,39 @@ export default function NewCampaignWizard() {
     setSequence(s => s.map((step, i) => i === idx ? { ...step, [field]: value } : step));
   }
 
+  // ICP template apply helper
+  function applyTemplate(tpl: { name: string; sequence_steps: any[]; step_messages: any }) {
+    if (Array.isArray(tpl.sequence_steps) && tpl.sequence_steps.length > 0) {
+      setSequence(tpl.sequence_steps as SequenceStep[]);
+    }
+    if (tpl.step_messages && typeof tpl.step_messages === "object") {
+      setChannelMessages(tpl.step_messages as ChannelMessages);
+    }
+    if (!campaignName.trim()) setCampaignName(tpl.name);
+  }
+
+  // Multi-seller quota helpers
+  const SELLER_COLORS = [
+    { bg: "#DBEAFE", text: "#1D4ED8" },
+    { bg: "#EDE9FE", text: "#6D28D9" },
+    { bg: "#FEF3C7", text: "#92400E" },
+    { bg: "#DCFCE7", text: "#166534" },
+    { bg: "#FCE7F3", text: "#9D174D" },
+  ];
+
+  function addSellerQuota() {
+    const used = new Set(sellerQuotas.map(q => q.sellerId));
+    const next = sellers.find(s => !used.has(s.id));
+    if (!next) return;
+    setSellerQuotas(prev => [...prev, { sellerId: next.id, quota: 20 }]);
+  }
+  function updateSellerQuota(idx: number, patch: Partial<SellerQuota>) {
+    setSellerQuotas(prev => prev.map((q, i) => i === idx ? { ...q, ...patch } : q));
+  }
+  function removeSellerQuota(idx: number) {
+    setSellerQuotas(prev => prev.filter((_, i) => i !== idx));
+  }
+
   // Calculate cumulative days
   function cumulativeDays(): number[] {
     let day = 0;
@@ -349,7 +395,7 @@ export default function NewCampaignWizard() {
       sequence_length: sequence.length,
       frequency_days: 0,
       target_leads_count: leadsCount,
-      message_prompts: { sequence, channelMessages, language, timezone, selectedLeadIds: isPartialSelection ? selectedLeadIds : null, sellerId: selectedSeller || null, aircallNumberId: selectedAircallNumberId },
+      message_prompts: { sequence, channelMessages, language, timezone, selectedLeadIds: isPartialSelection ? selectedLeadIds : null, sellerId: sellerQuotas[0]?.sellerId ?? null, sellerQuotas: sellerQuotas.length > 0 ? sellerQuotas : null, aircallNumberId: selectedAircallNumberId },
       status: "pending_review",
     };
     const { error } = await supabase.from("campaign_requests").insert(insertData);
@@ -431,6 +477,27 @@ export default function NewCampaignWizard() {
             />
             <div className="mt-4 pt-4 border-t" style={{ borderColor: C.border }}>
               <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>Start from a template</p>
+              {icpTemplates.length > 0 && (
+                <>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: gold }}>
+                    Saved templates for this ICP
+                  </p>
+                  <div className="flex gap-2 flex-wrap mb-3">
+                    {icpTemplates.map(tpl => (
+                      <button key={tpl.id}
+                        onClick={() => applyTemplate(tpl)}
+                        className="rounded-lg border px-3 py-2 text-left transition-shadow hover:shadow-sm"
+                        style={{ borderColor: `color-mix(in srgb, ${gold} 30%, transparent)`, backgroundColor: `color-mix(in srgb, ${gold} 4%, transparent)` }}>
+                        <p className="text-[12px] font-semibold" style={{ color: C.textPrimary }}>{tpl.name}</p>
+                        {tpl.description && <p className="text-[11px]" style={{ color: C.textDim }}>{tpl.description}</p>}
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 mt-1" style={{ color: C.textMuted }}>
+                    Generic presets
+                  </p>
+                </>
+              )}
               <div className="flex gap-2 flex-wrap">
                 {sequenceTemplates.map(tpl => (
                   <button key={tpl.name}
@@ -645,7 +712,7 @@ export default function NewCampaignWizard() {
       {/* ═══ STEP 1: SETTINGS (Seller + Channel Accounts) ═══ */}
       {wizardStep === 1 && (() => {
         const usedChannels = [...new Set(sequence.map(s => s.channel))];
-        const selectedSellerObj = sellers.find(s => s.id === selectedSeller);
+        const selectedSellerObj = sellers.find(s => s.id === (sellerQuotas[0]?.sellerId ?? ""));
 
         return (
           <div className="space-y-5">
@@ -658,56 +725,82 @@ export default function NewCampaignWizard() {
                 Choose who will run this outreach flow and which accounts to use for each channel.
               </p>
 
-              {/* Seller selection */}
+              {/* Multi-seller with quotas */}
               <div className="mb-6">
-                <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>Assigned Seller</label>
-                <p className="text-xs mb-3" style={{ color: C.textDim }}>
-                  {usedChannels.length === 1 && usedChannels[0] === "call"
-                    ? "Any seller can run a call-only flow (Aircall is shared). This person will own the lead."
-                    : usedChannels.length === 1 && usedChannels[0] === "email"
-                    ? "Any seller can run an email-only flow (Instantly pool is shared)."
-                    : "This person will handle follow-ups and conversations for this flow."}
-                </p>
-                <div className="grid grid-cols-3 gap-3">
-                  {sellers.map(s => {
-                    const isActive = selectedSeller === s.id;
-                    const hasLinkedin = !!s.unipile_account_id;
-                    const hasEmail = !!s.email_account;
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wider block" style={{ color: C.textMuted }}>Assigned Sellers</label>
+                    <p className="text-xs mt-0.5" style={{ color: C.textDim }}>
+                      Select one or more sellers and set how many leads each will handle. Extras round-robin.
+                    </p>
+                  </div>
+                  {sellerQuotas.length < sellers.length && (
+                    <button onClick={addSellerQuota}
+                      className="text-[11px] font-semibold px-2.5 py-1 rounded-md border inline-flex items-center gap-1 shrink-0"
+                      style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}>
+                      <Plus size={11} /> Add seller
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {sellerQuotas.length === 0 && (
+                    <p className="text-xs text-center py-3 rounded-lg border border-dashed" style={{ color: C.textDim, borderColor: C.border }}>
+                      No sellers added yet. Click <b>Add seller</b>.
+                    </p>
+                  )}
+                  {sellerQuotas.map((q, idx) => {
+                    const clr = SELLER_COLORS[idx % SELLER_COLORS.length];
+                    const usedIds = new Set(sellerQuotas.filter((_, i) => i !== idx).map(x => x.sellerId));
+                    const sellerObj = sellers.find(s => s.id === q.sellerId);
                     const needsLinkedin = usedChannels.includes("linkedin");
-                    const missingLinkedin = needsLinkedin && !hasLinkedin;
+                    const missingLinkedin = needsLinkedin && !sellerObj?.unipile_account_id;
                     return (
-                      <button key={s.id} onClick={() => !missingLinkedin && setSelectedSeller(s.id)}
-                        disabled={missingLinkedin}
-                        className="rounded-xl border p-4 text-left transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                        style={{
-                          borderColor: isActive ? gold : C.border,
-                          backgroundColor: isActive ? `color-mix(in srgb, ${gold} 2%, transparent)` : "transparent",
-                          boxShadow: isActive ? `0 0 0 1px ${gold}` : "none",
-                        }}>
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold"
-                            style={{ background: isActive ? `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` : C.bg, color: isActive ? "#fff" : C.textMuted }}>
-                            {s.name[0]}
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{s.name}</p>
-                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                              {hasLinkedin && <span className="text-[9px] flex items-center gap-0.5" style={{ color: C.linkedin }}><Share2 size={8} /> LinkedIn</span>}
-                              {hasEmail && <span className="text-[9px] flex items-center gap-0.5" style={{ color: C.email }}><Mail size={8} /> Email</span>}
-                              <span className="text-[9px] flex items-center gap-0.5" style={{ color: C.phone }}><Phone size={8} /> Call</span>
-                              {missingLinkedin && <span className="text-[9px] font-bold" style={{ color: C.red }}>· LinkedIn needed</span>}
-                            </div>
-                          </div>
-                        </div>
-                        {isActive && <div className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: gold }}><Check size={10} /> Selected</div>}
-                      </button>
+                      <div key={idx} className="flex items-center gap-2 rounded-lg border px-3 py-2.5"
+                        style={{ borderColor: clr.text + "40", backgroundColor: clr.bg + "60" }}>
+                        <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: clr.text }} />
+                        <select value={q.sellerId}
+                          onChange={e => updateSellerQuota(idx, { sellerId: e.target.value })}
+                          className="text-xs rounded border px-2 py-1 outline-none flex-1"
+                          style={{ borderColor: clr.text + "30", backgroundColor: "white", color: C.textBody }}>
+                          {sellers.filter(s => s.id === q.sellerId || !usedIds.has(s.id)).map(s => (
+                            <option key={s.id} value={s.id}>{s.name}</option>
+                          ))}
+                        </select>
+                        <input type="number" min={1} value={q.quota}
+                          onChange={e => updateSellerQuota(idx, { quota: Math.max(1, parseInt(e.target.value || "1", 10)) })}
+                          className="w-16 text-xs rounded border px-2 py-1 outline-none tabular-nums text-center"
+                          style={{ borderColor: clr.text + "30", backgroundColor: "white", color: C.textBody }} />
+                        <span className="text-[10px]" style={{ color: C.textMuted }}>leads max</span>
+                        {missingLinkedin && (
+                          <span className="text-[9px] font-bold" style={{ color: C.red }}>· No LinkedIn</span>
+                        )}
+                        {sellerObj?.linkedin_daily_limit && (
+                          <span className="text-[10px]" style={{ color: C.textDim }}>cap {sellerObj.linkedin_daily_limit}/d</span>
+                        )}
+                        {sellerQuotas.length > 1 && (
+                          <button onClick={() => removeSellerQuota(idx)} className="p-1 rounded ml-auto shrink-0"
+                            style={{ color: C.textMuted }}
+                            onMouseEnter={e => { e.currentTarget.style.color = C.red; }}
+                            onMouseLeave={e => { e.currentTarget.style.color = C.textMuted; }}>
+                            <Trash2 size={11} />
+                          </button>
+                        )}
+                      </div>
                     );
                   })}
+                  {sellerQuotas.length > 0 && (
+                    <p className="text-[10px] text-right" style={{ color: C.textDim }}>
+                      Total cap: {sellerQuotas.reduce((s, q) => s + q.quota, 0)} leads · {leadsCount} in flow
+                      {leadsCount > sellerQuotas.reduce((s, q) => s + q.quota, 0) && (
+                        <span style={{ color: "#D97706" }}> · overflow round-robins</span>
+                      )}
+                    </p>
+                  )}
                 </div>
               </div>
 
               {/* Channel accounts (based on selected seller + used channels) */}
-              {selectedSeller && (
+              {sellerQuotas.length > 0 && (
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>Channel Accounts</label>
                   <p className="text-xs mb-4" style={{ color: C.textDim }}>These accounts will be used to send messages for each channel in your sequence.</p>
@@ -953,7 +1046,7 @@ export default function NewCampaignWizard() {
                 setMessagesWarning("Please add at least one step to the sequence.");
                 return;
               }
-              if (wizardStep === 1 && !selectedSeller) {
+              if (wizardStep === 1 && sellerQuotas.length === 0) {
                 setMessagesWarning("Please select a seller before continuing.");
                 return;
               }
