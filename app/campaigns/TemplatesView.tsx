@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   FileText, Loader2, Search, Share2, Mail, Phone, MessageSquare, X,
   Trash2, Play, Plus, MoreHorizontal, Copy, FolderTree, Clock, List,
-  ChevronDown, ChevronRight, AlertCircle, ArrowRight,
+  ChevronDown, ChevronRight, AlertCircle, ArrowRight, Pencil,
 } from "lucide-react";
 import { C } from "@/lib/design";
 import EmptyState from "@/components/EmptyState";
@@ -118,13 +118,7 @@ export default function TemplatesView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, channelFilter]);
 
-  // Close row menu on outside click.
-  useEffect(() => {
-    if (!menuOpenId) return;
-    const handler = () => setMenuOpenId(null);
-    document.addEventListener("click", handler);
-    return () => document.removeEventListener("click", handler);
-  }, [menuOpenId]);
+  // Close row menu on outside click — handled inside TemplateRow via menuRef.contains().
 
   // Group templates by ICP for the "By ICP" view. Returns [{icp, templates}]
   // sorted by total usage_count desc, with the special "needs_icp" bucket
@@ -439,8 +433,15 @@ function TemplateRow({
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!menuOpen) setSubmenu("main");
-  }, [menuOpen]);
+    if (!menuOpen) { setSubmenu("main"); return; }
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen, setMenuOpen]);
 
   return (
     <div className="px-4 py-3 flex items-start gap-4 transition-colors hover:bg-black/[0.015]"
@@ -498,6 +499,12 @@ function TemplateRow({
           {menuOpen && submenu === "main" && (
             <div className="absolute right-0 top-full mt-1 z-10 w-52 rounded-lg border shadow-lg overflow-hidden"
               style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <Link href={`/campaigns/templates/${t.id}`}
+                className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-black/[0.04]"
+                style={{ color: C.textBody, display: "flex" }}
+                onClick={() => setMenuOpen(false)}>
+                <Pencil size={12} /> Edit template
+              </Link>
               <button onClick={() => setSubmenu("duplicate")}
                 className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-black/[0.04]"
                 style={{ color: C.textBody }}>

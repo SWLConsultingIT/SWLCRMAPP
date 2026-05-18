@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Play, MoreHorizontal, Copy, FolderTree, Trash2, X, ArrowRight, Loader2,
-  Pencil, Save, Share2, Mail, Phone, MessageSquare,
+  Pencil, Save, Share2, Mail, Phone, MessageSquare, Plus, GripVertical,
 } from "lucide-react";
 import { C } from "@/lib/design";
 import TemplateLaunchModal from "@/components/TemplateLaunchModal";
@@ -13,31 +13,31 @@ const gold = "var(--brand, #c9a83a)";
 
 type IcpOption = { id: string; profile_name: string };
 
-type StepMsg = { step: number; channel: string; subject?: string | null; body: string; source_excerpt?: string };
 type FullTemplate = {
   id: string; name: string; description?: string | null;
   sequence_steps: Array<{ channel: string; daysAfter: number }>;
   step_messages: {
     connectionRequest?: string;
-    steps?: StepMsg[];
+    steps?: Array<{ step: number; channel: string; subject?: string | null; body: string; source_excerpt?: string }>;
     autoReplies?: { positive?: string; negative?: string; question?: string };
   };
 };
 
-const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
-  linkedin: { icon: Share2,        color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,          color: "#7C3AED", label: "Email" },
-  call:     { icon: Phone,         color: "#F97316", label: "Call" },
-  whatsapp: { icon: MessageSquare, color: "#25D366", label: "WhatsApp" },
-};
+type EditStep = { channel: string; daysAfter: number; subject: string; body: string };
+
+const CHANNELS = [
+  { key: "linkedin", label: "LinkedIn", icon: Share2,        color: "#0A66C2" },
+  { key: "email",    label: "Email",    icon: Mail,          color: "#7C3AED" },
+  { key: "call",     label: "Call",     icon: Phone,         color: "#F97316" },
+  { key: "whatsapp", label: "WhatsApp", icon: MessageSquare, color: "#25D366" },
+];
+const channelMeta = Object.fromEntries(CHANNELS.map(c => [c.key, c]));
 
 export default function TemplateDetailActions({
   templateId, templateName, currentIcpId, icps,
 }: {
-  templateId: string;
-  templateName: string;
-  currentIcpId: string | null;
-  icps: IcpOption[];
+  templateId: string; templateName: string;
+  currentIcpId: string | null; icps: IcpOption[];
 }) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -56,32 +56,19 @@ export default function TemplateDetailActions({
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
 
-  function handleUse() { setLaunchOpen(true); }
-
   async function handleAssign(icpId: string) {
-    if (busy) return;
-    setBusy(true);
+    if (busy) return; setBusy(true);
     try {
-      const res = await fetch(`/api/templates/${templateId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ icp_profile_id: icpId }),
-      });
+      const res = await fetch(`/api/templates/${templateId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ icp_profile_id: icpId }) });
       if (!res.ok) { const b = await res.json().catch(() => ({})); alert(b.error ?? "Couldn't move"); return; }
-      setMenuOpen(false);
-      router.refresh();
+      setMenuOpen(false); router.refresh();
     } finally { setBusy(false); }
   }
 
   async function handleDuplicate(icpId: string) {
-    if (busy) return;
-    setBusy(true);
+    if (busy) return; setBusy(true);
     try {
-      const res = await fetch(`/api/templates/${templateId}/duplicate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ icp_profile_id: icpId }),
-      });
+      const res = await fetch(`/api/templates/${templateId}/duplicate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ icp_profile_id: icpId }) });
       const b = await res.json().catch(() => ({}));
       if (!res.ok) { alert(b.error ?? "Couldn't duplicate"); return; }
       if (b.template?.id) router.push(`/campaigns/templates/${b.template.id}`);
@@ -102,7 +89,7 @@ export default function TemplateDetailActions({
 
   return (
     <div className="flex items-center gap-2 shrink-0">
-      <button onClick={handleUse} disabled={busy}
+      <button onClick={() => setLaunchOpen(true)} disabled={busy}
         className="text-sm font-semibold px-4 py-2 rounded-lg inline-flex items-center gap-2 disabled:opacity-50"
         style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
         <Play size={13} /> Use template
@@ -111,8 +98,7 @@ export default function TemplateDetailActions({
       <div className="relative" ref={ref}>
         <button onClick={() => setMenuOpen(o => !o)} disabled={busy}
           className="p-2 rounded-lg border disabled:opacity-50"
-          style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}
-          title="More actions">
+          style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}>
           {busy ? <Loader2 size={14} className="animate-spin" /> : <MoreHorizontal size={14} />}
         </button>
 
@@ -141,109 +127,106 @@ export default function TemplateDetailActions({
             </button>
           </div>
         )}
-
         {menuOpen && submenu === "duplicate" && (
-          <IcpPicker icps={icps} onPick={handleDuplicate}
-            title="Duplicate to which ICP?" onCancel={() => setSubmenu("main")} />
+          <IcpPicker icps={icps} onPick={handleDuplicate} title="Duplicate to which ICP?" onCancel={() => setSubmenu("main")} />
         )}
         {menuOpen && submenu === "move" && (
-          <IcpPicker icps={icps} onPick={handleAssign}
-            title="Move to which ICP?" excludeId={currentIcpId} onCancel={() => setSubmenu("main")} />
+          <IcpPicker icps={icps} onPick={handleAssign} title="Move to which ICP?" excludeId={currentIcpId} onCancel={() => setSubmenu("main")} />
         )}
       </div>
 
-      {launchOpen && (
-        <TemplateLaunchModal
-          templateId={templateId}
-          templateName={templateName}
-          icpProfileId={currentIcpId}
-          onClose={() => setLaunchOpen(false)}
-        />
-      )}
-
-      {editOpen && (
-        <EditOverlay
-          templateId={templateId}
-          onClose={() => setEditOpen(false)}
-          onSaved={() => { setEditOpen(false); router.refresh(); }}
-        />
-      )}
+      {launchOpen && <TemplateLaunchModal templateId={templateId} templateName={templateName} icpProfileId={currentIcpId} onClose={() => setLaunchOpen(false)} />}
+      {editOpen && <EditOverlay templateId={templateId} onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); router.refresh(); }} />}
     </div>
   );
 }
 
 /* ── Edit overlay ── */
-function EditOverlay({ templateId, onClose, onSaved }: {
-  templateId: string;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
+function EditOverlay({ templateId, onClose, onSaved }: { templateId: string; onClose: () => void; onSaved: () => void }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [tpl, setTpl] = useState<FullTemplate | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [connReq, setConnReq] = useState("");
-  const [steps, setSteps] = useState<StepMsg[]>([]);
+  const [connReq, setConnReq] = useState<string | null>(null); // null = no invite step
+  const [steps, setSteps] = useState<EditStep[]>([]);
 
   useEffect(() => {
     fetch(`/api/templates/${templateId}`, { cache: "no-store" })
       .then(r => r.json())
-      .then(({ template }) => {
+      .then(({ template }: { template: FullTemplate }) => {
         if (!template) return;
         setTpl(template);
         setName(template.name ?? "");
         setDescription(template.description ?? "");
-        setConnReq(template.step_messages?.connectionRequest ?? "");
-        setSteps(Array.isArray(template.step_messages?.steps) ? template.step_messages.steps : []);
+        const cr = template.step_messages?.connectionRequest ?? null;
+        setConnReq(cr && cr.length > 0 ? cr : null);
+        // Build editSteps: skip sequence[0] if it's the connection request slot
+        const seqSteps = template.sequence_steps ?? [];
+        const msgSteps = template.step_messages?.steps ?? [];
+        const offset = (cr && cr.length > 0 && seqSteps[0]?.channel === "linkedin" && seqSteps[0]?.daysAfter === 0) ? 1 : 0;
+        const combined: EditStep[] = seqSteps.slice(offset).map((s, i) => {
+          const msg = msgSteps[i];
+          return { channel: s.channel, daysAfter: s.daysAfter, subject: msg?.subject ?? "", body: msg?.body ?? "" };
+        });
+        setSteps(combined);
       })
       .finally(() => setLoading(false));
   }, [templateId]);
 
-  function updateStep(idx: number, field: "subject" | "body", val: string) {
-    setSteps(prev => prev.map((s, i) => i === idx ? { ...s, [field]: val } : s));
+  function addStep() {
+    setSteps(prev => [...prev, { channel: "email", daysAfter: 3, subject: "", body: "" }]);
   }
+  function removeStep(idx: number) {
+    setSteps(prev => prev.filter((_, i) => i !== idx));
+  }
+  function updateStep(idx: number, patch: Partial<EditStep>) {
+    setSteps(prev => prev.map((s, i) => i === idx ? { ...s, ...patch } : s));
+  }
+  function moveStep(idx: number, dir: -1 | 1) {
+    const next = idx + dir;
+    if (next < 0 || next >= steps.length) return;
+    setSteps(prev => {
+      const arr = [...prev];
+      [arr[idx], arr[next]] = [arr[next], arr[idx]];
+      return arr;
+    });
+  }
+
+  const cumDays = (() => {
+    let d = connReq !== null ? 0 : 0;
+    return steps.map((s, i) => { if (i === 0 && connReq !== null) { d = s.daysAfter; return s.daysAfter; } if (i === 0) { d = s.daysAfter; return s.daysAfter; } d += s.daysAfter; return d; });
+  })();
 
   async function handleSave() {
     if (!tpl) return;
     setSaving(true);
     try {
+      const hasInvite = connReq !== null;
+      const sequence_steps = [
+        ...(hasInvite ? [{ channel: "linkedin", daysAfter: 0 }] : []),
+        ...steps.map(s => ({ channel: s.channel, daysAfter: s.daysAfter })),
+      ];
+      const msgSteps = steps.map((s, i) => ({
+        step: i + (hasInvite ? 1 : 1),
+        channel: s.channel,
+        subject: s.channel === "email" ? (s.subject || null) : null,
+        body: s.body,
+      }));
       const res = await fetch(`/api/templates/${templateId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: name.trim() || tpl.name,
           description: description.trim() || null,
-          step_messages: {
-            ...tpl.step_messages,
-            connectionRequest: connReq,
-            steps,
-          },
+          sequence_steps,
+          step_messages: { ...tpl.step_messages, connectionRequest: connReq ?? "", steps: msgSteps },
         }),
       });
-      if (!res.ok) {
-        const b = await res.json().catch(() => ({}));
-        alert(b.error ?? "Save failed");
-        return;
-      }
+      if (!res.ok) { const b = await res.json().catch(() => ({})); alert(b.error ?? "Save failed"); return; }
       onSaved();
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
-
-  const cumulativeDays = (() => {
-    if (!tpl) return [];
-    let d = 0;
-    return (tpl.sequence_steps ?? []).map((s, i) => {
-      if (i === 0) { d = s.daysAfter; return s.daysAfter; }
-      d += s.daysAfter;
-      return d;
-    });
-  })();
-
-  // offset: if there's a connection request, sequence[0] = invite (no regular step)
-  const seqOffset = connReq ? 1 : 0;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col" style={{ backgroundColor: C.bg }}>
@@ -251,13 +234,12 @@ function EditOverlay({ templateId, onClose, onSaved }: {
       <div className="flex items-center justify-between px-6 py-4 border-b shrink-0"
         style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="flex items-center gap-3">
-          <button onClick={onClose} className="p-1.5 rounded-lg border"
-            style={{ borderColor: C.border, color: C.textBody }}>
+          <button onClick={onClose} className="p-1.5 rounded-lg border" style={{ borderColor: C.border, color: C.textBody }}>
             <X size={14} />
           </button>
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>Editing template</p>
-            <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{name || templateId}</p>
+            <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{name || "…"}</p>
           </div>
         </div>
         <button onClick={handleSave} disabled={saving || loading}
@@ -268,7 +250,6 @@ function EditOverlay({ templateId, onClose, onSaved }: {
         </button>
       </div>
 
-      {/* Body */}
       <div className="flex-1 overflow-y-auto p-6 max-w-3xl mx-auto w-full">
         {loading ? (
           <div className="flex items-center justify-center h-40">
@@ -286,44 +267,124 @@ function EditOverlay({ templateId, onClose, onSaved }: {
               </div>
               <div>
                 <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>Description</label>
-                <input value={description} onChange={e => setDescription(e.target.value)}
-                  placeholder="Optional"
+                <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional"
                   className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
                   style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
               </div>
             </div>
 
             {/* Connection request */}
-            {connReq !== "" && (
+            {connReq !== null && (
               <StepEditor
-                label="LinkedIn invite"
-                channel="linkedin"
-                day={0}
-                isInvite
-                body={connReq}
-                onBodyChange={setConnReq}
-                charLimit={200}
+                label="LinkedIn invite" channel="linkedin" day={0} isInvite
+                body={connReq} onBodyChange={setConnReq} charLimit={200}
               />
             )}
 
-            {/* Regular steps */}
-            {steps.map((s, idx) => {
-              const seqIdx = idx + seqOffset;
-              const day = cumulativeDays[seqIdx] ?? 0;
-              return (
-                <StepEditor
-                  key={idx}
-                  label={channelMeta[s.channel]?.label ?? s.channel}
-                  channel={s.channel}
-                  day={day}
-                  stepNum={s.step}
-                  subject={s.subject ?? undefined}
-                  body={s.body}
-                  onSubjectChange={val => updateStep(idx, "subject", val)}
-                  onBodyChange={val => updateStep(idx, "body", val)}
-                />
-              );
-            })}
+            {/* Sequence steps */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
+                  Sequence steps ({steps.length})
+                </p>
+              </div>
+
+              {steps.map((s, idx) => {
+                const meta = channelMeta[s.channel] ?? CHANNELS[0];
+                const Icon = meta.icon;
+                const day = cumDays[idx] ?? 0;
+                return (
+                  <div key={idx} className="rounded-xl border" style={{ backgroundColor: C.card, borderColor: C.border, borderLeft: `3px solid ${meta.color}` }}>
+                    {/* Step header */}
+                    <div className="flex items-center gap-2 px-4 pt-3 pb-2">
+                      {/* Move up/down */}
+                      <div className="flex flex-col gap-0.5 shrink-0">
+                        <button onClick={() => moveStep(idx, -1)} disabled={idx === 0}
+                          className="p-0.5 rounded opacity-40 hover:opacity-100 disabled:opacity-20 transition-opacity"
+                          style={{ color: C.textMuted }}>
+                          <GripVertical size={12} style={{ transform: "rotate(90deg) scaleX(-1)" }} />
+                        </button>
+                        <button onClick={() => moveStep(idx, 1)} disabled={idx === steps.length - 1}
+                          className="p-0.5 rounded opacity-40 hover:opacity-100 disabled:opacity-20 transition-opacity"
+                          style={{ color: C.textMuted }}>
+                          <GripVertical size={12} style={{ transform: "rotate(90deg)" }} />
+                        </button>
+                      </div>
+
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                        style={{ backgroundColor: `${meta.color}18`, color: meta.color }}>
+                        {idx + 1}
+                      </div>
+
+                      {/* Channel selector */}
+                      <div className="flex items-center gap-1 flex-1">
+                        {CHANNELS.map(ch => {
+                          const CIcon = ch.icon;
+                          const active = s.channel === ch.key;
+                          return (
+                            <button key={ch.key} onClick={() => updateStep(idx, { channel: ch.key })}
+                              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors"
+                              style={{
+                                backgroundColor: active ? `${ch.color}15` : "transparent",
+                                color: active ? ch.color : C.textMuted,
+                                border: `1px solid ${active ? ch.color + "40" : "transparent"}`,
+                              }}>
+                              <CIcon size={11} /> {ch.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Days after */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {idx === 0 && connReq !== null ? (
+                          <span className="text-[10px] px-2 py-1 rounded" style={{ backgroundColor: C.surface, color: C.textMuted }}>Day 0</span>
+                        ) : (
+                          <>
+                            <span className="text-[10px]" style={{ color: C.textMuted }}>Wait</span>
+                            <input type="number" min={1} value={s.daysAfter}
+                              onChange={e => updateStep(idx, { daysAfter: Math.max(1, parseInt(e.target.value || "1")) })}
+                              className="w-14 rounded-lg border px-2 py-1 text-xs font-bold text-center focus:outline-none tabular-nums"
+                              style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
+                            <span className="text-[10px]" style={{ color: C.textMuted }}>d · Day {day}</span>
+                          </>
+                        )}
+                      </div>
+
+                      <button onClick={() => removeStep(idx)}
+                        className="p-1 rounded shrink-0 opacity-30 hover:opacity-100 transition-opacity ml-1"
+                        style={{ color: C.red }}>
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+
+                    {/* Message body */}
+                    <div className="px-4 pb-4 space-y-2">
+                      {s.channel === "email" && (
+                        <div>
+                          <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>Subject</label>
+                          <input value={s.subject} onChange={e => updateStep(idx, { subject: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
+                            style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
+                        </div>
+                      )}
+                      <div>
+                        <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>Body</label>
+                        <textarea value={s.body} onChange={e => updateStep(idx, { body: e.target.value })} rows={4}
+                          className="w-full rounded-lg border px-3 py-2 text-sm leading-relaxed focus:outline-none resize-y"
+                          style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              <button onClick={addStep}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-dashed text-xs font-medium transition-opacity hover:opacity-80"
+                style={{ borderColor: C.border, color: C.textMuted }}>
+                <Plus size={13} /> Add step
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -331,69 +392,43 @@ function EditOverlay({ templateId, onClose, onSaved }: {
   );
 }
 
-function StepEditor({ label, channel, day, stepNum, isInvite, subject, body, charLimit,
-  onSubjectChange, onBodyChange }: {
-  label: string; channel: string; day: number; stepNum?: number; isInvite?: boolean;
-  subject?: string; body: string; charLimit?: number;
-  onSubjectChange?: (v: string) => void;
-  onBodyChange: (v: string) => void;
+function StepEditor({ label, channel, day, isInvite, body, onBodyChange, charLimit }: {
+  label: string; channel: string; day: number; isInvite?: boolean;
+  body: string; onBodyChange: (v: string) => void; charLimit?: number;
 }) {
-  const meta = channelMeta[channel] ?? channelMeta.linkedin;
+  const meta = channelMeta[channel] ?? CHANNELS[0];
   const Icon = meta.icon;
   return (
     <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, borderLeft: `3px solid ${meta.color}` }}>
       <div className="flex items-center gap-2 mb-3">
         <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
-          style={{ backgroundColor: `${meta.color}18`, color: meta.color }}>
-          {isInvite ? "0" : stepNum}
-        </div>
+          style={{ backgroundColor: `${meta.color}18`, color: meta.color }}>0</div>
         <Icon size={13} style={{ color: meta.color }} />
         <span className="text-xs font-bold" style={{ color: meta.color }}>{isInvite ? "LinkedIn invite" : label}</span>
-        <span className="text-[10px] px-2 py-0.5 rounded" style={{ backgroundColor: C.surface, color: C.textMuted }}>
-          Day {day}
-        </span>
+        <span className="text-[10px] px-2 py-0.5 rounded" style={{ backgroundColor: C.surface, color: C.textMuted }}>Day {day}</span>
         {charLimit && (
           <span className="ml-auto text-[10px] tabular-nums" style={{ color: body.length > charLimit ? C.red : C.textDim }}>
             {body.length}/{charLimit}
           </span>
         )}
       </div>
-
-      {subject !== undefined && (
-        <div className="mb-2">
-          <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>Subject</label>
-          <input value={subject} onChange={e => onSubjectChange?.(e.target.value)}
-            className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
-            style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
-        </div>
-      )}
-
-      <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>Body</label>
-      <textarea value={body} onChange={e => onBodyChange(e.target.value)} rows={5}
+      <textarea value={body} onChange={e => onBodyChange(e.target.value)} rows={3}
         className="w-full rounded-lg border px-3 py-2 text-sm leading-relaxed focus:outline-none resize-y"
-        style={{
-          borderColor: charLimit && body.length > charLimit ? C.red : C.border,
-          backgroundColor: C.bg,
-          color: C.textPrimary,
-          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-        }} />
+        style={{ borderColor: charLimit && body.length > charLimit ? C.red : C.border, backgroundColor: C.bg, color: C.textPrimary, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }} />
     </div>
   );
 }
 
-function IcpPicker({
-  icps, onPick, onCancel, title, excludeId,
-}: { icps: IcpOption[]; onPick: (id: string) => void; onCancel: () => void; title: string; excludeId?: string | null }) {
+function IcpPicker({ icps, onPick, onCancel, title, excludeId }: {
+  icps: IcpOption[]; onPick: (id: string) => void; onCancel: () => void; title: string; excludeId?: string | null;
+}) {
   const items = excludeId ? icps.filter(i => i.id !== excludeId) : icps;
   return (
     <div className="absolute right-0 top-full mt-1 z-10 w-64 rounded-lg border shadow-lg overflow-hidden"
       style={{ backgroundColor: C.card, borderColor: C.border }}>
-      <div className="px-3 py-2 border-b flex items-center justify-between"
-        style={{ borderColor: C.border, backgroundColor: C.bg }}>
+      <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.bg }}>
         <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textMuted }}>{title}</span>
-        <button onClick={onCancel} className="p-0.5" style={{ color: C.textMuted }}>
-          <X size={11} />
-        </button>
+        <button onClick={onCancel} className="p-0.5" style={{ color: C.textMuted }}><X size={11} /></button>
       </div>
       <div className="max-h-64 overflow-y-auto">
         {items.length === 0 ? (
