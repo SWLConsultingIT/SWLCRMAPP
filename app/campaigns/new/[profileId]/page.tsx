@@ -236,7 +236,7 @@ export default function NewCampaignWizard() {
 
       // Load saved templates for this ICP
       try {
-        const tplRes = await fetch(`/api/templates?icp_profile_id=${profileId}`, { cache: "no-store" });
+        const tplRes = await fetch(`/api/templates?icp_id=${profileId}`, { cache: "no-store" });
         if (tplRes.ok) {
           const tplBody = await tplRes.json().catch(() => ({}));
           setIcpTemplates(tplBody.templates ?? []);
@@ -478,25 +478,33 @@ export default function NewCampaignWizard() {
             <div className="mt-4 pt-4 border-t" style={{ borderColor: C.border }}>
               <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>Start from a template</p>
               {icpTemplates.length > 0 && (
-                <>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: gold }}>
+                <div className="mb-3">
+                  <label className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 block" style={{ color: gold }}>
                     Saved templates for this ICP
-                  </p>
-                  <div className="flex gap-2 flex-wrap mb-3">
+                  </label>
+                  <select
+                    defaultValue=""
+                    onChange={async e => {
+                      const id = e.target.value;
+                      if (!id) return;
+                      try {
+                        const res = await fetch(`/api/templates/${id}`, { cache: "no-store" });
+                        if (!res.ok) return;
+                        const { template } = await res.json();
+                        if (template) applyTemplate(template);
+                      } catch {}
+                    }}
+                    className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                    style={{ borderColor: `color-mix(in srgb, ${gold} 30%, transparent)`, backgroundColor: `color-mix(in srgb, ${gold} 4%, transparent)`, color: C.textPrimary }}>
+                    <option value="">— Pick a saved template —</option>
                     {icpTemplates.map(tpl => (
-                      <button key={tpl.id}
-                        onClick={() => applyTemplate(tpl)}
-                        className="rounded-lg border px-3 py-2 text-left transition-shadow hover:shadow-sm"
-                        style={{ borderColor: `color-mix(in srgb, ${gold} 30%, transparent)`, backgroundColor: `color-mix(in srgb, ${gold} 4%, transparent)` }}>
-                        <p className="text-[12px] font-semibold" style={{ color: C.textPrimary }}>{tpl.name}</p>
-                        {tpl.description && <p className="text-[11px]" style={{ color: C.textDim }}>{tpl.description}</p>}
-                      </button>
+                      <option key={tpl.id} value={tpl.id}>{tpl.name}</option>
                     ))}
-                  </div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 mt-1" style={{ color: C.textMuted }}>
+                  </select>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5 mt-3" style={{ color: C.textMuted }}>
                     Generic presets
                   </p>
-                </>
+                </div>
               )}
               <div className="flex gap-2 flex-wrap">
                 {sequenceTemplates.map(tpl => (

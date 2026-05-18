@@ -535,6 +535,9 @@ export default function CampaignDetailClient({
               );
               return (<>
               {sequence.map((step, i) => {
+              // The invite card covers the LinkedIn D0 slot — render only the card, not a duplicate regular step
+              if (showInviteCard && i === firstLinkedinIdx && step.channel === "linkedin" && step.daysAfter === 0)
+                return <div key={i}>{renderInvite()}</div>;
               const meta = channelMeta[step.channel] ?? channelMeta.linkedin;
               const Icon = meta.icon;
               const msg = messages.find(m => m.step_number === i + stepOffset) ?? null;
