@@ -196,8 +196,9 @@ function Column({ stepIndex, step, children, count }: { stepIndex: number; step:
   return (
     <div
       ref={setNodeRef}
-      className="flex-1 min-w-0 rounded-xl border transition-colors overflow-hidden"
+      className="rounded-xl border transition-colors overflow-hidden shrink-0"
       style={{
+        width: 210,
         backgroundColor: isOver ? `${meta.color}08` : C.bg,
         borderColor: isOver ? meta.color : C.border,
         borderWidth: isOver ? 2 : 1,
@@ -348,7 +349,8 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
       </div>
 
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className="flex gap-3 pb-4 w-full">
+        <div className="overflow-x-auto pb-2">
+        <div className="flex gap-3 pb-4" style={{ minWidth: "max-content" }}>
           {sequence.map((step, i) => (
             <Column key={i} stepIndex={i} step={step} count={buckets.stepBuckets[i].length}>
               {buckets.stepBuckets[i].map(c => (
@@ -363,7 +365,7 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
           ))}
 
           {/* Completed column */}
-          <div className="flex-1 min-w-0 rounded-xl border overflow-hidden" style={{ backgroundColor: C.bg, borderColor: C.border }}>
+          <div className="rounded-xl border overflow-hidden shrink-0" style={{ width: 210, backgroundColor: C.bg, borderColor: C.border }}>
             <div className="px-3 py-2.5 border-b flex items-center justify-between"
               style={{ borderColor: C.border, backgroundColor: C.card }}>
               <div className="flex items-center gap-2">
@@ -393,6 +395,8 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
             </div>
           </div>
         </div>
+
+        </div>{/* end overflow-x-auto */}
 
         {pending && <MoveModal pending={pending} busy={busy} onCommit={commitMove} onCancel={() => setPending(null)} />}
 
