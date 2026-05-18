@@ -334,7 +334,19 @@ export default function NewCampaignWizard() {
       setSequence(tpl.sequence_steps as SequenceStep[]);
     }
     if (tpl.step_messages && typeof tpl.step_messages === "object") {
-      setChannelMessages(tpl.step_messages as ChannelMessages);
+      const msgs = tpl.step_messages as ChannelMessages;
+      const seq = (tpl.sequence_steps ?? []) as SequenceStep[];
+      // classifySteps() maps ALL sequence steps including the LinkedIn D0 slot as
+      // classified[0]. Template step_messages.steps[] starts from seq[1] (the CR slot
+      // has no DM body). Prepend an empty LinkedIn placeholder so steps[i] aligns
+      // with classified[i] when ChannelMessageConfig renders.
+      const isLinkedInD0 = seq[0]?.channel === "linkedin" && seq[0]?.daysAfter === 0;
+      const steps = msgs.steps ?? [];
+      const firstIsNotLinkedIn = steps.length > 0 && steps[0]?.channel !== "linkedin";
+      const adjustedSteps = (isLinkedInD0 && firstIsNotLinkedIn)
+        ? [{ step: 0, channel: "linkedin", body: "", subject: undefined } as any, ...steps]
+        : steps;
+      setChannelMessages({ ...msgs, steps: adjustedSteps });
     }
     if (!campaignName.trim()) setCampaignName(tpl.name);
   }
