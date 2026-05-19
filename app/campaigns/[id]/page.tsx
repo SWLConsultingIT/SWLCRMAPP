@@ -176,6 +176,45 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   }
   for (const c of allGroupCampaigns) (c as any).step_0 = step0Map[c.id] ?? null;
 
+  // Fetch the first pending/failed message (step > 0) per campaign for the
+  // kanban badge. Leads beyond the connection phase (current_step > 0) need
+  // their current active step surfaced, not just the connection invite.
+  const currentMsgMap: Record<string, { stepNumber: number; channel: string; status: string; lastRateLimitAt: string | null; errorDetails: string | null } | undefined> = {};
+  if (allCampaignIds.length > 0) {
+    const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const sbKey = process.env.SUPABASE_SERVICE_KEY!;
+    const inClause = `(${allCampaignIds.join(",")})`;
+    const url = `${sbUrl}/rest/v1/campaign_messages?campaign_id=in.${encodeURIComponent(inClause)}&step_number=gt.0&status=in.(queued,failed,dispatching)&select=campaign_id,step_number,channel,status,metadata,error_details&order=step_number.asc`;
+    try {
+      const res = await fetch(url, {
+        headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const rows = (await res.json()) as Array<{
+          campaign_id: string;
+          step_number: number;
+          channel: string;
+          status: string;
+          metadata: Record<string, unknown> | null;
+          error_details: string | null;
+        }>;
+        for (const row of rows) {
+          if (!currentMsgMap[row.campaign_id]) {
+            currentMsgMap[row.campaign_id] = {
+              stepNumber: row.step_number,
+              channel: row.channel,
+              status: row.status,
+              lastRateLimitAt: (row.metadata?.last_rate_limit_at as string | null) ?? null,
+              errorDetails: row.error_details,
+            };
+          }
+        }
+      }
+    } catch { /* fail open */ }
+  }
+  for (const c of allGroupCampaigns) (c as any).current_msg = currentMsgMap[c.id] ?? null;
+
   let cumDays = 0;
   const dayPerStep = sequence.map((s: any, i: number) => {
     cumDays += i === 0 ? 0 : s.daysAfter;

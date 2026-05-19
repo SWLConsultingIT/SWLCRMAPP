@@ -16,11 +16,13 @@ const channelMeta: Record<string, { icon: React.ElementType; color: string; labe
 };
 
 type SequenceStep = { channel: string; daysAfter: number };
-type Step0State = {
+type MsgState = {
   status: string;
   lastRateLimitAt: string | null;
   errorDetails: string | null;
+  channel?: string;
 } | null;
+type Step0State = MsgState;
 type Campaign = {
   id: string;
   status: string;
@@ -43,56 +45,58 @@ type Campaign = {
   } | null;
   sellers: { name: string } | null;
   step_0?: Step0State;
+  current_msg?: MsgState;
 };
 
-// Visual state of the connection request (step 0). Only meaningful while the
-// campaign is in column 1 (current_step = 0) — once they accept and step 1
-// fires, the lead has moved on and the badge is no longer relevant.
 type CardBadge = { label: string; color: string; bg: string };
-function deriveCardBadge(camp: Campaign): CardBadge | null {
-  // Past column 1 = post-acceptance, no badge needed (the column itself tells the story).
-  if ((camp.current_step ?? 0) > 0) return null;
-  const s = camp.step_0;
-  if (!s) return null;
 
-  if (s.status === "sent") {
-    return { label: "REQUEST SENT", color: "#16A34A", bg: "#DCFCE7" };
-  }
-  if (s.status === "failed") {
-    return { label: "FAILED", color: "#DC2626", bg: "#FEE2E2" };
-  }
-  if (s.status === "skipped") {
-    // Lead's channel was disabled (no data, invalid data, or manually off).
-    // Show the SPECIFIC reason so admins know what to do about it instead of
-    // a generic "BLOCKED" that hides the why. Channel is read from the step
-    // itself in the future; for now the kanban step 0 is LinkedIn-only so we
-    // resolve the reason against the lead's LinkedIn fields.
-    const url = camp.leads?.primary_linkedin_url ?? null;
-    const looksLikeLinkedIn = !!url && /linkedin\.com\/in\//i.test(url);
-    if (!url) return { label: "NO LINKEDIN", color: "#DC2626", bg: "#FEE2E2" };
-    if (!looksLikeLinkedIn) return { label: "BAD URL", color: "#DC2626", bg: "#FEE2E2" };
-    // Has a valid-shape LinkedIn URL but allow_linkedin=false. Most common
-    // reason: Unipile flagged the profile as locked / not reachable.
-    return { label: "LOCKED PROFILE", color: "#DC2626", bg: "#FEE2E2" };
-  }
-  if (s.status === "dispatching") {
-    return { label: "SENDING…", color: "#7C3AED", bg: "#EDE9FE" };
-  }
+const CHANNEL_COLORS: Record<string, { color: string; bg: string }> = {
+  linkedin: { color: "#0A66C2", bg: "#DBEAFE" },
+  email:    { color: "#7C3AED", bg: "#EDE9FE" },
+  call:     { color: "#F97316", bg: "#FFF7ED" },
+};
+
+function badgeFromMsgStatus(s: MsgState, channel?: string): CardBadge | null {
+  if (!s) return null;
+  const ch = s.channel ?? channel ?? "linkedin";
+  const colors = CHANNEL_COLORS[ch] ?? CHANNEL_COLORS.linkedin;
+  if (s.status === "failed") return { label: "FAILED", color: "#DC2626", bg: "#FEE2E2" };
+  if (s.status === "dispatching") return { label: "SENDING…", color: "#7C3AED", bg: "#EDE9FE" };
   if (s.status === "queued") {
-    // Surface cooldown when a rate-limit hit recently — that row is parked
-    // for ~4h so admins can tell it apart from a fresh queue entry.
     if (s.lastRateLimitAt) {
       const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
       if (new Date(s.lastRateLimitAt).getTime() > fourHoursAgo) {
         return { label: "COOLDOWN", color: "#D97706", bg: "#FFFBEB" };
       }
     }
-    return { label: "QUEUED", color: "#0A66C2", bg: "#DBEAFE" };
-  }
-  if (s.status === "draft") {
-    return { label: "DRAFT", color: "#6B7280", bg: "#F3F4F6" };
+    return { label: "QUEUED", color: colors.color, bg: colors.bg };
   }
   return null;
+}
+
+// Badge for each kanban card.
+// step 0: show connection invite status (QUEUED / REQUEST SENT / FAILED / LOCKED PROFILE…)
+// step > 0: show the first pending/failed message for this campaign
+function deriveCardBadge(camp: Campaign): CardBadge | null {
+  const cs = camp.current_step ?? 0;
+
+  if (cs === 0) {
+    const s = camp.step_0;
+    if (!s) return null;
+    if (s.status === "sent") return { label: "REQUEST SENT", color: "#16A34A", bg: "#DCFCE7" };
+    if (s.status === "skipped") {
+      const url = camp.leads?.primary_linkedin_url ?? null;
+      const looksLikeLinkedIn = !!url && /linkedin\.com\/in\//i.test(url);
+      if (!url) return { label: "NO LINKEDIN", color: "#DC2626", bg: "#FEE2E2" };
+      if (!looksLikeLinkedIn) return { label: "BAD URL", color: "#DC2626", bg: "#FEE2E2" };
+      return { label: "LOCKED PROFILE", color: "#DC2626", bg: "#FEE2E2" };
+    }
+    if (s.status === "draft") return { label: "DRAFT", color: "#6B7280", bg: "#F3F4F6" };
+    return badgeFromMsgStatus(s, "linkedin");
+  }
+
+  // Steps beyond connection: show first pending/failed message badge.
+  return badgeFromMsgStatus(camp.current_msg ?? null);
 }
 
 type Props = {
