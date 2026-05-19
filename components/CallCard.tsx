@@ -111,8 +111,16 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
     }
   }
 
-  const canTranscribe = !!call.recording_url && !call.transcript && !!call.aircall_call_id;
-  const canRetranscribe = !!call.recording_url && !!call.transcript && !!call.aircall_call_id;
+  // Show a player whenever the call might have a recording — not just when
+  // recording_url is populated. Aircall sometimes fires call.ended before the
+  // recording is ready, leaving recording_url null even though the MP3 exists.
+  // The /play endpoint fetches a fresh URL from Aircall API and archives it
+  // on first access, so the player will work even with recording_url=null as
+  // long as aircall_call_id is set and the call was answered.
+  const hasRecording = !!call.recording_url
+    || (call.status === "answered" && (call.duration ?? 0) > 0 && !!call.aircall_call_id);
+  const canTranscribe = hasRecording && !call.transcript && !!call.aircall_call_id;
+  const canRetranscribe = hasRecording && !!call.transcript && !!call.aircall_call_id;
 
   return (
     <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -226,13 +234,8 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
           <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{call.notes}</p>
         </div>
       )}
-      {call.recording_url && (
+      {hasRecording && (
         <div className="mt-3">
-          {/* Always serve through our own endpoint — never the raw Aircall URL.
-              Aircall's S3 presigned URLs expire in hours/days; our /play
-              endpoint lazy-archives the MP3 into Supabase Storage on first
-              request and mints fresh signed URLs every load. From the player's
-              perspective the URL is permanent. */}
           <audio controls preload="none" src={`/api/aircall/calls/${call.id}/play`} className="w-full h-8" />
         </div>
       )}

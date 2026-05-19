@@ -82,8 +82,13 @@ export async function archiveCallRecording(callId: string, opts: { force?: boole
     .upload(path, buf, { contentType, upsert: true });
   if (upErr) return { ok: false, reason: `upload: ${upErr.message}` };
 
-  // 4. Persist the storage path so the play endpoint can find it.
-  await svc.from("calls").update({ recording_storage_path: path }).eq("id", call.id);
+  // 4. Persist the storage path and backfill recording_url if it was null.
+  //    recording_url may be null when Aircall fires call.ended before the
+  //    recording is ready — this ensures the field is populated after archive.
+  await svc.from("calls").update({
+    recording_storage_path: path,
+    ...(call.recording_url ? {} : { recording_url: freshUrl }),
+  }).eq("id", call.id);
 
   return { ok: true, storage_path: path };
 }

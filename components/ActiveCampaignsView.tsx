@@ -20,10 +20,13 @@ type Campaign = {
     primary_first_name: string | null;
     primary_last_name: string | null;
     company_name: string | null;
+    status: string | null;
   } | null;
   sellers: { name: string } | null;
   reply_count?: number;
   positive_count?: number;
+  sent_steps?: number;
+  total_steps?: number;
 };
 
 type CampaignGroup = {
@@ -85,8 +88,14 @@ function groupCampaigns(campaigns: Campaign[]): CampaignGroup[] {
     const paused = camps.filter(c => c.status === "paused").length;
 
     const progressValues = camps.map(c => {
-      const total = c.sequence_steps?.length ?? 0;
-      return total > 0 ? c.current_step / total : 0;
+      // Leads that replied or were closed_lost are effectively done.
+      if ((c.leads as any)?.status === "closed_lost") return 1;
+      if ((c.reply_count ?? 0) > 0) return 1;
+      // Use actual sent/skipped message count — current_step is unreliable:
+      // step 0 (connection request) and call completions never update it.
+      const total = c.total_steps ?? 0;
+      const sent = c.sent_steps ?? 0;
+      return total > 0 ? sent / total : 0;
     });
     const avgProgress = progressValues.length > 0 ? Math.round((progressValues.reduce((a, b) => a + b, 0) / progressValues.length) * 100) : 0;
 

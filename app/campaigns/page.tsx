@@ -54,6 +54,26 @@ async function getData() {
     bioId ? icpQ.eq("company_bio_id", bioId) : icpQ,
   ]) as any;
 
+  // Count sent/skipped messages per campaign for accurate progress.
+  // campaigns.current_step is NOT reliable: step 0 (connection request) dispatch
+  // doesn't increment it, and call step completions never touch it. Using
+  // campaign_messages counts is the only source of truth.
+  const campIds: string[] = (campaigns ?? []).map((c: any) => c.id).filter(Boolean);
+  const sentCountByCamp: Record<string, number> = {};
+  const totalCountByCamp: Record<string, number> = {};
+  if (campIds.length > 0) {
+    const { data: msgCounts } = await supabase
+      .from("campaign_messages")
+      .select("campaign_id, status")
+      .in("campaign_id", campIds) as any;
+    for (const m of msgCounts ?? []) {
+      totalCountByCamp[m.campaign_id] = (totalCountByCamp[m.campaign_id] ?? 0) + 1;
+      if (m.status === "sent" || m.status === "skipped") {
+        sentCountByCamp[m.campaign_id] = (sentCountByCamp[m.campaign_id] ?? 0) + 1;
+      }
+    }
+  }
+
   // Reply lookups
   const repliedLeadIds = new Set((allReplies ?? []).map((r: any) => r.lead_id));
   const positiveLeadIds = new Set((allReplies ?? []).filter((r: any) => r.classification === "positive" || r.classification === "meeting_intent").map((r: any) => r.lead_id));
@@ -76,11 +96,13 @@ async function getData() {
   const positiveCount = [...contactedLeadIds].filter(id => positiveLeadIds.has(id)).length;
   const responseRate = contactedCount > 0 ? Math.round((repliedCount / contactedCount) * 100) : 0;
 
-  // Enrich campaigns with reply data
+  // Enrich campaigns with reply data and message-based progress counts
   const enrichedCampaigns = (campaigns ?? []).map((c: any) => ({
     ...c,
     reply_count: repliesByCamp[c.id] ?? 0,
     positive_count: positiveByCamp[c.id] ?? 0,
+    sent_steps: sentCountByCamp[c.id] ?? 0,
+    total_steps: totalCountByCamp[c.id] ?? (c.sequence_steps?.length ?? 0),
   }));
 
   // Uncampaigned leads
