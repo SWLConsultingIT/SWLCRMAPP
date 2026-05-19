@@ -173,16 +173,34 @@ function isDuplicateLeadError(reason: string): boolean {
   return r.includes("already exist") || r.includes("duplicate") || r.includes("already in campaign");
 }
 
-async function failMessage(svc: ReturnType<typeof getSupabaseService>, msgId: string, leadId: string, reason: string) {
+// Max emails to dispatch in a single cron tick. Unlike LinkedIn (1/tick to
+// avoid burst detection on a real social account), Instantly manages its own
+// send throttle — we just enroll leads and it picks the right inbox + timing.
+// 20/tick @ 15 min intervals = up to 80/hour, well inside any Instantly plan.
+const BATCH_SIZE = 20;
+
+type EmailResult =
+  | { kind: "sent"; msgId: string; leadId: string; instantlyCampaignId: string; providerLeadId: string | null; nextEligibleAt: string | null }
+  | { kind: "failed"; msgId: string; leadId: string; reason: string }
+  | { kind: "rate_limited"; msgId: string; leadId: string; reason: string }
+  | { kind: "lost_race"; msgId: string; leadId: string };
+
+async function failMessage(
+  svc: ReturnType<typeof getSupabaseService>,
+  msgId: string, leadId: string, reason: string,
+): Promise<EmailResult> {
   await svc.from("campaign_messages").update({
     status: "failed",
     error_details: reason,
     metadata: { dispatched_by: "cron-dispatch-email", failed_at: new Date().toISOString() },
   }).eq("id", msgId);
-  return NextResponse.json({ ok: false, processed: 0, message_id: msgId, lead_id: leadId, error: reason }, { status: 200 });
+  return { kind: "failed", msgId, leadId, reason };
 }
 
-async function requeueRateLimited(svc: ReturnType<typeof getSupabaseService>, msgId: string, leadId: string, reason: string) {
+async function requeueRateLimited(
+  svc: ReturnType<typeof getSupabaseService>,
+  msgId: string, leadId: string, reason: string,
+): Promise<EmailResult> {
   const { data: existing } = await svc.from("campaign_messages").select("metadata").eq("id", msgId).maybeSingle();
   const prevMeta = (existing?.metadata as Record<string, unknown> | null) ?? {};
   const prevCount = typeof prevMeta.rate_limit_count === "number" ? prevMeta.rate_limit_count : 0;
@@ -197,56 +215,16 @@ async function requeueRateLimited(svc: ReturnType<typeof getSupabaseService>, ms
       rate_limit_count: prevCount + 1,
     },
   }).eq("id", msgId);
-  return NextResponse.json({
-    ok: false, processed: 0, requeued: true,
-    message_id: msgId, lead_id: leadId, error: reason,
-  }, { status: 200 });
+  return { kind: "rate_limited", msgId, leadId, reason };
 }
 
-export async function POST(req: NextRequest) { return handle(req); }
-export async function GET(req: NextRequest) { return handle(req); }
-
-async function handle(req: NextRequest) {
-  const scope = await getUserScope().catch(() => ({ role: null as string | null }));
-  if (!authorized(req, scope.role ?? null)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  // API key validation moves to per-tenant resolution below: a tenant with
-  // its own `company_bios.instantly_api_key` doesn't need INSTANTLY_API_KEY
-  // env var to be set, so we can't fail-fast here.
-
-  const svc = getSupabaseService();
-  const RATE_LIMIT_COOLDOWN_MS = 4 * 60 * 60 * 1000;
+async function dispatchOneEmail(
+  svc: ReturnType<typeof getSupabaseService>,
+  candidate: QueuedEmail,
+): Promise<EmailResult> {
   const DAY_MS = 24 * 60 * 60 * 1000;
-  const nowMs = Date.now();
 
-  // 1. Pull window of candidates (channel=email, any step).
-  const { data: claimed } = await svc
-    .from("campaign_messages")
-    .select("id, campaign_id, lead_id, step_number, channel, content, status, metadata, campaigns(seller_id)")
-    .eq("status", "queued")
-    .eq("channel", "email")
-    .order("created_at", { ascending: true })
-    .limit(20);
-
-  const candidate = (claimed ?? []).find((r: any) => {
-    const eligibleAt = r?.metadata?.eligible_at;
-    if (eligibleAt && new Date(eligibleAt).getTime() > nowMs) return false;
-    const lastRL = r?.metadata?.last_rate_limit_at;
-    if (lastRL && nowMs - new Date(lastRL).getTime() <= RATE_LIMIT_COOLDOWN_MS) return false;
-    return true;
-  }) as QueuedEmail | undefined;
-
-  if (!candidate) {
-    const totalQueued = claimed?.length ?? 0;
-    const reason = totalQueued === 0
-      ? "no queued emails"
-      : "all queued rows in cooldown or future-scheduled";
-    return NextResponse.json({ ok: true, processed: 0, reason });
-  }
-
-  // 2. Atomic claim — stamp dispatching_since so the reaper cron can recover
-  // the row if we crash before flipping to 'sent' / 'failed'.
+  // Atomic claim.
   const { data: lockedRows, error: lockErr } = await svc
     .from("campaign_messages")
     .update({ status: "dispatching", dispatching_since: new Date().toISOString() })
@@ -254,10 +232,9 @@ async function handle(req: NextRequest) {
     .eq("status", "queued")
     .select("id");
   if (lockErr || !lockedRows || lockedRows.length === 0) {
-    return NextResponse.json({ ok: true, processed: 0, reason: "lost race", id: candidate.id });
+    return { kind: "lost_race", msgId: candidate.id, leadId: candidate.lead_id };
   }
 
-  // 3. Hydrate lead + campaign + seller (for tenant resolution + personalization).
   const [{ data: lead }, { data: campaign }] = await Promise.all([
     svc.from("leads").select("id, primary_first_name, primary_last_name, primary_work_email, company_bio_id, company_name, primary_title_role").eq("id", candidate.lead_id).maybeSingle(),
     svc.from("campaigns").select("id, seller_id, sequence_steps").eq("id", candidate.campaign_id).maybeSingle(),
@@ -271,46 +248,27 @@ async function handle(req: NextRequest) {
     seller = (s as any) ?? null;
   }
 
-  // 4. Resolve the tenant's Instantly account + campaign.
-  //    Priority: lead.company_bio_id > seller.company_bio_id > fail.
-  //    Using the lead's bio ensures shared sellers (SWL sellers sending for
-  //    Arqy) route to Arqy's Instantly campaign, not SWL's.
+  // Resolve tenant from lead first (handles shared-seller cross-tenant routing).
   const tenantBioId = (lead as any)?.company_bio_id ?? seller?.company_bio_id ?? null;
   if (!tenantBioId) {
     return await failMessage(svc, candidate.id, candidate.lead_id, "campaign has no tenant — cannot resolve Instantly campaign");
   }
   const config = await getInstantlyConfig(tenantBioId);
   if (!config) {
-    return await failMessage(
-      svc,
-      candidate.id,
-      candidate.lead_id,
-      `tenant ${tenantBioId} has no Instantly API key (neither company_bios.instantly_api_key nor INSTANTLY_API_KEY env)`,
-    );
+    return await failMessage(svc, candidate.id, candidate.lead_id, `tenant ${tenantBioId} has no Instantly API key`);
   }
   const instantlyCampaignId = config.campaignId;
   if (!instantlyCampaignId) {
-    // Fetch company name for a friendlier error message.
     const { data: bio } = await svc.from("company_bios").select("company_name").eq("id", tenantBioId).maybeSingle();
-    return await failMessage(
-      svc,
-      candidate.id,
-      candidate.lead_id,
-      `tenant "${(bio as any)?.company_name ?? tenantBioId}" has no instantly_campaign_id set — configure it in Settings`,
-    );
+    return await failMessage(svc, candidate.id, candidate.lead_id, `tenant "${(bio as any)?.company_name ?? tenantBioId}" has no instantly_campaign_id set`);
   }
 
-  // 5. Build subject + body.
   const meta = (candidate.metadata as Record<string, unknown> | null) ?? {};
   const subjectRaw = (meta.subject as string | undefined) ?? `Quick idea for ${lead.company_name ?? "you"}`;
   const subject = personalize(subjectRaw, lead, seller).slice(0, 200);
   const body = personalize(candidate.content ?? "", lead, seller);
   if (!body.trim()) return await failMessage(svc, candidate.id, candidate.lead_id, "empty body after personalization");
 
-  // 6. Enroll the lead in the tenant's Instantly campaign. Instantly takes
-  //    over from here — picks an inbox, applies warmup throttle, sends.
-  //    `enrollLead` handles the dedupe-by-email gotcha (delete + re-post when
-  //    an existing stale lead is returned).
   let providerLeadId: string | null = null;
   let recreated = false;
   try {
@@ -328,33 +286,17 @@ async function handle(req: NextRequest) {
     recreated = result.recreated;
   } catch (e: any) {
     const errMsg = e?.message ?? String(e);
-    if (isRateLimitError(errMsg)) {
-      return await requeueRateLimited(svc, candidate.id, candidate.lead_id, errMsg);
-    }
-    if (isDuplicateLeadError(errMsg)) {
-      return await failMessage(
-        svc,
-        candidate.id,
-        candidate.lead_id,
-        `lead already enrolled in Instantly campaign and could not be replaced: ${errMsg}`,
-      );
-    }
+    if (isRateLimitError(errMsg)) return await requeueRateLimited(svc, candidate.id, candidate.lead_id, errMsg);
+    if (isDuplicateLeadError(errMsg)) return await failMessage(svc, candidate.id, candidate.lead_id, `duplicate lead, could not replace: ${errMsg}`);
     return await failMessage(svc, candidate.id, candidate.lead_id, errMsg);
   }
 
-  // 7. Mark sent + queue next step.
-  //    NOTE: We mark "sent" at enroll time. Instantly may not send immediately
-  //    (its inbox-rotation engine throttles based on the warmup curve), but
-  //    from the CRM's perspective the email is committed to the provider.
-  //    The reply webhook handles inbound and timing of delivery is opaque.
   const now = new Date().toISOString();
   const sequenceSteps = (campaign as any)?.sequence_steps as Array<{ channel?: string; daysAfter?: number }> | null;
   const nextStepNumber = candidate.step_number + 1;
   const nextStepConfig = Array.isArray(sequenceSteps) ? sequenceSteps[candidate.step_number] : null;
   const nextDaysAfter = typeof nextStepConfig?.daysAfter === "number" ? nextStepConfig.daysAfter : null;
-  const nextEligibleAt = nextDaysAfter !== null
-    ? new Date(Date.now() + nextDaysAfter * DAY_MS).toISOString()
-    : null;
+  const nextEligibleAt = nextDaysAfter !== null ? new Date(Date.now() + nextDaysAfter * DAY_MS).toISOString() : null;
 
   const updateOps: Array<PromiseLike<unknown>> = [
     svc.from("campaign_messages").update({
@@ -392,15 +334,59 @@ async function handle(req: NextRequest) {
   }
 
   await Promise.all(updateOps);
+  return { kind: "sent", msgId: candidate.id, leadId: lead.id, instantlyCampaignId, providerLeadId, nextEligibleAt };
+}
+
+export async function POST(req: NextRequest) { return handle(req); }
+export async function GET(req: NextRequest) { return handle(req); }
+
+async function handle(req: NextRequest) {
+  const scope = await getUserScope().catch(() => ({ role: null as string | null }));
+  if (!authorized(req, scope.role ?? null)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const svc = getSupabaseService();
+  const RATE_LIMIT_COOLDOWN_MS = 4 * 60 * 60 * 1000;
+  const nowMs = Date.now();
+
+  // Pull a window larger than the batch so eligibility filtering leaves enough.
+  const { data: claimed } = await svc
+    .from("campaign_messages")
+    .select("id, campaign_id, lead_id, step_number, channel, content, status, metadata, campaigns(seller_id)")
+    .eq("status", "queued")
+    .eq("channel", "email")
+    .order("created_at", { ascending: true })
+    .limit(BATCH_SIZE * 3);
+
+  const eligible = (claimed ?? []).filter((r: any) => {
+    const eligibleAt = r?.metadata?.eligible_at;
+    if (eligibleAt && new Date(eligibleAt).getTime() > nowMs) return false;
+    const lastRL = r?.metadata?.last_rate_limit_at;
+    if (lastRL && nowMs - new Date(lastRL).getTime() <= RATE_LIMIT_COOLDOWN_MS) return false;
+    return true;
+  }).slice(0, BATCH_SIZE) as QueuedEmail[];
+
+  if (eligible.length === 0) {
+    const totalQueued = claimed?.length ?? 0;
+    return NextResponse.json({ ok: true, processed: 0, reason: totalQueued === 0 ? "no queued emails" : "all in cooldown or future-scheduled" });
+  }
+
+  // Dispatch all eligible in parallel — Instantly handles its own send throttle.
+  const results = await Promise.all(eligible.map((c) => dispatchOneEmail(svc, c)));
+
+  const sent = results.filter((r) => r.kind === "sent").length;
+  const failed = results.filter((r) => r.kind === "failed").length;
+  const rateLimited = results.filter((r) => r.kind === "rate_limited").length;
+  const lostRace = results.filter((r) => r.kind === "lost_race").length;
 
   return NextResponse.json({
     ok: true,
-    processed: 1,
-    step: candidate.step_number,
-    message_id: candidate.id,
-    lead_id: lead.id,
-    instantly_campaign_id: instantlyCampaignId,
-    instantly_lead_id: providerLeadId,
-    next_eligible_at: nextEligibleAt,
+    processed: sent,
+    attempted: eligible.length,
+    failed,
+    rate_limited: rateLimited,
+    lost_race: lostRace,
+    results: results.map((r) => ({ kind: r.kind, msgId: r.msgId, leadId: r.leadId })),
   });
 }
