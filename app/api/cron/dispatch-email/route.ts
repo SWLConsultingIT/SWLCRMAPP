@@ -259,7 +259,7 @@ async function handle(req: NextRequest) {
 
   // 3. Hydrate lead + campaign + seller (for tenant resolution + personalization).
   const [{ data: lead }, { data: campaign }] = await Promise.all([
-    svc.from("leads").select("id, primary_first_name, primary_last_name, primary_work_email, company_name, primary_title_role").eq("id", candidate.lead_id).maybeSingle(),
+    svc.from("leads").select("id, primary_first_name, primary_last_name, primary_work_email, company_bio_id, company_name, primary_title_role").eq("id", candidate.lead_id).maybeSingle(),
     svc.from("campaigns").select("id, seller_id, sequence_steps").eq("id", candidate.campaign_id).maybeSingle(),
   ]);
   if (!lead || !campaign) return await failMessage(svc, candidate.id, candidate.lead_id, "lead or campaign missing");
@@ -272,11 +272,10 @@ async function handle(req: NextRequest) {
   }
 
   // 4. Resolve the tenant's Instantly account + campaign.
-  //    The tenant may use either:
-  //      - the SWL Instantly account (env-level INSTANTLY_API_KEY) — default
-  //      - their own Instantly account via `company_bios.instantly_api_key`
-  //        (e.g. Arqy: inboxes live in a separate Hypergrowth subscription)
-  const tenantBioId = seller?.company_bio_id ?? null;
+  //    Priority: lead.company_bio_id > seller.company_bio_id > fail.
+  //    Using the lead's bio ensures shared sellers (SWL sellers sending for
+  //    Arqy) route to Arqy's Instantly campaign, not SWL's.
+  const tenantBioId = (lead as any)?.company_bio_id ?? seller?.company_bio_id ?? null;
   if (!tenantBioId) {
     return await failMessage(svc, candidate.id, candidate.lead_id, "campaign has no tenant — cannot resolve Instantly campaign");
   }
@@ -378,7 +377,12 @@ async function handle(req: NextRequest) {
     }).eq("id", candidate.campaign_id),
   ];
 
-  if (nextEligibleAt) {
+  // Queue next step only if it's not a LinkedIn step. LinkedIn DMs require
+  // connection acceptance first — the BESFOHaqTt2Ki0Vw acceptance webhook
+  // handles queuing them. Queuing here would make dispatch-queue try to DM
+  // a lead that hasn't accepted yet and fail every tick until acceptance.
+  const nextStepChannel = nextStepConfig?.channel ?? null;
+  if (nextEligibleAt && nextStepChannel !== "linkedin") {
     updateOps.push(
       svc.from("campaign_messages").update({
         status: "queued",

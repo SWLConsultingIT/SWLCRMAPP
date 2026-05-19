@@ -233,17 +233,25 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Add regular step messages (step 1, 2, 3...) as draft. They are activated
-    // only after the connection request is accepted.
-    messages.forEach((msg, i) => messageInserts.push({
-      campaign_id: campaign.id,
-      lead_id: leadId,
-      step_number: (msg.step ?? i + 1),
-      channel: msg.channel ?? sequence[i]?.channel ?? primaryChannel,
-      content: msg.body ?? "",
-      status: "draft",
-      created_at: new Date().toISOString(),
-    }));
+    // Add regular step messages (step 1, 2, 3...).
+    // Step 1 email/call fires immediately (independent of LinkedIn connection).
+    // Step 1 LinkedIn DM and all steps 2+ stay draft: they are queued by the
+    // dispatch cron after the previous step completes, or by the acceptance
+    // webhook (BESFOHaqTt2Ki0Vw) for LinkedIn DMs that need connection first.
+    messages.forEach((msg, i) => {
+      const stepNum = msg.step ?? i + 1;
+      const ch = msg.channel ?? sequence[i]?.channel ?? primaryChannel;
+      const isFirstNonLinkedin = stepNum === 1 && ch !== "linkedin";
+      messageInserts.push({
+        campaign_id: campaign.id,
+        lead_id: leadId,
+        step_number: stepNum,
+        channel: ch,
+        content: msg.body ?? "",
+        status: isFirstNonLinkedin ? "queued" : "draft",
+        created_at: new Date().toISOString(),
+      });
+    });
 
     if (messageInserts.length > 0) {
       const { error: msgErr } = await supabase
