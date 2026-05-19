@@ -165,6 +165,10 @@ async function getQueueData() {
     const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
     const daysAfter = steps[currentStepIdx]?.daysAfter ?? 0;
     const dueAt = c.last_step_at ? new Date(c.last_step_at).getTime() + daysAfter * 86400000 : null;
+    // Only show calls that are actually due. A call step with daysAfter=6 should
+    // not appear in the queue until 6 days have passed since the previous step.
+    const isDue = dueAt !== null ? now >= dueAt : daysAfter === 0;
+    if (!isDue) continue;
     const isOverdue = dueAt !== null && now > dueAt;
     const overdueDays = isOverdue && dueAt ? Math.floor((now - dueAt) / 86400000) : 0;
     const latestCall = c.lead_id ? latestCallByLead.get(c.lead_id as string) ?? null : null;

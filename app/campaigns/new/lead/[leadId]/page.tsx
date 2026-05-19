@@ -283,60 +283,35 @@ export default function NewLeadCampaignWizard() {
     });
   }
 
-  // Submit
+  // Submit — delegates to /api/campaigns/renurture (service key, bypasses RLS)
   async function handleSubmit() {
-    const supabase = getSupabaseBrowser();
     setSubmitting(true);
     setSubmitError(null);
 
-    // Tenant-isolation RLS on campaign_requests requires company_bio_id = the caller's tenant,
-    // not the lead's. Resolve it from the signed-in user.
-    const { data: companyBioId, error: scopeErr } = await supabase.rpc("get_auth_company_bio_id");
-    if (scopeErr || !companyBioId) {
-      setSubmitError(scopeErr?.message ?? "Your account has no company assigned — contact an admin.");
-      setSubmitting(false);
-      return;
-    }
-
-    const uniqueChannels = [...new Set(sequence.map(s => s.channel))];
     const leadName = `${lead?.primary_first_name ?? ""} ${lead?.primary_last_name ?? ""}`.trim();
-    const { data: inserted, error } = await supabase.from("campaign_requests").insert({
-      name: campaignName.trim() || `${leadName} @ ${lead?.company_name ?? "Unknown"} — ${uniqueChannels.map(c => allChannelOptions.find(o => o.key === c)?.label).join(" + ")}`,
-      icp_profile_id: lead?.icp_profile_id ?? null,
-      company_bio_id: companyBioId,
-      lead_id: leadId,
-      channels: uniqueChannels,
-      sequence_length: sequence.length,
-      frequency_days: 0,
-      target_leads_count: 1,
-      message_prompts: { sequence, channelMessages, language, timezone, selectedLeadIds: [leadId], sellerId: selectedSeller || null },
-      status: "pending_review",
-    }).select("id").single();
-
-    if (error || !inserted) {
-      setSubmitError(error?.message ?? "Failed to create request");
-      setSubmitting(false);
-      return;
-    }
-
-    // Auto-approve single-lead requests so the campaign + messages are created immediately.
-    // (The approve route uses the service key and only requires a requestId.)
-    const approveRes = await fetch("/api/campaigns/approve", {
+    const res = await fetch("/api/campaigns/renurture", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ requestId: inserted.id }),
+      body: JSON.stringify({
+        leadId,
+        name: campaignName.trim() || `${leadName} @ ${lead?.company_name ?? "Unknown"} — Renurture`,
+        sequence,
+        channelMessages,
+        language,
+        timezone,
+        sellerId: selectedSeller || null,
+      }),
     });
 
-    if (!approveRes.ok) {
-      const { error: approveErr } = await approveRes.json().catch(() => ({ error: "Approve failed" }));
-      setSubmitError(`Request created, but auto-approve failed: ${approveErr ?? "unknown error"}`);
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: "Failed to launch flow" }));
+      setSubmitError(error ?? "Failed to launch flow");
       setSubmitting(false);
       return;
     }
 
     setSubmitted(true);
     setSubmitting(false);
-    // Jump to the lead detail so the new campaign + messages are visible right away.
     router.push(`/leads/${leadId}`);
   }
 

@@ -263,7 +263,9 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
     for (const c of list) {
       const cs = c.current_step ?? 0;
       if (cs > sequence.length) { done.push(c); continue; }
-      const idx = Math.max(0, Math.min(cs - 1, sequence.length - 1));
+      // Column i = cs=i: "i steps done, step i+1 is next".
+      // After step 1 fires (cs=1) the lead moves to column 1, not column 0.
+      const idx = Math.min(cs, sequence.length - 1);
       b[idx].push(c);
     }
     return { stepBuckets: b, done };
@@ -286,8 +288,8 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
     const camp = list.find(c => c.id === campId);
     if (!camp) return;
 
-    // Column Step N = "Nth DM sent". Column 0-indexed, so target current_step = targetStep + 1.
-    const newCurrentStep = targetStep + 1;
+    // Column i holds cs=i. Dragging to column i targets cs=i directly.
+    const newCurrentStep = targetStep;
     const currentStep = camp.current_step ?? 0;
     if (currentStep === newCurrentStep) return;
 
