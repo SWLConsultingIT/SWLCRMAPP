@@ -156,7 +156,8 @@ function stripNameNoise(raw: string): string {
       s = parts.join(" ").trim();
     } else break;
   }
-  return s;
+  // Strip trailing punctuation (e.g. "N." → "N")
+  return s.replace(/[.]+$/, "");
 }
 
 function nameMatches(
