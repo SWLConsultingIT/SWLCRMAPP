@@ -45,9 +45,10 @@ async function getQueueData() {
     campQuery = campQuery.in("seller_id", sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"]);
   }
 
-  // Replies
+  // Replies — exclude 'autoreply' (OOO messages handled by the auto-reply pipeline)
   let replyQuery = supabase.from("lead_replies")
     .select("id, classification, received_at, channel, reply_text, lead_id, campaign_id, requires_human_review, leads!inner(primary_first_name, primary_last_name, company_name, company_bio_id), campaigns!inner(name, seller_id)")
+    .neq("classification", "autoreply")
     .order("received_at", { ascending: false })
     .limit(30);
   if (scopedCompanyBioId) replyQuery = replyQuery.eq("leads.company_bio_id", scopedCompanyBioId);
