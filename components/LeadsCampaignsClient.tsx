@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
-import { supabase } from "@/lib/supabase";
 import {
   Megaphone, ChevronRight, Target,
   Search, X, CheckCircle, Star, RefreshCw, Trash2, Square, CheckSquare,
@@ -386,33 +385,36 @@ function LostLeadsView({ leads }: { leads: LostLead[] }) {
     if (!window.confirm(`Delete ${selected.size} lead${selected.size > 1 ? "s" : ""} permanently? This cannot be undone.`)) return;
     setDeleting(true);
     const ids = [...selected];
-    await supabase.from("leads").delete().in("id", ids);
+    // Use API route with service key to bypass RLS (browser client blocked for
+    // super_admin viewing cross-tenant leads — company_bio_id mismatch).
+    const res = await fetch("/api/leads/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leadIds: ids }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: "Delete failed" }));
+      window.alert(`Delete failed: ${error}`);
+    }
     setDeleting(false);
     setSelected(new Set());
     window.location.reload();
   }
 
-  // Recover = bring lead back to a contactable state so it can be added to a
-  // new campaign. "Lost" in the page query is derived from the lead having at
-  // least one completed/failed campaign (and no active one), so resetting the
-  // lead row alone isn't enough — we must also retire the old completed/failed
-  // campaigns so they stop counting as "lost history". We use status='archived'
-  // which the page query doesn't match, preserving the rows for audit while
-  // taking them out of the Lost bucket.
   async function recoverSelected() {
     const n = selected.size;
     if (!window.confirm(`Recover ${n} lead${n > 1 ? "s" : ""}? Their finished campaigns will be archived (kept for history) and the lead becomes contactable again. You'll be able to add them to a new campaign.`)) return;
     setRecovering(true);
     const ids = [...selected];
-    const [leadUpd, campUpd, suppDel] = await Promise.all([
-      supabase.from("leads").update({ status: "new", responded: false }).in("id", ids).select("id"),
-      supabase.from("campaigns").update({ status: "archived" }).in("lead_id", ids).in("status", ["completed", "failed"]).select("id"),
-      // Best-effort: drop suppressions if a row exists. Errors if the table is missing — recover is idempotent.
-      supabase.from("lead_suppressions").delete().in("lead_id", ids).select("lead_id"),
-    ]);
-    if (leadUpd.error || campUpd.error) {
+    const res = await fetch("/api/leads/recover", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ leadIds: ids }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json().catch(() => ({ error: "Recover failed" }));
       setRecovering(false);
-      window.alert(`Recover failed:\n${leadUpd.error?.message ?? ""}\n${campUpd.error?.message ?? ""}`);
+      window.alert(`Recover failed: ${error}`);
       return;
     }
     setRecovering(false);
