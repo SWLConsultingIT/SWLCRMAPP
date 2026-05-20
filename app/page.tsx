@@ -3,7 +3,7 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import { redirect } from "next/navigation";
 import { C } from "@/lib/design";
-import { Share2, Mail, Phone, AlertTriangle } from "lucide-react";
+import { Share2, Mail, Phone } from "lucide-react";
 import Link from "next/link";
 import DashboardHero from "@/components/DashboardHero";
 import DashboardStats from "@/components/DashboardStats";
@@ -11,6 +11,7 @@ import DashboardTabs from "@/components/DashboardTabs";
 import DashboardFilters from "@/components/DashboardFilters";
 import CollapsibleCard from "@/components/CollapsibleCard";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
+import AlertsPanel from "@/components/AlertsPanel";
 import ReportsPage from "@/app/reports/page";
 
 export type DashboardFilterValues = {
@@ -408,32 +409,7 @@ export default async function DashboardPage({
           />
 
           {/* Alerts */}
-          {data.alerts.length > 0 && (
-            <div className="rounded-xl border px-5 py-3 mb-6 flex items-center gap-3 flex-wrap"
-              style={{ backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }}>
-              <div className="flex items-center gap-2 shrink-0">
-                <AlertTriangle size={15} style={{ color: "#D97706" }} />
-                <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: "#92400E" }}>Needs Attention</span>
-              </div>
-              {data.alerts.map((a, i) => {
-                // Semantic alert colors: amber = needs-human-action (review /
-                // call), blue = awaiting-approval (queued). One color per role,
-                // not one per row.
-                const tone = a.label.includes("approval") ? "info" : "warning";
-                const bg  = tone === "info" ? "#EFF6FF" : "#FFFDF5";
-                const fg  = tone === "info" ? "#1D4ED8" : "#B45309";
-                const bd  = tone === "info" ? "#BFDBFE" : "#FBBF24";
-                return (
-                  <Link key={i} href={a.href}
-                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full border transition-colors hover:opacity-90"
-                    style={{ borderColor: bd, color: fg, backgroundColor: bg }}>
-                    <span className="font-bold tabular-nums">{a.count}</span>
-                    {a.label}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
+          {data.alerts.length > 0 && <AlertsPanel alerts={data.alerts} />}
 
           {/* Two-thirds Active Campaigns (operational priority) + one-third
               Recent Replies (reactive). On narrow screens the grid collapses
