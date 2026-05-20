@@ -4,7 +4,7 @@ import { useState } from "react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 import {
-  Share2, Mail, Phone, Sparkles, Loader2,
+  Share2, Mail, Phone, MessageCircle, Sparkles, Loader2,
   ThumbsUp, ThumbsDown, Maximize2, Minimize2, Plus,
 } from "lucide-react";
 
@@ -63,9 +63,10 @@ type Props = {
 // ── Helpers ──
 
 const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-  linkedin: { icon: Share2, color: C.linkedin, label: "LinkedIn" },
-  email:    { icon: Mail,   color: C.email,    label: "Email" },
-  call:     { icon: Phone,  color: C.phone,    label: "Call" },
+  linkedin: { icon: Share2,         color: C.linkedin, label: "LinkedIn" },
+  email:    { icon: Mail,           color: C.email,    label: "Email" },
+  call:     { icon: Phone,          color: C.phone,    label: "Call" },
+  whatsapp: { icon: MessageCircle,  color: "#25D366",  label: "WhatsApp" },
 };
 
 // LinkedIn invite notes cap at 200 chars POST placeholder interpolation.

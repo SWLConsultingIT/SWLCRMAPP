@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import { C } from "@/lib/design";
-import { Share2, Mail, Phone, Check, PlayCircle, ChevronDown } from "lucide-react";
+import { Share2, Mail, Phone, MessageCircle, Check, PlayCircle, ChevronDown } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 
 const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-  linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,   color: "#7C3AED", label: "Email" },
-  whatsapp: { icon: Mail,   color: "#22c55e", label: "WhatsApp" },
-  call:     { icon: Phone,  color: "#F97316", label: "Call" },
+  linkedin: { icon: Share2,        color: "#0A66C2", label: "LinkedIn" },
+  email:    { icon: Mail,          color: "#7C3AED", label: "Email" },
+  whatsapp: { icon: MessageCircle, color: "#25D366", label: "WhatsApp" },
+  call:     { icon: Phone,         color: "#F97316", label: "Call" },
 };
 
 type Step = { channel: string; daysAfter: number };

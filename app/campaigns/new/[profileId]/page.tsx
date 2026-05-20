@@ -5,7 +5,7 @@ import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
 import {
-  ArrowLeft, ArrowRight, Check, Share2, Mail, Phone,
+  ArrowLeft, ArrowRight, Check, Share2, Mail, Phone, MessageCircle,
   Loader2, Send, Megaphone, Plus, Trash2, Globe, Settings, AlertTriangle,
 } from "lucide-react";
 import ChannelMessageConfig, { type ChannelMessages } from "@/components/ChannelMessageConfig";
@@ -47,9 +47,10 @@ const languageOptions = [
 ];
 
 const channelOptions = [
-  { key: "linkedin", label: "LinkedIn", icon: Share2, color: C.linkedin, short: "LI" },
-  { key: "email",    label: "Email",    icon: Mail,   color: C.email,    short: "EM" },
-  { key: "call",     label: "Call",     icon: Phone,  color: C.phone,    short: "CA" },
+  { key: "linkedin",  label: "LinkedIn",  icon: Share2,         color: C.linkedin, short: "LI" },
+  { key: "email",     label: "Email",     icon: Mail,           color: C.email,    short: "EM" },
+  { key: "call",      label: "Call",      icon: Phone,          color: C.phone,    short: "CA" },
+  { key: "whatsapp",  label: "WhatsApp",  icon: MessageCircle,  color: "#25D366",  short: "WA" },
 ];
 
 const sequenceTemplates = [
@@ -148,9 +149,9 @@ export default function NewCampaignWizard() {
   // just an aggregate count.
   const [coverage, setCoverage] = useState<{
     total: number;
-    linkedin: number; email: number; call: number;
-    missing: { linkedin: string[]; email: string[]; call: string[] };
-  }>({ total: 0, linkedin: 0, email: 0, call: 0, missing: { linkedin: [], email: [], call: [] } });
+    linkedin: number; email: number; call: number; whatsapp: number;
+    missing: { linkedin: string[]; email: string[]; call: string[]; whatsapp: string[] };
+  }>({ total: 0, linkedin: 0, email: 0, call: 0, whatsapp: 0, missing: { linkedin: [], email: [], call: [], whatsapp: [] } });
 
   // Sequence builder
   const [sequence, setSequence] = useState<SequenceStep[]>([
@@ -264,7 +265,7 @@ export default function NewCampaignWizard() {
       // about whether a chosen channel will actually reach all the leads.
       let coverageQ = supabase
         .from("leads")
-        .select("id, primary_first_name, primary_last_name, primary_linkedin_url, primary_work_email, primary_personal_email, primary_phone, allow_linkedin, allow_email, allow_call")
+        .select("id, primary_first_name, primary_last_name, primary_linkedin_url, primary_work_email, primary_personal_email, primary_phone, primary_secondary_phone, allow_linkedin, allow_email, allow_call")
         .eq("icp_profile_id", profileId);
       if (isPartialSelection) coverageQ = coverageQ.in("id", selectedLeadIds);
       const { data: covRows } = await coverageQ;
@@ -274,15 +275,18 @@ export default function NewCampaignWizard() {
       const okLi   = (r: any) => isValidLi(r.primary_linkedin_url) && r.allow_linkedin !== false;
       const okMail = (r: any) => (r.primary_work_email || r.primary_personal_email) && r.allow_email !== false;
       const okCall = (r: any) => r.primary_phone && r.allow_call !== false;
+      const okWa   = (r: any) => (r.primary_phone || r.primary_secondary_phone) && r.allow_call !== false;
       const cov = {
         total: rows.length,
-        linkedin: rows.filter(okLi).length,
-        email:    rows.filter(okMail).length,
-        call:     rows.filter(okCall).length,
+        linkedin:  rows.filter(okLi).length,
+        email:     rows.filter(okMail).length,
+        call:      rows.filter(okCall).length,
+        whatsapp:  rows.filter(okWa).length,
         missing: {
           linkedin: rows.filter((r: any) => !okLi(r)).map(fullName),
           email:    rows.filter((r: any) => !okMail(r)).map(fullName),
           call:     rows.filter((r: any) => !okCall(r)).map(fullName),
+          whatsapp: rows.filter((r: any) => !okWa(r)).map(fullName),
         },
       };
       setCoverage(cov);
@@ -712,7 +716,7 @@ export default function NewCampaignWizard() {
                 blocked. Different leads may fail on different channels (a lead
                 with email-only but no LinkedIn appears under LinkedIn only). */}
             {(() => {
-              const usedChannels = [...new Set(sequence.map(s => s.channel))] as Array<"linkedin" | "email" | "call">;
+              const usedChannels = [...new Set(sequence.map(s => s.channel))] as Array<"linkedin" | "email" | "call" | "whatsapp">;
               const gaps = usedChannels
                 .map(ch => ({ ch, reachable: coverage[ch], blockedNames: coverage.missing[ch] }))
                 .filter(x => x.blockedNames.length > 0);

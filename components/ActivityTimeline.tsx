@@ -37,13 +37,15 @@ function ChannelIcon({ channel, size = 14 }: { channel: string; size?: number })
   if (channel === "linkedin") return <LinkedInIcon size={size} />;
   if (channel === "email") return <span className={s}>✉️</span>;
   if (channel === "call") return <span className={s}>📱</span>;
+  if (channel === "whatsapp") return <span className={s}>💬</span>;
   return <span className={s}>💬</span>;
 }
 
 const channelIcons: Record<string, { icon?: typeof Mail; color: string; bg: string; label: string }> = {
-  linkedin: { color: C.linkedin, bg: "#EFF6FF", label: "LinkedIn" },
-  email:    { color: C.email, bg: "#ECFDF5", label: "Email" },
-  call:     { color: C.phone, bg: "#FFF7ED", label: "Phone" },
+  linkedin: { color: C.linkedin, bg: "#EFF6FF",   label: "LinkedIn" },
+  email:    { color: C.email,    bg: "#ECFDF5",   label: "Email" },
+  call:     { color: C.phone,    bg: "#FFF7ED",   label: "Phone" },
+  whatsapp: { color: "#25D366",  bg: "#F0FDF4",   label: "WhatsApp" },
 };
 
 const classificationStyles: Record<string, { label: string; color: string; bg: string }> = {

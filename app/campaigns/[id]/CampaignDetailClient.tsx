@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import Link from "next/link";
 import {
-  Share2, Mail, Phone, Check, Pencil, X, Save,
+  Share2, Mail, Phone, MessageCircle, Check, Pencil, X, Save,
   PlayCircle, Loader2, Pause, Play, Trash2, Send,
   Users, UserPlus, Megaphone, Target, CheckCircle2,
   MessageSquare, PhoneCall, Clock, AlertTriangle, ChevronRight, LayoutGrid,
@@ -22,10 +22,10 @@ const AIRCALL_USERS = [
 const gold = "var(--brand, #c9a83a)";
 
 const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-  linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,   color: "#7C3AED", label: "Email" },
-  whatsapp: { icon: Mail,   color: "#22c55e", label: "WhatsApp" },
-  call:     { icon: Phone,  color: "#F97316", label: "Call" },
+  linkedin: { icon: Share2,        color: "#0A66C2", label: "LinkedIn" },
+  email:    { icon: Mail,          color: "#7C3AED", label: "Email" },
+  whatsapp: { icon: MessageCircle, color: "#25D366", label: "WhatsApp" },
+  call:     { icon: Phone,         color: "#F97316", label: "Call" },
 };
 
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
@@ -781,8 +781,8 @@ export default function CampaignDetailClient({
           return found?.profileName ?? "Same Mining Ticket";
         })();
 
-        const sameCompatCount = sameIcpLeads.filter((l: UnlinkedLead) => channels.every(ch => ch === "linkedin" ? l.allow_linkedin : ch === "email" ? l.allow_email : ch === "call" ? l.allow_call : true)).length;
-        const otherCompatCount = otherLeads.filter((l: UnlinkedLead) => channels.every(ch => ch === "linkedin" ? l.allow_linkedin : ch === "email" ? l.allow_email : ch === "call" ? l.allow_call : true)).length;
+        const sameCompatCount = sameIcpLeads.filter((l: UnlinkedLead) => channels.every(ch => ch === "linkedin" ? l.allow_linkedin : ch === "email" ? l.allow_email : ch === "call" || ch === "whatsapp" ? l.allow_call : true)).length;
+        const otherCompatCount = otherLeads.filter((l: UnlinkedLead) => channels.every(ch => ch === "linkedin" ? l.allow_linkedin : ch === "email" ? l.allow_email : ch === "call" || ch === "whatsapp" ? l.allow_call : true)).length;
 
         function renderLeadRow(lead: UnlinkedLead, showTicketName?: string) {
           const nm = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
@@ -856,7 +856,7 @@ export default function CampaignDetailClient({
                     <div className="flex items-center justify-between mt-3">
                       <span className="text-xs" style={{ color: C.textDim }}>{sameCompatCount} compatible with this flow</span>
                       <button
-                        onClick={() => addLeadsToCampaign(sameIcpLeads.filter((l: UnlinkedLead) => channels.every(ch => ch === "linkedin" ? l.allow_linkedin : ch === "email" ? l.allow_email : ch === "call" ? l.allow_call : true)).map((l: UnlinkedLead) => l.id))}
+                        onClick={() => addLeadsToCampaign(sameIcpLeads.filter((l: UnlinkedLead) => channels.every(ch => ch === "linkedin" ? l.allow_linkedin : ch === "email" ? l.allow_email : ch === "call" || ch === "whatsapp" ? l.allow_call : true)).map((l: UnlinkedLead) => l.id))}
                         disabled={adding || sameCompatCount === 0}
                         className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-40 hover:opacity-80"
                         style={{ backgroundColor: C.green, color: "#fff" }}>
@@ -889,7 +889,7 @@ export default function CampaignDetailClient({
                     <div className="flex items-center justify-between mt-3">
                       <span className="text-xs" style={{ color: C.textDim }}>{otherCompatCount} compatible with this flow</span>
                       <button
-                        onClick={() => addLeadsToCampaign(otherLeads.filter((l: UnlinkedLead) => channels.every(ch => ch === "linkedin" ? l.allow_linkedin : ch === "email" ? l.allow_email : ch === "call" ? l.allow_call : true)).map((l: UnlinkedLead) => l.id))}
+                        onClick={() => addLeadsToCampaign(otherLeads.filter((l: UnlinkedLead) => channels.every(ch => ch === "linkedin" ? l.allow_linkedin : ch === "email" ? l.allow_email : ch === "call" || ch === "whatsapp" ? l.allow_call : true)).map((l: UnlinkedLead) => l.id))}
                         disabled={adding || otherCompatCount === 0}
                         className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-40 hover:opacity-80"
                         style={{ backgroundColor: C.textBody, color: "#fff" }}>
