@@ -44,7 +44,7 @@ async function getReportData(filters: ReportFilters) {
     bioId ? repliesQ.eq("leads.company_bio_id", bioId) : repliesQ,
     bioId ? msgsQ.eq("campaigns.leads.company_bio_id", bioId) : msgsQ,
     bioId ? profilesQ.eq("company_bio_id", bioId) : profilesQ,
-    bioId ? sellersQ.eq("company_bio_id", bioId) : sellersQ,
+    bioId ? sellersQ.or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`) : sellersQ,
   ]) as any;
 
   // In-memory filtering: this page already pulls all tenant rows for
