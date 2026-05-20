@@ -192,10 +192,13 @@ function LeadCard({ camp, isDragging }: { camp: Campaign; isDragging?: boolean }
 }
 
 // ─── Droppable column ──────────────────────────────────────
-function Column({ stepIndex, step, children, count }: { stepIndex: number; step: SequenceStep; children: React.ReactNode; count: number }) {
+function Column({ stepIndex, step, children, count, activeDragStep }: { stepIndex: number; step: SequenceStep; children: React.ReactNode; count: number; activeDragStep: number | null }) {
   const { setNodeRef, isOver } = useDroppable({ id: `col-${stepIndex}`, data: { stepIndex } });
   const meta = channelMeta[step.channel] ?? { icon: Phone, color: C.textMuted, label: step.channel };
   const Icon = meta.icon;
+  const isBackward = activeDragStep !== null && stepIndex < activeDragStep;
+  const isSameStep = activeDragStep !== null && stepIndex === activeDragStep;
+  const isValidTarget = !isBackward && !isSameStep;
 
   return (
     <div
@@ -203,9 +206,11 @@ function Column({ stepIndex, step, children, count }: { stepIndex: number; step:
       className="rounded-xl border transition-colors overflow-hidden shrink-0"
       style={{
         width: 210,
-        backgroundColor: isOver ? `${meta.color}08` : C.bg,
-        borderColor: isOver ? meta.color : C.border,
-        borderWidth: isOver ? 2 : 1,
+        backgroundColor: isBackward ? C.bg : isOver && isValidTarget ? `${meta.color}08` : C.bg,
+        borderColor: isBackward ? C.border : isOver && isValidTarget ? meta.color : C.border,
+        borderWidth: isOver && isValidTarget ? 2 : 1,
+        opacity: isBackward ? 0.45 : 1,
+        cursor: isBackward ? "not-allowed" : undefined,
       }}
     >
       <div className="px-3 py-2.5 border-b flex items-center justify-between sticky top-0 z-10"
@@ -241,13 +246,13 @@ type PendingMove = {
   targetChannel: string;
   fromStep: number;
   leadName: string;
-  isForward: boolean;
 };
 
 export default function CampaignKanban({ sequence, campaigns }: Props) {
   const router = useRouter();
   const [list, setList] = useState(campaigns);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [activeDragStep, setActiveDragStep] = useState<number | null>(null);
   const [pending, setPending] = useState<PendingMove | null>(null);
   const [busy, setBusy] = useState(false);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -274,11 +279,15 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
   const active = activeId ? list.find(c => c.id === activeId) : null;
 
   function handleDragStart(e: DragStartEvent) {
-    setActiveId(String(e.active.id));
+    const id = String(e.active.id);
+    setActiveId(id);
+    const camp = list.find(c => c.id === id);
+    setActiveDragStep(camp?.current_step ?? 0);
   }
 
   async function handleDragEnd(e: DragEndEvent) {
     setActiveId(null);
+    setActiveDragStep(null);
     const { active, over } = e;
     if (!over) return;
     const targetStep = Number(over.data.current?.stepIndex ?? -1);
@@ -288,14 +297,15 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
     const camp = list.find(c => c.id === campId);
     if (!camp) return;
 
-    // Column i holds cs=i. Dragging to column i targets cs=i directly.
     const newCurrentStep = targetStep;
     const currentStep = camp.current_step ?? 0;
     if (currentStep === newCurrentStep) return;
 
-    // Restrict to adjacent step moves. Multi-step jumps create ambiguity
-    // (send only target vs send all pending vs re-send when going backward).
-    if (Math.abs(newCurrentStep - currentStep) > 1) {
+    // Backward moves are never allowed — leads only move forward.
+    if (newCurrentStep < currentStep) return;
+
+    // Restrict to adjacent forward moves to avoid ambiguity.
+    if (newCurrentStep - currentStep > 1) {
       alert("Move one step at a time. To skip several, drag twice.");
       return;
     }
@@ -308,7 +318,6 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
       targetChannel,
       fromStep: camp.current_step ?? 0,
       leadName,
-      isForward: newCurrentStep > (camp.current_step ?? 0),
     });
   }
 
@@ -350,7 +359,7 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
     <div>
       <div className="rounded-xl border p-4 mb-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <p className="text-xs" style={{ color: C.textMuted }}>
-          <span className="font-semibold" style={{ color: C.textBody }}>Drag a lead</span> to move it to a different step. Useful to skip ahead or force a specific action. Changes apply on the next orchestrator cycle.
+          <span className="font-semibold" style={{ color: C.textBody }}>Drag a lead</span> to advance it to the next step. Leads can only move forward. Changes apply on the next orchestrator cycle.
         </p>
       </div>
 
@@ -358,7 +367,7 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
         <div className="overflow-x-auto pb-2">
         <div className="flex gap-3 pb-4" style={{ minWidth: "max-content" }}>
           {sequence.map((step, i) => (
-            <Column key={i} stepIndex={i} step={step} count={buckets.stepBuckets[i].length}>
+            <Column key={i} stepIndex={i} step={step} count={buckets.stepBuckets[i].length} activeDragStep={activeDragStep}>
               {buckets.stepBuckets[i].map(c => (
                 <LeadCard key={c.id} camp={c} isDragging={activeId === c.id} />
               ))}
@@ -479,9 +488,7 @@ function MoveModal({
                 Moving {pending.leadName}
               </h2>
               <p className="text-xs" style={{ color: C.textMuted }}>
-                {pending.isForward
-                  ? `Advance to Step ${pending.targetStep}. Decide what happens with the pending ${noun}.`
-                  : `Move back to Step ${pending.targetStep}.`}
+                Advance to Step {pending.targetStep}. Decide what happens with the pending {noun}.
               </p>
             </div>
           </div>
@@ -492,51 +499,36 @@ function MoveModal({
 
         {/* Body */}
         <div className="px-5 py-4 space-y-3">
-          {pending.isForward ? (
-            <>
-              <div className="rounded-lg border p-3" style={{ borderColor: "#FCD34D", backgroundColor: "#FFFBEB" }}>
-                <div className="flex items-start gap-2">
-                  <AlertTriangle size={13} className="shrink-0 mt-0.5" style={{ color: "#D97706" }} />
-                  <p className="text-[11px] leading-relaxed" style={{ color: "#92400E" }}>
-                    <strong>Send</strong> will deliver the {noun} to the lead&apos;s inbox on the next orchestrator cycle (up to 1h).
-                    <br />
-                    <strong>Skip</strong> advances the step without sending — the {noun} is never delivered.
-                  </p>
-                </div>
-              </div>
-
-              <button onClick={() => onCommit("send")} disabled={busy}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm disabled:opacity-50"
-                style={{ borderColor: `${chMeta.color}50`, backgroundColor: `${chMeta.color}08`, color: chMeta.color }}>
-                <span className="flex items-center gap-2.5">
-                  <Send size={14} />
-                  <span className="text-sm font-semibold">{sendLabel}</span>
-                </span>
-                <span className="text-[10px] font-medium opacity-70">Lead receives it</span>
-              </button>
-
-              <button onClick={() => onCommit("skip")} disabled={busy}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm disabled:opacity-50"
-                style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textBody }}>
-                <span className="flex items-center gap-2.5">
-                  <SkipForward size={14} style={{ color: C.textMuted }} />
-                  <span className="text-sm font-semibold">{skipLabel}</span>
-                </span>
-                <span className="text-[10px] font-medium" style={{ color: C.textDim }}>Lead gets nothing</span>
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="text-xs" style={{ color: C.textMuted }}>
-                This rolls back their progress. No messages will be re-sent.
+          <div className="rounded-lg border p-3" style={{ borderColor: "#FCD34D", backgroundColor: "#FFFBEB" }}>
+            <div className="flex items-start gap-2">
+              <AlertTriangle size={13} className="shrink-0 mt-0.5" style={{ color: "#D97706" }} />
+              <p className="text-[11px] leading-relaxed" style={{ color: "#92400E" }}>
+                <strong>Send</strong> will deliver the {noun} to the lead&apos;s inbox on the next orchestrator cycle (up to 1h).
+                <br />
+                <strong>Skip</strong> advances the step without sending — the {noun} is never delivered.
               </p>
-              <button onClick={() => onCommit("skip")} disabled={busy}
-                className="w-full px-4 py-2.5 rounded-lg text-sm font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
-                style={{ backgroundColor: C.gold, color: "#1A1A2E" }}>
-                Move back to Step {pending.targetStep}
-              </button>
-            </>
-          )}
+            </div>
+          </div>
+
+          <button onClick={() => onCommit("send")} disabled={busy}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm disabled:opacity-50"
+            style={{ borderColor: `${chMeta.color}50`, backgroundColor: `${chMeta.color}08`, color: chMeta.color }}>
+            <span className="flex items-center gap-2.5">
+              <Send size={14} />
+              <span className="text-sm font-semibold">{sendLabel}</span>
+            </span>
+            <span className="text-[10px] font-medium opacity-70">Lead receives it</span>
+          </button>
+
+          <button onClick={() => onCommit("skip")} disabled={busy}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm disabled:opacity-50"
+            style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textBody }}>
+            <span className="flex items-center gap-2.5">
+              <SkipForward size={14} style={{ color: C.textMuted }} />
+              <span className="text-sm font-semibold">{skipLabel}</span>
+            </span>
+            <span className="text-[10px] font-medium" style={{ color: C.textDim }}>Lead gets nothing</span>
+          </button>
         </div>
 
         {/* Footer */}
