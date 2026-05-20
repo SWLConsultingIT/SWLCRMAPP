@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import CampaignKanban from "@/components/CampaignKanban";
 import CampaignCallsTab from "@/components/CampaignCallsTab";
+import MoveForwardButton from "@/components/MoveForwardButton";
 import { classifyUrgency } from "@/lib/overdue";
 
 const AIRCALL_USERS = [
@@ -394,6 +395,13 @@ export default function CampaignDetailClient({
                         {c.status === "active" && <button onClick={() => act(c.id, "pause")} disabled={!!acting} className="rounded-md px-2 py-1 text-xs disabled:opacity-50" style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}><Pause size={10} /></button>}
                         {c.status === "paused" && <button onClick={() => act(c.id, "resume")} disabled={!!acting} className="rounded-md px-2 py-1 text-xs disabled:opacity-50" style={{ backgroundColor: C.greenLight, color: C.green }}><Play size={10} /></button>}
                         {["active","paused"].includes(c.status) && <>
+                          <MoveForwardButton
+                            campaignId={c.id}
+                            currentStep={c.current_step}
+                            totalSteps={c.sequence_steps?.length ?? 0}
+                            nextChannel={c.sequence_steps?.[c.current_step]?.channel}
+                            size="sm"
+                          />
                           <button onClick={() => { if (confirm(`Remove ${nm}?`)) act(c.id, "cancel"); }} disabled={!!acting} className="rounded-md px-2 py-1 text-xs disabled:opacity-50" style={{ backgroundColor: C.surface, color: C.textMuted }}><Trash2 size={10} /></button>
                         </>}
                       </div></td>

@@ -20,6 +20,7 @@ import CallCard from "@/components/CallCard";
 import PersonalizedInfoPanel from "@/components/PersonalizedInfoPanel";
 import LeadSummaryTab from "@/components/LeadSummaryTab";
 import LeadStatsBar from "@/components/LeadStatsBar";
+import MoveForwardButton from "@/components/MoveForwardButton";
 
 // Bypass Next's render cache. Without this, the page snapshots messages +
 // campaign state at build time and a freshly-sent step 1 keeps showing
@@ -518,9 +519,19 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 )}
               </div>
             </div>
-            <span className="text-base font-bold italic" style={{ color: gold }}>
-              {stepPct}% Complete
-            </span>
+            <div className="flex items-center gap-3">
+              {campaign && !campDone && (
+                <MoveForwardButton
+                  campaignId={campaign.id}
+                  currentStep={currentStep}
+                  totalSteps={steps.length}
+                  nextChannel={rawSteps[currentStep]?.channel}
+                />
+              )}
+              <span className="text-base font-bold italic" style={{ color: gold }}>
+                {stepPct}% Complete
+              </span>
+            </div>
           </div>
 
           {/* Horizontal stepper */}
