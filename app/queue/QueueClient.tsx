@@ -436,11 +436,16 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                                 <UIcon size={9} /> {urgency.label}
                               </span>
                             )}
+                            {call.sellerName && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                                style={{ backgroundColor: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE" }}>
+                                {call.sellerName}
+                              </span>
+                            )}
                           </div>
                           {call.role && <p className="text-xs" style={{ color: C.textMuted }}>{call.role}</p>}
                           <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
                             {call.campaignName} · Step {call.currentStep + 1}/{call.totalSteps}
-                            {call.sellerName && <> · Assigned to <span style={{ color: C.text, fontWeight: 500 }}>{call.sellerName}</span></>}
                             {call.lastStepAt && <> · Last activity {timeAgo(call.lastStepAt)}</>}
                             {call.isOverdue && !awaitingOutcome && <> · {urgency.hint}</>}
                           </p>
