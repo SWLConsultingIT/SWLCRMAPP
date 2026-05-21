@@ -418,9 +418,9 @@ function TemplateForm({ initial, icpOptions, isEdit, onSave, onCancel }: { initi
               {STEP_POSITIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </Field>
-          <Field label="ICP Profile (optional)">
+          <Field label="Lead Miner Profile (optional)">
             <select value={form.icp_profile_id ?? ""} onChange={e => setForm(f => ({ ...f, icp_profile_id: e.target.value || null }))} className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-              <option value="">— Any ICP —</option>
+              <option value="">— Any profile —</option>
               {icpOptions.map(i => <option key={i.id} value={i.id}>{i.profile_name}</option>)}
             </select>
           </Field>

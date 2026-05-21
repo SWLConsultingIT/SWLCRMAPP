@@ -368,7 +368,7 @@ function IcpSectionBlock({ section, defaultOpen }: { section: IcpSection; defaul
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-0.5">
-            <p className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: gold, letterSpacing: "0.14em" }}>ICP Profile</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: gold, letterSpacing: "0.14em" }}>Lead Miner Profile</p>
             <span className="text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-md"
               style={{ backgroundColor: C.surface, color: C.textMuted }}>
               {section.groups.length} flow{section.groups.length === 1 ? "" : "s"}

@@ -132,7 +132,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
           )}
           {profile && (
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>ICP Profile</p>
+              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Lead Miner Profile</p>
               <p className="text-sm font-medium" style={{ color: C.textPrimary }}>{profile.profile_name}</p>
             </div>
           )}

@@ -756,7 +756,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="text-sm font-semibold" style={{ color: C.textPrimary }}>{u.name}</span>
                       <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: bg, color }}>
-                        <KindIcon size={9} /> {u.kind === "campaign" ? "Outreach Flow" : "ICP Profile"} · {isApproved ? "APPROVED" : "REJECTED"}
+                        <KindIcon size={9} /> {u.kind === "campaign" ? "Outreach Flow" : "Lead Miner Profile"} · {isApproved ? "APPROVED" : "REJECTED"}
                       </span>
                     </div>
                     <p className="text-xs" style={{ color: C.textBody }}>{message}</p>
