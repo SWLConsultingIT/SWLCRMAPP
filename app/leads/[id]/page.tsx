@@ -21,6 +21,7 @@ import PersonalizedInfoPanel from "@/components/PersonalizedInfoPanel";
 import LeadSummaryTab from "@/components/LeadSummaryTab";
 import LeadStatsBar from "@/components/LeadStatsBar";
 import MoveForwardButton from "@/components/MoveForwardButton";
+import PreCallBrief from "@/components/PreCallBrief";
 
 // Bypass Next's render cache. Without this, the page snapshots messages +
 // campaign state at build time and a freshly-sent step 1 keeps showing
@@ -498,6 +499,16 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           campaignStep={campaign ? `${campDone ? steps.length : Math.min(currentStep + 1, steps.length)}/${steps.length}` : "—"}
         />
       </div>
+
+      {/* ═══ PRE-CALL BRIEF — 3 AI talking points, shown only when the lead
+            has a phone number worth dialling. Auto-generates on first view. ═══ */}
+      {lead.primary_phone && (
+        <PreCallBrief
+          leadId={id}
+          initialPoints={(lead as any).call_talking_points ?? null}
+          initialGeneratedAt={(lead as any).call_talking_points_at ?? null}
+        />
+      )}
 
       {/* ═══ CAMPAIGN STEP PROGRESS (horizontal stepper) ═══ */}
       {steps.length > 0 ? (

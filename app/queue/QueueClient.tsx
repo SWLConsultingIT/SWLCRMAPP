@@ -29,6 +29,7 @@ type PendingCall = {
   phone: string | null;
   email: string | null;
   sellerName: string | null;
+  talkingPoints: string[] | null;
   lastStepAt: string | null;
   isOverdue?: boolean;
   overdueDays?: number;
@@ -454,7 +455,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                         {/* Actions — in "awaiting outcome" the Call button is
                             demoted to a small "Call again" link so the inline
                             classify buttons below become the primary action. */}
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-2 shrink-0 relative group/call">
                           {call.leadId ? (
                             awaitingOutcome ? (
                               <CallButton phone={call.phone} leadId={call.leadId} size="sm" variant="ghost" label="Call again" defaultNumberId={call.aircallNumberId ?? null} />
@@ -466,6 +467,31 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                               style={{ backgroundColor: C.surface, color: C.textDim }}>
                               <PhoneOff size={12} /> No lead linked
                             </span>
+                          )}
+                          {/* Hover preview of the AI talking points — surfaces the
+                              same brief that lives on the lead detail page so the
+                              seller doesn't have to leave the Queue to read it. */}
+                          {call.talkingPoints && call.talkingPoints.length > 0 && (
+                            <div className="absolute right-0 top-full mt-2 w-80 z-50 hidden group-hover/call:block pointer-events-none">
+                              <div className="rounded-xl border p-3 shadow-lg"
+                                style={{
+                                  background: "linear-gradient(135deg, color-mix(in srgb, var(--brand, #c9a83a) 6%, var(--card)), var(--card))",
+                                  borderColor: "color-mix(in srgb, var(--brand, #c9a83a) 30%, var(--border))",
+                                }}>
+                                <p className="text-[10px] font-bold uppercase tracking-wider mb-2"
+                                  style={{ color: "var(--brand, #c9a83a)", letterSpacing: "0.08em" }}>
+                                  Pre-Call Brief
+                                </p>
+                                <ol className="space-y-1.5">
+                                  {call.talkingPoints.map((p, i) => (
+                                    <li key={i} className="flex gap-2">
+                                      <span className="text-[10px] font-bold shrink-0" style={{ color: "var(--brand, #c9a83a)" }}>{i + 1}.</span>
+                                      <p className="text-[11px] leading-snug" style={{ color: C.textPrimary }}>{p}</p>
+                                    </li>
+                                  ))}
+                                </ol>
+                              </div>
+                            </div>
                           )}
                         </div>
                       </div>
