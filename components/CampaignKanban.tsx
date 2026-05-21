@@ -192,13 +192,20 @@ function LeadCard({ camp, isDragging }: { camp: Campaign; isDragging?: boolean }
 }
 
 // ─── Droppable column ──────────────────────────────────────
-function Column({ stepIndex, step, children, count, activeDragStep }: { stepIndex: number; step: SequenceStep; children: React.ReactNode; count: number; activeDragStep: number | null }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `col-${stepIndex}`, data: { stepIndex } });
+function Column({ stepIndex, step, children, count, activeDragStep, isPast }: { stepIndex: number; step: SequenceStep; children: React.ReactNode; count: number; activeDragStep: number | null; isPast: boolean }) {
+  // Past columns are not droppable at all — registering an inactive
+  // useDroppable would still highlight on hover, which is the opposite
+  // of the message we want to send ("nothing can land here").
+  const { setNodeRef, isOver } = useDroppable({
+    id: `col-${stepIndex}`,
+    data: { stepIndex },
+    disabled: isPast,
+  });
   const meta = channelMeta[step.channel] ?? { icon: Phone, color: C.textMuted, label: step.channel };
   const Icon = meta.icon;
   const isBackward = activeDragStep !== null && stepIndex < activeDragStep;
   const isSameStep = activeDragStep !== null && stepIndex === activeDragStep;
-  const isValidTarget = !isBackward && !isSameStep;
+  const isValidTarget = !isBackward && !isSameStep && !isPast;
 
   return (
     <div
@@ -206,11 +213,11 @@ function Column({ stepIndex, step, children, count, activeDragStep }: { stepInde
       className="rounded-xl border transition-colors overflow-hidden shrink-0"
       style={{
         width: 210,
-        backgroundColor: isBackward ? C.bg : isOver && isValidTarget ? `${meta.color}08` : C.bg,
-        borderColor: isBackward ? C.border : isOver && isValidTarget ? meta.color : C.border,
+        backgroundColor: isPast ? C.bg : isBackward ? C.bg : isOver && isValidTarget ? `${meta.color}08` : C.bg,
+        borderColor: isPast ? C.border : isBackward ? C.border : isOver && isValidTarget ? meta.color : C.border,
         borderWidth: isOver && isValidTarget ? 2 : 1,
-        opacity: isBackward ? 0.45 : 1,
-        cursor: isBackward ? "not-allowed" : undefined,
+        opacity: isPast || isBackward ? 0.55 : 1,
+        cursor: isPast || isBackward ? "not-allowed" : undefined,
       }}
     >
       <div className="px-3 py-2.5 border-b flex items-center justify-between sticky top-0 z-10"
@@ -220,8 +227,14 @@ function Column({ stepIndex, step, children, count, activeDragStep }: { stepInde
             <Icon size={12} style={{ color: meta.color }} />
           </div>
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>
+            <p className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5"
+              style={{ color: C.textDim }}>
               Step {stepIndex + 1}
+              {isPast && (
+                <span className="text-[8px] font-bold px-1 py-px rounded" style={{ backgroundColor: C.surface, color: C.textDim }}>
+                  PAST
+                </span>
+              )}
             </p>
             <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>
               {meta.label}
@@ -275,6 +288,19 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
     }
     return { stepBuckets: b, done };
   }, [list, sequence]);
+
+  // The earliest column any visible lead currently sits at. Columns to the
+  // left of this index are "past" — leads can only move forward, so they
+  // can never receive a drop, and showing "Drop leads here" on them is a
+  // lie that confuses sellers. We use this to dim those columns and swap
+  // the empty-state copy.
+  const minActiveStep = useMemo(() => {
+    let m = sequence.length; // start past-the-end
+    for (let i = 0; i < buckets.stepBuckets.length; i++) {
+      if (buckets.stepBuckets[i].length > 0) { m = i; break; }
+    }
+    return m;
+  }, [buckets, sequence.length]);
 
   const active = activeId ? list.find(c => c.id === activeId) : null;
 
@@ -359,25 +385,36 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
     <div>
       <div className="rounded-xl border p-4 mb-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <p className="text-xs" style={{ color: C.textMuted }}>
-          <span className="font-semibold" style={{ color: C.textBody }}>Drag a lead</span> to advance it to the next step. Leads can only move forward. Changes apply on the next orchestrator cycle.
+          <span className="font-semibold" style={{ color: C.textBody }}>Drag a lead</span> to advance it to a later step.
+          Steps marked <span className="font-semibold" style={{ color: C.textBody }}>PAST</span> have already been completed and can&apos;t receive drops.
+          Changes apply on the next orchestrator cycle.
         </p>
       </div>
 
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="overflow-x-auto pb-2">
         <div className="flex gap-3 pb-4" style={{ minWidth: "max-content" }}>
-          {sequence.map((step, i) => (
-            <Column key={i} stepIndex={i} step={step} count={buckets.stepBuckets[i].length} activeDragStep={activeDragStep}>
-              {buckets.stepBuckets[i].map(c => (
-                <LeadCard key={c.id} camp={c} isDragging={activeId === c.id} />
-              ))}
-              {buckets.stepBuckets[i].length === 0 && (
-                <p className="text-[11px] italic text-center py-6" style={{ color: C.textDim }}>
-                  Drop leads here
-                </p>
-              )}
-            </Column>
-          ))}
+          {sequence.map((step, i) => {
+            const isPast = i < minActiveStep;
+            const isEmpty = buckets.stepBuckets[i].length === 0;
+            return (
+              <Column key={i} stepIndex={i} step={step} count={buckets.stepBuckets[i].length} activeDragStep={activeDragStep} isPast={isPast}>
+                {buckets.stepBuckets[i].map(c => (
+                  <LeadCard key={c.id} camp={c} isDragging={activeId === c.id} />
+                ))}
+                {isEmpty && !isPast && (
+                  <p className="text-[11px] italic text-center py-6" style={{ color: C.textDim }}>
+                    Drop leads here
+                  </p>
+                )}
+                {isEmpty && isPast && (
+                  <p className="text-[11px] italic text-center py-6" style={{ color: C.textDim }}>
+                    Already passed
+                  </p>
+                )}
+              </Column>
+            );
+          })}
 
           {/* Completed column */}
           <div className="rounded-xl border overflow-hidden shrink-0" style={{ width: 210, backgroundColor: C.bg, borderColor: C.border }}>
