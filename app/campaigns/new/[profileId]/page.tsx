@@ -46,11 +46,11 @@ const languageOptions = [
   { code: "it", label: "Italian" },
 ];
 
-const channelOptions = [
+const ALL_CHANNEL_OPTIONS = [
   { key: "linkedin",  label: "LinkedIn",  icon: Share2,         color: C.linkedin, short: "LI" },
   { key: "email",     label: "Email",     icon: Mail,           color: C.email,    short: "EM" },
   { key: "call",      label: "Call",      icon: Phone,          color: C.phone,    short: "CA" },
-  { key: "whatsapp",  label: "WhatsApp",  icon: MessageCircle,  color: "#25D366",  short: "WA" },
+  { key: "whatsapp",  label: "WhatsApp",  icon: MessageCircle,  color: "#25D366",  short: "WA", superAdminOnly: true },
 ];
 
 const sequenceTemplates = [
@@ -210,6 +210,9 @@ export default function NewCampaignWizard() {
   const [tplSaveError, setTplSaveError] = useState<string | null>(null);
   const [tplSaved, setTplSaved] = useState(false);
   const [coverageWarningDismissed, setCoverageWarningDismissed] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  const channelOptions = ALL_CHANNEL_OPTIONS.filter(c => !c.superAdminOnly || isSuperAdmin);
   const [language, setLanguage] = useState("es");
   const [timezone, setTimezone] = useState("America/Argentina/La_Rioja");
 
@@ -220,6 +223,11 @@ export default function NewCampaignWizard() {
       // both filter by it. Without this scope, every tenant's seller list leaks
       // into every other tenant's wizard (e.g. Graeme appearing in SWL's flow).
       const { data: authBioId } = await supabase.rpc("get_auth_company_bio_id");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: prof } = await supabase.from("user_profiles").select("tier").eq("id", user.id).single();
+        if (prof?.tier === "super_admin") setIsSuperAdmin(true);
+      }
       const bioId = (authBioId as string | null) ?? null;
       const sellerQ = supabase.from("sellers")
         .select("id, name, unipile_account_id, email_account, linkedin_daily_limit, email_daily_limit")
