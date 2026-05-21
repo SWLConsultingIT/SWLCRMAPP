@@ -72,8 +72,12 @@ const channelMeta: Record<string, { icon: React.ElementType; color: string; labe
   call:     { icon: Phone,  color: "#F97316", label: "Call" },
 };
 
+// Active uses brand gold so the dominant state on the Outreach Flows page
+// (where every visible card is active) reads as the brand surface itself.
+// Other statuses keep their semantic palette so paused/completed/failed
+// cards still pop out against the sea of gold.
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
-  active:    { label: "Active",    color: C.green,    bg: C.greenLight },
+  active:    { label: "Active",    color: "var(--brand, #c9a83a)", bg: "color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)" },
   paused:    { label: "Paused",    color: "#D97706",  bg: "#FFFBEB" },
   completed: { label: "Completed", color: C.textMuted, bg: C.surface },
   failed:    { label: "Failed",    color: C.red,      bg: C.redLight },
