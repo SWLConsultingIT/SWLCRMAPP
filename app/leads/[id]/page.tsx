@@ -22,7 +22,6 @@ import LeadSummaryTab from "@/components/LeadSummaryTab";
 import LeadStatsBar from "@/components/LeadStatsBar";
 import MoveForwardButton from "@/components/MoveForwardButton";
 import PreCallBrief from "@/components/PreCallBrief";
-import StickyLeadActionBar from "@/components/StickyLeadActionBar";
 
 // Bypass Next's render cache. Without this, the page snapshots messages +
 // campaign state at build time and a freshly-sent step 1 keeps showing
@@ -344,18 +343,6 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="p-6 w-full fade-in">
-
-      {/* Sticky bar — fades in once the seller scrolls past the contact
-          header. Keeps Call / Email / LinkedIn one click away. */}
-      <StickyLeadActionBar
-        leadId={id}
-        leadName={contactName}
-        company={lead.company_name ?? null}
-        phone={lead.primary_phone}
-        email={lead.primary_work_email ?? lead.primary_personal_email ?? null}
-        linkedinUrl={lead.primary_linkedin_url}
-        aircallNumberId={campaign?.aircall_number_id ?? null}
-      />
 
       <Breadcrumb crumbs={[{ label: "Leads & Campaigns", href: "/leads" }, { label: lead.company_name ?? "Contact" }, { label: contactName }]} />
 
