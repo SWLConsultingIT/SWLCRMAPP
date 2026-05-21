@@ -214,10 +214,13 @@ async function getDashboardData(filters: DashboardFilterValues) {
   const activeLeadIds = new Set((activeCampaigns ?? []).map((c: any) => c.lead_id).filter(Boolean));
   const weekPositive = (weekReplies ?? []).filter((r: any) => r.classification === "positive" || r.classification === "meeting_intent").length;
 
-  // Campaign summary (group by name, top 5)
-  const campGroups: Record<string, { name: string; firstId: string; channels: Set<string>; leads: number; active: number; totalSteps: number; progressSum: number; lastActivity: string | null }> = {};
+  // Campaign summary (group by name, top 5). pendingCalls counts leads whose
+  // current step is "call" — surfaced both as a per-campaign badge in the
+  // Active Campaigns rail and as the per-campaign breakdown of the
+  // "calls pending" alert in Needs Attention.
+  const campGroups: Record<string, { name: string; firstId: string; channels: Set<string>; leads: number; active: number; totalSteps: number; progressSum: number; lastActivity: string | null; pendingCalls: number }> = {};
   for (const c of activeCampaigns ?? []) {
-    if (!campGroups[c.name]) campGroups[c.name] = { name: c.name, firstId: c.id, channels: new Set(), leads: 0, active: 0, totalSteps: 0, progressSum: 0, lastActivity: null };
+    if (!campGroups[c.name]) campGroups[c.name] = { name: c.name, firstId: c.id, channels: new Set(), leads: 0, active: 0, totalSteps: 0, progressSum: 0, lastActivity: null, pendingCalls: 0 };
     const g = campGroups[c.name];
     g.channels.add(c.channel);
     g.leads++;
@@ -226,23 +229,32 @@ async function getDashboardData(filters: DashboardFilterValues) {
     g.totalSteps = Math.max(g.totalSteps, ts);
     g.progressSum += ts > 0 ? (c.current_step ?? 0) / ts : 0;
     if (c.last_step_at && (!g.lastActivity || c.last_step_at > g.lastActivity)) g.lastActivity = c.last_step_at;
+    const steps = Array.isArray(c.sequence_steps) ? c.sequence_steps : [];
+    if (steps[c.current_step ?? 0]?.channel === "call") g.pendingCalls++;
   }
   const topCampaigns = Object.values(campGroups)
     .map(g => ({ ...g, channels: [...g.channels], avgProgress: g.leads > 0 ? Math.round((g.progressSum / g.leads) * 100) : 0 }))
     .sort((a, b) => b.active - a.active)
     .slice(0, 5);
 
-  // Pending calls count
-  let pendingCallsCount = 0;
-  for (const c of activeCampaigns ?? []) {
-    const steps = Array.isArray(c.sequence_steps) ? c.sequence_steps : [];
-    if (steps[c.current_step ?? 0]?.channel === "call") pendingCallsCount++;
-  }
+  // Pending calls count (total across all campaigns) — kept for the legacy
+  // single "calls pending" alert when there's only one campaign with calls.
+  const pendingCallsCount = Object.values(campGroups).reduce((s, g) => s + g.pendingCalls, 0);
+  const campaignsWithPendingCalls = Object.values(campGroups).filter(g => g.pendingCalls > 0);
 
-  // Alerts
+  // Alerts. Calls split per-campaign so the caller sees "Architects: 34 calls"
+  // instead of an opaque "102 calls pending" — directly actionable. If a single
+  // campaign has all the calls, fall back to the original generic pill to
+  // avoid noise.
   const alerts: { label: string; count: number; href: string; color: string }[] = [];
   if ((pendingReviewReplies as any) > 0) alerts.push({ label: "replies pending review", count: pendingReviewReplies as any, href: "/queue", color: "#D97706" });
-  if (pendingCallsCount > 0) alerts.push({ label: "calls pending", count: pendingCallsCount, href: "/queue", color: "#F97316" });
+  if (campaignsWithPendingCalls.length > 1) {
+    for (const g of campaignsWithPendingCalls) {
+      alerts.push({ label: `calls in ${g.name}`, count: g.pendingCalls, href: "/queue", color: "#F97316" });
+    }
+  } else if (pendingCallsCount > 0) {
+    alerts.push({ label: "calls pending", count: pendingCallsCount, href: "/queue", color: "#F97316" });
+  }
   if ((pendingCampReviews as any) > 0) alerts.push({ label: "campaigns awaiting approval", count: pendingCampReviews as any, href: "/queue", color: C.blue });
   if ((pendingProfiles as any) > 0) alerts.push({ label: "profiles awaiting approval", count: pendingProfiles as any, href: "/queue", color: C.blue });
 
@@ -440,6 +452,12 @@ export default async function DashboardPage({
                           const Icon = meta.icon;
                           return <Icon key={ch} size={10} style={{ color: meta.color }} />;
                         })}
+                        {camp.pendingCalls > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
+                            style={{ backgroundColor: "#FFEDD5", color: "#9A3412", border: "1px solid #FED7AA" }}>
+                            <Phone size={8} /> {camp.pendingCalls} to call
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
