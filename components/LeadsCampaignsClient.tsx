@@ -803,7 +803,7 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
       >
         {[
           { label: "Total Leads",      value: stats.totalLeads,        color: C.textBody },
-          { label: "Active Campaigns", value: stats.activeCampaigns,   color: gold },
+          { label: "Active Flows", value: stats.activeCampaigns,   color: gold },
           { label: "Response Rate",    value: `${stats.responseRate}%`, color: C.blue },
           { label: "Positive Replies", value: stats.positiveReplies,   color: C.green },
         ].map((s, i, arr) => (
@@ -909,7 +909,7 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
         <div>
           <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
             <div className="flex items-center gap-2 px-5 py-3 text-sm font-medium relative" style={{ color: gold }}>
-              Active Campaigns
+              Active Flows
               <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>{activeGroups.length}</span>
               <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: gold }} />
             </div>

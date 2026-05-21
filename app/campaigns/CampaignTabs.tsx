@@ -16,9 +16,13 @@ export default function CampaignTabs({ readyCount, activeCount, children }: {
   // Templates: third tab. Lives here (not in the sidebar) so new users don't
   // see another nav item to learn — they discover templates naturally when
   // they're already on /campaigns. See feature note 2026-05-14.
+  // Keep the labels in sync with the page header ("Outreach Flow™"). Naming
+  // drift between the hero ("Outreach Flow") and the tab ("Active Campaigns")
+  // was a recurring papercut — sellers ended up unsure whether a flow and a
+  // campaign were the same thing.
   const tabs = [
-    { label: "Active Campaigns", icon: Megaphone, count: activeCount, color: gold },
-    { label: "New Campaign", icon: PlusCircle, count: readyCount, color: C.blue },
+    { label: "Active Flows", icon: Megaphone, count: activeCount, color: gold },
+    { label: "New Flow", icon: PlusCircle, count: readyCount, color: C.blue },
     { label: "Templates", icon: FileText, count: 0, color: "#7C3AED" },
   ];
 

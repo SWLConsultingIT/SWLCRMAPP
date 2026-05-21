@@ -152,7 +152,7 @@ export default async function CampaignsPage() {
       {/* 4 stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { label: "Active Campaigns", value: stats.active, color: C.green, icon: Megaphone },
+          { label: "Active Flows", value: stats.active, color: C.green, icon: Megaphone },
           { label: "Response Rate", value: `${stats.responseRate}%`, color: C.blue, icon: MessageSquare },
           { label: "Positive Replies", value: stats.positiveCount, color: C.green, icon: TrendingUp },
           { label: "Ready to Launch", value: stats.readyToLaunch, color: gold, icon: Users },
@@ -207,8 +207,11 @@ export default async function CampaignsPage() {
         readyCount={totalUncampaigned}
         activeCount={campaigns.filter((c: any) => c.status === "active" || c.status === "paused").length}
       >
-        {/* ═══ TAB 0: ACTIVE CAMPAIGNS ═══ */}
-        <ActiveCampaignsView campaigns={JSON.parse(JSON.stringify(campaigns.filter((c: any) => c.status === "active" || c.status === "paused")))} />
+        {/* ═══ TAB 0: ACTIVE FLOWS (grouped by ICP) ═══ */}
+        <ActiveCampaignsView
+          campaigns={JSON.parse(JSON.stringify(campaigns.filter((c: any) => c.status === "active" || c.status === "paused")))}
+          icpMap={JSON.parse(JSON.stringify(icpMap))}
+        />
 
         {/* ═══ TAB 1: NEW CAMPAIGN ═══ */}
         <NewCampaignView

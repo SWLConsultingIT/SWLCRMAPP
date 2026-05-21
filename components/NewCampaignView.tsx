@@ -98,8 +98,8 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
       {/* ── Hero banner — 3-step guide ── */}
       <div className="rounded-xl border overflow-hidden mb-6" style={{ borderColor: C.border, background: `linear-gradient(135deg, #1A1A2E 0%, #2D2B55 100%)` }}>
         <div className="px-8 py-7">
-          <h2 className="text-lg font-bold mb-1" style={{ color: "#fff" }}>Create a New Campaign</h2>
-          <p className="text-sm mb-6" style={{ color: "rgba(255,255,255,0.6)" }}>Launch personalized outreach to your leads in 3 simple steps</p>
+          <h2 className="text-lg font-bold mb-1" style={{ color: "#fff" }}>Create a New Flow</h2>
+          <p className="text-sm mb-6" style={{ color: "rgba(255,255,255,0.6)" }}>Launch a personalized outreach flow to your leads in 3 simple steps</p>
 
           <div className="flex items-center gap-4">
             {[
@@ -146,8 +146,8 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
           >
             <CheckCircle size={22} style={{ color: C.green }} />
           </div>
-          <p className="text-base font-semibold mb-1" style={{ color: C.textPrimary }}>All leads have active campaigns</p>
-          <p className="text-sm mb-5" style={{ color: C.textDim }}>Upload new leads via Lead Miner to start a new campaign.</p>
+          <p className="text-base font-semibold mb-1" style={{ color: C.textPrimary }}>All leads are in active flows</p>
+          <p className="text-sm mb-5" style={{ color: C.textDim }}>Upload new leads via Lead Miner to start a new flow.</p>
           <Link
             href="/icp"
             className="inline-flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-semibold transition-opacity hover:opacity-80"

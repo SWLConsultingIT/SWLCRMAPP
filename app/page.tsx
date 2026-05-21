@@ -427,17 +427,17 @@ export default async function DashboardPage({
               Recent Replies (reactive). On narrow screens the grid collapses
               to a single column so the campaigns table always reads first. */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
-            {/* Active Campaigns (2/3) */}
+            {/* Active Flows (2/3) */}
             <div className="lg:col-span-2">
             <CollapsibleCard
-              title="Active Campaigns"
-              description={`${data.activeCampaignCount} active across ${data.topCampaigns.length} campaigns`}
+              title="Active Flows"
+              description={`${data.activeCampaignCount} active across ${data.topCampaigns.length} flow${data.topCampaigns.length === 1 ? "" : "s"}`}
               storageKey="live.activeCampaigns"
               rightSlot={<Link href="/leads" className="text-[10px] font-semibold hover:underline" style={{ color: gold }}>View all</Link>}
             >
               {data.topCampaigns.length === 0 ? (
                 <div className="px-5 py-10 text-center">
-                  <p className="text-sm" style={{ color: C.textDim }}>No active campaigns</p>
+                  <p className="text-sm" style={{ color: C.textDim }}>No active flows</p>
                 </div>
               ) : (
                 data.topCampaigns.map((camp, i) => (
