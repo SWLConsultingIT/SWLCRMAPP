@@ -28,6 +28,7 @@ type PendingCall = {
   role: string | null;
   phone: string | null;
   email: string | null;
+  sellerName: string | null;
   lastStepAt: string | null;
   isOverdue?: boolean;
   overdueDays?: number;
@@ -439,6 +440,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                           {call.role && <p className="text-xs" style={{ color: C.textMuted }}>{call.role}</p>}
                           <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
                             {call.campaignName} · Step {call.currentStep + 1}/{call.totalSteps}
+                            {call.sellerName && <> · Assigned to <span style={{ color: C.text, fontWeight: 500 }}>{call.sellerName}</span></>}
                             {call.lastStepAt && <> · Last activity {timeAgo(call.lastStepAt)}</>}
                             {call.isOverdue && !awaitingOutcome && <> · {urgency.hint}</>}
                           </p>

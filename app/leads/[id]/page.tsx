@@ -495,7 +495,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           totalMsgsSent={totalMsgsSent}
           totalReplies={totalReplies}
           positiveReplies={positiveReplies}
-          campaignStep={campaign ? `${currentStep}/${steps.length}` : "—"}
+          campaignStep={campaign ? `${campDone ? steps.length : Math.min(currentStep + 1, steps.length)}/${steps.length}` : "—"}
         />
       </div>
 
@@ -565,8 +565,13 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             )}
             {steps.map((stepLabel: string, idx: number) => {
               const stepNum = idx + 1;
-              const isCurrent = stepNum === currentStep;
-              const isCompleted = stepNum < currentStep;
+              // current_step in DB = the step_number of the LAST step that was dispatched.
+              // After email (step_number=1) is sent, current_step=1, and the lead is now
+              // working on step 2 (call). The stepper marks completed steps with a check
+              // and highlights the NEXT step as "current" — so isCompleted is inclusive
+              // of currentStep and isCurrent points one past it.
+              const isCurrent = stepNum === currentStep + 1;
+              const isCompleted = stepNum <= currentStep;
               const msg = campMsgsForStepper.find((m: any) => m.step_number === stepNum);
 
               return (
@@ -578,7 +583,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                         top: 33,
                         height: 4,
                         borderRadius: 2,
-                        backgroundColor: stepNum <= currentStep ? gold : "#D1D5DB",
+                        backgroundColor: stepNum <= currentStep + 1 ? gold : "#D1D5DB",
                         left: "-50%",
                         width: "100%",
                         zIndex: 0,
@@ -616,12 +621,12 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                     {stepLabel}
                   </p>
 
-                  {/* Date under current step */}
-                  {isCurrent && (
+                  {/* Date under step — sent date for completed, "In progress" for current */}
+                  {(isCompleted || isCurrent) && (
                     <p className="text-xs text-center mt-1" style={{ color: C.textMuted }}>
                       {msg?.sent_at
                         ? new Date(msg.sent_at).toLocaleDateString("en-GB", { month: "short", day: "numeric" })
-                        : "In progress"}
+                        : isCurrent ? "In progress" : ""}
                     </p>
                   )}
                 </div>
