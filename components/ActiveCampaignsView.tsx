@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { C } from "@/lib/design";
-import { Share2, Mail, Phone, BarChart3, Clock, Target, ChevronDown, Users } from "lucide-react";
+import { Share2, Mail, Phone, BarChart3, Clock, Target, ChevronDown, Users, ChevronRight } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -213,12 +213,32 @@ function FlowRow({ group }: { group: CampaignGroup }) {
 
   return (
     <Link href={`/campaigns/${group.firstId}`}
-      className="block relative rounded-2xl border overflow-hidden transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:shadow-md group"
-      style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 2px 10px rgba(0,0,0,0.03)" }}>
+      className="block relative rounded-2xl overflow-hidden transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:shadow-lg group cursor-pointer"
+      style={{
+        backgroundColor: C.card,
+        // 1.5px border for definition against the tinted section bg, plus an
+        // outer ring that fires on hover to make "this whole block is a link"
+        // unmistakable. Without it the row blended into the surrounding section.
+        boxShadow: "0 1px 0 rgba(0,0,0,0.04), 0 0 0 1.5px rgba(0,0,0,0.06)",
+        ["--hover-ring" as any]: `color-mix(in srgb, ${st.color} 55%, transparent)`,
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow = `0 8px 24px rgba(0,0,0,0.07), 0 0 0 1.5px var(--hover-ring)`;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow = "0 1px 0 rgba(0,0,0,0.04), 0 0 0 1.5px rgba(0,0,0,0.06)";
+      }}>
       {/* Status accent bar — bold left edge tells the seller at a glance. */}
       <div aria-hidden className="absolute left-0 top-0 bottom-0" style={{ width: 4, backgroundColor: st.color }} />
 
-      <div className="pl-6 pr-5 py-4">
+      {/* Affordance: a quiet chevron on the right that brightens on hover so
+          the whole row reads as a single clickable entity. */}
+      <div aria-hidden className="absolute right-4 top-1/2 -translate-y-1/2 transition-[opacity,transform] duration-150 opacity-30 group-hover:opacity-100 group-hover:translate-x-0.5"
+        style={{ color: st.color }}>
+        <ChevronRight size={20} />
+      </div>
+
+      <div className="pl-6 pr-10 py-4">
         {/* Top row: channels + name + status + seller. Single line at wide widths. */}
         <div className="flex items-center justify-between gap-4 flex-wrap mb-3">
           <div className="flex items-center gap-3 flex-wrap min-w-0">
@@ -398,7 +418,13 @@ function IcpSectionBlock({ section, defaultOpen }: { section: IcpSection; defaul
       </button>
 
       {open && (
-        <div className="p-5 space-y-3" style={{ backgroundColor: `color-mix(in srgb, ${C.bg} 60%, transparent)` }}>
+        <div className="p-5 space-y-3"
+          style={{
+            // Deeper inset so the white flow cards float above this surface
+            // with obvious contrast — without it the rows blended into the
+            // section background and lost their "row" affordance.
+            background: `linear-gradient(180deg, color-mix(in srgb, var(--c-bg, ${C.bg}) 95%, transparent) 0%, color-mix(in srgb, var(--c-bg, ${C.bg}) 85%, transparent) 100%)`,
+          }}>
           {section.groups.map(g => <FlowRow key={g.name} group={g} />)}
         </div>
       )}
