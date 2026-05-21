@@ -414,8 +414,6 @@ export default async function DashboardPage({
       <ReliabilityBanner />
       <DashboardHero />
 
-      <DashboardFilters campaigns={options.campaigns} sellers={options.sellers} icps={options.icps} />
-
       <DashboardTabs>
         {/* ═══ TAB 0: OVERVIEW ═══ */}
         <div>
@@ -543,7 +541,16 @@ export default async function DashboardPage({
         </div>
 
         {/* ═══ TAB 1: REPORTS ═══ */}
-        <ReportsPage searchParams={Promise.resolve(sp)} />
+        <div>
+          {/* Filters live ONLY on Reports — Live is a "right now" pipeline
+              view where a date range or seller scope doesn't apply, and the
+              old shared filter bar at page-level led sellers to expect the
+              Live cards to react to filter changes they couldn't visually
+              wire up. Reports is genuinely time/segment-scoped, so filters
+              earn their place here. */}
+          <DashboardFilters campaigns={options.campaigns} sellers={options.sellers} icps={options.icps} />
+          <ReportsPage searchParams={Promise.resolve(sp)} />
+        </div>
       </DashboardTabs>
     </div>
   );
