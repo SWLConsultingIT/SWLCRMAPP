@@ -75,7 +75,7 @@ export default async function NewFlowPage() {
     return (
       <div className="p-6 w-full max-w-3xl mx-auto">
         <Link href="/campaigns" className="flex items-center gap-2 text-sm font-medium mb-6 hover:opacity-70" style={{ color: C.textMuted }}>
-          <ArrowLeft size={16} /> Back to Campaigns
+          <ArrowLeft size={16} /> Back to Flows
         </Link>
         <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
           <AlertTriangle size={32} className="mx-auto mb-4" style={{ color: "#D97706" }} />
@@ -97,7 +97,7 @@ export default async function NewFlowPage() {
       </Link>
       <div className="mb-8">
         <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>New Flow</p>
-        <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Create a Campaign</h1>
+        <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>Create a Flow</h1>
         <p className="text-sm mt-1" style={{ color: C.textMuted }}>Choose how you want to start your outreach flow.</p>
       </div>
       <div className="h-px mb-8" style={{ background: `linear-gradient(90deg, ${gold} 0%, color-mix(in srgb, var(--brand, #c9a83a) 15%, transparent) 40%, transparent 100%)` }} />
