@@ -168,6 +168,7 @@ async function dispatchOneCall(
   candidate: QueuedRow,
   seller: SellerRow,
   availableAircallUserId: number,
+  availableUserIdSet: Set<number>,
 ): Promise<DispatchOutcome> {
   // Atomic claim: queued → dispatching. Stamp dispatching_since so the reaper
   // cron can recover this row if we crash before reaching 'sent' / 'failed'.
@@ -187,7 +188,7 @@ async function dispatchOneCall(
       .select("id, primary_first_name, primary_last_name, primary_phone, primary_secondary_phone, company_bio_id, company_country")
       .eq("id", candidate.lead_id).maybeSingle(),
     svc.from("campaigns")
-      .select("id, seller_id, name, aircall_number_id")
+      .select("id, seller_id, name, aircall_number_id, sequence_steps")
       .eq("id", candidate.campaign_id).maybeSingle(),
   ]);
   if (!lead || !campaign) {
@@ -247,6 +248,19 @@ async function dispatchOneCall(
   // yet (mostly during onboarding before company_bios.aircall_user_id is set).
   const resolvedUserId = tenantAircallUserId ?? availableAircallUserId;
 
+  // Pre-flight: verify the resolved user is actually signed in before claiming
+  // the message. Without this check, the cron claims the row (queued→dispatching)
+  // and then the Aircall API returns 405 "user not available" — burning the
+  // attempt and marking the message failed. Requeue instead, try again next tick.
+  if (!availableUserIdSet.has(resolvedUserId)) {
+    const requeueAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+    await svc.from("campaign_messages").update({
+      status: "queued",
+      metadata: { eligible_at: requeueAt, deferred_by: "tenant-user-unavailable", deferred_user_id: resolvedUserId },
+    }).eq("id", candidate.id);
+    return { kind: "skipped", msgId: candidate.id, leadId: candidate.lead_id, reason: `Aircall user ${resolvedUserId} not signed in; requeued for ${requeueAt}` };
+  }
+
   // Place the call. Aircall returns 204 No Content; the call_id arrives
   // later via webhook.
   let callOk = false;
@@ -270,6 +284,19 @@ async function dispatchOneCall(
   // Mark sent + log into calls table. The webhook will fill in aircall_call_id
   // when call.created fires.
   const now = new Date().toISOString();
+
+  // Compute next step timing — same pattern as dispatch-queue (LinkedIn).
+  // sequenceSteps[step_number] gives the next step's config because step_number
+  // is 1-indexed relative to sequence_steps (step_number=0 is the LinkedIn
+  // connection request that precedes the sequence).
+  const sequenceSteps = (campaign as any)?.sequence_steps as Array<{ channel?: string; daysAfter?: number }> | null;
+  const nextStepNumber = candidate.step_number + 1;
+  const nextStepConfig = Array.isArray(sequenceSteps) ? sequenceSteps[candidate.step_number] : null;
+  const nextDaysAfter = typeof nextStepConfig?.daysAfter === "number" ? nextStepConfig.daysAfter : null;
+  const nextEligibleAt = nextDaysAfter !== null
+    ? new Date(Date.now() + nextDaysAfter * 24 * 60 * 60 * 1000).toISOString()
+    : null;
+
   await Promise.all([
     svc.from("campaign_messages").update({
       status: "sent",
@@ -290,7 +317,23 @@ async function dispatchOneCall(
       started_at: now,
     }),
     svc.from("leads").update({ status: "contacted", current_channel: "call" }).eq("id", lead.id),
+    // Advance campaign to the step we just completed so the queue page no longer
+    // shows this lead under "pending calls" and the next step becomes eligible.
+    svc.from("campaigns").update({
+      current_step: candidate.step_number,
+      last_step_at: now,
+      ...(nextEligibleAt === null ? { status: "completed" } : {}),
+    }).eq("id", candidate.campaign_id),
   ]);
+
+  // Queue the next draft step (e.g. LinkedIn follow-up) so the relevant
+  // dispatcher picks it up when eligible_at arrives.
+  if (nextEligibleAt) {
+    await svc.from("campaign_messages").update({
+      status: "queued",
+      metadata: { eligible_at: nextEligibleAt, queued_by: "cron-dispatch-call" },
+    }).eq("campaign_id", candidate.campaign_id).eq("step_number", nextStepNumber).eq("status", "draft");
+  }
 
   return { kind: "initiated", msgId: candidate.id, leadId: lead.id, userId: resolvedUserId, numberId };
 }
@@ -374,7 +417,7 @@ async function processSellerBatch(
 
   for (const msg of batch) {
     result.attempted += 1;
-    const outcome = await dispatchOneCall(svc, msg, seller, aircallUserId);
+    const outcome = await dispatchOneCall(svc, msg, seller, aircallUserId, availableUserIdSet);
     result.outcomes.push(outcome);
   }
   return result;
