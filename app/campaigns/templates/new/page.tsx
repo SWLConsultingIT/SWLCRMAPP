@@ -9,6 +9,7 @@ import {
   X, Sparkles, Upload, Copy, FilePlus2, Check,
 } from "lucide-react";
 import { C } from "@/lib/design";
+import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
 
 // 3-step wizard for creating a template:
 //   1. SOURCE     — pick how to start (PDF upload / import / scratch)
@@ -49,6 +50,10 @@ type Step = {
   /** Optional A/B variants. When non-empty, the dispatcher 50/50-splits between
    *  `body` (variant A) and `variants[0]` (variant B). */
   variants?: string[];
+  /** Files attached to this step. Persisted into step_messages.steps[i].attachments
+   *  and propagated to campaigns.sequence_steps[i].attachments at launch time so
+   *  the dispatcher signs + sends them with the message. */
+  attachments?: StepAttachment[];
 };
 
 type TonePreset = "conservative" | "balanced" | "direct" | "spicy" | "custom";
@@ -236,6 +241,9 @@ export default function NewTemplatePage() {
           daysAfter: s.daysAfter ?? 0,
           subject: msg.subject ?? undefined,
           body: msg.body ?? "",
+          // Round-trip attachments stored at template creation. The launch
+          // endpoint will copy these into campaigns.sequence_steps[i].attachments.
+          attachments: Array.isArray(msg.attachments) ? msg.attachments : undefined,
         });
       }
       if (importedSteps.length === 0) importedSteps.push(...DEFAULT_SCRATCH_STEPS);
@@ -381,6 +389,7 @@ export default function NewTemplatePage() {
       body: s.body,
       source_excerpt: s.sourceExcerpt ?? "",
       variants: Array.isArray(s.variants) && s.variants.length > 0 ? s.variants.slice(0, 1) : undefined,
+      attachments: Array.isArray(s.attachments) && s.attachments.length > 0 ? s.attachments : undefined,
     }));
 
     try {
@@ -969,9 +978,9 @@ function SequenceStep(props: {
               }}
               placeholder="Hi {{first_name}}, noticed your team is scaling — would love to connect. (≤200 chars)"
               maxLength={200}
-              rows={2}
-              className="w-full rounded border px-2 py-1.5 text-xs outline-none resize-none"
-              style={{ borderColor: "#0A66C230", backgroundColor: "#fff", color: C.textPrimary }}
+              rows={4}
+              className="w-full rounded border px-3 py-2 text-sm outline-none resize-vertical leading-relaxed"
+              style={{ borderColor: "#0A66C230", backgroundColor: "#fff", color: C.textPrimary, minHeight: 90, fontFamily: "inherit" }}
             />
             <p className="text-[10px] mt-0.5" style={{ color: "#0A66C280" }}>
               200 chars max · {200 - (inviteStep?.body.length ?? 0)} left
@@ -1069,10 +1078,26 @@ function SequenceStep(props: {
                 value={s.body}
                 onChange={e => updateStep(i, { body: e.target.value })}
                 placeholder={`What should be said at step ${stepNum}? Use {{first_name}}, {{company_name}}, {{seller_name}} as variables.`}
-                rows={4}
-                className="w-full rounded border px-2 py-1.5 text-xs outline-none resize-vertical"
-                style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
+                rows={10}
+                className="w-full rounded border px-3 py-2.5 text-sm outline-none resize-vertical leading-relaxed"
+                style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary, minHeight: 200, fontFamily: "inherit" }}
               />
+
+              {/* Per-step attachments — uploaded to Supabase Storage and stored
+                  as {path,name,mimeType,sizeBytes} descriptors. The launch
+                  endpoint propagates these into campaigns.sequence_steps[i].
+                  attachments, where the email + LinkedIn dispatchers sign and
+                  send them. Hidden on the LinkedIn connection request because
+                  LinkedIn invites can't carry files; calls have no payload. */}
+              {!isInvite && s.channel !== "call" && (
+                <div className="mt-3">
+                  <StepAttachments
+                    channel={s.channel}
+                    attachments={s.attachments ?? []}
+                    onChange={(next) => updateStep(i, { attachments: next })}
+                  />
+                </div>
+              )}
 
               {/* Source excerpt — verbatim PDF snippet the AI anchored on.
                   Empty for scratch/imported templates that never went through
@@ -1108,9 +1133,9 @@ function SequenceStep(props: {
                       value={s.variants[0] ?? ""}
                       onChange={e => updateStep(i, { variants: [e.target.value] })}
                       placeholder="Variant B — same step, different angle. Dispatcher splits 50/50."
-                      rows={3}
-                      className="w-full rounded border px-2 py-1.5 text-xs outline-none resize-vertical"
-                      style={{ borderColor: accentSoft(40), backgroundColor: C.card, color: C.textPrimary }}
+                      rows={8}
+                      className="w-full rounded border px-3 py-2.5 text-sm outline-none resize-vertical leading-relaxed"
+                      style={{ borderColor: accentSoft(40), backgroundColor: C.card, color: C.textPrimary, minHeight: 160, fontFamily: "inherit" }}
                     />
                   </div>
                 ) : (

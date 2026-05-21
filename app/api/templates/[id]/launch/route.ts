@@ -48,12 +48,30 @@ export async function POST(
     .maybeSingle();
   if (!tpl) return NextResponse.json({ error: "Template not found" }, { status: 404 });
 
-  const sequence = Array.isArray(tpl.sequence_steps) ? tpl.sequence_steps : [];
+  const rawSequence = Array.isArray(tpl.sequence_steps) ? tpl.sequence_steps : [];
   const stepMessages = (tpl.step_messages ?? {}) as {
     connectionRequest?: string;
-    steps?: Array<{ step: number; channel: string; subject?: string | null; body: string }>;
+    steps?: Array<{
+      step: number;
+      channel: string;
+      subject?: string | null;
+      body: string;
+      attachments?: Array<{ path: string; name: string; mimeType: string; sizeBytes: number }>;
+    }>;
   };
   const channels = Array.isArray(tpl.channels) ? tpl.channels : [];
+
+  // Templates persist per-step attachments inside step_messages.steps[i].attachments.
+  // Copy them onto the sequence array so the row inserted into campaigns.sequence_steps
+  // matches the shape the email + LinkedIn dispatchers read (signStepAttachments
+  // looks at `sequence_steps[i].attachments`). Keep the original sequence_steps
+  // intact for any non-attachment fields the template may carry (subject, etc.).
+  const messageStepsForMerge = Array.isArray(stepMessages.steps) ? stepMessages.steps : [];
+  const sequence = rawSequence.map((step: Record<string, unknown>, i: number) => {
+    const msg = messageStepsForMerge.find(m => m.step === i + 1) ?? messageStepsForMerge[i];
+    if (!msg || !Array.isArray(msg.attachments) || msg.attachments.length === 0) return step;
+    return { ...step, attachments: msg.attachments };
+  });
 
   if (sequence.length === 0) {
     return NextResponse.json({ error: "Template has no sequence steps" }, { status: 400 });
