@@ -215,9 +215,12 @@ async function getDashboardData(filters: DashboardFilterValues) {
   const weekPositive = (weekReplies ?? []).filter((r: any) => r.classification === "positive" || r.classification === "meeting_intent").length;
 
   // Campaign summary (group by name, top 5). pendingCalls counts leads whose
-  // current step is "call" — surfaced both as a per-campaign badge in the
-  // Active Campaigns rail and as the per-campaign breakdown of the
-  // "calls pending" alert in Needs Attention.
+  // current step is "call" AND whose wait window has already elapsed — same
+  // isDue filter the Queue page uses. Without the isDue filter the dashboard
+  // would tell the seller "X calls pending" while the Queue showed zero,
+  // because leads at a call step with a future eligible_at don't surface in
+  // the Queue yet. Counts now match between Dashboard and Queue tab.
+  const dashboardNow = Date.now();
   const campGroups: Record<string, { name: string; firstId: string; channels: Set<string>; leads: number; active: number; totalSteps: number; progressSum: number; lastActivity: string | null; pendingCalls: number }> = {};
   for (const c of activeCampaigns ?? []) {
     if (!campGroups[c.name]) campGroups[c.name] = { name: c.name, firstId: c.id, channels: new Set(), leads: 0, active: 0, totalSteps: 0, progressSum: 0, lastActivity: null, pendingCalls: 0 };
@@ -230,7 +233,15 @@ async function getDashboardData(filters: DashboardFilterValues) {
     g.progressSum += ts > 0 ? (c.current_step ?? 0) / ts : 0;
     if (c.last_step_at && (!g.lastActivity || c.last_step_at > g.lastActivity)) g.lastActivity = c.last_step_at;
     const steps = Array.isArray(c.sequence_steps) ? c.sequence_steps : [];
-    if (steps[c.current_step ?? 0]?.channel === "call") g.pendingCalls++;
+    const currentStepIdx = c.current_step ?? 0;
+    if (steps[currentStepIdx]?.channel === "call") {
+      // Mirror Queue page's isDue filter exactly: dueAt = last_step_at +
+      // daysAfter; calls only count once the wait window has passed.
+      const daysAfter = steps[currentStepIdx]?.daysAfter ?? 0;
+      const dueAt = c.last_step_at ? new Date(c.last_step_at).getTime() + daysAfter * 86400000 : null;
+      const isDue = dueAt !== null ? dashboardNow >= dueAt : daysAfter === 0;
+      if (isDue) g.pendingCalls++;
+    }
   }
   const topCampaigns = Object.values(campGroups)
     .map(g => ({ ...g, channels: [...g.channels], avgProgress: g.leads > 0 ? Math.round((g.progressSum / g.leads) * 100) : 0 }))
