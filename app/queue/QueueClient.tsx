@@ -30,6 +30,7 @@ type PendingCall = {
   email: string | null;
   sellerName: string | null;
   talkingPoints: Array<string | { type: "pain" | "fit" | "opener"; text: string }> | null;
+  callAdvanceMode: "auto" | "manual";
   lastStepAt: string | null;
   isOverdue?: boolean;
   overdueDays?: number;
@@ -441,6 +442,13 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                               <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
                                 style={{ backgroundColor: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE" }}>
                                 {call.sellerName}
+                              </span>
+                            )}
+                            {call.callAdvanceMode === "manual" && (
+                              <span title="Sequence frozen until the seller dials. No auto-advance."
+                                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                                style={{ backgroundColor: "#FEF3C7", color: "#92400E", border: "1px solid #FDE68A" }}>
+                                Manual gate
                               </span>
                             )}
                           </div>

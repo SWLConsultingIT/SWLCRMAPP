@@ -137,6 +137,10 @@ export default function NewCampaignWizard() {
   const [icpTemplates, setIcpTemplates] = useState<Array<{ id: string; name: string; description: string | null; sequence_steps: any[]; step_messages: any }>>([]);
   const [aircallNumbers, setAircallNumbers] = useState<{ id: number; name: string; digits: string; country: string }[]>([]);
   const [selectedAircallNumberId, setSelectedAircallNumberId] = useState<number | null>(null);
+  // Manual = sequence freezes at the call step until the seller dials.
+  // Auto = cron auto-dials + auto-advances past the call step at daysAfter.
+  // Default kept as 'auto' to match pre-2026-05-21 behavior.
+  const [callAdvanceMode, setCallAdvanceMode] = useState<"auto" | "manual">("auto");
 
   // Channel coverage across the leads chosen for this campaign. Counted once
   // up front so the Sequence step can warn the operator BEFORE launch when
@@ -429,7 +433,7 @@ export default function NewCampaignWizard() {
       sequence_length: sequence.length,
       frequency_days: 0,
       target_leads_count: leadsCount,
-      message_prompts: { sequence, channelMessages, language, timezone, selectedLeadIds: isPartialSelection ? selectedLeadIds : null, sellerId: sellerQuotas[0]?.sellerId ?? null, sellerQuotas: sellerQuotas.length > 0 ? sellerQuotas : null, aircallNumberId: selectedAircallNumberId },
+      message_prompts: { sequence, channelMessages, language, timezone, selectedLeadIds: isPartialSelection ? selectedLeadIds : null, sellerId: sellerQuotas[0]?.sellerId ?? null, sellerQuotas: sellerQuotas.length > 0 ? sellerQuotas : null, aircallNumberId: selectedAircallNumberId, callAdvanceMode },
       status: "pending_review",
     };
     const { error } = await supabase.from("campaign_requests").insert(insertData);
@@ -1072,6 +1076,34 @@ export default function NewCampaignWizard() {
 
                   {usedChannels.includes("call") && (
                     <div className="mt-4">
+                      <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>Call Step Behavior</label>
+                      <p className="text-xs mb-3" style={{ color: C.textDim }}>What happens when a lead reaches a call step in the sequence.</p>
+                      <div className="grid grid-cols-2 gap-3 mb-5">
+                        {([
+                          { key: "auto", title: "Auto-advance", desc: "If the seller doesn't dial within the wait window, the cron auto-dials and the sequence moves to the next step regardless. Best for high-volume top-of-funnel." },
+                          { key: "manual", title: "Wait for seller", desc: "Sequence freezes at the call step until the seller dials manually. Lead stays put — no LinkedIn or email follow-up fires until the call happens. Best for high-value leads where the call is the deliberate gate." },
+                        ] as const).map(opt => {
+                          const isSelected = callAdvanceMode === opt.key;
+                          return (
+                            <button
+                              key={opt.key}
+                              onClick={() => setCallAdvanceMode(opt.key)}
+                              className="rounded-xl border p-4 text-left transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm"
+                              style={{
+                                borderColor: isSelected ? C.phone : C.border,
+                                backgroundColor: isSelected ? `${C.phone}08` : "transparent",
+                                boxShadow: isSelected ? `0 0 0 1px ${C.phone}` : "none",
+                              }}
+                            >
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-sm font-semibold" style={{ color: C.textPrimary }}>{opt.title}</span>
+                                {isSelected && <Check size={13} style={{ color: C.phone }} />}
+                              </div>
+                              <p className="text-[11px] leading-snug" style={{ color: C.textMuted }}>{opt.desc}</p>
+                            </button>
+                          );
+                        })}
+                      </div>
                       <label className="text-xs font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>Aircall Number</label>
                       <p className="text-xs mb-3" style={{ color: C.textDim }}>Which outbound number will be used for call steps in this sequence.</p>
                       {aircallNumbers.length === 0 ? (

@@ -392,7 +392,7 @@ async function processSellerBatch(
 
   const { data: candidates } = await svc
     .from("campaign_messages")
-    .select("id, campaign_id, lead_id, step_number, channel, status, metadata, campaigns!inner(seller_id)")
+    .select("id, campaign_id, lead_id, step_number, channel, status, metadata, campaigns!inner(seller_id, call_advance_mode)")
     .eq("status", "queued")
     .eq("channel", "call")
     .eq("campaigns.seller_id", seller.id)
@@ -401,6 +401,11 @@ async function processSellerBatch(
 
   const nowMs = Date.now();
   const eligible = (candidates ?? []).filter((r: any) => {
+    // Skip manual-mode campaigns entirely — the seller is the only path
+    // for dialling, and silently auto-dialling would defeat the gate they
+    // explicitly chose at campaign creation. The /api/aircall/dial route
+    // handles step advancement when the seller dials in manual mode.
+    if (r?.campaigns?.call_advance_mode === "manual") return false;
     const eligibleAt = r?.metadata?.eligible_at;
     if (eligibleAt && new Date(eligibleAt).getTime() > nowMs) return false;
     const lastRL = r?.metadata?.last_rate_limit_at;

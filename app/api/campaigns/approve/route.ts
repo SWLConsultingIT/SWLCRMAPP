@@ -43,6 +43,14 @@ export async function POST(req: NextRequest) {
   const sequence: { channel: string; daysAfter: number }[] = prompts.sequence ?? [];
   const channels: string[] = request.channels ?? [...new Set(sequence.map((s: any) => s.channel))];
 
+  // call_advance_mode: 'auto' (default, pre-2026-05-21 behavior) lets the
+  // dispatch-call cron auto-dial + advance past the call step regardless of
+  // outcome. 'manual' freezes the sequence at the call step until the seller
+  // dials via /api/aircall/dial. The wizard surfaces this as a radio button
+  // and ships it inside message_prompts.callAdvanceMode.
+  const rawMode = (prompts as any).callAdvanceMode;
+  const callAdvanceMode: "auto" | "manual" = rawMode === "manual" ? "manual" : "auto";
+
   // Support both old format (messages[]) and new format (channelMessages.steps[])
   let messages: { step: number; channel: string; subject?: string | null; body: string }[] = [];
   let autoReplies: { positive?: string; negative?: string } = {};
@@ -176,6 +184,7 @@ export async function POST(req: NextRequest) {
         status: "active",
         current_step: 0,
         sequence_steps: sequence,
+        call_advance_mode: callAdvanceMode,
         started_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
       })

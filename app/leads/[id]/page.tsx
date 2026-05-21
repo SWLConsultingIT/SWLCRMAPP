@@ -82,7 +82,7 @@ async function getCampaign(leadId: string) {
   const supabase = await getSupabaseServer();
   const { data } = await supabase
     .from("campaigns")
-    .select("id, name, channel, status, current_step, sequence_steps, started_at, next_step_due_at, paused_until, completed_at, aircall_number_id, sellers(name)")
+    .select("id, name, channel, status, current_step, sequence_steps, started_at, next_step_due_at, paused_until, completed_at, aircall_number_id, call_advance_mode, sellers(name)")
     .eq("lead_id", leadId)
     .order("started_at", { ascending: false })
     .limit(1)
@@ -518,10 +518,17 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               <p className="text-sm font-bold uppercase tracking-wider" style={{ color: C.textPrimary, letterSpacing: "0.08em" }}>
                 Campaign Step Progress
               </p>
-              <div className="flex items-center gap-2 mt-0.5">
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                 <p className="text-xs" style={{ color: C.textMuted }}>
                   {campaign!.name ?? "Outreach Campaign"}
                 </p>
+                {(campaign as any)?.call_advance_mode === "manual" && (
+                  <span title="Sequence is paused at every call step until the seller dials. Auto-advance is off for this campaign."
+                    className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md"
+                    style={{ backgroundColor: "#FEF3C7", color: "#92400E", border: "1px solid #FDE68A", letterSpacing: "0.06em" }}>
+                    Manual gate
+                  </span>
+                )}
                 {campaign && (
                   <Link href={`/campaigns/${campaign.id}`}
                     className="text-[10px] font-semibold hover:underline flex items-center gap-1" style={{ color: gold }}>
