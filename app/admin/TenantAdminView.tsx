@@ -73,7 +73,7 @@ export default async function TenantAdminView({ tier, companyBioId }: Props) {
   const viewerCount = ctx.tierCounts["viewer"] ?? 0;
 
   return (
-    <div className="p-6 w-full max-w-7xl mx-auto">
+    <div className="p-6 w-full">
       <Breadcrumb crumbs={[{ label: "Admin", href: "/admin" }, { label: tenantName }]} />
 
       <PageHero
