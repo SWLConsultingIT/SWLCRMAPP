@@ -9,7 +9,7 @@ import EmptyState from "@/components/EmptyState";
 import {
   Share2, Mail, Phone, AlertTriangle,
   Users, Calendar, X, Plus, Trash2, Loader2, Shield, Pencil, Save,
-  Zap, Globe, TrendingUp, Settings, ChevronRight,
+  Zap, Globe, TrendingUp, Settings, ChevronRight, Link2, CheckCircle,
 } from "lucide-react";
 import EmailPoolManager from "@/components/EmailPoolManager";
 import AircallPoolManager from "@/components/AircallPoolManager";
@@ -110,6 +110,7 @@ function AddAccountModal({
   onPickEmail,
   onPickCalls,
   isAdmin,
+  currentBioId,
   existingSeller,
 }: {
   onClose: () => void;
@@ -117,12 +118,13 @@ function AddAccountModal({
   onPickEmail: () => void;
   onPickCalls: () => void;
   isAdmin: boolean;
+  currentBioId: string | null;
   existingSeller?: SellerCard;
 }) {
   // Reconnect flow: skip channel picker, prefill name/limit from the existing
   // seller row, and pass its id back to the API so it reuses the row instead
   // of creating a duplicate.
-  const [step, setStep] = useState<"channel" | "form" | "connecting" | "connected">(
+  const [step, setStep] = useState<"channel" | "form" | "connecting" | "connected" | "share_existing">(
     existingSeller ? "form" : "channel"
   );
   const [name, setName] = useState(existingSeller?.name ?? "");
@@ -200,6 +202,7 @@ function AddAccountModal({
             {step === "channel" ? "Add Account"
               : step === "connecting" ? "Connecting LinkedIn"
               : step === "connected" ? "Connected"
+              : step === "share_existing" ? "Share existing seller"
               : existingSeller ? "Reconnect LinkedIn" : "Add LinkedIn Seller"}
           </h2>
           <button onClick={onClose}><X size={18} style={{ color: C.textMuted }} /></button>
@@ -219,6 +222,21 @@ function AddAccountModal({
                 color: "#0A66C2",
                 onClick: () => setStep("form"),
               },
+              // Super-admin shortcut: share a seller already connected in another
+              // tenant into the current one. Skips the Unipile re-auth entirely
+              // by toggling sellers.shared_with_company_bio_ids[]. Only shown when
+              // there's a tenant scope (currentBioId is null when super_admin is
+              // browsing the global SWL pool — no tenant to share into).
+              ...(isAdmin && currentBioId ? [
+                {
+                  key: "share_existing" as const,
+                  label: "Share existing seller",
+                  desc: "Reuse a seller already connected in another tenant — no LinkedIn re-auth.",
+                  icon: Link2,
+                  color: "#16A34A",
+                  onClick: () => setStep("share_existing"),
+                },
+              ] : []),
               // Email + Calls require admin: Instantly account and Aircall
               // workspace are SWL-managed today. Hidden for clients to avoid
               // sending them into a flow they'll be 403'd out of.
@@ -348,8 +366,139 @@ function AddAccountModal({
             <p className="text-xs" style={{ color: C.textMuted }}>{name} is ready to start campaigns.</p>
           </div>
         )}
+
+        {step === "share_existing" && currentBioId && (
+          <ShareExistingSellerPicker
+            currentBioId={currentBioId}
+            onBack={() => setStep("channel")}
+            onShared={onSuccess}
+          />
+        )}
       </div>
     </div>
+  );
+}
+
+// ─── Share Existing Seller (super_admin only) ───────────────────────────────
+// Lists every seller across tenants and lets the super_admin toggle the current
+// tenant into `sellers.shared_with_company_bio_ids[]` — the same mechanism the
+// /admin/[id] page uses. Skips Unipile re-auth entirely.
+type SharableSeller = {
+  id: string;
+  name: string;
+  active: boolean;
+  company_bio_id: string | null;
+  shared_with_company_bio_ids: string[] | null;
+  linkedin_status: string | null;
+};
+
+function ShareExistingSellerPicker({
+  currentBioId,
+  onBack,
+  onShared,
+}: {
+  currentBioId: string;
+  onBack: () => void;
+  onShared: () => void;
+}) {
+  const [sellers, setSellers] = useState<SharableSeller[]>([]);
+  const [companies, setCompanies] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    Promise.all([
+      fetch("/api/admin/sellers-access", { cache: "no-store" }).then(r => r.json()),
+      fetch("/api/admin/aircall-access", { cache: "no-store" }).then(r => r.json()).catch(() => ({ companies: [] })),
+    ]).then(([sellersData, aircallData]) => {
+      setSellers((sellersData.sellers ?? []) as SharableSeller[]);
+      const map: Record<string, string> = {};
+      for (const c of (aircallData.companies ?? []) as { id: string; company_name: string }[]) {
+        map[c.id] = c.company_name;
+      }
+      setCompanies(map);
+    }).catch(e => setError(e instanceof Error ? e.message : "Failed to load sellers"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function share(seller: SharableSeller) {
+    setBusyId(seller.id); setError(null);
+    const res = await fetch("/api/admin/sellers-access", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sellerId: seller.id, companyBioId: currentBioId, shared: true }),
+    });
+    setBusyId(null);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error ?? "Failed to share seller");
+      return;
+    }
+    onShared();
+  }
+
+  // Sellers owned by another tenant that aren't already shared into the current one.
+  const candidates = sellers.filter(s =>
+    s.company_bio_id !== currentBioId &&
+    !(s.shared_with_company_bio_ids ?? []).includes(currentBioId)
+  );
+
+  return (
+    <>
+      <p className="text-xs mb-3" style={{ color: C.textMuted }}>
+        Pick a seller already connected in another tenant. It will become available in this tenant without a second LinkedIn login.
+      </p>
+
+      {loading && (
+        <div className="py-10 text-center">
+          <Loader2 size={20} className="animate-spin mx-auto mb-2" style={{ color: C.textMuted }} />
+          <p className="text-xs" style={{ color: C.textMuted }}>Loading sellers…</p>
+        </div>
+      )}
+
+      {!loading && candidates.length === 0 && (
+        <div className="py-10 text-center">
+          <p className="text-sm font-medium mb-1" style={{ color: C.textPrimary }}>No sellers to share</p>
+          <p className="text-xs" style={{ color: C.textMuted }}>Every existing seller is already in this tenant.</p>
+        </div>
+      )}
+
+      {!loading && candidates.length > 0 && (
+        <div className="max-h-[420px] overflow-y-auto -mx-2 px-2 divide-y" style={{ borderColor: C.border }}>
+          {candidates.map(s => {
+            const owner = s.company_bio_id ? (companies[s.company_bio_id] ?? "Other tenant") : "Unassigned";
+            const busy = busyId === s.id;
+            return (
+              <div key={s.id} className="flex items-center gap-3 py-2.5">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+                  style={{ background: s.active ? `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` : C.border, color: s.active ? "#fff" : "#9CA3AF" }}>
+                  {s.name[0]?.toUpperCase() ?? "?"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold truncate" style={{ color: C.textPrimary }}>{s.name}</p>
+                  <p className="text-[11px]" style={{ color: C.textDim }}>
+                    Owned by {owner}{s.active ? "" : " · inactive"}
+                  </p>
+                </div>
+                <button onClick={() => share(s)} disabled={busy}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-md border inline-flex items-center gap-1.5 disabled:opacity-60"
+                  style={{ borderColor: "#16A34A", color: "#16A34A", backgroundColor: "transparent" }}>
+                  {busy ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />}
+                  {busy ? "Sharing…" : "Share"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {error && <div className="mt-4 rounded-lg px-3 py-2" style={{ backgroundColor: C.redLight }}><p className="text-xs font-medium" style={{ color: C.red }}>{error}</p></div>}
+
+      <div className="flex items-center justify-between mt-5 pt-4 border-t" style={{ borderColor: C.border }}>
+        <button onClick={onBack} className="text-xs font-semibold" style={{ color: C.textMuted }}>← Back</button>
+      </div>
+    </>
   );
 }
 
@@ -1065,6 +1214,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
           onPickEmail={() => setShowPoolManager(true)}
           onPickCalls={() => setShowAircallManager(true)}
           isAdmin={isAdmin}
+          currentBioId={authUser?.companyBioId ?? null}
         />
       )}
       {reconnectTarget && (
@@ -1075,6 +1225,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
           onPickEmail={() => { /* no-op in reconnect */ }}
           onPickCalls={() => { /* no-op in reconnect */ }}
           isAdmin={isAdmin}
+          currentBioId={authUser?.companyBioId ?? null}
         />
       )}
       {editTarget && <EditAccountModal seller={editTarget} onClose={() => setEditTarget(null)} onSuccess={() => { setEditTarget(null); router.refresh(); }} />}
