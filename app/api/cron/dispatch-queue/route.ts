@@ -176,15 +176,31 @@ function nameMatches(
   const af = afRaw.toLowerCase();
   const al = alRaw.toLowerCase();
   if (!ef || !el || !af || !al) return false;
-  // Last name must match exactly after credential stripping — primary identity guard.
-  if (al !== el) return false;
+
+  // Slug with a unique random suffix (7+ chars + digit) guarantees the URL points to
+  // exactly one profile — identity is proven by the URL itself regardless of display name.
+  const tail = slug.split("-").pop() ?? "";
+  const slugUnique = tail.length >= 6 && /\d/.test(tail);
+
+  // Last name matching — LinkedIn has 3 known presentation variants beyond exact match:
+  //   1. Privacy abbreviation: "Riya P." → al="p" (3rd-degree connections hide full surname)
+  //   2. Compound/prefixed: "de Boinville" contains expected word "boinville"
+  //   3. Extended with credential: stripped "Poulton-Midani" ≠ stored "anaea" → rely on slugUnique
+  const alWords = al.split(/[\s-]+/).filter(w => w.length >= 2);
+  const elWords = el.split(/[\s-]+/).filter(w => w.length >= 2);
+  const lastNameOk =
+    al === el ||
+    (al.length === 1 && el.startsWith(al)) ||                         // "P." → "Patel"
+    alWords.some(w => w.length >= 3 && elWords.some(ew =>             // word-level overlap
+      ew.length >= 3 && (w === ew || w.includes(ew) || ew.includes(w))));
+
+  if (!lastNameOk && !slugUnique) return false;
+
   // First name: bidirectional 3-char prefix covers most variants (Jen↔Jennifer, Mike↔Michael).
   if (af.startsWith(ef.slice(0, 3)) || ef.startsWith(af.slice(0, 3))) return true;
-  // First name diverges (James↔Jim, Bob↔Robert). Only trust identity when LinkedIn appended
-  // a globally-unique random suffix (7+ alphanumeric chars containing a digit) to the slug,
-  // which guarantees the slug points to one specific profile. Suffix + last-name exact = same person.
-  const tail = slug.split("-").pop() ?? "";
-  return tail.length >= 6 && /\d/.test(tail);
+
+  // First name diverges (James↔Jim) — only pass if slug guarantees identity.
+  return slugUnique;
 }
 
 function personalizeNote(template: string, lead: LeadRow, seller: SellerRow): string {
