@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import CallButton from "@/components/CallButton";
+import TodayFocus from "@/components/TodayFocus";
 import { classifyUrgency } from "@/lib/overdue";
 
 const gold = "var(--brand, #c9a83a)";
@@ -87,13 +88,18 @@ const channelMeta: Record<string, { icon: typeof Share2; color: string; label: s
   call:     { icon: Phone,  color: "#F97316", label: "Call" },
 };
 
+// Tinted backgrounds derived from the accent color (not hardcoded light
+// hexes) so the reply / classification chips read correctly in BOTH light
+// and dark mode. color-mix(... transparent) yields a translucent wash that
+// sits on top of whatever the underlying card surface is.
+const tint = (color: string, pct = 12) => `color-mix(in srgb, ${color} ${pct}%, transparent)`;
 const classificationMeta: Record<string, { color: string; bg: string; label: string }> = {
-  positive:            { color: C.green,    bg: C.greenLight, label: "Positive" },
-  meeting_intent:      { color: C.green,    bg: C.greenLight, label: "Meeting Intent" },
-  negative:            { color: C.red,      bg: C.redLight,   label: "Negative" },
-  needs_info:          { color: "#D97706",  bg: "#FFFBEB",    label: "Needs Info" },
-  not_now:             { color: C.textMuted, bg: C.surface,   label: "Not Now" },
-  connection_accepted: { color: "#0A66C2",  bg: "#E7F2FB",    label: "Accepted Connection" },
+  positive:            { color: C.green,    bg: tint(C.green, 12),   label: "Positive" },
+  meeting_intent:      { color: C.green,    bg: tint(C.green, 12),   label: "Meeting Intent" },
+  negative:            { color: C.red,      bg: tint(C.red, 12),     label: "Negative" },
+  needs_info:          { color: "#D97706",  bg: tint("#D97706", 12), label: "Needs Info" },
+  not_now:             { color: C.textMuted, bg: tint(C.textMuted, 10), label: "Not Now" },
+  connection_accepted: { color: "#0A66C2",  bg: tint("#0A66C2", 12), label: "Accepted Connection" },
 };
 
 function timeAgo(iso: string | null) {
@@ -147,9 +153,9 @@ function InlineClassifier({ call }: { call: PendingCall }) {
   if (call.latestCall.classification === "follow_up") {
     return (
       <div className="border-t px-5 py-2.5 flex items-center gap-2 text-[11px] flex-wrap"
-        style={{ borderColor: C.border, backgroundColor: "#FFFBEB" }}>
+        style={{ borderColor: C.border, backgroundColor: "color-mix(in srgb, #D97706 10%, transparent)" }}>
         <Clock size={11} style={{ color: "#D97706" }} />
-        <span style={{ color: "#92400E", fontWeight: 600 }}>
+        <span style={{ color: "#D97706", fontWeight: 600 }}>
           Follow-up logged {timeAgo(call.latestCall.startedAt)}
         </span>
         <span style={{ color: C.textMuted }}>
@@ -173,7 +179,7 @@ function InlineClassifier({ call }: { call: PendingCall }) {
         onClick={() => classify("positive")}
         disabled={busy !== null}
         className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
-        style={{ backgroundColor: C.greenLight, borderColor: `${C.green}40`, color: C.green }}>
+        style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)`, borderColor: `color-mix(in srgb, ${C.green} 35%, transparent)`, color: C.green }}>
         {busy === "positive" ? <Loader2 size={10} className="animate-spin" /> : <ThumbsUp size={10} />}
         Positive
       </button>
@@ -181,7 +187,7 @@ function InlineClassifier({ call }: { call: PendingCall }) {
         onClick={() => classify("negative")}
         disabled={busy !== null}
         className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
-        style={{ backgroundColor: C.redLight, borderColor: `${C.red}40`, color: C.red }}>
+        style={{ backgroundColor: `color-mix(in srgb, ${C.red} 12%, transparent)`, borderColor: `color-mix(in srgb, ${C.red} 35%, transparent)`, color: C.red }}>
         {busy === "negative" ? <Loader2 size={10} className="animate-spin" /> : <ThumbsDown size={10} />}
         Negative
       </button>
@@ -189,7 +195,7 @@ function InlineClassifier({ call }: { call: PendingCall }) {
         onClick={() => classify("follow_up")}
         disabled={busy !== null}
         className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
-        style={{ backgroundColor: "#FEF3C7", borderColor: "#FDE68A", color: "#D97706" }}>
+        style={{ backgroundColor: "color-mix(in srgb, #D97706 12%, transparent)", borderColor: "color-mix(in srgb, #D97706 35%, transparent)", color: "#D97706" }}>
         {busy === "follow_up" ? <Loader2 size={10} className="animate-spin" /> : <Clock size={10} />}
         Follow-up
       </button>
@@ -250,9 +256,48 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
 
   // Split pending calls by classification state. Positive/negative would
   // already have dropped the entry from the queue (campaign ended).
-  const callsToMake = pendingCalls.filter(c => !c.latestCall);
-  const callsAwaitingOutcome = pendingCalls.filter(c => c.latestCall && c.latestCall.classification === null);
-  const callsFollowUp = pendingCalls.filter(c => c.latestCall?.classification === "follow_up");
+  //
+  // Sort logic per bucket:
+  //   • To Call: most overdue first (so the call that's been waiting longest
+  //     and likely blocking the sequence is at the top). Within ties, those
+  //     marked overdue rank above non-overdue.
+  //   • Awaiting Outcome: oldest call-attempt first (longest waiting for the
+  //     seller to classify so the queue doesn't stack indefinitely).
+  //   • Follow-ups: same as Awaiting Outcome (oldest first), so the lead
+  //     deferred longest gets prioritized.
+  const overduenessRank = (c: PendingCall) =>
+    (c.isOverdue ? 1_000_000 : 0) + (c.overdueDays ?? 0);
+  const callsToMake = pendingCalls
+    .filter(c => !c.latestCall)
+    .sort((a, b) => overduenessRank(b) - overduenessRank(a));
+  const callsAwaitingOutcome = pendingCalls
+    .filter(c => c.latestCall && c.latestCall.classification === null)
+    .sort((a, b) => {
+      const at = a.latestCall?.startedAt ? new Date(a.latestCall.startedAt).getTime() : 0;
+      const bt = b.latestCall?.startedAt ? new Date(b.latestCall.startedAt).getTime() : 0;
+      return at - bt;
+    });
+  const callsFollowUp = pendingCalls
+    .filter(c => c.latestCall?.classification === "follow_up")
+    .sort((a, b) => {
+      const at = a.latestCall?.startedAt ? new Date(a.latestCall.startedAt).getTime() : 0;
+      const bt = b.latestCall?.startedAt ? new Date(b.latestCall.startedAt).getTime() : 0;
+      return at - bt;
+    });
+
+  // Sort replies: positive / meeting_intent first (closing window!), then
+  // any human-review-required, then everything else by most recent.
+  const replyPriority = (r: NewReply) => {
+    if (r.classification === "positive" || r.classification === "meeting_intent") return 0;
+    if (r.requiresHumanReview) return 1;
+    if (r.classification === "question") return 2;
+    return 3;
+  };
+  const sortedReplies = [...newReplies].sort((a, b) => {
+    const pa = replyPriority(a); const pb = replyPriority(b);
+    if (pa !== pb) return pa - pb;
+    return new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime();
+  });
 
   const totalCount = pendingCalls.length + newReplies.length + pendingReviews.length + updates.length;
   const needsReviewCount = newReplies.filter(r => r.requiresHumanReview).length;
@@ -268,7 +313,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
   const passesDate = (iso: string) => new Date(iso).getTime() >= dateCutoffMs;
   const passesSearch = (haystack: string) => !search || haystack.toLowerCase().includes(search.toLowerCase());
 
-  const filteredReplies = newReplies
+  const filteredReplies = sortedReplies
     .filter(r => !dismissed.has(r.id))
     .filter(r => passesDate(r.receivedAt))
     .filter(r => passesSearch(`${r.leadName} ${r.company} ${r.campaignName} ${r.replyText}`));
@@ -299,6 +344,16 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
         status={{ label: totalCount > 0 ? `${totalCount} pending` : "All Clear", active: totalCount > 0 }}
       />
 
+      {/* Today's Focus — the "what should I do next" strip above the tabs.
+          Tells the seller one priority action + cross-tab counts so they
+          don't have to scan four tabs to find the highest-impact thing. */}
+      <TodayFocus
+        calls={pendingCalls}
+        replies={newReplies}
+        onJumpToCalls={() => { setTab(0); setCallSubTab(0); }}
+        onJumpToReplies={() => setTab(1)}
+      />
+
       {/* Tabs + search */}
       <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
         {tabs.map((t, i) => {
@@ -316,7 +371,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
               )}
               {t.reviewCount > 0 && (
                 <span className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: "#FEF3C7", color: "#D97706" }}>
+                  style={{ backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#D97706" }}>
                   <AlertTriangle size={9} /> {t.reviewCount}
                 </span>
               )}
@@ -365,10 +420,27 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
           : callSubTab === 1 ? filteredCallsAwaiting
           : filteredCallsFollowUp;
         const emptyCopy = callSubTab === 0
-          ? { title: search ? "No calls match your search" : "No calls to make", hint: "Calls appear when a campaign sequence reaches a call step." }
+          ? {
+              title: search ? "No calls match your search" : "No calls due right now",
+              hint: search
+                ? "Try clearing the search to see all pending calls."
+                : "Calls show up here the moment a sequence reaches a call step. Nothing for you to do right now — good time to review replies or check Flows.",
+              ctaLabel: search ? null : "View replies",
+              ctaTab: 1,
+            }
           : callSubTab === 1
-          ? { title: search ? "No calls match your search" : "Nothing to classify", hint: "Once you call a lead, it shows up here until you log the outcome." }
-          : { title: search ? "No follow-ups match your search" : "No follow-ups scheduled", hint: "Leads you classified as Follow-up live here until you call them again." };
+          ? {
+              title: search ? "No calls match your search" : "Nothing to classify",
+              hint: "Once you call a lead, it lands here until you log the outcome (Positive / Negative / Follow-up). Classifying calls is what keeps the AI's reply matching accurate.",
+              ctaLabel: null,
+              ctaTab: null,
+            }
+          : {
+              title: search ? "No follow-ups match your search" : "No follow-ups waiting",
+              hint: "Leads you marked Follow-up live here until you dial them again. Empty means you're caught up — back to To Call.",
+              ctaLabel: "Back to To Call",
+              ctaTab: 0 as 0,
+            };
 
         return (
           <>
@@ -402,10 +474,24 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
             </div>
 
             {activeList.length === 0 ? (
-              <div className="rounded-2xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                <CheckCircle size={28} className="mx-auto mb-3" style={{ color: C.green }} />
-                <p className="text-sm font-medium" style={{ color: C.textBody }}>{emptyCopy.title}</p>
-                <p className="text-xs mt-1" style={{ color: C.textMuted }}>{emptyCopy.hint}</p>
+              <div className="rounded-2xl border py-12 px-6 text-center max-w-xl mx-auto"
+                style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+                <div className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+                  style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)` }}>
+                  <CheckCircle size={22} style={{ color: C.green }} />
+                </div>
+                <p className="text-sm font-bold mb-1.5" style={{ color: C.textPrimary }}>{emptyCopy.title}</p>
+                <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>{emptyCopy.hint}</p>
+                {emptyCopy.ctaLabel && emptyCopy.ctaTab !== null && (
+                  <button onClick={() => {
+                    if (emptyCopy.ctaTab === 0) setCallSubTab(0);
+                    else setTab(emptyCopy.ctaTab as number);
+                  }}
+                    className="inline-flex items-center gap-1.5 mt-4 text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-opacity hover:opacity-85"
+                    style={{ backgroundColor: gold, color: "#04070d" }}>
+                    {emptyCopy.ctaLabel} <ChevronRight size={12} />
+                  </button>
+                )}
               </div>
             ) : (
               <div className="space-y-3">
@@ -447,7 +533,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                             {call.callAdvanceMode === "manual" && (
                               <span title="Sequence frozen until the seller dials. No auto-advance."
                                 className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                                style={{ backgroundColor: "#FEF3C7", color: "#92400E", border: "1px solid #FDE68A" }}>
+                                style={{ backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#D97706", border: "1px solid color-mix(in srgb, #D97706 32%, transparent)" }}>
                                 Manual gate
                               </span>
                             )}
@@ -553,19 +639,39 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
       {/* ═══ Tab 1: New Replies ═══ */}
       {tab === 1 && (
         filteredReplies.length === 0 ? (
-          <div className="rounded-2xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-            <CheckCircle size={28} className="mx-auto mb-3" style={{ color: C.green }} />
-            <p className="text-sm font-medium" style={{ color: C.textBody }}>
-              {search ? "No replies match your search" : "No replies yet"}
+          <div className="rounded-2xl border py-12 px-6 text-center max-w-xl mx-auto"
+            style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+            <div className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+              style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)` }}>
+              <CheckCircle size={22} style={{ color: C.green }} />
+            </div>
+            <p className="text-sm font-bold mb-1.5" style={{ color: C.textPrimary }}>
+              {search ? "No replies match your search" : "No replies waiting"}
             </p>
+            <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
+              {search
+                ? "Try clearing the search or widening the date range above."
+                : "When a lead writes back or accepts a LinkedIn invite, the message lands here. Until then, focus on calls or check Flow progress."}
+            </p>
+            {!search && (
+              <button onClick={() => setTab(0)}
+                className="inline-flex items-center gap-1.5 mt-4 text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-opacity hover:opacity-85"
+                style={{ backgroundColor: gold, color: "#04070d" }}>
+                Go to Calls <ChevronRight size={12} />
+              </button>
+            )}
           </div>
         ) : (
           <>
             {needsReviewCount > 0 && !search && (
               <div className="flex items-center gap-3 rounded-2xl border px-4 py-3 mb-4"
-                style={{ background: "linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)", borderColor: "#FCD34D", boxShadow: "0 4px 16px rgba(217, 119, 6, 0.08)" }}>
+                style={{
+                  background: "linear-gradient(135deg, color-mix(in srgb, #D97706 8%, transparent) 0%, color-mix(in srgb, #D97706 14%, transparent) 100%)",
+                  borderColor: "color-mix(in srgb, #D97706 35%, transparent)",
+                  boxShadow: "0 4px 16px color-mix(in srgb, #D97706 10%, transparent)",
+                }}>
                 <AlertTriangle size={16} style={{ color: "#D97706" }} className="shrink-0" />
-                <p className="text-sm font-medium" style={{ color: "#92400E" }}>
+                <p className="text-sm font-medium" style={{ color: "#D97706" }}>
                   {needsReviewCount} {needsReviewCount === 1 ? "reply needs" : "replies need"} your attention — the AI answered but flagged these for human review.
                 </p>
               </div>
@@ -596,7 +702,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                         </span>
                         {r.requiresHumanReview && (
                           <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded"
-                            style={{ backgroundColor: "#FEF3C7", color: "#D97706" }}>
+                            style={{ backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#D97706" }}>
                             <AlertTriangle size={9} /> Review
                           </span>
                         )}
@@ -678,7 +784,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                         <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{review.name}</p>
                         <p className="text-xs" style={{ color: C.textMuted }}>{review.subtitle}</p>
                       </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded shrink-0" style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}>Under Review</span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded shrink-0" style={{ backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#D97706" }}>Under Review</span>
                       <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{timeAgo(review.createdAt)}</span>
                       <ChevronRight size={13} style={{ color: C.textDim }} className="shrink-0" />
                     </Link>
