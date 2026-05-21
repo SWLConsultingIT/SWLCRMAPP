@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import { mapLimit } from "@/lib/concurrency";
-import { signStepAttachments } from "@/lib/campaign-attachments";
+import { fetchStepAttachments } from "@/lib/campaign-attachments";
 
 // Hard cap on parallel seller batches in a single tick. Each seller's batch
 // opens ~3 DB connections (list queued, hydrate lead+campaign, update on
@@ -257,6 +257,36 @@ async function unipilePost(url: string, body: any): Promise<any> {
   return parsed;
 }
 
+// Multipart POST for chat-message endpoints that carry file attachments.
+// Unipile expects native multipart/form-data with one `attachments` field per
+// file plus the text fields; the regular JSON POST helper above can't express
+// that. Pulled into its own helper so the dispatcher stays readable and we
+// don't end up with two different fetch-and-parse patterns drifting.
+type UnipileFile = { name: string; mimeType: string; data: Buffer };
+async function unipileMultipartPost(url: string, fields: Record<string, string>, files: { name: string; file: UnipileFile }[]): Promise<any> {
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+  for (const { name, file } of files) {
+    // Blob is the cross-runtime way to attach binary data to a FormData entry
+    // in modern fetch (Node 18+ / Edge / browser). We pass the original
+    // filename so LinkedIn shows it to the recipient.
+    fd.append(name, new Blob([file.data as unknown as ArrayBuffer], { type: file.mimeType }), file.name);
+  }
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" },
+    body: fd,
+  });
+  const text = await res.text();
+  let parsed: any = null;
+  try { parsed = text ? JSON.parse(text) : null; } catch { /* ignore */ }
+  if (!res.ok) {
+    const err = parsed?.detail || parsed?.title || parsed?.message || text || `HTTP ${res.status}`;
+    throw new Error(`Unipile POST ${url} → ${res.status}: ${err}`);
+  }
+  return parsed;
+}
+
 function isRateLimitError(reason: string): boolean {
   const r = reason.toLowerCase();
   return r.includes("temporary provider limit")
@@ -493,25 +523,22 @@ async function dispatchOneMessage(
   const personalized = personalizeNote(rawTemplate, lead as LeadRow, seller).trim();
 
   // Per-step attachments. LinkedIn connection requests (step_number=0) can't
-  // carry attachments — the invite note body is the only payload LinkedIn
-  // accepts. For follow-up DMs (step_number ≥ 1) we append signed download
-  // links at the end of the message; Unipile's text-message API doesn't take
-  // file uploads on JSON POSTs, but URLs render as clickable links inside
-  // LinkedIn messages so the recipient can still grab the file.
+  // carry files — the invite note body is the only payload LinkedIn accepts,
+  // so we silently drop attachments there (the wizard already warns the user).
+  // For follow-up DMs (step_number ≥ 1) we re-upload each file to Unipile as
+  // a real multipart attachment so it renders inline in LinkedIn just like
+  // any other DM file — recipients see a paperclip + preview, not a text URL.
   const sequenceStepsForAttach = (campaign as any)?.sequence_steps as Array<{ attachments?: unknown }> | null;
   const stepCfg = Array.isArray(sequenceStepsForAttach) ? sequenceStepsForAttach[candidate.step_number - 1] : null;
-  let attachmentSuffix = "";
+  let dmAttachments: Array<{ name: string; mimeType: string; data: Buffer }> = [];
   if (candidate.step_number >= 1) {
     try {
-      const links = await signStepAttachments(stepCfg?.attachments);
-      if (links.length > 0) {
-        attachmentSuffix = "\n\n— Attachments —\n" + links.map((a) => `• ${a.name}: ${a.signedUrl}`).join("\n");
-      }
+      dmAttachments = await fetchStepAttachments(stepCfg?.attachments);
     } catch (e: any) {
-      return await failMessage(svc, candidate.id, candidate.lead_id, `attachment sign failed: ${e?.message ?? e}`);
+      return await failMessage(svc, candidate.id, candidate.lead_id, `attachment fetch failed: ${e?.message ?? e}`);
     }
   }
-  const outgoing = (personalized + attachmentSuffix).trim();
+  const outgoing = personalized;
   const truncated = false;
   if (candidate.step_number === 0 && outgoing.length > NOTE_MAX_LEN) {
     // Pre-2026-05-11: silent slice-and-ellipsis. Two problems with that:
@@ -556,18 +583,40 @@ async function dispatchOneMessage(
           .maybeSingle();
         prevChatId = (prevMsg?.metadata as Record<string, unknown> | null)?.chat_id as string ?? null;
       }
+      // When the step carries attachments we switch the upstream call to
+      // multipart so Unipile uploads each file as a native LinkedIn DM
+      // attachment. The JSON branch stays for the (more common) text-only
+      // case so we don't pay the multipart serialization cost for every
+      // step in the sequence.
+      const hasFiles = dmAttachments.length > 0;
       if (prevChatId) {
-        const msgResp = await unipilePost(`${UNIPILE_BASE}/api/v1/chats/${encodeURIComponent(prevChatId)}/messages`, {
-          text: outgoing,
-        });
+        const msgResp = hasFiles
+          ? await unipileMultipartPost(
+              `${UNIPILE_BASE}/api/v1/chats/${encodeURIComponent(prevChatId)}/messages`,
+              { text: outgoing },
+              dmAttachments.map((f) => ({ name: "attachments", file: f })),
+            )
+          : await unipilePost(`${UNIPILE_BASE}/api/v1/chats/${encodeURIComponent(prevChatId)}/messages`, {
+              text: outgoing,
+            });
         chatId = prevChatId;
         providerMessageId = msgResp?.id ?? msgResp?.message_id ?? null;
       } else {
-        const chatResp = await unipilePost(`${UNIPILE_BASE}/api/v1/chats`, {
-          account_id: seller.unipile_account_id,
-          attendees_ids: [providerId],
-          text: outgoing,
-        });
+        const chatResp = hasFiles
+          ? await unipileMultipartPost(
+              `${UNIPILE_BASE}/api/v1/chats`,
+              {
+                account_id: seller.unipile_account_id,
+                attendees_ids: providerId ?? "",
+                text: outgoing,
+              },
+              dmAttachments.map((f) => ({ name: "attachments", file: f })),
+            )
+          : await unipilePost(`${UNIPILE_BASE}/api/v1/chats`, {
+              account_id: seller.unipile_account_id,
+              attendees_ids: [providerId],
+              text: outgoing,
+            });
         chatId = chatResp?.chat_id ?? chatResp?.id ?? null;
         providerMessageId = chatResp?.message_id ?? chatResp?.id ?? null;
       }

@@ -47,3 +47,34 @@ export async function signStepAttachments(stepAttachments: unknown): Promise<Arr
   }
   return out;
 }
+
+/**
+ * Download the raw bytes for each step attachment so a dispatcher can re-upload
+ * them as proper multipart files to the upstream provider (Unipile for LinkedIn
+ * DMs, Meta for WhatsApp). Different from signStepAttachments(): we hand back
+ * actual file blobs the caller can attach as native files in the recipient's
+ * inbox, instead of URLs the recipient has to click.
+ */
+export async function fetchStepAttachments(stepAttachments: unknown): Promise<Array<StepAttachment & { data: Buffer }>> {
+  if (!Array.isArray(stepAttachments) || stepAttachments.length === 0) return [];
+  const svc = getSupabaseService();
+  const out: Array<StepAttachment & { data: Buffer }> = [];
+  for (const raw of stepAttachments) {
+    if (!raw || typeof raw !== "object") continue;
+    const a = raw as Partial<StepAttachment>;
+    if (!a.path || !a.name) continue;
+    const { data, error } = await svc.storage.from("campaign-attachments").download(a.path);
+    if (error || !data) {
+      throw new Error(`failed to download attachment ${a.name}: ${error?.message ?? "unknown"}`);
+    }
+    const buffer = Buffer.from(await data.arrayBuffer());
+    out.push({
+      path: a.path,
+      name: a.name,
+      mimeType: a.mimeType ?? "application/octet-stream",
+      sizeBytes: typeof a.sizeBytes === "number" ? a.sizeBytes : buffer.byteLength,
+      data: buffer,
+    });
+  }
+  return out;
+}
