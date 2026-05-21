@@ -57,7 +57,7 @@ export default function CommandPalette() {
     { id: "admin",      label: t("nav.admin"),        hint: locale === "es" ? "Panel admin (interno)" : "Admin panel (internal)",      icon: Shield,          href: "/admin",         group: "navigation", keywords: ["admin", "internal"] },
     { id: "settings",   label: t("nav.settings"),     hint: locale === "es" ? "Tu cuenta"           : "Your account",                  icon: Settings,        href: "/settings",      group: "navigation", keywords: ["account", "preferences", "language"] },
     // Quick actions
-    { id: "new-flow",  label: locale === "es" ? "Nuevo flow"    : "New Flow",  hint: "Outreach Flow™",            icon: Megaphone, href: "/campaigns/new",       group: "actions", keywords: ["flow", "campaign", "campaña", "outreach", "nuevo", "new"] },
+    { id: "new-flow",  label: locale === "es" ? "Nuevo flow"    : "New Flow",  hint: "Outreach Flow™",            icon: Megaphone, href: "/campaigns?tab=new",       group: "actions", keywords: ["flow", "campaign", "campaña", "outreach", "nuevo", "new"] },
   ], [t, locale]);
 
   // Filter nav commands by query (case-insensitive substring on label, hint, keywords).
