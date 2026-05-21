@@ -144,10 +144,11 @@ export const getUserScope = cache(async function getUserScope(): Promise<UserSco
   const profile = await getOrFetchProfile(user.id, svc);
 
   const role = (profile?.role ?? "client") as "admin" | "client";
-  // tier was backfilled in migration 010 from role; defensive fallback in case
-  // a row is missing it (shouldn't happen, but null-safe).
-  const tier: Tier = (profile?.tier as Tier | undefined)
-    ?? (role === "admin" ? "super_admin" : "owner");
+  // tier was backfilled in migration 010 from role. If a row is missing it
+  // we default to "owner" — never to super_admin — because escalating from
+  // legacy role='admin' was exactly the path that produced the 2026-05-06
+  // cross-tenant leak. Conservative default beats convenient default.
+  const tier: Tier = (profile?.tier as Tier | undefined) ?? "owner";
 
   // If the user's bio has been archived, treat them as if they had no scope —
   // they shouldn't be able to operate within a soft-deleted tenant. Super

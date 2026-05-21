@@ -18,9 +18,15 @@ type AircallNumber = { id: number; name: string; digits: string; country: string
 // tenant scope (or all numbers for super_admin) so other call surfaces
 // (manual queue dial, etc.) keep working until they pass leadId too.
 export async function GET(req: NextRequest) {
+  // The Aircall numbers list is cached for 5 min via Next's fetch revalidation —
+  // good enough for most page loads but stale right after an admin adds or
+  // removes a number in the Aircall dashboard. `?fresh=1` (sent by the refresh
+  // button next to the CallButton picker) bypasses the cache so the seller
+  // sees newly-claimed numbers immediately instead of waiting for the TTL.
+  const fresh = req.nextUrl.searchParams.get("fresh") === "1";
   const res = await fetch("https://api.aircall.io/v1/numbers", {
     headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
-    next: { revalidate: 300 },
+    ...(fresh ? { cache: "no-store" as const } : { next: { revalidate: 300 } }),
   });
   if (!res.ok) {
     return NextResponse.json({ error: await res.text() }, { status: res.status });
@@ -74,7 +80,10 @@ export async function GET(req: NextRequest) {
     .eq("user_id", user.id)
     .single();
 
-  const isSuperAdmin = (profile?.tier === "super_admin") || (profile?.role === "admin");
+  // Strictly tier-gated. The legacy `role === 'admin'` OR was the same
+  // pattern that produced the 2026-05-06 cross-tenant leak — a tenant owner
+  // with role='admin' would have seen the unfiltered global Aircall pool.
+  const isSuperAdmin = profile?.tier === "super_admin";
   if (isSuperAdmin || !profile?.company_bio_id) {
     return NextResponse.json({ numbers: shaped });
   }

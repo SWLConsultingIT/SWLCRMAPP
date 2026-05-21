@@ -37,10 +37,11 @@ export async function GET() {
     : (rawBios as { company_name: string | null; logo_url: string | null } | null) ?? null;
 
   const role = (profile?.role ?? user.user_metadata?.role ?? "client") as string;
-  // tier was backfilled in migration 010. Defensive default from role for
-  // any pre-migration row that slipped through.
-  const tier = (profile?.tier as string | null | undefined)
-    ?? (role === "admin" ? "super_admin" : "owner");
+  // tier was backfilled in migration 010. If a row somehow lacks it we
+  // default to "owner" — never to super_admin — because the role='admin' →
+  // super_admin escalation is exactly the path that caused the 2026-05-06
+  // cross-tenant leak. Conservative default beats convenient default.
+  const tier = (profile?.tier as string | null | undefined) ?? "owner";
 
   // Demo impersonation surface: if SUPER_ADMIN AND a valid demo cookie is set,
   // expose the demo tenant's id + name so the UI can render the banner without

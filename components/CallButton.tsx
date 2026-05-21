@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, Loader2, CheckCheck, PhoneOff, ChevronDown } from "lucide-react";
+import { Phone, Loader2, CheckCheck, PhoneOff, ChevronDown, RefreshCw } from "lucide-react";
 import { C } from "@/lib/design";
 
 const DEFAULT_AIRCALL_USER_ID = process.env.NEXT_PUBLIC_AIRCALL_DEFAULT_USER_ID
@@ -49,21 +49,42 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
   const [selectedNumberId, setSelectedNumberId] = useState<number | null>(null);
   const [state, setState] = useState<"idle" | "calling" | "called" | "error">("idle");
   const [picker, setPicker] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
+  const loadNumbers = useCallback(async (opts?: { fresh?: boolean }) => {
     // Pass leadId so the API scopes to the LEAD's tenant (not the viewer's).
     // Super_admin viewing a SWL lead must NOT see Pathway/Arqy numbers in the
     // picker — that previously caused cross-tenant dialing.
-    fetch(`/api/aircall/numbers?leadId=${encodeURIComponent(leadId)}`)
-      .then(r => r.json())
-      .then((d: { numbers: AircallNumber[] }) => {
-        setNumbers(d.numbers ?? []);
-        const preferred = defaultNumberId && d.numbers?.find(n => n.id === defaultNumberId);
-        if (preferred) setSelectedNumberId(preferred.id);
-        else if (d.numbers?.[0]) setSelectedNumberId(d.numbers[0].id);
-      })
-      .catch(() => {});
+    const qs = new URLSearchParams({ leadId });
+    if (opts?.fresh) qs.set("fresh", "1");
+    try {
+      const r = await fetch(`/api/aircall/numbers?${qs.toString()}`, opts?.fresh ? { cache: "no-store" } : undefined);
+      const d = (await r.json()) as { numbers: AircallNumber[] };
+      setNumbers(d.numbers ?? []);
+      // Preserve the seller's current selection if it's still in the new list;
+      // otherwise fall back to the campaign default, then the first number.
+      setSelectedNumberId((prev) => {
+        if (prev && d.numbers?.some((n) => n.id === prev)) return prev;
+        const preferred = defaultNumberId && d.numbers?.find((n) => n.id === defaultNumberId);
+        if (preferred) return preferred.id;
+        return d.numbers?.[0]?.id ?? null;
+      });
+    } catch { /* leave numbers as-is */ }
   }, [defaultNumberId, leadId]);
+
+  useEffect(() => {
+    void loadNumbers();
+  }, [loadNumbers]);
+
+  async function refreshNumbers() {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await loadNumbers({ fresh: true });
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   if (!phone) {
     return (
@@ -160,8 +181,19 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
           className="absolute top-full right-0 mt-1 rounded-lg border shadow-lg z-50 min-w-[240px]"
           style={{ backgroundColor: C.card, borderColor: C.border }}
         >
-          <div className="px-3 py-2 border-b" style={{ borderColor: C.border }}>
+          <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
             <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>Call from</p>
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); void refreshNumbers(); }}
+              disabled={refreshing}
+              title="Refresh from Aircall — picks up newly-claimed numbers without waiting for the 5-min cache"
+              className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded transition-opacity hover:opacity-70 disabled:opacity-50"
+              style={{ color: C.textMuted }}
+            >
+              <RefreshCw size={9} className={refreshing ? "animate-spin" : ""} />
+              {refreshing ? "Syncing" : "Refresh"}
+            </button>
           </div>
           {numbers.map(n => {
             const isSelected = n.id === selectedNumberId;
