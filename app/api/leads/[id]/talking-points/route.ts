@@ -10,7 +10,14 @@ import { getSupabaseService } from "@/lib/supabase-service";
 // they're operational copy meant for the 30s before a dial, while ai_summary
 // is longer-form research. Schema: array of 3 short strings.
 
-type TalkingPoint = string;
+// Structured talking point. Each call brief has exactly three, one per type:
+// - pain: a problem this specific lead is likely fighting today
+// - fit:  why our offering maps to that pain for them in particular
+// - opener: a literal opening line or question the seller can drop verbatim
+//
+// Backward compat: legacy rows persisted as `string[]` are rendered as
+// generic numbered points by the client.
+type TalkingPoint = { type: "pain" | "fit" | "opener"; text: string };
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -22,7 +29,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     .single();
   if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
   return NextResponse.json({
-    points: (lead as any).call_talking_points as TalkingPoint[] | null,
+    points: (lead as any).call_talking_points,
     generatedAt: (lead as any).call_talking_points_at as string | null,
   });
 }
@@ -71,7 +78,7 @@ async function generate({ lead, icpContext, apiKey }: {
     .map(([k, v]) => `${k}: ${v}`)
     .join("\n");
 
-  const prompt = `You are a senior B2B SDR coach. The seller is about to dial ${name} in the next 30 seconds. Your job: surface the THREE strongest things to anchor that call on. No fluff, no preamble — they read your output literally seconds before pressing dial.
+  const prompt = `You are a senior B2B SDR coach. The seller dials ${name} in 30 seconds. Generate a tight call brief: one likely pain, one fit reason, one opening line. They will literally read your output before pressing dial.
 
 LEAD
 - ${name}${lead.primary_title_role ? `, ${lead.primary_title_role}` : ""}${lead.company_name ? ` at ${lead.company_name}` : ""}
@@ -89,14 +96,18 @@ ${icpContext ? `WHAT WE SELL
 - Pain we solve: ${icpContext.pain_points ?? ""}` : ""}
 
 TASK
-Output exactly 3 talking points the seller should anchor on. Format as a JSON array of 3 strings, nothing else. Each string ≤ 140 chars, written as a direct fact + why-it-matters, plain text, no markdown, no leading numbers, no quotes around the string.
+Return EXACTLY this JSON shape, nothing else:
+[
+  { "type": "pain",   "text": "<one pain this lead is likely fighting given role + company signals — ≤140 chars, concrete>" },
+  { "type": "fit",    "text": "<why our offering maps to that pain for THIS lead specifically — cite an enrichment data point, ≤140 chars>" },
+  { "type": "opener", "text": "<a literal opening line or question the seller can say verbatim, ≤140 chars, ends with a question mark when natural>" }
+]
 
-The 3 points should be a mix of:
-1. The single sharpest fit signal (cite the specific enrichment number/data point)
-2. The most credible reason to call them specifically (role, recent move, company event)
-3. An opening hook or question that ties enrichment to our offering
-
-Output ONLY the JSON array. Example shape: ["Point one ...","Point two ...","Point three ..."]`;
+Rules:
+- Plain text inside the strings (no markdown, no quotes around the values, no leading numbers).
+- Pain must be a problem, not a feature. Fit must be a relevance claim, not a sales pitch. Opener must be something a human would actually say.
+- Use the lead's first name in the opener if you have it.
+- Output ONLY the JSON array. No prose, no fences.`;
 
   try {
     const client = new Anthropic({ apiKey });
@@ -107,14 +118,19 @@ Output ONLY the JSON array. Example shape: ["Point one ...","Point two ...","Poi
     });
     const text = res.content[0].type === "text" ? res.content[0].text : "";
     // Tolerate models that wrap the array in prose or fence it.
-    const match = text.match(/\[[\s\S]*?\]/);
+    const match = text.match(/\[[\s\S]*\]/);
     const json = match ? match[0] : text;
     const parsed = JSON.parse(json);
     if (!Array.isArray(parsed)) return null;
-    const cleaned = parsed
-      .filter((p): p is string => typeof p === "string")
-      .map((p) => p.trim())
-      .filter((p) => p.length > 0)
+    const allowedTypes = new Set(["pain", "fit", "opener"]);
+    const cleaned: TalkingPoint[] = parsed
+      .filter((p): p is { type: string; text: string } =>
+        !!p && typeof p === "object" &&
+        typeof (p as any).type === "string" &&
+        typeof (p as any).text === "string")
+      .filter((p) => allowedTypes.has(p.type))
+      .map((p) => ({ type: p.type as TalkingPoint["type"], text: p.text.trim() }))
+      .filter((p) => p.text.length > 0)
       .slice(0, 3);
     return cleaned.length === 3 ? cleaned : null;
   } catch {
