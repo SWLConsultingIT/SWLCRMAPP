@@ -917,7 +917,7 @@ export default function NewCampaignWizard() {
                               <select value={q.sellerId}
                                 onChange={e => updateSellerQuota(idx, { sellerId: e.target.value })}
                                 className="text-sm font-medium rounded-lg border px-2 py-1.5 outline-none flex-1"
-                                style={{ borderColor: clr.text + "25", backgroundColor: "white", color: C.textBody }}>
+                                style={{ borderColor: clr.text + "25", backgroundColor: C.card, color: C.textBody }}>
                                 {sellers.filter(s => s.id === q.sellerId || !usedIds.has(s.id)).map(s => (
                                   <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}
@@ -926,7 +926,7 @@ export default function NewCampaignWizard() {
                                 <input type="number" min={1} max={leadsCount || undefined} value={q.quota}
                                   onChange={e => handleQuotaChange(idx, e.target.value)}
                                   className="w-16 text-sm font-bold rounded-lg border px-2 py-1.5 outline-none tabular-nums text-center"
-                                  style={{ borderColor: clr.text + "40", backgroundColor: "white", color: clr.text }} />
+                                  style={{ borderColor: clr.text + "40", backgroundColor: C.card, color: C.textBody }} />
                                 <span className="text-xs" style={{ color: C.textMuted }}>leads</span>
                                 {leadsCount > 0 && (
                                   <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
