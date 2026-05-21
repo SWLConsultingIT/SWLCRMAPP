@@ -13,7 +13,9 @@ import SignalPicker from "@/components/SignalPicker";
 
 const gold = C.gold;
 
-type SequenceStep = { channel: string; daysAfter: number };
+import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
+
+type SequenceStep = { channel: string; daysAfter: number; attachments?: StepAttachment[] };
 
 const timezoneOptions = [
   { value: "America/Argentina/La_Rioja", label: "Buenos Aires (UTC-3)" },
@@ -608,8 +610,9 @@ export default function NewCampaignWizard() {
                 const ch = channelOptions.find(c => c.key === s.channel)!;
                 const Icon = ch.icon;
                 return (
-                  <div key={i} className="flex items-center gap-3 rounded-lg border px-4 py-3"
+                  <div key={i} className="rounded-lg border px-4 py-3"
                     style={{ borderColor: C.border, backgroundColor: i === 0 ? `${ch.color}06` : "transparent" }}>
+                    <div className="flex items-center gap-3">
 
                     {/* Step number */}
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
@@ -666,6 +669,16 @@ export default function NewCampaignWizard() {
                         </button>
                       )}
                     </div>
+                    </div>
+
+                    {/* Per-step attachments (PDF / image / doc) — wired into
+                        sequence_steps[i].attachments and consumed by the
+                        email + LinkedIn dispatchers at send time. */}
+                    <StepAttachments
+                      channel={s.channel}
+                      attachments={s.attachments ?? []}
+                      onChange={(next) => updateStep(i, "attachments" as any, next)}
+                    />
                   </div>
                 );
               })}

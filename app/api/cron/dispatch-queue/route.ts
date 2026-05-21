@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import { mapLimit } from "@/lib/concurrency";
+import { signStepAttachments } from "@/lib/campaign-attachments";
 
 // Hard cap on parallel seller batches in a single tick. Each seller's batch
 // opens ~3 DB connections (list queued, hydrate lead+campaign, update on
@@ -490,7 +491,27 @@ async function dispatchOneMessage(
 
   const rawTemplate = candidate.content ?? "";
   const personalized = personalizeNote(rawTemplate, lead as LeadRow, seller).trim();
-  const outgoing = personalized;
+
+  // Per-step attachments. LinkedIn connection requests (step_number=0) can't
+  // carry attachments — the invite note body is the only payload LinkedIn
+  // accepts. For follow-up DMs (step_number ≥ 1) we append signed download
+  // links at the end of the message; Unipile's text-message API doesn't take
+  // file uploads on JSON POSTs, but URLs render as clickable links inside
+  // LinkedIn messages so the recipient can still grab the file.
+  const sequenceStepsForAttach = (campaign as any)?.sequence_steps as Array<{ attachments?: unknown }> | null;
+  const stepCfg = Array.isArray(sequenceStepsForAttach) ? sequenceStepsForAttach[candidate.step_number - 1] : null;
+  let attachmentSuffix = "";
+  if (candidate.step_number >= 1) {
+    try {
+      const links = await signStepAttachments(stepCfg?.attachments);
+      if (links.length > 0) {
+        attachmentSuffix = "\n\n— Attachments —\n" + links.map((a) => `• ${a.name}: ${a.signedUrl}`).join("\n");
+      }
+    } catch (e: any) {
+      return await failMessage(svc, candidate.id, candidate.lead_id, `attachment sign failed: ${e?.message ?? e}`);
+    }
+  }
+  const outgoing = (personalized + attachmentSuffix).trim();
   const truncated = false;
   if (candidate.step_number === 0 && outgoing.length > NOTE_MAX_LEN) {
     // Pre-2026-05-11: silent slice-and-ellipsis. Two problems with that:

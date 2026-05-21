@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import { getInstantlyConfig } from "@/lib/instantly-config";
+import { signStepAttachments } from "@/lib/campaign-attachments";
 
 // Cron-driven dispatcher for `campaign_messages` rows in `status='queued'`
 // where channel='email'. One mail per tick via Instantly v2.
@@ -266,8 +267,31 @@ async function dispatchOneEmail(
   const meta = (candidate.metadata as Record<string, unknown> | null) ?? {};
   const subjectRaw = (meta.subject as string | undefined) ?? `Quick idea for ${lead.company_name ?? "you"}`;
   const subject = personalize(subjectRaw, lead, seller).slice(0, 200);
-  const body = personalize(candidate.content ?? "", lead, seller);
+  let body = personalize(candidate.content ?? "", lead, seller);
   if (!body.trim()) return await failMessage(svc, candidate.id, candidate.lead_id, "empty body after personalization");
+
+  // Per-step attachments. Instantly v2 passthrough campaigns don't expose
+  // per-lead attachments (attachments live on the campaign object, but we
+  // share one Instantly campaign per tenant). The workable model is to
+  // append signed download links to the body, which lets the recipient
+  // grab the same PDF/flyer without us multiplying Instantly campaigns
+  // per step. Signed URLs live 5 minutes — by then Instantly has handed
+  // the message off to the inbox and the recipient will receive a relayed
+  // link, not the raw signed URL.
+  const sequenceStepsForAttach = (campaign as any)?.sequence_steps as Array<{ attachments?: unknown }> | null;
+  const stepCfg = Array.isArray(sequenceStepsForAttach) ? sequenceStepsForAttach[candidate.step_number - 1] : null;
+  let attachmentLinks: Array<{ name: string; signedUrl: string }> = [];
+  try {
+    attachmentLinks = await signStepAttachments(stepCfg?.attachments);
+  } catch (e: any) {
+    return await failMessage(svc, candidate.id, candidate.lead_id, `attachment sign failed: ${e?.message ?? e}`);
+  }
+  if (attachmentLinks.length > 0) {
+    const list = attachmentLinks
+      .map((a) => `• ${a.name}: ${a.signedUrl}`)
+      .join("\n");
+    body = `${body.trimEnd()}\n\n— Attachments —\n${list}`;
+  }
 
   let providerLeadId: string | null = null;
   let recreated = false;
