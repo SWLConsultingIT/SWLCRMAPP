@@ -56,6 +56,7 @@ export default function MoveForwardButton({
   const meta = channelMeta[ch];
   const ChIcon = meta.icon;
   const noun = channelNoun[ch];
+  const channelLabel = ch === "linkedin" ? "LinkedIn" : ch === "email" ? "Email" : "Call";
 
   async function commit(action: "send" | "skip") {
     setBusy(true);
@@ -88,7 +89,7 @@ export default function MoveForwardButton({
         }}
       >
         <SkipForward size={size === "sm" ? 10 : 13} />
-        {size === "md" && <span>Move Forward</span>}
+        {size === "md" && <span>Advance to Step {nextStep} · {channelLabel}</span>}
       </button>
 
       {open && (
@@ -126,10 +127,14 @@ export default function MoveForwardButton({
 
             {/* Body */}
             <div className="px-5 py-4 space-y-3">
-              <div className="rounded-lg border p-3" style={{ borderColor: "#FCD34D", backgroundColor: "#FFFBEB" }}>
+              <div className="rounded-lg border p-3"
+                style={{
+                  borderColor: "color-mix(in srgb, #D97706 35%, transparent)",
+                  backgroundColor: "color-mix(in srgb, #D97706 10%, transparent)",
+                }}>
                 <div className="flex items-start gap-2">
                   <AlertTriangle size={13} className="shrink-0 mt-0.5" style={{ color: "#D97706" }} />
-                  <p className="text-[11px] leading-relaxed" style={{ color: "#92400E" }}>
+                  <p className="text-[11px] leading-relaxed" style={{ color: "#D97706" }}>
                     <strong>Send</strong> delivers the {noun} on the next orchestrator cycle (up to 1 h).
                     <br />
                     <strong>Skip</strong> advances without sending — the {noun} is never delivered.

@@ -22,6 +22,7 @@ import LeadSummaryTab from "@/components/LeadSummaryTab";
 import LeadStatsBar from "@/components/LeadStatsBar";
 import MoveForwardButton from "@/components/MoveForwardButton";
 import PreCallBrief from "@/components/PreCallBrief";
+import StickyLeadActionBar from "@/components/StickyLeadActionBar";
 
 // Bypass Next's render cache. Without this, the page snapshots messages +
 // campaign state at build time and a freshly-sent step 1 keeps showing
@@ -344,6 +345,18 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   return (
     <div className="p-6 w-full fade-in">
 
+      {/* Sticky bar — fades in once the seller scrolls past the contact
+          header. Keeps Call / Email / LinkedIn one click away. */}
+      <StickyLeadActionBar
+        leadId={id}
+        leadName={contactName}
+        company={lead.company_name ?? null}
+        phone={lead.primary_phone}
+        email={lead.primary_work_email ?? lead.primary_personal_email ?? null}
+        linkedinUrl={lead.primary_linkedin_url}
+        aircallNumberId={campaign?.aircall_number_id ?? null}
+      />
+
       <Breadcrumb crumbs={[{ label: "Leads & Campaigns", href: "/leads" }, { label: lead.company_name ?? "Contact" }, { label: contactName }]} />
 
       {/* ═══ CONTACT HEADER ═══ */}
@@ -455,8 +468,19 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                     className="w-8 h-8 rounded-full flex items-center justify-center border relative"
                     title={broken ? `${label} allowed but no contact data on file — dispatch will fail` : ready ? `${label}: ready` : `${label}: blocked`}
                     style={{
-                      backgroundColor: ready ? "#F0FDF4" : broken ? "#FEF3C7" : "#F9FAFB",
-                      borderColor: ready ? "#BBF7D0" : broken ? "#FDE68A" : C.border,
+                      // Tinted backgrounds via color-mix so the chips render
+                      // correctly on dark mode. Same intent (green/amber/grey)
+                      // without the hardcoded light hex glow.
+                      backgroundColor: ready
+                        ? `color-mix(in srgb, ${C.green} 14%, transparent)`
+                        : broken
+                        ? "color-mix(in srgb, #D97706 14%, transparent)"
+                        : C.surface,
+                      borderColor: ready
+                        ? `color-mix(in srgb, ${C.green} 35%, transparent)`
+                        : broken
+                        ? "color-mix(in srgb, #D97706 35%, transparent)"
+                        : C.border,
                       opacity: allowed ? 1 : 0.45,
                     }}>
                     {ch.icon}
@@ -525,7 +549,12 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 {(campaign as any)?.call_advance_mode === "manual" && (
                   <span title="Sequence is paused at every call step until the seller dials. Auto-advance is off for this campaign."
                     className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md"
-                    style={{ backgroundColor: "#FEF3C7", color: "#92400E", border: "1px solid #FDE68A", letterSpacing: "0.06em" }}>
+                    style={{
+                      backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)",
+                      color: "#D97706",
+                      border: "1px solid color-mix(in srgb, #D97706 35%, transparent)",
+                      letterSpacing: "0.06em",
+                    }}>
                     Manual gate
                   </span>
                 )}
@@ -679,13 +708,18 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       )}
 
       {/* ═══ TABS ═══ */}
+      {/* Tab order reflects what sellers actually open on a lead, most to
+          least often: contact info → sequence progress → call history →
+          AI summary (research) → full timeline → social deep-research.
+          The Pre-Call Brief above the tabs already provides the 30-second
+          summary, so Summary tab demotes to the research-tier. */}
       <CompanyTabs tabs={[
         { label: "Profile Overview" },
-        { label: "Summary" },
         { label: "Campaign" },
+        { label: "Calls", count: calls.length || undefined },
+        { label: "Summary" },
         { label: "Recent Activity",  count: activityItems.length },
         { label: "Social & Content" },
-        { label: "Calls", count: calls.length || undefined },
       ]}>
 
         {/* ── TAB 1: Profile Overview ── */}
@@ -755,8 +789,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   return (
                     <div className="flex items-start gap-2.5 p-3 rounded-lg min-w-0"
                       style={{
-                        backgroundColor: disabled ? "#F3F4F6" : isWarn ? "#FEF3C7" : C.bg,
-                        border: disabled ? "1px solid #E5E7EB" : isWarn ? "1px solid #FDE68A" : "none",
+                        backgroundColor: disabled ? C.surface : isWarn ? "color-mix(in srgb, #D97706 12%, transparent)" : C.bg,
+                        border: disabled ? `1px solid ${C.border}` : isWarn ? "1px solid color-mix(in srgb, #D97706 32%, transparent)" : "none",
                         opacity: disabled ? 0.85 : 1,
                       }}>
                       <LinkedInIcon size={14} />
@@ -826,8 +860,12 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                         <div key={ch.key} title={`${ch.label}: ${allowed ? "Allowed" : "Blocked"}`}
                           className="w-9 h-9 rounded-full flex items-center justify-center border"
                           style={{
-                            backgroundColor: allowed ? "#F0FDF4" : "#F9FAFB",
-                            borderColor: allowed ? "#BBF7D0" : C.border,
+                            backgroundColor: allowed
+                              ? `color-mix(in srgb, ${C.green} 14%, transparent)`
+                              : C.surface,
+                            borderColor: allowed
+                              ? `color-mix(in srgb, ${C.green} 35%, transparent)`
+                              : C.border,
                             opacity: allowed ? 1 : 0.4,
                           }}>
                           {ch.icon}
@@ -1049,7 +1087,11 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   </div>
                 )}
                 {lead.recent_website_news && (
-                  <div className="p-3 rounded-lg" style={{ backgroundColor: "#FFFBEB", borderLeft: "3px solid #F59E0B" }}>
+                  <div className="p-3 rounded-lg"
+                    style={{
+                      backgroundColor: "color-mix(in srgb, #D97706 10%, transparent)",
+                      borderLeft: "3px solid #F59E0B",
+                    }}>
                     <p className="text-xs font-bold mb-1" style={{ color: "#D97706" }}>Recent News</p>
                     <p className="text-sm leading-relaxed" style={{ color: C.textBody }}>{lead.recent_website_news}</p>
                   </div>
@@ -1059,20 +1101,46 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           </div>
         </div>
 
-        {/* ── TAB 2: Summary ── */}
+        {/* ── TAB 2: Campaign ── */}
+        <CampaignJourney campaign={campaign as any} messages={messages as any} replies={replies as any} />
+
+        {/* ── TAB 3: Calls ── */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs" style={{ color: C.textMuted }}>
+              {calls.length > 0 ? `${calls.length} call${calls.length === 1 ? "" : "s"} recorded` : "No calls yet"}
+            </p>
+            <div className="flex items-center gap-2">
+              {lead.primary_phone && (
+                <CallButton phone={lead.primary_phone} leadId={id} size="sm" defaultNumberId={campaign?.aircall_number_id ?? null} />
+              )}
+              <SyncAircallButton />
+            </div>
+          </div>
+          {calls.length === 0 ? (
+            <div className="rounded-2xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+              <Phone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
+              <p className="text-sm font-medium" style={{ color: C.textBody }}>No calls recorded yet</p>
+              <p className="text-xs mt-1" style={{ color: C.textMuted }}>
+                Calls made via Aircall from the Queue will appear here. Click &ldquo;Sync from Aircall&rdquo; above to pull recent calls.
+              </p>
+            </div>
+          ) : (
+            calls.map((call: any) => <CallCard key={call.id} call={call} />)
+          )}
+        </div>
+
+        {/* ── TAB 4: Summary ── */}
         <LeadSummaryTab
           leadId={id}
           initialSummary={lead.ai_summary ?? null}
           initialGeneratedAt={lead.ai_summary_at ?? null}
         />
 
-        {/* ── TAB 3: Campaign ── */}
-        <CampaignJourney campaign={campaign as any} messages={messages as any} replies={replies as any} />
-
-        {/* ── TAB 3: Recent Activity ── */}
+        {/* ── TAB 5: Recent Activity ── */}
         <ActivityTimeline activities={activityItems as any} notes={teamNotes} leadId={id} />
 
-        {/* ── TAB 4: Social & Content ── */}
+        {/* ── TAB 6: Social & Content ── */}
         <div className="space-y-5">
 
           {/* Social Feed */}
@@ -1193,31 +1261,6 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           )}
         </div>
 
-        {/* ── TAB 5: Calls ── */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-xs" style={{ color: C.textMuted }}>
-              {calls.length > 0 ? `${calls.length} call${calls.length === 1 ? "" : "s"} recorded` : "No calls yet"}
-            </p>
-            <div className="flex items-center gap-2">
-              {lead.primary_phone && (
-                <CallButton phone={lead.primary_phone} leadId={id} size="sm" defaultNumberId={campaign?.aircall_number_id ?? null} />
-              )}
-              <SyncAircallButton />
-            </div>
-          </div>
-          {calls.length === 0 ? (
-            <div className="rounded-2xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-              <Phone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-              <p className="text-sm font-medium" style={{ color: C.textBody }}>No calls recorded yet</p>
-              <p className="text-xs mt-1" style={{ color: C.textMuted }}>
-                Calls made via Aircall from the Queue will appear here. Click &ldquo;Sync from Aircall&rdquo; above to pull recent calls.
-              </p>
-            </div>
-          ) : (
-            calls.map((call: any) => <CallCard key={call.id} call={call} />)
-          )}
-        </div>
 
       </CompanyTabs>
     </div>
