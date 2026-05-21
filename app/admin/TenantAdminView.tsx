@@ -1,5 +1,4 @@
-import { Users, Building2, Megaphone, Phone, Mail, Shield, ExternalLink } from "lucide-react";
-import Link from "next/link";
+import { Users, Building2, Megaphone, Phone } from "lucide-react";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { C } from "@/lib/design";
 import PageHero from "@/components/PageHero";
@@ -97,64 +96,11 @@ export default async function TenantAdminView({ tier, companyBioId }: Props) {
         <StatTile icon={Building2} label="Last team activity" value={timeAgo(ctx.lastSeen)} accent={C.textBody} small />
       </div>
 
-      {/* Two-column layout: team (wide) + workspace sidebar (narrow). The
-          sidebar holds workspace metadata + jump-links to the sub-admin
-          areas (Sellers, Aircall, Instantly) so the page actually fills
-          the width and the seller has clear "where to go next" options. */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 items-start">
-        <div className="min-w-0">
-          <TenantTeamTab companyBioId={companyBioId} canManage={canManage} />
-        </div>
-
-        <aside className="space-y-4">
-          {/* Workspace summary card */}
-          <div className="rounded-2xl border overflow-hidden"
-            style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
-            <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>Workspace</p>
-              <p className="text-sm font-bold mt-0.5" style={{ color: C.textPrimary }}>{tenantName}</p>
-              {ctx.bio?.created_at && (
-                <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>
-                  Created {new Date(ctx.bio.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                </p>
-              )}
-            </div>
-            <div className="px-5 py-3 space-y-2">
-              <WorkspaceLine label="Aircall numbers"
-                value={ctx.bio?.aircall_number_ids?.length
-                  ? `${ctx.bio.aircall_number_ids.length} configured`
-                  : "Not configured"}
-                ok={!!ctx.bio?.aircall_number_ids?.length} />
-              <WorkspaceLine label="Instantly campaign"
-                value={ctx.bio?.instantly_campaign_id ? "Linked" : "Not linked"}
-                ok={!!ctx.bio?.instantly_campaign_id} />
-              <WorkspaceLine label="Active flows"
-                value={`${ctx.activeFlowCount} running`}
-                ok={ctx.activeFlowCount > 0} />
-            </div>
-          </div>
-
-          {/* Quick links — jump-table to the sub-admin areas. Only visible
-              for owners; managers get a read-only team list and that's it. */}
-          {canManage && (
-            <div className="rounded-2xl border overflow-hidden"
-              style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
-              <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>Quick links</p>
-                <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>Configure resources for this workspace.</p>
-              </div>
-              <div className="py-1">
-                <QuickLink href="/accounts" icon={Phone} label="Sellers & accounts"
-                  hint="LinkedIn + Aircall mapping" />
-                <QuickLink href="/company-bios" icon={Building2} label="Company bio"
-                  hint="Branding, voice, services" />
-                <QuickLink href="/settings" icon={Shield} label="Account settings"
-                  hint="Your profile + preferences" />
-              </div>
-            </div>
-          )}
-        </aside>
-      </div>
+      {/* Team list full-width. Workspace sidebar removed — the bio metadata
+          + quick links it surfaced are reachable from the global sidebar
+          (/accounts, /company-bios, /settings) so duplicating them here was
+          noise. Team management is the only thing this page exists for. */}
+      <TenantTeamTab companyBioId={companyBioId} canManage={canManage} />
     </div>
   );
 }
@@ -189,39 +135,3 @@ function StatTile({ icon: Icon, label, value, accent, sub, small }: {
   );
 }
 
-function WorkspaceLine({ label, value, ok }: { label: string; value: string; ok: boolean }) {
-  return (
-    <div className="flex items-center justify-between text-[11px] py-1">
-      <span style={{ color: C.textMuted }}>{label}</span>
-      <span className="flex items-center gap-1 font-semibold"
-        style={{ color: ok ? C.green : C.textDim }}>
-        <span className="w-1.5 h-1.5 rounded-full"
-          style={{ backgroundColor: ok ? C.green : C.textDim }} />
-        {value}
-      </span>
-    </div>
-  );
-}
-
-function QuickLink({ href, icon: Icon, label, hint }: {
-  href: string;
-  icon: typeof Phone;
-  label: string;
-  hint: string;
-}) {
-  return (
-    <Link href={href}
-      className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-black/[0.02] group">
-      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-        style={{ backgroundColor: C.surface }}>
-        <Icon size={13} style={{ color: C.textMuted }} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[12px] font-semibold group-hover:underline" style={{ color: C.textPrimary }}>{label}</p>
-        <p className="text-[10px]" style={{ color: C.textDim }}>{hint}</p>
-      </div>
-      <ExternalLink size={11} style={{ color: C.textDim, opacity: 0.5 }}
-        className="group-hover:opacity-100 transition-opacity" />
-    </Link>
-  );
-}
