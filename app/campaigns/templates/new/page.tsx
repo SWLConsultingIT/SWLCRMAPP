@@ -1027,6 +1027,15 @@ function SequenceStep(props: {
           const isInvite = s.isConnectionRequest;
           if (isInvite) return null;
           const stepNum = hasConnectionRequest ? i : i + 1;
+          // Body-step index ignoring the invite. The FIRST body step has special
+          // scheduling semantics depending on whether there's a connection
+          // request:
+          //   - With invite  → fires the moment Unipile reports the accept,
+          //                    so daysAfter is meaningless (event-triggered).
+          //   - Without invite → fires day 0 of the campaign.
+          // Either way the user shouldn't see a "days" input for step 1.
+          const bodyStepIdx = hasConnectionRequest ? i - 1 : i;
+          const isFirstBodyStep = bodyStepIdx === 0;
           return (
             <div key={i} className="rounded-lg border p-3"
               style={{ borderColor: C.border, backgroundColor: C.bg }}>
@@ -1046,15 +1055,25 @@ function SequenceStep(props: {
                         <option key={ch} value={ch}>{channelMeta[ch].label}</option>
                       ))}
                     </select>
-                    <span className="text-[11px]" style={{ color: C.textMuted }}>after</span>
-                    <input
-                      type="number"
-                      value={s.daysAfter}
-                      onChange={e => updateStep(i, { daysAfter: Math.max(0, parseInt(e.target.value || "0", 10)) })}
-                      className="w-14 text-xs rounded border px-2 py-1 outline-none tabular-nums"
-                      style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}
-                    />
-                    <span className="text-[11px]" style={{ color: C.textMuted }}>days</span>
+                    {isFirstBodyStep ? (
+                      <span className="text-[11px] italic" style={{ color: C.textMuted }}>
+                        {hasConnectionRequest
+                          ? "fires when the lead accepts the invite"
+                          : "fires at campaign start (day 0)"}
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-[11px]" style={{ color: C.textMuted }}>after</span>
+                        <input
+                          type="number"
+                          value={s.daysAfter}
+                          onChange={e => updateStep(i, { daysAfter: Math.max(0, parseInt(e.target.value || "0", 10)) })}
+                          className="w-14 text-xs rounded border px-2 py-1 outline-none tabular-nums"
+                          style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}
+                        />
+                        <span className="text-[11px]" style={{ color: C.textMuted }}>days</span>
+                      </>
+                    )}
                   </>
                 )}
                 <button onClick={() => removeStep(i)}

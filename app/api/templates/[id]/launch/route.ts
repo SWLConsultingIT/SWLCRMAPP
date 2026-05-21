@@ -67,7 +67,8 @@ export async function POST(
   // looks at `sequence_steps[i].attachments`). Keep the original sequence_steps
   // intact for any non-attachment fields the template may carry (subject, etc.).
   const messageStepsForMerge = Array.isArray(stepMessages.steps) ? stepMessages.steps : [];
-  const sequence = rawSequence.map((step: Record<string, unknown>, i: number) => {
+  const sequence: Array<{ channel: string; daysAfter: number; attachments?: unknown }> = rawSequence.map((raw: unknown, i: number) => {
+    const step = raw as { channel: string; daysAfter: number };
     const msg = messageStepsForMerge.find(m => m.step === i + 1) ?? messageStepsForMerge[i];
     if (!msg || !Array.isArray(msg.attachments) || msg.attachments.length === 0) return step;
     return { ...step, attachments: msg.attachments };

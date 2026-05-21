@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { C } from "@/lib/design";
 import TemplateLaunchModal from "@/components/TemplateLaunchModal";
+import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -18,12 +19,12 @@ type FullTemplate = {
   sequence_steps: Array<{ channel: string; daysAfter: number }>;
   step_messages: {
     connectionRequest?: string;
-    steps?: Array<{ step: number; channel: string; subject?: string | null; body: string; source_excerpt?: string }>;
+    steps?: Array<{ step: number; channel: string; subject?: string | null; body: string; source_excerpt?: string; attachments?: StepAttachment[] }>;
     autoReplies?: { positive?: string; negative?: string; question?: string };
   };
 };
 
-type EditStep = { channel: string; daysAfter: number; subject: string; body: string };
+type EditStep = { channel: string; daysAfter: number; subject: string; body: string; attachments?: StepAttachment[] };
 
 const CHANNELS = [
   { key: "linkedin", label: "LinkedIn", icon: Share2,        color: "#0A66C2" },
@@ -167,7 +168,16 @@ function EditOverlay({ templateId, onClose, onSaved }: { templateId: string; onC
         const offset = (cr && cr.length > 0 && seqSteps[0]?.channel === "linkedin" && seqSteps[0]?.daysAfter === 0) ? 1 : 0;
         const combined: EditStep[] = seqSteps.slice(offset).map((s, i) => {
           const msg = msgSteps[i];
-          return { channel: s.channel, daysAfter: s.daysAfter, subject: msg?.subject ?? "", body: msg?.body ?? "" };
+          return {
+            channel: s.channel,
+            daysAfter: s.daysAfter,
+            subject: msg?.subject ?? "",
+            body: msg?.body ?? "",
+            // Hydrate attachments so the user sees them in the edit view AND
+            // the save payload preserves them (otherwise a save would wipe
+            // any uploaded files).
+            attachments: Array.isArray(msg?.attachments) ? msg.attachments : undefined,
+          };
         });
         setSteps(combined);
       })
@@ -212,6 +222,10 @@ function EditOverlay({ templateId, onClose, onSaved }: { templateId: string; onC
         channel: s.channel,
         subject: s.channel === "email" ? (s.subject || null) : null,
         body: s.body,
+        // Preserve attachments through the round-trip. Without this the edit
+        // overlay would silently wipe any per-step files the user uploaded
+        // from the create wizard.
+        attachments: Array.isArray(s.attachments) && s.attachments.length > 0 ? s.attachments : undefined,
       }));
       const res = await fetch(`/api/templates/${templateId}`, {
         method: "PATCH",
@@ -370,10 +384,22 @@ function EditOverlay({ templateId, onClose, onSaved }: { templateId: string; onC
                       )}
                       <div>
                         <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>Body</label>
-                        <textarea value={s.body} onChange={e => updateStep(idx, { body: e.target.value })} rows={4}
-                          className="w-full rounded-lg border px-3 py-2 text-sm leading-relaxed focus:outline-none resize-y"
-                          style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }} />
+                        <textarea value={s.body} onChange={e => updateStep(idx, { body: e.target.value })} rows={10}
+                          className="w-full rounded-lg border px-3 py-2.5 text-sm leading-relaxed focus:outline-none resize-y"
+                          style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary, minHeight: 200, fontFamily: "inherit" }} />
                       </div>
+                      {/* Per-step attachments — same component the create wizard +
+                          campaign wizard use. Calls don't carry files, so the
+                          uploader is hidden for that channel. */}
+                      {s.channel !== "call" && (
+                        <div className="pt-1">
+                          <StepAttachments
+                            channel={s.channel}
+                            attachments={s.attachments ?? []}
+                            onChange={(next) => updateStep(idx, { attachments: next })}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
