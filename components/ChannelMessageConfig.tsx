@@ -7,6 +7,7 @@ import {
   Share2, Mail, Phone, MessageCircle, Sparkles, Loader2,
   ThumbsUp, ThumbsDown, Maximize2, Minimize2, Plus,
 } from "lucide-react";
+import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
 
 const gold = C.gold;
 
@@ -49,7 +50,7 @@ export type ChannelMessages = {
 };
 
 type Props = {
-  sequence: { channel: string; daysAfter: number }[];
+  sequence: { channel: string; daysAfter: number; attachments?: StepAttachment[] }[];
   channelMessages: ChannelMessages;
   onChange: (msgs: ChannelMessages) => void;
   leadId?: string;
@@ -58,6 +59,9 @@ type Props = {
   language: string;
   /** Enrichment keys the rep ticked in SignalPicker — the AI is told to weave these in. */
   signals?: string[];
+  /** Update attachments on sequence[stepIdx]. Optional so the component still
+   * renders standalone (e.g. in template preview) without an attachment editor. */
+  onAttachmentsChange?: (stepIdx: number, attachments: StepAttachment[]) => void;
 };
 
 // ── Helpers ──
@@ -182,7 +186,7 @@ const inlinePlaceholdersByLocale: Record<"es" | "en", Record<string, string>> = 
 
 // ── Main Component ──
 
-export default function ChannelMessageConfig({ sequence, channelMessages, onChange, leadId, icpProfileId, language, signals }: Props) {
+export default function ChannelMessageConfig({ sequence, channelMessages, onChange, leadId, icpProfileId, language, signals, onAttachmentsChange }: Props) {
   const { locale, t } = useLocale();
   const placeholderLocale: "es" | "en" = locale === "es" ? "es" : "en";
   const typePlaceholders = typePlaceholdersByLocale[placeholderLocale];
@@ -587,6 +591,21 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                         value={step?.user_prompt ?? ""}
                         onChange={e => updateStep(i, "user_prompt", e.target.value)}
                         placeholder={typePlaceholders[cls.type] || t("wiz.step.promptHelperPlaceholder")}
+                      />
+                    </div>
+                  )}
+
+                  {/* ATTACHMENTS — file pickers live next to the message body
+                      because that's where the seller's brain is at when they
+                      think "this message needs a PDF". Wired back into the
+                      parent's sequence_steps[i].attachments, which the email +
+                      LinkedIn dispatchers consume at send time. */}
+                  {onAttachmentsChange && cls.channel !== "call" && (
+                    <div className="pt-1">
+                      <StepAttachments
+                        channel={cls.channel}
+                        attachments={sequence[i]?.attachments ?? []}
+                        onChange={(next) => onAttachmentsChange(i, next)}
                       />
                     </div>
                   )}

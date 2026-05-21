@@ -86,7 +86,7 @@ export default function StepAttachments({ channel, attachments, onChange }: Prop
   if (cannotAttach) return null;
 
   return (
-    <div className="mt-2 ml-10">
+    <div className="mt-1">
       {attachments.map((a, i) => (
         <div key={a.path}
           className="inline-flex items-center gap-2 mr-2 mb-1 rounded-md border px-2 py-1 text-[11px]"

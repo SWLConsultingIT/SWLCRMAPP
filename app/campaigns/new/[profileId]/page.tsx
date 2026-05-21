@@ -13,7 +13,7 @@ import SignalPicker from "@/components/SignalPicker";
 
 const gold = C.gold;
 
-import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
+import { type StepAttachment } from "@/components/StepAttachments";
 
 type SequenceStep = { channel: string; daysAfter: number; attachments?: StepAttachment[] };
 
@@ -674,15 +674,6 @@ export default function NewCampaignWizard() {
                       )}
                     </div>
                     </div>
-
-                    {/* Per-step attachments (PDF / image / doc) — wired into
-                        sequence_steps[i].attachments and consumed by the
-                        email + LinkedIn dispatchers at send time. */}
-                    <StepAttachments
-                      channel={s.channel}
-                      attachments={s.attachments ?? []}
-                      onChange={(next) => updateStep(i, "attachments" as any, next)}
-                    />
                   </div>
                 );
               })}
@@ -1202,6 +1193,9 @@ export default function NewCampaignWizard() {
             language={language}
             icpProfileId={profileId}
             signals={selectedSignals}
+            onAttachmentsChange={(stepIdx, next) => {
+              setSequence(seq => seq.map((step, i) => i === stepIdx ? { ...step, attachments: next } : step));
+            }}
           />
         </div>
       )}
