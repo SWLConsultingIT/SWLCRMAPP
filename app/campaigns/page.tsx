@@ -7,6 +7,7 @@ import CampaignTabs from "./CampaignTabs";
 import TemplatesView from "./TemplatesView";
 import ActiveCampaignsView from "@/components/ActiveCampaignsView";
 import NewCampaignView from "@/components/NewCampaignView";
+import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ async function getData() {
   const bioId = scope.isScoped ? scope.companyBioId! : null;
 
   const campsQ = supabase.from("campaigns")
-    .select("id, name, status, channel, current_step, sequence_steps, last_step_at, paused_until, completed_at, created_at, lead_id, leads!inner(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, status, lead_score, icp_profile_id, company_bio_id, created_at), sellers(name)")
+    .select("id, name, status, channel, current_step, sequence_steps, last_step_at, paused_until, completed_at, created_at, lead_id, leads!inner(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, status, lead_score, icp_profile_id, company_bio_id, created_at, source, encrypted_payload), sellers(name)")
     .in("status", ["active", "paused", "completed", "failed"])
     .order("created_at", { ascending: false }).limit(200);
 
@@ -31,7 +32,7 @@ async function getData() {
   // selectable, then bite later when the wizard's channel coverage check
   // failed because allow_* flags were defaulted-false on archived rows.
   const leadsQ = supabase.from("leads")
-    .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, icp_profile_id, company_bio_id, created_at")
+    .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, icp_profile_id, company_bio_id, created_at, source, encrypted_payload")
     .not("status", "in", "(closed_lost,qualified)")
     .neq("archived", true)
     .order("created_at", { ascending: false });
@@ -44,7 +45,7 @@ async function getData() {
     { data: campaigns },
     { data: allReplies },
     { data: campaignLeadIds },
-    { data: allLeads },
+    { data: allLeadsRaw },
     { data: icpProfiles },
   ] = await Promise.all([
     bioId ? campsQ.eq("leads.company_bio_id", bioId) : campsQ,
@@ -53,6 +54,38 @@ async function getData() {
     bioId ? leadsQ.eq("company_bio_id", bioId) : leadsQ,
     bioId ? icpQ.eq("company_bio_id", bioId) : icpQ,
   ]) as any;
+
+  // Privacy pass: client-uploaded leads have PII inside encrypted_payload.
+  // Same single-tenant decrypt as /leads/page.tsx — without it, every
+  // client-source lead lands as "Unknown / Company-only" in the picker.
+  // Resolve the key once and apply to both the flat lead list AND the
+  // campaigns' embedded leads (campsQ uses leads!inner).
+  const allLeads = await (async () => {
+    if (!allLeadsRaw || allLeadsRaw.length === 0 || !bioId) return allLeadsRaw ?? [];
+    const hasClient = allLeadsRaw.some((l: { source?: string | null }) => l.source === "client");
+    if (!hasClient) return allLeadsRaw;
+    try {
+      const { key } = await resolveTenantKey(bioId);
+      const decryptOne = (l: Record<string, unknown>) => {
+        if (l.source !== "client" || !l.encrypted_payload) return l;
+        try {
+          const blob = bufferFromSupabaseBytea(l.encrypted_payload);
+          return { ...l, ...decryptWithResolvedKey(blob, key), encrypted_payload: undefined };
+        } catch (err) {
+          console.error("[/campaigns] decrypt failed for", l.id, err);
+          return l;
+        }
+      };
+      // Also hydrate the embedded `leads` row attached to each campaign.
+      for (const c of campaigns ?? []) {
+        if (c.leads) c.leads = decryptOne(c.leads as Record<string, unknown>);
+      }
+      return allLeadsRaw.map(decryptOne);
+    } catch (err) {
+      console.error("[/campaigns] tenant key resolution failed", err);
+      return allLeadsRaw;
+    }
+  })();
 
   // Count sent/skipped messages per campaign for accurate progress.
   // campaigns.current_step is NOT reliable: step 0 (connection request) dispatch
