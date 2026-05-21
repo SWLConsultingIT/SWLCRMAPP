@@ -304,12 +304,12 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         <div className="border-t" style={{ borderColor: C.border }} />
 
         {/* Summary stats. Last cell is a channel breakdown of where the
-            active+paused leads currently sit (instead of the static
-            Duration string, which never changes post-launch). */}
-        <div className="px-6 py-4 grid grid-cols-6 gap-4">
+            active+paused leads currently sit — it already encodes the
+            "Active" count by summing the pills, so the standalone Active
+            stat was redundant and was removed. */}
+        <div className="px-6 py-4 grid grid-cols-5 gap-4">
           {[
             { label: "Total Leads", value: totalLeadsInGroup, color: gold },
-            { label: "Active", value: activeInGroup, color: C.green },
             { label: "Paused", value: pausedInGroup, color: "#D97706" },
             { label: "Completed", value: completedInGroup, color: C.textMuted },
             { label: "Progress", value: `${pct}%`, color: gold },
