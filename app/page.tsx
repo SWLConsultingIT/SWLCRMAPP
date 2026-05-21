@@ -3,7 +3,7 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import { redirect } from "next/navigation";
 import { C } from "@/lib/design";
-import { Share2, Mail, Phone } from "lucide-react";
+import { Share2, Mail, Phone, MessageSquare, Megaphone } from "lucide-react";
 import Link from "next/link";
 import DashboardHero from "@/components/DashboardHero";
 import DashboardStats from "@/components/DashboardStats";
@@ -47,11 +47,15 @@ const channelMeta: Record<string, { icon: typeof Share2; color: string; label: s
   call:     { icon: Phone,  color: "#F97316", label: "Call" },
 };
 
+// Dark-mode-safe tints: color-mix(... transparent) yields a translucent
+// wash over whatever surface the chip is on, instead of a hardcoded light
+// hex that would glow on the dark theme.
+const tint = (color: string, pct = 12) => `color-mix(in srgb, ${color} ${pct}%, transparent)`;
 const classColors: Record<string, { color: string; bg: string; label: string }> = {
-  positive:       { color: C.green,   bg: C.greenLight, label: "Positive" },
-  meeting_intent: { color: C.green,   bg: C.greenLight, label: "Meeting Intent" },
-  negative:       { color: C.red,     bg: C.redLight,   label: "Negative" },
-  question:       { color: "#D97706", bg: "#FFFBEB",    label: "Question" },
+  positive:       { color: C.green,   bg: tint(C.green, 14),   label: "Positive" },
+  meeting_intent: { color: C.green,   bg: tint(C.green, 14),   label: "Meeting Intent" },
+  negative:       { color: C.red,     bg: tint(C.red, 14),     label: "Negative" },
+  question:       { color: "#D97706", bg: tint("#D97706", 14), label: "Question" },
 };
 
 function timeAgo(iso: string) {
@@ -349,6 +353,15 @@ async function getDashboardData(filters: DashboardFilterValues) {
     transferred:       transferSplit.spark,
   };
 
+  // Today bucket = index 13 of the 14-day windows. Surfaced separately so
+  // the hero can show "what's happening RIGHT NOW" without re-running any
+  // queries — it's already in the trend payloads we fetched.
+  const todayPulse = {
+    leads:       leadCreatedBuckets[13] ?? 0,
+    replies:     replyBuckets[13] ?? 0,
+    transferred: transferBuckets[13] ?? 0,
+  };
+
   return {
     totalLeads: totalLeads ?? 0,
     leadsInCampaign: activeLeadIds.size,
@@ -361,6 +374,7 @@ async function getDashboardData(filters: DashboardFilterValues) {
     alerts,
     topCampaigns,
     recentReplies: formattedReplies,
+    todayPulse,
   };
 }
 
@@ -412,7 +426,11 @@ export default async function DashboardPage({
   return (
     <div className="p-4 sm:p-6 w-full">
       <ReliabilityBanner />
-      <DashboardHero />
+      <DashboardHero pulse={{
+        leadsToday: data.todayPulse.leads,
+        repliesToday: data.todayPulse.replies,
+        transferredToday: data.todayPulse.transferred,
+      }} />
 
       <DashboardTabs>
         {/* ═══ TAB 0: OVERVIEW ═══ */}
@@ -446,7 +464,19 @@ export default async function DashboardPage({
             >
               {data.topCampaigns.length === 0 ? (
                 <div className="px-5 py-10 text-center">
-                  <p className="text-sm" style={{ color: C.textDim }}>No active flows</p>
+                  <div className="w-11 h-11 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+                    style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)` }}>
+                    <Megaphone size={18} style={{ color: gold }} />
+                  </div>
+                  <p className="text-sm font-semibold mb-1" style={{ color: C.textBody }}>No active flows yet</p>
+                  <p className="text-[11px] leading-snug max-w-[260px] mx-auto mb-3" style={{ color: C.textMuted }}>
+                    Launch your first outreach flow to start contacting leads automatically.
+                  </p>
+                  <Link href="/campaigns?tab=new"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-85"
+                    style={{ backgroundColor: gold, color: "#04070d" }}>
+                    Create a flow
+                  </Link>
                 </div>
               ) : (
                 data.topCampaigns.map((camp, i) => (
@@ -500,7 +530,14 @@ export default async function DashboardPage({
             >
               {data.recentReplies.length === 0 ? (
                 <div className="px-5 py-10 text-center">
-                  <p className="text-sm" style={{ color: C.textDim }}>No replies yet</p>
+                  <div className="w-11 h-11 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+                    style={{ backgroundColor: `color-mix(in srgb, ${C.blue} 10%, transparent)` }}>
+                    <MessageSquare size={18} style={{ color: C.blue }} />
+                  </div>
+                  <p className="text-sm font-semibold" style={{ color: C.textBody }}>No replies yet</p>
+                  <p className="text-[11px] mt-1 leading-snug max-w-[200px] mx-auto" style={{ color: C.textMuted }}>
+                    The moment a lead writes back, they show up here.
+                  </p>
                 </div>
               ) : (
                 data.recentReplies.map((r: any, i: number) => {
