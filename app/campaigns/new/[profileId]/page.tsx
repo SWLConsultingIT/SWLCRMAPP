@@ -522,19 +522,51 @@ export default function NewCampaignWizard() {
 
       <div className="h-px mb-5" style={{ background: `linear-gradient(90deg, ${gold} 0%, color-mix(in srgb, var(--brand, #c9a83a) 15%, transparent) 40%, transparent 100%)` }} />
 
-      {/* Step indicator */}
-      <div className="flex items-center gap-1 mb-6">
-        {WIZARD_STEPS.map((s, i) => (
-          <div key={s} className="flex items-center gap-1">
-            <button onClick={() => i < wizardStep && setWizardStep(i)} disabled={i > wizardStep}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
-              style={i === wizardStep ? { backgroundColor: gold, color: "#04070d" } : i < wizardStep ? { backgroundColor: C.greenLight, color: C.green } : { backgroundColor: C.surface, color: C.textDim }}>
-              {i < wizardStep ? <Check size={12} /> : <span>{i + 1}</span>}
-              {s}
-            </button>
-            {i < WIZARD_STEPS.length - 1 && <div className="w-6 h-px" style={{ backgroundColor: C.border }} />}
+      {/* Step indicator — sticky so the seller always knows where they are
+          in the wizard even on the long Sequence + Messages screens. Header
+          line says "Step N of M · CurrentName" big + bold so a new user
+          isn't left guessing which of the chip pills is the current one. */}
+      <div className="sticky top-2 z-30 mb-6 rounded-2xl border px-5 py-3"
+        style={{
+          backgroundColor: "color-mix(in srgb, var(--card) 96%, transparent)",
+          backdropFilter: "saturate(180%) blur(8px)",
+          WebkitBackdropFilter: "saturate(180%) blur(8px)",
+          borderColor: C.border,
+          boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
+        }}>
+        <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold, letterSpacing: "0.16em" }}>
+              Step {wizardStep + 1} of {WIZARD_STEPS.length}
+            </p>
+            <p className="text-base font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+              {WIZARD_STEPS[wizardStep]}
+            </p>
           </div>
-        ))}
+          <p className="text-[11px]" style={{ color: C.textMuted }}>
+            {wizardStep === 0 && "Pick channels + timing for every step in the sequence."}
+            {wizardStep === 1 && "Choose seller(s) and the channel accounts that will deliver this flow."}
+            {wizardStep === 2 && "Write the message body for each step. AI can draft from your tone + lead data."}
+            {wizardStep === 3 && "Review the full flow before launching. You can still jump back to edit anything."}
+          </p>
+        </div>
+        <div className="flex items-center gap-1 flex-wrap">
+          {WIZARD_STEPS.map((s, i) => (
+            <div key={s} className="flex items-center gap-1">
+              <button onClick={() => i < wizardStep && setWizardStep(i)} disabled={i > wizardStep}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
+                style={i === wizardStep
+                  ? { backgroundColor: gold, color: "#04070d" }
+                  : i < wizardStep
+                  ? { backgroundColor: `color-mix(in srgb, ${C.green} 14%, transparent)`, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 30%, transparent)` }
+                  : { backgroundColor: C.surface, color: C.textDim }}>
+                {i < wizardStep ? <Check size={12} /> : <span>{i + 1}</span>}
+                {s}
+              </button>
+              {i < WIZARD_STEPS.length - 1 && <div className="w-6 h-px" style={{ backgroundColor: C.border }} />}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ═══ STEP 0: SEQUENCE BUILDER (with flow name) ═══ */}
@@ -1225,19 +1257,30 @@ export default function NewCampaignWizard() {
         </div>
       )}
 
-      {/* ═══ POST-SUBMIT SUCCESS SCREEN ═══ */}
-      {/* Save-as-template prompt — shown right after submit, before the success screen */}
+      {/* ═══ POST-SUBMIT FLOW ═══
+          Two-step modal sequence: the Save-as-template prompt shows FIRST,
+          then the success screen. The prompt opens with a "✓ Submitted" pill
+          at the top so the seller knows the submission already worked and
+          this is a bonus offer — not another action they have to complete
+          for the campaign to go through. */}
       {showSavePrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.55)" }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.55)" }}>
           <div className="rounded-2xl border p-7 w-full max-w-md shadow-2xl fade-in"
             style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4"
-              style={{ backgroundColor: "#FEF3C7" }}>
-              <span style={{ fontSize: 22 }}>📋</span>
+            {/* Submission-confirmed banner so the modal doesn't read as a
+                blocker. The actual campaign_request is already in the DB. */}
+            <div className="inline-flex items-center gap-1.5 mb-4 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
+              style={{
+                backgroundColor: `color-mix(in srgb, ${C.green} 14%, transparent)`,
+                color: C.green,
+                border: `1px solid color-mix(in srgb, ${C.green} 30%, transparent)`,
+                letterSpacing: "0.06em",
+              }}>
+              <Check size={11} /> Flow submitted
             </div>
-            <h2 className="text-lg font-bold mb-1" style={{ color: C.textPrimary }}>Save as template?</h2>
+            <h2 className="text-lg font-bold mb-1" style={{ color: C.textPrimary }}>Save this as a template?</h2>
             <p className="text-sm mb-5" style={{ color: C.textMuted }}>
-              Reuse this sequence and messages for future outreach flows.
+              Optional. Save the sequence + messages so you can launch it again next time without rebuilding from scratch. You can skip and the flow goes through anyway.
             </p>
             <div className="space-y-3 mb-5">
               <div>

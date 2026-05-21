@@ -434,10 +434,16 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                 {expanded.has("conn") ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
               </button>
               <button onClick={() => generateField("connectionNote", undefined)} disabled={!!aiLoading}
-                className="flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-opacity disabled:opacity-50"
-                style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`, color: gold }}>
-                {aiLoading === "connectionNote:" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
-                AI
+                title="Draft the LinkedIn invite note with AI from the lead's enrichment + your tone of voice"
+                className="flex items-center gap-1.5 rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-[opacity,box-shadow] disabled:opacity-50 hover:shadow-sm"
+                style={{
+                  background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
+                  color: "#04070d",
+                  boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 28%, transparent)`,
+                  letterSpacing: "0.06em",
+                }}>
+                {aiLoading === "connectionNote:" ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                {aiLoading === "connectionNote:" ? "Drafting" : "AI Draft"}
               </button>
             </div>
           </div>
@@ -539,10 +545,16 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                       {expanded.has(`step-${i}`) ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
                     </button>
                     <button onClick={() => generateField(fieldType, i)} disabled={!!aiLoading}
-                      className="flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-opacity disabled:opacity-50"
-                      style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`, color: gold }}>
-                      {aiLoading === loadingKey ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
-                      AI
+                      title="Draft this step's copy with AI from the lead's enrichment + your tone of voice"
+                      className="flex items-center gap-1.5 rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-[opacity,box-shadow] disabled:opacity-50 hover:shadow-sm"
+                      style={{
+                        background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
+                        color: "#04070d",
+                        boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 28%, transparent)`,
+                        letterSpacing: "0.06em",
+                      }}>
+                      {aiLoading === loadingKey ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                      {aiLoading === loadingKey ? "Drafting" : "AI Draft"}
                     </button>
                   </div>
                 </div>
