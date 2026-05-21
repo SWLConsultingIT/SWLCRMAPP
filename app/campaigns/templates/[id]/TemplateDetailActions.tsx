@@ -22,7 +22,28 @@ type FullTemplate = {
     steps?: Array<{ step: number; channel: string; subject?: string | null; body: string; source_excerpt?: string; attachments?: StepAttachment[] }>;
     autoReplies?: { positive?: string; negative?: string; question?: string };
   };
+  icp_profile_id?: string | null;
+  tone_preset?: string | null;
+  tone_custom_notes?: string | null;
+  rewrite_mode?: string | null;
 };
+
+type TonePreset = "conservative" | "balanced" | "direct" | "spicy" | "custom";
+type RewriteMode = "verbatim" | "personalize" | "rewrite_with_source";
+
+const TONE_PRESETS: Array<{ id: TonePreset; label: string; desc: string }> = [
+  { id: "conservative", label: "Conservative", desc: "Formal, safe, no hype." },
+  { id: "balanced",     label: "Balanced",     desc: "Conversational professional. Default." },
+  { id: "direct",       label: "Direct",       desc: "Punchy, no fluff." },
+  { id: "spicy",        label: "Spicy",        desc: "Bold opener, sharp angles." },
+  { id: "custom",       label: "Custom",       desc: "Bring your own style notes." },
+];
+
+const REWRITE_MODES: Array<{ id: RewriteMode; label: string; desc: string }> = [
+  { id: "verbatim",            label: "Verbatim",                desc: "Use body as-is. Only {{first_name}} / {{seller_name}} substituted." },
+  { id: "personalize",         label: "Personalize per lead",    desc: "Light per-lead rewrite by Claude." },
+  { id: "rewrite_with_source", label: "Rewrite from source PDF", desc: "Per-lead rewrite anchored to the source PDFs." },
+];
 
 type EditStep = { channel: string; daysAfter: number; subject: string; body: string; attachments?: StepAttachment[] };
 
@@ -137,13 +158,13 @@ export default function TemplateDetailActions({
       </div>
 
       {launchOpen && <TemplateLaunchModal templateId={templateId} templateName={templateName} icpProfileId={currentIcpId} onClose={() => setLaunchOpen(false)} />}
-      {editOpen && <EditOverlay templateId={templateId} onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); router.refresh(); }} />}
+      {editOpen && <EditOverlay templateId={templateId} icps={icps} onClose={() => setEditOpen(false)} onSaved={() => { setEditOpen(false); router.refresh(); }} />}
     </div>
   );
 }
 
 /* ── Edit overlay ── */
-function EditOverlay({ templateId, onClose, onSaved }: { templateId: string; onClose: () => void; onSaved: () => void }) {
+function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: string; icps: IcpOption[]; onClose: () => void; onSaved: () => void }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [tpl, setTpl] = useState<FullTemplate | null>(null);
@@ -151,6 +172,10 @@ function EditOverlay({ templateId, onClose, onSaved }: { templateId: string; onC
   const [description, setDescription] = useState("");
   const [connReq, setConnReq] = useState<string | null>(null); // null = no invite step
   const [steps, setSteps] = useState<EditStep[]>([]);
+  const [icpId, setIcpId] = useState<string | null>(null);
+  const [tonePreset, setTonePreset] = useState<TonePreset>("balanced");
+  const [toneCustom, setToneCustom] = useState("");
+  const [rewriteMode, setRewriteMode] = useState<RewriteMode>("personalize");
 
   useEffect(() => {
     fetch(`/api/templates/${templateId}`, { cache: "no-store" })
@@ -180,6 +205,10 @@ function EditOverlay({ templateId, onClose, onSaved }: { templateId: string; onC
           };
         });
         setSteps(combined);
+        setIcpId(template.icp_profile_id ?? null);
+        setTonePreset((template.tone_preset as TonePreset) ?? "balanced");
+        setToneCustom(template.tone_custom_notes ?? "");
+        setRewriteMode((template.rewrite_mode as RewriteMode) ?? "personalize");
       })
       .finally(() => setLoading(false));
   }, [templateId]);
@@ -235,6 +264,10 @@ function EditOverlay({ templateId, onClose, onSaved }: { templateId: string; onC
           description: description.trim() || null,
           sequence_steps,
           step_messages: { ...tpl.step_messages, connectionRequest: connReq ?? "", steps: msgSteps },
+          icp_profile_id: icpId,
+          tone_preset: tonePreset,
+          tone_custom_notes: tonePreset === "custom" ? (toneCustom.trim() || null) : null,
+          rewrite_mode: rewriteMode,
         }),
       });
       if (!res.ok) { const b = await res.json().catch(() => ({})); alert(b.error ?? "Save failed"); return; }
@@ -284,6 +317,71 @@ function EditOverlay({ templateId, onClose, onSaved }: { templateId: string; onC
                 <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Optional"
                   className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
                   style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
+              </div>
+            </div>
+
+            {/* Targeting + behavior — ICP / Tone / Rewrite. These weren't editable
+                before; users had to delete & rebuild the template just to change
+                rewrite_mode or move it to a different ICP. */}
+            <div className="rounded-xl border p-5 space-y-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
+                Targeting &amp; behavior
+              </p>
+
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: C.textMuted }}>ICP target</label>
+                <select value={icpId ?? ""} onChange={e => setIcpId(e.target.value || null)}
+                  className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
+                  style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}>
+                  <option value="">— None —</option>
+                  {icps.map(i => <option key={i.id} value={i.id}>{i.profile_name}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>Tone</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {TONE_PRESETS.map(t => (
+                    <button key={t.id} onClick={() => setTonePreset(t.id)}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-md border transition-colors"
+                      style={{
+                        borderColor: tonePreset === t.id ? gold : C.border,
+                        backgroundColor: tonePreset === t.id ? `color-mix(in srgb, ${gold} 10%, transparent)` : C.bg,
+                        color: tonePreset === t.id ? gold : C.textBody,
+                      }}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] mt-1.5" style={{ color: C.textMuted }}>
+                  {TONE_PRESETS.find(t => t.id === tonePreset)?.desc}
+                </p>
+                {tonePreset === "custom" && (
+                  <textarea value={toneCustom} onChange={e => setToneCustom(e.target.value)}
+                    placeholder="Paste your style guide / writing examples."
+                    rows={3} maxLength={1500}
+                    className="w-full mt-2 rounded-lg border px-3 py-2 text-sm focus:outline-none resize-y"
+                    style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
+                )}
+              </div>
+
+              <div>
+                <label className="text-[10px] font-semibold uppercase tracking-wider block mb-2" style={{ color: C.textMuted }}>Rewrite mode</label>
+                <div className="space-y-1.5">
+                  {REWRITE_MODES.map(m => (
+                    <button key={m.id} onClick={() => setRewriteMode(m.id)}
+                      className="w-full flex items-start gap-2 text-left px-3 py-2 rounded-md border transition-colors"
+                      style={{
+                        borderColor: rewriteMode === m.id ? gold : C.border,
+                        backgroundColor: rewriteMode === m.id ? `color-mix(in srgb, ${gold} 8%, transparent)` : C.bg,
+                      }}>
+                      <span className="text-xs font-semibold shrink-0" style={{ color: rewriteMode === m.id ? gold : C.textBody }}>
+                        {m.label}
+                      </span>
+                      <span className="text-[11px]" style={{ color: C.textMuted }}>{m.desc}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
