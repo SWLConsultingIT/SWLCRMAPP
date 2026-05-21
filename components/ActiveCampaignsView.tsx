@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { C } from "@/lib/design";
-import { Share2, Mail, Phone, BarChart3, MessageSquare, Clock, CheckCircle, Target } from "lucide-react";
+import { Share2, Mail, Phone, BarChart3, Clock, Target, ChevronDown, Users } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -58,6 +59,7 @@ type IcpSection = {
   name: string;
   description: string | null;
   totalLeads: number;
+  totalActive: number;
   totalReplies: number;
   totalPositive: number;
   groups: CampaignGroup[];
@@ -127,9 +129,6 @@ function groupCampaigns(campaigns: Campaign[]): CampaignGroup[] {
 
     const groupStatus = active > 0 ? "active" : paused > 0 ? "paused" : completed > 0 ? "completed" : "failed";
 
-    // Pick the dominant ICP for this campaign group: in practice every lead in
-    // a campaign shares an ICP because the wizard creates one campaign per
-    // ICP, but we tally just in case (e.g. a manually-assembled flow).
     const icpCounts: Record<string, number> = {};
     for (const c of camps) {
       const id = (c.leads as any)?.icp_profile_id ?? "__none";
@@ -155,9 +154,6 @@ function groupCampaigns(campaigns: Campaign[]): CampaignGroup[] {
   }).sort((a, b) => b.active - a.active || b.totalLeads - a.totalLeads);
 }
 
-// Build the ICP-grouped sections from already-grouped campaign rows. Sections
-// with no flows are dropped; the order is "most active first" so the section a
-// seller most likely wants to act on lives at the top of the screen.
 function buildIcpSections(groups: CampaignGroup[], icpMap: Record<string, IcpProfile>): IcpSection[] {
   const byIcp: Record<string, CampaignGroup[]> = {};
   for (const g of groups) {
@@ -177,13 +173,12 @@ function buildIcpSections(groups: CampaignGroup[], icpMap: Record<string, IcpPro
       name,
       description,
       totalLeads: gs.reduce((s, g) => s + g.totalLeads, 0),
+      totalActive: gs.reduce((s, g) => s + g.active, 0),
       totalReplies: gs.reduce((s, g) => s + g.totalReplies, 0),
       totalPositive: gs.reduce((s, g) => s + g.totalPositive, 0),
       groups: gs,
     };
   });
-  // Active-leads-first ordering. Uncategorized always sinks to the bottom so
-  // it doesn't compete for attention with real ICPs.
   return sections.sort((a, b) => {
     if (a.id === null && b.id !== null) return 1;
     if (b.id === null && a.id !== null) return -1;
@@ -191,122 +186,223 @@ function buildIcpSections(groups: CampaignGroup[], icpMap: Record<string, IcpPro
   });
 }
 
-function FlowCard({ group }: { group: CampaignGroup }) {
+function MetricTile({ label, value, sub, accent, dim }: { label: string; value: string | number; sub?: string | null; accent: string; dim: boolean }) {
+  return (
+    <div className="rounded-xl border px-4 py-3 min-w-[120px] flex-1"
+      style={{
+        borderColor: dim ? C.border : `color-mix(in srgb, ${accent} 22%, transparent)`,
+        backgroundColor: dim ? C.bg : `color-mix(in srgb, ${accent} 5%, var(--card))`,
+      }}>
+      <p className="text-[9px] font-bold uppercase tracking-[0.12em]" style={{ color: C.textDim }}>{label}</p>
+      <p className="text-[22px] font-bold tabular-nums leading-none mt-1.5"
+        style={{ color: dim ? C.textPrimary : accent, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}>
+        {value}
+      </p>
+      {sub && (
+        <p className="text-[10px] mt-1" style={{ color: C.textDim }}>{sub}</p>
+      )}
+    </div>
+  );
+}
+
+function FlowRow({ group }: { group: CampaignGroup }) {
   const st = statusConfig[group.status] ?? statusConfig.active;
   const responseRate = group.totalLeads > 0 ? Math.round((group.totalReplies / group.totalLeads) * 100) : 0;
   const positiveRate = group.totalLeads > 0 ? Math.round((group.totalPositive / group.totalLeads) * 100) : 0;
   const ago = timeAgo(group.lastActivity);
 
   return (
-    <Link
-      href={`/campaigns/${group.firstId}`}
-      className="rounded-2xl border overflow-hidden transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:shadow-lg group relative"
+    <Link href={`/campaigns/${group.firstId}`}
+      className="block relative rounded-2xl border overflow-hidden transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:shadow-md group"
+      style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 2px 10px rgba(0,0,0,0.03)" }}>
+      {/* Status accent bar — bold left edge tells the seller at a glance. */}
+      <div aria-hidden className="absolute left-0 top-0 bottom-0" style={{ width: 4, backgroundColor: st.color }} />
+
+      <div className="pl-6 pr-5 py-4">
+        {/* Top row: channels + name + status + seller. Single line at wide widths. */}
+        <div className="flex items-center justify-between gap-4 flex-wrap mb-3">
+          <div className="flex items-center gap-3 flex-wrap min-w-0">
+            <div className="flex items-center gap-1.5 shrink-0">
+              {group.channels.map(ch => {
+                const meta = channelMeta[ch] ?? channelMeta.email;
+                const Icon = meta.icon;
+                return (
+                  <span key={ch} className="inline-flex items-center justify-center rounded-lg"
+                    style={{ width: 24, height: 24, backgroundColor: `color-mix(in srgb, ${meta.color} 10%, transparent)` }}
+                    title={meta.label}>
+                    <Icon size={12} style={{ color: meta.color }} />
+                  </span>
+                );
+              })}
+            </div>
+            <h3 className="text-[16px] font-semibold truncate group-hover:underline"
+              style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
+              {group.name}
+            </h3>
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0"
+              style={{
+                backgroundColor: st.bg,
+                color: st.color,
+                border: `1px solid color-mix(in srgb, ${st.color} 22%, transparent)`,
+              }}>
+              {st.label}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 text-[11px] shrink-0" style={{ color: C.textMuted }}>
+            {group.sellers.length > 0 && (
+              <span className="flex items-center gap-1.5">
+                <Users size={11} />
+                <span style={{ color: C.textBody, fontWeight: 500 }}>{group.sellers.join(", ")}</span>
+              </span>
+            )}
+            {ago && (
+              <span className="flex items-center gap-1">
+                <Clock size={11} /> {ago}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Metric tiles + progress — laid out as a horizontal strip so the
+            seller can scan KPIs left-to-right without scrolling. Progress
+            bar sits on the right and stretches to fill remaining space. */}
+        <div className="flex items-stretch gap-3 flex-wrap">
+          <MetricTile label="Leads" value={group.totalLeads}
+            sub={group.active > 0 ? `${group.active} active${group.completed > 0 ? ` · ${group.completed} done` : ""}` : group.completed > 0 ? `${group.completed} done` : null}
+            accent={gold} dim={true} />
+          <MetricTile label="Replies" value={group.totalReplies}
+            sub={`${responseRate}% response rate`}
+            accent={C.blue} dim={group.totalReplies === 0} />
+          <MetricTile label="Positive" value={group.totalPositive}
+            sub={`${positiveRate}% positive rate`}
+            accent={C.green} dim={group.totalPositive === 0} />
+
+          {/* Progress block — fills remaining horizontal space. Big, friendly,
+              tells the seller "how far through the sequence am I on average". */}
+          <div className="rounded-xl border px-4 py-3 flex-[2] min-w-[220px]"
+            style={{ borderColor: C.border, backgroundColor: C.bg }}>
+            <div className="flex items-center justify-between">
+              <p className="text-[9px] font-bold uppercase tracking-[0.12em]" style={{ color: C.textDim }}>Sequence Progress</p>
+              <p className="text-[12px] font-bold tabular-nums" style={{ color: C.textPrimary }}>{group.avgProgress}%</p>
+            </div>
+            <div className="mt-2.5 h-2 rounded-full" style={{ backgroundColor: C.border }}>
+              <div className="h-2 rounded-full transition-[width] duration-300"
+                style={{
+                  width: `${group.avgProgress}%`,
+                  background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 65%, white))`,
+                }} />
+            </div>
+            <p className="text-[10px] mt-1.5" style={{ color: C.textDim }}>
+              Average across all leads in this flow
+            </p>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function IcpSectionBlock({ section, defaultOpen }: { section: IcpSection; defaultOpen: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const [hydrated, setHydrated] = useState(false);
+  const storageKey = `flows.icp.${section.id ?? "uncategorized"}.collapsed`;
+
+  useEffect(() => {
+    try {
+      const v = window.localStorage.getItem(storageKey);
+      if (v === "1") setOpen(false);
+      else if (v === "0") setOpen(true);
+    } catch { /* private mode */ }
+    setHydrated(true);
+  }, [storageKey]);
+
+  function toggle() {
+    const next = !open;
+    setOpen(next);
+    try { window.localStorage.setItem(storageKey, next ? "0" : "1"); } catch { /* ignore */ }
+  }
+
+  const responseRate = section.totalLeads > 0 ? Math.round((section.totalReplies / section.totalLeads) * 100) : 0;
+
+  return (
+    <section className="rounded-2xl border overflow-hidden"
       style={{
         backgroundColor: C.card,
         borderColor: C.border,
-        borderTop: `3px solid ${st.color}`,
         boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
-      }}
-    >
-      <div aria-hidden className="absolute -top-10 -right-10 w-32 h-32 rounded-full pointer-events-none opacity-40"
-        style={{ background: `radial-gradient(circle, color-mix(in srgb, ${st.color} 18%, transparent) 0%, transparent 70%)` }} />
-
-      {/* Top bar: channels + status */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b relative"
-        style={{
-          borderColor: C.border,
-          background: `linear-gradient(90deg, color-mix(in srgb, ${st.color} 4%, transparent) 0%, transparent 60%)`,
-        }}>
-        <div className="flex items-center gap-2">
-          {group.channels.map(ch => {
-            const meta = channelMeta[ch] ?? channelMeta.email;
-            const Icon = meta.icon;
-            return (
-              <span key={ch} className="flex items-center gap-1">
-                <Icon size={12} style={{ color: meta.color }} />
-                <span className="text-xs font-semibold" style={{ color: meta.color }}>{meta.label}</span>
-              </span>
-            );
-          })}
-        </div>
-        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+      }}>
+      <button type="button" onClick={toggle} aria-expanded={open}
+        className="w-full flex items-center gap-4 px-6 py-4 text-left transition-colors hover:bg-black/[0.02]"
+        style={{ borderBottom: open ? `1px solid ${C.border}` : "none" }}>
+        {/* Decorative icon disc + ICP info */}
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
           style={{
-            backgroundColor: st.bg,
-            color: st.color,
-            border: `1px solid color-mix(in srgb, ${st.color} 22%, transparent)`,
+            background: `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 70%, white) 100%)`,
+            boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 30%, transparent)`,
           }}>
-          {st.label}
-        </span>
-      </div>
-
-      {/* Body */}
-      <div className="px-4 py-3 relative">
-        <h3 className="text-[15px] font-semibold mb-2 group-hover:underline"
-          style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
-          {group.name}
-        </h3>
-
-        {/* Headline metric strip: three tiles — leads, replies (+rate), positive (+rate).
-            Always visible, always tabular numbers, so the seller can compare
-            cards at a glance even when values are 0. */}
-        <div className="grid grid-cols-3 gap-2 mb-3">
-          <div className="rounded-lg px-2.5 py-2 border" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-            <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim, letterSpacing: "0.06em" }}>Leads</p>
-            <p className="text-base font-bold tabular-nums leading-none mt-1" style={{ color: C.textPrimary }}>{group.totalLeads}</p>
-            {group.active > 0 && (
-              <p className="text-[9px] mt-0.5" style={{ color: C.green }}>{group.active} active</p>
-            )}
-          </div>
-          <div className="rounded-lg px-2.5 py-2 border"
-            style={{
-              borderColor: group.totalReplies > 0 ? `color-mix(in srgb, ${C.blue} 22%, transparent)` : C.border,
-              backgroundColor: group.totalReplies > 0 ? `color-mix(in srgb, ${C.blue} 4%, transparent)` : C.bg,
-            }}>
-            <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim, letterSpacing: "0.06em" }}>Replies</p>
-            <p className="text-base font-bold tabular-nums leading-none mt-1" style={{ color: group.totalReplies > 0 ? C.blue : C.textPrimary }}>{group.totalReplies}</p>
-            <p className="text-[9px] mt-0.5" style={{ color: C.textDim }}>{responseRate}% rate</p>
-          </div>
-          <div className="rounded-lg px-2.5 py-2 border"
-            style={{
-              borderColor: group.totalPositive > 0 ? `color-mix(in srgb, ${C.green} 22%, transparent)` : C.border,
-              backgroundColor: group.totalPositive > 0 ? `color-mix(in srgb, ${C.green} 4%, transparent)` : C.bg,
-            }}>
-            <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim, letterSpacing: "0.06em" }}>Positive</p>
-            <p className="text-base font-bold tabular-nums leading-none mt-1" style={{ color: group.totalPositive > 0 ? C.green : C.textPrimary }}>{group.totalPositive}</p>
-            <p className="text-[9px] mt-0.5" style={{ color: C.textDim }}>{positiveRate}% rate</p>
-          </div>
+          <Target size={18} style={{ color: "#fff" }} strokeWidth={2.2} />
         </div>
-
-        {/* Seller line + completed count if any */}
-        <div className="flex items-center justify-between gap-2 text-[10px]" style={{ color: C.textDim }}>
-          {group.sellers.length > 0 ? (
-            <span>Seller{group.sellers.length > 1 ? "s" : ""}: <span style={{ color: C.textBody, fontWeight: 500 }}>{group.sellers.join(", ")}</span></span>
-          ) : <span />}
-          {group.completed > 0 && (
-            <span className="flex items-center gap-1" style={{ color: C.textMuted }}>
-              <CheckCircle size={9} /> {group.completed} done
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 mb-0.5">
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: gold, letterSpacing: "0.14em" }}>ICP Profile</p>
+            <span className="text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-md"
+              style={{ backgroundColor: C.surface, color: C.textMuted }}>
+              {section.groups.length} flow{section.groups.length === 1 ? "" : "s"}
             </span>
+          </div>
+          <h2 className="text-[17px] font-bold leading-tight truncate"
+            style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
+            {section.name}
+          </h2>
+          {section.description && (
+            <p className="text-[11px] truncate mt-0.5" style={{ color: C.textMuted }}>{section.description}</p>
           )}
         </div>
-      </div>
 
-      {/* Footer: progress + last activity */}
-      <div className="px-4 py-2.5 border-t flex items-center justify-between gap-2"
-        style={{ borderColor: C.border, backgroundColor: C.bg }}>
-        <div className="flex items-center gap-2 flex-1">
-          <div className="flex-1 h-1 rounded-full" style={{ backgroundColor: C.border }}>
-            <div className="h-1 rounded-full"
-              style={{ width: `${group.avgProgress}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} />
+        {/* Rolled-up metrics — shown in the header so the manager can scan
+            ICP performance without expanding every section. */}
+        <div className="hidden md:flex items-center gap-5 shrink-0 mr-3">
+          <div className="text-right">
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>Leads</p>
+            <p className="text-base font-bold tabular-nums leading-none mt-0.5" style={{ color: C.textPrimary }}>
+              {section.totalLeads}
+              {section.totalActive > 0 && (
+                <span className="ml-1 text-[10px]" style={{ color: C.green }}>({section.totalActive} active)</span>
+              )}
+            </p>
           </div>
-          <span className="text-[10px] tabular-nums shrink-0" style={{ color: C.textMuted }}>{group.avgProgress}%</span>
+          <div className="text-right">
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>Replies</p>
+            <p className="text-base font-bold tabular-nums leading-none mt-0.5"
+              style={{ color: section.totalReplies > 0 ? C.blue : C.textPrimary }}>
+              {section.totalReplies}
+              <span className="ml-1 text-[10px]" style={{ color: C.textDim }}>({responseRate}%)</span>
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>Positive</p>
+            <p className="text-base font-bold tabular-nums leading-none mt-0.5"
+              style={{ color: section.totalPositive > 0 ? C.green : C.textPrimary }}>
+              {section.totalPositive}
+            </p>
+          </div>
         </div>
-        {ago && (
-          <span className="text-[10px] flex items-center gap-0.5 shrink-0" style={{ color: C.textDim }}>
-            <Clock size={9} /> {ago}
-          </span>
-        )}
-      </div>
-    </Link>
+
+        <ChevronDown size={18}
+          className="shrink-0 transition-transform duration-200"
+          style={{
+            color: C.textMuted,
+            transform: open ? "rotate(0deg)" : "rotate(-90deg)",
+            opacity: hydrated ? 1 : 0,
+          }} />
+      </button>
+
+      {open && (
+        <div className="p-5 space-y-3" style={{ backgroundColor: `color-mix(in srgb, ${C.bg} 60%, transparent)` }}>
+          {section.groups.map(g => <FlowRow key={g.name} group={g} />)}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -332,57 +428,10 @@ export default function ActiveCampaignsView({ campaigns, icpMap }: { campaigns: 
   }
 
   return (
-    <div className="space-y-8">
-      {sections.map((section) => {
-        const responseRate = section.totalLeads > 0 ? Math.round((section.totalReplies / section.totalLeads) * 100) : 0;
-        return (
-          <section key={section.id ?? "uncategorized"}>
-            {/* Section header — ICP name + rolled-up metrics for the whole ICP.
-                Lets a manager scan ICP performance without expanding every card. */}
-            <header className="flex items-end justify-between gap-4 mb-3 pb-2 border-b" style={{ borderColor: C.border }}>
-              <div className="min-w-0 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                  style={{
-                    backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`,
-                    border: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
-                  }}>
-                  <Target size={16} style={{ color: gold }} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textDim }}>ICP Profile</p>
-                  <h2 className="text-base font-bold truncate"
-                    style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
-                    {section.name}
-                  </h2>
-                  {section.description && (
-                    <p className="text-[11px] truncate" style={{ color: C.textMuted }}>{section.description}</p>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-4 text-[11px] shrink-0" style={{ color: C.textMuted }}>
-                <span className="flex items-center gap-1">
-                  <span className="font-bold tabular-nums" style={{ color: C.textPrimary }}>{section.totalLeads}</span> leads
-                </span>
-                <span className="flex items-center gap-1">
-                  <MessageSquare size={11} style={{ color: C.blue }} />
-                  <span className="font-bold tabular-nums" style={{ color: C.textPrimary }}>{section.totalReplies}</span>
-                  <span>· {responseRate}%</span>
-                </span>
-                {section.totalPositive > 0 && (
-                  <span className="flex items-center gap-1">
-                    <CheckCircle size={11} style={{ color: C.green }} />
-                    <span className="font-bold tabular-nums" style={{ color: C.green }}>{section.totalPositive}</span>
-                  </span>
-                )}
-              </div>
-            </header>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {section.groups.map(g => <FlowCard key={g.name} group={g} />)}
-            </div>
-          </section>
-        );
-      })}
+    <div className="space-y-4">
+      {sections.map((section, i) => (
+        <IcpSectionBlock key={section.id ?? "uncategorized"} section={section} defaultOpen={i === 0} />
+      ))}
     </div>
   );
 }
