@@ -124,7 +124,7 @@ function AddAccountModal({
   // Reconnect flow: skip channel picker, prefill name/limit from the existing
   // seller row, and pass its id back to the API so it reuses the row instead
   // of creating a duplicate.
-  const [step, setStep] = useState<"channel" | "form" | "connecting" | "connected" | "share_existing">(
+  const [step, setStep] = useState<"channel" | "form" | "connecting" | "connected" | "share_existing" | "pick_unipile">(
     existingSeller ? "form" : "channel"
   );
   const [name, setName] = useState(existingSeller?.name ?? "");
@@ -203,6 +203,7 @@ function AddAccountModal({
               : step === "connecting" ? "Connecting LinkedIn"
               : step === "connected" ? "Connected"
               : step === "share_existing" ? "Share existing seller"
+              : step === "pick_unipile" ? "Link existing Unipile account"
               : existingSeller ? "Reconnect LinkedIn" : "Add LinkedIn Seller"}
           </h2>
           <button onClick={onClose}><X size={18} style={{ color: C.textMuted }} /></button>
@@ -235,6 +236,14 @@ function AddAccountModal({
                   icon: Link2,
                   color: "#16A34A",
                   onClick: () => setStep("share_existing"),
+                },
+                {
+                  key: "pick_unipile" as const,
+                  label: "Link existing Unipile account",
+                  desc: "Attach a LinkedIn account that's already connected on Unipile but not yet wired to any seller.",
+                  icon: Share2,
+                  color: "#0A66C2",
+                  onClick: () => setStep("pick_unipile"),
                 },
               ] : []),
               // Email + Calls require admin: Instantly account and Aircall
@@ -374,6 +383,14 @@ function AddAccountModal({
             onShared={onSuccess}
           />
         )}
+
+        {step === "pick_unipile" && currentBioId && (
+          <PickUnipileAccount
+            currentBioId={currentBioId}
+            onBack={() => setStep("channel")}
+            onLinked={onSuccess}
+          />
+        )}
       </div>
     </div>
   );
@@ -486,6 +503,123 @@ function ShareExistingSellerPicker({
                   style={{ borderColor: "#16A34A", color: "#16A34A", backgroundColor: "transparent" }}>
                   {busy ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />}
                   {busy ? "Sharing…" : "Share"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {error && <div className="mt-4 rounded-lg px-3 py-2" style={{ backgroundColor: C.redLight }}><p className="text-xs font-medium" style={{ color: C.red }}>{error}</p></div>}
+
+      <div className="flex items-center justify-between mt-5 pt-4 border-t" style={{ borderColor: C.border }}>
+        <button onClick={onBack} className="text-xs font-semibold" style={{ color: C.textMuted }}>← Back</button>
+      </div>
+    </>
+  );
+}
+
+// ─── Pick Unipile Account (super_admin only) ────────────────────────────────
+// Lists Unipile LinkedIn accounts that are connected but not yet linked to any
+// seller. Useful when the LinkedIn auth was done directly in the Unipile
+// dashboard. Creates a new seller in the current tenant pointing at that
+// account — no second OAuth round-trip.
+type OrphanUnipile = { id: string; name: string; created_at: string; status: string };
+
+function PickUnipileAccount({
+  currentBioId,
+  onBack,
+  onLinked,
+}: {
+  currentBioId: string;
+  onBack: () => void;
+  onLinked: () => void;
+}) {
+  const [accounts, setAccounts] = useState<OrphanUnipile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [nameOverride, setNameOverride] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetch("/api/unipile/unlinked-accounts", { cache: "no-store" })
+      .then(r => r.json())
+      .then(d => setAccounts((d.accounts ?? []) as OrphanUnipile[]))
+      .catch(e => setError(e instanceof Error ? e.message : "Failed to load Unipile accounts"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function linkOne(acc: OrphanUnipile) {
+    setBusyId(acc.id); setError(null);
+    const name = (nameOverride[acc.id] ?? acc.name).trim();
+    if (!name) { setError("Seller name can't be empty"); setBusyId(null); return; }
+    const res = await fetch("/api/admin/sellers/from-unipile", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        unipile_account_id: acc.id,
+        name,
+        companyBioId: currentBioId,
+      }),
+    });
+    setBusyId(null);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error ?? "Failed to link Unipile account");
+      return;
+    }
+    onLinked();
+  }
+
+  return (
+    <>
+      <p className="text-xs mb-3" style={{ color: C.textMuted }}>
+        Pick a LinkedIn account already connected on Unipile but not yet attached to a seller. A new seller will be created in this tenant.
+      </p>
+
+      {loading && (
+        <div className="py-10 text-center">
+          <Loader2 size={20} className="animate-spin mx-auto mb-2" style={{ color: C.textMuted }} />
+          <p className="text-xs" style={{ color: C.textMuted }}>Loading Unipile accounts…</p>
+        </div>
+      )}
+
+      {!loading && accounts.length === 0 && (
+        <div className="py-10 text-center">
+          <p className="text-sm font-medium mb-1" style={{ color: C.textPrimary }}>No orphan Unipile accounts</p>
+          <p className="text-xs" style={{ color: C.textMuted }}>Every connected LinkedIn account already belongs to a seller. Connect a new one in Unipile first, or use the LinkedIn seller flow.</p>
+        </div>
+      )}
+
+      {!loading && accounts.length > 0 && (
+        <div className="max-h-[420px] overflow-y-auto -mx-2 px-2 divide-y" style={{ borderColor: C.border }}>
+          {accounts.map(acc => {
+            const busy = busyId === acc.id;
+            const statusOk = acc.status === "OK" || acc.status === "RUNNING" || acc.status === "CONNECTED";
+            return (
+              <div key={acc.id} className="flex items-center gap-3 py-2.5">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+                  style={{ background: "#0A66C2", color: "#fff" }}>
+                  {acc.name[0]?.toUpperCase() ?? "?"}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <input
+                    type="text"
+                    value={nameOverride[acc.id] ?? acc.name}
+                    onChange={e => setNameOverride(prev => ({ ...prev, [acc.id]: e.target.value }))}
+                    className="w-full text-sm font-semibold bg-transparent outline-none truncate"
+                    style={{ color: C.textPrimary }}
+                  />
+                  <p className="text-[10px] font-mono mt-0.5 truncate" style={{ color: C.textDim }}>
+                    {acc.id.slice(0, 16)}… · {acc.status}
+                    {!statusOk && <span style={{ color: C.red }}> · check status</span>}
+                  </p>
+                </div>
+                <button onClick={() => linkOne(acc)} disabled={busy}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-md border inline-flex items-center gap-1.5 disabled:opacity-60"
+                  style={{ borderColor: "#0A66C2", color: "#0A66C2", backgroundColor: "transparent" }}>
+                  {busy ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle size={11} />}
+                  {busy ? "Linking…" : "Link"}
                 </button>
               </div>
             );
@@ -759,6 +893,23 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
     router.refresh();
   }
 
+  // Unshare a seller that was previously shared into this tenant (super_admin
+  // only). Mirror of the Share flow — toggles the current tenant out of
+  // sellers.shared_with_company_bio_ids[] without touching the primary owner.
+  const [unsharingId, setUnsharingId] = useState<string | null>(null);
+  async function handleUnshare(sellerId: string) {
+    const bio = authUser?.companyBioId;
+    if (!bio) return;
+    setUnsharingId(sellerId);
+    await fetch("/api/admin/sellers-access", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sellerId, companyBioId: bio, shared: false }),
+    });
+    setUnsharingId(null);
+    router.refresh();
+  }
+
   const historyByDate: Record<string, HistoryEntry[]> = {};
   for (const h of history) {
     if (!historyByDate[h.date]) historyByDate[h.date] = [];
@@ -928,6 +1079,15 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                         <button onClick={() => setDeleteTarget({ id: seller.id, name: seller.name })}
                           className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-md transition-opacity hover:opacity-80"
                           style={{ backgroundColor: C.redLight, color: C.red }}><Trash2 size={10} /> Remove</button>
+                      )}
+                      {seller.isShared && isAdmin && authUser?.companyBioId && (
+                        <button onClick={() => handleUnshare(seller.id)} disabled={unsharingId === seller.id}
+                          title="Remove this shared seller from the current tenant (the primary owner is not touched)"
+                          className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-md transition-opacity hover:opacity-80 disabled:opacity-50"
+                          style={{ backgroundColor: C.redLight, color: C.red }}>
+                          {unsharingId === seller.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
+                          {unsharingId === seller.id ? "Unsharing…" : "Unshare"}
+                        </button>
                       )}
                     </div>
                   </div>
