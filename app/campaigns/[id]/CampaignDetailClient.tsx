@@ -249,7 +249,11 @@ export default function CampaignDetailClient({
     { label: "Calls", icon: PhoneCall, count: null },
     { label: "Add Leads", icon: UserPlus, count: leadGroups.reduce((s, g) => s + g.leads.length, 0) },
   ];
-  const [leadsView, setLeadsView] = useState<"list" | "kanban">("list");
+  // Default to "kanban" (Pipeline) — boss preference. The Pipeline view
+  // groups leads into columns by current step, which is way more useful
+  // for a seller scanning "what's next" than the flat List. List stays
+  // as the secondary view for bulk actions on a sortable table.
+  const [leadsView, setLeadsView] = useState<"list" | "kanban">("kanban");
 
   return (
     <div>

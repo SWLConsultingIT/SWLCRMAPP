@@ -227,6 +227,25 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const pausedInGroup = allGroupCampaigns.filter(c => c.status === "paused").length;
   const completedInGroup = allGroupCampaigns.filter(c => c.status === "completed").length;
 
+  // Channel breakdown of where active+paused leads currently sit. Reading
+  // sequence_steps[current_step] tells us what channel each lead is waiting
+  // on right now. Boss preference: this is more useful at a glance than
+  // "Duration · 3 steps · 6d" which never changes after launch.
+  const channelOfActive: Record<string, number> = {};
+  for (const c of allGroupCampaigns) {
+    if (c.status !== "active" && c.status !== "paused") continue;
+    const steps: Array<{ channel?: string }> = Array.isArray(c.sequence_steps) ? c.sequence_steps : [];
+    const idx = Math.max(0, Math.min(c.current_step ?? 0, steps.length - 1));
+    const ch = steps[idx]?.channel ?? "unknown";
+    channelOfActive[ch] = (channelOfActive[ch] ?? 0) + 1;
+  }
+  const channelOrder = ["linkedin", "email", "call", "whatsapp"];
+  const activeChannelEntries = Object.entries(channelOfActive)
+    .sort(([a], [b]) => {
+      const ai = channelOrder.indexOf(a); const bi = channelOrder.indexOf(b);
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+
   // Effective currentStep for the funnel = most-advanced active lead.
   // current_step is 0-indexed over sequence_steps (0 = nothing sent, 1 = 1st DM, etc.)
   const activeLeadSteps = allGroupCampaigns
@@ -284,7 +303,9 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
 
         <div className="border-t" style={{ borderColor: C.border }} />
 
-        {/* Summary stats */}
+        {/* Summary stats. Last cell is a channel breakdown of where the
+            active+paused leads currently sit (instead of the static
+            Duration string, which never changes post-launch). */}
         <div className="px-6 py-4 grid grid-cols-6 gap-4">
           {[
             { label: "Total Leads", value: totalLeadsInGroup, color: gold },
@@ -292,13 +313,41 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             { label: "Paused", value: pausedInGroup, color: "#D97706" },
             { label: "Completed", value: completedInGroup, color: C.textMuted },
             { label: "Progress", value: `${pct}%`, color: gold },
-            { label: "Duration", value: `${totalSteps} steps · ${dayPerStep[dayPerStep.length - 1] ?? 0}d`, color: C.textBody },
           ].map(s => (
             <div key={s.label}>
               <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{s.label}</p>
               <p className="text-lg font-bold" style={{ color: s.color }}>{s.value}</p>
             </div>
           ))}
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Active In</p>
+            {activeChannelEntries.length === 0 ? (
+              <p className="text-lg font-bold" style={{ color: C.textDim }}>—</p>
+            ) : (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {activeChannelEntries.map(([ch, count]) => {
+                  const meta = ({
+                    linkedin: { label: "LinkedIn", color: "#0A66C2" },
+                    email:    { label: "Email",    color: "#7C3AED" },
+                    call:     { label: "Call",     color: "#F97316" },
+                    whatsapp: { label: "WhatsApp", color: "#25D366" },
+                  } as Record<string, { label: string; color: string }>)[ch] ?? { label: ch, color: C.textMuted };
+                  return (
+                    <span key={ch}
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold rounded-full px-2 py-0.5 border"
+                      title={`${count} lead${count === 1 ? "" : "s"} currently on a ${meta.label} step`}
+                      style={{
+                        backgroundColor: `color-mix(in srgb, ${meta.color} 10%, transparent)`,
+                        color: meta.color,
+                        borderColor: `color-mix(in srgb, ${meta.color} 25%, transparent)`,
+                      }}>
+                      <span className="font-bold tabular-nums">{count}</span> {meta.label}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
