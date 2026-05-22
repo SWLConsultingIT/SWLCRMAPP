@@ -525,33 +525,73 @@ export default function NewCampaignWizard() {
 
   return (
     <div className="p-6 w-full">
-      {/* Header — single-line meta, smaller h1, tighter gaps (UX pass 2026-05-15). */}
-      <button onClick={() => router.push("/campaigns")} className="flex items-center gap-1.5 text-[11px] font-medium mb-2 transition-colors hover:opacity-80" style={{ color: C.textMuted }}>
+      <button onClick={() => router.push("/campaigns")} className="flex items-center gap-1.5 text-[11px] font-medium mb-3 transition-colors hover:opacity-80" style={{ color: C.textMuted }}>
         <ArrowLeft size={12} /> Back to Campaigns
       </button>
-      <div className="mb-4 flex items-baseline gap-3 flex-wrap">
-        <h1 className="text-[20px] font-bold flex items-center gap-2" style={{ color: C.textPrimary }}>
-          <Megaphone size={18} style={{ color: gold }} /> Configure Outreach Flow
-        </h1>
-        <p className="text-xs" style={{ color: C.textMuted }}>
-          {profile?.profile_name} · {leadsCount} {isPartialSelection ? "selected" : ""} lead{leadsCount === 1 ? "" : "s"}
-        </p>
-      </div>
-      {isPartialSelection && selectedLeadNames.length > 0 && (
-        <div className="mb-4 flex flex-wrap gap-1.5">
-          {selectedLeadNames.slice(0, 8).map((name, i) => (
-            <span key={i} className="text-[11px] px-2 py-0.5 rounded-full"
-              style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>{name}</span>
-          ))}
-          {selectedLeadNames.length > 8 && (
-            <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ backgroundColor: C.bg, color: C.textMuted }}>
-              +{selectedLeadNames.length - 8} more
-            </span>
-          )}
-        </div>
-      )}
 
-      <div className="h-px mb-5" style={{ background: `linear-gradient(90deg, ${gold} 0%, color-mix(in srgb, var(--brand, #c9a83a) 15%, transparent) 40%, transparent 100%)` }} />
+      {/* Header card — gold-accented panel so the wizard's "you're configuring
+          this flow for X leads" context reads as one cohesive block instead
+          of plain text floating above the steps. Filters out empty lead
+          names (happens when leads are client-source / encrypted and the
+          plain columns are null) so we don't render blank pills. */}
+      {(() => {
+        const visibleNames = selectedLeadNames.filter(n => n && n.trim().length > 0);
+        return (
+          <div
+            className="mb-5 rounded-2xl border px-5 py-4 relative overflow-hidden"
+            style={{
+              background: `
+                radial-gradient(ellipse 40% 100% at 0% 0%, color-mix(in srgb, ${gold} 12%, transparent) 0%, transparent 65%),
+                linear-gradient(135deg, ${C.card} 0%, color-mix(in srgb, ${C.card} 97%, ${gold}) 100%)
+              `,
+              borderColor: `color-mix(in srgb, ${gold} 26%, ${C.border})`,
+              boxShadow: `0 2px 14px -8px color-mix(in srgb, ${gold} 30%, transparent)`,
+            }}
+          >
+            {/* Gold left edge stripe */}
+            <div className="absolute left-0 top-0 bottom-0 w-1" style={{ background: `linear-gradient(180deg, ${gold}, color-mix(in srgb, ${gold} 50%, transparent))` }} />
+            <div className="flex items-center gap-3 flex-wrap">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}
+              >
+                <Megaphone size={16} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="text-[18px] font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                  Configure Outreach Flow
+                </h1>
+                <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
+                  <span style={{ color: C.textBody, fontWeight: 600 }}>{profile?.profile_name}</span>
+                  {" · "}
+                  <span style={{ color: gold, fontWeight: 700 }}>{leadsCount}</span>
+                  {" "}{isPartialSelection ? "selected" : ""} lead{leadsCount === 1 ? "" : "s"}
+                </p>
+              </div>
+            </div>
+            {/* Only render the chip strip if we actually have names. For
+                encrypted/client-source leads the plain columns are null and
+                rendering empty pills looked broken. */}
+            {isPartialSelection && visibleNames.length > 0 && (
+              <div className="mt-3 pt-3 border-t flex flex-wrap gap-1.5" style={{ borderColor: `color-mix(in srgb, ${gold} 18%, ${C.border})` }}>
+                {visibleNames.slice(0, 8).map((name, i) => (
+                  <span key={i} className="text-[11px] px-2 py-0.5 rounded-full border"
+                    style={{
+                      backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`,
+                      borderColor: `color-mix(in srgb, ${gold} 22%, transparent)`,
+                      color: gold,
+                    }}>{name}</span>
+                ))}
+                {visibleNames.length > 8 && (
+                  <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}>
+                    +{visibleNames.length - 8} more
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Step indicator — sticky so the seller always knows where they are
           in the wizard even on the long Sequence + Messages screens. Header
