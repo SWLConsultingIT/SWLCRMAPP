@@ -13,6 +13,7 @@ import { C } from "@/lib/design";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import TemplateDetailActions from "./TemplateDetailActions";
+import { signStepAttachments } from "@/lib/campaign-attachments";
 
 const gold = "var(--brand, #c9a83a)";
 const ACCENT = gold;
@@ -85,11 +86,26 @@ export default async function TemplateDetailPage({
 
   const stepMessages = (tpl.step_messages ?? {}) as {
     connectionRequest?: string;
-    steps?: Array<{ step: number; channel: string; subject?: string | null; body: string; source_excerpt?: string; variants?: string[] }>;
+    steps?: Array<{
+      step: number; channel: string; subject?: string | null; body: string;
+      source_excerpt?: string; variants?: string[];
+      attachments?: Array<{ path: string; name: string; mimeType: string; sizeBytes: number }>;
+    }>;
     autoReplies?: { positive?: string; negative?: string; question?: string };
   };
   const sequence = Array.isArray(tpl.sequence_steps) ? tpl.sequence_steps : [];
   const orderedSteps = Array.isArray(stepMessages.steps) ? stepMessages.steps : [];
+
+  // Sign per-step attachments so the read-only preview can render thumbnails /
+  // download links without exposing the storage bucket directly. 5-min TTL is
+  // fine — the page is server-rendered on every nav, so a stale link is rare.
+  const signedAttachmentsByStep = await Promise.all(
+    orderedSteps.map(async (s) => {
+      if (!Array.isArray(s.attachments) || s.attachments.length === 0) return [];
+      try { return await signStepAttachments(s.attachments); }
+      catch { return []; }
+    })
+  );
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -174,6 +190,7 @@ export default async function TemplateDetailPage({
                 body={s.body}
                 sourceExcerpt={s.source_excerpt}
                 variantB={Array.isArray(s.variants) && s.variants[0] ? s.variants[0] : undefined}
+                attachments={signedAttachmentsByStep[i] ?? []}
               />
             );
           })}
@@ -261,11 +278,12 @@ function Stat({ label, value }: { label: string; value: string | number }) {
 }
 
 function StepCard({
-  stepNum, channel, daysAfter, subject, body, sourceExcerpt, variantB, isInvite,
+  stepNum, channel, daysAfter, subject, body, sourceExcerpt, variantB, isInvite, attachments,
 }: {
   stepNum: number; channel: Channel; daysAfter: number;
   subject?: string; body: string; sourceExcerpt?: string; variantB?: string;
   isInvite?: boolean;
+  attachments?: Array<{ path: string; name: string; mimeType: string; sizeBytes: number; signedUrl: string }>;
 }) {
   const meta = channelMeta[channel];
   const Icon = meta.icon;
@@ -322,6 +340,38 @@ function StepCard({
             style={{ color: C.textPrimary, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
             {variantB}
           </p>
+        </div>
+      )}
+      {attachments && attachments.length > 0 && (
+        <div className="mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
+          <p className="text-[10px] uppercase tracking-wider font-bold mb-2" style={{ color: C.textMuted }}>
+            Attachments · {attachments.length}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {attachments.map((a, i) => {
+              const isImage = a.mimeType.startsWith("image/");
+              return (
+                <a key={i} href={a.signedUrl} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg border overflow-hidden hover:opacity-80 transition-opacity"
+                  style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                  {isImage ? (
+                    // Inline thumbnail — sized small so a 3-attachment row still
+                    // fits the card width. Click opens full size in a new tab.
+                    <img src={a.signedUrl} alt={a.name} className="h-20 w-20 object-cover shrink-0" />
+                  ) : (
+                    <span className="flex items-center justify-center h-10 w-10 shrink-0"
+                      style={{ backgroundColor: `color-mix(in srgb, ${ACCENT} 8%, transparent)` }}>
+                      <FileText size={14} style={{ color: ACCENT }} />
+                    </span>
+                  )}
+                  <div className="px-2 py-1.5 min-w-0">
+                    <p className="text-[11px] font-semibold truncate max-w-[180px]" style={{ color: C.textPrimary }}>{a.name}</p>
+                    <p className="text-[10px]" style={{ color: C.textMuted }}>{(a.sizeBytes / 1024).toFixed(0)} KB</p>
+                  </div>
+                </a>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
