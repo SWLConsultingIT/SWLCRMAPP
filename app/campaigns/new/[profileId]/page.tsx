@@ -226,16 +226,25 @@ export default function NewCampaignWizard() {
   useEffect(() => {
     async function load() {
   const supabase = getSupabaseBrowser();
-      // Resolve the current user's tenant first — sellers + bio queries below
-      // both filter by it. Without this scope, every tenant's seller list leaks
-      // into every other tenant's wizard (e.g. Graeme appearing in SWL's flow).
-      const { data: authBioId } = await supabase.rpc("get_auth_company_bio_id");
+      // Resolve the current user's tenant via /api/auth/me — that endpoint
+      // honors BOTH the multi-tenant switcher cookie (active_tenant_bio_id)
+      // and demo impersonation. Using the SQL RPC get_auth_company_bio_id
+      // here was the source of a 2026-05-22 bug: super_admin scoped into
+      // De Vera Grill kept seeing SWL sellers because the RPC reads the JWT
+      // (the admin's own bio) and can't see HTTP cookies.
+      let bioId: string | null = null;
+      try {
+        const meRes = await fetch("/api/auth/me", { cache: "no-store" });
+        if (meRes.ok) {
+          const me = await meRes.json();
+          bioId = (me?.user?.companyBioId as string | null) ?? null;
+        }
+      } catch { /* fall through with null bioId */ }
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: prof } = await supabase.from("user_profiles").select("tier").eq("id", user.id).single();
         if (prof?.tier === "super_admin") setIsSuperAdmin(true);
       }
-      const bioId = (authBioId as string | null) ?? null;
       let sellerQ = supabase.from("sellers")
         .select("id, name, unipile_account_id, email_account, linkedin_daily_limit, email_daily_limit")
         .eq("active", true)
