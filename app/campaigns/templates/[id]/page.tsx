@@ -155,20 +155,27 @@ export default async function TemplateDetailPage({
         <Stat label="Created" value={new Date(tpl.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })} />
       </div>
 
-      {/* Sequence */}
-      <div className="rounded-2xl border overflow-hidden mb-5"
-        style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
-          <div>
-            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Sequence</h2>
-            <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
-              {sequence.length} step{sequence.length === 1 ? "" : "s"} · {(tpl.channels ?? []).map((c: string) => channelMeta[c as Channel]?.label ?? c).join(" → ")}
-            </p>
+      {/* Connection Request — rendered above the Sequence as its own
+          section. The LinkedIn invite is structurally different from a
+          follow-up step (no Day delay, no subject, capped at 200 chars),
+          and lumping it in as "Step 0" was the source of every off-by-one
+          bug in the wizard apply path (2026-05-22). Surfacing it as a
+          separate block makes the data model honest. */}
+      {stepMessages.connectionRequest && stepMessages.connectionRequest.length > 0 && (
+        <div className="rounded-2xl border overflow-hidden mb-5"
+          style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
+            <div>
+              <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: C.textPrimary }}>
+                <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#0A66C2" }} />
+                Connection Request
+              </h2>
+              <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
+                LinkedIn invite sent before the sequence starts · capped at 200 chars
+              </p>
+            </div>
           </div>
-        </div>
-
-        <div className="p-5 space-y-4">
-          {stepMessages.connectionRequest && stepMessages.connectionRequest.length > 0 && (
+          <div className="p-5">
             <StepCard
               isInvite
               stepNum={0}
@@ -176,14 +183,33 @@ export default async function TemplateDetailPage({
               daysAfter={0}
               body={stepMessages.connectionRequest}
             />
-          )}
+          </div>
+        </div>
+      )}
+
+      {/* Sequence — only the actual follow-up steps. The CR (if present)
+          lives above as its own section, so the step count + numbering here
+          reflect the messages the seller will actually compose / send after
+          the invite is accepted. */}
+      <div className="rounded-2xl border overflow-hidden mb-5"
+        style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
+          <div>
+            <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Sequence</h2>
+            <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
+              {orderedSteps.length} step{orderedSteps.length === 1 ? "" : "s"} · {(tpl.channels ?? []).map((c: string) => channelMeta[c as Channel]?.label ?? c).join(" → ")}
+            </p>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-4">
           {orderedSteps.map((s, i) => {
             const seqEntry = sequence[i + (stepMessages.connectionRequest ? 1 : 0)];
             const daysAfter = seqEntry?.daysAfter ?? 0;
             return (
               <StepCard
                 key={i}
-                stepNum={s.step}
+                stepNum={i + 1}
                 channel={s.channel as Channel}
                 daysAfter={daysAfter}
                 subject={s.subject ?? undefined}
@@ -296,7 +322,10 @@ function StepCard({
       <div className="flex items-center gap-2 mb-2.5">
         <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold"
           style={{ backgroundColor: `${meta.color}18`, color: meta.color }}>
-          {isInvite ? "0" : stepNum}
+          {/* Invite renders an arrow glyph instead of a step number — the
+              CR is not a numbered sequence step, it's the gate that opens
+              the sequence. */}
+          {isInvite ? "→" : stepNum}
         </div>
         <Icon size={13} style={{ color: meta.color }} />
         {isInvite ? (
@@ -304,10 +333,12 @@ function StepCard({
         ) : (
           <span className="text-xs font-bold" style={{ color: meta.color }}>{meta.label}</span>
         )}
-        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded"
-          style={{ backgroundColor: C.surface, color: C.textMuted }}>
-          <Clock size={9} /> Day {daysAfter}
-        </span>
+        {!isInvite && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded"
+            style={{ backgroundColor: C.surface, color: C.textMuted }}>
+            <Clock size={9} /> Day {daysAfter}
+          </span>
+        )}
       </div>
       {subject && (
         <p className="text-xs font-semibold mb-1.5" style={{ color: C.textPrimary }}>
