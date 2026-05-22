@@ -377,15 +377,24 @@ export default function NewCampaignWizard() {
     setSequence(s => s.map((step, i) => i === idx ? { ...step, [field]: value } : step));
   }
 
-  // classifySteps() (ChannelMessageConfig) maps ALL sequence steps including LinkedIn D0
-  // as classified[0] = "First DM (Post-Connection)". Template step_messages.steps[] starts
-  // from seq[1] because the AI generator only stores the CR separately. Prepend an empty
-  // LinkedIn placeholder so steps[i] aligns with classified[i] on render.
+  // classifySteps() (ChannelMessageConfig) maps ALL sequence steps including
+  // LinkedIn D0 as classified[0] = "First DM (Post-Connection)". Template
+  // step_messages.steps[] starts from seq[1] because the wizard treats the
+  // Connection Request as a separate field (channelMessages.connectionRequest)
+  // and doesn't write a body for seq[0]. So a template saved with 3 follow-ups
+  // + a CR ends up with sequence_steps.length = 4 but step_messages.steps.length = 3.
+  //
+  // Prior version only prepended the placeholder when steps[0].channel !==
+  // "linkedin", which missed the all-LinkedIn case (the most common template
+  // shape) — that's why De Vera Grill saw "Step 4 — empty" after applying a
+  // 3-follow-up LinkedIn template (2026-05-22 bug).
+  //
+  // Fix: prepend whenever the sequence has more entries than the message
+  // array AND seq[0] is the CR pattern. Length-driven instead of channel-driven.
   function alignTemplateMessages(msgs: ChannelMessages, seq: SequenceStep[]): ChannelMessages {
-    const isLinkedInD0 = seq[0]?.channel === "linkedin" && seq[0]?.daysAfter === 0;
     const steps = msgs.steps ?? [];
-    const firstIsNotLinkedIn = steps.length > 0 && steps[0]?.channel !== "linkedin";
-    if (isLinkedInD0 && firstIsNotLinkedIn) {
+    const isLinkedInD0 = seq[0]?.channel === "linkedin" && seq[0]?.daysAfter === 0;
+    if (isLinkedInD0 && seq.length > steps.length) {
       return { ...msgs, steps: [{ step: 0, channel: "linkedin", body: "", subject: undefined } as any, ...steps] };
     }
     return msgs;
@@ -506,13 +515,48 @@ export default function NewCampaignWizard() {
     setSavingTpl(true);
     setTplSaveError(null);
     try {
+      // Auto-fill the positive/negative auto-replies if the wizard never
+      // generated them. Up until now templates landed with empty auto-replies
+      // unless the seller manually clicked "Generate All" — so the template
+      // dropped its inbox-handling content even though the template-apply
+      // path supports them. Generates only what's missing, in parallel.
+      const ar = channelMessages.autoReplies || { positive: "", negative: "", question: "" };
+      const hasLinkedin = sequence.some(s => s.channel === "linkedin");
+      let filledAutoReplies = ar;
+      if (hasLinkedin) {
+        const needPos = !ar.positive || !ar.positive.trim();
+        const needNeg = !ar.negative || !ar.negative.trim();
+        if (needPos || needNeg) {
+          const language = "es";
+          const calls: Array<Promise<{ key: "positive" | "negative"; content: string }>> = [];
+          const fetchReply = async (fieldType: "replyPositive" | "replyNegative", key: "positive" | "negative") => {
+            try {
+              const r = await fetch("/api/campaigns/generate-field", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ channel: "linkedin", fieldType, icpProfileId: profileId, language, sequence_meta: sequence, user_prompt: "" }),
+              });
+              if (!r.ok) return { key, content: "" };
+              const d = await r.json().catch(() => ({}));
+              return { key, content: (d?.content as string) ?? "" };
+            } catch { return { key, content: "" }; }
+          };
+          if (needPos) calls.push(fetchReply("replyPositive", "positive"));
+          if (needNeg) calls.push(fetchReply("replyNegative", "negative"));
+          const results = await Promise.all(calls);
+          filledAutoReplies = { ...ar };
+          for (const r of results) {
+            if (r.content) (filledAutoReplies as Record<string, string>)[r.key] = r.content;
+          }
+        }
+      }
       const body: Record<string, unknown> = {
         mode: "from_scratch",
         name: tplName.trim() || campaignName.trim(),
         description: tplDesc.trim() || null,
         icp_profile_id: profileId,
         sequence_steps: sequence,
-        step_messages: channelMessages,
+        step_messages: { ...channelMessages, autoReplies: filledAutoReplies },
         channels: [...new Set(sequence.map(s => s.channel))],
       };
       const res = await fetch("/api/templates", {
