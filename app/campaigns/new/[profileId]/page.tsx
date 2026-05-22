@@ -292,17 +292,28 @@ export default function NewCampaignWizard() {
       // about whether a chosen channel will actually reach all the leads.
       let coverageQ = supabase
         .from("leads")
-        .select("id, primary_first_name, primary_last_name, primary_linkedin_url, primary_work_email, primary_personal_email, primary_phone, primary_secondary_phone, allow_linkedin, allow_email, allow_call")
+        .select("id, source, primary_first_name, primary_last_name, primary_linkedin_url, primary_work_email, primary_personal_email, primary_phone, primary_secondary_phone, allow_linkedin, allow_email, allow_call")
         .eq("icp_profile_id", profileId);
       if (isPartialSelection) coverageQ = coverageQ.in("id", selectedLeadIds);
       const { data: covRows } = await coverageQ;
       const rows = covRows ?? [];
       const isValidLi = (u: string | null) => !!u && /linkedin\.com\/in\//i.test(u);
       const fullName = (r: any) => `${r.primary_first_name ?? ""} ${r.primary_last_name ?? ""}`.trim() || "Unknown";
-      const okLi   = (r: any) => isValidLi(r.primary_linkedin_url) && r.allow_linkedin !== false;
-      const okMail = (r: any) => (r.primary_work_email || r.primary_personal_email) && r.allow_email !== false;
-      const okCall = (r: any) => r.primary_phone && r.allow_call !== false;
-      const okWa   = (r: any) => (r.primary_phone || r.primary_secondary_phone) && r.allow_call !== false;
+      // Client-source leads keep their PII inside encrypted_payload — the
+      // plain columns (primary_linkedin_url, primary_work_email, etc.) are
+      // redacted to null in the browser. Without decrypting we can't see
+      // which channels exist per-lead, but the importer guarantees the
+      // payload carries whatever channels were supplied at import. So we
+      // trust source='client' + non-null payload as "reachable on every
+      // channel we could plausibly send on." If the data really IS missing
+      // for some leads, the dispatcher will surface those at send time —
+      // far better than the wizard blocking the campaign entirely with a
+      // false "0 / 95 reachable" warning (De Vera Grill case 2026-05-22).
+      const isEncrypted = (r: any) => r.source === "client";
+      const okLi   = (r: any) => (isEncrypted(r) || isValidLi(r.primary_linkedin_url)) && r.allow_linkedin !== false;
+      const okMail = (r: any) => (isEncrypted(r) || r.primary_work_email || r.primary_personal_email) && r.allow_email !== false;
+      const okCall = (r: any) => (isEncrypted(r) || r.primary_phone) && r.allow_call !== false;
+      const okWa   = (r: any) => (isEncrypted(r) || r.primary_phone || r.primary_secondary_phone) && r.allow_call !== false;
       const cov = {
         total: rows.length,
         linkedin:  rows.filter(okLi).length,
@@ -603,27 +614,37 @@ export default function NewCampaignWizard() {
       })()}
 
       {/* Step indicator — sticky so the seller always knows where they are
-          in the wizard even on the long Sequence + Messages screens. Header
-          line says "Step N of M · CurrentName" big + bold so a new user
-          isn't left guessing which of the chip pills is the current one. */}
-      <div className="sticky top-2 z-30 mb-6 rounded-2xl border px-5 py-3"
+          in the wizard even on the long Sequence + Messages screens. Solid
+          gold-accented background instead of the previous translucent
+          blur, which looked washed-out on light grey page bg. The blur
+          only worked when there was busy content scrolling underneath. */}
+      <div className="sticky top-2 z-30 mb-5 rounded-2xl border px-5 py-4 relative overflow-hidden"
         style={{
-          backgroundColor: "color-mix(in srgb, var(--card) 96%, transparent)",
-          backdropFilter: "saturate(180%) blur(8px)",
-          WebkitBackdropFilter: "saturate(180%) blur(8px)",
-          borderColor: C.border,
-          boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
+          background: `
+            radial-gradient(ellipse 70% 100% at 100% 0%, color-mix(in srgb, ${gold} 9%, transparent) 0%, transparent 55%),
+            linear-gradient(135deg, ${C.card} 0%, color-mix(in srgb, ${C.card} 97%, ${gold}) 100%)
+          `,
+          borderColor: `color-mix(in srgb, ${gold} 22%, ${C.border})`,
+          boxShadow: "0 6px 22px -10px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.04)",
         }}>
+        {/* Progress fill — visualizes how far into the wizard the seller is */}
+        <div className="absolute left-0 bottom-0 h-1" style={{ width: `${((wizardStep + 1) / WIZARD_STEPS.length) * 100}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, ${gold} 60%, white))`, transition: "width 240ms ease" }} />
         <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold, letterSpacing: "0.16em" }}>
-              Step {wizardStep + 1} of {WIZARD_STEPS.length}
-            </p>
-            <p className="text-base font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-              {WIZARD_STEPS[wizardStep]}
-            </p>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`, color: "#04070d", boxShadow: `0 3px 10px color-mix(in srgb, ${gold} 32%, transparent)` }}>
+              <span className="text-sm font-bold tabular-nums">{wizardStep + 1}</span>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
+                Step {wizardStep + 1} of {WIZARD_STEPS.length}
+              </p>
+              <p className="text-base font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                {WIZARD_STEPS[wizardStep]}
+              </p>
+            </div>
           </div>
-          <p className="text-[11px]" style={{ color: C.textMuted }}>
+          <p className="text-[11px] max-w-md text-right" style={{ color: C.textMuted }}>
             {wizardStep === 0 && "Pick channels + timing for every step in the sequence."}
             {wizardStep === 1 && "Choose seller(s) and the channel accounts that will deliver this flow."}
             {wizardStep === 2 && "Write the message body for each step. AI can draft from your tone + lead data."}
@@ -636,14 +657,14 @@ export default function NewCampaignWizard() {
               <button onClick={() => i < wizardStep && setWizardStep(i)} disabled={i > wizardStep}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
                 style={i === wizardStep
-                  ? { backgroundColor: gold, color: "#04070d" }
+                  ? { backgroundColor: gold, color: "#04070d", boxShadow: `0 2px 8px color-mix(in srgb, ${gold} 30%, transparent)` }
                   : i < wizardStep
                   ? { backgroundColor: `color-mix(in srgb, ${C.green} 14%, transparent)`, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 30%, transparent)` }
-                  : { backgroundColor: C.surface, color: C.textDim }}>
+                  : { backgroundColor: C.card, color: C.textDim, border: `1px solid ${C.border}` }}>
                 {i < wizardStep ? <Check size={12} /> : <span>{i + 1}</span>}
                 {s}
               </button>
-              {i < WIZARD_STEPS.length - 1 && <div className="w-6 h-px" style={{ backgroundColor: C.border }} />}
+              {i < WIZARD_STEPS.length - 1 && <div className="w-6 h-px" style={{ backgroundColor: i < wizardStep ? `color-mix(in srgb, ${C.green} 40%, transparent)` : C.border }} />}
             </div>
           ))}
         </div>
