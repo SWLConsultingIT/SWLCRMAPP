@@ -28,6 +28,7 @@ type TeamRow = {
 type Tier = "super_admin" | "owner" | "manager" | "seller" | "viewer";
 
 const ASSIGNABLE_TIERS: Tier[] = ["owner", "manager", "seller", "viewer"];
+const SUPER_ADMIN_ASSIGNABLE_TIERS: Tier[] = ["super_admin", "owner", "manager", "seller", "viewer"];
 
 const TIER_LABELS: Record<Tier, { label: string; color: string }> = {
   super_admin: { label: "Super Admin", color: "#9333EA" },
@@ -228,7 +229,14 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
         <InviteModal
           companyBioId={companyBioId}
           onClose={() => setInviteOpen(false)}
-          onSuccess={() => { setInviteOpen(false); loadTeam(); }}
+          onSuccess={(result) => {
+            setInviteOpen(false);
+            loadTeam();
+            const who = result.email ?? "member";
+            if (result.mode === "invited") toast({ kind: "success", message: `Invite sent to ${who}` });
+            else if (result.mode === "added") toast({ kind: "success", message: `${who} added to this tenant` });
+            else if (result.mode === "already_member") toast({ kind: "info", message: `${who} was already a member` });
+          }}
         />
       )}
 
@@ -245,9 +253,11 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
 
 type SellerOption = { id: string; name: string; userId: string | null };
 
+type InviteResult = { mode: "invited" | "added" | "already_member"; email: string };
+
 function InviteModal({
   companyBioId, onClose, onSuccess,
-}: { companyBioId: string; onClose: () => void; onSuccess: () => void }) {
+}: { companyBioId: string; onClose: () => void; onSuccess: (result: InviteResult) => void }) {
   const [email, setEmail] = useState("");
   const [tier, setTier] = useState<Tier>("seller");
   const [fullName, setFullName] = useState("");
@@ -255,6 +265,21 @@ function InviteModal({
   const [sellers, setSellers] = useState<SellerOption[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Caller's own tier — drives whether the "Super Admin" option is visible.
+  // We never let a non-super-admin grant super_admin, regardless of any
+  // request shape; the backend enforces the same gate.
+  const [callerTier, setCallerTier] = useState<Tier | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/auth/me", { cache: "no-store" })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (active) setCallerTier((d?.tier as Tier | undefined) ?? null); })
+      .catch(() => { /* keep callerTier null → defaults to non-super tier list */ });
+    return () => { active = false; };
+  }, []);
+
+  const assignableTiers = callerTier === "super_admin" ? SUPER_ADMIN_ASSIGNABLE_TIERS : ASSIGNABLE_TIERS;
 
   // Load tenant sellers when role=seller is selected so the user can be
   // linked to a specific seller record. Only unassigned sellers are
@@ -289,7 +314,8 @@ function InviteModal({
         setError(d.error ?? "Invite failed");
         return;
       }
-      onSuccess();
+      const mode = (d.mode as InviteResult["mode"] | undefined) ?? "invited";
+      onSuccess({ mode, email: email.trim() });
     } catch {
       setError("Network error");
     } finally {
@@ -339,7 +365,7 @@ function InviteModal({
           <div>
             <label className="block text-[11px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: C.textMuted }}>Role</label>
             <div className="grid grid-cols-2 gap-2">
-              {ASSIGNABLE_TIERS.map(t => {
+              {assignableTiers.map(t => {
                 const meta = TIER_LABELS[t];
                 const selected = tier === t;
                 return (
@@ -360,6 +386,7 @@ function InviteModal({
               })}
             </div>
             <p className="text-[10px] mt-1.5" style={{ color: C.textDim }}>
+              {tier === "super_admin" && "Cross-tenant SWL ops. Lands as owner here + can switch into any tenant. Use sparingly."}
               {tier === "owner" && "Full admin: can manage team + settings."}
               {tier === "manager" && "Tenant-wide read/write. No team management."}
               {tier === "seller" && "Only their own assigned leads + campaigns."}
