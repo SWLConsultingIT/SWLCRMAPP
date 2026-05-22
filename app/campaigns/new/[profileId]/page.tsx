@@ -196,7 +196,15 @@ export default function NewCampaignWizard() {
           && stepMsgs.connectionRequest.length > 0
           && rawSeq[0]?.channel === "linkedin"
           && rawSeq[0]?.daysAfter === 0;
-        const seq = hasCRInSeq ? rawSeq.slice(1) : rawSeq;
+        const strippedSeq = hasCRInSeq ? rawSeq.slice(1) : rawSeq;
+        const msgSteps = Array.isArray(stepMsgs.steps) ? stepMsgs.steps : [];
+        const seq = strippedSeq.map((step, i) => {
+          const msg = msgSteps.find((m: any) => m?.step === i + 1) ?? msgSteps[i];
+          const attachments = (msg as any)?.attachments;
+          return Array.isArray(attachments) && attachments.length > 0
+            ? { ...step, attachments }
+            : step;
+        });
         if (seq.length > 0) setSequence(seq);
         if (t.step_messages && typeof t.step_messages === "object") {
           setChannelMessages(stepMsgs);
@@ -389,6 +397,11 @@ export default function NewCampaignWizard() {
   // channelMessages.connectionRequest, and every entry of `sequence` is a
   // numbered message step. Strip the CR marker on apply so a "3-step" template
   // shows as 3 numbered steps in the wizard, not 4.
+  //
+  // Per-step attachments live in step_messages.steps[i].attachments in the
+  // template, but the wizard's AttachmentEditor reads them from
+  // sequence[i].attachments (same shape the dispatcher reads at send time).
+  // Merge them onto the stripped sequence so files survive the template apply.
   function applyTemplate(tpl: { name: string; sequence_steps: any[]; step_messages: any }) {
     const rawSeq = (tpl.sequence_steps ?? []) as SequenceStep[];
     const stepMsgs = (tpl.step_messages ?? {}) as ChannelMessages;
@@ -396,7 +409,15 @@ export default function NewCampaignWizard() {
       && stepMsgs.connectionRequest.length > 0
       && rawSeq[0]?.channel === "linkedin"
       && rawSeq[0]?.daysAfter === 0;
-    const seq = hasCRInSeq ? rawSeq.slice(1) : rawSeq;
+    const strippedSeq = hasCRInSeq ? rawSeq.slice(1) : rawSeq;
+    const msgSteps = Array.isArray(stepMsgs.steps) ? stepMsgs.steps : [];
+    const seq = strippedSeq.map((step, i) => {
+      const msg = msgSteps.find((m: any) => m?.step === i + 1) ?? msgSteps[i];
+      const attachments = (msg as any)?.attachments;
+      return Array.isArray(attachments) && attachments.length > 0
+        ? { ...step, attachments }
+        : step;
+    });
     if (seq.length > 0) setSequence(seq);
     if (tpl.step_messages && typeof tpl.step_messages === "object") {
       setChannelMessages(stepMsgs);
