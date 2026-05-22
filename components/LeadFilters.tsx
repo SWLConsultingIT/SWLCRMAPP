@@ -1,8 +1,8 @@
 "use client";
 
+import { useState, useEffect, type ReactNode } from "react";
 import { C } from "@/lib/design";
-import { Search, X, SlidersHorizontal, Flame, Megaphone, MessageCircle, Target } from "lucide-react";
-import type { ReactNode } from "react";
+import { Search, X, SlidersHorizontal, Flame, Megaphone, MessageCircle, Target, ChevronDown } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 const goldDark = "var(--brand-dark, #b79832)";
@@ -86,6 +86,23 @@ export function LeadFilterBar({
   showProfileFilter?: boolean;
 }) {
   const set = (key: keyof LeadFilterState, val: string) => onChange({ ...filters, [key]: val });
+  // "Filter pills" used to be permanently visible — 3 pill groups + a profile
+  // row with 11 long ICP names. Way too much visual noise on first paint when
+  // most sellers just need search + the saved-view chips above. Hidden by
+  // default now, expand via the "Filters" toggle.
+  const hasFacetFilter =
+    filters.score !== "all" ||
+    filters.campaign !== "all" ||
+    filters.reply !== "all" ||
+    filters.profile !== "all";
+  const [expanded, setExpanded] = useState(hasFacetFilter);
+  // Re-open the panel whenever a programmatic filter is applied (e.g. clicking
+  // a saved view from the parent), so the user can see at a glance which
+  // facets the view configured.
+  useEffect(() => {
+    if (hasFacetFilter) setExpanded(true);
+  }, [hasFacetFilter]);
+
   const activeCount =
     (filters.score !== "all" ? 1 : 0) +
     (filters.campaign !== "all" ? 1 : 0) +
@@ -124,12 +141,16 @@ export function LeadFilterBar({
           )}
         </div>
 
-        <div
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border"
+        <button
+          type="button"
+          onClick={() => setExpanded(v => !v)}
+          aria-expanded={expanded}
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border transition-colors hover:bg-black/[0.03]"
           style={{
             borderColor: hasActiveFilter ? `color-mix(in srgb, ${goldDark} 30%, ${C.border})` : C.border,
             backgroundColor: hasActiveFilter ? `color-mix(in srgb, ${goldDark} 8%, transparent)` : "transparent",
           }}
+          title={expanded ? "Hide filters" : "Show filters"}
         >
           <SlidersHorizontal size={12} style={{ color: hasActiveFilter ? goldDark : C.textDim }} />
           <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: hasActiveFilter ? goldDark : C.textDim, letterSpacing: "0.08em" }}>
@@ -140,7 +161,15 @@ export function LeadFilterBar({
               {activeCount}
             </span>
           )}
-        </div>
+          <ChevronDown
+            size={11}
+            style={{
+              color: hasActiveFilter ? goldDark : C.textDim,
+              transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.15s ease",
+            }}
+          />
+        </button>
 
         {hasActiveFilter && (
           <button

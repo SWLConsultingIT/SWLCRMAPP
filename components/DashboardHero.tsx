@@ -113,9 +113,10 @@ export default function DashboardHero({ pulse }: Props) {
           </div>
 
           {/* Today's pulse — 3 mini-tiles to the right of the headline.
-              Renders only when pulse data is provided AND any value is
-              non-zero, so empty days don't show a row of zeros. */}
-          {pulse && (pulse.leadsToday + pulse.repliesToday + pulse.transferredToday > 0) && (
+              Renders whenever pulse data is provided, even with zeros, so
+              the user always sees today's snapshot (no signal vs. data-missing
+              ambiguity). */}
+          {pulse && (
             <div className="flex items-stretch gap-2 shrink-0">
               <PulseTile icon={Users} value={pulse.leadsToday}
                 label={locale === "es" ? "leads hoy" : "leads today"} />

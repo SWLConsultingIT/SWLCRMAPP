@@ -6,6 +6,7 @@ import Link from "next/link";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 import { useAuthUser, useAuth } from "@/lib/auth-context";
+import TodayPlanPopover from "./TodayPlanPopover";
 
 const ROUTE_KEYS: Record<string, { key: string; brand?: string }> = {
   "/":              { key: "nav.dashboard" },
@@ -124,14 +125,7 @@ export default function TopHeader() {
 
       {/* Right: actions + user */}
       <div className="flex items-center gap-1 w-56 justify-end">
-        <Link
-          href="/queue"
-          className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
-          style={{ color: C.textMuted }}
-          title={t("nav.queue")}
-        >
-          <Bell size={16} />
-        </Link>
+        <TodayPlanPopover />
         <Link
           href="/settings"
           className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
@@ -140,13 +134,6 @@ export default function TopHeader() {
         >
           <Settings size={16} />
         </Link>
-        <button
-          className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
-          style={{ color: C.textMuted }}
-          title="Help"
-        >
-          <HelpCircle size={16} />
-        </button>
         <button
           onClick={handleLogout}
           className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"

@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
 import Link from "next/link";
+import LogoLoader from "@/components/LogoLoader";
 import {
   ArrowLeft, Save, Loader2, Plus, Trash2, GripVertical,
   ChevronUp, ChevronDown, Share2, Mail, Phone, MessageCircle,
@@ -293,11 +294,9 @@ export default function FlowEditorPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24" style={{ color: C.textMuted }}>
-        <Loader2 size={20} className="animate-spin mr-2" /> Loading flow...
-      </div>
-    );
+    // Use the global LogoLoader so the in-page spinner doesn't visibly hand
+    // off from the route-transition loader.
+    return <LogoLoader />;
   }
 
   const selectedSeller = sellers.find(s => s.id === flowManagerId);

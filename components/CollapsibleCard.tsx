@@ -7,6 +7,10 @@ import { C } from "@/lib/design";
 type Props = {
   title: string;
   description?: string;
+  /** Optional element rendered immediately after the title (e.g. glossary
+   *  tooltip icon). Keeps the title string searchable / accessible while
+   *  allowing inline annotation. */
+  titleSuffix?: ReactNode;
   /** Slot at the right of the header (e.g. count badge, "View all" link). */
   rightSlot?: ReactNode;
   /** Icon shown left of the title — pre-rendered, not a component reference. */
@@ -30,7 +34,7 @@ type Props = {
 // app vary wildly with data; a snap is safer for live clients than a janky
 // transition.
 export default function CollapsibleCard({
-  title, description, rightSlot, icon, storageKey, defaultOpen = true, children,
+  title, description, titleSuffix, rightSlot, icon, storageKey, defaultOpen = true, children,
 }: Props) {
   const [open, setOpen] = useState(defaultOpen);
   const [hydrated, setHydrated] = useState(false);
@@ -73,7 +77,10 @@ export default function CollapsibleCard({
       >
         {icon && <span className="shrink-0 inline-flex" style={{ color: C.textMuted }}>{icon}</span>}
         <div className="flex-1 min-w-0">
-          <h2 className="text-sm font-bold leading-tight" style={{ color: C.textPrimary }}>{title}</h2>
+          <h2 className="text-sm font-bold leading-tight inline-flex items-center" style={{ color: C.textPrimary }}>
+            {title}
+            {titleSuffix}
+          </h2>
           {description && (
             <p className="text-[11px] mt-0.5 truncate" style={{ color: C.textMuted }}>{description}</p>
           )}

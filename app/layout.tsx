@@ -21,7 +21,9 @@ export const metadata: Metadata = {
 // on the client and re-syncs the attribute against the cookie in case the
 // server snapshot is stale (e.g. after an in-tab theme change but before the
 // next full reload).
-const themeScript = `try{var m=document.cookie.match(/(?:^|;\\s*)swl-theme=(light|dark)/);if(m&&m[1]==='dark')document.documentElement.setAttribute('data-theme','dark');else if(m&&m[1]==='light')document.documentElement.removeAttribute('data-theme');}catch(e){}`;
+// themeScript constant removed — its previous job (read swl-theme cookie
+// and apply data-theme to <html>) is now done server-side via the
+// `data-theme={isDark ? "dark" : undefined}` attribute below.
 
 // Public/pre-auth routes must always show SWL default branding — never inherit a tenant's color.
 const PUBLIC_ROUTES = ["/login", "/signup", "/forgot-password", "/reset-password", "/auth/callback"];
@@ -72,7 +74,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {/* themeScript removed — the server already paints data-theme on
+            <html> above from the swl-theme cookie, so the inline script that
+            re-read the cookie client-side was a duplicate. Keeping it
+            triggered a React 19 "script inside React component" console
+            warning on every render. */}
         {isPublicRoute && <script dangerouslySetInnerHTML={{ __html: PUBLIC_BRAND_CLEAR_SCRIPT }} />}
         {isPublicRoute && <style dangerouslySetInnerHTML={{ __html: PUBLIC_BRAND_RESET }} />}
         {brandCss && <style dangerouslySetInnerHTML={{ __html: brandCss }} />}

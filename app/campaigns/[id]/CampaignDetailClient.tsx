@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import Link from "next/link";
 import {
-  Share2, Mail, Phone, MessageCircle, Check, Pencil, X, Save,
+  Share2, Mail, Phone, MessageCircle, Check, Pencil, X, Save, Copy,
   PlayCircle, Loader2, Pause, Play, Trash2, Send,
   Users, UserPlus, Megaphone, Target, CheckCircle2,
   MessageSquare, PhoneCall, Clock, AlertTriangle, ChevronRight, LayoutGrid,
@@ -14,6 +14,7 @@ import CampaignKanban from "@/components/CampaignKanban";
 import CampaignCallsTab from "@/components/CampaignCallsTab";
 import MoveForwardButton from "@/components/MoveForwardButton";
 import { classifyUrgency } from "@/lib/overdue";
+import { useToast } from "@/lib/toast";
 
 const AIRCALL_USERS = [
   { id: 1916199, name: "Francisco Fontana" },
@@ -81,6 +82,7 @@ export default function CampaignDetailClient({
   const [savingTpl, setSavingTpl] = useState(false);
   const [tplError, setTplError] = useState<string | null>(null);
   const [tplDone, setTplDone] = useState(false);
+  const toast = useToast();
 
   async function handleDial(leadId: string, phone: string) {
     if (!phone || callingId) return;
@@ -184,11 +186,17 @@ export default function CampaignDetailClient({
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      alert(`Could not add leads: ${err.error ?? res.statusText}`);
+      toast.show({ kind: "error", title: "Couldn't add leads", description: err.error ?? res.statusText });
     } else {
       const data = await res.json() as { added?: number; rejected?: string[] };
       if (data.rejected && data.rejected.length > 0) {
-        alert(`Added ${data.added ?? 0} leads. ${data.rejected.length} skipped (different tenant).`);
+        toast.show({
+          kind: "warning",
+          title: `Added ${data.added ?? 0} leads`,
+          description: `${data.rejected.length} skipped (different tenant).`,
+        });
+      } else if ((data.added ?? 0) > 0) {
+        toast.show({ kind: "success", title: `Added ${data.added} leads to campaign` });
       }
     }
     setAdding(false);
@@ -435,6 +443,26 @@ export default function CampaignDetailClient({
               className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold hover:opacity-80"
               style={{ backgroundColor: C.surface, color: C.textBody, border: `1px solid ${C.border}` }}>
               <Save size={11} /> Save as Template
+            </button>
+            <button
+              onClick={async () => {
+                const r = await fetch(`/api/campaigns/${campaignId}/duplicate`, { method: "POST" });
+                if (!r.ok) {
+                  const { error } = await r.json().catch(() => ({ error: "Failed" }));
+                  toast.show({ kind: "error", title: "Couldn't duplicate campaign", description: error || "Try again." });
+                  return;
+                }
+                const { name } = await r.json().catch(() => ({ name: "" }));
+                toast.show({
+                  kind: "success",
+                  title: "Campaign duplicated",
+                  description: `${name || "Copy"} sent for approval.`,
+                });
+              }}
+              title="Clone this campaign's setup as a new request (sent for approval)"
+              className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold hover:opacity-80"
+              style={{ backgroundColor: C.surface, color: C.textBody, border: `1px solid ${C.border}` }}>
+              <Copy size={11} /> Duplicate
             </button>
             {sellerName && sellerName !== "Unassigned" && (
               <span className="text-xs" style={{ color: C.textMuted }}>Seller: <strong style={{ color: C.textBody }}>{sellerName}</strong></span>

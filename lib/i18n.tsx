@@ -13,6 +13,9 @@ const en: Dict = {
   "nav.section.main": "MAIN",
   "nav.section.growth": "GROWTH ENGINE",
   "nav.section.operations": "OPERATIONS",
+  "nav.section.work": "WORK",
+  "nav.section.setup": "SETUP",
+  "nav.section.admin": "",
   // Sidebar items
   "nav.dashboard": "Dashboard",
   "nav.companyBio": "Company Bio",
@@ -228,6 +231,9 @@ const es: Dict = {
   "nav.section.main": "PRINCIPAL",
   "nav.section.growth": "GROWTH ENGINE",
   "nav.section.operations": "OPERACIONES",
+  "nav.section.work": "TRABAJO",
+  "nav.section.setup": "CONFIGURACIÓN",
+  "nav.section.admin": "",
   // Sidebar items
   "nav.dashboard": "Tablero",
   "nav.companyBio": "Perfil de Empresa",

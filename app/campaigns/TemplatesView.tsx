@@ -11,6 +11,7 @@ import {
 import { C } from "@/lib/design";
 import EmptyState from "@/components/EmptyState";
 import TemplateLaunchModal from "@/components/TemplateLaunchModal";
+import { useToast } from "@/lib/toast";
 
 // 2026-05-17 — Templates organized by ICP.
 // Default view: "By ICP" with collapsible sections per ICP. A "Needs ICP"
@@ -69,6 +70,7 @@ function timeAgo(iso: string | null) {
 
 export default function TemplatesView() {
   const router = useRouter();
+  const toast = useToast();
   const [templates, setTemplates] = useState<TemplateListItem[] | null>(null);
   const [icps, setIcps] = useState<IcpOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -171,12 +173,13 @@ export default function TemplatesView() {
       const res = await fetch(`/api/templates/${t.id}`, { method: "DELETE" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        alert(body.error ?? "Couldn't delete");
+        toast.show({ kind: "error", title: "Couldn't delete template", description: body.error ?? "Try again in a moment." });
         return;
       }
       setTemplates(prev => (prev ?? []).filter(x => x.id !== t.id));
+      toast.show({ kind: "success", title: "Template deleted", description: t.name });
     } catch (e: any) {
-      alert(e?.message ?? "Couldn't delete");
+      toast.show({ kind: "error", title: "Couldn't delete template", description: e?.message ?? "Network error" });
     } finally {
       setBusyId(null);
     }
@@ -192,9 +195,10 @@ export default function TemplatesView() {
         body: JSON.stringify({ icp_profile_id: icpId }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) { alert(body.error ?? "Couldn't move"); return; }
+      if (!res.ok) { toast.show({ kind: "error", title: "Couldn't move template", description: body.error ?? "Try again." }); return; }
       setTemplates(prev => (prev ?? []).map(x => x.id === t.id ? { ...x, icp_profile_id: icpId } : x));
       setMenuOpenId(null);
+      toast.show({ kind: "success", title: "Template moved to ICP" });
     } finally {
       setBusyId(null);
     }
@@ -210,10 +214,11 @@ export default function TemplatesView() {
         body: JSON.stringify({ icp_profile_id: icpId }),
       });
       const body = await res.json().catch(() => ({}));
-      if (!res.ok) { alert(body.error ?? "Couldn't duplicate"); return; }
+      if (!res.ok) { toast.show({ kind: "error", title: "Couldn't duplicate template", description: body.error ?? "Try again." }); return; }
       // Reload so the new template shows up under its new ICP section.
       void load();
       setMenuOpenId(null);
+      toast.show({ kind: "success", title: "Template duplicated" });
     } finally {
       setBusyId(null);
     }

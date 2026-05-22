@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import LogoLoader from "@/components/LogoLoader";
 import { useRouter, useParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
@@ -327,7 +328,7 @@ export default function NewLeadCampaignWizard() {
   const uniqueChannels = [...new Set(sequence.map(s => s.channel))];
 
   if (loading) {
-    return <div className="p-8 flex items-center justify-center" style={{ color: C.textMuted }}><Loader2 size={20} className="animate-spin mr-2" /> Loading...</div>;
+    return <LogoLoader />;
   }
 
   if (!lead) {
@@ -723,6 +724,22 @@ export default function NewLeadCampaignWizard() {
             leadId={leadId}
             language={language}
             signals={selectedSignals}
+            onReorderStep={(fromIdx, toIdx) => {
+              if (toIdx < 0 || toIdx >= sequence.length || fromIdx === toIdx) return;
+              setSequence(seq => {
+                const next = [...seq];
+                const [moved] = next.splice(fromIdx, 1);
+                next.splice(toIdx, 0, moved);
+                return next;
+              });
+              setChannelMessages(msgs => {
+                const steps = [...(msgs.steps ?? [])];
+                if (steps.length === 0) return msgs;
+                const [moved] = steps.splice(fromIdx, 1);
+                steps.splice(toIdx, 0, moved);
+                return { ...msgs, steps };
+              });
+            }}
           />
         </div>
       )}

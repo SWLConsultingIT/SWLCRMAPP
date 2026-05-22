@@ -2,7 +2,7 @@ import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getInstantlyConfig } from "@/lib/instantly-config";
 import { C } from "@/lib/design";
-import { UserCircle } from "lucide-react";
+import { UserCircle, Share2, Mail, Phone, Check, X } from "lucide-react";
 import AccountsClient from "./AccountsClient";
 import PageHero from "@/components/PageHero";
 
@@ -272,6 +272,17 @@ async function getData() {
 export default async function AccountsPage() {
   const data = await getData();
 
+  // Per-channel connection status — gives the seller an instant "is the
+  // outreach channel ready to use?" answer without scrolling through the
+  // detail sections below. Sellers used to ask support "why can't I send?"
+  // when really their inbox wasn't connected — this header answers it.
+  const linkedinReady = data.sellers.filter(s => s.hasLinkedin).length;
+  const linkedinTotal = data.sellers.length;
+  const emailReady = data.instantly?.ready ?? 0;
+  const emailTotal = data.instantly?.total ?? 0;
+  const callsReady = data.aircall?.numbers.filter((n: { is_active: boolean }) => n.is_active).length ?? 0;
+  const callsTotal = data.aircall?.numbers.length ?? 0;
+
   return (
     <div className="p-6 w-full">
       <PageHero
@@ -281,6 +292,18 @@ export default async function AccountsPage() {
         description="Monitor daily sending limits and account health across channels."
         accentColor={C.gold}
         status={{ label: "Active", active: true }}
+        stats={[
+          { label: "LinkedIn ready", value: `${linkedinReady}/${linkedinTotal}`, tone: linkedinReady > 0 ? "positive" : "warning" },
+          { label: "Email ready", value: `${emailReady}/${emailTotal}`, tone: emailReady > 0 ? "positive" : "warning" },
+          { label: "Calls ready", value: `${callsReady}/${callsTotal}`, tone: callsReady > 0 ? "positive" : "warning" },
+          { label: "LinkedIn sent today", value: `${data.totals.linkedinSent}/${data.totals.linkedinLimit}`, tone: "neutral" },
+        ]}
+      />
+
+      <ConnectionStatusHeader
+        linkedin={{ ready: linkedinReady, total: linkedinTotal, label: "sellers with LinkedIn" }}
+        email={{ ready: emailReady, total: emailTotal, label: "inboxes ready" }}
+        calls={{ ready: callsReady, total: callsTotal, label: "Aircall numbers active" }}
       />
 
       <AccountsClient
@@ -290,6 +313,69 @@ export default async function AccountsPage() {
         aircall={JSON.parse(JSON.stringify(data.aircall))}
         totals={data.totals}
       />
+    </div>
+  );
+}
+
+type ChannelStatus = { ready: number; total: number; label: string };
+
+function ConnectionStatusHeader({ linkedin, email, calls }: {
+  linkedin: ChannelStatus;
+  email: ChannelStatus;
+  calls: ChannelStatus;
+}) {
+  return (
+    <div className="mb-5 grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <ChannelStatusCard icon={Share2} channel="LinkedIn" status={linkedin} color={C.linkedin ?? "#0A66C2"} />
+      <ChannelStatusCard icon={Mail} channel="Email" status={email} color={C.email ?? "#059669"} />
+      <ChannelStatusCard icon={Phone} channel="Calls" status={calls} color="#F97316" />
+    </div>
+  );
+}
+
+function ChannelStatusCard({ icon: Icon, channel, status, color }: {
+  icon: typeof Share2;
+  channel: string;
+  status: ChannelStatus;
+  color: string;
+}) {
+  // "Ready" = at least one connected account / number / inbox available to
+  // actually send today. "Not set up" surfaces the empty case explicitly so
+  // sellers don't blame the wider app when the underlying channel is missing.
+  const isReady = status.ready > 0;
+  return (
+    <div
+      className="rounded-xl border px-4 py-3 flex items-center gap-3"
+      style={{
+        backgroundColor: C.card,
+        borderColor: isReady ? `color-mix(in srgb, ${color} 30%, ${C.border})` : C.border,
+        boxShadow: isReady ? `inset 3px 0 0 ${color}` : `inset 3px 0 0 ${C.textDim}`,
+      }}
+    >
+      <div
+        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+        style={{ backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)`, color }}
+      >
+        <Icon size={16} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted }}>
+          {channel}
+        </p>
+        <div className="flex items-center gap-1.5">
+          {isReady ? (
+            <Check size={13} style={{ color }} strokeWidth={2.5} />
+          ) : (
+            <X size={13} style={{ color: C.textDim }} strokeWidth={2.5} />
+          )}
+          <p className="text-sm font-bold" style={{ color: C.textPrimary }}>
+            {isReady ? `${status.ready}${status.total ? ` / ${status.total}` : ""}` : "Not set up"}
+          </p>
+          <p className="text-[11px]" style={{ color: C.textMuted }}>
+            {isReady ? status.label : "no accounts connected"}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

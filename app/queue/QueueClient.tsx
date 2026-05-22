@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import {
@@ -13,6 +13,7 @@ import {
 import PageHero from "@/components/PageHero";
 import CallButton from "@/components/CallButton";
 import TodayFocus from "@/components/TodayFocus";
+import InboxView, { type InboxReply } from "@/components/InboxView";
 import { classifyUrgency } from "@/lib/overdue";
 
 const gold = "var(--brand, #c9a83a)";
@@ -206,7 +207,17 @@ function InlineClassifier({ call }: { call: PendingCall }) {
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
 export default function QueueClient({ pendingCalls, newReplies, pendingReviews, updates }: Props) {
-  const [tab, setTab] = useState(0);
+  const searchParams = useSearchParams();
+  // Deep-linked tab via `?tab=inbox` (used by the /inbox redirect + the empty
+  // state CTAs). Falls back to Calls.
+  const initialTab = (() => {
+    const t = searchParams.get("tab");
+    if (t === "inbox") return 1;
+    if (t === "reviews") return 2;
+    if (t === "updates") return 3;
+    return 0;
+  })();
+  const [tab, setTab] = useState(initialTab);
   // Sub-tabs inside "Calls":
   //   0 = To Call (no latestCall — never been dialed for this campaign step)
   //   1 = Awaiting Outcome (latestCall exists, classification null)
@@ -328,7 +339,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
 
   const tabs = [
     { label: "Calls",           count: pendingCalls.length,   color: "#F97316",  reviewCount: 0 },
-    { label: "New Replies",     count: newReplies.length,     color: C.blue,     reviewCount: needsReviewCount },
+    { label: "Inbox",           count: newReplies.length,     color: C.blue,     reviewCount: needsReviewCount },
     { label: "Pending Reviews", count: pendingReviews.length, color: gold,       reviewCount: 0 },
     { label: "Updates",         count: updates.length,        color: "#7C3AED",  reviewCount: 0 },
   ];
@@ -338,10 +349,16 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
       <PageHero
         icon={Bell}
         section="Operations"
-        title="Queue"
+        title="Notifications"
         description="Review pending calls, new replies, and campaigns awaiting action."
         accentColor={C.orange}
         status={{ label: totalCount > 0 ? `${totalCount} pending` : "All Clear", active: totalCount > 0 }}
+        stats={[
+          { label: "Calls to make", value: pendingCalls.length, tone: pendingCalls.length > 0 ? "warning" : "neutral" },
+          { label: "New replies", value: newReplies.length, tone: newReplies.length > 0 ? "positive" : "neutral" },
+          { label: "Need review", value: needsReviewCount, tone: needsReviewCount > 0 ? "danger" : "neutral" },
+          { label: "Pending reviews", value: pendingReviews.length, tone: "neutral" },
+        ]}
       />
 
       {/* Today's Focus — the "what should I do next" strip above the tabs.
@@ -424,9 +441,10 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
               title: search ? "No calls match your search" : "No calls due right now",
               hint: search
                 ? "Try clearing the search to see all pending calls."
-                : "Calls show up here the moment a sequence reaches a call step. Nothing for you to do right now — good time to review replies or check Flows.",
-              ctaLabel: search ? null : "View replies",
-              ctaTab: 1,
+                : "Calls show up here the moment a sequence reaches a call step. Nothing for you to do right now — good time to triage your inbox or check Flows.",
+              ctaLabel: search ? null : "Open Inbox",
+              ctaTab: null,
+              ctaHref: "/inbox",
             }
           : callSubTab === 1
           ? {
@@ -434,12 +452,14 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
               hint: "Once you call a lead, it lands here until you log the outcome (Positive / Negative / Follow-up). Classifying calls is what keeps the AI's reply matching accurate.",
               ctaLabel: null,
               ctaTab: null,
+              ctaHref: null,
             }
           : {
               title: search ? "No follow-ups match your search" : "No follow-ups waiting",
               hint: "Leads you marked Follow-up live here until you dial them again. Empty means you're caught up — back to To Call.",
               ctaLabel: "Back to To Call",
               ctaTab: 0 as 0,
+              ctaHref: null,
             };
 
         return (
@@ -482,10 +502,11 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                 </div>
                 <p className="text-sm font-bold mb-1.5" style={{ color: C.textPrimary }}>{emptyCopy.title}</p>
                 <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>{emptyCopy.hint}</p>
-                {emptyCopy.ctaLabel && emptyCopy.ctaTab !== null && (
+                {emptyCopy.ctaLabel && (emptyCopy.ctaTab !== null || emptyCopy.ctaHref) && (
                   <button onClick={() => {
+                    if (emptyCopy.ctaHref) { router.push(emptyCopy.ctaHref); return; }
                     if (emptyCopy.ctaTab === 0) setCallSubTab(0);
-                    else setTab(emptyCopy.ctaTab as number);
+                    else if (emptyCopy.ctaTab !== null) setTab(emptyCopy.ctaTab as number);
                   }}
                     className="inline-flex items-center gap-1.5 mt-4 text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-opacity hover:opacity-85"
                     style={{ backgroundColor: gold, color: "#04070d" }}>
@@ -636,8 +657,32 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
         );
       })()}
 
-      {/* ═══ Tab 1: New Replies ═══ */}
+      {/* ═══ Tab 1: Inbox (split-pane reply triage with keyboard shortcuts) ═══ */}
       {tab === 1 && (
+        <InboxView
+          replies={(sortedReplies as NewReply[]).map((r): InboxReply => ({
+            id: r.id,
+            leadId: r.leadId ?? "",
+            leadName: r.leadName,
+            company: r.company,
+            campaignName: r.campaignName ?? null,
+            classification: r.classification,
+            channel: r.channel,
+            replyText: r.replyText,
+            receivedAt: r.receivedAt,
+            // NewReply (queue) doesn't track review_status separately — we
+            // derive `pending` if the row was flagged for human review and
+            // hasn't been acted on yet. Approvals from Inbox will refresh the
+            // server data on next nav.
+            reviewStatus: r.requiresHumanReview ? "pending" : null,
+            requiresHumanReview: !!r.requiresHumanReview,
+            positive: r.classification === "positive" || r.classification === "meeting_intent",
+          }))}
+        />
+      )}
+
+      {/* (kept dead for reviewability) */}
+      {false && tab === 99 && (
         filteredReplies.length === 0 ? (
           <div className="rounded-2xl border py-12 px-6 text-center max-w-xl mx-auto"
             style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>

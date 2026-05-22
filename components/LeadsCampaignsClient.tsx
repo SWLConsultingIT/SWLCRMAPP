@@ -7,8 +7,10 @@ import { C } from "@/lib/design";
 import {
   Megaphone, ChevronRight, Target,
   Search, X, CheckCircle, Star, RefreshCw, Trash2, Square, CheckSquare,
+  Phone, MoreHorizontal, Mail, Flame,
 } from "lucide-react";
 import { LeadFilterBar, type LeadFilterState } from "@/components/LeadFilters";
+import { useToast } from "@/lib/toast";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -90,6 +92,11 @@ type Props = {
   lostLeads: LostLead[];
   renurturingLeads: RenurturingLead[];
   stats: { totalLeads: number; responseRate: number; positiveReplies: number; activeCampaigns: number };
+  /** Total leads in the tenant (unfiltered), from a separate count() query.
+   *  When greater than `allLeads.length`, the page hit the 500-row cap and
+   *  the user is looking at a partial view — we surface a banner so they
+   *  know to filter/export instead of trusting an incomplete list. */
+  totalLeadCount?: number;
 };
 
 function scoreBadge(score: number | null, priority: boolean) {
@@ -499,14 +506,62 @@ function LostLeadsView({ leads }: { leads: LostLead[] }) {
 // ─── All Leads Table with Filters ─────────────────────────────────────────────
 const PAGE_SIZE = 25;
 
+// Saved views — Linear-style preset filter tabs. Each "view" is a named
+// LeadFilterState that becomes a one-click tab above the main filter bar.
+// Stored statically here (no DB yet) because the set is small and changing
+// across releases anyway; a future iteration can persist per-user.
+const SAVED_VIEWS: { id: string; label: string; filters: Partial<LeadFilterState>; predicate?: (l: LeadInfo) => boolean }[] = [
+  { id: "all",        label: "All",                filters: {} },
+  { id: "hot",        label: "Hot only",           filters: { score: "hot" } },
+  { id: "positives",  label: "Positive replies",   filters: { reply: "positive" } },
+  { id: "replied",    label: "Replied",            filters: { reply: "replied" } },
+  { id: "noresponse", label: "No response yet",    filters: { reply: "none", campaign: "yes" } },
+  { id: "uncampaigned", label: "Not in a flow",    filters: { campaign: "no" } },
+];
+
 function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
   const router = useRouter();
+  const toast = useToast();
   const [showCount, setShowCount] = useState(PAGE_SIZE);
   const [filters, setFilters] = useState<LeadFilterState>({ search: "", score: "all", campaign: "all", reply: "all", profile: "all" });
+  const [activeView, setActiveView] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  // Inline per-row actions menu state. Only one row's menu is open at a time.
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [rowUpdating, setRowUpdating] = useState<string | null>(null);
 
   const profileNames = [...new Set(leads.map(l => l.profile_name).filter(Boolean))] as string[];
+
+  function applyView(viewId: string) {
+    const v = SAVED_VIEWS.find(x => x.id === viewId);
+    if (!v) return;
+    // Reset to neutral state and overlay the view's partial filter.
+    setFilters({ search: filters.search, score: "all", campaign: "all", reply: "all", profile: "all", ...v.filters });
+    setActiveView(viewId);
+    setShowCount(PAGE_SIZE);
+    setSelected(new Set());
+  }
+
+  // Pre-compute per-view counts (ignoring search) so the chips show their
+  // populated counts up-front and the user can see at a glance where the
+  // pipeline pressure is.
+  const viewCounts = SAVED_VIEWS.map(v => {
+    const f = { search: "", score: "all", campaign: "all", reply: "all", profile: "all", ...v.filters } as LeadFilterState;
+    const count = leads.filter(l => {
+      if (f.score === "hot" && !(l.is_priority || (l.score && l.score >= 80))) return false;
+      if (f.score === "warm" && !(l.score && l.score >= 50 && l.score < 80 && !l.is_priority)) return false;
+      if (f.score === "nurture" && !(!l.score || l.score < 50) && !l.is_priority) return false;
+      if (f.reply === "replied" && !(l.reply_count && l.reply_count > 0)) return false;
+      if (f.reply === "positive" && !l.has_positive) return false;
+      if (f.reply === "none" && (l.reply_count ?? 0) > 0) return false;
+      if (f.campaign === "yes" && !l.has_campaign) return false;
+      if (f.campaign === "no" && l.has_campaign) return false;
+      return true;
+    }).length;
+    return { ...v, count };
+  });
 
   const filtered = leads.filter(l => {
     if (filters.search) {
@@ -531,12 +586,81 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
   const visibleIds = visible.map(v => v.id);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selected.has(id));
 
-  function toggleOne(id: string) {
+  function toggleOne(id: string, shiftKey = false) {
+    // Shift-click range select — Gmail/Linear pattern. Selects every visible
+    // row between the previously-clicked checkbox and the new one. Without
+    // this, sellers were clicking 50 checkboxes one by one for a bulk action.
+    if (shiftKey && lastSelectedId && lastSelectedId !== id) {
+      const ids = visibleIds;
+      const fromIdx = ids.indexOf(lastSelectedId);
+      const toIdx = ids.indexOf(id);
+      if (fromIdx !== -1 && toIdx !== -1) {
+        const [a, b] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+        const range = ids.slice(a, b + 1);
+        setSelected(prev => {
+          const next = new Set(prev);
+          const allSelected = range.every(x => next.has(x));
+          range.forEach(x => (allSelected ? next.delete(x) : next.add(x)));
+          return next;
+        });
+        setLastSelectedId(id);
+        return;
+      }
+    }
     setSelected(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
+    setLastSelectedId(id);
+  }
+
+  // Quick single-lead status change from the row hover menu. Reuses the bulk
+  // endpoint (it accepts an array, so we pass [id]) so the tenant scope guard
+  // is identical and there's no second endpoint to maintain.
+  async function quickChangeStatus(id: string, status: string) {
+    if (rowUpdating) return;
+    setRowUpdating(id);
+    setOpenMenuId(null);
+    try {
+      const res = await fetch("/api/leads/bulk-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [id], status }),
+      });
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: "Update failed" }));
+        toast.show({ kind: "error", title: "Couldn't update status", description: error || "Try again." });
+        return;
+      }
+      toast.show({ kind: "success", title: `Status → ${status}` });
+      router.refresh();
+    } finally {
+      setRowUpdating(null);
+    }
+  }
+
+  async function quickTogglePriority(id: string, current: boolean) {
+    if (rowUpdating) return;
+    setRowUpdating(id);
+    setOpenMenuId(null);
+    try {
+      const res = await fetch(`/api/leads/${id}/priority`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_priority: !current }),
+      });
+      if (!res.ok) {
+        // Endpoint may not exist yet — silent-fail with a friendly toast
+        // instead of an exception. Tracked in pending tasks as a backend TODO.
+        toast.show({ kind: "warning", title: "Mark hot endpoint pending", description: "Will be wired in the next backend pass." });
+        return;
+      }
+      toast.show({ kind: "success", title: !current ? "Marked hot 🔥" : "Removed hot flag" });
+      router.refresh();
+    } finally {
+      setRowUpdating(null);
+    }
   }
   function toggleAllVisible() {
     setSelected(prev => {
@@ -558,9 +682,69 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
       });
       if (!res.ok) {
         const { error } = await res.json().catch(() => ({ error: "Delete failed" }));
-        alert(error || "Delete failed");
+        toast.show({ kind: "error", title: "Couldn't delete leads", description: error || "Try again in a moment." });
         return;
       }
+      toast.show({ kind: "success", title: `Deleted ${selected.size} lead${selected.size === 1 ? "" : "s"}` });
+      setSelected(new Set());
+      router.refresh();
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  async function bulkChangeStatus(status: string) {
+    if (selected.size === 0 || deleting) return;
+    // Snapshot prior status for each selected lead so an Undo can restore
+    // each row to where it was instead of forcing the user to manually
+    // revert. Reads from the in-memory leads array — no extra round trip.
+    const selectedIds = Array.from(selected);
+    const prevById = new Map<string, string | null>();
+    for (const l of leads) {
+      if (selected.has(l.id)) prevById.set(l.id, l.status ?? null);
+    }
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/leads/bulk-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedIds, status }),
+      });
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: "Update failed" }));
+        toast.show({ kind: "error", title: "Couldn't update status", description: error || "Try again in a moment." });
+        return;
+      }
+      const data = await res.json().catch(() => ({ updated: selectedIds.length })) as { updated?: number };
+      const updatedCount = data.updated ?? selectedIds.length;
+      toast.show({
+        kind: "success",
+        title: `Updated ${updatedCount} lead${updatedCount === 1 ? "" : "s"} → ${status}`,
+        action: {
+          label: "Undo",
+          onClick: async () => {
+            // Group by prior status so we make at most 1 round-trip per
+            // distinct status (in practice almost everyone shares the same
+            // status before a bulk change).
+            const groups = new Map<string, string[]>();
+            for (const [id, prev] of prevById.entries()) {
+              if (!prev) continue;
+              const arr = groups.get(prev) ?? [];
+              arr.push(id);
+              groups.set(prev, arr);
+            }
+            for (const [prevStatus, ids] of groups.entries()) {
+              await fetch("/api/leads/bulk-status", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids, status: prevStatus }),
+              }).catch(() => null);
+            }
+            toast.show({ kind: "info", title: "Status change undone" });
+            router.refresh();
+          },
+        },
+      });
       setSelected(new Set());
       router.refresh();
     } finally {
@@ -570,31 +754,109 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
 
   return (
     <div>
+      {/* Saved views — quick-access preset filter tabs. Click switches to that
+          view; counts update from the un-searched lead pool so the user can
+          see where to look without typing. Label above hints at the chip
+          purpose so first-time users notice them. */}
+      <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-1.5" style={{ color: C.textMuted }}>
+        Quick filters
+      </p>
+      <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+        {viewCounts.map(v => {
+          const isActive = activeView === v.id;
+          return (
+            <button
+              key={v.id}
+              type="button"
+              onClick={() => applyView(v.id)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-[opacity,background-color]"
+              style={{
+                backgroundColor: isActive
+                  ? `color-mix(in srgb, ${gold} 16%, transparent)`
+                  : C.card,
+                borderColor: isActive
+                  ? `color-mix(in srgb, ${gold} 50%, transparent)`
+                  : C.border,
+                color: isActive ? gold : C.textBody,
+              }}
+            >
+              {v.label}
+              <span
+                className="text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: isActive ? gold : C.surface,
+                  color: isActive ? "#04070d" : C.textDim,
+                }}
+              >
+                {v.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       <LeadFilterBar
         filters={filters}
-        onChange={f => { setFilters(f); setShowCount(PAGE_SIZE); }}
+        onChange={f => {
+          setFilters(f);
+          setShowCount(PAGE_SIZE);
+          // Touching the manual filter bar drops the user out of any preset
+          // view so the chip highlight doesn't lie about the active state.
+          setActiveView("custom");
+        }}
         resultCount={filtered.length}
         totalCount={leads.length}
         profileNames={profileNames}
       />
 
       {selected.size > 0 && (
-        <div className="mb-3 rounded-xl border flex items-center justify-between px-4 py-2.5"
-          style={{ backgroundColor: "#FEF2F2", borderColor: "#FECACA" }}>
-          <span className="text-xs font-semibold" style={{ color: "#991B1B" }}>
-            {selected.size} lead{selected.size === 1 ? "" : "s"} selected
+        <div className="mb-3 rounded-xl border flex items-center justify-between px-4 py-2.5 gap-3 flex-wrap"
+          style={{ backgroundColor: `color-mix(in srgb, ${gold} 9%, ${C.card})`, borderColor: `color-mix(in srgb, ${gold} 35%, ${C.border})` }}>
+          <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>
+            <span style={{ color: gold }}>{selected.size}</span> lead{selected.size === 1 ? "" : "s"} selected
           </span>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setSelected(new Set())}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-white/60"
-              style={{ color: "#991B1B" }}>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Status change dropdown — uses native select so it inherits OS
+                styling on each platform; the wrapper styles it like a button. */}
+            <label className="relative inline-flex items-center">
+              <select
+                disabled={deleting}
+                onChange={e => {
+                  const v = e.target.value;
+                  e.target.value = ""; // reset so re-picking the same status fires again
+                  if (v) void bulkChangeStatus(v);
+                }}
+                defaultValue=""
+                className="appearance-none text-xs font-semibold px-3 py-1.5 pr-7 rounded-lg border cursor-pointer disabled:opacity-50"
+                style={{
+                  backgroundColor: C.card,
+                  borderColor: C.border,
+                  color: C.textPrimary,
+                }}
+              >
+                <option value="" disabled>Change status…</option>
+                <option value="new">New</option>
+                <option value="contacted">Contacted</option>
+                <option value="connected">Connected</option>
+                <option value="responded">Responded</option>
+                <option value="qualified">Qualified</option>
+                <option value="proposal_sent">Proposal</option>
+                <option value="closed_won">Won</option>
+                <option value="closed_lost">Lost</option>
+                <option value="nurturing">Nurturing</option>
+              </select>
+              <ChevronRight size={11} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" style={{ color: C.textMuted }} />
+            </label>
+            <button onClick={() => setSelected(new Set())} disabled={deleting}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors hover:bg-black/[0.04] disabled:opacity-50"
+              style={{ color: C.textMuted }}>
               Clear
             </button>
             <button onClick={bulkDelete} disabled={deleting}
               className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-[opacity,transform,box-shadow,background-color,border-color] disabled:opacity-50"
               style={{ backgroundColor: "#DC2626", color: "#fff" }}>
               {deleting ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />}
-              {deleting ? "Deleting…" : `Delete ${selected.size}`}
+              {deleting ? "Working…" : `Delete ${selected.size}`}
             </button>
           </div>
         </div>
@@ -629,11 +891,18 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
               const replyColor = lead.has_positive ? C.green : hasReply ? "#D97706" : C.textDim;
               const replyLabel = lead.has_positive ? "Positive" : hasReply ? "Replied" : "—";
               const isSelected = selected.has(lead.id);
+              const isUpdating = rowUpdating === lead.id;
+              const menuOpen = openMenuId === lead.id;
               return (
-                <tr key={lead.id} className="border-t transition-colors hover:bg-black/[0.015]"
+                <tr key={lead.id} className="border-t transition-colors hover:bg-black/[0.015] group/lr"
                   style={{ borderColor: C.border, backgroundColor: isSelected ? "#FEF2F2" : undefined }}>
                   <td className="px-3 py-2.5">
-                    <button onClick={() => toggleOne(lead.id)} className="block" aria-label="Select lead">
+                    <button
+                      onClick={(e) => toggleOne(lead.id, e.shiftKey)}
+                      className="block"
+                      aria-label="Select lead"
+                      title="Shift-click to select range"
+                    >
                       {isSelected ? <CheckSquare size={14} style={{ color: gold }} /> : <Square size={14} style={{ color: C.textDim }} />}
                     </button>
                   </td>
@@ -669,8 +938,76 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                   <td className="px-4 py-2.5">
                     <span className="text-[10px] font-semibold" style={{ color: replyColor }}>{replyLabel}</span>
                   </td>
-                  <td className="px-4 py-2.5 text-right">
-                    <Link href={`/leads/${lead.id}`} className="text-[10px] font-medium hover:underline" style={{ color: gold }}>View</Link>
+                  <td className="px-4 py-2.5 text-right relative">
+                    <div className="flex items-center justify-end gap-1">
+                      {/* Quick actions — invisible until the row is hovered.
+                          On touch devices (no hover) they're not reachable;
+                          fall back to opening the lead detail. */}
+                      <div className="opacity-0 group-hover/lr:opacity-100 transition-opacity flex items-center gap-1">
+                        {lead.phone && (
+                          <a
+                            href={`tel:${lead.phone}`}
+                            title={`Call ${lead.phone}`}
+                            className="w-7 h-7 inline-flex items-center justify-center rounded-md transition-colors hover:bg-black/[0.05]"
+                            style={{ color: "#F97316" }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Phone size={12} />
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); quickTogglePriority(lead.id, lead.is_priority); }}
+                          disabled={isUpdating}
+                          title={lead.is_priority ? "Remove hot flag" : "Mark as hot"}
+                          className="w-7 h-7 inline-flex items-center justify-center rounded-md transition-colors hover:bg-black/[0.05] disabled:opacity-50"
+                          style={{ color: lead.is_priority ? gold : C.textDim }}
+                        >
+                          <Flame size={12} fill={lead.is_priority ? gold : "transparent"} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); setOpenMenuId(menuOpen ? null : lead.id); }}
+                          title="More actions"
+                          className="w-7 h-7 inline-flex items-center justify-center rounded-md transition-colors hover:bg-black/[0.05]"
+                          style={{ color: C.textMuted }}
+                        >
+                          <MoreHorizontal size={13} />
+                        </button>
+                      </div>
+                      <Link href={`/leads/${lead.id}`} className="text-[10px] font-medium hover:underline ml-1" style={{ color: gold }}>
+                        View
+                      </Link>
+                    </div>
+                    {menuOpen && (
+                      <div
+                        className="absolute right-2 top-full mt-1 z-30 rounded-lg border shadow-xl min-w-[180px] py-1"
+                        style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}
+                        onMouseLeave={() => setOpenMenuId(null)}
+                      >
+                        <p className="px-3 py-1 text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>Change status</p>
+                        {[
+                          { v: "new", label: "New" },
+                          { v: "contacted", label: "Contacted" },
+                          { v: "connected", label: "Connected" },
+                          { v: "responded", label: "Responded" },
+                          { v: "qualified", label: "Qualified" },
+                          { v: "closed_won", label: "Won" },
+                          { v: "closed_lost", label: "Lost" },
+                          { v: "nurturing", label: "Nurturing" },
+                        ].map(opt => (
+                          <button
+                            key={opt.v}
+                            disabled={isUpdating || lead.status === opt.v}
+                            onClick={() => quickChangeStatus(lead.id, opt.v)}
+                            className="w-full text-left px-3 py-1.5 text-xs transition-colors hover:bg-black/[0.04] disabled:opacity-40"
+                            style={{ color: lead.status === opt.v ? gold : C.textPrimary }}
+                          >
+                            {lead.status === opt.v ? "✓ " : ""}{opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </td>
                 </tr>
               );
@@ -776,7 +1113,7 @@ function ProfileCard({ group }: { group: ProfileGroup }) {
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
-export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLeads, renurturingLeads, stats }: Props) {
+export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLeads, renurturingLeads, stats, totalLeadCount }: Props) {
   const [mainView, setMainView] = useState<"leads" | "campaigns">("leads");
   const [leadsTab, setLeadsTab] = useState(0);
   const [search, setSearch] = useState("");
@@ -790,8 +1127,40 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
       g.leads.some(l => `${l.first_name} ${l.last_name} ${l.company}`.toLowerCase().includes(search.toLowerCase()))
     );
 
+  // Truncation banner — render only when the loaded set was capped (see
+  // app/leads/page.tsx hard 500 limit). Hides itself otherwise.
+  const truncated = typeof totalLeadCount === "number" && totalLeadCount > allLeads.length;
+
   return (
-    <div>
+    // w-full on the root + every view wrapper below — fixes the layout shift
+    // when toggling Leads ↔ Campaigns. Previously the Campaigns grid sized to
+    // its content (3 cards × ~360px) and felt narrower than the Leads table
+    // (which already had `w-full` on the <table>). Locking everything to
+    // 100% of the parent keeps the visual frame steady.
+    <div className="w-full">
+      {truncated && (
+        <div
+          className="mb-4 px-4 py-3 rounded-xl border flex items-center gap-3 flex-wrap"
+          style={{
+            backgroundColor: `color-mix(in srgb, ${gold} 8%, ${C.card})`,
+            borderColor: `color-mix(in srgb, ${gold} 35%, ${C.border})`,
+          }}
+        >
+          <div
+            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+            style={{ backgroundColor: `color-mix(in srgb, ${gold} 18%, transparent)`, color: gold }}
+          >
+            <span className="text-[11px] font-bold">!</span>
+          </div>
+          <p className="text-[13px] flex-1 min-w-0" style={{ color: C.textPrimary }}>
+            Showing <strong>{allLeads.length.toLocaleString()}</strong> of <strong>{totalLeadCount!.toLocaleString()}</strong> leads.
+            <span className="ml-1" style={{ color: C.textMuted }}>
+              Filter by ICP or status above to narrow the view, or use Import / Export to handle the full set.
+            </span>
+          </p>
+        </div>
+      )}
+
       {/* Stat bar */}
       <div
         className="flex items-center gap-6 mb-6 px-6 py-4 rounded-2xl border flex-wrap"

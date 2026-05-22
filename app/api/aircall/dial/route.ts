@@ -287,7 +287,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ success: true, callId: null });
+  // Return the just-inserted call row id (if any) so the UI can prompt the
+  // seller to classify the outcome the moment the dial wraps. Aircall's own
+  // call_id arrives later via webhook; we surface the Supabase row id which
+  // is what /api/calls/<id>/classify accepts anyway.
+  return NextResponse.json({ success: true, callId: insertedDialId });
 }
 
 async function advanceCallStepForLead(

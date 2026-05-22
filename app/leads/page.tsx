@@ -11,6 +11,7 @@ import { Users, Upload } from "lucide-react";
 import Link from "next/link";
 import LeadsCampaignsClient from "@/components/LeadsCampaignsClient";
 import PageHero from "@/components/PageHero";
+import ExportLeadsCSVButton from "@/components/ExportLeadsCSVButton";
 
 // Tenant-scoped + auth-gated → never static. Skip the optimization attempt.
 export const dynamic = "force-dynamic";
@@ -40,16 +41,27 @@ async function getData() {
     // scroll past the first few screens — 500 covers >99% of real use.
     // If we need pagination beyond this we'll add cursor params here.
     .limit(500);
+  // Companion count() to compute the true tenant-wide total. Head-only request
+  // (no rows downloaded) so this is essentially free vs the data fetch above.
+  // We use it client-side to surface a "Showing 500 of N" banner when the cap
+  // truncates the visible list — sellers used to silently lose ~hundreds of
+  // leads with no UI signal.
+  let leadsCountQ = supabase
+    .from("leads")
+    .select("id", { count: "exact", head: true });
   // Seller-tier filter: only leads where seller_id ∈ their linked sellers.
   // Empty array (sellerIds.length=0) → in([]) returns no rows, which is the
   // intended behavior — a seller with no link sees nothing until they're
   // linked to a seller record.
   if (sellerIds !== null) {
-    leadsQ = leadsQ.in("seller_id", sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"]);
+    const ids = sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"];
+    leadsQ = leadsQ.in("seller_id", ids);
+    leadsCountQ = leadsCountQ.in("seller_id", ids);
   }
-  const [{ data: profiles }, { data: rawLeads }] = await Promise.all([
+  const [{ data: profiles }, { data: rawLeads }, { count: totalLeadCount }] = await Promise.all([
     bioId ? profilesQ.eq("company_bio_id", bioId) : profilesQ,
     bioId ? leadsQ.eq("company_bio_id", bioId) : leadsQ,
+    bioId ? leadsCountQ.eq("company_bio_id", bioId) : leadsCountQ,
   ]);
 
   // Privacy pass: client-uploaded leads have their PII inside encrypted_payload.
@@ -359,11 +371,12 @@ async function getData() {
     campaignGroups,
     uncampaignedGroups: Object.values(uncampaignedByProfile),
     stats: { activeProfiles: groupList.filter(g => (g.statusCounts.active ?? 0) > 0).length, totalLeads, responseRate, positiveReplies: positiveCount, activeCampaigns: campaignGroups.filter(g => g.status === "active").length },
+    totalLeadCount: typeof totalLeadCount === "number" ? totalLeadCount : (allLeadsList?.length ?? 0),
   };
 }
 
 export default async function LeadsCampaignsPage() {
-  const { profileGroups, allLeads, lostLeads, renurturingLeads, stats } = await getData();
+  const { profileGroups, allLeads, lostLeads, renurturingLeads, stats, totalLeadCount } = await getData();
   const scope = await getUserScope();
   const canImport = canEditTenantSettings(scope.tier) || scope.tier === "manager";
 
@@ -376,18 +389,32 @@ export default async function LeadsCampaignsPage() {
         description="Manage your full prospect pipeline and track outreach progress across all channels."
         accentColor={C.blue}
         status={{ label: "Active", active: true }}
-        action={canImport ? (
-          <Link
-            href="/leads/import"
-            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold shrink-0 transition-opacity hover:opacity-90"
-            style={{
-              background: `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`,
-              color: "#1A1A2E",
-            }}
-          >
-            <Upload size={11} /> Import Leads
-          </Link>
-        ) : undefined}
+        stats={[
+          { label: "Total leads", value: totalLeadCount ?? allLeads.length, tone: "neutral" },
+          { label: "Active flows", value: stats.activeCampaigns, tone: "positive" },
+          { label: "Reply rate", value: `${stats.responseRate}%`, tone: stats.responseRate >= 10 ? "positive" : "warning" },
+          { label: "Positive replies", value: stats.positiveReplies, tone: stats.positiveReplies > 0 ? "positive" : "neutral" },
+        ]}
+        action={
+          <div className="flex items-center gap-2 shrink-0">
+            <ExportLeadsCSVButton
+              leads={JSON.parse(JSON.stringify(allLeads))}
+              totalLeadCount={totalLeadCount}
+            />
+            {canImport && (
+              <Link
+                href="/leads/import"
+                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold shrink-0 transition-opacity hover:opacity-90"
+                style={{
+                  background: `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`,
+                  color: "#1A1A2E",
+                }}
+              >
+                <Upload size={11} /> Import Leads
+              </Link>
+            )}
+          </div>
+        }
       />
 
       <LeadsCampaignsClient
@@ -396,6 +423,7 @@ export default async function LeadsCampaignsPage() {
         lostLeads={JSON.parse(JSON.stringify(lostLeads))}
         renurturingLeads={JSON.parse(JSON.stringify(renurturingLeads))}
         stats={stats}
+        totalLeadCount={totalLeadCount}
       />
     </div>
   );

@@ -127,9 +127,14 @@ export default function OpportunitiesClient({ leads }: Props) {
           <EmptyState
             icon={Trophy}
             title="No opportunities yet"
-            description="When a lead replies positively to a flow — or a call is classified Positive — they show up here. Run a flow or log a Positive outcome on a call to get started."
+            description="Opportunities show up here when a lead replies positively or a call gets classified as Positive."
+            steps={[
+              "Run a flow against an approved ICP so leads start receiving outreach.",
+              "When replies arrive, triage them in Inbox and tag positives.",
+              "Positive replies and won-classified calls land here automatically — ready to push to your CRM.",
+            ]}
             primaryCta={{ label: "Start a flow", href: "/campaigns?tab=new" }}
-            secondaryCta={{ label: "View pending calls", href: "/queue" }}
+            secondaryCta={{ label: "Open Inbox", href: "/inbox" }}
           />
         )
       ) : (

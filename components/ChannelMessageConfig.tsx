@@ -5,7 +5,7 @@ import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 import {
   Share2, Mail, Phone, MessageCircle, Sparkles, Loader2,
-  ThumbsUp, ThumbsDown, Maximize2, Minimize2, Plus,
+  ThumbsUp, ThumbsDown, Maximize2, Minimize2, Plus, ChevronUp, ChevronDown,
 } from "lucide-react";
 import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
 
@@ -62,6 +62,11 @@ type Props = {
   /** Update attachments on sequence[stepIdx]. Optional so the component still
    * renders standalone (e.g. in template preview) without an attachment editor. */
   onAttachmentsChange?: (stepIdx: number, attachments: StepAttachment[]) => void;
+  /** Reorder a step. When provided, the wizard shows ↑/↓ controls on each
+   *  step header so sellers can swap step order without destroying the body.
+   *  The caller is responsible for swapping BOTH `sequence` and
+   *  `channelMessages.steps` so positions stay aligned. */
+  onReorderStep?: (fromIdx: number, toIdx: number) => void;
 };
 
 // ── Helpers ──
@@ -109,7 +114,7 @@ function classifySteps(sequence: { channel: string; daysAfter: number }[]): { ty
       return { type: "LINKEDIN_FOLLOWUP", channel: s.channel, label: `LinkedIn Follow-up ${introduced ? nth - 1 : nth}`, hasSubject: false };
     } else if (s.channel === "email") {
       if (!introduced) { introduced = true; return { type: "EMAIL_INTRO", channel: s.channel, label: "Introduction Email", hasSubject: true }; }
-      if (nth === 1) return { type: "EMAIL_FOLLOWUP_CROSS", channel: s.channel, label: "Email (Cross-channel Follow-up)", hasSubject: true };
+      if (nth === 1) return { type: "EMAIL_FOLLOWUP_CROSS", channel: s.channel, label: "Email follow-up (after other channel)", hasSubject: true };
       return { type: "EMAIL_FOLLOWUP", channel: s.channel, label: `Email Follow-up ${nth > 1 ? nth - 1 : 1}`, hasSubject: true };
     } else if (s.channel === "call") {
       if (nth === 1) return { type: "CALL_FIRST", channel: s.channel, label: "First Call Script", hasSubject: false };
@@ -186,13 +191,16 @@ const inlinePlaceholdersByLocale: Record<"es" | "en", Record<string, string>> = 
 
 // ── Main Component ──
 
-export default function ChannelMessageConfig({ sequence, channelMessages, onChange, leadId, icpProfileId, language, signals, onAttachmentsChange }: Props) {
+export default function ChannelMessageConfig({ sequence, channelMessages, onChange, leadId, icpProfileId, language, signals, onAttachmentsChange, onReorderStep }: Props) {
   const { locale, t } = useLocale();
   const placeholderLocale: "es" | "en" = locale === "es" ? "es" : "en";
   const typePlaceholders = typePlaceholdersByLocale[placeholderLocale];
   const inlinePlaceholders = inlinePlaceholdersByLocale[placeholderLocale];
   const typeDescriptions = typeDescriptionsByLocale[placeholderLocale];
   const [aiLoading, setAiLoading] = useState<string | null>(null);
+  // Generate All progress — shown in the button while the multi-call loop
+  // runs so sellers don't think the page is frozen during the ~20-30s wait.
+  const [genProgress, setGenProgress] = useState<{ current: number; total: number; label: string } | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // AI prompt is hidden by default to declutter each step card. Auto-expands
   // when there's existing content so users with saved prompts always see them.
@@ -287,9 +295,21 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
     setAiLoading(null);
   }
 
-  // Generate ALL fields at once
+  // Generate ALL fields at once. Reports per-step progress through
+  // `genProgress` so the button can show "Step 3 of 6 · Email Follow-up"
+  // instead of an unbounded spinner. Stops the "is it frozen?" worry
+  // sellers reported on 20-30s waits.
   async function generateAll() {
+    const hasLinkedin = sequence.some(s => s.channel === "linkedin");
+    const replyTypes = hasLinkedin ? (["replyPositive", "replyNegative"] as const) : ([] as const);
+    const totalSteps = (hasLinkedin ? 1 : 0) + classified.length + replyTypes.length;
+    let stepIndex = 0;
+
     setAiLoading("all");
+    setGenProgress({ current: 0, total: totalSteps, label: "Starting…" });
+
+    let failedLabel: string | null = null;
+
     try {
       // Build working copy of steps
       const allSteps = classified.map((cls, i) => channelMessages.steps?.[i] || {
@@ -299,54 +319,84 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
 
       // Generate connection request if LinkedIn is in sequence
       let connRequest = channelMessages.connectionRequest || "";
-      if (sequence.some(s => s.channel === "linkedin")) {
-        const crRes = await fetch("/api/campaigns/generate-field", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channel: "linkedin", fieldType: "connectionNote", leadId, icpProfileId, language, signals, sequence_meta: sequence, user_prompt: channelMessages.connectionRequestPrompt ?? "" }),
-        });
-        const crData = await crRes.json();
-        if (crData.content) connRequest = clampToCharBudget(crData.content, 200);
-        onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
+      if (hasLinkedin) {
+        stepIndex++;
+        setGenProgress({ current: stepIndex, total: totalSteps, label: "Connection request" });
+        try {
+          const crRes = await fetch("/api/campaigns/generate-field", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ channel: "linkedin", fieldType: "connectionNote", leadId, icpProfileId, language, signals, sequence_meta: sequence, user_prompt: channelMessages.connectionRequestPrompt ?? "" }),
+          });
+          if (!crRes.ok) throw new Error("Connection request");
+          const crData = await crRes.json();
+          if (crData.content) connRequest = clampToCharBudget(crData.content, 200);
+          onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
+        } catch {
+          failedLabel = "Connection request";
+        }
       }
 
       // Generate each step sequentially. Each one passes the user's prompt
       // for that step so the API can write the message to the user's intent.
       for (let i = 0; i < classified.length; i++) {
+        if (failedLabel) break;
+        stepIndex++;
+        setGenProgress({ current: stepIndex, total: totalSteps, label: classified[i].label });
         const ft = stepToFieldType(classified[i].type);
         const stepUserPrompt = channelMessages.steps?.[i]?.user_prompt ?? "";
-        const res = await fetch("/api/campaigns/generate-field", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channel: classified[i].channel, fieldType: ft, idx: i, leadId, icpProfileId, language, signals, user_prompt: stepUserPrompt, sequence_meta: sequence }),
-        });
-        const data = await res.json();
-        if (data.content) {
-          allSteps[i] = { ...allSteps[i], body: data.content, subject: data.subject || allSteps[i]?.subject };
-          onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
+        try {
+          const res = await fetch("/api/campaigns/generate-field", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ channel: classified[i].channel, fieldType: ft, idx: i, leadId, icpProfileId, language, signals, user_prompt: stepUserPrompt, sequence_meta: sequence }),
+          });
+          if (!res.ok) throw new Error(classified[i].label);
+          const data = await res.json();
+          if (data.content) {
+            allSteps[i] = { ...allSteps[i], body: data.content, subject: data.subject || allSteps[i]?.subject };
+            onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
+          }
+        } catch {
+          failedLabel = classified[i].label;
         }
       }
 
       // Generate auto-replies
-      for (const replyType of ["replyPositive", "replyNegative"] as const) {
+      for (const replyType of replyTypes) {
+        if (failedLabel) break;
+        stepIndex++;
+        const human = replyType === "replyPositive" ? "Positive auto-reply" : "Negative auto-reply";
+        setGenProgress({ current: stepIndex, total: totalSteps, label: human });
         const promptField = replyType === "replyPositive" ? "positivePrompt" : "negativePrompt";
         const replyPrompt = (channelMessages.autoReplies && (channelMessages.autoReplies as Record<string, string | undefined>)[promptField]) ?? "";
-        const res = await fetch("/api/campaigns/generate-field", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ channel: "linkedin", fieldType: replyType, leadId, icpProfileId, language, signals, user_prompt: replyPrompt }),
-        });
-        const data = await res.json();
-        if (data.content) {
-          const field = replyType === "replyPositive" ? "positive" : "negative";
-          replies = { ...replies, [field]: data.content };
-          onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
+        try {
+          const res = await fetch("/api/campaigns/generate-field", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ channel: "linkedin", fieldType: replyType, leadId, icpProfileId, language, signals, user_prompt: replyPrompt }),
+          });
+          if (!res.ok) throw new Error(human);
+          const data = await res.json();
+          if (data.content) {
+            const field = replyType === "replyPositive" ? "positive" : "negative";
+            replies = { ...replies, [field]: data.content };
+            onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
+          }
+        } catch {
+          failedLabel = human;
         }
       }
     } catch (err) {
       console.error("Generate all error:", err);
     }
+
+    if (failedLabel) {
+      // eslint-disable-next-line no-alert
+      console.error(`Generation stopped at "${failedLabel}". Partial output kept; edit manually or retry.`);
+    }
     setAiLoading(null);
+    setGenProgress(null);
   }
 
   // Map step classification → AI fieldType. Our API expects the uppercase step type
@@ -408,9 +458,31 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
             }}
           >
             {aiLoading === "all" ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-            {aiLoading === "all" ? t("wiz.gen.previewing") : t("wiz.gen.previewAll")}
+            {aiLoading === "all"
+              ? (genProgress ? `Step ${genProgress.current} of ${genProgress.total}` : t("wiz.gen.previewing"))
+              : t("wiz.gen.previewAll")}
           </button>
         </div>
+        {/* Progress bar — surfaces what AI is generating right now so the
+            seller sees real movement during the 20-30s loop. Hidden when
+            idle. */}
+        {genProgress && (
+          <div className="mt-3 px-1">
+            <div className="flex items-center justify-between text-[10px] mb-1" style={{ color: C.textMuted }}>
+              <span className="font-medium truncate" style={{ color: C.textBody }}>{genProgress.label}</span>
+              <span className="tabular-nums shrink-0 ml-2">{genProgress.current}/{genProgress.total}</span>
+            </div>
+            <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)` }}>
+              <div
+                className="h-full transition-[width] duration-300"
+                style={{
+                  width: `${(genProgress.current / Math.max(1, genProgress.total)) * 100}%`,
+                  background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`,
+                }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ═══ LINKEDIN CONNECTION REQUEST (always shown if LinkedIn is in sequence) ═══ */}
@@ -539,6 +611,30 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                   </span>
                   <span className="text-[11px] tabular-nums shrink-0" style={{ color: C.textDim }}>· Day {dayPerStep[i]}</span>
                   <div className="ml-auto flex items-center gap-1.5">
+                    {onReorderStep && (
+                      <div className="flex items-center rounded-md overflow-hidden border" style={{ borderColor: C.border }}>
+                        <button
+                          type="button"
+                          onClick={() => onReorderStep(i, i - 1)}
+                          disabled={i === 0}
+                          title="Move step up"
+                          className="px-1.5 py-1 text-[11px] transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
+                          style={{ backgroundColor: C.bg, color: C.textMuted, borderRight: `1px solid ${C.border}` }}
+                        >
+                          <ChevronUp size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onReorderStep(i, i + 1)}
+                          disabled={i === classified.length - 1}
+                          title="Move step down"
+                          className="px-1.5 py-1 text-[11px] transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
+                          style={{ backgroundColor: C.bg, color: C.textMuted }}
+                        >
+                          <ChevronDown size={11} />
+                        </button>
+                      </div>
+                    )}
                     <button onClick={() => toggleExpand(`step-${i}`)} title={expanded.has(`step-${i}`) ? "Collapse" : "Expand"}
                       className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-opacity hover:opacity-80"
                       style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}>
@@ -560,15 +656,37 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                 </div>
 
                 <div className="px-4 py-2.5 space-y-1.5">
-                  {isEmail && (
-                    <input
-                      className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
-                      style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
-                      value={step?.subject || ""}
-                      onChange={e => updateStep(i, "subject", e.target.value)}
-                      placeholder={inlinePlaceholders.subject}
-                    />
-                  )}
+                  {isEmail && (() => {
+                    const subjectMissing = !step?.subject?.trim();
+                    const hasBody = !!step?.body?.trim();
+                    // Warn (red border) only after the seller has started writing
+                    // the body — silence on a freshly-added step that hasn't been
+                    // touched yet. Sellers used to ship emails with blank subjects
+                    // because the field looked optional.
+                    const showWarning = subjectMissing && hasBody;
+                    return (
+                      <div className="space-y-1">
+                        <label className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: showWarning ? C.red : C.textDim }}>
+                          Subject <span style={{ color: C.red }}>*</span>
+                          {showWarning && <span className="font-normal normal-case tracking-normal text-[10px]" style={{ color: C.red }}>· required for email steps</span>}
+                        </label>
+                        <input
+                          required
+                          aria-required="true"
+                          aria-invalid={showWarning}
+                          className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
+                          style={{
+                            borderColor: showWarning ? C.red : C.border,
+                            color: C.textPrimary,
+                            backgroundColor: showWarning ? `${C.red}08` : C.bg,
+                          }}
+                          value={step?.subject || ""}
+                          onChange={e => updateStep(i, "subject", e.target.value)}
+                          placeholder={inlinePlaceholders.subject}
+                        />
+                      </div>
+                    );
+                  })()}
 
                   {/* PRIMARY: the message. The intent description that used to
                       live above is now the placeholder + title attr — same info,
@@ -657,9 +775,16 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                   {expanded.has("replyPositive") ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
                 </button>
                 <button onClick={() => generateField("replyPositive")} disabled={!!aiLoading}
-                  className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold disabled:opacity-50"
-                  style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
-                  {aiLoading === "replyPositive:" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />} AI
+                  title="Draft this reply with AI from the lead's positive answer + your tone of voice"
+                  className="flex items-center gap-1.5 rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-[opacity,box-shadow] disabled:opacity-50 hover:shadow-sm"
+                  style={{
+                    background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
+                    color: "#04070d",
+                    boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 28%, transparent)`,
+                    letterSpacing: "0.06em",
+                  }}>
+                  {aiLoading === "replyPositive:" ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                  {aiLoading === "replyPositive:" ? "Drafting" : "AI Draft"}
                 </button>
               </div>
             </div>
@@ -712,9 +837,16 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                   {expanded.has("replyNegative") ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
                 </button>
                 <button onClick={() => generateField("replyNegative")} disabled={!!aiLoading}
-                  className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold disabled:opacity-50"
-                  style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>
-                  {aiLoading === "replyNegative:" ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />} AI
+                  title="Draft this reply with AI from the lead's negative answer + your tone of voice"
+                  className="flex items-center gap-1.5 rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-[opacity,box-shadow] disabled:opacity-50 hover:shadow-sm"
+                  style={{
+                    background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
+                    color: "#04070d",
+                    boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 28%, transparent)`,
+                    letterSpacing: "0.06em",
+                  }}>
+                  {aiLoading === "replyNegative:" ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                  {aiLoading === "replyNegative:" ? "Drafting" : "AI Draft"}
                 </button>
               </div>
             </div>

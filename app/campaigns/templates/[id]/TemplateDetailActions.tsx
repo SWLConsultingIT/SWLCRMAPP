@@ -9,6 +9,7 @@ import {
 import { C } from "@/lib/design";
 import TemplateLaunchModal from "@/components/TemplateLaunchModal";
 import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
+import { useToast } from "@/lib/toast";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -62,6 +63,7 @@ export default function TemplateDetailActions({
   currentIcpId: string | null; icps: IcpOption[];
 }) {
   const router = useRouter();
+  const toast = useToast();
   const [menuOpen, setMenuOpen] = useState(false);
   const [submenu, setSubmenu] = useState<"main" | "duplicate" | "move">("main");
   const [busy, setBusy] = useState(false);
@@ -82,8 +84,9 @@ export default function TemplateDetailActions({
     if (busy) return; setBusy(true);
     try {
       const res = await fetch(`/api/templates/${templateId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ icp_profile_id: icpId }) });
-      if (!res.ok) { const b = await res.json().catch(() => ({})); alert(b.error ?? "Couldn't move"); return; }
+      if (!res.ok) { const b = await res.json().catch(() => ({})); toast.show({ kind: "error", title: "Couldn't move template", description: b.error ?? "Try again." }); return; }
       setMenuOpen(false); router.refresh();
+      toast.show({ kind: "success", title: "Template moved to ICP" });
     } finally { setBusy(false); }
   }
 
@@ -92,7 +95,8 @@ export default function TemplateDetailActions({
     try {
       const res = await fetch(`/api/templates/${templateId}/duplicate`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ icp_profile_id: icpId }) });
       const b = await res.json().catch(() => ({}));
-      if (!res.ok) { alert(b.error ?? "Couldn't duplicate"); return; }
+      if (!res.ok) { toast.show({ kind: "error", title: "Couldn't duplicate template", description: b.error ?? "Try again." }); return; }
+      toast.show({ kind: "success", title: "Template duplicated" });
       if (b.template?.id) router.push(`/campaigns/templates/${b.template.id}`);
       else { setMenuOpen(false); router.refresh(); }
     } finally { setBusy(false); }
@@ -104,7 +108,8 @@ export default function TemplateDetailActions({
     setBusy(true);
     try {
       const res = await fetch(`/api/templates/${templateId}`, { method: "DELETE" });
-      if (!res.ok) { const b = await res.json().catch(() => ({})); alert(b.error ?? "Couldn't delete"); return; }
+      if (!res.ok) { const b = await res.json().catch(() => ({})); toast.show({ kind: "error", title: "Couldn't delete template", description: b.error ?? "Try again." }); return; }
+      toast.show({ kind: "success", title: "Template deleted" });
       router.push("/campaigns");
     } finally { setBusy(false); }
   }
@@ -165,6 +170,7 @@ export default function TemplateDetailActions({
 
 /* ── Edit overlay ── */
 function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: string; icps: IcpOption[]; onClose: () => void; onSaved: () => void }) {
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [tpl, setTpl] = useState<FullTemplate | null>(null);
@@ -270,7 +276,8 @@ function EditOverlay({ templateId, icps, onClose, onSaved }: { templateId: strin
           rewrite_mode: rewriteMode,
         }),
       });
-      if (!res.ok) { const b = await res.json().catch(() => ({})); alert(b.error ?? "Save failed"); return; }
+      if (!res.ok) { const b = await res.json().catch(() => ({})); toast.show({ kind: "error", title: "Save failed", description: b.error ?? "Try again." }); return; }
+      toast.show({ kind: "success", title: "Template saved" });
       onSaved();
     } finally { setSaving(false); }
   }

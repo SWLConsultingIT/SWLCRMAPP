@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
+import LogoLoader from "@/components/LogoLoader";
 import {
   Building2, Save, AlertCircle, Plus, X, Pencil, Globe, Loader2,
   MapPin, Award, Briefcase, Trash2, Upload, Image as ImageIcon,
@@ -1620,7 +1621,7 @@ export default function CompanyBiosPage() {
   }, []);
 
   if (loading) {
-    return <div className="p-8 flex items-center justify-center" style={{ color: C.textMuted }}><Loader2 size={20} className="animate-spin mr-2" /> {t("bio.scan.scanning")}</div>;
+    return <LogoLoader />;
   }
 
   const hasBio = bio && bio.id;

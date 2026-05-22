@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, Loader2, CheckCheck, PhoneOff, ChevronDown, RefreshCw } from "lucide-react";
+import { Phone, Loader2, CheckCheck, PhoneOff, ChevronDown, RefreshCw, ThumbsUp, ThumbsDown, Clock, X } from "lucide-react";
 import { C } from "@/lib/design";
+import { useToast } from "@/lib/toast";
 
 const DEFAULT_AIRCALL_USER_ID = process.env.NEXT_PUBLIC_AIRCALL_DEFAULT_USER_ID
   ? Number(process.env.NEXT_PUBLIC_AIRCALL_DEFAULT_USER_ID)
@@ -45,11 +46,17 @@ type Props = {
 
 export default function CallButton({ phone, leadId, size = "md", variant = "solid", label, defaultNumberId }: Props) {
   const router = useRouter();
+  const toast = useToast();
   const [numbers, setNumbers] = useState<AircallNumber[]>([]);
   const [selectedNumberId, setSelectedNumberId] = useState<number | null>(null);
   const [state, setState] = useState<"idle" | "calling" | "called" | "error">("idle");
   const [picker, setPicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // Post-call classification prompt — auto-opens after a successful dial so
+  // sellers don't forget to log the outcome. Sellers were leaving calls in
+  // "initiated" forever, polluting /queue with phantom pending tasks.
+  const [classifyCallId, setClassifyCallId] = useState<string | null>(null);
+  const [classifying, setClassifying] = useState(false);
 
   const loadNumbers = useCallback(async (opts?: { fresh?: boolean }) => {
     // Pass leadId so the API scopes to the LEAD's tenant (not the viewer's).
@@ -113,6 +120,13 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
       });
       if (res.ok) {
         setState("called");
+        // Capture the just-inserted calls.id so we can open the classify
+        // prompt the moment Aircall picks up. Without this the seller had
+        // to navigate to /queue to log the outcome — most never did.
+        try {
+          const data = await res.json() as { callId?: string | null };
+          if (data?.callId) setClassifyCallId(data.callId);
+        } catch { /* ignore parse error — the dial still succeeded */ }
         // Refresh server components so the lead moves from "To Call" to
         // "Awaiting Outcome" in /queue immediately — the dial endpoint already
         // inserted a calls row with status=initiated + classification=null.
@@ -169,7 +183,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
           {selected ? (
             <>
               <span>{COUNTRY_FLAGS[selected.country] ?? "📞"}</span>
-              <span>{selected.country}</span>
+              <span className="tabular-nums">…{selected.digits.slice(-4)}</span>
             </>
           ) : "…"}
           <ChevronDown size={10} />
@@ -220,6 +234,87 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* Post-dial classification prompt — fixed bottom-right toast-card.
+          Opens automatically after a successful dial. Three-button triage:
+          Positive / Negative / Follow-up. Dismiss with X if not done yet. */}
+      {classifyCallId && (
+        <div
+          className="fixed bottom-6 right-6 z-[1100] rounded-2xl border shadow-2xl p-4 animate-[fadeIn_0.2s_ease-out]"
+          style={{
+            backgroundColor: C.card,
+            borderColor: `color-mix(in srgb, ${C.gold} 35%, ${C.border})`,
+            boxShadow: "0 16px 48px -16px rgba(0,0,0,0.35)",
+            width: 320,
+            maxWidth: "calc(100vw - 3rem)",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setClassifyCallId(null)}
+            aria-label="Skip for now"
+            className="absolute top-2 right-2 rounded p-1 hover:bg-black/[0.04] transition-colors"
+            style={{ color: C.textDim }}
+          >
+            <X size={14} />
+          </button>
+          <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.gold }}>
+            How did it go?
+          </p>
+          <p className="text-sm font-semibold mb-3 pr-6" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+            Log the call outcome
+          </p>
+          <p className="text-[11px] mb-3" style={{ color: C.textMuted }}>
+            Takes 1 click — keeps your queue clean and the AI&apos;s reply matching accurate.
+          </p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {([
+              { v: "positive" as const, label: "Positive", icon: ThumbsUp, color: C.green, bg: `color-mix(in srgb, ${C.green} 12%, transparent)` },
+              { v: "negative" as const, label: "Negative", icon: ThumbsDown, color: C.red, bg: `color-mix(in srgb, ${C.red} 12%, transparent)` },
+              { v: "follow_up" as const, label: "Follow-up", icon: Clock, color: "#D97706", bg: "color-mix(in srgb, #D97706 12%, transparent)" },
+            ]).map(opt => {
+              const OptIcon = opt.icon;
+              return (
+                <button
+                  key={opt.v}
+                  type="button"
+                  disabled={classifying}
+                  onClick={async () => {
+                    if (classifying) return;
+                    setClassifying(true);
+                    try {
+                      const r = await fetch(`/api/calls/${classifyCallId}/classify`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ classification: opt.v }),
+                      });
+                      if (!r.ok) {
+                        const { error } = await r.json().catch(() => ({ error: "Failed" }));
+                        toast.show({ kind: "error", title: "Couldn't log outcome", description: error || "Try again from Queue." });
+                        return;
+                      }
+                      toast.show({ kind: "success", title: `Logged as ${opt.label.toLowerCase()}` });
+                      setClassifyCallId(null);
+                      router.refresh();
+                    } finally {
+                      setClassifying(false);
+                    }
+                  }}
+                  className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-lg border text-[11px] font-semibold transition-opacity hover:opacity-85 disabled:opacity-50"
+                  style={{
+                    backgroundColor: opt.bg,
+                    color: opt.color,
+                    borderColor: `color-mix(in srgb, ${opt.color} 30%, transparent)`,
+                  }}
+                >
+                  <OptIcon size={14} />
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

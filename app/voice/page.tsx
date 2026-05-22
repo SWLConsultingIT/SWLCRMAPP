@@ -10,7 +10,10 @@ import {
 } from "lucide-react";
 import EmptyState from "@/components/EmptyState";
 import PageHero from "@/components/PageHero";
+import LogoLoader from "@/components/LogoLoader";
 import { useLocale } from "@/lib/i18n";
+import { useToast } from "@/lib/toast";
+import TermTooltip from "@/components/TermTooltip";
 
 const gold = C.gold;
 
@@ -34,6 +37,7 @@ const STEP_TYPES = [
 
 function BrandVoiceTab() {
   const { t } = useLocale();
+  const toast = useToast();
   const [bio, setBio] = useState<{ id: string; company_name: string; tone_of_voice: string | null; ideal_message_examples: VoiceExample[] | null } | null>(null);
   const [tone, setTone] = useState("");
   const [examples, setExamples] = useState<VoiceExample[]>([]);
@@ -69,14 +73,14 @@ function BrandVoiceTab() {
       });
       if (!res.ok) {
         const { error } = await res.json().catch(() => ({ error: "Save failed" }));
-        alert(error || "Save failed");
+        toast.show({ kind: "error", title: "Save failed", description: error || "Try again." });
         return;
       }
       setSavedAt(new Date());
     } finally { setSaving(false); }
   }
 
-  if (loading) return <div className="flex items-center justify-center py-12"><Loader2 size={20} className="animate-spin" style={{ color: gold }} /></div>;
+  if (loading) return <LogoLoader />;
   if (!bio) return <p className="text-sm" style={{ color: C.textMuted }}>{t("voice.noTenant")}</p>;
 
   return (
@@ -134,6 +138,11 @@ function BrandVoiceTab() {
           icon={MessageCircle}
           title={t("voice.brand.empty.title")}
           description={t("voice.brand.empty.desc")}
+          steps={[
+            "Paste 2–4 real messages you (or a teammate) have sent that got a positive reply.",
+            "Keep them short (2–4 sentences) — the AI mirrors length and rhythm, not just words.",
+            "Save. Every new campaign's AI Draft will lean on these examples for tone.",
+          ]}
           primaryCta={{ label: t("voice.brand.empty.cta"), onClick: addExample }}
         />
       ) : (
@@ -213,6 +222,7 @@ const emptyForm = {
 
 function TemplatesTab() {
   const { t: tr } = useLocale();
+  const toast = useToast();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [icpOptions, setIcpOptions] = useState<IcpOption[]>([]);
   const [companyBioId, setCompanyBioId] = useState<string | null>(null);
@@ -256,10 +266,12 @@ function TemplatesTab() {
     };
     if (editingId) {
       const { error } = await sb.from("message_templates").update(payload).eq("id", editingId);
-      if (error) { alert(error.message); return; }
+      if (error) { toast.show({ kind: "error", title: "Save failed", description: error.message }); return; }
+      toast.show({ kind: "success", title: "Template updated" });
     } else {
       const { error } = await sb.from("message_templates").insert(payload);
-      if (error) { alert(error.message); return; }
+      if (error) { toast.show({ kind: "error", title: "Save failed", description: error.message }); return; }
+      toast.show({ kind: "success", title: "Template created" });
     }
     setShowForm(false);
     setEditingId(null);
@@ -270,7 +282,8 @@ function TemplatesTab() {
     if (!confirm("Delete this template? This can't be undone.")) return;
     const sb = getSupabaseBrowser();
     const { error } = await sb.from("message_templates").delete().eq("id", id);
-    if (error) { alert(error.message); return; }
+    if (error) { toast.show({ kind: "error", title: "Couldn't delete", description: error.message }); return; }
+    toast.show({ kind: "success", title: "Template deleted" });
     await load();
   }
 
@@ -309,13 +322,18 @@ function TemplatesTab() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-12"><Loader2 size={20} className="animate-spin" style={{ color: gold }} /></div>
+        <LogoLoader />
       ) : filtered.length === 0 ? (
         templates.length === 0 ? (
           <EmptyState
             icon={BookOpen}
             title={tr("voice.tpl.empty.title")}
             description={tr("voice.tpl.empty.desc")}
+            steps={[
+              "Pick a channel (LinkedIn / Email / WhatsApp) and a step position (Connection request, DM, follow-up).",
+              "Write the message body — placeholders like {{first_name}} are substituted at send time.",
+              "Tag with an ICP so the right template appears when you create a flow for that segment.",
+            ]}
             primaryCta={{ label: `+ ${tr("voice.tpl.new")}`, onClick: () => { setEditingId(null); setShowForm(true); } }}
           />
         ) : (
@@ -392,11 +410,12 @@ function TemplateCard({ tpl, icpName, onEdit, onDelete }: { tpl: Template; icpNa
 }
 
 function TemplateForm({ initial, icpOptions, isEdit, onSave, onCancel }: { initial: typeof emptyForm; icpOptions: IcpOption[]; isEdit: boolean; onSave: (form: typeof emptyForm) => Promise<void>; onCancel: () => void }) {
+  const toast = useToast();
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
   function toggleTone(tag: string) { setForm(f => ({ ...f, tone_tags: f.tone_tags.includes(tag) ? f.tone_tags.filter(t => t !== tag) : [...f.tone_tags, tag] })); }
   async function submit() {
-    if (!form.template_text.trim()) { alert("Template text is required"); return; }
+    if (!form.template_text.trim()) { toast.show({ kind: "warning", title: "Template text is required" }); return; }
     setSaving(true);
     try { await onSave(form); } finally { setSaving(false); }
   }
@@ -476,10 +495,13 @@ function TemplateForm({ initial, icpOptions, isEdit, onSave, onCancel }: { initi
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="text-[10px] font-semibold uppercase tracking-wider mb-1 block" style={{ color: C.textMuted }}>{label}</span>
+      <span className="text-[10px] font-semibold uppercase tracking-wider mb-1 flex items-center" style={{ color: C.textMuted }}>
+        {label}
+        {hint}
+      </span>
       {children}
     </label>
   );
@@ -517,6 +539,7 @@ const emptySequence = {
 
 function SequencesTab() {
   const { t: tr } = useLocale();
+  const toast = useToast();
   const [sequences, setSequences] = useState<Sequence[]>([]);
   const [allTemplates, setAllTemplates] = useState<Template[]>([]);
   const [icpOptions, setIcpOptions] = useState<IcpOption[]>([]);
@@ -576,10 +599,10 @@ function SequencesTab() {
     let seqId = editingId;
     if (editingId) {
       const { error } = await sb.from("message_sequences").update(payload).eq("id", editingId);
-      if (error) { alert(error.message); return; }
+      if (error) { toast.show({ kind: "error", title: "Save failed", description: error.message }); return; }
     } else {
       const { data, error } = await sb.from("message_sequences").insert(payload).select("id").single();
-      if (error || !data) { alert(error?.message || "Insert failed"); return; }
+      if (error || !data) { toast.show({ kind: "error", title: "Couldn't create sequence", description: error?.message || "Insert failed" }); return; }
       seqId = data.id;
     }
 
@@ -603,7 +626,8 @@ function SequencesTab() {
     if (!confirm("Delete this sequence? Templates that belong to it will become standalone in the library (not deleted).")) return;
     const sb = getSupabaseBrowser();
     const { error } = await sb.from("message_sequences").delete().eq("id", id);
-    if (error) { alert(error.message); return; }
+    if (error) { toast.show({ kind: "error", title: "Couldn't delete sequence", description: error.message }); return; }
+    toast.show({ kind: "success", title: "Sequence deleted" });
     await load();
   }
 
@@ -635,7 +659,7 @@ function SequencesTab() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-12"><Loader2 size={20} className="animate-spin" style={{ color: gold }} /></div>
+        <LogoLoader />
       ) : sequences.length === 0 ? (
         <EmptyState
           icon={Layers}
@@ -707,6 +731,7 @@ function SequenceForm({ initial, icpOptions, allTemplates, isEdit, editingSeqId,
   onSave: (form: typeof emptySequence) => Promise<void>;
   onCancel: () => void;
 }) {
+  const toast = useToast();
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
 
@@ -738,7 +763,7 @@ function SequenceForm({ initial, icpOptions, allTemplates, isEdit, editingSeqId,
   }
 
   async function submit() {
-    if (!form.name.trim()) { alert("Name is required"); return; }
+    if (!form.name.trim()) { toast.show({ kind: "warning", title: "Name is required" }); return; }
     setSaving(true);
     try { await onSave(form); } finally { setSaving(false); }
   }
@@ -766,7 +791,7 @@ function SequenceForm({ initial, icpOptions, allTemplates, isEdit, editingSeqId,
                 <option value="archived">Archived</option>
               </select>
             </Field>
-            <Field label="ICP (optional)">
+            <Field label="ICP (optional)" hint={<TermTooltip iconOnly definition="ICP = Ideal Customer Profile. Pick a profile to scope this template to a specific buyer segment. Leave empty to make it reusable across ICPs." />}>
               <select value={form.icp_profile_id ?? ""} onChange={e => setForm(f => ({ ...f, icp_profile_id: e.target.value || null }))}
                 className="w-full text-sm px-3 py-2 rounded-lg border" style={{ borderColor: C.border, backgroundColor: C.bg }}>
                 <option value="">— Any ICP —</option>

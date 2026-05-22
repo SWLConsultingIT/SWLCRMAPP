@@ -7,6 +7,7 @@ import { Share2, Mail, Phone, MessageSquare, Megaphone } from "lucide-react";
 import Link from "next/link";
 import DashboardHero from "@/components/DashboardHero";
 import DashboardStats from "@/components/DashboardStats";
+import OnboardingChecklist from "@/components/OnboardingChecklist";
 import DashboardTabs from "@/components/DashboardTabs";
 import DashboardFilters from "@/components/DashboardFilters";
 import CollapsibleCard from "@/components/CollapsibleCard";
@@ -187,6 +188,32 @@ async function getDashboardData(filters: DashboardFilterValues) {
   if (filters.icpIds.length > 0) replyTrendQ = replyTrendQ.in("leads.icp_profile_id", filters.icpIds);
   if (campaignIdsForFilter) replyTrendQ = replyTrendQ.in("campaign_id", campaignIdsForFilter);
 
+  // Onboarding checklist signals — head-only counts so they're nearly free.
+  // Only render the checklist for tenant-scoped users (super_admin sees no
+  // hand-holding). Each query stays bio-scoped so a freshly-onboarded tenant
+  // doesn't see "Done ✓" because the SWL master account already has data.
+  //
+  // LinkedIn step counts sellers that THIS tenant can use — that's their own
+  // sellers PLUS sellers shared with them via admin's "Sellers shared with
+  // this client" toggle. Without the OR, tenants like Arqy that exclusively
+  // use shared SWL sellers see "Connect LinkedIn" forever stuck on pending.
+  const onboardingSellerQ = bioId
+    ? supabase
+        .from("sellers")
+        .select("id", { count: "exact", head: true })
+        .or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`)
+        .not("unipile_account_id", "is", null)
+    : null;
+  const onboardingIcpQ = bioId
+    ? supabase.from("icp_profiles").select("id", { count: "exact", head: true }).eq("company_bio_id", bioId).eq("status", "approved")
+    : null;
+  const onboardingLeadsQ = bioId
+    ? supabase.from("leads").select("id", { count: "exact", head: true }).eq("company_bio_id", bioId)
+    : null;
+  const onboardingCampaignQ = bioId
+    ? supabase.from("campaigns").select("id, leads!inner(company_bio_id)", { count: "exact", head: true }).eq("leads.company_bio_id", bioId).in("status", ["active", "paused"])
+    : null;
+
   const [
     { count: totalLeads },
     { data: activeCampaigns },
@@ -198,6 +225,10 @@ async function getDashboardData(filters: DashboardFilterValues) {
     { data: leadTrend },
     { data: transferTrend },
     { data: replyTrend },
+    onbSellerRes,
+    onbIcpRes,
+    onbLeadsRes,
+    onbCampaignRes,
   ] = await Promise.all([
     leadsCountQ,
     activeCampsQ,
@@ -209,7 +240,19 @@ async function getDashboardData(filters: DashboardFilterValues) {
     leadTrendQ,
     transferTrendQ,
     replyTrendQ,
+    onboardingSellerQ ?? Promise.resolve({ count: null as number | null }),
+    onboardingIcpQ ?? Promise.resolve({ count: null as number | null }),
+    onboardingLeadsQ ?? Promise.resolve({ count: null as number | null }),
+    onboardingCampaignQ ?? Promise.resolve({ count: null as number | null }),
   ]) as any;
+
+  // Wrap into a single object so the page render keeps the shape stable.
+  const onboardingStatus = bioId ? {
+    hasSellerLinkedin: ((onbSellerRes as any)?.count ?? 0) > 0,
+    hasIcpApproved: ((onbIcpRes as any)?.count ?? 0) > 0,
+    hasLeads: ((onbLeadsRes as any)?.count ?? 0) > 0,
+    hasCampaign: ((onbCampaignRes as any)?.count ?? 0) > 0,
+  } : null;
 
   const weekReplies = (weekAndRecentReplies ?? []) as Array<{ classification: string | null }>;
   const recentReplies = (weekAndRecentReplies ?? []).slice(0, 8);
@@ -375,6 +418,7 @@ async function getDashboardData(filters: DashboardFilterValues) {
     topCampaigns,
     recentReplies: formattedReplies,
     todayPulse,
+    onboardingStatus,
   };
 }
 
@@ -431,6 +475,10 @@ export default async function DashboardPage({
         repliesToday: data.todayPulse.replies,
         transferredToday: data.todayPulse.transferred,
       }} />
+
+      {data.onboardingStatus && (
+        <OnboardingChecklist status={data.onboardingStatus} />
+      )}
 
       <DashboardTabs>
         {/* ═══ TAB 0: OVERVIEW ═══ */}

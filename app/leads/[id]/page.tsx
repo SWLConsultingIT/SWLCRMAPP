@@ -22,6 +22,7 @@ import LeadSummaryTab from "@/components/LeadSummaryTab";
 import LeadStatsBar from "@/components/LeadStatsBar";
 import MoveForwardButton from "@/components/MoveForwardButton";
 import PreCallBrief from "@/components/PreCallBrief";
+import RecentLeadTracker from "@/components/RecentLeadTracker";
 
 // Bypass Next's render cache. Without this, the page snapshots messages +
 // campaign state at build time and a freshly-sent step 1 keeps showing
@@ -345,6 +346,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
     <div className="p-6 w-full fade-in">
 
       <Breadcrumb crumbs={[{ label: "Leads & Campaigns", href: "/leads" }, { label: lead.company_name ?? "Contact" }, { label: contactName }]} />
+      <RecentLeadTracker leadId={id} name={contactName} company={lead.company_name ?? null} />
 
       {/* ═══ CONTACT HEADER ═══ */}
       <div
@@ -362,14 +364,18 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           }}
         />
 
-        {/* Main row */}
-        <div className="p-6 flex items-start justify-between gap-6">
+        {/* Main row — responsive: stacked on mobile (<md), inline on desktop.
+            Previously this was a hard `flex justify-between` that pushed the
+            12-element right cluster off-screen on tablet and stacked it to
+            5+ rows on mobile. Now: identity left, actions row right on lg+;
+            actions wrap below identity on smaller screens. */}
+        <div className="p-4 sm:p-6 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 lg:gap-6">
 
           {/* Left: Avatar + Name + Badges */}
-          <div className="flex items-start gap-4 flex-1">
+          <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
             {/* Avatar */}
             <div
-              className="w-16 h-16 rounded-2xl flex items-center justify-center text-lg font-bold text-white shrink-0"
+              className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center text-base sm:text-lg font-bold text-white shrink-0"
               style={{
                 background: `linear-gradient(135deg, ${avatarBg}, color-mix(in srgb, ${avatarBg} 75%, white))`,
                 boxShadow: `0 6px 20px color-mix(in srgb, ${avatarBg} 28%, transparent)`,
@@ -380,9 +386,9 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             </div>
 
             {/* Name block */}
-            <div>
+            <div className="min-w-0 flex-1">
               <h1
-                className="text-[22px] font-bold leading-tight"
+                className="text-[18px] sm:text-[22px] font-bold leading-tight truncate"
                 style={{
                   color: C.textPrimary,
                   fontFamily: "var(--font-outfit), system-ui, sans-serif",
@@ -391,43 +397,48 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               >
                 {lead.primary_first_name} {lead.primary_last_name}
               </h1>
-              <p className="text-sm mt-0.5" style={{ color: C.textMuted }}>
+              <p className="text-xs sm:text-sm mt-0.5 truncate" style={{ color: C.textMuted }}>
                 {lead.primary_title_role ?? "—"}
               </p>
               {lead.company_name && (
                 <Link href={`/companies/${encodeURIComponent(lead.company_name)}`}
-                  className="flex items-center gap-1.5 text-sm mt-1 hover:underline"
+                  className="flex items-center gap-1.5 text-xs sm:text-sm mt-1 hover:underline truncate"
                   style={{ color: C.blue }}>
-                  <Building2 size={12} style={{ color: C.textDim }} />
-                  {lead.company_name}
-                  <ExternalLink size={10} style={{ opacity: 0.6 }} />
+                  <Building2 size={12} className="shrink-0" style={{ color: C.textDim }} />
+                  <span className="truncate">{lead.company_name}</span>
+                  <ExternalLink size={10} className="shrink-0" style={{ opacity: 0.6 }} />
                 </Link>
               )}
-              {/* Badges row */}
-              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                <span className="text-xs font-bold px-2.5 py-1 rounded-full"
+              {/* Badges row — primary (status, score) always visible, secondary
+                  (added date, NEW, seller) hidden on small viewports to keep
+                  the header compact. They reappear at sm: width. */}
+              <div className="flex items-center gap-1.5 sm:gap-2 mt-2 flex-wrap">
+                <span className="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full"
                   style={{ color: st.color, backgroundColor: st.bg }}>
                   {st.label.toUpperCase()}
                 </span>
-                <span className="text-xs font-bold px-2.5 py-1 rounded-full"
+                <span className="text-[10px] sm:text-xs font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full"
                   style={{ color: score.color, backgroundColor: score.bg }}>
                   {score.label}
                 </span>
                 {lead.created_at && (Date.now() - new Date(lead.created_at).getTime() < 7 * 86_400_000) && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full"
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 sm:py-1 rounded-full"
                     style={{ backgroundColor: gold, color: "#04070d" }}>
                     NEW
                   </span>
                 )}
+                {/* Created date — always visible (was conditional on <7d before
+                    the Lead Source card was removed). Sellers occasionally need
+                    to know the lead has been sitting for months. */}
                 {lead.created_at && (
-                  <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
-                    title="When this lead was added to the platform"
+                  <span className="hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
+                    title="When this lead was added"
                     style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
                     Added {new Date(lead.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                   </span>
                 )}
                 {lead.assigned_seller && (
-                  <span className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
+                  <span className="hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
                     style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
                     <div className="w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-bold"
                       style={{ backgroundColor: gold, fontSize: 9 }}>
@@ -436,70 +447,83 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                     {lead.assigned_seller}
                   </span>
                 )}
+                {/* Source universe — segmentation context (e.g. "UK Real Estate").
+                    Surfaced as a header chip so the seller knows what bucket
+                    the lead came from. The upstream tool name is intentionally
+                    NOT shown to clients. */}
+                {lead.source_universe && (
+                  <span className="hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
+                    title="Source universe / segment"
+                    style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
+                    {lead.source_universe}
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Right: Score ring + Channel icons */}
-          <div className="flex items-start gap-6 shrink-0">
-            {/* Channel permission icons */}
-            <div className="flex items-center gap-1.5">
-              {CHANNELS.map(ch => {
-                const allowed = lead[ch.key] !== false;
-                const hasData = ch.hasData(lead);
-                const ready = allowed && hasData;
-                const broken = allowed && !hasData;
-                const label = ch.key.replace("allow_", "");
-                return (
-                  <div key={ch.key}
-                    className="w-8 h-8 rounded-full flex items-center justify-center border relative"
-                    title={broken ? `${label} allowed but no contact data on file — dispatch will fail` : ready ? `${label}: ready` : `${label}: blocked`}
-                    style={{
-                      // Tinted backgrounds via color-mix so the chips render
-                      // correctly on dark mode. Same intent (green/amber/grey)
-                      // without the hardcoded light hex glow.
-                      backgroundColor: ready
-                        ? `color-mix(in srgb, ${C.green} 14%, transparent)`
-                        : broken
-                        ? "color-mix(in srgb, #D97706 14%, transparent)"
-                        : C.surface,
-                      borderColor: ready
-                        ? `color-mix(in srgb, ${C.green} 35%, transparent)`
-                        : broken
-                        ? "color-mix(in srgb, #D97706 35%, transparent)"
-                        : C.border,
-                      opacity: allowed ? 1 : 0.45,
-                    }}>
-                    {ch.icon}
-                    {ready && (
-                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: C.green }}>
-                        <span style={{ color: "#fff", fontSize: 7, lineHeight: 1 }}>✓</span>
-                      </div>
-                    )}
-                    {broken && (
-                      <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: "#D97706" }}>
-                        <AlertTriangle size={7} color="#fff" />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+          {/* Right cluster — splits naturally into actions row + secondary
+              indicators row on mobile so nothing overflows. On desktop both
+              rows align horizontally with the identity block. */}
+          <div className="flex flex-col-reverse sm:flex-col gap-3 sm:gap-4 sm:items-end shrink-0 w-full sm:w-auto">
+            {/* Actions: Call + Delete — full-width on mobile, inline on sm+ */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap justify-stretch sm:justify-end w-full sm:w-auto">
+              {lead.primary_phone && (
+                <div className="flex-1 sm:flex-initial">
+                  <CallButton phone={lead.primary_phone} leadId={id} size="sm" defaultNumberId={campaign?.aircall_number_id ?? null} />
+                </div>
+              )}
+              <DeleteLeadButton leadId={id} leadName={contactName} />
             </div>
 
-            {/* Score ring */}
-            {lead.lead_score > 0 && (
-              <ScoreRing score={lead.lead_score} color={score.color} />
-            )}
+            {/* Indicators: channel chips + score ring */}
+            <div className="flex items-center gap-3 sm:gap-4 flex-wrap sm:flex-nowrap">
+              <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
+                {CHANNELS.map(ch => {
+                  const allowed = lead[ch.key] !== false;
+                  const hasData = ch.hasData(lead);
+                  const ready = allowed && hasData;
+                  const broken = allowed && !hasData;
+                  const label = ch.key.replace("allow_", "");
+                  return (
+                    <div key={ch.key}
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center border relative"
+                      title={broken ? `${label} allowed but no contact data on file — dispatch will fail` : ready ? `${label}: ready` : `${label}: blocked`}
+                      style={{
+                        backgroundColor: ready
+                          ? `color-mix(in srgb, ${C.green} 14%, transparent)`
+                          : broken
+                          ? "color-mix(in srgb, #D97706 14%, transparent)"
+                          : C.surface,
+                        borderColor: ready
+                          ? `color-mix(in srgb, ${C.green} 35%, transparent)`
+                          : broken
+                          ? "color-mix(in srgb, #D97706 35%, transparent)"
+                          : C.border,
+                        opacity: allowed ? 1 : 0.45,
+                      }}>
+                      {ch.icon}
+                      {ready && (
+                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full flex items-center justify-center"
+                          style={{ backgroundColor: C.green }}>
+                          <span style={{ color: "#fff", fontSize: 7, lineHeight: 1 }}>✓</span>
+                        </div>
+                      )}
+                      {broken && (
+                        <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full flex items-center justify-center"
+                          style={{ backgroundColor: "#D97706" }}>
+                          <AlertTriangle size={7} color="#fff" />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
 
-            {/* Call */}
-            {lead.primary_phone && (
-              <CallButton phone={lead.primary_phone} leadId={id} size="sm" defaultNumberId={campaign?.aircall_number_id ?? null} />
-            )}
-
-            {/* Delete */}
-            <DeleteLeadButton leadId={id} leadName={contactName} />
+              {lead.lead_score > 0 && (
+                <ScoreRing score={lead.lead_score} color={score.color} />
+              )}
+            </div>
           </div>
         </div>
 
@@ -520,6 +544,77 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           initialGeneratedAt={(lead as any).call_talking_points_at ?? null}
         />
       )}
+
+      {/* ═══ NEXT ACTION CARD — what the user should do or know right now.
+            Sits above the stepper so the seller doesn't have to interpret the
+            progress bar to figure out what's pending. */}
+      {campaign && (() => {
+        const status = campaign.status;
+        const nextIdx = (campaign.current_step ?? 0);
+        const nextStep = steps[nextIdx];
+        const dueIso = (campaign as any).next_step_due_at as string | null | undefined;
+        const dueDate = dueIso ? new Date(dueIso) : null;
+        const isOverdue = dueDate ? dueDate.getTime() < Date.now() : false;
+
+        // Pick one of four states.
+        let tone = "neutral", title = "", subtitle = "", color = C.textMuted;
+        if (status === "completed" || status === "closed_won") {
+          tone = "won"; color = C.green;
+          title = "Campaign completed";
+          subtitle = (campaign as any).reply_count
+            ? `${(campaign as any).reply_count} repl${(campaign as any).reply_count === 1 ? "y" : "ies"} received.`
+            : "Sequence ran end-to-end without a reply.";
+        } else if (status === "closed_lost" || status === "failed") {
+          tone = "lost"; color = C.red;
+          title = "Campaign ended";
+          subtitle = "Lead won't receive more outreach. Re-nurture or archive.";
+        } else if (status === "paused") {
+          tone = "paused"; color = "#D97706";
+          title = "Campaign paused";
+          subtitle = "Resume from the Pause/Resume button below to keep sending.";
+        } else if (nextStep) {
+          tone = "active"; color = C.blue;
+          const when = dueDate
+            ? (isOverdue
+                ? `Overdue · was due ${dueDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
+                : `Due ${dueDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`)
+            : "Scheduled by the orchestrator";
+          title = `Next: ${nextStep} (Step ${nextIdx + 1} of ${steps.length})`;
+          subtitle = when;
+        }
+
+        if (!title) return null;
+        return (
+          <div
+            className="rounded-2xl border mb-4 px-5 py-3.5 flex items-center justify-between gap-4 flex-wrap"
+            style={{
+              backgroundColor: `color-mix(in srgb, ${color} 6%, ${C.card})`,
+              borderColor: `color-mix(in srgb, ${color} 28%, ${C.border})`,
+            }}
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div
+                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${color} 16%, transparent)`,
+                  color,
+                }}
+              >
+                {tone === "won" ? "✓" : tone === "lost" ? "✕" : tone === "paused" ? "II" : "→"}
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color }}>
+                  {tone === "active" ? (isOverdue ? "Action overdue" : "Next action") : "Status"}
+                </p>
+                <p className="text-sm font-bold truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                  {title}
+                </p>
+                <p className="text-xs" style={{ color: C.textMuted }}>{subtitle}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ═══ CAMPAIGN STEP PROGRESS (horizontal stepper) ═══ */}
       {steps.length > 0 ? (
@@ -709,11 +804,17 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         { label: "Social & Content" },
       ]}>
 
-        {/* ── TAB 1: Profile Overview ── */}
-        <div className="grid grid-cols-[1fr_340px] gap-5">
+        {/* ── TAB 1: Profile Overview ──
+            Single-column full-width. The old 2-col grid (`[1fr 340px]`) left
+            a permanent 340px dead zone on wide monitors whenever the right
+            rail's conditional cards (Lead Source, Career, Website) had no
+            data — which is most leads. Stacking everything full-width keeps
+            the layout consistent and stops the visual "half-filled page"
+            feel that came up in UX feedback. */}
+        <div className="space-y-5 w-full">
 
-          {/* LEFT — About the Person */}
-          <div className="space-y-5">
+          {/* About the Person + everything else, stacked full-width */}
+          <div className="space-y-5 min-w-0">
 
             {/* About This Person */}
             <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
@@ -1002,37 +1103,15 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
           </div>
 
-          {/* RIGHT SIDEBAR */}
+          {/* Was a right sidebar, now full-width follow-up cards (Career,
+              Website Intelligence) stacked below the main block. */}
           <div className="space-y-5">
 
-            {/* Lead Source */}
-            {(lead.source_universe || lead.source_tool) && (
-              <div className="rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Lead Source</h3>
-                <div className="space-y-2 text-sm">
-                  {lead.source_tool && (
-                    <div className="flex items-center justify-between">
-                      <span style={{ color: C.textMuted }}>Tool</span>
-                      <span className="font-medium" style={{ color: C.textBody }}>{lead.source_tool}</span>
-                    </div>
-                  )}
-                  {lead.source_universe && (
-                    <div className="flex items-center justify-between">
-                      <span style={{ color: C.textMuted }}>Universe</span>
-                      <span className="font-medium" style={{ color: C.textBody }}>{lead.source_universe}</span>
-                    </div>
-                  )}
-                  {lead.created_at && (
-                    <div className="flex items-center justify-between">
-                      <span style={{ color: C.textMuted }}>Created</span>
-                      <span className="font-medium" style={{ color: C.textBody }}>
-                        {new Date(lead.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+            {/* Lead Source removed — `source_tool` (Apollo / ZoomInfo / etc.)
+                reveals the upstream prospecting tool we'd rather not advertise
+                to clients reviewing a lead. `source_universe` and
+                `created_at` were moved up to the header badges where they
+                read as natural lead metadata. */}
 
             {/* Career / Education */}
             {lead.primary_career && (

@@ -12,6 +12,17 @@ type PageHeroProps = {
   // Slot on the right for page-level CTAs (e.g. "Import Leads").
   // Sits next to the status pill, inside the hero card so it doesn't float.
   action?: ReactNode;
+  /** Inline metric strip below the description — turns the hero into a
+   *  "section snapshot" so the user knows the shape of the page before
+   *  scrolling. Up to ~4 values. Tone tints the value color. */
+  stats?: { label: string; value: string | number; tone?: "neutral" | "positive" | "warning" | "danger" }[];
+};
+
+const TONE_COLORS: Record<NonNullable<NonNullable<PageHeroProps["stats"]>[number]["tone"]>, string> = {
+  neutral: "#fff",
+  positive: "#22C55E",
+  warning: "#F59E0B",
+  danger: "#EF4444",
 };
 
 export default function PageHero({
@@ -23,6 +34,7 @@ export default function PageHero({
   status,
   badge,
   action,
+  stats,
 }: PageHeroProps) {
   return (
     <div
@@ -97,6 +109,30 @@ export default function PageHero({
             <p className="text-[13px] mt-1.5 leading-relaxed max-w-2xl" style={{ color: "rgba(217,222,226,0.6)" }}>
               {description}
             </p>
+            {stats && stats.length > 0 && (
+              <div className="flex items-center gap-5 mt-3 flex-wrap">
+                {stats.map((s, i) => (
+                  <div key={i} className="flex items-baseline gap-1.5">
+                    <span
+                      className="text-[18px] font-bold tabular-nums leading-none"
+                      style={{
+                        color: TONE_COLORS[s.tone ?? "neutral"],
+                        fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                        letterSpacing: "-0.01em",
+                      }}
+                    >
+                      {s.value}
+                    </span>
+                    <span
+                      className="text-[10px] font-semibold uppercase tracking-wider"
+                      style={{ color: "rgba(217,222,226,0.55)", letterSpacing: "0.08em" }}
+                    >
+                      {s.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

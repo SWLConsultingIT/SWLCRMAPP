@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import PageHero from "@/components/PageHero";
+import LogoLoader from "@/components/LogoLoader";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
 import Link from "next/link";
@@ -609,6 +610,14 @@ export default function LeadGenPage() {
   const selectedProfile = profiles.find(p => p.id === selectedId);
   const editingProfile = profiles.find(p => p.id === editingId);
 
+  // Early return so the LogoLoader doesn't stack underneath the rendered
+  // hero card. The previous `{loading ? <LogoLoader /> : ...}` inside the
+  // JSX kept the hero above the loader visible, which looked like a
+  // double-loader UI.
+  if (loading) {
+    return <LogoLoader />;
+  }
+
   return (
     <div className="p-6 w-full">
       {/* Hero — hidden when viewing a profile detail */}
@@ -618,7 +627,7 @@ export default function LeadGenPage() {
             icon={Target}
             section="Growth Engine"
             title="Lead Miner™"
-            description="Define your ideal prospect profiles. Each profile generates a tailored outreach strategy."
+            description="Define your Ideal Customer Profiles (ICPs) — the buyer segments your campaigns target. Each profile drives a tailored outreach strategy."
             accentColor={C.aiAccent}
             status={{ label: "AI Active", active: true }}
             badge="Lead Intelligence"
@@ -679,14 +688,8 @@ export default function LeadGenPage() {
         />
       )}
 
-      {/* Loading */}
-      {loading ? (
-        <div className="flex items-center justify-center py-12" style={{ color: C.textMuted }}>
-          <Loader2 size={20} className="animate-spin mr-2" /> Loading…
-        </div>
-
-      /* Empty state */
-      ) : profiles.length === 0 && !showForm ? (
+      {/* Loading handled via early return above. */}
+      {profiles.length === 0 && !showForm ? (
         <div className="flex flex-col items-center justify-center py-16">
           <div className="rounded-2xl border p-10 max-w-lg w-full text-center relative overflow-hidden"
             style={{ backgroundColor: C.card, borderColor: C.border }}>

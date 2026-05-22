@@ -56,14 +56,16 @@ export default function DashboardFilters({
   const icpLabel  = useMemo(() => new Map(icps.map(p => [p.id, p.label])), [icps]);
 
   return (
-    <div className="relative rounded-2xl border overflow-hidden mb-4"
+    <div className="relative rounded-xl border overflow-hidden mb-3"
       style={{
-        backgroundColor: C.card,
+        backgroundColor: anyActive
+          ? `color-mix(in srgb, ${gold} 4%, ${C.card})`
+          : `color-mix(in srgb, ${C.surface} 60%, ${C.card})`,
         borderColor: anyActive ? `color-mix(in srgb, ${gold} 35%, ${C.border})` : C.border,
         boxShadow: anyActive
-          ? `0 4px 18px -6px color-mix(in srgb, ${gold} 28%, transparent), 0 1px 3px rgba(0,0,0,0.04)`
-          : "0 2px 8px rgba(0,0,0,0.03)",
-        transition: "border-color 150ms ease, box-shadow 150ms ease",
+          ? `0 4px 14px -6px color-mix(in srgb, ${gold} 24%, transparent)`
+          : "none",
+        transition: "border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease",
       }}>
       {/* Loading bar across the top — replaces the lonely spinner so the
           whole bar visibly responds to filter changes. */}

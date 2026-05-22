@@ -97,7 +97,14 @@ export default function TodayFocus({ calls, replies, onJumpToCalls, onJumpToRepl
     return null;
   }, [calls, replies, onJumpToCalls, onJumpToReplies]);
 
-  const overdueCount = useMemo(
+  // Split "untouched calls" by urgency so sellers see what's *waiting on them*
+  // (stalled, overdue) separately from what's *fresh in the pipeline* (new).
+  // Before: one "Calls to make" tile mixed both → sellers couldn't triage.
+  const newCalls = useMemo(
+    () => calls.filter(c => !c.latestCall && !c.isOverdue).length,
+    [calls],
+  );
+  const stalledCalls = useMemo(
     () => calls.filter(c => !c.latestCall && c.isOverdue).length,
     [calls],
   );
@@ -114,150 +121,132 @@ export default function TodayFocus({ calls, replies, onJumpToCalls, onJumpToRepl
     [replies],
   );
 
-  // "All clear" — show a friendly empty state instead of an aggressive
-  // recommendation card. Quiet win surface for sellers with nothing to do.
+  // "All clear" — quiet green pill. Compact (no full card) because the hero
+  // above already shows zero counts; one more "you're caught up" billboard
+  // would be visual noise.
   if (!recommendation && calls.length === 0 && replies.length === 0) {
     return (
-      <div className="rounded-2xl border mb-5 px-5 py-4 flex items-center gap-3"
+      <div
+        className="rounded-xl border mb-5 px-4 py-2.5 flex items-center gap-2.5"
         style={{
-          background: `linear-gradient(135deg, color-mix(in srgb, ${C.green} 7%, var(--card)), var(--card))`,
+          background: `color-mix(in srgb, ${C.green} 6%, var(--card))`,
           borderColor: `color-mix(in srgb, ${C.green} 22%, var(--border))`,
-        }}>
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{ backgroundColor: `color-mix(in srgb, ${C.green} 14%, transparent)` }}>
-          <CheckCircle2 size={18} style={{ color: C.green }} />
-        </div>
-        <div>
-          <p className="text-sm font-bold" style={{ color: C.textPrimary }}>You&apos;re all caught up</p>
-          <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
-            No pending calls or replies right now. Take a breather or check Flows for next steps.
+        }}
+      >
+        <CheckCircle2 size={14} style={{ color: C.green }} />
+        <p className="text-xs font-semibold" style={{ color: C.green }}>You&apos;re all caught up.</p>
+        <span className="text-[11px]" style={{ color: C.textMuted }}>Take a breather or check Flows.</span>
+      </div>
+    );
+  }
+
+  // No urgent recommendation, but there are items queued — show a slim hint
+  // strip instead of a giant card. The hero already surfaced the counts, so
+  // duplicating them here would be redundant.
+  if (!recommendation) {
+    const total = newCalls + stalledCalls + awaitingClassification + replies.length;
+    return (
+      <div
+        className="rounded-xl border mb-5 px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap"
+        style={{
+          background: `color-mix(in srgb, ${gold} 5%, var(--card))`,
+          borderColor: `color-mix(in srgb, ${gold} 20%, var(--border))`,
+        }}
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Sun size={14} style={{ color: gold }} />
+          <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>
+            Nothing urgent right now.
           </p>
+          <span className="text-[11px]" style={{ color: C.textMuted }}>
+            {total} item{total === 1 ? "" : "s"} queued — pick a tab below.
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {replies.length > 0 && (
+            <button
+              onClick={onJumpToReplies}
+              className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-md transition-opacity hover:opacity-85"
+              style={{ backgroundColor: `color-mix(in srgb, ${C.blue} 14%, transparent)`, color: C.blue, border: `1px solid color-mix(in srgb, ${C.blue} 30%, transparent)` }}
+            >
+              <MessageSquare size={11} /> Triage {replies.length} repl{replies.length === 1 ? "y" : "ies"}
+            </button>
+          )}
+          {(newCalls + stalledCalls + awaitingClassification) > 0 && (
+            <button
+              onClick={onJumpToCalls}
+              className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-md transition-opacity hover:opacity-85"
+              style={{ backgroundColor: "color-mix(in srgb, #F97316 14%, transparent)", color: "#F97316", border: "1px solid color-mix(in srgb, #F97316 30%, transparent)" }}
+            >
+              <Phone size={11} /> {newCalls + stalledCalls + awaitingClassification} call{(newCalls + stalledCalls + awaitingClassification) === 1 ? "" : "s"}
+            </button>
+          )}
         </div>
       </div>
     );
   }
 
+  // Recommendation present — premium single-row card. The redundant 4-tile
+  // "counts strip" used to live on the right; removed because the hero above
+  // already shows those numbers (NEW CALLS / NEW REPLIES / NEED REVIEW / etc).
   return (
-    <div className="rounded-2xl border mb-5 overflow-hidden"
+    <div
+      className="rounded-2xl border mb-5 px-4 py-3 flex items-center gap-3 flex-wrap"
       style={{
-        background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 7%, var(--card)) 0%, var(--card) 50%)`,
-        borderColor: `color-mix(in srgb, ${gold} 25%, var(--border))`,
-        boxShadow: `0 6px 24px -10px color-mix(in srgb, ${gold} 25%, transparent), 0 2px 6px rgba(0,0,0,0.04)`,
-      }}>
-      <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-0">
-        {/* Recommended next action */}
-        <div className="px-5 py-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 65%, white))` }}>
-              <Sun size={14} style={{ color: "#fff" }} />
-            </div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.12em]" style={{ color: gold, letterSpacing: "0.12em" }}>
-              Today&apos;s Focus
+        background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 9%, var(--card)) 0%, var(--card) 65%)`,
+        borderColor: `color-mix(in srgb, ${gold} 28%, var(--border))`,
+        boxShadow: `0 4px 20px -8px color-mix(in srgb, ${gold} 22%, transparent)`,
+      }}
+    >
+      <div
+        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+        style={{
+          background: recommendation.kind === "reply"
+            ? `linear-gradient(135deg, ${C.blue}, color-mix(in srgb, ${C.blue} 65%, white))`
+            : "linear-gradient(135deg, #F97316, #FB923C)",
+          boxShadow: `0 0 18px color-mix(in srgb, ${recommendation.kind === "reply" ? C.blue : "#F97316"} 28%, transparent)`,
+        }}
+      >
+        {recommendation.kind === "reply"
+          ? <MessageSquare size={16} style={{ color: "#fff" }} />
+          : <Phone size={16} style={{ color: "#fff" }} />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <Sun size={11} style={{ color: gold }} />
+          <span className="text-[9px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
+            Today&apos;s Focus
+          </span>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="text-sm font-bold truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+            {recommendation.leadName}
+          </p>
+          {recommendation.company && (
+            <p className="text-xs truncate" style={{ color: C.textMuted }}>
+              · {recommendation.company}
             </p>
-          </div>
-
-          {recommendation ? (
-            <div className="rounded-xl border p-3.5 flex items-center gap-3"
-              style={{ borderColor: C.border, backgroundColor: C.card }}>
-              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                style={{
-                  background: recommendation.kind === "reply"
-                    ? `linear-gradient(135deg, ${C.blue}, color-mix(in srgb, ${C.blue} 65%, white))`
-                    : "linear-gradient(135deg, #F97316, #FB923C)",
-                }}>
-                {recommendation.kind === "reply"
-                  ? <MessageSquare size={16} style={{ color: "#fff" }} />
-                  : <Phone size={16} style={{ color: "#fff" }} />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className="text-sm font-bold truncate" style={{ color: C.textPrimary }}>
-                    {recommendation.leadName}
-                  </p>
-                  {recommendation.company && (
-                    <p className="text-xs truncate" style={{ color: C.textMuted }}>
-                      · {recommendation.company}
-                    </p>
-                  )}
-                </div>
-                <p className="text-[11px] mt-0.5 flex items-center gap-1" style={{ color: C.textBody }}>
-                  <Sparkles size={10} style={{ color: gold }} /> {recommendation.reason}
-                </p>
-              </div>
-              {recommendation.leadId ? (
-                <Link href={`/leads/${recommendation.leadId}`}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg shrink-0 transition-opacity hover:opacity-85"
-                  style={{ backgroundColor: gold, color: "#04070d" }}>
-                  {recommendation.cta} <ArrowRight size={12} />
-                </Link>
-              ) : (
-                <button onClick={recommendation.onAction}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg shrink-0 transition-opacity hover:opacity-85"
-                  style={{ backgroundColor: gold, color: "#04070d" }}>
-                  {recommendation.cta} <ArrowRight size={12} />
-                </button>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm" style={{ color: C.textMuted }}>Nothing urgent. Use the tabs below to triage what&apos;s queued.</p>
           )}
         </div>
-
-        {/* Counts strip */}
-        <div className="px-5 py-4 border-t lg:border-t-0 lg:border-l flex items-center justify-around gap-2"
-          style={{ borderColor: `color-mix(in srgb, ${gold} 15%, var(--border))` }}>
-          <CountStat icon={Phone} label="Calls to make" value={calls.filter(c => !c.latestCall).length}
-            accent={overdueCount > 0 ? "#DC2626" : C.textBody}
-            badge={overdueCount > 0 ? `${overdueCount} overdue` : null}
-            onClick={onJumpToCalls} />
-          <Divider />
-          <CountStat icon={Clock} label="To classify" value={awaitingClassification}
-            accent={C.textBody}
-            onClick={onJumpToCalls} />
-          <Divider />
-          <CountStat icon={MessageSquare} label="New replies" value={replies.length}
-            accent={positiveReplies > 0 ? C.green : C.blue}
-            badge={positiveReplies > 0
-              ? `${positiveReplies} positive`
-              : reviewNeeded > 0 ? `${reviewNeeded} need review` : null}
-            onClick={onJumpToReplies} />
-        </div>
+        <p className="text-[11px] mt-0.5 flex items-center gap-1" style={{ color: C.textBody }}>
+          <Sparkles size={10} style={{ color: gold }} /> {recommendation.reason}
+        </p>
       </div>
+      {recommendation.leadId ? (
+        <Link href={`/leads/${recommendation.leadId}`}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-lg shrink-0 transition-opacity hover:opacity-90"
+          style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#04070d", boxShadow: `0 2px 10px color-mix(in srgb, ${gold} 28%, transparent)` }}>
+          {recommendation.cta} <ArrowRight size={12} />
+        </Link>
+      ) : (
+        <button onClick={recommendation.onAction}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-lg shrink-0 transition-opacity hover:opacity-90"
+          style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#04070d", boxShadow: `0 2px 10px color-mix(in srgb, ${gold} 28%, transparent)` }}>
+          {recommendation.cta} <ArrowRight size={12} />
+        </button>
+      )}
     </div>
   );
 }
 
-function Divider() {
-  return <div className="h-9 w-px" style={{ backgroundColor: C.border }} />;
-}
-
-function CountStat({ icon: Icon, label, value, accent, badge, onClick }: {
-  icon: typeof Phone;
-  label: string;
-  value: number;
-  accent: string;
-  badge?: string | null;
-  onClick: () => void;
-}) {
-  return (
-    <button onClick={onClick}
-      className="flex flex-col items-center text-center px-2 py-1 rounded-md transition-colors hover:bg-black/[0.02]">
-      <div className="flex items-center gap-1.5">
-        <Icon size={12} style={{ color: accent, opacity: 0.7 }} />
-        <p className="text-[9px] font-bold uppercase tracking-[0.08em]" style={{ color: C.textDim }}>{label}</p>
-      </div>
-      <p className="text-[22px] font-bold tabular-nums leading-none mt-1"
-        style={{ color: accent, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-        {value}
-      </p>
-      {badge && (
-        <span className="text-[9px] font-bold uppercase tracking-wider mt-1 px-1.5 py-0.5 rounded-md"
-          style={{ backgroundColor: `color-mix(in srgb, ${accent} 12%, transparent)`, color: accent }}>
-          {badge}
-        </span>
-      )}
-    </button>
-  );
-}
 

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Plus, X, Trash2, Check } from "lucide-react";
 import { C } from "@/lib/design";
+import { useToast } from "@/lib/toast";
 
 // Client-side Team tab. Fetches team via /api/team, exposes invite +
 // role-change + remove actions. Server-side endpoints enforce all the
@@ -58,6 +59,7 @@ function initials(name: string | null, email: string | null): string {
 }
 
 export default function TenantTeamTab({ companyBioId, canManage }: Props) {
+  const toast = useToast();
   const [team, setTeam] = useState<TeamRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,11 +104,11 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
       const d = await res.json();
       if (!res.ok) {
         setTeam(prevTeam);
-        alert(d.error ?? "Failed to change tier");
+        toast.show({ kind: "error", title: "Couldn't change role", description: d.error ?? "Failed to change tier" });
       }
     } catch {
       setTeam(prevTeam);
-      alert("Network error");
+      toast.show({ kind: "error", title: "Network error", description: "Try again in a moment." });
     }
   }
 
@@ -119,11 +121,11 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
       const d = await res.json().catch(() => ({}));
       if (!res.ok) {
         setTeam(prevTeam);
-        alert(d.error ?? "Failed to remove");
+        toast.show({ kind: "error", title: "Couldn't remove member", description: d.error ?? "Failed to remove" });
       }
     } catch {
       setTeam(prevTeam);
-      alert("Network error");
+      toast.show({ kind: "error", title: "Network error", description: "Try again in a moment." });
     }
   }
 

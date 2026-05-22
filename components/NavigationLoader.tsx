@@ -9,12 +9,10 @@ import LogoLoader from "@/components/LogoLoader";
 // Next.js' app/loading.tsx Suspense only fires for server components
 // without prefetched data — that left /icp, /company-bios and other
 // client-component pages with no transition state at all.
-const MIN_DURATION_MS = 480;
 
 export default function NavigationLoader({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [loading, setLoading] = useState(false);
-  const startedAt = useRef(0);
   const prevPath = useRef(pathname);
 
   useEffect(() => {
@@ -28,7 +26,6 @@ export default function NavigationLoader({ children }: { children: React.ReactNo
       const target = href.split("?")[0].split("#")[0];
       const current = pathname.split("?")[0];
       if (target === current) return;
-      startedAt.current = Date.now();
       setLoading(true);
     }
     document.addEventListener("click", onAnchorClick, true);
@@ -38,12 +35,8 @@ export default function NavigationLoader({ children }: { children: React.ReactNo
   useEffect(() => {
     if (prevPath.current === pathname) return;
     prevPath.current = pathname;
-    if (!loading) return;
-    const elapsed = Date.now() - (startedAt.current || 0);
-    const remaining = Math.max(0, MIN_DURATION_MS - elapsed);
-    const t = setTimeout(() => setLoading(false), remaining);
-    return () => clearTimeout(t);
-  }, [pathname, loading]);
+    setLoading(false);
+  }, [pathname]);
 
   if (loading) return <LogoLoader />;
   return <>{children}</>;

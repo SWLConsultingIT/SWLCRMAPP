@@ -5,7 +5,7 @@
 // that fires when a LucideIcon component (function) crosses server→client.
 
 import type { ReactNode } from "react";
-import { ArrowDownRight, ArrowUpRight, Minus } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Minus, Info } from "lucide-react";
 import { C } from "@/lib/design";
 
 export type KpiTone = "neutral" | "brand" | "positive" | "info" | "warning" | "danger";
@@ -28,6 +28,10 @@ export type KpiCardProps = {
   spark?: number[] | null;
   /** Short subtext below the value (e.g. "vs last 7 days"). */
   sub?: string;
+  /** Definition or formula shown on hover. Renders a small (i) icon next to
+   *  the label. Use for KPIs whose meaning isn't obvious from the name
+   *  (e.g. "Response %" → "Replies received ÷ messages sent"). */
+  tooltip?: string;
 };
 
 // Per ui-ux-pro-max + Vercel guidelines: ONE accent color per card (no gradients
@@ -46,7 +50,7 @@ const TONE_COLOR: Record<KpiTone, string> = {
 export default function KpiCard({
   label, value, icon, tone = "neutral",
   delta = null, deltaUnit = "%", deltaInverted = false,
-  spark = null, sub,
+  spark = null, sub, tooltip,
 }: KpiCardProps) {
   const accent = TONE_COLOR[tone];
 
@@ -72,10 +76,21 @@ export default function KpiCard({
     >
       <div className="flex items-start justify-between gap-2 mb-3">
         <span
-          className="text-[10px] font-semibold uppercase tracking-[0.14em] leading-tight"
+          className="text-[10px] font-semibold uppercase tracking-[0.14em] leading-tight inline-flex items-center gap-1"
           style={{ color: C.textMuted }}
         >
           {label}
+          {tooltip && (
+            <span
+              tabIndex={0}
+              title={tooltip}
+              aria-label={tooltip}
+              className="inline-flex items-center justify-center rounded-full cursor-help focus:outline-none focus-visible:ring-1"
+              style={{ color: C.textDim }}
+            >
+              <Info size={10} strokeWidth={2} />
+            </span>
+          )}
         </span>
         <span style={{ color: accent, opacity: 0.85, display: "inline-flex" }}>{icon}</span>
       </div>

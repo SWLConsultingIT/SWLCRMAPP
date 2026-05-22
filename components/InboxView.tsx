@@ -1,0 +1,464 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  Search, CheckCircle2, XCircle, MessageSquare, ExternalLink,
+  ThumbsUp, ThumbsDown, HelpCircle, Inbox as InboxIcon, Share2, Mail, Phone, Smartphone,
+  Check, X as XIcon, ChevronRight,
+} from "lucide-react";
+import { C } from "@/lib/design";
+import { useToast } from "@/lib/toast";
+
+type InboxReply = {
+  id: string;
+  leadId: string;
+  leadName: string;
+  company: string | null;
+  campaignName: string | null;
+  classification: string | null;
+  channel: string | null;
+  replyText: string | null;
+  receivedAt: string;
+  reviewStatus: string | null;
+  requiresHumanReview: boolean;
+  positive: boolean;
+};
+
+type Tab = "unread" | "all" | "positive" | "negative" | "question" | "needs_human";
+
+const TAB_LABELS: Record<Tab, string> = {
+  unread: "Unread",
+  all: "All",
+  positive: "Positive",
+  negative: "Negative",
+  question: "Question",
+  needs_human: "Needs review",
+};
+
+function channelIcon(ch: string | null) {
+  if (ch === "linkedin") return Share2;
+  if (ch === "email") return Mail;
+  if (ch === "call" || ch === "phone") return Phone;
+  if (ch === "whatsapp" || ch === "sms") return Smartphone;
+  return MessageSquare;
+}
+
+function classBadge(c: string | null): { label: string; color: string; bg: string } | null {
+  if (!c) return null;
+  if (c === "positive" || c === "meeting_intent") return { label: "Positive", color: C.green, bg: `color-mix(in srgb, ${C.green} 14%, transparent)` };
+  if (c === "negative" || c === "not_now") return { label: "Negative", color: C.red, bg: `color-mix(in srgb, ${C.red} 14%, transparent)` };
+  if (c === "question" || c === "needs_info") return { label: "Question", color: C.blue, bg: `color-mix(in srgb, ${C.blue} 14%, transparent)` };
+  return { label: c, color: C.textMuted, bg: C.surface };
+}
+
+function relativeTime(iso: string) {
+  const ms = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(ms / 60_000);
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString(undefined, { day: "2-digit", month: "short" });
+}
+
+export type { InboxReply };
+
+export default function InboxView({ replies }: { replies: InboxReply[] }) {
+  const router = useRouter();
+  const toast = useToast();
+  const [tab, setTab] = useState<Tab>("unread");
+  const [search, setSearch] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(replies[0]?.id ?? null);
+  const [working, setWorking] = useState(false);
+
+  // Counts by tab — computed once per render so the badges always reflect the
+  // raw (unfiltered) totals, not the search-narrowed list.
+  const counts = useMemo(() => ({
+    unread: replies.filter(r => r.reviewStatus === "pending" || r.requiresHumanReview).length,
+    all: replies.length,
+    positive: replies.filter(r => r.positive).length,
+    negative: replies.filter(r => r.classification === "negative" || r.classification === "not_now").length,
+    question: replies.filter(r => r.classification === "question" || r.classification === "needs_info").length,
+    needs_human: replies.filter(r => r.requiresHumanReview).length,
+  }), [replies]);
+
+  const filtered = useMemo(() => {
+    let list = replies;
+    if (tab === "unread") list = list.filter(r => r.reviewStatus === "pending" || r.requiresHumanReview);
+    else if (tab === "positive") list = list.filter(r => r.positive);
+    else if (tab === "negative") list = list.filter(r => r.classification === "negative" || r.classification === "not_now");
+    else if (tab === "question") list = list.filter(r => r.classification === "question" || r.classification === "needs_info");
+    else if (tab === "needs_human") list = list.filter(r => r.requiresHumanReview);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter(r =>
+        r.leadName.toLowerCase().includes(q) ||
+        (r.company ?? "").toLowerCase().includes(q) ||
+        (r.replyText ?? "").toLowerCase().includes(q) ||
+        (r.campaignName ?? "").toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [replies, tab, search]);
+
+  // Ensure the currently-selected reply still belongs to the visible list; if
+  // not (tab changed, search narrowed), jump to the first visible reply.
+  useEffect(() => {
+    if (filtered.length === 0) { setSelectedId(null); return; }
+    if (!selectedId || !filtered.find(r => r.id === selectedId)) {
+      setSelectedId(filtered[0].id);
+    }
+  }, [filtered, selectedId]);
+
+  const selected = filtered.find(r => r.id === selectedId) ?? null;
+  const selectedIdx = selected ? filtered.findIndex(r => r.id === selectedId) : -1;
+
+  function selectByIdx(idx: number) {
+    if (idx < 0 || idx >= filtered.length) return;
+    setSelectedId(filtered[idx].id);
+  }
+
+  // Keyboard shortcuts à la Superhuman: J/K nav, P/N/Q classify, X to clear
+  // search. We ignore typing in inputs (the search box) so the J/K shortcuts
+  // don't fire while the user types "j" in a search.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const target = e.target as HTMLElement | null;
+      const isInput = target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable);
+      if (isInput) return;
+      if (e.key === "j" || e.key === "ArrowDown") { e.preventDefault(); selectByIdx(selectedIdx + 1); }
+      else if (e.key === "k" || e.key === "ArrowUp") { e.preventDefault(); selectByIdx(selectedIdx - 1); }
+      else if (e.key === "a" && selected) { e.preventDefault(); void review("approved"); }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIdx, filtered, selected]);
+
+  // Quick-classify from the list row — assigns/overrides classification AND
+  // marks the row reviewed in one call. Doesn't require the row to be the
+  // currently-selected one; this is the row's own inline action.
+  async function quickClassify(replyId: string, classification: "positive" | "negative" | "follow_up") {
+    if (working) return;
+    setWorking(true);
+    try {
+      const res = await fetch(`/api/replies/${replyId}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "approved", classification }),
+      });
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: "Failed" }));
+        toast.show({ kind: "error", title: "Couldn't classify", description: error || "Try again." });
+        return;
+      }
+      toast.show({
+        kind: classification === "positive" ? "success" : classification === "negative" ? "warning" : "info",
+        title: `Marked as ${classification.replace("_", " ")}`,
+      });
+      router.refresh();
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function review(status: "approved" | "rejected" | "pending") {
+    if (!selected || working) return;
+    setWorking(true);
+    try {
+      const res = await fetch(`/api/replies/${selected.id}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) {
+        const { error } = await res.json().catch(() => ({ error: "Failed" }));
+        toast.show({ kind: "error", title: "Couldn't update review", description: error || "Try again" });
+        return;
+      }
+      toast.show({
+        kind: status === "approved" ? "success" : status === "rejected" ? "warning" : "info",
+        title: status === "approved" ? "Marked as reviewed" : status === "rejected" ? "Marked as rejected" : "Sent back to inbox",
+      });
+      router.refresh();
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      {/* Tabs */}
+      <div className="flex items-center gap-1 px-2 sm:px-3 pt-2 border-b overflow-x-auto" style={{ borderColor: C.border }}>
+        {(Object.keys(TAB_LABELS) as Tab[]).map(k => {
+          const active = tab === k;
+          const n = counts[k];
+          return (
+            <button
+              key={k}
+              onClick={() => setTab(k)}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-t-lg transition-colors whitespace-nowrap"
+              style={{
+                color: active ? C.textPrimary : C.textMuted,
+                backgroundColor: active ? `color-mix(in srgb, var(--brand, #c9a83a) 10%, transparent)` : "transparent",
+                borderBottom: active ? "2px solid var(--brand, #c9a83a)" : "2px solid transparent",
+                marginBottom: -1,
+              }}
+            >
+              {TAB_LABELS[k]}
+              {n > 0 && (
+                <span
+                  className="text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full"
+                  style={{ backgroundColor: active ? "var(--brand, #c9a83a)" : C.surface, color: active ? "#04070d" : C.textDim }}
+                >
+                  {n}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Split pane */}
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(300px,2fr)_3fr] min-h-[60vh] max-h-[78vh]">
+        {/* List */}
+        <div className="border-b md:border-b-0 md:border-r overflow-hidden flex flex-col" style={{ borderColor: C.border }}>
+          {/* Search */}
+          <div className="px-3 py-2 border-b" style={{ borderColor: C.border }}>
+            <div className="relative">
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: C.textMuted }} />
+              <input
+                type="text"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search lead, company, message…"
+                className="w-full pl-7 pr-3 py-1.5 rounded-lg border text-xs focus:outline-none"
+                style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
+              />
+            </div>
+          </div>
+
+          <div className="overflow-y-auto flex-1">
+            {filtered.length === 0 ? (
+              <div className="px-4 py-10 text-center">
+                <div className="w-10 h-10 mx-auto mb-3 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)` }}>
+                  <CheckCircle2 size={18} style={{ color: C.green }} />
+                </div>
+                <p className="text-sm font-semibold mb-1" style={{ color: C.textBody }}>Inbox zero</p>
+                <p className="text-[11px] max-w-[220px] mx-auto" style={{ color: C.textMuted }}>
+                  Nothing matches this filter right now. Switch tabs or wait for new replies.
+                </p>
+              </div>
+            ) : (
+              <ul>
+                {filtered.map(r => {
+                  const isSelected = r.id === selectedId;
+                  const Icon = channelIcon(r.channel);
+                  const badge = classBadge(r.classification);
+                  return (
+                    <li key={r.id} className="relative group/ix">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedId(r.id)}
+                        className="w-full text-left px-3 py-2.5 border-b transition-colors"
+                        style={{
+                          borderColor: C.border,
+                          backgroundColor: isSelected ? `color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)` : "transparent",
+                          borderLeft: isSelected ? "3px solid var(--brand, #c9a83a)" : "3px solid transparent",
+                        }}
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: `color-mix(in srgb, ${badge?.color ?? C.textMuted} 14%, transparent)`, color: badge?.color ?? C.textMuted }}>
+                            <Icon size={11} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs font-bold truncate" style={{ color: C.textPrimary }}>
+                                {r.leadName}
+                              </p>
+                              {/* Date hides on hover so the quick-classify
+                                  buttons (positioned absolute top-right of
+                                  the row) don't collide with it. The space
+                                  is preserved via opacity (not display:none)
+                                  so the row height stays stable. */}
+                              <span className="text-[10px] tabular-nums shrink-0 transition-opacity group-hover/ix:opacity-0" style={{ color: C.textDim }}>
+                                {relativeTime(r.receivedAt)}
+                              </span>
+                            </div>
+                            {r.company && (
+                              <p className="text-[11px] truncate" style={{ color: C.textMuted }}>
+                                {r.company}
+                              </p>
+                            )}
+                            <p className="text-[11px] mt-0.5 line-clamp-2" style={{ color: C.textBody }}>
+                              {r.replyText ?? "(no body)"}
+                            </p>
+                            <div className="flex items-center gap-1 mt-1 flex-wrap">
+                              {badge && (
+                                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color: badge.color, backgroundColor: badge.bg }}>
+                                  {badge.label}
+                                </span>
+                              )}
+                              {r.requiresHumanReview && (
+                                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color: "#D97706", backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)" }}>
+                                  Needs review
+                                </span>
+                              )}
+                              {r.campaignName && (
+                                <span className="text-[10px] truncate max-w-[120px]" style={{ color: C.textDim }}>
+                                  · {r.campaignName}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                      {/* Inline quick-classify — hover only, sits absolute on
+                          top-right of the row so it doesn't fight for layout.
+                          One click classifies AND marks reviewed, freeing the
+                          seller from opening every thread. */}
+                      <div className="absolute top-2 right-2 opacity-0 group-hover/ix:opacity-100 transition-opacity flex items-center gap-1 pointer-events-auto">
+                        <button
+                          type="button"
+                          disabled={working}
+                          onClick={(e) => { e.stopPropagation(); void quickClassify(r.id, "positive"); }}
+                          title="Mark Positive (and reviewed)"
+                          className="w-6 h-6 inline-flex items-center justify-center rounded-md transition-opacity hover:opacity-85 disabled:opacity-40"
+                          style={{ backgroundColor: `color-mix(in srgb, ${C.green} 18%, transparent)`, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 32%, transparent)` }}
+                        >
+                          <ThumbsUp size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={working}
+                          onClick={(e) => { e.stopPropagation(); void quickClassify(r.id, "negative"); }}
+                          title="Mark Negative (and reviewed)"
+                          className="w-6 h-6 inline-flex items-center justify-center rounded-md transition-opacity hover:opacity-85 disabled:opacity-40"
+                          style={{ backgroundColor: `color-mix(in srgb, ${C.red} 14%, transparent)`, color: C.red, border: `1px solid color-mix(in srgb, ${C.red} 30%, transparent)` }}
+                        >
+                          <ThumbsDown size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={working}
+                          onClick={(e) => { e.stopPropagation(); void quickClassify(r.id, "follow_up"); }}
+                          title="Mark as Follow-up (and reviewed)"
+                          className="w-6 h-6 inline-flex items-center justify-center rounded-md transition-opacity hover:opacity-85 disabled:opacity-40"
+                          style={{ backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#D97706", border: "1px solid color-mix(in srgb, #D97706 30%, transparent)" }}
+                        >
+                          <HelpCircle size={11} />
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        {/* Thread / detail */}
+        <div className="flex flex-col overflow-hidden">
+          {selected ? (
+            <>
+              <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: C.border }}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-base font-bold truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}>
+                      {selected.leadName}
+                    </h2>
+                    {(() => {
+                      const b = classBadge(selected.classification);
+                      return b ? (
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ color: b.color, backgroundColor: b.bg }}>
+                          {b.label}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
+                  <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
+                    {selected.company ?? "—"}{selected.campaignName ? ` · ${selected.campaignName}` : ""} · {relativeTime(selected.receivedAt)} via {selected.channel ?? "unknown"}
+                  </p>
+                </div>
+                <Link
+                  href={`/leads/${selected.leadId}`}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-opacity hover:opacity-85 shrink-0"
+                  style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}
+                >
+                  Open lead <ExternalLink size={10} />
+                </Link>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto px-5 py-4">
+                <div
+                  className="rounded-xl border px-4 py-3"
+                  style={{ borderColor: C.border, backgroundColor: C.bg }}
+                >
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: C.textPrimary }}>
+                    {selected.replyText ?? "(reply body not captured)"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="px-5 py-3 border-t flex items-center gap-2 flex-wrap" style={{ borderColor: C.border }}>
+                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>
+                  Review
+                </span>
+                <button
+                  onClick={() => review("approved")}
+                  disabled={working || selected.reviewStatus === "approved"}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-85"
+                  style={{ backgroundColor: `color-mix(in srgb, ${C.green} 16%, transparent)`, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 32%, transparent)` }}
+                  title="Mark this reply as reviewed (A)"
+                >
+                  <Check size={12} /> Mark reviewed
+                </button>
+                <button
+                  onClick={() => review("rejected")}
+                  disabled={working || selected.reviewStatus === "rejected"}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-85"
+                  style={{ backgroundColor: `color-mix(in srgb, ${C.red} 14%, transparent)`, color: C.red, border: `1px solid color-mix(in srgb, ${C.red} 30%, transparent)` }}
+                  title="Reject (closes the review without acting)"
+                >
+                  <XIcon size={12} /> Reject
+                </button>
+                {selected.reviewStatus && selected.reviewStatus !== "pending" && (
+                  <button
+                    onClick={() => review("pending")}
+                    disabled={working}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors hover:bg-black/[0.04]"
+                    style={{ color: C.textMuted, border: `1px solid ${C.border}` }}
+                    title="Send back to the inbox as pending"
+                  >
+                    Re-open
+                  </button>
+                )}
+                <span className="ml-auto text-[10px]" style={{ color: C.textDim }}>
+                  Shortcuts: <kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border, color: C.textMuted }}>J</kbd>/<kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border, color: C.textMuted }}>K</kbd> nav · <kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border, color: C.textMuted }}>A</kbd> approve
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center px-6 py-12">
+              <div className="text-center max-w-[280px]">
+                <div className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `color-mix(in srgb, var(--brand, #c9a83a) 10%, transparent)` }}>
+                  <InboxIcon size={20} style={{ color: "var(--brand, #c9a83a)" }} />
+                </div>
+                <p className="text-sm font-semibold mb-1" style={{ color: C.textBody }}>Pick a reply to read</p>
+                <p className="text-[11px]" style={{ color: C.textMuted }}>
+                  Click any item on the left, or use <kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border }}>J</kbd>/<kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border }}>K</kbd> to navigate.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

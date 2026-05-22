@@ -6,6 +6,10 @@ type Props = {
   icon: LucideIcon;
   title: string;
   description?: string;
+  /** Numbered teaching steps shown above the CTAs — turns a generic "nothing
+   *  here" into "do these 3 things and it will populate". When set, the
+   *  empty state acts like a self-serve onboarding card. */
+  steps?: string[];
   primaryCta?: { label: string; href?: string; onClick?: () => void };
   secondaryCta?: { label: string; href?: string; onClick?: () => void };
   /** Override the default brand-gold accent (e.g. red for an error empty). */
@@ -17,7 +21,7 @@ type Props = {
 const gold = "var(--brand, #c9a83a)";
 
 export default function EmptyState({
-  icon: Icon, title, description, primaryCta, secondaryCta, accent, accentSoft,
+  icon: Icon, title, description, steps, primaryCta, secondaryCta, accent, accentSoft,
 }: Props) {
   const c = accent ?? gold;
   const cs = accentSoft ?? "color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)";
@@ -41,11 +45,26 @@ export default function EmptyState({
       </h3>
       {description && (
         <p
-          className="text-[13px] max-w-md leading-relaxed mb-6"
+          className="text-[13px] max-w-md leading-relaxed mb-4"
           style={{ color: C.textMuted }}
         >
           {description}
         </p>
+      )}
+      {steps && steps.length > 0 && (
+        <ol className="text-[12px] text-left max-w-md mx-auto mb-6 space-y-1.5" style={{ color: C.textBody }}>
+          {steps.map((s, i) => (
+            <li key={i} className="flex items-start gap-2.5">
+              <span
+                className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5 tabular-nums"
+                style={{ backgroundColor: cs, color: c }}
+              >
+                {i + 1}
+              </span>
+              <span className="leading-snug">{s}</span>
+            </li>
+          ))}
+        </ol>
       )}
       <div className="flex items-center gap-2">
         {primaryCta && (primaryCta.href ? (
