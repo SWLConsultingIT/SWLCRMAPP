@@ -190,10 +190,16 @@ export default function NewCampaignWizard() {
         const body = await res.json().catch(() => ({}));
         const t = body.template;
         if (cancelled || !t) return;
-        const seq = Array.isArray(t.sequence_steps) ? t.sequence_steps as SequenceStep[] : [];
+        const rawSeq = Array.isArray(t.sequence_steps) ? t.sequence_steps as SequenceStep[] : [];
+        const stepMsgs = (t.step_messages ?? {}) as ChannelMessages;
+        const hasCRInSeq = typeof stepMsgs.connectionRequest === "string"
+          && stepMsgs.connectionRequest.length > 0
+          && rawSeq[0]?.channel === "linkedin"
+          && rawSeq[0]?.daysAfter === 0;
+        const seq = hasCRInSeq ? rawSeq.slice(1) : rawSeq;
         if (seq.length > 0) setSequence(seq);
         if (t.step_messages && typeof t.step_messages === "object") {
-          setChannelMessages(alignTemplateMessages(t.step_messages as ChannelMessages, seq));
+          setChannelMessages(stepMsgs);
         }
         try { sessionStorage.removeItem("swl-pending-template-id"); } catch { /* no-op */ }
       } catch { /* template apply is best-effort; never block the wizard */ }
@@ -377,35 +383,23 @@ export default function NewCampaignWizard() {
     setSequence(s => s.map((step, i) => i === idx ? { ...step, [field]: value } : step));
   }
 
-  // classifySteps() (ChannelMessageConfig) maps ALL sequence steps including
-  // LinkedIn D0 as classified[0] = "First DM (Post-Connection)". Template
-  // step_messages.steps[] starts from seq[1] because the wizard treats the
-  // Connection Request as a separate field (channelMessages.connectionRequest)
-  // and doesn't write a body for seq[0]. So a template saved with 3 follow-ups
-  // + a CR ends up with sequence_steps.length = 4 but step_messages.steps.length = 3.
-  //
-  // Prior version only prepended the placeholder when steps[0].channel !==
-  // "linkedin", which missed the all-LinkedIn case (the most common template
-  // shape) — that's why De Vera Grill saw "Step 4 — empty" after applying a
-  // 3-follow-up LinkedIn template (2026-05-22 bug).
-  //
-  // Fix: prepend whenever the sequence has more entries than the message
-  // array AND seq[0] is the CR pattern. Length-driven instead of channel-driven.
-  function alignTemplateMessages(msgs: ChannelMessages, seq: SequenceStep[]): ChannelMessages {
-    const steps = msgs.steps ?? [];
-    const isLinkedInD0 = seq[0]?.channel === "linkedin" && seq[0]?.daysAfter === 0;
-    if (isLinkedInD0 && seq.length > steps.length) {
-      return { ...msgs, steps: [{ step: 0, channel: "linkedin", body: "", subject: undefined } as any, ...steps] };
-    }
-    return msgs;
-  }
-
-  // ICP template apply helper (used by the in-wizard dropdown)
+  // Template builder saves the Connection Request as sequence_steps[0]
+  // (LinkedIn D0 with isConnectionRequest=true) AND in step_messages.connectionRequest.
+  // The wizard's sequence model does NOT include the CR — it lives solely in
+  // channelMessages.connectionRequest, and every entry of `sequence` is a
+  // numbered message step. Strip the CR marker on apply so a "3-step" template
+  // shows as 3 numbered steps in the wizard, not 4.
   function applyTemplate(tpl: { name: string; sequence_steps: any[]; step_messages: any }) {
-    const seq = (tpl.sequence_steps ?? []) as SequenceStep[];
+    const rawSeq = (tpl.sequence_steps ?? []) as SequenceStep[];
+    const stepMsgs = (tpl.step_messages ?? {}) as ChannelMessages;
+    const hasCRInSeq = typeof stepMsgs.connectionRequest === "string"
+      && stepMsgs.connectionRequest.length > 0
+      && rawSeq[0]?.channel === "linkedin"
+      && rawSeq[0]?.daysAfter === 0;
+    const seq = hasCRInSeq ? rawSeq.slice(1) : rawSeq;
     if (seq.length > 0) setSequence(seq);
     if (tpl.step_messages && typeof tpl.step_messages === "object") {
-      setChannelMessages(alignTemplateMessages(tpl.step_messages as ChannelMessages, seq));
+      setChannelMessages(stepMsgs);
     }
     if (!campaignName.trim()) setCampaignName(tpl.name);
   }
