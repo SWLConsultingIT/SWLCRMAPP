@@ -7,7 +7,6 @@ import { C } from "@/lib/design";
 import {
   ArrowLeft, ArrowRight, Check, Share2, Mail, Phone, MessageCircle,
   Loader2, Send, Megaphone, Plus, Trash2, Globe, Settings, AlertTriangle,
-  Zap,
 } from "lucide-react";
 import ChannelMessageConfig, { type ChannelMessages } from "@/components/ChannelMessageConfig";
 import SignalPicker from "@/components/SignalPicker";
@@ -602,75 +601,12 @@ export default function NewCampaignWizard() {
       </div>
 
       {/* ═══ STEP 0: SEQUENCE BUILDER (with flow name) ═══ */}
-      {wizardStep === 0 && (() => {
-        // Express mode preset selection — runs every render but the cost is
-        // negligible (a few percentages + a lookup). Picks based on which
-        // channels actually cover ≥70% of the chosen leads, so we don't push
-        // an email preset onto an ICP where most leads have no email.
-        const total = Math.max(1, coverage.total);
-        const liPct = coverage.linkedin / total;
-        const emPct = coverage.email / total;
-        const phPct = coverage.call / total;
-        const REACH_OK = 0.7;
-        let expressPresetName = "LinkedIn Only";
-        if (liPct >= REACH_OK && emPct >= REACH_OK && phPct >= REACH_OK) expressPresetName = "Multichannel Aggressive";
-        else if (liPct >= REACH_OK && emPct >= REACH_OK) expressPresetName = "LinkedIn + Email";
-        else if (liPct >= REACH_OK && phPct >= REACH_OK) expressPresetName = "LinkedIn + Call";
-        else if (emPct >= REACH_OK && liPct < REACH_OK) expressPresetName = "Email Only";
-        const expressPreset = sequenceTemplates.find(t => t.name === expressPresetName) ?? sequenceTemplates[0];
-        return (
+      {/* Express mode removed 2026-05-22 — auto-jumping past Settings could
+          create misconfigured flows for tenants with multiple sellers or
+          custom channel accounts. Restore later behind a feature flag once
+          we have the right guardrails. */}
+      {wizardStep === 0 && (
         <div className="space-y-4">
-          {/* Express mode — one-click path for sellers who just want a working
-              flow. Picks the preset that best matches what the chosen leads
-              actually have. A blind "LinkedIn + Email" default would silently
-              fail for ICPs with sparse email coverage — same root cause as
-              the Pathway 2026-05-11 incident. */}
-          <button
-            type="button"
-            onClick={() => {
-              setSequence(expressPreset.steps.map(s => ({ ...s })));
-              setChannelMessages({ steps: [], autoReplies: { positive: "", negative: "", question: "" } });
-              if (!campaignName.trim() && profile?.profile_name) {
-                setCampaignName(`${profile.profile_name} — ${expressPreset.name}`);
-              }
-              if (sellerQuotas.length === 0 && sellers[0]) {
-                setSellerQuotas([{ sellerId: sellers[0].id, quota: leadsCount || 1 }]);
-              }
-              setWizardStep(2);
-            }}
-            className="w-full rounded-xl border-2 px-5 py-4 text-left transition-[opacity,transform,box-shadow] hover:shadow-md group"
-            style={{
-              borderColor: `color-mix(in srgb, ${gold} 38%, transparent)`,
-              backgroundColor: `color-mix(in srgb, ${gold} 6%, ${C.card})`,
-              borderStyle: "dashed",
-            }}
-          >
-            <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                style={{
-                  background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`,
-                  color: "#04070d",
-                  boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 32%, transparent)`,
-                }}
-              >
-                <Zap size={18} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
-                  Express mode · skip the form
-                </p>
-                <p className="text-sm font-bold leading-tight mt-0.5" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-                  Apply <span style={{ color: gold }}>{expressPreset.name}</span> preset and let AI write everything
-                </p>
-                <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
-                  Chosen by channel coverage · jumps to Messages · you can still tweak before launch.
-                </p>
-              </div>
-              <ArrowRight size={16} style={{ color: gold }} className="shrink-0 transition-transform group-hover:translate-x-0.5" />
-            </div>
-          </button>
-
           {/* Flow name + templates combined — 2 visual fragments collapsed into
               one card to reduce stacked-card noise. */}
           <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -938,8 +874,7 @@ export default function NewCampaignWizard() {
             })()}
           </div>
         </div>
-        );
-      })()}
+      )}
 
       {/* ═══ STEP 1: SETTINGS (Seller + Channel Accounts) ═══ */}
       {wizardStep === 1 && (() => {
