@@ -237,14 +237,17 @@ export default function NewCampaignWizard() {
         if (prof?.tier === "super_admin") setIsSuperAdmin(true);
       }
       const bioId = (authBioId as string | null) ?? null;
-      const sellerQ = supabase.from("sellers")
+      let sellerQ = supabase.from("sellers")
         .select("id, name, unipile_account_id, email_account, linkedin_daily_limit, email_daily_limit")
         .eq("active", true)
         .order("name");
       // Tenant scope: own sellers + sellers shared from other tenants via the
       // admin "Sellers shared with this client" toggle. The OR clause keeps
       // the wizard tenant-isolated while honoring shared assignments.
-      if (bioId) sellerQ.or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`);
+      // Bug fix 2026-05-22: Supabase query builders return a NEW builder on
+      // every .or() — without reassignment the scope filter was thrown away
+      // and every tenant's wizard listed every active seller in the system.
+      if (bioId) sellerQ = sellerQ.or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`);
       const bioQ = bioId
         ? supabase.from("company_bios").select("*").eq("id", bioId).single()
         : supabase.from("company_bios").select("*").order("created_at", { ascending: false }).limit(1).single();

@@ -158,13 +158,15 @@ export default function NewLeadCampaignWizard() {
       // sellers leak into the seller picker (Graeme @ Pathway showing up for an
       // SWL Consulting flow). The lead row already carries company_bio_id, so
       // we filter by it directly.
-      const sellerQ = supabase.from("sellers")
+      let sellerQ = supabase.from("sellers")
         .select("id, name, unipile_account_id, email_account, linkedin_daily_limit, email_daily_limit")
         .eq("active", true)
         .order("name");
       // Tenant scope: own sellers + sellers shared from other tenants (admin
       // assigns via "Sellers shared with this client" in /admin/[id]).
-      if (leadData.company_bio_id) sellerQ.or(`company_bio_id.eq.${leadData.company_bio_id},shared_with_company_bio_ids.cs.{${leadData.company_bio_id}}`);
+      // Bug fix 2026-05-22: same .or() reassignment fix as the ICP wizard —
+      // without `sellerQ = sellerQ.or(...)` the scope filter was discarded.
+      if (leadData.company_bio_id) sellerQ = sellerQ.or(`company_bio_id.eq.${leadData.company_bio_id},shared_with_company_bio_ids.cs.{${leadData.company_bio_id}}`);
       const [{ data: profileData }, { data: sellerList }] = await Promise.all([
         leadData.icp_profile_id
           ? supabase.from("icp_profiles").select("*").eq("id", leadData.icp_profile_id).single()
