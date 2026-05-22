@@ -779,86 +779,127 @@ export default function NewCampaignWizard() {
           </div>
 
           <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-[13px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Build Your Sequence</h2>
-                <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>Define the channel and timing for each step. Pick a template above or customize freely.</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[11px]" style={{ color: C.textMuted }}>{sequence.length} steps · ~{totalDays} days</p>
-              </div>
-            </div>
-
-            {/* Steps */}
-            <div className="space-y-2">
-              {sequence.map((s, i) => {
-                const ch = channelOptions.find(c => c.key === s.channel)!;
-                const Icon = ch.icon;
-                return (
-                  <div key={i} className="rounded-lg border px-4 py-3"
-                    style={{ borderColor: C.border, backgroundColor: i === 0 ? `${ch.color}06` : "transparent" }}>
-                    <div className="flex items-center gap-3">
-
-                    {/* Step number */}
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                      style={{ backgroundColor: `${ch.color}15`, color: ch.color }}>
-                      {i + 1}
+            {/* hasCR: when seq[0] is a LinkedIn D0 step, treat it as the
+                Connection Request (the invite that opens the sequence) and
+                pull it out of the numbered step list. This mirrors the
+                template-detail page: CR is structurally different from a
+                follow-up and lumping it in as "Step 1" was the source of
+                every off-by-one bug in the wizard apply path. */}
+            {(() => {
+              const hasCR = sequence[0]?.channel === "linkedin" && sequence[0]?.daysAfter === 0;
+              const followups = hasCR ? sequence.slice(1) : sequence;
+              return (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-[13px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Build Your Sequence</h2>
+                      <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>Define the channel and timing for each step. Pick a template above or customize freely.</p>
                     </div>
-
-                    {/* Channel select */}
-                    <div className="flex items-center gap-2">
-                      {channelOptions.map(opt => {
-                        const OptIcon = opt.icon;
-                        const selected = s.channel === opt.key;
-                        return (
-                          <button key={opt.key} onClick={() => updateStep(i, "channel", opt.key)}
-                            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-[opacity,transform,box-shadow,background-color,border-color]"
-                            style={selected
-                              ? { backgroundColor: opt.color, color: "#fff" }
-                              : { backgroundColor: C.surface, color: C.textMuted }
-                            }>
-                            <OptIcon size={12} />
-                            {opt.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Days after */}
-                    <div className="flex items-center gap-2 ml-auto">
-                      {i === 0 ? (
-                        <span className="text-xs font-medium px-3 py-1.5 rounded-lg" style={{ backgroundColor: C.greenLight, color: C.green }}>
-                          Day 0 — Immediate
-                        </span>
-                      ) : (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs" style={{ color: C.textMuted }}>Wait</span>
-                          <select className="rounded-lg border px-2 py-1.5 text-xs font-medium focus:outline-none"
-                            style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg, minWidth: 65 }}
-                            value={s.daysAfter} onChange={e => updateStep(i, "daysAfter", Number(e.target.value))}>
-                            {[...new Set([s.daysAfter, 1, 2, 3, 4, 5, 7, 10, 14, 21])].sort((a, b) => a - b).map(d => (
-                              <option key={d} value={d}>{d} {d === 1 ? "day" : "days"}</option>
-                            ))}
-                          </select>
-                          <span className="text-xs tabular-nums" style={{ color: C.textDim }}>
-                            (Day {days[i]})
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Remove */}
-                      {sequence.length > 1 && (
-                        <button onClick={() => removeStep(i)} className="ml-2 opacity-30 hover:opacity-100 transition-opacity"
-                          style={{ color: C.red }}>
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
+                    <div className="text-right">
+                      <p className="text-[11px]" style={{ color: C.textMuted }}>
+                        {followups.length} step{followups.length === 1 ? "" : "s"}{hasCR ? " + invite" : ""} · ~{totalDays} days
+                      </p>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  {/* Connection Request — rendered above the numbered steps
+                      as its own card. Channel can't be changed (always
+                      LinkedIn), daysAfter can't be changed (always 0 by
+                      definition), and there's no remove button (removing
+                      the CR means switching to a no-invite sequence, which
+                      should happen via the channel toggle on Step 1 instead). */}
+                  {hasCR && (
+                    <div className="rounded-lg border-2 px-4 py-3 mb-2"
+                      style={{ borderColor: `color-mix(in srgb, #0A66C2 28%, ${C.border})`, backgroundColor: "color-mix(in srgb, #0A66C2 4%, transparent)", borderStyle: "dashed" }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
+                          style={{ backgroundColor: "#0A66C218", color: "#0A66C2" }}>
+                          <Share2 size={12} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold" style={{ color: "#0A66C2" }}>Connection Request</p>
+                          <p className="text-[10px]" style={{ color: C.textMuted }}>LinkedIn invite · sent before the sequence starts · capped at 200 chars</p>
+                        </div>
+                        <span className="text-[10px] font-semibold px-2.5 py-1 rounded-lg" style={{ backgroundColor: C.greenLight, color: C.green }}>
+                          Day 0 · Immediate
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Steps — numbered list of follow-up messages */}
+                  <div className="space-y-2">
+                    {followups.map((s, j) => {
+                      const i = hasCR ? j + 1 : j;
+                      const ch = channelOptions.find(c => c.key === s.channel)!;
+                      return (
+                        <div key={i} className="rounded-lg border px-4 py-3"
+                          style={{ borderColor: C.border, backgroundColor: "transparent" }}>
+                          <div className="flex items-center gap-3">
+
+                            {/* Step number — j+1 so follow-ups start at 1 */}
+                            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                              style={{ backgroundColor: `${ch.color}15`, color: ch.color }}>
+                              {j + 1}
+                            </div>
+
+                            {/* Channel select */}
+                            <div className="flex items-center gap-2">
+                              {channelOptions.map(opt => {
+                                const OptIcon = opt.icon;
+                                const selected = s.channel === opt.key;
+                                return (
+                                  <button key={opt.key} onClick={() => updateStep(i, "channel", opt.key)}
+                                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-[opacity,transform,box-shadow,background-color,border-color]"
+                                    style={selected
+                                      ? { backgroundColor: opt.color, color: "#fff" }
+                                      : { backgroundColor: C.surface, color: C.textMuted }
+                                    }>
+                                    <OptIcon size={12} />
+                                    {opt.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* Days after */}
+                            <div className="flex items-center gap-2 ml-auto">
+                              {!hasCR && j === 0 ? (
+                                <span className="text-xs font-medium px-3 py-1.5 rounded-lg" style={{ backgroundColor: C.greenLight, color: C.green }}>
+                                  Day 0 — Immediate
+                                </span>
+                              ) : (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-xs" style={{ color: C.textMuted }}>Wait</span>
+                                  <select className="rounded-lg border px-2 py-1.5 text-xs font-medium focus:outline-none"
+                                    style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg, minWidth: 65 }}
+                                    value={s.daysAfter} onChange={e => updateStep(i, "daysAfter", Number(e.target.value))}>
+                                    {[...new Set([s.daysAfter, 1, 2, 3, 4, 5, 7, 10, 14, 21])].sort((a, b) => a - b).map(d => (
+                                      <option key={d} value={d}>{d} {d === 1 ? "day" : "days"}</option>
+                                    ))}
+                                  </select>
+                                  <span className="text-xs tabular-nums" style={{ color: C.textDim }}>
+                                    (Day {days[i]})
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Remove */}
+                              {sequence.length > 1 && (
+                                <button onClick={() => removeStep(i)} className="ml-2 opacity-30 hover:opacity-100 transition-opacity"
+                                  style={{ color: C.red }}>
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              );
+            })()}
 
             {/* Add step */}
             <button onClick={addStep}
