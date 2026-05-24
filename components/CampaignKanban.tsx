@@ -21,6 +21,9 @@ type MsgState = {
   lastRateLimitAt: string | null;
   errorDetails: string | null;
   channel?: string;
+  /** Set when the dispatcher skipped this message instead of failing — drives
+   *  the friendlier kanban badge (ALREADY CONNECTED / INVITE PENDING / …). */
+  skippedReason?: string | null;
 } | null;
 type Step0State = MsgState;
 type Campaign = {
@@ -85,10 +88,30 @@ function deriveCardBadge(camp: Campaign): CardBadge | null {
     if (!s) return null;
     if (s.status === "sent") return { label: "REQUEST SENT", color: "#16A34A", bg: "#DCFCE7" };
     if (s.status === "skipped") {
+      // Surface the actual skip reason instead of dumping every skipped row
+      // into a misleading "LOCKED PROFILE" bucket. The dispatcher writes
+      // metadata.skipped_reason whenever it bails — the campaign detail
+      // page projects it into step_0.skippedReason for the kanban. Map
+      // known reasons to friendlier badges; unknown reasons fall back to
+      // the URL-shape heuristic for backwards compat.
+      const reason = (s.skippedReason ?? "").toLowerCase();
+      if (reason.includes("first_degree") || reason.includes("already a 1st")) {
+        return { label: "ALREADY CONNECTED", color: "#7C3AED", bg: "#EDE9FE" };
+      }
+      if (reason.includes("pending") || reason.includes("invitation_sent")) {
+        return { label: "INVITE PENDING", color: "#D97706", bg: "#FEF3C7" };
+      }
+      if (reason.includes("withdrawn") || reason.includes("ignored")) {
+        return { label: "INVITE WITHDRAWN", color: "#6B7280", bg: "#F3F4F6" };
+      }
       const url = camp.leads?.primary_linkedin_url ?? null;
       const looksLikeLinkedIn = !!url && /linkedin\.com\/in\//i.test(url);
       if (!url) return { label: "NO LINKEDIN", color: "#DC2626", bg: "#FEE2E2" };
       if (!looksLikeLinkedIn) return { label: "BAD URL", color: "#DC2626", bg: "#FEE2E2" };
+      // Last resort. Only show "LOCKED PROFILE" when we genuinely don't
+      // know why the dispatcher skipped — i.e., legacy rows from before
+      // skipped_reason was written. Going forward, every skip carries a
+      // reason and lands in one of the buckets above.
       return { label: "LOCKED PROFILE", color: "#DC2626", bg: "#FEE2E2" };
     }
     if (s.status === "draft") return { label: "DRAFT", color: "#6B7280", bg: "#F3F4F6" };

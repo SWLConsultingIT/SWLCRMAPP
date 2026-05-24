@@ -192,7 +192,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   // the cookie-based supabase client returned empty in some cases (likely
   // RLS on campaign_messages), and we need authoritative data for the badge.
   const allCampaignIds = allGroupCampaigns.map(c => c.id);
-  const step0Map: Record<string, { status: string; lastRateLimitAt: string | null; errorDetails: string | null } | undefined> = {};
+  const step0Map: Record<string, { status: string; lastRateLimitAt: string | null; errorDetails: string | null; skippedReason: string | null } | undefined> = {};
   if (allCampaignIds.length > 0) {
     const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const sbKey = process.env.SUPABASE_SERVICE_KEY!;
@@ -215,6 +215,10 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             status: row.status,
             lastRateLimitAt: (row.metadata?.last_rate_limit_at as string | null) ?? null,
             errorDetails: row.error_details,
+            // Surface the dispatcher's skip reason so CampaignKanban can pick
+            // the right badge (ALREADY CONNECTED / INVITE PENDING / …)
+            // instead of mass-labeling everything "LOCKED PROFILE".
+            skippedReason: (row.metadata?.skipped_reason as string | null) ?? null,
           };
         }
       }

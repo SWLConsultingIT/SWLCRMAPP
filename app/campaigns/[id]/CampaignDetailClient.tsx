@@ -681,10 +681,24 @@ export default function CampaignDetailClient({
                   )}
                 </div>
               );
+              // Legacy-format detection: before 2026-05-22 the wizard saved
+              // sequence_steps with the CR as item 0 (4 entries for a 3-step
+              // template). New campaigns save sequence_steps without the CR
+              // (3 entries for the same template) — the First DM lives at
+              // sequence[0] and HAS a body that must render. If
+              // sequence.length > non-CR message count, we're in legacy
+              // territory and the old early-return is correct; otherwise the
+              // First DM body would be silently dropped (the 2026-05-24 Viandas
+              // bug where the foto.jpeg + viandas pitch vanished from the UI).
+              const bodyMessageCount = messages.filter(m => m.step_number > 0).length;
+              const seqHasCRPlaceholder = sequence.length > bodyMessageCount;
               return (<>
               {sequence.map((step, i) => {
-              // The invite card covers the LinkedIn D0 slot — render only the card, not a duplicate regular step
-              if (showInviteCard && i === firstLinkedinIdx && step.channel === "linkedin" && step.daysAfter === 0)
+              // Only legacy-format campaigns get the early-return collapse —
+              // there's nothing to render at sequence[0] for them. New campaigns
+              // fall through and render the invite card BEFORE the regular
+              // step card (via renderInviteBefore below).
+              if (seqHasCRPlaceholder && showInviteCard && i === firstLinkedinIdx && step.channel === "linkedin" && step.daysAfter === 0)
                 return <div key={i}>{renderInvite()}</div>;
               const meta = channelMeta[step.channel] ?? channelMeta.linkedin;
               const Icon = meta.icon;
