@@ -504,7 +504,7 @@ async function dispatchOneMessage(
   // dispatcher fails every client-source lead with "no LinkedIn slug" even
   // though the slug exists — encrypted.
   const [{ data: rawLead }, { data: campaign }] = await Promise.all([
-    svc.from("leads").select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, primary_linkedin_url, linkedin_internal_id, company_name, primary_title_role")
+    svc.from("leads").select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, primary_linkedin_url, linkedin_internal_id, linkedin_connected, company_name, primary_title_role")
       .eq("id", candidate.lead_id).maybeSingle(),
     svc.from("campaigns").select("id, seller_id, name, sequence_steps").eq("id", candidate.campaign_id).maybeSingle(),
   ]);
@@ -546,7 +546,13 @@ async function dispatchOneMessage(
   let invitationStatus: string | null = null;
 
   try {
-    const needsFetch = !providerId || candidate.step_number === 0;
+    // Always fetch the user — networkDistance is needed by the step ≥ 1
+    // parking gate below. The previous "skip fetch when providerId is
+    // cached" optimization left networkDistance at null for every step
+    // 1+ DM, which made the gate park every message regardless of the
+    // lead's actual connection state. The fetch also re-verifies identity
+    // before each send.
+    const needsFetch = true;
     if (needsFetch) {
       const userResp = await unipileGet(
         `${UNIPILE_BASE}/api/v1/users/${encodeURIComponent(slug)}?account_id=${encodeURIComponent(seller.unipile_account_id)}`,
@@ -609,9 +615,15 @@ async function dispatchOneMessage(
   // message. Now we PARK the DM (21d window) and advance non-LinkedIn steps
   // in parallel. If the lead accepts within 21d, the unpark cron makes the
   // DM eligible and we send it out-of-sequence — better than dropping it.
-  if (candidate.step_number >= 1 &&
-      networkDistance !== "FIRST_DEGREE" &&
-      networkDistance !== "DISTANCE_1") {
+  //
+  // Fallback: Unipile's /users endpoint occasionally returns network_distance=null
+  // even for genuine 1st-degree connections (transient bug). When that happens
+  // but lead.linkedin_connected is true — set by step 0's "already-connected"
+  // skip or by the accept webhook — trust the persisted flag and send anyway
+  // rather than parking a perfectly deliverable DM for 21 days.
+  const distanceOk = networkDistance === "FIRST_DEGREE" || networkDistance === "DISTANCE_1";
+  const linkedinConnected = (lead as any).linkedin_connected === true;
+  if (candidate.step_number >= 1 && !distanceOk && !linkedinConnected) {
     return await parkAwaitingAcceptance(
       svc, candidate.id, candidate.lead_id, candidate.campaign_id, candidate.step_number,
       (campaign as any)?.sequence_steps ?? null,
