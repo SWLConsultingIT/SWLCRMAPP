@@ -3,6 +3,7 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import { mapLimit } from "@/lib/concurrency";
 import { fetchStepAttachments } from "@/lib/campaign-attachments";
+import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
 // Hard cap on parallel seller batches in a single tick. Each seller's batch
 // opens ~3 DB connections (list queued, hydrate lead+campaign, update on
@@ -437,14 +438,36 @@ async function dispatchOneMessage(
     return { kind: "lost_race", msgId: candidate.id, leadId: candidate.lead_id };
   }
 
-  // Hydrate the lead + campaign rows we need.
-  const [{ data: lead }, { data: campaign }] = await Promise.all([
-    svc.from("leads").select("id, primary_first_name, primary_last_name, primary_linkedin_url, linkedin_internal_id, company_name, primary_title_role")
+  // Hydrate the lead + campaign rows we need. source + encrypted_payload +
+  // company_bio_id are pulled so client-uploaded leads (where the PII columns
+  // sit inside encrypted_payload instead of the plain columns) can be
+  // decrypted before we read primary_linkedin_url. Without this the
+  // dispatcher fails every client-source lead with "no LinkedIn slug" even
+  // though the slug exists — encrypted.
+  const [{ data: rawLead }, { data: campaign }] = await Promise.all([
+    svc.from("leads").select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, primary_linkedin_url, linkedin_internal_id, company_name, primary_title_role")
       .eq("id", candidate.lead_id).maybeSingle(),
     svc.from("campaigns").select("id, seller_id, name, sequence_steps").eq("id", candidate.campaign_id).maybeSingle(),
   ]);
-  if (!lead || !campaign) {
+  if (!rawLead || !campaign) {
     return await failMessage(svc, candidate.id, candidate.lead_id, "lead or campaign missing");
+  }
+
+  // Decrypt PII columns for client-source leads. Keep the plain row when
+  // decryption fails so the failure surfaces as the actual problem (bad
+  // ciphertext / missing tenant key) instead of a misleading "no LinkedIn
+  // slug" downstream. log + continue is acceptable here — failMessage will
+  // run a few lines down with the real reason.
+  let lead = rawLead as LeadRow & { source: string | null; encrypted_payload: unknown; company_bio_id: string | null };
+  if (rawLead.source === "client" && rawLead.encrypted_payload && rawLead.company_bio_id) {
+    try {
+      const { key } = await resolveTenantKey(rawLead.company_bio_id);
+      const blob = bufferFromSupabaseBytea(rawLead.encrypted_payload);
+      const decrypted = decryptWithResolvedKey(blob, key);
+      lead = { ...lead, ...decrypted } as typeof lead;
+    } catch (err) {
+      console.error("[dispatch-queue] decrypt failed for lead", rawLead.id, err);
+    }
   }
 
   if (!seller.unipile_account_id) {

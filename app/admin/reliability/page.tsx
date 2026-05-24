@@ -10,6 +10,7 @@ import { CancelCooldownButton, PauseCampaignButton } from "./CooldownActions";
 import HideNoiseToggle from "./HideNoiseToggle";
 import CollapsibleSection from "./CollapsibleSection";
 import AutoRefresh from "./AutoRefresh";
+import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
 // Reliability dashboard.
 //
@@ -121,7 +122,7 @@ type ReliabilityData = {
 async function fetchReliability(): Promise<ReliabilityData> {
   const svc = getSupabaseService();
 
-  const queueSelect = "id, campaign_id, lead_id, step_number, channel, status, sent_at, provider_message_id, error_details, created_at, metadata, leads(primary_first_name, primary_last_name, primary_linkedin_url, company_name, company_bio_id, linkedin_connected), campaigns(name, seller_id, sellers(name, unipile_account_id))";
+  const queueSelect = "id, campaign_id, lead_id, step_number, channel, status, sent_at, provider_message_id, error_details, created_at, metadata, leads(source, encrypted_payload, primary_first_name, primary_last_name, primary_linkedin_url, company_name, company_bio_id, linkedin_connected), campaigns(name, seller_id, sellers(name, unipile_account_id))";
 
   const nowMs = Date.now();
   const since24h = new Date(nowMs - 24 * 60 * 60 * 1000).toISOString();
@@ -153,6 +154,47 @@ async function fetchReliability(): Promise<ReliabilityData> {
     // 7d replies for response rate
     svc.from("lead_replies").select("id").gte("received_at", since7d),
   ]);
+
+  // Decrypt PII on every queue-row's inner `leads` so the table doesn't
+  // render "(no name)" for client-source leads. Same pattern as
+  // /campaigns/[id]: resolve each tenant key once, then decrypt and merge.
+  // Without this, "Failed Messages" + "Stuck Invites" + everything else
+  // that reads .leads.primary_first_name shows blanks for any client tenant.
+  {
+    const rowsWithLeads: Array<{ leads?: any }> = [];
+    for (const q of [queuedQ, dispatchingQ, failedQ, skippedQ, sentLedgerQ, stuckExpiredQ]) {
+      for (const r of (q.data ?? []) as any[]) {
+        if (r.leads) rowsWithLeads.push(r);
+      }
+    }
+    const tenantIds = Array.from(new Set(
+      rowsWithLeads
+        .filter(r => r.leads?.source === "client" && r.leads?.encrypted_payload && r.leads?.company_bio_id)
+        .map(r => r.leads.company_bio_id as string)
+    ));
+    const keys = new Map<string, Buffer>();
+    for (const bioId of tenantIds) {
+      try {
+        const { key } = await resolveTenantKey(bioId);
+        keys.set(bioId, key);
+      } catch (err) {
+        console.error("[reliability] tenant key resolution failed for", bioId, err);
+      }
+    }
+    for (const r of rowsWithLeads) {
+      const l = r.leads;
+      if (l?.source !== "client" || !l.encrypted_payload || !l.company_bio_id) continue;
+      const key = keys.get(l.company_bio_id);
+      if (!key) continue;
+      try {
+        const blob = bufferFromSupabaseBytea(l.encrypted_payload);
+        const decrypted = decryptWithResolvedKey(blob, key);
+        r.leads = { ...l, ...decrypted, encrypted_payload: undefined };
+      } catch (err) {
+        console.error("[reliability] decrypt failed for lead", l.id, err);
+      }
+    }
+  }
 
   // Pull Unipile sent invites per active seller (last 100 each).
   const unipileBySeller = new Map<string, UnipileSentInvite[]>();

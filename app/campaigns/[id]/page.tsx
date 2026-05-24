@@ -7,6 +7,40 @@ import {
   Users, Clock, Settings,
 } from "lucide-react";
 import CampaignDetailClient from "./CampaignDetailClient";
+import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
+
+// Hydrates client-source leads in a list by decrypting encrypted_payload
+// and merging the result over the plain row. Resolves the tenant key once
+// per tenant (a campaign view typically only contains one tenant's leads,
+// but we group defensively so a future cross-tenant view doesn't break).
+async function hydrateClientLeads<L extends { id?: string; source?: string | null; encrypted_payload?: unknown; company_bio_id?: string | null }>(rows: L[]): Promise<L[]> {
+  if (rows.length === 0) return rows;
+  const clientRows = rows.filter(r => r.source === "client" && r.encrypted_payload && r.company_bio_id);
+  if (clientRows.length === 0) return rows;
+  const tenantIds = Array.from(new Set(clientRows.map(r => r.company_bio_id as string)));
+  const keys = new Map<string, Buffer>();
+  for (const bioId of tenantIds) {
+    try {
+      const { key } = await resolveTenantKey(bioId);
+      keys.set(bioId, key);
+    } catch (err) {
+      console.error("[campaigns/[id]] tenant key resolution failed for", bioId, err);
+    }
+  }
+  return rows.map(r => {
+    if (r.source !== "client" || !r.encrypted_payload || !r.company_bio_id) return r;
+    const key = keys.get(r.company_bio_id);
+    if (!key) return r;
+    try {
+      const blob = bufferFromSupabaseBytea(r.encrypted_payload);
+      const decrypted = decryptWithResolvedKey(blob, key);
+      return { ...r, ...decrypted, encrypted_payload: undefined } as L;
+    } catch (err) {
+      console.error("[campaigns/[id]] decrypt failed for lead", r.id, err);
+      return r;
+    }
+  });
+}
 
 export const dynamic = "force-dynamic";
 
@@ -30,9 +64,13 @@ async function getCampaign(id: string) {
   const supabase = await getSupabaseServer();
   const { data } = await supabase
     .from("campaigns")
-    .select("*, leads(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, company_industry, icp_profile_id), sellers(name, company_bio_id)")
+    .select("*, leads(id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, company_industry, icp_profile_id), sellers(name, company_bio_id)")
     .eq("id", id)
     .single();
+  if (data?.leads) {
+    const [hydrated] = await hydrateClientLeads([data.leads as Record<string, unknown>]);
+    return { ...data, leads: hydrated } as typeof data;
+  }
   return data;
 }
 
@@ -52,12 +90,18 @@ async function getSiblingCampaigns(campaignName: string, excludeId: string) {
   const supabase = await getSupabaseServer();
   const { data } = await supabase
     .from("campaigns")
-    .select("id, status, current_step, sequence_steps, channel, last_step_at, seller_id, leads(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, lead_score, is_priority, allow_linkedin, allow_email, allow_call), sellers(name)")
+    .select("id, status, current_step, sequence_steps, channel, last_step_at, seller_id, leads(id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, lead_score, is_priority, allow_linkedin, allow_email, allow_call), sellers(name)")
     .eq("name", campaignName)
     .neq("id", excludeId)
     .order("created_at", { ascending: false })
     .limit(500);
-  return data ?? [];
+  const rows = data ?? [];
+  // Decrypt all sibling leads in one pass. Each campaign carries an inner
+  // `leads` object — collect them, hydrate, and re-attach in order.
+  const innerLeads = rows.map((c: any) => c.leads).filter(Boolean) as Record<string, unknown>[];
+  const hydratedLeads = await hydrateClientLeads(innerLeads);
+  const leadById = new Map(hydratedLeads.map(l => [(l as any).id as string, l]));
+  return rows.map((c: any) => c.leads ? { ...c, leads: leadById.get(c.leads.id) ?? c.leads } : c);
 }
 
 async function getUnlinkedLeadsByProfile(companyBioId: string | null) {
@@ -71,18 +115,20 @@ async function getUnlinkedLeadsByProfile(companyBioId: string | null) {
     .from("campaigns").select("lead_id").in("status", ["active", "paused"]);
   const activeSet = new Set((activeCampLeadIds ?? []).map(c => c.lead_id).filter(Boolean));
 
-  const { data: allLeads } = await supabase
+  const { data: rawAllLeads } = await supabase
     .from("leads")
-    .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, lead_score, allow_linkedin, allow_email, allow_call, icp_profile_id, company_bio_id")
+    .select("id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, primary_title_role, lead_score, allow_linkedin, allow_email, allow_call, icp_profile_id, company_bio_id")
     .eq("company_bio_id", companyBioId)
     .order("created_at", { ascending: false }).limit(200);
+  const allLeads = await hydrateClientLeads((rawAllLeads ?? []) as Record<string, unknown>[]);
 
   const { data: profiles } = await supabase
     .from("icp_profiles").select("id, profile_name").eq("status", "approved").eq("company_bio_id", companyBioId);
   const profileMap: Record<string, string> = {};
   (profiles ?? []).forEach(p => { profileMap[p.id] = p.profile_name; });
 
-  const unlinked = (allLeads ?? []).filter(l => !activeSet.has(l.id));
+  const unlinkedTyped = (allLeads ?? []) as Array<Record<string, unknown> & { id: string; icp_profile_id: string | null }>;
+  const unlinked = unlinkedTyped.filter(l => !activeSet.has(l.id));
   const grouped: Record<string, { profileName: string; leads: any[] }> = {};
   for (const l of unlinked) {
     const key = l.icp_profile_id ?? "__none";
