@@ -10,6 +10,7 @@ import { CancelCooldownButton, PauseCampaignButton } from "./CooldownActions";
 import HideNoiseToggle from "./HideNoiseToggle";
 import CollapsibleSection from "./CollapsibleSection";
 import AutoRefresh from "./AutoRefresh";
+import FailedSummary from "./FailedSummary";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
 // Reliability dashboard.
@@ -662,15 +663,21 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
           defaultOpen={failedVisible.length > 0}
           hint={failedHiddenCount > 0 ? `${failedHiddenCount} hidden older than ${NOISE_DAYS}d` : "Needs attention"}>
           {failedHiddenCount > 0 && (
-            <div className="px-4 py-2 text-[11px] flex items-center gap-2" style={{ backgroundColor: C.surface, borderBottom: `1px solid ${C.border}`, color: C.textMuted }}>
+            <div className="px-5 py-3 text-[11px] flex items-center gap-2" style={{ backgroundColor: C.surface, borderBottom: `1px solid ${C.border}`, color: C.textMuted }}>
               <span>Hiding {failedHiddenCount} row(s) older than {NOISE_DAYS}d.</span>
               <HideNoiseToggle showing={showNoise} />
             </div>
           )}
+          {/* Grouped-by-cause summary with bulk retry. Surfaces the WHY +
+              recommended fix per cause, then the table below keeps row-level
+              detail for the cases where the operator needs to look at a
+              specific lead. */}
+          <FailedSummary rows={failedVisible as any} />
           <Table>
             <thead>
               <Th>When</Th>
               <Th>Lead</Th>
+              <Th>Company</Th>
               <Th>Seller</Th>
               <Th>Step</Th>
               <Th>Error</Th>
@@ -681,6 +688,7 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
                 <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
                   <Td>{formatTime(r.created_at)}</Td>
                   <Td>{leadName(r)}</Td>
+                  <Td>{r.leads?.company_name ?? "—"}</Td>
                   <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
                   <Td>{r.step_number}</Td>
                   <Td>
@@ -949,7 +957,7 @@ function Table({ children }: { children: React.ReactNode }) {
 
 function Th({ children }: { children: React.ReactNode }) {
   return (
-    <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider"
+    <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider"
       style={{ color: C.textMuted, backgroundColor: C.surface }}>
       {children}
     </th>
@@ -957,5 +965,5 @@ function Th({ children }: { children: React.ReactNode }) {
 }
 
 function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-4 py-2.5" style={{ color: C.textBody }}>{children}</td>;
+  return <td className="px-5 py-3.5" style={{ color: C.textBody }}>{children}</td>;
 }
