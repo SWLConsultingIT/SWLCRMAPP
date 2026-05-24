@@ -116,15 +116,69 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ userId:
   }
 
   const svc = getSupabaseService();
-  // Profile first (the FK + RLS constraints), then auth user.
+
+  // Owner-of-one-tenant detach scope: a super_admin who removes a member from
+  // a SPECIFIC tenant should detach them from THAT tenant only, not nuke
+  // their access everywhere. We restrict the full purge to the case where
+  // the caller is an owner (single-tenant) or super_admin acting on a user
+  // whose only membership IS the target tenant.
+  const { data: allMemberships } = await svc
+    .from("user_company_memberships")
+    .select("company_bio_id")
+    .eq("user_id", userId);
+  const memberships = (allMemberships ?? []).map(m => m.company_bio_id);
+  const callerScopeBioId = scope.tier === "super_admin"
+    ? (target.company_bio_id ?? scope.companyBioId)
+    : scope.companyBioId;
+  const detachOnly = memberships.length > 1 && memberships.includes(callerScopeBioId ?? "");
+
+  if (detachOnly && callerScopeBioId) {
+    // Multi-tenant user: keep their other memberships, just drop this tenant.
+    const { error: memErr } = await svc
+      .from("user_company_memberships")
+      .delete()
+      .eq("user_id", userId)
+      .eq("company_bio_id", callerScopeBioId);
+    if (memErr) return NextResponse.json({ error: memErr.message }, { status: 500 });
+
+    // If this tenant happened to be their primary in user_profiles, move
+    // them onto one of the remaining memberships so they don't end up with
+    // a stale primary FK pointing into a tenant they no longer belong to.
+    if (target.company_bio_id === callerScopeBioId) {
+      const fallback = memberships.find(b => b !== callerScopeBioId);
+      await svc
+        .from("user_profiles")
+        .update({ company_bio_id: fallback ?? null })
+        .eq("user_id", userId);
+      invalidateProfileCache(userId);
+    }
+    return NextResponse.json({ ok: true, mode: "detached_from_tenant" });
+  }
+
+  // Full purge: this is the user's only tenant (or they had none). Clean up
+  // EVERY reference to the user_id so the auth.users delete doesn't trip on
+  // a lingering FK. Audit-style refs (lead_notes.created_by — the call
+  // notes a seller left on their leads) get NULL'd so the data survives the
+  // departure; the seller themselves is unlinked from the sellers row.
+  await svc.from("user_company_memberships").delete().eq("user_id", userId);
+  await svc.from("sellers").update({ user_id: null }).eq("user_id", userId);
+  await svc.from("lead_notes").update({ created_by: null }).eq("created_by", userId);
+
   const { error: profileErr } = await svc.from("user_profiles").delete().eq("user_id", userId);
   if (profileErr) return NextResponse.json({ error: profileErr.message }, { status: 500 });
 
   invalidateProfileCache(userId);
 
-  // Best-effort auth user delete; log but don't fail the response if Supabase
-  // refuses (the profile is gone, which is what gates app access anyway).
-  await svc.auth.admin.deleteUser(userId).catch(() => null);
+  // Auth user delete — surface errors instead of swallowing. The previous
+  // catch(() => null) swallowed FK violations and left orphaned auth.users
+  // rows that resurfaced in the "Pending Assignment" banner forever.
+  // 2026-05-22 incident: Andy from Pathway, deleted but kept reappearing.
+  const { error: authErr } = await svc.auth.admin.deleteUser(userId);
+  if (authErr) {
+    return NextResponse.json({
+      error: `User removed from tenant but auth row could not be deleted: ${authErr.message}. The account is no longer usable; surface this to engineering for cleanup.`,
+    }, { status: 207 });
+  }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, mode: "fully_deleted" });
 }
