@@ -85,14 +85,17 @@ function personalize(template: string, lead: any, seller: any): string {
 }
 
 async function instantlyFetch(apiKey: string, method: "POST" | "DELETE", path: string, body?: any): Promise<any> {
-  const init: RequestInit = {
-    method,
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      accept: "application/json",
-      "content-type": "application/json",
-    },
+  // Instantly v2 rejects requests with `content-type: application/json` and no
+  // body — DELETE /leads/:id was failing 400 "Body cannot be empty when
+  // content-type is set to 'application/json'", which masked every step ≥ 2
+  // email retry as a fatal "stale lead detected but delete failed". Only set
+  // content-type when we actually have a body to send.
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    accept: "application/json",
   };
+  if (body !== undefined) headers["content-type"] = "application/json";
+  const init: RequestInit = { method, headers };
   if (body !== undefined) init.body = JSON.stringify(body);
   const res = await fetch(`${INSTANTLY_BASE}${path}`, init);
   const text = await res.text();
