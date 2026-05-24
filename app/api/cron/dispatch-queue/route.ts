@@ -313,6 +313,7 @@ type DispatchOutcome =
   | { kind: "sent"; msgId: string; leadId: string; providerMessageId: string | null; chatId: string | null; step: number; nextEligibleAt: string | null; truncated: boolean }
   | { kind: "skipped_connected"; msgId: string; leadId: string; nextEligibleAt: string }
   | { kind: "skipped_invited"; msgId: string; leadId: string }
+  | { kind: "parked_awaiting_acceptance"; msgId: string; leadId: string; nextEligibleAt: string }
   | { kind: "failed"; msgId: string; leadId: string; reason: string }
   | { kind: "rate_limited"; msgId: string; leadId: string; reason: string; cascadedCount: number }
   | { kind: "lost_race"; msgId: string; leadId: string };
@@ -369,6 +370,64 @@ async function markAlreadyInvited(
     metadata: { dispatched_by: "cron-dispatch-queue", skipped_reason: reason, skipped_at: now, awaiting_acceptance: true },
   }).eq("id", msgId);
   return { kind: "skipped_invited", msgId, leadId };
+}
+
+// Park a LinkedIn DM (step ≥ 1) when the lead is not yet 1st-degree. Two
+// effects:
+//   1. The message stays `queued` but its eligible_at is pushed 21 days into
+//      the future so the dispatcher stops retrying immediately. LinkedIn
+//      invites auto-expire after ~21 days, so anything still parked at that
+//      point is a genuine "no acceptance" and gets swept by an expiry cron.
+//   2. The campaign cursor advances past this LinkedIn step so non-LinkedIn
+//      steps (email, call) fire on their normal schedule. The unpark cron
+//      (unpark-linkedin-on-accept) flips eligible_at to now() the moment
+//      lead.linkedin_connected becomes true, so the dispatcher catches up
+//      the parked DM out-of-order on the next tick.
+async function parkAwaitingAcceptance(
+  svc: ReturnType<typeof getSupabaseService>,
+  msgId: string, leadId: string, campaignId: string, stepNumber: number,
+  sequenceSteps: Array<{ channel?: string; daysAfter?: number }> | null,
+  networkDistance: string | null,
+): Promise<DispatchOutcome> {
+  const now = new Date().toISOString();
+  // 21 days = LinkedIn's own invite expiration. Past this point the invite
+  // is dead on LinkedIn's side and the parked DM is unreachable.
+  const eligibleAt = new Date(Date.now() + 21 * 86400000).toISOString();
+
+  // 1. Park the LinkedIn DM.
+  await svc.from("campaign_messages").update({
+    status: "queued",
+    metadata: {
+      dispatched_by: "cron-dispatch-queue",
+      awaiting_acceptance: true,
+      parked_since: now,
+      eligible_at: eligibleAt,
+      network_distance: networkDistance,
+    },
+  }).eq("id", msgId);
+
+  // 2. Advance the campaign cursor and queue the next step so non-LinkedIn
+  //    channels (email/call) keep firing. The next message is in `draft` →
+  //    we flip it to `queued` with eligible_at = now() so the appropriate
+  //    dispatcher picks it up immediately. If the next step IS also a
+  //    LinkedIn DM, that's fine — the dispatch-queue will park it too on
+  //    the next tick, and we'll keep advancing until we hit a non-LI step
+  //    or the end of the sequence.
+  const steps = Array.isArray(sequenceSteps) ? sequenceSteps : [];
+  const nextIdx = stepNumber + 1;
+  if (nextIdx <= steps.length) {
+    await Promise.all([
+      svc.from("campaigns").update({
+        current_step: stepNumber,
+        last_step_at: now,
+      }).eq("id", campaignId).eq("current_step", stepNumber - 1),
+      svc.from("campaign_messages").update({
+        status: "queued",
+        metadata: { eligible_at: now, queued_by: "cron-dispatch-queue:parked-linkedin-advance" },
+      }).eq("campaign_id", campaignId).eq("step_number", nextIdx).eq("status", "draft"),
+    ]);
+  }
+  return { kind: "parked_awaiting_acceptance", msgId, leadId, nextEligibleAt: eligibleAt };
 }
 
 async function requeueRateLimited(
@@ -540,6 +599,24 @@ async function dispatchOneMessage(
         "preflight: lead has a pending SENT invitation outstanding (invitation.status=PENDING)",
       );
     }
+  }
+
+  // Step ≥ 1 LinkedIn DM gate. Multi-channel campaigns (CR → email → call →
+  // LI DM → email → …) reach the second LinkedIn step regardless of whether
+  // the CR was accepted, because email/call advance the campaign on their
+  // own schedule. Before 2026-05-24 we'd hit Unipile here, get a 422
+  // "Recipient appears not to be first degree connection", and burn the
+  // message. Now we PARK the DM (21d window) and advance non-LinkedIn steps
+  // in parallel. If the lead accepts within 21d, the unpark cron makes the
+  // DM eligible and we send it out-of-sequence — better than dropping it.
+  if (candidate.step_number >= 1 &&
+      networkDistance !== "FIRST_DEGREE" &&
+      networkDistance !== "DISTANCE_1") {
+    return await parkAwaitingAcceptance(
+      svc, candidate.id, candidate.lead_id, candidate.campaign_id, candidate.step_number,
+      (campaign as any)?.sequence_steps ?? null,
+      networkDistance,
+    );
   }
 
   const rawTemplate = candidate.content ?? "";

@@ -287,6 +287,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
     id: string; type: "message_sent" | "reply" | "campaign_start" | "lead_created";
     contactName: string; channel: string; content: string | null; timestamp: string;
     stepNumber?: number; classification?: string; aiConfidence?: number; requiresReview?: boolean; sellerName?: string;
+    attachments?: Array<{ name: string; mimeType?: string; sizeBytes?: number }>;
   };
 
   const contactName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
@@ -295,9 +296,16 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   // Sent messages: prefer the dispatcher-captured rendered_content over the
   // raw template so the activity feed shows what the lead actually received
   // ("Hi Steve, …") rather than the placeholder version ("Hi {{first_name}}, …").
+  // Attachments are looked up via campaigns.sequence_steps[stepNumber-1].attachments
+  // — same shape the dispatcher reads at send time, so the timeline shows
+  // exactly what went out (paperclip chip + filename).
   messages.filter((m: any) => m.status === "sent").forEach((m: any) => {
     const rendered = (m.metadata as Record<string, unknown> | null)?.rendered_content;
     const displayed = typeof rendered === "string" && rendered.length > 0 ? rendered : (m.content ?? null);
+    const stepIdx = (m.step_number ?? 0) - 1;
+    const stepAttachments = stepIdx >= 0 && Array.isArray(rawSteps[stepIdx]?.attachments)
+      ? rawSteps[stepIdx].attachments as Array<{ name: string; mimeType?: string; sizeBytes?: number }>
+      : undefined;
     activityItems.push({
       id: m.id, type: "message_sent",
       contactName,
@@ -305,6 +313,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       content: displayed,
       timestamp: m.sent_at,
       stepNumber: m.step_number,
+      attachments: stepAttachments,
     });
   });
 

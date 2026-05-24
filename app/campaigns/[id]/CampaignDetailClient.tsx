@@ -6,7 +6,7 @@ import { C } from "@/lib/design";
 import Link from "next/link";
 import {
   Share2, Mail, Phone, MessageCircle, Check, Pencil, X, Save, Copy,
-  PlayCircle, Loader2, Pause, Play, Trash2, Send,
+  PlayCircle, Loader2, Pause, Play, Trash2, Send, Paperclip,
   Users, UserPlus, Megaphone, Target, CheckCircle2,
   MessageSquare, PhoneCall, Clock, AlertTriangle, ChevronRight, LayoutGrid,
 } from "lucide-react";
@@ -752,6 +752,23 @@ export default function CampaignDetailClient({
                             <p className="text-[10px] font-medium mb-2 px-2 py-0.5 rounded inline-block" style={{ backgroundColor: `color-mix(in srgb, ${gold} 7%, transparent)`, color: gold }}>Template — not yet sent</p>
                           )}
                           <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{displayBody}</p>
+                          {/* Per-step attachments from sequence_steps[i].attachments —
+                              render as paperclip chips so the operator can see
+                              what the dispatcher will (or did) attach via
+                              Unipile. The actual binary is fetched at send
+                              time; here we only surface metadata. */}
+                          {Array.isArray((step as any)?.attachments) && (step as any).attachments.length > 0 && (
+                            <div className="mt-3 flex flex-wrap gap-1.5">
+                              {((step as any).attachments as Array<{ name: string; mimeType?: string; sizeBytes?: number }>).map((a, idx) => (
+                                <span key={idx}
+                                  className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md border"
+                                  title={a.mimeType ? `${a.mimeType}${a.sizeBytes ? ` · ${Math.round(a.sizeBytes / 1024)}KB` : ""}` : undefined}
+                                  style={{ borderColor: C.border, backgroundColor: C.surface, color: C.textBody }}>
+                                  <Paperclip size={10} style={{ color: C.textMuted }} /> {a.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                           {(isPending || (!msg && tmpl)) && isEditable && msg && (
                             <button onClick={() => { setEditingIdx(i); setEditContent(msg.content ?? ""); }}
                               className="absolute top-3 right-3 flex items-center gap-1 text-xs px-2 py-1 rounded-md hover:opacity-80"

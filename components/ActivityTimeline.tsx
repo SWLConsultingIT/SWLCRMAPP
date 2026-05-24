@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { C } from "@/lib/design";
-import { Mail, PlusCircle, ChevronDown, ChevronUp, MessageSquare, StickyNote, Trash2, Loader2 } from "lucide-react";
+import { Mail, PlusCircle, ChevronDown, ChevronUp, MessageSquare, StickyNote, Trash2, Loader2, Paperclip } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
 
 type ActivityItem = {
@@ -17,6 +17,9 @@ type ActivityItem = {
   aiConfidence?: number;
   requiresReview?: boolean;
   sellerName?: string;
+  /** Attachments fetched from the campaign's sequence_steps[stepNumber-1].attachments
+   *  so the timeline can render a paperclip chip alongside the message body. */
+  attachments?: Array<{ name: string; mimeType?: string; sizeBytes?: number }>;
 };
 
 type Note = {
@@ -414,6 +417,21 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                             }}
                           >
                             <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{item.content}</p>
+                            {/* Paperclip chips for files the dispatcher attached
+                                via Unipile multipart. Caller fills attachments
+                                from campaigns.sequence_steps[stepNumber-1].attachments. */}
+                            {Array.isArray(item.attachments) && item.attachments.length > 0 && (
+                              <div className="mt-3 flex flex-wrap gap-1.5">
+                                {item.attachments.map((a, idx) => (
+                                  <span key={idx}
+                                    className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md border"
+                                    title={a.mimeType ? `${a.mimeType}${a.sizeBytes ? ` · ${Math.round(a.sizeBytes / 1024)}KB` : ""}` : undefined}
+                                    style={{ borderColor: C.border, backgroundColor: C.surface, color: C.textBody }}>
+                                    <Paperclip size={10} style={{ color: C.textMuted }} /> {a.name}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
