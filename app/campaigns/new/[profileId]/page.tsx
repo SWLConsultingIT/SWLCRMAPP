@@ -1308,8 +1308,8 @@ export default function NewCampaignWizard() {
                       <p className="text-xs mb-3" style={{ color: C.textDim }}>What happens when a lead reaches a call step in the sequence.</p>
                       <div className="grid grid-cols-2 gap-3 mb-5">
                         {([
-                          { key: "auto", title: "Auto-advance", desc: "If the seller doesn't dial within the wait window, the cron auto-dials and the sequence moves to the next step regardless. Best for high-volume top-of-funnel." },
-                          { key: "manual", title: "Wait for seller", desc: "Sequence freezes at the call step until the seller dials manually. Lead stays put — no LinkedIn or email follow-up fires until the call happens. Best for high-value leads where the call is the deliberate gate." },
+                          { key: "auto", title: "Auto-advance (3 days)", desc: "Seller dials manually from /queue. If they don't dial within 3 days, the call is skipped and the sequence keeps moving (LinkedIn / email follow-ups continue on schedule). Best for high-volume top-of-funnel." },
+                          { key: "manual", title: "Wait for seller (5 days)", desc: "Same idea but with a longer window — the seller has 5 days to dial before the call is skipped. Best for high-value leads where the call matters more, but you still don't want the lead to sit forever if the call never happens." },
                         ] as const).map(opt => {
                           const isSelected = callAdvanceMode === opt.key;
                           return (

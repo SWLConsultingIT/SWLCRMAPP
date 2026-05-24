@@ -1,49 +1,68 @@
-// Auto-skip stale manual call steps.
+// Auto-skip stale call steps regardless of position in the sequence.
 //
-// Design rule (Fran 2026-05-14): the FIRST step of a call/email campaign is
-// a manual call. The seller has 3 days to make it. If 3 days pass without
-// a call, skip step 1 (call) and advance to step 2 (email) so the campaign
-// keeps moving instead of sitting in /queue forever.
+// Model (Fran 2026-05-24):
+//   The Aircall integration is ALWAYS manual — sellers dial leads themselves.
+//   The campaign's `call_advance_mode` only controls what happens when a call
+//   step has been queued for too long without a dial:
 //
-// Why we need a dedicated cron: dispatch-call only acts on
-// status='queued' rows. Manual call steps are seeded as 'draft' (so the
-// dispatcher doesn't auto-dial them). Nothing else advances them. The
-// "Overdue" labels in /queue are purely visual — no action is taken.
+//     - auto:   skip the call step and advance the campaign. The seller may
+//               or may not dial during the window; either way the sequence
+//               keeps moving so other channels (LinkedIn, email) keep firing.
+//     - manual: same outcome but the wait window is longer. The "wait for
+//               seller" signal is honored more strictly — the seller has
+//               STALE_DAYS_MANUAL to dial, after which we still advance so
+//               the lead doesn't sit in /queue forever.
 //
 // Selection rule:
 //   - campaigns.status='active' AND campaigns.archived_at IS NULL
-//   - campaigns.current_step = 0 (step 1 not yet done)
-//   - campaigns.created_at < now() - STALE_DAYS
-//   - sequence_steps[0].channel = 'call'
-//   - has a step 2 message in 'draft' channel='email' to advance to
-//   - has NO matching 'sent' / 'answered' call row (= seller never called)
+//   - sequence_steps[current_step].channel = 'call'
+//   - there's a campaign_messages row at current_step+1 (queued OR draft)
+//     to advance to. If there's no next step, the campaign is at its last
+//     step and we let it complete naturally (no advance needed).
+//   - the queued call message at current_step has been queued long enough
+//     to be considered stale (per call_advance_mode).
 //
 // Safety:
-//   - DRY-RUN by default. Returns the rows that WOULD be advanced, no DB
-//     write. Add `?execute=1` to actually flip them. Use this to validate
-//     the first run's selection before going live, per
-//     feedback_live_clients_safety.md.
-//   - Each row is updated independently (no batch UPDATE) so a single bad
-//     row can't roll back the others.
-//   - We also re-check campaigns.current_step=0 in the UPDATE WHERE clause
-//     so concurrent dispatchers can't have advanced it between SELECT and
-//     UPDATE.
+//   - DRY-RUN by default. Add `?execute=1` to actually flip rows.
+//   - Per-row UPDATE with WHERE status=<expected> so concurrent dispatchers
+//     can't clobber each other.
+//   - This cron is idempotent: re-running has no effect on rows that have
+//     already advanced.
 //
-// Auth: same Bearer CRON_SECRET pattern as other crons. Wire into the n8n
-// Orquestador on a daily schedule.
+// Auth: same Bearer CRON_SECRET pattern as other crons.
+//
+// Why this matters: prior version only handled "step 1 = call → step 2 =
+// email" campaigns (the first audit-call pattern). Multi-channel campaigns
+// with a call at step 2/3/etc. would freeze forever because nothing
+// advanced them — exactly what happened to Arqy 2026-05-24 (102 leads
+// stuck at call step 2 for 3 days).
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 
 const CRON_SECRET = process.env.CRON_SECRET;
-const STALE_DAYS = 3;
+// Stale thresholds per mode. The two modes share an end behavior (skip +
+// advance) but `manual` gives the seller a longer window because the user
+// chose "wait for me to dial" explicitly. Tune later if practice shows
+// either window is wrong; centralised here so we change once.
+const STALE_DAYS_AUTO = 3;
+const STALE_DAYS_MANUAL = 5;
 
+type SeqStep = { channel?: string; daysAfter?: number };
 type CampaignRow = {
   id: string;
   lead_id: string;
   current_step: number | null;
+  call_advance_mode: "auto" | "manual" | null;
+  sequence_steps: SeqStep[] | null;
+};
+type MessageRow = {
+  id: string;
+  step_number: number;
+  channel: string;
+  status: string;
+  metadata: Record<string, unknown> | null;
   created_at: string;
-  sequence_steps: Array<{ channel?: string; daysAfter?: number }> | null;
 };
 
 export async function GET(req: NextRequest) {
@@ -55,138 +74,177 @@ export async function GET(req: NextRequest) {
 
   const execute = req.nextUrl.searchParams.get("execute") === "1";
   const svc = getSupabaseService();
-  const cutoffISO = new Date(Date.now() - STALE_DAYS * 86400000).toISOString();
+  const nowMs = Date.now();
   const nowISO = new Date().toISOString();
 
-  // 1. Pull candidate campaigns: active, never-advanced, older than cutoff.
-  const { data: candidates, error: fetchErr } = await svc
+  // 1. Pull every active, non-archived campaign whose current step is a call.
+  //    We re-check the channel against sequence_steps[current_step] in JS
+  //    because the channel of the current step lives in jsonb.
+  const { data: campaigns, error: fetchErr } = await svc
     .from("campaigns")
-    .select("id, lead_id, current_step, created_at, sequence_steps")
+    .select("id, lead_id, current_step, call_advance_mode, sequence_steps")
     .eq("status", "active")
-    .is("archived_at", null)
-    .eq("current_step", 0)
-    .lt("created_at", cutoffISO);
-
+    .is("archived_at", null);
   if (fetchErr) {
     return NextResponse.json({ error: fetchErr.message }, { status: 500 });
   }
 
-  // 2. Filter to: first step is 'call' AND has a step 2 'email' in draft.
-  //    We deliberately do this in JS instead of SQL because sequence_steps
-  //    is jsonb and we need to inspect index [0].channel.
-  const candidatesAsArr = (candidates ?? []) as CampaignRow[];
-  const eligible: Array<{ campaign: CampaignRow; step2MsgId: string }> = [];
+  type Candidate = {
+    campaign: CampaignRow;
+    callMsg: MessageRow;
+    nextMsgId: string | null;
+    staleDays: number;
+    ageDays: number;
+    mode: "auto" | "manual";
+  };
 
-  for (const camp of candidatesAsArr) {
-    const steps = Array.isArray(camp.sequence_steps) ? camp.sequence_steps : [];
-    if (steps[0]?.channel !== "call") continue;
+  const candidates: Candidate[] = [];
 
-    // Confirm a step 2 email draft exists to advance to. If not, the
-    // campaign is malformed — don't touch it, surface it for review.
-    const { data: step2 } = await svc
+  for (const campRaw of (campaigns ?? []) as CampaignRow[]) {
+    const steps = Array.isArray(campRaw.sequence_steps) ? campRaw.sequence_steps : [];
+    const curIdx = campRaw.current_step ?? 0;
+    if (steps[curIdx]?.channel !== "call") continue;
+
+    const mode = (campRaw.call_advance_mode ?? "auto") as "auto" | "manual";
+    const staleDays = mode === "manual" ? STALE_DAYS_MANUAL : STALE_DAYS_AUTO;
+    const cutoffMs = nowMs - staleDays * 86400000;
+
+    // Fetch the call message at the current step. We want queued (the seller
+    // never dialed — or dispatch-call couldn't auto-dial) AND old enough.
+    // Skip rows whose eligible_at is still in the future — they're not
+    // "stale" yet, they're scheduled.
+    const stepNumber = curIdx + 1; // step_number is 1-indexed in campaign_messages
+    const { data: msgRows } = await svc
       .from("campaign_messages")
-      .select("id")
-      .eq("campaign_id", camp.id)
-      .eq("step_number", 2)
-      .eq("channel", "email")
-      .eq("status", "draft")
-      .maybeSingle();
+      .select("id, step_number, channel, status, metadata, created_at")
+      .eq("campaign_id", campRaw.id)
+      .eq("step_number", stepNumber)
+      .eq("channel", "call")
+      .eq("status", "queued");
+    const callMsg = (msgRows ?? [])[0] as MessageRow | undefined;
+    if (!callMsg) continue;
 
-    if (!step2?.id) continue;
+    // Use the LATER of created_at and metadata.eligible_at when computing
+    // age — a row that was rescheduled forward by deferred_by="business-hours"
+    // shouldn't be considered stale before its eligible_at even fires.
+    const eligibleAt = (callMsg.metadata as { eligible_at?: string } | null)?.eligible_at;
+    const startMs = Math.max(
+      new Date(callMsg.created_at).getTime(),
+      eligibleAt ? new Date(eligibleAt).getTime() : 0,
+    );
+    if (startMs > cutoffMs) continue;
+    const ageDays = Math.floor((nowMs - startMs) / 86400000);
 
-    eligible.push({ campaign: camp, step2MsgId: step2.id });
+    // Find the next-step message to advance to. If the call is the last step,
+    // there's nothing to advance to — let the campaign complete naturally.
+    const nextStepNumber = stepNumber + 1;
+    let nextMsgId: string | null = null;
+    if (nextStepNumber <= steps.length) {
+      const { data: nextRows } = await svc
+        .from("campaign_messages")
+        .select("id, status")
+        .eq("campaign_id", campRaw.id)
+        .eq("step_number", nextStepNumber)
+        .in("status", ["draft", "queued"])
+        .limit(1);
+      nextMsgId = (nextRows ?? [])[0]?.id ?? null;
+    }
+
+    candidates.push({ campaign: campRaw, callMsg, nextMsgId, staleDays, ageDays, mode });
   }
 
-  // 3. DRY-RUN path: report what we'd advance without writing.
+  // 2. DRY-RUN: report what we'd advance.
   if (!execute) {
     return NextResponse.json({
       ok: true,
       mode: "dry-run",
-      cutoff: cutoffISO,
-      candidates_total: candidatesAsArr.length,
-      eligible_count: eligible.length,
-      hint: "Add ?execute=1 to actually advance these campaigns.",
-      eligible: eligible.map(({ campaign, step2MsgId }) => ({
-        campaignId: campaign.id,
-        leadId: campaign.lead_id,
-        createdAt: campaign.created_at,
-        ageDays: Math.floor((Date.now() - new Date(campaign.created_at).getTime()) / 86400000),
-        step2MsgId,
+      now: nowISO,
+      thresholds: { auto: STALE_DAYS_AUTO, manual: STALE_DAYS_MANUAL },
+      candidate_count: candidates.length,
+      hint: "Add ?execute=1 to actually skip + advance these campaigns.",
+      candidates: candidates.map(c => ({
+        campaignId: c.campaign.id,
+        leadId: c.campaign.lead_id,
+        currentStep: c.campaign.current_step,
+        callMsgId: c.callMsg.id,
+        nextMsgId: c.nextMsgId,
+        mode: c.mode,
+        staleThresholdDays: c.staleDays,
+        ageDays: c.ageDays,
       })),
     });
   }
 
-  // 4. LIVE path: per-row update, re-check current_step=0 atomically.
-  const advanced: Array<{ campaignId: string; leadId: string; step2MsgId: string }> = [];
+  // 3. LIVE: skip + advance each candidate. Per-row atomic — every WHERE
+  //    re-asserts the previous status so concurrent dispatchers can't
+  //    clobber the transition.
+  const advanced: Array<{ campaignId: string; leadId: string; callMsgId: string; nextMsgId: string | null; mode: string }> = [];
   const errors: Array<{ campaignId: string; reason: string }> = [];
 
-  for (const { campaign, step2MsgId } of eligible) {
-    // Mark step 1 (call) as skipped — preserve any prior metadata.
-    const { data: step1Rows, error: step1Err } = await svc
+  for (const c of candidates) {
+    // Mark call as skipped.
+    const mergedMeta = {
+      ...(c.callMsg.metadata ?? {}),
+      skipped_reason: c.mode === "manual" ? "manual_call_window_expired" : "auto_call_window_expired",
+      skipped_at: nowISO,
+      skipped_by: "cron-skip-stale-calls",
+      stale_threshold_days: c.staleDays,
+      mode: c.mode,
+    };
+    const { error: skipErr } = await svc
       .from("campaign_messages")
-      .select("id, metadata")
-      .eq("campaign_id", campaign.id)
-      .eq("step_number", 1)
-      .eq("channel", "call")
-      .eq("status", "draft");
-
-    if (step1Err) {
-      errors.push({ campaignId: campaign.id, reason: `step1 fetch: ${step1Err.message}` });
+      .update({ status: "skipped", metadata: mergedMeta })
+      .eq("id", c.callMsg.id)
+      .eq("status", "queued");
+    if (skipErr) {
+      errors.push({ campaignId: c.campaign.id, reason: `skip call msg: ${skipErr.message}` });
       continue;
     }
 
-    for (const s1 of step1Rows ?? []) {
-      const mergedMeta = {
-        ...((s1.metadata as Record<string, unknown> | null) ?? {}),
-        skipped_reason: "manual_call_window_expired",
-        skipped_at: nowISO,
-        skipped_by: "cron-skip-stale-calls",
-        stale_threshold_days: STALE_DAYS,
-      };
-      await svc
+    // Queue the next step's message if it exists. If nextMsgId is null,
+    // the call WAS the last step — let dispatcher / completer handle it.
+    if (c.nextMsgId) {
+      const { error: nextErr } = await svc
         .from("campaign_messages")
-        .update({ status: "skipped", metadata: mergedMeta })
-        .eq("id", s1.id)
-        .eq("status", "draft");
+        .update({
+          status: "queued",
+          metadata: { eligible_at: nowISO, queued_by: "cron-skip-stale-calls" },
+        })
+        .eq("id", c.nextMsgId)
+        .in("status", ["draft", "queued"]);
+      if (nextErr) {
+        errors.push({ campaignId: c.campaign.id, reason: `queue next msg: ${nextErr.message}` });
+        continue;
+      }
     }
 
-    // Queue the email step 2 atomically (re-check status=draft).
-    const eligibleAt = nowISO;
-    const { data: step2Update, error: step2Err } = await svc
-      .from("campaign_messages")
-      .update({
-        status: "queued",
-        metadata: { eligible_at: eligibleAt, queued_by: "cron-skip-stale-calls" },
-      })
-      .eq("id", step2MsgId)
-      .eq("status", "draft")
-      .select("id");
-
-    if (step2Err || !step2Update || step2Update.length === 0) {
-      errors.push({ campaignId: campaign.id, reason: `step2 queue: ${step2Err?.message ?? "lost race"}` });
-      continue;
-    }
-
-    // Advance the campaign cursor. Re-check current_step=0 so a concurrent
-    // path advancing it doesn't get clobbered.
+    // Advance the campaign cursor. Re-assert previous current_step to avoid
+    // racing with a parallel advance from dispatch-call / dispatch-email.
+    const newCursor = (c.campaign.current_step ?? 0) + 1;
     const { error: campErr } = await svc
       .from("campaigns")
-      .update({ current_step: 1, last_step_at: nowISO })
-      .eq("id", campaign.id)
-      .eq("current_step", 0);
-
+      .update({ current_step: newCursor, last_step_at: nowISO })
+      .eq("id", c.campaign.id)
+      .eq("current_step", c.campaign.current_step ?? 0);
     if (campErr) {
-      errors.push({ campaignId: campaign.id, reason: `campaign advance: ${campErr.message}` });
+      errors.push({ campaignId: c.campaign.id, reason: `campaign advance: ${campErr.message}` });
       continue;
     }
 
-    advanced.push({ campaignId: campaign.id, leadId: campaign.lead_id, step2MsgId });
+    advanced.push({
+      campaignId: c.campaign.id,
+      leadId: c.campaign.lead_id,
+      callMsgId: c.callMsg.id,
+      nextMsgId: c.nextMsgId,
+      mode: c.mode,
+    });
   }
 
   return NextResponse.json({
     ok: true,
     mode: "execute",
-    cutoff: cutoffISO,
+    now: nowISO,
+    thresholds: { auto: STALE_DAYS_AUTO, manual: STALE_DAYS_MANUAL },
     advanced_count: advanced.length,
     error_count: errors.length,
     advanced,
