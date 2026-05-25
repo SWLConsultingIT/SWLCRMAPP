@@ -1,5 +1,6 @@
 import { getSupabaseService } from "@/lib/supabase-service";
 import { requireAdminPage } from "@/lib/auth-admin";
+import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -43,11 +44,12 @@ async function getProfiles(bioId: string) {
 async function getLeads(bioId: string) {
   const { data, count } = await supabase
     .from("leads")
-    .select("id, primary_first_name, primary_last_name, company_name, status, current_channel, lead_score, primary_work_email", { count: "exact" })
+    .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, status, current_channel, lead_score, primary_work_email", { count: "exact" })
     .eq("company_bio_id", bioId)
     .order("updated_at", { ascending: false })
     .limit(20);
-  return { leads: data ?? [], total: count ?? 0 };
+  const leads = await hydrateClientLeads((data ?? []) as Record<string, unknown>[]) as any[];
+  return { leads, total: count ?? 0 };
 }
 
 async function getCampaigns(bioId: string) {
@@ -56,12 +58,18 @@ async function getCampaigns(bioId: string) {
   const ids = leadIds.map(l => l.id);
   const { data, count } = await supabase
     .from("campaigns")
-    .select("id, name, channel, status, current_step, sequence_steps, last_step_at, leads(primary_first_name, primary_last_name, company_name), sellers(name)", { count: "exact" })
+    .select("id, name, channel, status, current_step, sequence_steps, last_step_at, leads(id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name), sellers(name)", { count: "exact" })
     .in("lead_id", ids)
     .in("status", ["active", "paused"])
     .order("created_at", { ascending: false })
     .limit(20);
-  return { campaigns: data ?? [], total: count ?? 0 };
+  // Hydrate nested leads so the admin view shows real names for encrypted tenants.
+  const rows = (data ?? []) as any[];
+  const nested = rows.map(r => r.leads).filter(Boolean) as Record<string, unknown>[];
+  const hydrated = await hydrateClientLeads(nested);
+  const byId = new Map(hydrated.map(l => [(l as any).id as string, l]));
+  const campaigns = rows.map(r => (r.leads ? { ...r, leads: byId.get((r.leads as any).id) ?? r.leads } : r));
+  return { campaigns, total: count ?? 0 };
 }
 
 async function getPendingCampaignRequests(_bioId: string, profileIds: string[], leadIds: string[]) {

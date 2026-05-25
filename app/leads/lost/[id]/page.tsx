@@ -1,5 +1,6 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { notFound } from "next/navigation";
 import { C } from "@/lib/design";
 import Link from "next/link";
@@ -127,13 +128,15 @@ Output STRICT JSON (no markdown, no code fences) with this exact shape:
 
 async function getLostLeadData(leadId: string) {
   const supabase = await getSupabaseServer();
-  const { data: lead } = await supabase
+  const { data: rawLead } = await supabase
     .from("leads")
-    .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at, ai_loss_analysis, ai_loss_analysis_at")
+    .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at, ai_loss_analysis, ai_loss_analysis_at")
     .eq("id", leadId)
     .single();
 
-  if (!lead) return null;
+  if (!rawLead) return null;
+  const [hydrated] = await hydrateClientLeads([rawLead as Record<string, unknown>]);
+  const lead = hydrated as any;
 
   const [{ data: campaigns }, { data: replies }, profileResult, { data: calls }] = await Promise.all([
     supabase.from("campaigns")

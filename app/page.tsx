@@ -1,6 +1,7 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
+import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { redirect } from "next/navigation";
 import { C } from "@/lib/design";
 import { Share2, Mail, Phone, MessageSquare, Megaphone } from "lucide-react";
@@ -152,13 +153,13 @@ async function getDashboardData(filters: DashboardFilterValues) {
   // explosions; widget shows top 8 and downstream counters tolerate the trim.
   let mergedRepliesQ = bioId
     ? supabase.from("lead_replies")
-        .select("id, lead_id, classification, channel, reply_text, received_at, campaign_id, leads!inner(primary_first_name, primary_last_name, company_name, company_bio_id, icp_profile_id), campaigns(name)")
+        .select("id, lead_id, classification, channel, reply_text, received_at, campaign_id, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id, icp_profile_id), campaigns(name)")
         .eq("leads.company_bio_id", bioId)
         .gte("received_at", fromIso)
         .order("received_at", { ascending: false })
         .limit(200)
     : supabase.from("lead_replies")
-        .select("id, lead_id, classification, channel, reply_text, received_at, campaign_id, leads(primary_first_name, primary_last_name, company_name, icp_profile_id), campaigns(name)")
+        .select("id, lead_id, classification, channel, reply_text, received_at, campaign_id, leads(id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, icp_profile_id), campaigns(name)")
         .gte("received_at", fromIso)
         .order("received_at", { ascending: false })
         .limit(200);
@@ -254,8 +255,19 @@ async function getDashboardData(filters: DashboardFilterValues) {
     hasCampaign: ((onbCampaignRes as any)?.count ?? 0) > 0,
   } : null;
 
-  const weekReplies = (weekAndRecentReplies ?? []) as Array<{ classification: string | null }>;
-  const recentReplies = (weekAndRecentReplies ?? []).slice(0, 8);
+  // Decrypt client-source leads nested in reply rows so the dashboard widgets
+  // (recent replies, week positives) show real names instead of "Unknown".
+  // Hydration runs once per tick; reuses tenant key across rows.
+  const hydratedReplies = await (async () => {
+    const rows = (weekAndRecentReplies ?? []) as any[];
+    const nested = rows.map(r => r.leads).filter(Boolean) as Record<string, unknown>[];
+    if (nested.length === 0) return rows;
+    const hydrated = await hydrateClientLeads(nested);
+    const byId = new Map(hydrated.map(l => [(l as any).id as string, l]));
+    return rows.map(r => (r.leads ? { ...r, leads: byId.get((r.leads as any).id) ?? r.leads } : r));
+  })();
+  const weekReplies = hydratedReplies as Array<{ classification: string | null }>;
+  const recentReplies = hydratedReplies.slice(0, 8);
 
   // Pipeline stats
   const activeLeadIds = new Set((activeCampaigns ?? []).map((c: any) => c.lead_id).filter(Boolean));

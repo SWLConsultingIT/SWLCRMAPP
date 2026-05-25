@@ -1,4 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { notFound } from "next/navigation";
 import TicketDetailClient from "./TicketDetailClient";
 
@@ -10,12 +11,12 @@ async function getProfileData(profileId: string) {
   const [profileRes, leadsRes] = await Promise.all([
     supabase.from("icp_profiles").select("id, profile_name").eq("id", profileId).single(),
     supabase.from("leads")
-      .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, status, lead_score, is_priority, current_channel")
+      .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, status, lead_score, is_priority, current_channel")
       .eq("icp_profile_id", profileId)
       .order("created_at", { ascending: false }),
   ]);
   const profile = profileRes.data;
-  const leads = leadsRes.data;
+  const leads = await hydrateClientLeads((leadsRes.data ?? []) as Record<string, unknown>[]) as any[];
 
   if (!profile) return null;
 
