@@ -1,9 +1,10 @@
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import Breadcrumb from "@/components/Breadcrumb";
 import { C } from "@/lib/design";
-import { AlertTriangle, CheckCircle2, Clock, Send, Hourglass, Snowflake, Activity, MessageSquare, TrendingUp } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Send, Hourglass, Snowflake, Activity, MessageSquare, TrendingUp, Building2 } from "lucide-react";
 import ReliabilityActions from "./ReliabilityActions";
 import RetryButton from "./RetryButton";
 import { CancelCooldownButton, PauseCampaignButton } from "./CooldownActions";
@@ -13,19 +14,17 @@ import AutoRefresh from "./AutoRefresh";
 import FailedSummary from "./FailedSummary";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
-// Reliability dashboard.
+// Reliability dashboard — SUPER ADMIN ONLY (canViewSwlAdmin gate).
 //
-// The "ghost-sent" incident on Pathway (8 campaign_messages flagged as sent
-// while Unipile had zero matching invitations) made it clear we needed a
-// single place to see whether the database actually reflects what happened
-// at the LinkedIn provider. This page reconciles three sources:
-//
+// This page reconciles three sources of truth so the app owner can see at a
+// glance whether the system is healthy across every tenant:
 //   1. campaign_messages — what the CRM thinks happened
-//   2. Unipile API       — the source of truth for invites/messages sent
-//   3. n8n executions    — workflow runs, including failures
+//   2. Unipile API — the source of truth for invites/messages sent
+//   3. n8n executions — workflow runs (out of scope here)
 //
-// Anything in the DB marked sent but missing from Unipile is a "ghost".
-// Anything in queued/failed needs admin attention.
+// Rebuilt 2026-05-24: tenant selector + per-tenant cards + three logical
+// groups (Action required / Pipeline / Recent) instead of 10 stacked
+// sections. Use ?tenant=<bio_id> to scope the view; default is all tenants.
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +35,7 @@ const UNIPILE_KEY = process.env.UNIPILE_API_KEY;
 
 const RATE_LIMIT_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 const STUCK_DAYS = 7;
-const EXPIRED_DAYS = 21; // LinkedIn auto-expires invites after ~3 weeks
+const EXPIRED_DAYS = 21;
 const NOISE_DAYS = 3;
 
 type CampaignMessageRow = {
@@ -81,6 +80,16 @@ type QueuedClassified = CampaignMessageRow & {
   _eligibleAt?: string;
 };
 
+type TenantSummary = {
+  bioId: string;
+  name: string;
+  queued: number;
+  failed: number;
+  stuck: number;
+  cooldown: number;
+  sent24h: number;
+};
+
 type ReliabilityData = {
   queueHealth: {
     skipped: CampaignMessageRow[];
@@ -101,6 +110,7 @@ type ReliabilityData = {
   sellerHealth: Array<{
     sellerId: string;
     sellerName: string;
+    companyBioId: string | null;
     unipileAccountId: string | null;
     unipileError: string | null;
     invitesInUnipile: number;
@@ -117,13 +127,14 @@ type ReliabilityData = {
     activeCooldownSellers: number;
     activeCooldownMessages: number;
   };
+  tenants: TenantSummary[];
   fetchedAt: string;
 };
 
 async function fetchReliability(): Promise<ReliabilityData> {
   const svc = getSupabaseService();
 
-  const queueSelect = "id, campaign_id, lead_id, step_number, channel, status, sent_at, provider_message_id, error_details, created_at, metadata, leads(source, encrypted_payload, primary_first_name, primary_last_name, primary_linkedin_url, company_name, company_bio_id, linkedin_connected), campaigns(name, seller_id, sellers(name, unipile_account_id))";
+  const queueSelect = "id, campaign_id, lead_id, step_number, channel, status, sent_at, provider_message_id, error_details, created_at, metadata, leads(source, encrypted_payload, primary_first_name, primary_last_name, primary_linkedin_url, company_name, company_bio_id, linkedin_connected), campaigns(name, seller_id, sellers(name, unipile_account_id, company_bio_id))";
 
   const nowMs = Date.now();
   const since24h = new Date(nowMs - 24 * 60 * 60 * 1000).toISOString();
@@ -132,35 +143,29 @@ async function fetchReliability(): Promise<ReliabilityData> {
   const stuckCutoff = new Date(nowMs - STUCK_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const expiredCutoff = new Date(nowMs - EXPIRED_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-  const [queuedQ, dispatchingQ, failedQ, skippedQ, sentLedgerQ, sellersQ, stuckExpiredQ, sent7dQ, sent30dQ, replies7dQ] = await Promise.all([
+  const [queuedQ, dispatchingQ, failedQ, skippedQ, sentLedgerQ, sellersQ, stuckExpiredQ, sent7dQ, sent30dQ, replies7dQ, bioQ] = await Promise.all([
     svc.from("campaign_messages").select(queueSelect).eq("status", "queued").order("created_at", { ascending: true }),
     svc.from("campaign_messages").select(queueSelect).eq("status", "dispatching").order("created_at", { ascending: true }),
     svc.from("campaign_messages").select(queueSelect).eq("status", "failed").order("created_at", { ascending: false }).limit(50),
     svc.from("campaign_messages").select(queueSelect).eq("status", "skipped").order("created_at", { ascending: false }).limit(50),
     svc.from("campaign_messages").select(queueSelect).eq("status", "sent").eq("step_number", 0).gte("sent_at", since24h).order("sent_at", { ascending: false }),
-    svc.from("sellers").select("id, name, unipile_account_id, active, linkedin_daily_limit").eq("active", true),
-    // Stuck + expired: step 0 sent ≥7d ago. We split by age in JS.
+    svc.from("sellers").select("id, name, unipile_account_id, active, linkedin_daily_limit, company_bio_id").eq("active", true),
     svc.from("campaign_messages").select(queueSelect)
       .eq("status", "sent").eq("step_number", 0).eq("channel", "linkedin")
       .lt("sent_at", stuckCutoff)
       .order("sent_at", { ascending: true }),
-    // 7d sent step 0 (for acceptance rate global)
     svc.from("campaign_messages").select("id, lead_id, campaigns!inner(seller_id), leads!inner(linkedin_connected)")
       .eq("status", "sent").eq("step_number", 0).eq("channel", "linkedin")
       .gte("sent_at", since7d),
-    // 30d sent step 0 by seller (for acceptance rate per seller)
     svc.from("campaign_messages").select("id, lead_id, campaigns!inner(seller_id), leads!inner(linkedin_connected)")
       .eq("status", "sent").eq("step_number", 0).eq("channel", "linkedin")
       .gte("sent_at", since30d),
-    // 7d replies for response rate
     svc.from("lead_replies").select("id").gte("received_at", since7d),
+    svc.from("company_bios").select("id, company_name"),
   ]);
 
   // Decrypt PII on every queue-row's inner `leads` so the table doesn't
-  // render "(no name)" for client-source leads. Same pattern as
-  // /campaigns/[id]: resolve each tenant key once, then decrypt and merge.
-  // Without this, "Failed Messages" + "Stuck Invites" + everything else
-  // that reads .leads.primary_first_name shows blanks for any client tenant.
+  // render "(no name)" for client-source leads.
   {
     const rowsWithLeads: Array<{ leads?: any }> = [];
     for (const q of [queuedQ, dispatchingQ, failedQ, skippedQ, sentLedgerQ, stuckExpiredQ]) {
@@ -204,11 +209,6 @@ async function fetchReliability(): Promise<ReliabilityData> {
     await Promise.all(sellersQ.data.map(async (s: any) => {
       if (!s.unipile_account_id) return;
       try {
-        // Always fetch fresh — the previous 60s revalidate window produced
-        // false ghost-sent rows (2026-05-11 incident): 3 recent invitations
-        // showed in Unipile via direct curl but the dashboard's cached page
-        // copy didn't include them, so reconciliation marked them as ghost.
-        // Reliability is a diagnostic surface; staleness defeats its purpose.
         const res = await fetch(
           `${UNIPILE_BASE}/api/v1/users/invite/sent?account_id=${encodeURIComponent(s.unipile_account_id)}&limit=100`,
           { headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" }, cache: "no-store" },
@@ -225,7 +225,7 @@ async function fetchReliability(): Promise<ReliabilityData> {
     }));
   }
 
-  // Reconcile sent rows against Unipile by invitation_id or LinkedIn slug.
+  // Reconcile sent rows against Unipile.
   const ledger = (sentLedgerQ.data ?? []) as unknown as CampaignMessageRow[];
   const reconciled = ledger.map((r) => {
     const sellerId = r.campaigns?.seller_id ?? null;
@@ -253,14 +253,12 @@ async function fetchReliability(): Promise<ReliabilityData> {
   const matchedCount = reconciled.filter((r) => r._matched).length;
   const ghostCount = reconciled.length - matchedCount;
 
-  // Per-seller daily count: sent in last 24h (mirrors dispatcher's guard).
   const dailyCount = new Map<string, number>();
   for (const r of sentLedgerQ.data ?? []) {
     const sid = (r as any)?.campaigns?.seller_id as string | undefined;
     if (sid) dailyCount.set(sid, (dailyCount.get(sid) ?? 0) + 1);
   }
 
-  // 30d acceptance rate per seller — sent step 0 vs leads.linkedin_connected.
   const acceptance30dBySeller = new Map<string, { sent: number; accepted: number }>();
   for (const r of (sent30dQ.data ?? []) as any[]) {
     const sid = r?.campaigns?.seller_id as string | undefined;
@@ -271,7 +269,7 @@ async function fetchReliability(): Promise<ReliabilityData> {
     acceptance30dBySeller.set(sid, cur);
   }
 
-  // Classify queued rows into ready / cooldown / waiting_acceptance.
+  // Classify queued rows into ready / cooldown / waiting.
   const queuedRaw = ((queuedQ.data ?? []) as unknown as CampaignMessageRow[]);
   const queuedReady: QueuedClassified[] = [];
   const queuedCooldown: QueuedClassified[] = [];
@@ -297,7 +295,6 @@ async function fetchReliability(): Promise<ReliabilityData> {
     }
   }
 
-  // Group queued (all buckets) by campaign name for the per-campaign pause action.
   const queuedByCampaign = new Map<string, QueuedClassified[]>();
   for (const r of [...queuedReady, ...queuedCooldown, ...queuedWaiting]) {
     const name = r.campaigns?.name ?? "(no name)";
@@ -306,7 +303,6 @@ async function fetchReliability(): Promise<ReliabilityData> {
     queuedByCampaign.set(name, list);
   }
 
-  // Stuck (7-21d) vs expired (≥21d).
   const stuckOrExpired = ((stuckExpiredQ.data ?? []) as unknown as CampaignMessageRow[]).filter(
     (r) => r.leads?.linkedin_connected !== true,
   );
@@ -320,11 +316,9 @@ async function fetchReliability(): Promise<ReliabilityData> {
     }
   }
 
-  // Seller health rows.
   const sellerHealth = (sellersQ.data ?? []).map((s: any) => {
     const acc = acceptance30dBySeller.get(s.id) ?? { sent: 0, accepted: 0 };
     const pct = acc.sent > 0 ? Math.round((acc.accepted / acc.sent) * 100) : null;
-    // Find the latest cooldown stamp among this seller's queued messages
     let latestCooldown: number | null = null;
     for (const r of queuedCooldown) {
       if (r.campaigns?.seller_id === s.id && r._cooldownUntil) {
@@ -335,6 +329,7 @@ async function fetchReliability(): Promise<ReliabilityData> {
     return {
       sellerId: s.id,
       sellerName: s.name ?? "(unnamed)",
+      companyBioId: (s.company_bio_id as string | null) ?? null,
       unipileAccountId: s.unipile_account_id ?? null,
       unipileError: sellerErrors.get(s.id) ?? null,
       invitesInUnipile: unipileBySeller.get(s.id)?.length ?? 0,
@@ -345,7 +340,6 @@ async function fetchReliability(): Promise<ReliabilityData> {
     };
   });
 
-  // KPIs.
   const sentToday = Array.from(dailyCount.values()).reduce((a, b) => a + b, 0);
   const aggregateCap = sellerHealth.reduce((a, s) => a + s.dailyLimit, 0);
   const sent7dRows = (sent7dQ.data ?? []) as any[];
@@ -354,28 +348,52 @@ async function fetchReliability(): Promise<ReliabilityData> {
   const replies7dCount = (replies7dQ.data ?? []).length;
   const response7dPct = sent7dRows.length > 0 ? Math.round((replies7dCount / sent7dRows.length) * 100) : null;
 
+  // Tenant aggregations. We bucket every row by lead.company_bio_id so each
+  // tenant card shows what it owns. Sent24h pulls from the reconciled ledger
+  // (step 0 sent in last 24h). Rows with no bio_id (system / orphan) bucket
+  // to "unknown" so they're at least visible somewhere.
+  const bioNameMap = new Map<string, string>();
+  for (const b of (bioQ.data ?? []) as any[]) {
+    bioNameMap.set(b.id as string, (b.company_name as string | null) ?? "(unnamed)");
+  }
+  const tenantInit = (bioId: string): TenantSummary => ({
+    bioId,
+    name: bioNameMap.get(bioId) ?? "(unknown tenant)",
+    queued: 0, failed: 0, stuck: 0, cooldown: 0, sent24h: 0,
+  });
+  const tenantMap = new Map<string, TenantSummary>();
+  const bumpTenant = (bioId: string | null | undefined, field: keyof Omit<TenantSummary, "bioId" | "name">) => {
+    const key = bioId ?? "__no_tenant__";
+    if (!tenantMap.has(key)) tenantMap.set(key, tenantInit(key));
+    tenantMap.get(key)![field] += 1;
+  };
+  for (const r of queuedRaw) bumpTenant(r.leads?.company_bio_id, "queued");
+  for (const r of (failedQ.data ?? []) as unknown as CampaignMessageRow[]) bumpTenant(r.leads?.company_bio_id, "failed");
+  for (const r of stuck) bumpTenant(r.leads?.company_bio_id, "stuck");
+  for (const r of queuedCooldown) bumpTenant(r.leads?.company_bio_id, "cooldown");
+  for (const r of reconciled) bumpTenant(r.leads?.company_bio_id, "sent24h");
+  const tenants = Array.from(tenantMap.values()).sort((a, b) =>
+    (b.failed + b.stuck) - (a.failed + a.stuck) || b.queued - a.queued || a.name.localeCompare(b.name),
+  );
+
   return {
     queueHealth: {
-      queuedReady,
-      queuedCooldown,
-      queuedWaiting,
-      queuedByCampaign,
+      queuedReady, queuedCooldown, queuedWaiting, queuedByCampaign,
       dispatching: (dispatchingQ.data ?? []) as unknown as CampaignMessageRow[],
       failed: (failedQ.data ?? []) as unknown as CampaignMessageRow[],
       skipped: (skippedQ.data ?? []) as unknown as CampaignMessageRow[],
-      stuck,
-      expired,
+      stuck, expired,
     },
     sentVsUnipile: { rows: reconciled, ghostCount, matchedCount },
     sellerHealth,
     kpis: {
-      sentToday,
-      aggregateCap,
+      sentToday, aggregateCap,
       acceptance7d: { sent: sent7dRows.length, accepted: accepted7d, pct: acceptance7dPct },
       response7d: { sent: sent7dRows.length, replies: replies7dCount, pct: response7dPct },
       activeCooldownSellers: sellerInCooldown.size,
       activeCooldownMessages,
     },
+    tenants,
     fetchedAt: new Date().toISOString(),
   };
 }
@@ -408,36 +426,82 @@ function formatRelative(iso: string | null): string {
   return ms < 0 ? `${label} ago` : `in ${label}`;
 }
 
-export default async function ReliabilityPage({ searchParams }: { searchParams: Promise<{ noise?: string }> }) {
+// Filters a row list by the selected tenant. "all" / null returns the list
+// untouched. A specific bioId keeps rows whose lead.company_bio_id matches.
+function byTenant<T extends { leads?: { company_bio_id?: string | null } | null }>(
+  rows: T[], tenantId: string | null,
+): T[] {
+  if (!tenantId || tenantId === "all") return rows;
+  return rows.filter(r => r.leads?.company_bio_id === tenantId);
+}
+
+export default async function ReliabilityPage({ searchParams }: { searchParams: Promise<{ noise?: string; tenant?: string }> }) {
   const scope = await getUserScope();
   if (!canViewSwlAdmin(scope.tier)) redirect("/");
 
   const params = await searchParams;
   const showNoise = params.noise === "1";
+  const tenantId = params.tenant && params.tenant !== "all" ? params.tenant : null;
 
   const data = await fetchReliability();
-  const { queueHealth, sentVsUnipile, sellerHealth, kpis, fetchedAt } = data;
+  const { queueHealth, sentVsUnipile, sellerHealth, kpis, fetchedAt, tenants } = data;
 
-  // Failed/Skipped noise filter: hide rows older than NOISE_DAYS unless toggled.
+  // Resolve selected tenant name for the header.
+  const selectedTenant = tenantId ? tenants.find(t => t.bioId === tenantId) : null;
+  const selectedLabel = selectedTenant?.name ?? "All tenants";
+
+  // Apply tenant filter to every list before rendering.
+  const fQueuedReady = byTenant(queueHealth.queuedReady, tenantId);
+  const fQueuedCooldown = byTenant(queueHealth.queuedCooldown, tenantId);
+  const fQueuedWaiting = byTenant(queueHealth.queuedWaiting, tenantId);
+  const fDispatching = byTenant(queueHealth.dispatching, tenantId);
+  const fFailedAll = byTenant(queueHealth.failed, tenantId);
+  const fSkippedAll = byTenant(queueHealth.skipped, tenantId);
+  const fStuck = byTenant(queueHealth.stuck, tenantId);
+  const fExpired = byTenant(queueHealth.expired, tenantId);
+  const fSentRows = byTenant(sentVsUnipile.rows, tenantId);
+  const fSellers = tenantId ? sellerHealth.filter(s => s.companyBioId === tenantId) : sellerHealth;
+  const fGhostCount = fSentRows.filter(r => !r._matched).length;
+  const fMatchedCount = fSentRows.length - fGhostCount;
+
   const noiseCutoff = Date.now() - NOISE_DAYS * 24 * 60 * 60 * 1000;
   const isRecent = (iso: string | null) => !iso || new Date(iso).getTime() >= noiseCutoff;
-  const failedVisible = showNoise ? queueHealth.failed : queueHealth.failed.filter((r) => isRecent(r.created_at));
-  const failedHiddenCount = queueHealth.failed.length - failedVisible.length;
-  const skippedVisible = showNoise ? queueHealth.skipped : queueHealth.skipped.filter((r) => isRecent(r.created_at));
-  const skippedHiddenCount = queueHealth.skipped.length - skippedVisible.length;
+  const failedVisible = showNoise ? fFailedAll : fFailedAll.filter((r) => isRecent(r.created_at));
+  const failedHiddenCount = fFailedAll.length - failedVisible.length;
+  const skippedVisible = showNoise ? fSkippedAll : fSkippedAll.filter((r) => isRecent(r.created_at));
+  const skippedHiddenCount = fSkippedAll.length - skippedVisible.length;
 
-  const totalAttention = queueHealth.queuedReady.length + queueHealth.queuedCooldown.length
-    + queueHealth.dispatching.length + failedVisible.length + queueHealth.stuck.length + sentVsUnipile.ghostCount;
+  // "Acción requerida" = anything the operator should look at.
+  const actionRequiredCount =
+    failedVisible.length + fStuck.length + fGhostCount;
+  // "Pipeline" = work currently flowing through the dispatcher (no action needed).
+  const pipelineCount =
+    fQueuedReady.length + fQueuedCooldown.length + fQueuedWaiting.length + fDispatching.length;
+  // Build the rebuilt-on-filter campaign map for the panic-pause buttons.
+  const fQueuedByCampaign = new Map<string, QueuedClassified[]>();
+  for (const r of [...fQueuedReady, ...fQueuedCooldown, ...fQueuedWaiting]) {
+    const name = r.campaigns?.name ?? "(no name)";
+    const list = fQueuedByCampaign.get(name) ?? [];
+    list.push(r);
+    fQueuedByCampaign.set(name, list);
+  }
+
+  // Aggregate counts for the scoped status banner.
+  const allClean =
+    actionRequiredCount === 0 && pipelineCount === 0;
 
   return (
     <div className="p-6 w-full max-w-6xl mx-auto">
       <Breadcrumb crumbs={[{ label: "Admin", href: "/admin" }, { label: "Reliability" }]} />
 
+      {/* ─── Header ───────────────────────────────────────────────── */}
       <div className="flex items-end justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold mb-1" style={{ color: C.textPrimary }}>Reliability</h1>
           <p className="text-sm" style={{ color: C.textMuted }}>
-            DB ↔ Unipile reconciliation. Server fetched {formatTime(fetchedAt)}.
+            {selectedLabel === "All tenants"
+              ? `Pipeline health across every tenant. Fetched ${formatTime(fetchedAt)}.`
+              : <>Pipeline health for <strong style={{ color: C.textBody }}>{selectedLabel}</strong>. <Link href="/admin/reliability" className="underline" style={{ color: C.linkedin }}>Ver todos</Link>.</>}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -446,8 +510,52 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
         </div>
       </div>
 
-      {/* KPI ribbon — pipeline view at a glance */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+      {/* ─── Tenant selector ─────────────────────────────────────── */}
+      <div className="mb-6">
+        <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>
+          Tenants <span className="font-normal normal-case ml-1">({tenants.length} con actividad)</span>
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/admin/reliability"
+            className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
+            style={{
+              backgroundColor: !tenantId ? `color-mix(in srgb, ${C.linkedin} 12%, transparent)` : C.card,
+              borderColor: !tenantId ? C.linkedin : C.border,
+              color: !tenantId ? C.linkedin : C.textBody,
+            }}>
+            All tenants
+          </Link>
+          {tenants.map(t => {
+            const isActive = tenantId === t.bioId;
+            const hasIssues = t.failed > 0 || t.stuck > 0;
+            const dotColor = hasIssues ? C.red : (t.cooldown > 0 ? "#D97706" : C.green);
+            return (
+              <Link
+                key={t.bioId}
+                href={`/admin/reliability?tenant=${encodeURIComponent(t.bioId)}`}
+                className="rounded-lg border px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-80 inline-flex items-center gap-2"
+                style={{
+                  backgroundColor: isActive ? `color-mix(in srgb, ${C.linkedin} 12%, transparent)` : C.card,
+                  borderColor: isActive ? C.linkedin : C.border,
+                  color: isActive ? C.linkedin : C.textBody,
+                }}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
+                {t.name}
+                <span className="text-[10px] tabular-nums" style={{ color: C.textDim }}>
+                  q{t.queued} · f{t.failed} · s{t.stuck}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+        <p className="text-[10px] mt-1.5" style={{ color: C.textDim }}>
+          q = queued · f = failed · s = stuck · dot = red if anything fails/stuck, amber if cooldown active, green if clean
+        </p>
+      </div>
+
+      {/* ─── KPI ribbon (scoped to selected tenant) ──────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         <Kpi
           label="Sent today"
           value={`${kpis.sentToday}`}
@@ -488,359 +596,401 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
         />
       </div>
 
-      {/* Queue tiles — split by actionable bucket */}
-      <div className="grid grid-cols-3 lg:grid-cols-7 gap-3 mb-6">
-        <Tile label="Ready" count={queueHealth.queuedReady.length} color={C.linkedin} icon={Clock} hint="Will dispatch on next tick" />
-        <Tile label="Cooldown" count={queueHealth.queuedCooldown.length} color="#D97706" icon={Snowflake} hint="Frozen 4h after rate limit" />
-        <Tile label="Waiting" count={queueHealth.queuedWaiting.length} color="#7C3AED" icon={Hourglass} hint="Step 1+ awaiting eligible_at" />
-        <Tile label="Dispatching" count={queueHealth.dispatching.length} color="#7C3AED" icon={Send} />
-        <Tile label="Failed" count={queueHealth.failed.length} color={queueHealth.failed.length > 0 ? C.red : C.green} icon={queueHealth.failed.length > 0 ? AlertTriangle : CheckCircle2} />
-        <Tile label="Stuck (7-21d)" count={queueHealth.stuck.length} color={queueHealth.stuck.length > 0 ? "#D97706" : C.green} icon={queueHealth.stuck.length > 0 ? AlertTriangle : CheckCircle2} hint="Pending acceptance" />
-        <Tile label="Ghost-sent (24h)" count={sentVsUnipile.ghostCount} color={sentVsUnipile.ghostCount > 0 ? C.red : C.green} icon={sentVsUnipile.ghostCount > 0 ? AlertTriangle : CheckCircle2} />
-      </div>
-
-      {totalAttention === 0 && (
+      {allClean && (
         <div className="rounded-xl border p-5 mb-6 flex items-center gap-3"
           style={{ backgroundColor: C.greenLight, borderColor: C.green + "30" }}>
           <CheckCircle2 size={20} style={{ color: C.green }} />
           <span className="text-sm font-medium" style={{ color: C.green }}>
-            Nothing in queue, nothing failed, no ghosts. Outgoing pipeline is clean.
+            Nothing in queue, nothing failed. {selectedLabel === "All tenants" ? "All tenants are clean." : `${selectedLabel} is clean.`}
           </span>
         </div>
       )}
 
-      {/* Cooldown / rate-limited messages — most actionable */}
-      {queueHealth.queuedCooldown.length > 0 && (
-        <CollapsibleSection
-          title="Cooldown — frozen by rate limit"
-          accent="#D97706"
-          count={queueHealth.queuedCooldown.length}
-          defaultOpen={queueHealth.queuedCooldown.length > 0}
-          hint="Frozen 4h after rate limit">
-          <div className="px-4 py-2.5 text-[11px]" style={{ color: C.textMuted, backgroundColor: C.surface, borderBottom: `1px solid ${C.border}` }}>
-            Each row was rate-limited by LinkedIn (or cascaded from a sibling). Dispatcher skips them until the cooldown expires. Use Force retry only if you've verified the seller's account isn't blocked.
-          </div>
-          <Table>
-            <thead>
-              <Th>Lead</Th>
-              <Th>Step</Th>
-              <Th>Seller</Th>
-              <Th>Cooldown until</Th>
-              <Th>Reason</Th>
-              <Th>Action</Th>
-            </thead>
-            <tbody>
-              {queueHealth.queuedCooldown.map((r) => {
-                const meta = (r.metadata ?? {}) as Record<string, unknown>;
-                const reason = (meta.last_rate_limit_reason as string | undefined) ?? "—";
-                return (
-                  <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
-                    <Td>{leadName(r)}</Td>
-                    <Td>{r.step_number}</Td>
-                    <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
-                    <Td>
-                      <span className="text-xs">{formatTime(r._cooldownUntil ?? null)}</span>
-                      <span className="text-[10px] ml-2" style={{ color: C.textDim }}>({formatRelative(r._cooldownUntil ?? null)})</span>
-                    </Td>
-                    <Td><span className="text-[11px]" style={{ color: C.textMuted }}>{reason.slice(0, 80)}</span></Td>
-                    <Td><CancelCooldownButton messageId={r.id} /></Td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </Table>
-        </CollapsibleSection>
-      )}
-
-      {/* Ready to dispatch */}
-      {queueHealth.queuedReady.length > 0 && (
-        <CollapsibleSection
-          title="Ready — will dispatch on next tick"
-          accent={C.linkedin}
-          count={queueHealth.queuedReady.length}
-          hint="Pending next 15-min tick">
-          {queueHealth.queuedByCampaign.size > 0 && (
-            <div className="px-4 py-2.5 flex flex-wrap items-center gap-2 text-[11px]" style={{ backgroundColor: C.surface, borderBottom: `1px solid ${C.border}`, color: C.textMuted }}>
-              Per-campaign panic pause:
-              {Array.from(queueHealth.queuedByCampaign.entries()).map(([name, rows]) => {
-                const readyCount = rows.filter((r) => r._bucket === "ready").length;
-                if (readyCount === 0) return null;
-                return (
-                  <span key={name} className="inline-flex items-center gap-2">
-                    <span className="font-medium" style={{ color: C.textBody }}>{name.slice(0, 50)}{name.length > 50 ? "…" : ""}</span>
-                    <PauseCampaignButton campaignName={name} queuedCount={rows.length} />
-                  </span>
-                );
-              })}
-            </div>
+      {/* ════════════════════════════════════════════════════════════
+          🔴 ACCIÓN REQUERIDA — things you have to fix or decide
+          ════════════════════════════════════════════════════════════ */}
+      {actionRequiredCount > 0 && (
+        <SectionGroup title="Acción requerida" subtitle="Cosas que necesitan tu atención — el dispatcher no las va a resolver solo." accent={C.red} count={actionRequiredCount}>
+          {/* Failed */}
+          {(failedVisible.length > 0 || failedHiddenCount > 0) && (
+            <CollapsibleSection
+              title="Mensajes fallidos"
+              accent={C.red}
+              count={failedVisible.length}
+              defaultOpen={failedVisible.length > 0}
+              hint={failedHiddenCount > 0 ? `${failedHiddenCount} hidden older than ${NOISE_DAYS}d` : "Necesita acción"}>
+              {failedHiddenCount > 0 && (
+                <div className="px-5 py-3 text-[11px] flex items-center gap-2" style={{ backgroundColor: C.surface, borderBottom: `1px solid ${C.border}`, color: C.textMuted }}>
+                  <span>Hiding {failedHiddenCount} row(s) older than {NOISE_DAYS}d.</span>
+                  <HideNoiseToggle showing={showNoise} />
+                </div>
+              )}
+              <FailedSummary rows={failedVisible as any} />
+              <Table>
+                <thead>
+                  <Th>When</Th>
+                  <Th>Lead</Th>
+                  <Th>Company</Th>
+                  <Th>Seller</Th>
+                  <Th>Step</Th>
+                  <Th>Error</Th>
+                  <Th>Action</Th>
+                </thead>
+                <tbody>
+                  {failedVisible.map((r) => (
+                    <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                      <Td>{formatTime(r.created_at)}</Td>
+                      <Td>{leadName(r)}</Td>
+                      <Td>{r.leads?.company_name ?? "—"}</Td>
+                      <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
+                      <Td>{r.step_number}</Td>
+                      <Td>
+                        <span className="text-xs" style={{ color: C.red }}>{r.error_details ?? "(no error captured)"}</span>
+                      </Td>
+                      <Td><RetryButton messageId={r.id} /></Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </CollapsibleSection>
           )}
-          <Table>
-            <thead>
-              <Th>Created</Th>
-              <Th>Lead</Th>
-              <Th>Seller</Th>
-              <Th>Step</Th>
-              <Th>Channel</Th>
-            </thead>
-            <tbody>
-              {queueHealth.queuedReady.map((r) => (
-                <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
-                  <Td>{formatTime(r.created_at)}</Td>
-                  <Td>{leadName(r)}</Td>
-                  <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
-                  <Td>{r.step_number}</Td>
-                  <Td>{r.channel}</Td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </CollapsibleSection>
-      )}
 
-      {/* Waiting acceptance — step 1+ post-accept timer */}
-      {queueHealth.queuedWaiting.length > 0 && (
-        <CollapsibleSection
-          title="Waiting — step 1+ awaiting eligible_at"
-          accent="#7C3AED"
-          count={queueHealth.queuedWaiting.length}
-          hint="Scheduled, not yet due">
-          <Table>
-            <thead>
-              <Th>Lead</Th>
-              <Th>Step</Th>
-              <Th>Seller</Th>
-              <Th>Eligible at</Th>
-            </thead>
-            <tbody>
-              {queueHealth.queuedWaiting.map((r) => (
-                <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
-                  <Td>{leadName(r)}</Td>
-                  <Td>{r.step_number}</Td>
-                  <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
-                  <Td>
-                    <span className="text-xs">{formatTime(r._eligibleAt ?? null)}</span>
-                    <span className="text-[10px] ml-2" style={{ color: C.textDim }}>({formatRelative(r._eligibleAt ?? null)})</span>
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </CollapsibleSection>
-      )}
-
-      {/* Dispatching */}
-      {queueHealth.dispatching.length > 0 && (
-        <CollapsibleSection
-          title="Dispatching — currently being sent"
-          accent="#7C3AED"
-          count={queueHealth.dispatching.length}
-          defaultOpen={queueHealth.dispatching.length > 0}>
-          <Table>
-            <thead>
-              <Th>Lead</Th>
-              <Th>Seller</Th>
-              <Th>Started</Th>
-            </thead>
-            <tbody>
-              {queueHealth.dispatching.map((r) => (
-                <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
-                  <Td>{leadName(r)}</Td>
-                  <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
-                  <Td>{formatTime(r.created_at)}</Td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </CollapsibleSection>
-      )}
-
-      {/* Failed messages */}
-      {(failedVisible.length > 0 || failedHiddenCount > 0) && (
-        <CollapsibleSection
-          title="Failed messages"
-          accent={C.red}
-          count={failedVisible.length}
-          defaultOpen={failedVisible.length > 0}
-          hint={failedHiddenCount > 0 ? `${failedHiddenCount} hidden older than ${NOISE_DAYS}d` : "Needs attention"}>
-          {failedHiddenCount > 0 && (
-            <div className="px-5 py-3 text-[11px] flex items-center gap-2" style={{ backgroundColor: C.surface, borderBottom: `1px solid ${C.border}`, color: C.textMuted }}>
-              <span>Hiding {failedHiddenCount} row(s) older than {NOISE_DAYS}d.</span>
-              <HideNoiseToggle showing={showNoise} />
-            </div>
+          {/* Stuck */}
+          {fStuck.length > 0 && (
+            <CollapsibleSection
+              title="Invites trabados (7-21 días sin aceptación)"
+              accent="#D97706"
+              count={fStuck.length}
+              defaultOpen={fStuck.length > 0}
+              hint="Invitación enviada hace más de 7d, el lead no la aceptó">
+              <Table>
+                <thead>
+                  <Th>Sent</Th>
+                  <Th>Lead</Th>
+                  <Th>Company</Th>
+                  <Th>Seller</Th>
+                </thead>
+                <tbody>
+                  {fStuck.map((r) => {
+                    const days = r.sent_at ? Math.floor((Date.now() - new Date(r.sent_at).getTime()) / 86400000) : 0;
+                    return (
+                      <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                        <Td>
+                          <span className="text-xs">{formatTime(r.sent_at)}</span>
+                          <span className="text-[10px] ml-2 px-1.5 py-0.5 rounded" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>{days}d ago</span>
+                        </Td>
+                        <Td>{leadName(r)}</Td>
+                        <Td>{r.leads?.company_name ?? "—"}</Td>
+                        <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            </CollapsibleSection>
           )}
-          {/* Grouped-by-cause summary with bulk retry. Surfaces the WHY +
-              recommended fix per cause, then the table below keeps row-level
-              detail for the cases where the operator needs to look at a
-              specific lead. */}
-          <FailedSummary rows={failedVisible as any} />
-          <Table>
-            <thead>
-              <Th>When</Th>
-              <Th>Lead</Th>
-              <Th>Company</Th>
-              <Th>Seller</Th>
-              <Th>Step</Th>
-              <Th>Error</Th>
-              <Th>Action</Th>
-            </thead>
-            <tbody>
-              {failedVisible.map((r) => (
-                <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
-                  <Td>{formatTime(r.created_at)}</Td>
-                  <Td>{leadName(r)}</Td>
-                  <Td>{r.leads?.company_name ?? "—"}</Td>
-                  <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
-                  <Td>{r.step_number}</Td>
-                  <Td>
-                    <span className="text-xs" style={{ color: C.red }}>{r.error_details ?? "(no error captured)"}</span>
-                  </Td>
-                  <Td><RetryButton messageId={r.id} /></Td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </CollapsibleSection>
-      )}
 
-      {/* Stuck (7-21d, still pending) */}
-      {queueHealth.stuck.length > 0 && (
-        <CollapsibleSection
-          title="Stuck — invite sent 7-21d ago, no acceptance yet"
-          accent="#D97706"
-          count={queueHealth.stuck.length}
-          defaultOpen={queueHealth.stuck.length > 0}>
-          <Table>
-            <thead>
-              <Th>Sent</Th>
-              <Th>Lead</Th>
-              <Th>Company</Th>
-              <Th>Seller</Th>
-            </thead>
-            <tbody>
-              {queueHealth.stuck.map((r) => {
-                const days = r.sent_at ? Math.floor((Date.now() - new Date(r.sent_at).getTime()) / 86400000) : 0;
-                return (
-                  <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
-                    <Td>
-                      <span className="text-xs">{formatTime(r.sent_at)}</span>
-                      <span className="text-[10px] ml-2 px-1.5 py-0.5 rounded" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>{days}d ago</span>
-                    </Td>
-                    <Td>{leadName(r)}</Td>
-                    <Td>{r.leads?.company_name ?? "—"}</Td>
-                    <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </Table>
-        </CollapsibleSection>
-      )}
-
-      {/* Expired (≥21d) */}
-      {queueHealth.expired.length > 0 && (
-        <CollapsibleSection
-          title="Expired — invite ≥21d old, LinkedIn auto-cleared"
-          accent={C.textDim}
-          count={queueHealth.expired.length}
-          hint="History only">
-          <Table>
-            <thead>
-              <Th>Sent</Th>
-              <Th>Lead</Th>
-              <Th>Company</Th>
-              <Th>Seller</Th>
-            </thead>
-            <tbody>
-              {queueHealth.expired.map((r) => {
-                const days = r.sent_at ? Math.floor((Date.now() - new Date(r.sent_at).getTime()) / 86400000) : 0;
-                return (
-                  <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
-                    <Td>
-                      <span className="text-xs">{formatTime(r.sent_at)}</span>
-                      <span className="text-[10px] ml-2 px-1.5 py-0.5 rounded" style={{ backgroundColor: C.surface, color: C.textMuted }}>{days}d ago</span>
-                    </Td>
-                    <Td>{leadName(r)}</Td>
-                    <Td>{r.leads?.company_name ?? "—"}</Td>
-                    <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </Table>
-        </CollapsibleSection>
-      )}
-
-      {/* Skipped */}
-      {(skippedVisible.length > 0 || skippedHiddenCount > 0) && (
-        <CollapsibleSection
-          title="Skipped"
-          accent="#6B7280"
-          count={skippedVisible.length}
-          hint={skippedHiddenCount > 0 ? `${skippedHiddenCount} hidden older than ${NOISE_DAYS}d` : "Won't dispatch"}>
-          {skippedHiddenCount > 0 && (
-            <div className="px-4 py-2 text-[11px] flex items-center gap-2" style={{ backgroundColor: C.surface, borderBottom: `1px solid ${C.border}`, color: C.textMuted }}>
-              <span>Hiding {skippedHiddenCount} row(s) older than {NOISE_DAYS}d.</span>
-              <HideNoiseToggle showing={showNoise} />
-            </div>
+          {/* Ghost-sent */}
+          {fGhostCount > 0 && (
+            <CollapsibleSection
+              title={`Ghost-sent — DB dice enviado pero Unipile no lo registra (${fGhostCount}/${fSentRows.length})`}
+              accent={C.red}
+              count={fGhostCount}
+              defaultOpen={true}
+              hint="Mismatch entre DB y Unipile">
+              <Table>
+                <thead>
+                  <Th>Sent at</Th>
+                  <Th>Lead</Th>
+                  <Th>Seller</Th>
+                  <Th>Match</Th>
+                  <Th>Reason</Th>
+                </thead>
+                <tbody>
+                  {fSentRows.filter(r => !r._matched).map((r) => (
+                    <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                      <Td>{formatTime(r.sent_at)}</Td>
+                      <Td>{leadName(r)}</Td>
+                      <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
+                      <Td>
+                        <span className="text-xs font-bold" style={{ color: C.red }}>✗ GHOST</span>
+                      </Td>
+                      <Td><span className="text-xs" style={{ color: C.textMuted }}>{r._matchReason}</span></Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </CollapsibleSection>
           )}
-          <Table>
-            <thead>
-              <Th>Lead</Th>
-              <Th>Step</Th>
-              <Th>Channel</Th>
-              <Th>Created</Th>
-            </thead>
-            <tbody>
-              {skippedVisible.map((r) => (
-                <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
-                  <Td>{leadName(r)}</Td>
-                  <Td>{r.step_number}</Td>
-                  <Td>{r.channel}</Td>
-                  <Td>{formatTime(r.created_at)}</Td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </CollapsibleSection>
+        </SectionGroup>
       )}
 
-      {/* Ghost-sent reconciliation */}
-      {sentVsUnipile.rows.length > 0 && (
-        <CollapsibleSection
-          title={`Sent in last 24h — ${sentVsUnipile.matchedCount}/${sentVsUnipile.rows.length} matched in Unipile`}
-          accent={sentVsUnipile.ghostCount > 0 ? C.red : C.green}
-          count={sentVsUnipile.rows.length}
-          defaultOpen={sentVsUnipile.ghostCount > 0}
-          hint={sentVsUnipile.ghostCount > 0 ? `${sentVsUnipile.ghostCount} ghosts` : "All matched"}>
-          <Table>
-            <thead>
-              <Th>Sent at</Th>
-              <Th>Lead</Th>
-              <Th>Seller</Th>
-              <Th>Match</Th>
-              <Th>Reason</Th>
-            </thead>
-            <tbody>
-              {sentVsUnipile.rows.map((r) => (
-                <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
-                  <Td>{formatTime(r.sent_at)}</Td>
-                  <Td>{leadName(r)}</Td>
-                  <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
-                  <Td>
-                    <span className="text-xs font-bold" style={{ color: r._matched ? C.green : C.red }}>
-                      {r._matched ? "✓ MATCHED" : "✗ GHOST"}
-                    </span>
-                  </Td>
-                  <Td><span className="text-xs" style={{ color: C.textMuted }}>{r._matchReason}</span></Td>
-                </tr>
-              ))}
-            </tbody>
-          </Table>
-        </CollapsibleSection>
+      {/* ════════════════════════════════════════════════════════════
+          🟡 PIPELINE EN CURSO — work flowing through, no action needed
+          ════════════════════════════════════════════════════════════ */}
+      {pipelineCount > 0 && (
+        <SectionGroup title="Pipeline en curso" subtitle="Mensajes que el dispatcher está procesando solo — no necesitan acción." accent="#D97706" count={pipelineCount}>
+          {/* Cooldown */}
+          {fQueuedCooldown.length > 0 && (
+            <CollapsibleSection
+              title="En cooldown (rate-limit)"
+              accent="#D97706"
+              count={fQueuedCooldown.length}
+              defaultOpen={fQueuedCooldown.length > 0}
+              hint="LinkedIn frenó al seller. Auto-reanuda en 4h.">
+              <div className="px-4 py-2.5 text-[11px]" style={{ color: C.textMuted, backgroundColor: C.surface, borderBottom: `1px solid ${C.border}` }}>
+                Cada fila fue rate-limited por LinkedIn (o cascadeó de otra). El dispatcher las salta hasta que pasa la ventana de 4h. Usá "Force retry" solo si verificaste que el account del seller no está bloqueado.
+              </div>
+              <Table>
+                <thead>
+                  <Th>Lead</Th>
+                  <Th>Step</Th>
+                  <Th>Seller</Th>
+                  <Th>Cooldown until</Th>
+                  <Th>Reason</Th>
+                  <Th>Action</Th>
+                </thead>
+                <tbody>
+                  {fQueuedCooldown.map((r) => {
+                    const meta = (r.metadata ?? {}) as Record<string, unknown>;
+                    const reason = (meta.last_rate_limit_reason as string | undefined) ?? "—";
+                    return (
+                      <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                        <Td>{leadName(r)}</Td>
+                        <Td>{r.step_number}</Td>
+                        <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
+                        <Td>
+                          <span className="text-xs">{formatTime(r._cooldownUntil ?? null)}</span>
+                          <span className="text-[10px] ml-2" style={{ color: C.textDim }}>({formatRelative(r._cooldownUntil ?? null)})</span>
+                        </Td>
+                        <Td><span className="text-[11px]" style={{ color: C.textMuted }}>{reason.slice(0, 80)}</span></Td>
+                        <Td><CancelCooldownButton messageId={r.id} /></Td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            </CollapsibleSection>
+          )}
+
+          {/* Ready */}
+          {fQueuedReady.length > 0 && (
+            <CollapsibleSection
+              title="Listos para enviar"
+              accent={C.linkedin}
+              count={fQueuedReady.length}
+              hint="Salen en el próximo tick del orquestador (15 min)">
+              {fQueuedByCampaign.size > 0 && (
+                <div className="px-4 py-2.5 flex flex-wrap items-center gap-2 text-[11px]" style={{ backgroundColor: C.surface, borderBottom: `1px solid ${C.border}`, color: C.textMuted }}>
+                  Pausa de emergencia por campaña:
+                  {Array.from(fQueuedByCampaign.entries()).map(([name, rows]) => {
+                    const readyCount = rows.filter((r) => r._bucket === "ready").length;
+                    if (readyCount === 0) return null;
+                    return (
+                      <span key={name} className="inline-flex items-center gap-2">
+                        <span className="font-medium" style={{ color: C.textBody }}>{name.slice(0, 50)}{name.length > 50 ? "…" : ""}</span>
+                        <PauseCampaignButton campaignName={name} queuedCount={rows.length} />
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+              <Table>
+                <thead>
+                  <Th>Created</Th>
+                  <Th>Lead</Th>
+                  <Th>Seller</Th>
+                  <Th>Step</Th>
+                  <Th>Channel</Th>
+                </thead>
+                <tbody>
+                  {fQueuedReady.map((r) => (
+                    <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                      <Td>{formatTime(r.created_at)}</Td>
+                      <Td>{leadName(r)}</Td>
+                      <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
+                      <Td>{r.step_number}</Td>
+                      <Td>{r.channel}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </CollapsibleSection>
+          )}
+
+          {/* Waiting */}
+          {fQueuedWaiting.length > 0 && (
+            <CollapsibleSection
+              title="En espera (futuro)"
+              accent="#7C3AED"
+              count={fQueuedWaiting.length}
+              hint="Step 1+ programados para una fecha futura. Salen cuando llega el momento.">
+              <Table>
+                <thead>
+                  <Th>Lead</Th>
+                  <Th>Step</Th>
+                  <Th>Seller</Th>
+                  <Th>Eligible at</Th>
+                </thead>
+                <tbody>
+                  {fQueuedWaiting.map((r) => (
+                    <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                      <Td>{leadName(r)}</Td>
+                      <Td>{r.step_number}</Td>
+                      <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
+                      <Td>
+                        <span className="text-xs">{formatTime(r._eligibleAt ?? null)}</span>
+                        <span className="text-[10px] ml-2" style={{ color: C.textDim }}>({formatRelative(r._eligibleAt ?? null)})</span>
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </CollapsibleSection>
+          )}
+
+          {/* Dispatching */}
+          {fDispatching.length > 0 && (
+            <CollapsibleSection
+              title="Despachando ahora"
+              accent="#7C3AED"
+              count={fDispatching.length}
+              defaultOpen={fDispatching.length > 0}
+              hint="Mensajes en vuelo en este momento">
+              <Table>
+                <thead>
+                  <Th>Lead</Th>
+                  <Th>Seller</Th>
+                  <Th>Started</Th>
+                </thead>
+                <tbody>
+                  {fDispatching.map((r) => (
+                    <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                      <Td>{leadName(r)}</Td>
+                      <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
+                      <Td>{formatTime(r.created_at)}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </CollapsibleSection>
+          )}
+        </SectionGroup>
       )}
 
-      {/* Seller / Unipile health — now with acceptance rate + rate-limit indicator */}
-      <CollapsibleSection title="Seller / Unipile account health" accent={C.gold} hint="Per-seller drill-down">
+      {/* ════════════════════════════════════════════════════════════
+          🟢 ACTIVIDAD RECIENTE — what just happened
+          ════════════════════════════════════════════════════════════ */}
+      {(fSentRows.length > 0 || skippedVisible.length > 0 || fExpired.length > 0) && (
+        <SectionGroup title="Actividad reciente" subtitle="Lo que pasó hace poco. Sólo lectura." accent={C.green} count={fMatchedCount + skippedVisible.length + fExpired.length}>
+          {/* Sent 24h reconciliation */}
+          {fSentRows.length > 0 && (
+            <CollapsibleSection
+              title={`Enviados últimas 24h (${fMatchedCount}/${fSentRows.length} matched en Unipile)`}
+              accent={C.green}
+              count={fSentRows.length}
+              hint={fGhostCount > 0 ? `${fGhostCount} ghosts (ver Acción requerida)` : "Todos matched"}>
+              <Table>
+                <thead>
+                  <Th>Sent at</Th>
+                  <Th>Lead</Th>
+                  <Th>Seller</Th>
+                  <Th>Match</Th>
+                  <Th>Reason</Th>
+                </thead>
+                <tbody>
+                  {fSentRows.map((r) => (
+                    <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                      <Td>{formatTime(r.sent_at)}</Td>
+                      <Td>{leadName(r)}</Td>
+                      <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
+                      <Td>
+                        <span className="text-xs font-bold" style={{ color: r._matched ? C.green : C.red }}>
+                          {r._matched ? "✓ MATCHED" : "✗ GHOST"}
+                        </span>
+                      </Td>
+                      <Td><span className="text-xs" style={{ color: C.textMuted }}>{r._matchReason}</span></Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </CollapsibleSection>
+          )}
+
+          {/* Skipped */}
+          {(skippedVisible.length > 0 || skippedHiddenCount > 0) && (
+            <CollapsibleSection
+              title="Saltados"
+              accent="#6B7280"
+              count={skippedVisible.length}
+              hint={skippedHiddenCount > 0 ? `${skippedHiddenCount} hidden older than ${NOISE_DAYS}d` : "Ya conectados / invite pending / etc."}>
+              {skippedHiddenCount > 0 && (
+                <div className="px-4 py-2 text-[11px] flex items-center gap-2" style={{ backgroundColor: C.surface, borderBottom: `1px solid ${C.border}`, color: C.textMuted }}>
+                  <span>Hiding {skippedHiddenCount} row(s) older than {NOISE_DAYS}d.</span>
+                  <HideNoiseToggle showing={showNoise} />
+                </div>
+              )}
+              <Table>
+                <thead>
+                  <Th>Lead</Th>
+                  <Th>Step</Th>
+                  <Th>Channel</Th>
+                  <Th>Created</Th>
+                </thead>
+                <tbody>
+                  {skippedVisible.map((r) => (
+                    <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                      <Td>{leadName(r)}</Td>
+                      <Td>{r.step_number}</Td>
+                      <Td>{r.channel}</Td>
+                      <Td>{formatTime(r.created_at)}</Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            </CollapsibleSection>
+          )}
+
+          {/* Expired */}
+          {fExpired.length > 0 && (
+            <CollapsibleSection
+              title="Expirados (≥21 días, LinkedIn los descartó)"
+              accent={C.textDim}
+              count={fExpired.length}
+              hint="Sólo historia">
+              <Table>
+                <thead>
+                  <Th>Sent</Th>
+                  <Th>Lead</Th>
+                  <Th>Company</Th>
+                  <Th>Seller</Th>
+                </thead>
+                <tbody>
+                  {fExpired.map((r) => {
+                    const days = r.sent_at ? Math.floor((Date.now() - new Date(r.sent_at).getTime()) / 86400000) : 0;
+                    return (
+                      <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                        <Td>
+                          <span className="text-xs">{formatTime(r.sent_at)}</span>
+                          <span className="text-[10px] ml-2 px-1.5 py-0.5 rounded" style={{ backgroundColor: C.surface, color: C.textMuted }}>{days}d ago</span>
+                        </Td>
+                        <Td>{leadName(r)}</Td>
+                        <Td>{r.leads?.company_name ?? "—"}</Td>
+                        <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            </CollapsibleSection>
+          )}
+        </SectionGroup>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════
+          Seller / Unipile health — own section, always visible
+          ════════════════════════════════════════════════════════════ */}
+      <CollapsibleSection title="Seller / Unipile account health" accent={C.gold} hint={tenantId ? "Sellers del tenant seleccionado" : "Todos los sellers activos"}>
         <Table>
           <thead>
             <Th>Seller</Th>
@@ -850,7 +1000,7 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
             <Th>Status</Th>
           </thead>
           <tbody>
-            {sellerHealth.map((s) => {
+            {fSellers.map((s) => {
               const pct = s.dailyLimit > 0 ? Math.min(100, Math.round((s.dailySent / s.dailyLimit) * 100)) : 0;
               const atCap = s.dailySent >= s.dailyLimit;
               const dailyColor = atCap ? C.red : pct >= 80 ? "#D97706" : C.linkedin;
@@ -918,6 +1068,9 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
                 </tr>
               );
             })}
+            {fSellers.length === 0 && (
+              <tr><Td><span className="text-xs" style={{ color: C.textDim }}>Sin sellers activos para este tenant.</span></Td><Td>—</Td><Td>—</Td><Td>—</Td><Td>—</Td></tr>
+            )}
           </tbody>
         </Table>
       </CollapsibleSection>
@@ -925,28 +1078,38 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
   );
 }
 
-function Tile({ label, count, color, icon: Icon, hint }: { label: string; count: number; color: string; icon: any; hint?: string }) {
+// Group header that wraps several CollapsibleSections. Visual separator
+// between "Acción requerida" / "Pipeline" / "Actividad" so each block reads
+// as a logical unit instead of one long list of unrelated sections.
+function SectionGroup({ title, subtitle, accent, count, children }: { title: string; subtitle: string; accent: string; count: number; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border p-3" style={{ backgroundColor: C.card, borderColor: C.border }} title={hint}>
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] uppercase tracking-wider font-semibold truncate" style={{ color: C.textMuted }}>{label}</span>
-        <Icon size={12} style={{ color }} />
+    <div className="mb-7">
+      <div className="flex items-baseline justify-between mb-3 px-1">
+        <div>
+          <h2 className="text-sm font-bold uppercase tracking-wider" style={{ color: accent }}>
+            {title}
+            <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold tabular-nums"
+              style={{ backgroundColor: `color-mix(in srgb, ${accent} 14%, transparent)`, color: accent }}>
+              {count}
+            </span>
+          </h2>
+          <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{subtitle}</p>
+        </div>
       </div>
-      <div className="text-2xl font-bold tabular-nums" style={{ color }}>{count}</div>
-      {hint && <div className="text-[9px] mt-0.5 truncate" style={{ color: C.textDim }}>{hint}</div>}
+      <div className="space-y-3">{children}</div>
     </div>
   );
 }
 
 function Kpi({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub: string; icon: any; color: string }) {
   return (
-    <div className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
-      <div className="flex items-center justify-between mb-1.5">
+    <div className="rounded-xl border p-3" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="flex items-center justify-between mb-1">
         <span className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: C.textMuted }}>{label}</span>
-        <Icon size={14} style={{ color }} />
+        <Icon size={12} style={{ color: C.textDim }} />
       </div>
       <div className="text-2xl font-bold tabular-nums" style={{ color }}>{value}</div>
-      <div className="text-[11px] mt-0.5" style={{ color: C.textDim }}>{sub}</div>
+      <div className="text-[10px] mt-0.5" style={{ color: C.textDim }}>{sub}</div>
     </div>
   );
 }
@@ -957,13 +1120,13 @@ function Table({ children }: { children: React.ReactNode }) {
 
 function Th({ children }: { children: React.ReactNode }) {
   return (
-    <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-wider"
-      style={{ color: C.textMuted, backgroundColor: C.surface }}>
+    <th className="text-left px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider"
+      style={{ color: C.textMuted, backgroundColor: C.surface, borderBottom: `1px solid ${C.border}` }}>
       {children}
     </th>
   );
 }
 
 function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-5 py-3.5" style={{ color: C.textBody }}>{children}</td>;
+  return <td className="px-4 py-2.5 text-xs" style={{ color: C.textBody }}>{children}</td>;
 }
