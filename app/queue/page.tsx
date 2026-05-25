@@ -1,7 +1,22 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, getMyAssignedSellerIds } from "@/lib/scope";
+import { hydrateClientLeads } from "@/lib/leads-crypto";
 import QueueClient from "./QueueClient";
+
+// Decrypts client-source `leads` objects nested inside join responses (eg
+// campaigns!inner(...), lead_replies leads!inner(...)). The PostgREST select
+// must include `id, source, encrypted_payload, company_bio_id` on the nested
+// leads object for this to work — without those columns there's nothing to
+// decrypt and the lead stays redacted.
+async function hydrateNestedLeads<T extends { leads?: any }>(rows: T[]): Promise<T[]> {
+  if (rows.length === 0) return rows;
+  const nested = rows.map(r => r.leads).filter(Boolean) as Record<string, unknown>[];
+  if (nested.length === 0) return rows;
+  const hydrated = await hydrateClientLeads(nested);
+  const byId = new Map(hydrated.map(l => [(l as any).id as string, l]));
+  return rows.map(r => (r.leads ? { ...r, leads: byId.get((r.leads as any).id) ?? r.leads } : r));
+}
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +48,7 @@ async function getQueueData() {
 
   // Campaigns
   let campQuery = supabase.from("campaigns")
-    .select("id, name, channel, current_step, sequence_steps, last_step_at, lead_id, seller_id, aircall_number_id, call_advance_mode, leads!inner(primary_first_name, primary_last_name, company_name, primary_title_role, primary_phone, primary_work_email, company_bio_id, call_talking_points), sellers(name)")
+    .select("id, name, channel, current_step, sequence_steps, last_step_at, lead_id, seller_id, aircall_number_id, call_advance_mode, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, primary_title_role, primary_phone, primary_work_email, company_bio_id, call_talking_points), sellers(name)")
     .eq("status", "active")
     .order("last_step_at", { ascending: true })
     .limit(200);
@@ -45,10 +60,14 @@ async function getQueueData() {
     campQuery = campQuery.in("seller_id", sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"]);
   }
 
-  // Replies — exclude 'autoreply' (OOO messages handled by the auto-reply pipeline)
+  // Replies — exclude 'auto_reply' (OOO messages handled by the auto-reply
+  // pipeline). NOTE: the enum value is `auto_reply` with an underscore.
+  // Using `autoreply` here returned a 400 from PostgREST silently — page-level
+  // destructure produced { data: null } and the Inbox tab rendered empty
+  // (incident: De Vera Grill positive replies invisible 2026-05-24).
   let replyQuery = supabase.from("lead_replies")
-    .select("id, classification, received_at, channel, reply_text, lead_id, campaign_id, requires_human_review, leads!inner(primary_first_name, primary_last_name, company_name, company_bio_id), campaigns!inner(name, seller_id)")
-    .neq("classification", "autoreply")
+    .select("id, classification, received_at, channel, reply_text, lead_id, campaign_id, requires_human_review, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id), campaigns!inner(name, seller_id)")
+    .neq("classification", "auto_reply")
     .order("received_at", { ascending: false })
     .limit(30);
   if (scopedCompanyBioId) replyQuery = replyQuery.eq("leads.company_bio_id", scopedCompanyBioId);
@@ -65,7 +84,7 @@ async function getQueueData() {
   // queued_by marker (set only on acceptance flow) + a generous row cap to
   // keep this bounded, and surface freshness via metadata.accepted_at.
   let acceptQuery = supabase.from("campaign_messages")
-    .select("id, lead_id, campaign_id, sent_at, created_at, metadata, leads!inner(primary_first_name, primary_last_name, company_name, company_bio_id), campaigns!inner(name, seller_id)")
+    .select("id, lead_id, campaign_id, sent_at, created_at, metadata, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id), campaigns!inner(name, seller_id)")
     .eq("step_number", 1)
     .in("metadata->>queued_by", ["registro-nueva-conexion-webhook", "retroactive-fix-event-field-bug-2026-05-13"])
     .order("created_at", { ascending: false })
@@ -109,14 +128,24 @@ async function getQueueData() {
   if (scopedCompanyBioId) resolvedProfQuery = resolvedProfQuery.eq("company_bio_id", scopedCompanyBioId);
 
   const [
-    { data: activeCampaigns },
-    { data: recentReplies },
-    { data: recentAccepts },
+    { data: rawActiveCampaigns },
+    { data: rawRecentReplies },
+    { data: rawRecentAccepts },
     { data: pendingCampaigns },
     { data: pendingProfiles },
     { data: resolvedCamps },
     { data: resolvedProfs },
   ] = await Promise.all([campQuery, replyQuery, acceptQuery, pendingCampQuery, pendingProfQuery, resolvedCampQuery, resolvedProfQuery]);
+
+  // Decrypt client-source leads nested inside the three join queries so
+  // sellers see real names instead of "Unknown" for tenants with encrypted
+  // PII (eg De Vera Grill). Done as a single batch per query — hydration
+  // resolves the tenant key once and reuses it across rows.
+  const [activeCampaigns, recentReplies, recentAccepts] = await Promise.all([
+    hydrateNestedLeads((rawActiveCampaigns ?? []) as any[]),
+    hydrateNestedLeads((rawRecentReplies ?? []) as any[]),
+    hydrateNestedLeads((rawRecentAccepts ?? []) as any[]),
+  ]);
 
   // Pending Calls — also enrich with the LATEST call per lead so the UI can
   // show inline classification (Positive/Negative/Follow-up) right in the

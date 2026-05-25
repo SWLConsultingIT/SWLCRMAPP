@@ -71,7 +71,7 @@ export async function GET() {
   let pendingRepliesQ = svc.from("lead_replies")
     .select("id, leads!inner(company_bio_id)", { count: "exact", head: true })
     .or("review_status.eq.pending,requires_human_review.eq.true")
-    .neq("classification", "autoreply");
+    .neq("classification", "auto_reply");
   if (scopedBio) pendingRepliesQ = pendingRepliesQ.eq("leads.company_bio_id", scopedBio);
 
   const [calls, pendingReview, pendingExec, pendingCamps, pendingReplies] = await Promise.all([

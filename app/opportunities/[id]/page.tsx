@@ -1,4 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { notFound } from "next/navigation";
 import { C } from "@/lib/design";
 import Link from "next/link";
@@ -77,16 +78,18 @@ async function getOpportunityData(id: string) {
 
   // Lead-only path: lead has positive reply but no campaign
   if (isLeadOnly) {
-    const [{ data: lead }, { data: replies }] = await Promise.all([
+    const [{ data: rawLead }, { data: replies }] = await Promise.all([
       supabase.from("leads")
-        .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, lead_score, is_priority, current_channel, transferred_to_odoo_at, icp_profile_id, opportunity_stage, opportunity_notes, opportunity_next_action")
+        .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, lead_score, is_priority, current_channel, transferred_to_odoo_at, icp_profile_id, opportunity_stage, opportunity_notes, opportunity_next_action")
         .eq("id", id).single(),
       supabase.from("lead_replies")
         .select("id, lead_id, classification, channel, reply_text, received_at")
         .eq("lead_id", id)
         .order("received_at", { ascending: true }),
     ]);
-    if (!lead) return null;
+    if (!rawLead) return null;
+    const [hydrated] = await hydrateClientLeads([rawLead as Record<string, unknown>]);
+    const lead = hydrated as any;
     const winReply = (replies ?? []).find((r: any) => r.classification === "positive" || r.classification === "meeting_intent");
     const leadName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
 
@@ -141,9 +144,9 @@ async function getOpportunityData(id: string) {
   const leadIds = (allCampaigns ?? []).map(c => c.lead_id).filter(Boolean);
   if (leadIds.length === 0) return null;
 
-  const [{ data: leads }, { data: allReplies }, { data: campRequests }] = await Promise.all([
+  const [{ data: rawLeads }, { data: allReplies }, { data: campRequests }] = await Promise.all([
     supabase.from("leads")
-      .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, lead_score, is_priority, current_channel, transferred_to_odoo_at, icp_profile_id, opportunity_stage, opportunity_notes, opportunity_next_action")
+      .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, lead_score, is_priority, current_channel, transferred_to_odoo_at, icp_profile_id, opportunity_stage, opportunity_notes, opportunity_next_action")
       .in("id", leadIds),
     supabase.from("lead_replies")
       .select("id, lead_id, classification, channel, reply_text, received_at")
@@ -155,6 +158,8 @@ async function getOpportunityData(id: string) {
       .limit(1)
       .maybeSingle(),
   ]);
+  // Decrypt client-source leads so the campaign roll-up shows real names.
+  const leads = await hydrateClientLeads((rawLeads ?? []) as Record<string, unknown>[]) as any[];
 
   // Profile
   const profileId = (leads ?? [])[0]?.icp_profile_id;

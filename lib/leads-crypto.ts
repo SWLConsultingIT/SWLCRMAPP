@@ -286,3 +286,56 @@ export function redactClientLead(operationalRow: Record<string, unknown>): Recor
   }
   return out;
 }
+
+// Hydrates a list of lead rows in place: for any row with source="client" and
+// a non-null encrypted_payload, resolves the tenant key, decrypts the blob,
+// and merges PII columns back over the row. Operational columns (status,
+// company_bio_id, etc.) survive untouched.
+//
+// Why this lives in lib/ and not duplicated per page: every server page that
+// reads `leads` and renders PII (Opportunities, Queue, Dashboard, Calls, …)
+// needs the same logic. Inlining it page-by-page is how we ended up showing
+// "Unknown" leads in the De Vera Grill Opportunities view (2026-05-24).
+//
+// Failure mode: if tenant-key resolution or decryption fails for a given row
+// we log + leave the row as-is (PII columns stay null). The caller sees an
+// Unknown lead — better than crashing the page — and the failure surfaces
+// in server logs for investigation. Caller MUST pass `source` and
+// `encrypted_payload` in the select for this to do anything.
+export async function hydrateClientLeads<L extends {
+  id?: string;
+  source?: string | null;
+  encrypted_payload?: unknown;
+  company_bio_id?: string | null;
+}>(rows: L[]): Promise<L[]> {
+  if (rows.length === 0) return rows;
+  const clientRows = rows.filter(
+    r => r.source === "client" && r.encrypted_payload && r.company_bio_id,
+  );
+  if (clientRows.length === 0) return rows;
+  const tenantIds = Array.from(
+    new Set(clientRows.map(r => r.company_bio_id as string)),
+  );
+  const keys = new Map<string, Buffer>();
+  for (const bioId of tenantIds) {
+    try {
+      const { key } = await resolveTenantKey(bioId);
+      keys.set(bioId, key);
+    } catch (err) {
+      console.error("[hydrateClientLeads] tenant key resolution failed for", bioId, err);
+    }
+  }
+  return rows.map(r => {
+    if (r.source !== "client" || !r.encrypted_payload || !r.company_bio_id) return r;
+    const key = keys.get(r.company_bio_id);
+    if (!key) return r;
+    try {
+      const blob = bufferFromSupabaseBytea(r.encrypted_payload);
+      const decrypted = decryptWithResolvedKey(blob, key);
+      return { ...r, ...decrypted, encrypted_payload: undefined } as L;
+    } catch (err) {
+      console.error("[hydrateClientLeads] decrypt failed for lead", r.id, err);
+      return r;
+    }
+  });
+}

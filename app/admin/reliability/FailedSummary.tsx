@@ -38,9 +38,22 @@ const ERROR_PLAYBOOK: { matcher: (msg: string) => boolean; title: string; cause:
     action: "Retry. If they fail again, the lead truly has no LinkedIn URL — enrich the row or remove from the campaign.",
   },
   {
-    matcher: m => m.includes("temporary provider limit") || m.includes("rate") || m.includes("422"),
+    // Match the specific 422 string Unipile returns when the *recipient*
+    // profile is private, restricted, or deleted. This must come BEFORE the
+    // generic rate-limit matcher since both strings contain "422" — and a
+    // locked profile has nothing to do with the seller's rate-limit state.
+    matcher: m => m.includes("profile is not locked") || m.includes("recipient id is valid"),
+    title: "Recipient LinkedIn profile is locked or unreachable",
+    cause: "Unipile returned 422 because the lead's LinkedIn profile is private, restricted by LinkedIn, or has been deleted. The seller is fine — the issue is the recipient. Retrying will keep failing until the lead's profile becomes reachable again (which may never happen).",
+    action: "Don't retry. Cancel the campaign row for this lead and either remove them from the funnel or move to another channel (email / call) if you have those details. Mark the lead as archived so future imports don't re-add them.",
+  },
+  {
+    // Unipile's actual rate-limit string. We deliberately do NOT match plain
+    // "422" here — Unipile uses 422 for several distinct errors and a blanket
+    // match misclassified locked-profile failures as rate-limits.
+    matcher: m => m.includes("temporary provider limit") || m.includes("too many requests") || m.includes("429"),
     title: "LinkedIn rate-limited the seller",
-    cause: "Unipile returned 422 — the seller's LinkedIn account hit the daily invite cap or LinkedIn flagged the velocity.",
+    cause: "Unipile returned a rate-limit error — the seller's LinkedIn account hit the daily invite cap or LinkedIn flagged the velocity.",
     action: "Wait for the 4h cooldown to expire (rows auto-move to Cooldown bucket). Reduce daily limit on the seller if this keeps happening.",
   },
   {

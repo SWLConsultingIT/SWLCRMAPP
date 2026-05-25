@@ -1,5 +1,6 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getUserScope } from "@/lib/scope";
+import { hydrateClientLeads } from "@/lib/leads-crypto";
 import OpportunitiesClient from "./OpportunitiesClient";
 
 export const dynamic = "force-dynamic";
@@ -26,15 +27,19 @@ async function getOpportunities() {
   if (wonLeadIds.size === 0) return { leads: [] };
   const idArr = Array.from(wonLeadIds) as string[];
 
-  const [{ data: leads }, { data: campaigns }, { data: profiles }] = await Promise.all([
+  const [{ data: rawLeads }, { data: campaigns }, { data: profiles }] = await Promise.all([
     supabase.from("leads")
-      .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, lead_score, is_priority, transferred_to_odoo_at, icp_profile_id, created_at")
+      .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, lead_score, is_priority, transferred_to_odoo_at, icp_profile_id, created_at")
       .in("id", idArr),
     supabase.from("campaigns")
       .select("id, name, channel, lead_id, current_step, sequence_steps, created_at")
       .in("lead_id", idArr),
     supabase.from("icp_profiles").select("id, profile_name").eq("status", "approved"),
   ]);
+  // Decrypt client-source leads so the Opportunities table shows real names
+  // instead of "Unknown" for tenants whose PII lives in encrypted_payload
+  // (e.g. De Vera Grill — see project_devera_grill_onboarding).
+  const leads = await hydrateClientLeads((rawLeads ?? []) as Record<string, unknown>[]);
 
   const profileMap: Record<string, string> = {};
   for (const p of profiles ?? []) profileMap[p.id] = p.profile_name;
@@ -55,7 +60,7 @@ async function getOpportunities() {
   // the call Positive, and expects them in Opportunities (Fran 2026-05-14).
   // Now we show every lead with a positive lead_reply for the tenant;
   // campaign fields just degrade to null when there isn't one.
-  const opportunityLeads = (leads ?? []).map(l => {
+  const opportunityLeads = (leads as any[] ?? []).map(l => {
     const camp = campByLead[l.id] ?? null;
     const reply = replyByLead[l.id];
     const steps = Array.isArray(camp?.sequence_steps) ? camp.sequence_steps.length : 0;
