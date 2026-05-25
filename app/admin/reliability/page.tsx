@@ -57,6 +57,7 @@ type CampaignMessageRow = {
     company_name: string | null;
     company_bio_id: string | null;
     linkedin_connected: boolean | null;
+    responded: boolean | null;
   } | null;
   campaigns: {
     name: string | null;
@@ -103,9 +104,10 @@ type ReliabilityData = {
     failed: CampaignMessageRow[];
   };
   sentVsUnipile: {
-    rows: Array<CampaignMessageRow & { _matched: boolean; _matchReason: string }>;
+    rows: Array<CampaignMessageRow & { _matched: boolean; _matchReason: string; _bucket: "pending" | "accepted" | "ghost" }>;
     ghostCount: number;
     matchedCount: number;
+    acceptedCount: number;
   };
   sellerHealth: Array<{
     sellerId: string;
@@ -134,7 +136,7 @@ type ReliabilityData = {
 async function fetchReliability(): Promise<ReliabilityData> {
   const svc = getSupabaseService();
 
-  const queueSelect = "id, campaign_id, lead_id, step_number, channel, status, sent_at, provider_message_id, error_details, created_at, metadata, leads(source, encrypted_payload, primary_first_name, primary_last_name, primary_linkedin_url, company_name, company_bio_id, linkedin_connected), campaigns(name, seller_id, sellers(name, unipile_account_id, company_bio_id))";
+  const queueSelect = "id, campaign_id, lead_id, step_number, channel, status, sent_at, provider_message_id, error_details, created_at, metadata, leads(source, encrypted_payload, primary_first_name, primary_last_name, primary_linkedin_url, company_name, company_bio_id, linkedin_connected, responded), campaigns(name, seller_id, sellers(name, unipile_account_id, company_bio_id))";
 
   const nowMs = Date.now();
   const since24h = new Date(nowMs - 24 * 60 * 60 * 1000).toISOString();
@@ -226,32 +228,67 @@ async function fetchReliability(): Promise<ReliabilityData> {
   }
 
   // Reconcile sent rows against Unipile.
+  //
+  // Unipile's /users/invite/sent endpoint lists only PENDING invites — once a
+  // lead accepts, declines, or expires, the invite drops off the feed. So
+  // "not present in the feed" doesn't automatically mean ghost. The
+  // empirically common case is "lead accepted, dropped off pending feed,
+  // accept webhook may or may not have updated our DB yet".
+  //
+  // Buckets:
+  //   - "pending"   → matched in the sent feed (invite still outstanding)
+  //   - "accepted"  → not in feed but lead.linkedin_connected=true OR
+  //                   lead.responded=true (you can only DM 1st-degree, so a
+  //                   reply implies acceptance even if the webhook missed it)
+  //   - "ghost"     → not in feed AND no evidence of engagement. THIS is the
+  //                   actionable bucket — the original ghost-sent incident
+  //                   case where the dispatcher claimed sent but Unipile has
+  //                   no record and the lead never engaged.
   const ledger = (sentLedgerQ.data ?? []) as unknown as CampaignMessageRow[];
   const reconciled = ledger.map((r) => {
     const sellerId = r.campaigns?.seller_id ?? null;
     const invites = sellerId ? (unipileBySeller.get(sellerId) ?? []) : [];
     let matched = false;
-    let reason = "no seller_id";
+    let reason = "";
+    let bucket: "pending" | "accepted" | "ghost" = "ghost";
+
     if (sellerId) {
-      reason = "no Unipile match";
       if (r.provider_message_id) {
         matched = invites.some((inv) => inv.id === r.provider_message_id);
-        if (matched) reason = "matched by invitation_id";
+        if (matched) { bucket = "pending"; reason = "still pending in Unipile"; }
       }
       if (!matched && r.leads?.primary_linkedin_url) {
         const m = r.leads.primary_linkedin_url.match(/\/in\/([^/?#]+)/i);
         const slug = m ? m[1].toLowerCase() : null;
         if (slug) {
           matched = invites.some((inv) => (inv.invited_user_public_id ?? "").toLowerCase() === slug);
-          if (matched) reason = "matched by LinkedIn slug";
+          if (matched) { bucket = "pending"; reason = "matched by LinkedIn slug"; }
         }
       }
+    } else {
+      reason = "no seller_id";
     }
-    return { ...r, _matched: matched, _matchReason: reason };
+
+    if (!matched) {
+      const accepted = r.leads?.linkedin_connected === true;
+      const replied = (r as any).leads?.responded === true;
+      if (accepted || replied) {
+        bucket = "accepted";
+        reason = accepted ? "accepted (1st-degree)" : "lead replied (implies accept)";
+      } else {
+        bucket = "ghost";
+        reason = sellerId ? "no Unipile match + no engagement signal" : reason;
+      }
+    }
+
+    return { ...r, _matched: matched, _matchReason: reason, _bucket: bucket };
   });
 
-  const matchedCount = reconciled.filter((r) => r._matched).length;
-  const ghostCount = reconciled.length - matchedCount;
+  // Ghosts are the real action-required cases (no feed + no engagement).
+  // "Accepted" rows are healthy — they just left the pending feed.
+  const matchedCount = reconciled.filter((r) => r._bucket === "pending").length;
+  const acceptedCount = reconciled.filter((r) => r._bucket === "accepted").length;
+  const ghostCount = reconciled.filter((r) => r._bucket === "ghost").length;
 
   const dailyCount = new Map<string, number>();
   for (const r of sentLedgerQ.data ?? []) {
@@ -384,7 +421,7 @@ async function fetchReliability(): Promise<ReliabilityData> {
       skipped: (skippedQ.data ?? []) as unknown as CampaignMessageRow[],
       stuck, expired,
     },
-    sentVsUnipile: { rows: reconciled, ghostCount, matchedCount },
+    sentVsUnipile: { rows: reconciled, ghostCount, matchedCount, acceptedCount },
     sellerHealth,
     kpis: {
       sentToday, aggregateCap,
@@ -461,8 +498,9 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
   const fExpired = byTenant(queueHealth.expired, tenantId);
   const fSentRows = byTenant(sentVsUnipile.rows, tenantId);
   const fSellers = tenantId ? sellerHealth.filter(s => s.companyBioId === tenantId) : sellerHealth;
-  const fGhostCount = fSentRows.filter(r => !r._matched).length;
-  const fMatchedCount = fSentRows.length - fGhostCount;
+  const fGhostCount = fSentRows.filter(r => r._bucket === "ghost").length;
+  const fAcceptedCount = fSentRows.filter(r => r._bucket === "accepted").length;
+  const fMatchedCount = fSentRows.filter(r => r._bucket === "pending").length;
 
   const noiseCutoff = Date.now() - NOISE_DAYS * 24 * 60 * 60 * 1000;
   const isRecent = (iso: string | null) => !iso || new Date(iso).getTime() >= noiseCutoff;
@@ -690,31 +728,30 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
             </CollapsibleSection>
           )}
 
-          {/* Ghost-sent */}
+          {/* Ghost-sent — REAL ghosts only (no Unipile match AND no engagement signal) */}
           {fGhostCount > 0 && (
             <CollapsibleSection
-              title={`Ghost-sent — DB dice enviado pero Unipile no lo registra (${fGhostCount}/${fSentRows.length})`}
+              title={`Ghost-sent — DB dice enviado, Unipile no lo registra y el lead no respondió (${fGhostCount})`}
               accent={C.red}
               count={fGhostCount}
               defaultOpen={true}
-              hint="Mismatch entre DB y Unipile">
+              hint="Posible falla del dispatcher: invite nunca salió">
+              <div className="px-4 py-2.5 text-[11px]" style={{ color: C.textMuted, backgroundColor: C.surface, borderBottom: `1px solid ${C.border}` }}>
+                Filas SIN match en el feed pending de Unipile Y sin señal de engagement (`linkedin_connected=false`, `responded=false`). El invite probablemente nunca salió o falló silenciosamente. Investigar.
+              </div>
               <Table>
                 <thead>
                   <Th>Sent at</Th>
                   <Th>Lead</Th>
                   <Th>Seller</Th>
-                  <Th>Match</Th>
                   <Th>Reason</Th>
                 </thead>
                 <tbody>
-                  {fSentRows.filter(r => !r._matched).map((r) => (
+                  {fSentRows.filter(r => r._bucket === "ghost").map((r) => (
                     <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
                       <Td>{formatTime(r.sent_at)}</Td>
                       <Td>{leadName(r)}</Td>
                       <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
-                      <Td>
-                        <span className="text-xs font-bold" style={{ color: C.red }}>✗ GHOST</span>
-                      </Td>
                       <Td><span className="text-xs" style={{ color: C.textMuted }}>{r._matchReason}</span></Td>
                     </tr>
                   ))}
@@ -883,35 +920,45 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
           ════════════════════════════════════════════════════════════ */}
       {(fSentRows.length > 0 || skippedVisible.length > 0 || fExpired.length > 0) && (
         <SectionGroup title="Actividad reciente" subtitle="Lo que pasó hace poco. Sólo lectura." accent={C.green} count={fMatchedCount + skippedVisible.length + fExpired.length}>
-          {/* Sent 24h reconciliation */}
+          {/* Sent 24h reconciliation — 3 buckets:
+              ✓ pending   matched in Unipile sent feed
+              ✓ accepted  not in feed, but lead engaged (1st-degree or replied)
+              ✗ ghost     not in feed AND no engagement — bubbled up to Acción requerida */}
           {fSentRows.length > 0 && (
             <CollapsibleSection
-              title={`Enviados últimas 24h (${fMatchedCount}/${fSentRows.length} matched en Unipile)`}
+              title={`Enviados últimas 24h (${fMatchedCount} pending · ${fAcceptedCount} accepted · ${fGhostCount} ghost)`}
               accent={C.green}
               count={fSentRows.length}
-              hint={fGhostCount > 0 ? `${fGhostCount} ghosts (ver Acción requerida)` : "Todos matched"}>
+              hint={fGhostCount > 0 ? `${fGhostCount} ghosts en Acción requerida` : "Sin ghosts"}>
               <Table>
                 <thead>
                   <Th>Sent at</Th>
                   <Th>Lead</Th>
                   <Th>Seller</Th>
-                  <Th>Match</Th>
+                  <Th>Bucket</Th>
                   <Th>Reason</Th>
                 </thead>
                 <tbody>
-                  {fSentRows.map((r) => (
-                    <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
-                      <Td>{formatTime(r.sent_at)}</Td>
-                      <Td>{leadName(r)}</Td>
-                      <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
-                      <Td>
-                        <span className="text-xs font-bold" style={{ color: r._matched ? C.green : C.red }}>
-                          {r._matched ? "✓ MATCHED" : "✗ GHOST"}
-                        </span>
-                      </Td>
-                      <Td><span className="text-xs" style={{ color: C.textMuted }}>{r._matchReason}</span></Td>
-                    </tr>
-                  ))}
+                  {fSentRows.map((r) => {
+                    const bucketMeta = {
+                      pending: { label: "✓ PENDING", color: C.linkedin },
+                      accepted: { label: "✓ ACCEPTED", color: C.green },
+                      ghost: { label: "✗ GHOST", color: C.red },
+                    }[r._bucket];
+                    return (
+                      <tr key={r.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                        <Td>{formatTime(r.sent_at)}</Td>
+                        <Td>{leadName(r)}</Td>
+                        <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
+                        <Td>
+                          <span className="text-xs font-bold" style={{ color: bucketMeta.color }}>
+                            {bucketMeta.label}
+                          </span>
+                        </Td>
+                        <Td><span className="text-xs" style={{ color: C.textMuted }}>{r._matchReason}</span></Td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </Table>
             </CollapsibleSection>
