@@ -158,7 +158,9 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
       }
       toast.show({
         kind: classification === "positive" ? "success" : classification === "negative" ? "warning" : "info",
-        title: `Marked as ${classification.replace("_", " ")}`,
+        title: classification === "follow_up"
+          ? "Marked for follow-up — campaign keeps running"
+          : `Marked as ${classification.replace("_", " ")}`,
       });
       router.refresh();
     } finally {

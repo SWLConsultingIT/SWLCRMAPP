@@ -36,15 +36,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Optional classification override — sent by the inbox quick-classify
   // buttons so a seller can both correct the AI's guess AND mark the row
   // reviewed in a single round trip.
-  const ALLOWED_CLASS = new Set(["positive", "negative", "follow_up", "question", "meeting_intent"]);
+  //
+  // "follow_up" is NOT an enum value of reply_classification. It's a UI-only
+  // intent meaning "I saw this, no classification change, campaign keeps
+  // running, will respond manually later". Treat it as a review-only action
+  // — mark the row reviewed but leave the AI's classification alone.
+  // Writing it to the enum column was the cause of the 500 in production
+  // (incident 2026-05-25: clicking the ❓ Follow-up button toasted
+  // "invalid input value for enum reply_classification: 'follow_up'").
+  const ENUM_CLASS = new Set(["positive", "negative", "question", "meeting_intent", "needs_info", "nurturing", "not_now", "unsubscribe", "spam", "auto_reply"]);
   const classOverride = (body as { classification?: string }).classification;
   const patch: Record<string, unknown> = {
     review_status: status,
     requires_human_review: status === "pending",
   };
-  if (classOverride && ALLOWED_CLASS.has(classOverride)) {
+  if (classOverride && ENUM_CLASS.has(classOverride)) {
     patch.classification = classOverride;
   }
+  // follow_up falls through: no classification write, just the review_status
+  // update above. Campaign / lead state stays untouched.
 
   const { error } = await supabase
     .from("lead_replies")
