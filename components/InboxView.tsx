@@ -67,6 +67,17 @@ function relativeTime(iso: string) {
 
 export type { InboxReply };
 
+type ThreadEntry = {
+  id: string;
+  direction: "outbound" | "inbound" | "event";
+  channel: string | null;
+  body: string;
+  at: string;
+  classification?: string | null;
+  stepNumber?: number | null;
+  kind?: string;
+};
+
 export default function InboxView({ replies }: { replies: InboxReply[] }) {
   const router = useRouter();
   const toast = useToast();
@@ -74,6 +85,11 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(replies[0]?.id ?? null);
   const [working, setWorking] = useState(false);
+  // Thread state — fetched on selection change. Lets the right pane show the
+  // full back-and-forth (outbound + inbound) rather than a single isolated
+  // reply line.
+  const [thread, setThread] = useState<ThreadEntry[]>([]);
+  const [threadLoading, setThreadLoading] = useState(false);
 
   // Counts by tab — computed once per render so the badges always reflect the
   // raw (unfiltered) totals, not the search-narrowed list.
@@ -116,6 +132,20 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
 
   const selected = filtered.find(r => r.id === selectedId) ?? null;
   const selectedIdx = selected ? filtered.findIndex(r => r.id === selectedId) : -1;
+
+  // Fetch the full thread when the selected reply changes. Cancellation token
+  // guards against out-of-order responses if the seller clicks quickly.
+  useEffect(() => {
+    if (!selected?.leadId) { setThread([]); return; }
+    let cancelled = false;
+    setThreadLoading(true);
+    fetch(`/api/inbox/thread/${selected.leadId}`, { cache: "no-store" })
+      .then(r => r.ok ? r.json() : { thread: [] })
+      .then(data => { if (!cancelled) setThread(Array.isArray(data.thread) ? data.thread : []); })
+      .catch(() => { if (!cancelled) setThread([]); })
+      .finally(() => { if (!cancelled) setThreadLoading(false); });
+    return () => { cancelled = true; };
+  }, [selected?.leadId]);
 
   function selectByIdx(idx: number) {
     if (idx < 0 || idx >= filtered.length) return;
@@ -225,8 +255,11 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
         })}
       </div>
 
-      {/* Split pane */}
-      <div className="grid grid-cols-1 md:grid-cols-[minmax(300px,2fr)_3fr] min-h-[60vh] max-h-[78vh]">
+      {/* Split pane — fixed height so the inner list + thread can scroll
+          independently without growing the page. Previously max-h-[78vh] +
+          min-h-[60vh] let the container collapse to fit content, which made
+          the list non-scrollable when there were enough entries to overflow. */}
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(300px,2fr)_3fr] h-[78vh]">
         {/* List */}
         <div className="border-b md:border-b-0 md:border-r overflow-hidden flex flex-col" style={{ borderColor: C.border }}>
           {/* Search */}
@@ -297,7 +330,9 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                               </p>
                             )}
                             <p className="text-[11px] mt-0.5 line-clamp-2" style={{ color: C.textBody }}>
-                              {r.replyText ?? "(no body)"}
+                              {r.classification === "connection_accepted"
+                                ? "🤝 Aceptó la solicitud de conexión"
+                                : (r.replyText && r.replyText.trim() ? r.replyText : "(sin texto)")}
                             </p>
                             <div className="flex items-center gap-1 mt-1 flex-wrap">
                               {badge && (
@@ -395,16 +430,70 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                 </Link>
               </div>
 
-              {/* Body */}
-              <div className="flex-1 overflow-y-auto px-5 py-4">
-                <div
-                  className="rounded-xl border px-4 py-3"
-                  style={{ borderColor: C.border, backgroundColor: C.bg }}
-                >
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: C.textPrimary }}>
-                    {selected.replyText ?? "(reply body not captured)"}
-                  </p>
-                </div>
+              {/* Thread — full conversation history. Outbound (our messages)
+                  on the right in brand-tinted bubbles, inbound (lead) on the
+                  left in neutral bubbles. Chronological top→bottom so the
+                  seller reads it like a chat. */}
+              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+                {threadLoading ? (
+                  <div className="text-xs text-center py-8" style={{ color: C.textMuted }}>Loading conversation…</div>
+                ) : thread.length === 0 ? (
+                  <div className="rounded-xl border px-4 py-3" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: C.textPrimary }}>
+                      {selected.classification === "connection_accepted"
+                        ? "🤝 Aceptó la solicitud de conexión — todavía no hubo mensajes en el thread."
+                        : (selected.replyText ?? "(reply body not captured)")}
+                    </p>
+                  </div>
+                ) : (
+                  thread.map((entry, idx) => {
+                    const isOut = entry.direction === "outbound";
+                    const Icon = channelIcon(entry.channel);
+                    const stepLabel = entry.stepNumber === 0
+                      ? "Connection Request"
+                      : entry.stepNumber != null
+                        ? `Step ${entry.stepNumber}`
+                        : null;
+                    const at = new Date(entry.at);
+                    const when = at.toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+                    const senderLabel = isOut ? "We sent" : `${selected.leadName} replied`;
+                    return (
+                      <div key={entry.id} className={`flex flex-col ${isOut ? "items-end" : "items-start"}`}>
+                        <div className="flex items-center gap-1.5 mb-1 text-[10px]" style={{ color: C.textDim }}>
+                          <Icon size={9} />
+                          <span className="font-semibold">{senderLabel}</span>
+                          {stepLabel && (
+                            <span className="px-1 py-0.5 rounded font-medium" style={{ backgroundColor: C.surface, color: C.textMuted }}>
+                              {stepLabel}
+                            </span>
+                          )}
+                          <span>· {when}</span>
+                        </div>
+                        <div
+                          className="rounded-2xl px-4 py-2.5 max-w-[80%]"
+                          style={{
+                            borderTopLeftRadius: isOut ? 16 : 4,
+                            borderTopRightRadius: isOut ? 4 : 16,
+                            backgroundColor: isOut
+                              ? `color-mix(in srgb, var(--brand, #c9a83a) 14%, transparent)`
+                              : C.bg,
+                            border: `1px solid ${isOut ? `color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` : C.border}`,
+                            color: C.textPrimary,
+                          }}
+                        >
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                            {entry.body && entry.body.trim() ? entry.body : "(sin contenido)"}
+                          </p>
+                        </div>
+                        {idx === thread.length - 1 && isOut && (
+                          <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
+                            Esperando respuesta del lead…
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
               </div>
 
               {/* Actions */}
