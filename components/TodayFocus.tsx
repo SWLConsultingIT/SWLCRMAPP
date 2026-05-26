@@ -130,7 +130,7 @@ export default function TodayFocus({ calls, replies, onJumpToCalls, onJumpToRepl
         className="rounded-xl border mb-5 px-4 py-2.5 flex items-center gap-2.5"
         style={{
           background: `color-mix(in srgb, ${C.green} 6%, var(--card))`,
-          borderColor: `color-mix(in srgb, ${C.green} 22%, var(--border))`,
+          borderColor: `color-mix(in srgb, ${C.green} 40%, transparent)`,
         }}
       >
         <CheckCircle2 size={14} style={{ color: C.green }} />
@@ -150,7 +150,7 @@ export default function TodayFocus({ calls, replies, onJumpToCalls, onJumpToRepl
         className="rounded-xl border mb-5 px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap"
         style={{
           background: `color-mix(in srgb, ${gold} 5%, var(--card))`,
-          borderColor: `color-mix(in srgb, ${gold} 20%, var(--border))`,
+          borderColor: `color-mix(in srgb, ${gold} 40%, transparent)`,
         }}
       >
         <div className="flex items-center gap-2.5 min-w-0">
@@ -194,8 +194,13 @@ export default function TodayFocus({ calls, replies, onJumpToCalls, onJumpToRepl
       className="rounded-2xl border mb-5 px-4 py-3 flex items-center gap-3 flex-wrap"
       style={{
         background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 9%, var(--card)) 0%, var(--card) 65%)`,
-        borderColor: `color-mix(in srgb, ${gold} 28%, var(--border))`,
-        boxShadow: `0 4px 20px -8px color-mix(in srgb, ${gold} 22%, transparent)`,
+        // Pure gold border (translucent) instead of mixing into var(--border).
+        // The previous color-mix against the dark-mode border (#1F2842) muddied
+        // the result into a brownish-gray that read as "white border" against
+        // the dark card. Gold @ 55% alpha keeps the brand identity in both
+        // themes and degrades gracefully on light bg too.
+        borderColor: `color-mix(in srgb, ${gold} 55%, transparent)`,
+        boxShadow: `0 4px 20px -8px color-mix(in srgb, ${gold} 28%, transparent)`,
       }}
     >
       <div

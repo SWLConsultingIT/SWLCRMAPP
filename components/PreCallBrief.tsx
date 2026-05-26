@@ -105,7 +105,7 @@ export default function PreCallBrief({ leadId, initialPoints, initialGeneratedAt
     <div className="relative rounded-2xl overflow-hidden mb-6"
       style={{
         background: `linear-gradient(180deg, color-mix(in srgb, ${gold} 6%, var(--card)) 0%, var(--card) 40%)`,
-        border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 22%, var(--border))",
+        border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 45%, transparent)",
         boxShadow: "0 8px 30px -8px rgba(201,168,58,0.18), 0 2px 8px rgba(0,0,0,0.04)",
       }}>
       {/* Decorative gold corner accent — subtle premium texture */}

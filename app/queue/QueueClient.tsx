@@ -600,7 +600,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                               <div className="rounded-xl border p-3 shadow-lg"
                                 style={{
                                   background: "linear-gradient(135deg, color-mix(in srgb, var(--brand, #c9a83a) 6%, var(--card)), var(--card))",
-                                  borderColor: "color-mix(in srgb, var(--brand, #c9a83a) 30%, var(--border))",
+                                  borderColor: "color-mix(in srgb, var(--brand, #c9a83a) 50%, transparent)",
                                 }}>
                                 <p className="text-[10px] font-bold uppercase tracking-wider mb-2"
                                   style={{ color: "var(--brand, #c9a83a)", letterSpacing: "0.08em" }}>
