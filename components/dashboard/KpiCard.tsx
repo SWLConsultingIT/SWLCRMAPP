@@ -63,8 +63,21 @@ export default function KpiCard({
           {value}
         </p>
         {trend && trend.length > 0 && (
-          <div className="opacity-90 shrink-0 -mb-1">
+          <div className="opacity-95 shrink-0 -mb-1 flex flex-col items-end gap-0.5">
             <Sparkline data={trend} color={trendColor ?? accentColor} width={78} height={32} />
+            {/* Min/max under the sparkline — gives the trend dimension without
+                another chart. Stripe pattern: "0 → 8" tells you the recent
+                range at a glance. Hidden when the series is flat-zero. */}
+            {(() => {
+              const max = Math.max(...trend);
+              const min = Math.min(...trend);
+              if (max === 0) return null;
+              return (
+                <span className="text-[9.5px] tabular-nums leading-none" style={{ color: C.textDim }}>
+                  {min} → {max}
+                </span>
+              );
+            })()}
           </div>
         )}
       </div>
