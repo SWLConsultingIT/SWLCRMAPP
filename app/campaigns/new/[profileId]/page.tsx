@@ -197,7 +197,10 @@ export default function NewCampaignWizard() {
           && rawSeq[0]?.channel === "linkedin"
           && rawSeq[0]?.daysAfter === 0;
         const strippedSeq = hasCRInSeq ? rawSeq.slice(1) : rawSeq;
-        const msgSteps = Array.isArray(stepMsgs.steps) ? stepMsgs.steps : [];
+        const rawMsgSteps = Array.isArray(stepMsgs.steps) ? stepMsgs.steps : [];
+        // See applyTemplate() — when CR is stripped from sequence, steps[0]
+        // must be stripped too or every body shifts by -1 against its slot.
+        const msgSteps = hasCRInSeq ? rawMsgSteps.slice(1) : rawMsgSteps;
         const seq = strippedSeq.map((step, i) => {
           const msg = msgSteps.find((m: any) => m?.step === i + 1) ?? msgSteps[i];
           const attachments = (msg as any)?.attachments;
@@ -207,7 +210,7 @@ export default function NewCampaignWizard() {
         });
         if (seq.length > 0) setSequence(seq);
         if (t.step_messages && typeof t.step_messages === "object") {
-          setChannelMessages(stepMsgs);
+          setChannelMessages({ ...stepMsgs, steps: msgSteps });
         }
         try { sessionStorage.removeItem("swl-pending-template-id"); } catch { /* no-op */ }
       } catch { /* template apply is best-effort; never block the wizard */ }
@@ -410,7 +413,12 @@ export default function NewCampaignWizard() {
       && rawSeq[0]?.channel === "linkedin"
       && rawSeq[0]?.daysAfter === 0;
     const strippedSeq = hasCRInSeq ? rawSeq.slice(1) : rawSeq;
-    const msgSteps = Array.isArray(stepMsgs.steps) ? stepMsgs.steps : [];
+    const rawMsgSteps = Array.isArray(stepMsgs.steps) ? stepMsgs.steps : [];
+    // When we strip the LinkedIn-d0 CR from the sequence, drop steps[0] from
+    // step_messages too — otherwise every followup body shifts by -1 against
+    // its slot, putting email bodies in call slots, call scripts in LinkedIn
+    // slots, etc. (Fran flagged this exact corruption on 2026-05-26.)
+    const msgSteps = hasCRInSeq ? rawMsgSteps.slice(1) : rawMsgSteps;
     const seq = strippedSeq.map((step, i) => {
       const msg = msgSteps.find((m: any) => m?.step === i + 1) ?? msgSteps[i];
       const attachments = (msg as any)?.attachments;
@@ -420,7 +428,8 @@ export default function NewCampaignWizard() {
     });
     if (seq.length > 0) setSequence(seq);
     if (tpl.step_messages && typeof tpl.step_messages === "object") {
-      setChannelMessages(stepMsgs);
+      // Use the realigned steps array so steps[i] matches strippedSeq[i].
+      setChannelMessages({ ...stepMsgs, steps: msgSteps });
     }
     if (!campaignName.trim()) setCampaignName(tpl.name);
   }
