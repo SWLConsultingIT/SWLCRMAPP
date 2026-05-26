@@ -219,9 +219,31 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   const isAiPromptOpen = (key: string, content: string | undefined | null) =>
     aiPromptOpen.has(key) || (content !== undefined && content !== null && content.length > 0);
 
-  const classified = classifySteps(sequence);
+  // DISPLAY-ONLY CR slice. When sequence[0] is a LinkedIn day-0 step, that
+  // entry is the Connection Request — its body lives in
+  // channelMessages.connectionRequest, NOT in the numbered list. We hide that
+  // row from the numbered display and classify the remaining followups as if
+  // sequence[1] were the first message (so an email at sequence[1] gets the
+  // "Introduction Email" label, not "Email follow-up (after other channel)").
+  //
+  // CRITICAL: storage indices stay 1:1 with sequence — channelMessages.steps[i]
+  // is always the body for sequence[i]. The dispatcher depends on this. Only
+  // the RENDER skips index 0 when hasCR. All updateStep / generateField /
+  // onReorderStep / onAttachmentsChange calls pass the REAL sequence index.
+  const hasCR = sequence[0]?.channel === "linkedin" && sequence[0]?.daysAfter === 0;
+  const followupSequence = hasCR ? sequence.slice(1) : sequence;
+  const classifiedFU = classifySteps(followupSequence);
+  // Full-length labels aligned with sequence positions. CR slot (i=0 when
+  // hasCR) gets a placeholder — never rendered, never written to.
+  const classified = sequence.map((s, i) => {
+    if (hasCR && i === 0) {
+      return { type: "CR_SLOT", channel: s.channel, label: "Connection Request", hasSubject: false };
+    }
+    const j = hasCR ? i - 1 : i;
+    return classifiedFU[j] ?? { type: "UNKNOWN", channel: s.channel, label: "Message", hasSubject: false };
+  });
 
-  // Ensure steps array matches sequence
+  // Ensure steps array matches sequence positionally (storage contract).
   const steps = classified.map((cls, i) => channelMessages.steps?.[i] || {
     type: cls.type, channel: cls.channel, label: cls.label, body: "", subject: cls.hasSubject ? "" : undefined,
   });
@@ -302,7 +324,10 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   async function generateAll() {
     const hasLinkedin = sequence.some(s => s.channel === "linkedin");
     const replyTypes = hasLinkedin ? (["replyPositive", "replyNegative"] as const) : ([] as const);
-    const totalSteps = (hasLinkedin ? 1 : 0) + classified.length + replyTypes.length;
+    // Followup count excludes the CR slot — that's generated separately as the
+    // Connection Request, not via the per-step loop.
+    const followupCount = hasCR ? classified.length - 1 : classified.length;
+    const totalSteps = (hasLinkedin ? 1 : 0) + followupCount + replyTypes.length;
     let stepIndex = 0;
 
     setAiLoading("all");
@@ -339,8 +364,11 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
 
       // Generate each step sequentially. Each one passes the user's prompt
       // for that step so the API can write the message to the user's intent.
+      // Skip the CR slot (i=0 when hasCR) — that body lives in connectionRequest,
+      // not in the numbered list.
       for (let i = 0; i < classified.length; i++) {
         if (failedLabel) break;
+        if (hasCR && i === 0) continue;
         stepIndex++;
         setGenProgress({ current: stepIndex, total: totalSteps, label: classified[i].label });
         const ft = stepToFieldType(classified[i].type);
@@ -582,12 +610,20 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         <div className="absolute left-5 top-8 bottom-8 w-0.5" style={{ backgroundColor: C.border }} />
 
         {classified.map((cls, i) => {
+          // Skip the CR slot (sequence[0] when hasCR) — it's rendered as the
+          // dedicated Connection Request card above, not as a numbered step.
+          if (hasCR && i === 0) return null;
           const meta = channelMeta[cls.channel] || channelMeta.linkedin;
           const Icon = meta.icon;
           const step = steps[i];
           const fieldType = stepToFieldType(cls.type);
           const isEmail = cls.hasSubject;
           const loadingKey = `${fieldType}:${i}`;
+          // Display number: when hasCR, sequence[1] is "Step 1" to the user.
+          const displayNum = hasCR ? i : i + 1;
+          // For reorder bounds, compute the first/last *renderable* indices.
+          const firstRenderableIdx = hasCR ? 1 : 0;
+          const lastRenderableIdx = classified.length - 1;
 
           return (
             <div key={i} className="relative flex gap-3 mb-3">
@@ -605,7 +641,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
               <div className="flex-1 rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
                 <div className="px-4 py-2.5 flex items-center gap-2 border-b"
                   style={{ borderColor: C.border, background: `${meta.color}06` }}>
-                  <span className="text-sm font-semibold shrink-0" style={{ color: C.textPrimary }}>Step {i + 1}</span>
+                  <span className="text-sm font-semibold shrink-0" style={{ color: C.textPrimary }}>Step {displayNum}</span>
                   <span className="text-[11px] font-medium px-1.5 py-0.5 rounded shrink-0" style={{ backgroundColor: `${meta.color}15`, color: meta.color }}>
                     {cls.label}
                   </span>
@@ -616,7 +652,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                         <button
                           type="button"
                           onClick={() => onReorderStep(i, i - 1)}
-                          disabled={i === 0}
+                          disabled={i <= firstRenderableIdx}
                           title="Move step up"
                           className="px-1.5 py-1 text-[11px] transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
                           style={{ backgroundColor: C.bg, color: C.textMuted, borderRight: `1px solid ${C.border}` }}
@@ -626,7 +662,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                         <button
                           type="button"
                           onClick={() => onReorderStep(i, i + 1)}
-                          disabled={i === classified.length - 1}
+                          disabled={i === lastRenderableIdx}
                           title="Move step down"
                           className="px-1.5 py-1 text-[11px] transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
                           style={{ backgroundColor: C.bg, color: C.textMuted }}
