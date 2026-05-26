@@ -51,15 +51,29 @@ export async function POST(req: NextRequest) {
   const rawMode = (prompts as any).callAdvanceMode;
   const callAdvanceMode: "auto" | "manual" = rawMode === "manual" ? "manual" : "auto";
 
+  // When sequence[0] is the LinkedIn day-0 invite, that entry IS the
+  // Connection Request — its body lives in channelMessages.connectionRequest
+  // (added below as step_number=0). The wizard reserves channelMessages.steps[0]
+  // as the matching CR slot (empty body). We must drop both from the followup
+  // arrays before writing campaign_messages so we don't end up with a phantom
+  // step_number=1 with an empty LinkedIn body that would try to send right
+  // after the CR is accepted. (Fran caught this on 2026-05-26 — 151 PE Spain
+  // campaigns had to be migrated in place.)
+  const hasCR = sequence[0]?.channel === "linkedin" && sequence[0]?.daysAfter === 0;
+  const followupSequence = hasCR ? sequence.slice(1) : sequence;
+
   // Support both old format (messages[]) and new format (channelMessages.steps[])
   let messages: { step: number; channel: string; subject?: string | null; body: string }[] = [];
   let autoReplies: { positive?: string; negative?: string } = {};
 
   if (prompts.channelMessages?.steps?.length > 0) {
-    // New structured format
-    messages = prompts.channelMessages.steps.map((s: any, i: number) => ({
+    // New structured format. Strip the CR slot in lockstep with the sequence
+    // so steps[i] aligns positionally with followupSequence[i].
+    const rawSteps = prompts.channelMessages.steps;
+    const followupSteps = hasCR ? rawSteps.slice(1) : rawSteps;
+    messages = followupSteps.map((s: any, i: number) => ({
       step: i + 1,
-      channel: s.channel ?? sequence[i]?.channel ?? "linkedin",
+      channel: s.channel ?? followupSequence[i]?.channel ?? "linkedin",
       subject: s.subject ?? null,
       body: s.body ?? "",
     }));
@@ -170,7 +184,9 @@ export async function POST(req: NextRequest) {
     // Per-lead seller: quota map takes precedence, then fallback single-seller.
     const sellerId = leadSellerMap.get(leadId) ?? fallbackSellerId;
 
-    // Determine the primary channel (first channel in sequence)
+    // Primary channel = the lead's first contact. When there's a CR, the
+    // invite itself is the first touch (LinkedIn). Otherwise it's whatever
+    // the seller picked first.
     const primaryChannel = sequence[0]?.channel ?? channels[0] ?? "linkedin";
 
     // Create campaign
@@ -183,7 +199,11 @@ export async function POST(req: NextRequest) {
         channel: primaryChannel,
         status: "active",
         current_step: 0,
-        sequence_steps: sequence,
+        // sequence_steps stores ONLY the numbered followups (no CR slot).
+        // The dispatcher looks up step config via sequence_steps[step_number - 1],
+        // so step 1 → followupSequence[0], step 2 → followupSequence[1], etc.
+        // step_number=0 (the CR) is handled specially in the dispatcher.
+        sequence_steps: followupSequence,
         call_advance_mode: callAdvanceMode,
         started_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
