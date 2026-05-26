@@ -219,58 +219,30 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   const isAiPromptOpen = (key: string, content: string | undefined | null) =>
     aiPromptOpen.has(key) || (content !== undefined && content !== null && content.length > 0);
 
-  // When sequence[0] is a LinkedIn day-0 step, it IS the Connection Request
-  // (the invite that opens the sequence — content lives in
-  // channelMessages.connectionRequest, NOT in the numbered step bodies).
-  // We hide it from the numbered list so the first followup the seller
-  // actually picked (e.g. their first email) renders as Step 1 — not the
-  // CR re-labelled "First DM (Post-Connection)". Before this fix the CR
-  // showed twice: once as the dedicated card above, once as numbered Step 1.
-  const hasCR = sequence[0]?.channel === "linkedin" && sequence[0]?.daysAfter === 0;
-  const followupSequence = hasCR ? sequence.slice(1) : sequence;
-  // Display index → real sequence index. channelMessages.steps[realIdx] stays
-  // positionally aligned with sequence[realIdx] for downstream dispatcher
-  // compatibility (steps[0] = CR slot, steps[1..] = followups).
-  const toRealIdx = (j: number) => hasCR ? j + 1 : j;
+  const classified = classifySteps(sequence);
 
-  const classified = classifySteps(followupSequence);
-
-  // Ensure steps array matches sequence (read at real index, not display index)
-  const steps = classified.map((cls, j) => channelMessages.steps?.[toRealIdx(j)] || {
+  // Ensure steps array matches sequence
+  const steps = classified.map((cls, i) => channelMessages.steps?.[i] || {
     type: cls.type, channel: cls.channel, label: cls.label, body: "", subject: cls.hasSubject ? "" : undefined,
   });
   const autoReplies = channelMessages.autoReplies || { positive: "", negative: "", question: "" };
 
-  function updateStep(displayIdx: number, field: "body" | "subject" | "user_prompt", value: string) {
-    const realIdx = toRealIdx(displayIdx);
-    // Build a fresh array indexed by real sequence position so the slot we
-    // write to lines up with sequence[realIdx], even when the CR offset
-    // means displayIdx 0 → realIdx 1.
-    const merged = sequence.map((_, i) => channelMessages.steps?.[i] || {
-      type: classified[i - (hasCR ? 1 : 0)]?.type ?? "UNKNOWN",
-      channel: sequence[i]?.channel ?? "linkedin",
-      label: classified[i - (hasCR ? 1 : 0)]?.label ?? "Message",
-      body: "",
-      subject: undefined,
-    });
-    merged[realIdx] = { ...merged[realIdx], [field]: value };
-    onChange({ ...channelMessages, steps: merged, autoReplies });
+  function updateStep(idx: number, field: "body" | "subject" | "user_prompt", value: string) {
+    const newSteps = [...steps];
+    newSteps[idx] = { ...newSteps[idx], [field]: value };
+    onChange({ ...channelMessages, steps: newSteps, autoReplies });
   }
 
   function updateAutoReply(field: keyof AutoReplies, value: string) {
     onChange({ ...channelMessages, steps, autoReplies: { ...autoReplies, [field]: value } });
   }
 
-  // AI generation per field. `displayIdx` is the user-visible step number
-  // (0-based on the followup list). We translate to realIdx (real sequence
-  // position) for steps lookups + storage so the CR slot (sequence[0] when
-  // hasCR) is preserved untouched.
-  async function generateField(fieldType: string, displayIdx?: number) {
-    const realIdx = displayIdx !== undefined ? toRealIdx(displayIdx) : undefined;
-    const key = `${fieldType}:${displayIdx ?? ""}`;
+  // AI generation per field
+  async function generateField(fieldType: string, idx?: number) {
+    const key = `${fieldType}:${idx ?? ""}`;
     setAiLoading(key);
     try {
-      const ch = displayIdx !== undefined ? classified[displayIdx]?.channel : "linkedin";
+      const ch = idx !== undefined ? classified[idx]?.channel : "linkedin";
       const userPrompt =
         fieldType === "connectionNote"
           ? (channelMessages.connectionRequestPrompt ?? "")
@@ -278,25 +250,19 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
             ? (channelMessages.autoReplies?.positivePrompt ?? "")
             : fieldType === "replyNegative"
               ? (channelMessages.autoReplies?.negativePrompt ?? "")
-              : realIdx !== undefined
-                ? (channelMessages.steps?.[realIdx]?.user_prompt ?? "")
+              : idx !== undefined
+                ? (channelMessages.steps?.[idx]?.user_prompt ?? "")
                 : "";
       const res = await fetch("/api/campaigns/generate-field", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ channel: ch || "linkedin", fieldType, idx: realIdx, leadId, icpProfileId, language, signals, user_prompt: userPrompt, sequence_meta: sequence }),
+        body: JSON.stringify({ channel: ch || "linkedin", fieldType, idx, leadId, icpProfileId, language, signals, user_prompt: userPrompt, sequence_meta: sequence }),
       });
       const data = await res.json();
       if (data.content) {
-        // Build fresh steps array indexed by REAL sequence position to avoid
-        // stale closures and to keep the CR slot (sequence[0] when hasCR)
-        // untouched by per-step writes.
-        const currentSteps = sequence.map((_, i) => channelMessages.steps?.[i] || {
-          type: classified[i - (hasCR ? 1 : 0)]?.type ?? "UNKNOWN",
-          channel: sequence[i]?.channel ?? "linkedin",
-          label: classified[i - (hasCR ? 1 : 0)]?.label ?? "Message",
-          body: "",
-          subject: undefined,
+        // Build fresh steps from current channelMessages to avoid stale closures
+        const currentSteps = classified.map((cls, i) => channelMessages.steps?.[i] || {
+          type: cls.type, channel: cls.channel, label: cls.label, body: "", subject: cls.hasSubject ? "" : undefined,
         });
         const currentReplies = channelMessages.autoReplies || { positive: "", negative: "", question: "" };
 
@@ -307,11 +273,11 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           // wizard internally consistent with the 200-char textarea maxLength.
           const trimmed = clampToCharBudget(data.content, 200);
           onChange({ ...channelMessages, connectionRequest: trimmed, steps: currentSteps, autoReplies: currentReplies });
-        } else if (realIdx !== undefined) {
-          currentSteps[realIdx] = {
-            ...currentSteps[realIdx],
+        } else if (idx !== undefined) {
+          currentSteps[idx] = {
+            ...currentSteps[idx],
             body: data.content,
-            subject: data.subject || currentSteps[realIdx]?.subject,
+            subject: data.subject || currentSteps[idx]?.subject,
           };
           onChange({ ...channelMessages, steps: currentSteps, autoReplies: currentReplies });
         } else {
@@ -345,14 +311,9 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
     let failedLabel: string | null = null;
 
     try {
-      // Build working copy of steps indexed by REAL sequence position so the
-      // CR slot (sequence[0] when hasCR) doesn't collide with followup writes.
-      const allSteps = sequence.map((_, i) => channelMessages.steps?.[i] || {
-        type: classified[i - (hasCR ? 1 : 0)]?.type ?? "UNKNOWN",
-        channel: sequence[i]?.channel ?? "linkedin",
-        label: classified[i - (hasCR ? 1 : 0)]?.label ?? "Message",
-        body: "",
-        subject: undefined,
+      // Build working copy of steps
+      const allSteps = classified.map((cls, i) => channelMessages.steps?.[i] || {
+        type: cls.type, channel: cls.channel, label: cls.label, body: "", subject: cls.hasSubject ? "" : undefined,
       });
       let replies = { ...(channelMessages.autoReplies || { positive: "", negative: "", question: "" }) };
 
@@ -376,30 +337,28 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         }
       }
 
-      // Generate each followup sequentially. j is the display index (0-based
-      // over followups), realIdx is the actual sequence position the result
-      // gets stored at.
-      for (let j = 0; j < classified.length; j++) {
+      // Generate each step sequentially. Each one passes the user's prompt
+      // for that step so the API can write the message to the user's intent.
+      for (let i = 0; i < classified.length; i++) {
         if (failedLabel) break;
-        const realIdx = toRealIdx(j);
         stepIndex++;
-        setGenProgress({ current: stepIndex, total: totalSteps, label: classified[j].label });
-        const ft = stepToFieldType(classified[j].type);
-        const stepUserPrompt = channelMessages.steps?.[realIdx]?.user_prompt ?? "";
+        setGenProgress({ current: stepIndex, total: totalSteps, label: classified[i].label });
+        const ft = stepToFieldType(classified[i].type);
+        const stepUserPrompt = channelMessages.steps?.[i]?.user_prompt ?? "";
         try {
           const res = await fetch("/api/campaigns/generate-field", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ channel: classified[j].channel, fieldType: ft, idx: realIdx, leadId, icpProfileId, language, signals, user_prompt: stepUserPrompt, sequence_meta: sequence }),
+            body: JSON.stringify({ channel: classified[i].channel, fieldType: ft, idx: i, leadId, icpProfileId, language, signals, user_prompt: stepUserPrompt, sequence_meta: sequence }),
           });
-          if (!res.ok) throw new Error(classified[j].label);
+          if (!res.ok) throw new Error(classified[i].label);
           const data = await res.json();
           if (data.content) {
-            allSteps[realIdx] = { ...allSteps[realIdx], body: data.content, subject: data.subject || allSteps[realIdx]?.subject };
+            allSteps[i] = { ...allSteps[i], body: data.content, subject: data.subject || allSteps[i]?.subject };
             onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
           }
         } catch {
-          failedLabel = classified[j].label;
+          failedLabel = classified[i].label;
         }
       }
 
@@ -622,17 +581,13 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         {/* Vertical line */}
         <div className="absolute left-5 top-8 bottom-8 w-0.5" style={{ backgroundColor: C.border }} />
 
-        {classified.map((cls, j) => {
-          // j = display index over followups; i = real sequence position.
-          // We keep `i` as the canonical index for callbacks the parent owns
-          // (reorder, attachments) and for storage on channelMessages.steps.
-          const i = toRealIdx(j);
+        {classified.map((cls, i) => {
           const meta = channelMeta[cls.channel] || channelMeta.linkedin;
           const Icon = meta.icon;
-          const step = steps[j];
+          const step = steps[i];
           const fieldType = stepToFieldType(cls.type);
           const isEmail = cls.hasSubject;
-          const loadingKey = `${fieldType}:${j}`;
+          const loadingKey = `${fieldType}:${i}`;
 
           return (
             <div key={i} className="relative flex gap-3 mb-3">
@@ -650,7 +605,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
               <div className="flex-1 rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
                 <div className="px-4 py-2.5 flex items-center gap-2 border-b"
                   style={{ borderColor: C.border, background: `${meta.color}06` }}>
-                  <span className="text-sm font-semibold shrink-0" style={{ color: C.textPrimary }}>Step {j + 1}</span>
+                  <span className="text-sm font-semibold shrink-0" style={{ color: C.textPrimary }}>Step {i + 1}</span>
                   <span className="text-[11px] font-medium px-1.5 py-0.5 rounded shrink-0" style={{ backgroundColor: `${meta.color}15`, color: meta.color }}>
                     {cls.label}
                   </span>
@@ -661,7 +616,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                         <button
                           type="button"
                           onClick={() => onReorderStep(i, i - 1)}
-                          disabled={j === 0}
+                          disabled={i === 0}
                           title="Move step up"
                           className="px-1.5 py-1 text-[11px] transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
                           style={{ backgroundColor: C.bg, color: C.textMuted, borderRight: `1px solid ${C.border}` }}
@@ -671,7 +626,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                         <button
                           type="button"
                           onClick={() => onReorderStep(i, i + 1)}
-                          disabled={j === classified.length - 1}
+                          disabled={i === classified.length - 1}
                           title="Move step down"
                           className="px-1.5 py-1 text-[11px] transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
                           style={{ backgroundColor: C.bg, color: C.textMuted }}
@@ -685,7 +640,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                       style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}>
                       {expanded.has(`step-${i}`) ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
                     </button>
-                    <button onClick={() => generateField(fieldType, j)} disabled={!!aiLoading}
+                    <button onClick={() => generateField(fieldType, i)} disabled={!!aiLoading}
                       title="Draft this step's copy with AI from the lead's enrichment + your tone of voice"
                       className="flex items-center gap-1.5 rounded-md px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-[opacity,box-shadow] disabled:opacity-50 hover:shadow-sm"
                       style={{
@@ -726,7 +681,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                             backgroundColor: showWarning ? `${C.red}08` : C.bg,
                           }}
                           value={step?.subject || ""}
-                          onChange={e => updateStep(j, "subject", e.target.value)}
+                          onChange={e => updateStep(i, "subject", e.target.value)}
                           placeholder={inlinePlaceholders.subject}
                         />
                       </div>
@@ -741,7 +696,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                     className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
                     style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
                     value={step?.body || ""}
-                    onChange={e => updateStep(j, "body", e.target.value)}
+                    onChange={e => updateStep(i, "body", e.target.value)}
                     placeholder={typeDescriptions[cls.type] || inlinePlaceholders.fallback}
                     title={typeDescriptions[cls.type] || ""}
                   />
@@ -764,7 +719,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                           backgroundColor: `color-mix(in srgb, ${gold} 2%, var(--c-bg))`,
                         }}
                         value={step?.user_prompt ?? ""}
-                        onChange={e => updateStep(j, "user_prompt", e.target.value)}
+                        onChange={e => updateStep(i, "user_prompt", e.target.value)}
                         placeholder={typePlaceholders[cls.type] || t("wiz.step.promptHelperPlaceholder")}
                       />
                     </div>
