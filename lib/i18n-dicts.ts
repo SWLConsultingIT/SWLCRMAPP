@@ -505,6 +505,10 @@ export const en: Dict = {
   "dashx.detail.seller.camp.title": "Campaigns assigned",
   "dashx.detail.seller.camp.subtitle": "Performance for every campaign this rep owns",
   "dashx.detail.seller.camp.empty": "No campaigns assigned yet.",
+  // Branding footer
+  "dashx.brand.captionMain": "Live metrics · never cached",
+  "dashx.brand.captionDetail": "Drill-down analytics · live data",
+  "dashx.brand.tagline": "GrowthAI · Sales Engine",
 };
 
 export const es: Dict = {
@@ -1010,6 +1014,10 @@ export const es: Dict = {
   "dashx.detail.seller.camp.title": "Campañas asignadas",
   "dashx.detail.seller.camp.subtitle": "Performance de cada campaña que tiene asignada",
   "dashx.detail.seller.camp.empty": "Sin campañas asignadas todavía.",
+  // Branding footer
+  "dashx.brand.captionMain": "Métricas en vivo · nunca cacheadas",
+  "dashx.brand.captionDetail": "Drill-down analytics · datos en vivo",
+  "dashx.brand.tagline": "GrowthAI · Sales Engine",
 };
 
 export const dicts: Record<Locale, Dict> = { en, es };

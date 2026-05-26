@@ -19,6 +19,7 @@ import KpiCard from "@/components/dashboard/KpiCard";
 import MultiLineChart from "@/components/dashboard/MultiLineChart";
 import Heatmap from "@/components/dashboard/Heatmap";
 import Donut from "@/components/dashboard/Donut";
+import SwlSignature from "@/components/dashboard/SwlSignature";
 
 const gold = "var(--brand, #c9a83a)";
 const POSITIVE_CLASS = new Set(["positive", "meeting_intent"]);
@@ -494,6 +495,8 @@ export default async function SellerDetailPage({ params }: { params: Promise<{ i
           </table>
         </Panel>
       </section>
+
+      <SwlSignature caption={t("dashx.brand.captionDetail")} tagline={t("dashx.brand.tagline")} />
     </div>
   );
 }

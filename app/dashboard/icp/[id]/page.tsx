@@ -26,6 +26,7 @@ import Donut from "@/components/dashboard/Donut";
 import Heatmap from "@/components/dashboard/Heatmap";
 import InlineSpark from "@/components/dashboard/InlineSpark";
 import StepPerformance from "@/components/dashboard/StepPerformance";
+import SwlSignature from "@/components/dashboard/SwlSignature";
 
 const gold = "var(--brand, #c9a83a)";
 const POSITIVE_CLASS = new Set(["positive", "meeting_intent"]);
@@ -591,6 +592,8 @@ export default async function IcpDetailPage({ params }: { params: Promise<{ id: 
           </table>
         </Panel>
       </section>
+
+      <SwlSignature caption={t("dashx.brand.captionDetail")} tagline={t("dashx.brand.tagline")} />
     </div>
   );
 }

@@ -22,6 +22,7 @@ import ReliabilityBanner from "@/components/ReliabilityBanner";
 import PageHero from "@/components/PageHero";
 import FiltersBar from "@/components/dashboard/FiltersBar";
 import FreshnessChip from "@/components/dashboard/FreshnessChip";
+import SwlSignature from "@/components/dashboard/SwlSignature";
 import KpiCard from "@/components/dashboard/KpiCard";
 import Funnel from "@/components/dashboard/Funnel";
 import MultiLineChart from "@/components/dashboard/MultiLineChart";
@@ -598,6 +599,8 @@ export default async function DashboardPage({
           </table>
         </Panel>
       </section>
+
+      <SwlSignature caption={t("dashx.brand.captionMain")} tagline={t("dashx.brand.tagline")} />
     </div>
   );
 }

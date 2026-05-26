@@ -52,6 +52,10 @@
     radial-gradient(ellipse 45% 55% at 96% 88%,  rgba(37,99,235,0.03)   0%, transparent 55%),
     radial-gradient(ellipse 35% 35% at 75% 10%,  rgba(26,127,116,0.025) 0%, transparent 50%),
     #F7F8FB;
+
+  /* SWL signature logo: source PNG is white-on-transparent (designed for the
+     dark sidebar). On the light content surface we invert it to dark glyph. */
+  --swl-logo-filter: brightness(0) opacity(0.62);
 }
 
 /* ─── Design tokens — dark ─── */
@@ -93,6 +97,10 @@
     radial-gradient(ellipse 45% 55% at 96% 88%,  rgba(37,99,235,0.04)  0%, transparent 55%),
     radial-gradient(ellipse 35% 35% at 75% 10%,  rgba(26,127,116,0.02) 0%, transparent 50%),
     #0B0F1A;
+
+  /* In dark mode the logo PNG is already designed to be visible on dark surfaces;
+     skip the inversion but keep it slightly faded so it doesn't fight the content. */
+  --swl-logo-filter: brightness(0) invert(1) opacity(0.55);
 }
 
 * { box-sizing: border-box; }
