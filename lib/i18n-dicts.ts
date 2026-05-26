@@ -526,6 +526,8 @@ export const en: Dict = {
   "dashx.heat.unitSends": "sends",
   "dashx.heat.legendMin": "Less",
   "dashx.heat.legendMax": "More",
+  "dashx.donut.centerReplies": "replies",
+  "dashx.donut.empty": "No replies in the period",
 };
 
 export const es: Dict = {
@@ -1052,6 +1054,8 @@ export const es: Dict = {
   "dashx.heat.unitSends": "envíos",
   "dashx.heat.legendMin": "Menos",
   "dashx.heat.legendMax": "Más",
+  "dashx.donut.centerReplies": "respuestas",
+  "dashx.donut.empty": "Sin respuestas en el período",
 };
 
 export const dicts: Record<Locale, Dict> = { en, es };

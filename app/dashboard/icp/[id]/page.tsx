@@ -438,7 +438,7 @@ export default async function IcpDetailPage({ params }: { params: Promise<{ id: 
         </Panel>
         <Panel title={t("dashx.detail.icp.donut.title")} subtitle={t("dashx.detail.icp.donut.subtitle")} className="lg:col-span-5">
           {donutSlices.length > 0 ? (
-            <Donut data={donutSlices} />
+            <Donut data={donutSlices} centerLabel={t("dashx.donut.centerReplies")} emptyLabel={t("dashx.donut.empty")} />
           ) : (
             <div className="py-10 text-center text-[12px]" style={{ color: C.textMuted }}>{t("dashx.detail.icp.donut.empty")}</div>
           )}

@@ -413,7 +413,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         </Panel>
         <Panel title={t("dashx.detail.campaign.donut.title")} subtitle={t("dashx.detail.campaign.donut.subtitle")} className="lg:col-span-5">
           {donutSlices.length > 0
-            ? <Donut data={donutSlices} />
+            ? <Donut data={donutSlices} centerLabel={t("dashx.donut.centerReplies")} emptyLabel={t("dashx.donut.empty")} />
             : <div className="py-10 text-center text-[12px]" style={{ color: C.textMuted }}>{t("dashx.detail.campaign.donut.empty")}</div>}
         </Panel>
       </section>

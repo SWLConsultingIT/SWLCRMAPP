@@ -355,7 +355,7 @@ export default async function DashboardPage({
           </Panel>
           {/* Donut — 3 cols */}
           <Panel title={t("dashx.donut.title")} subtitle={t("dashx.donut.subtitle")} className="lg:col-span-4">
-            <Donut data={donutSlices} />
+            <Donut data={donutSlices} centerLabel={t("dashx.donut.centerReplies")} emptyLabel={t("dashx.donut.empty")} />
           </Panel>
           {/* Insights — 4 cols */}
           <Panel title={t("dashx.insights.title")} subtitle={t("dashx.insights.subtitle")} className="lg:col-span-3">
