@@ -384,14 +384,14 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
 
       {/* Split pane — fixed height so the inner list + thread can scroll
           independently without growing the page. The list panel collapses
-          when the seller wants the thread full-width (toggled via the
-          chevron in the thread header, sticky in sessionStorage). */}
-      <div
-        className={`grid grid-cols-1 h-[78vh] ${listCollapsed ? "md:grid-cols-[0_1fr]" : "md:grid-cols-[minmax(300px,2fr)_3fr]"}`}
-        style={{ transition: "grid-template-columns 200ms ease" }}
-      >
+          via flex layout when the seller wants the thread full-width
+          (previous grid-based collapse hid the toggle button along with the
+          panel, leaving sellers unable to bring the list back — Fran caught
+          this on 2026-05-26). Flex layout means the thread always flex-1's
+          regardless of whether the list pane is rendered. */}
+      <div className="flex flex-col md:flex-row h-[78vh]">
         {/* List */}
-        <div className={`border-b md:border-b-0 md:border-r overflow-hidden flex flex-col ${listCollapsed ? "md:hidden" : ""}`} style={{ borderColor: C.border }}>
+        <div className={`${listCollapsed ? "hidden md:hidden" : "flex"} border-b md:border-b-0 md:border-r overflow-hidden flex-col md:w-[42%] md:min-w-[300px]`} style={{ borderColor: C.border }}>
           {/* Search */}
           <div className="px-3 py-2 border-b" style={{ borderColor: C.border }}>
             <div className="relative">
@@ -543,23 +543,39 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
         </div>
 
         {/* Thread / detail */}
-        <div className="flex flex-col overflow-hidden">
+        <div className="flex flex-col overflow-hidden flex-1 relative">
+          {/* List toggle — ALWAYS rendered in the top-left so the seller can
+              re-open a collapsed list even when no reply is selected (the
+              old placement inside the `selected ?` branch hid the button
+              and stranded sellers — Fran caught this 2026-05-26). */}
+          {listCollapsed && (
+            <button
+              type="button"
+              onClick={toggleListCollapsed}
+              title="Mostrar lista"
+              className="absolute top-3 left-3 z-10 w-8 h-8 rounded-lg flex items-center justify-center transition-opacity hover:opacity-85 border shadow-sm"
+              style={{ borderColor: C.border, backgroundColor: C.card, color: C.textMuted }}
+            >
+              <PanelLeftOpen size={14} />
+            </button>
+          )}
           {selected ? (
             <>
               <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: C.border, background: `linear-gradient(180deg, color-mix(in srgb, ${channelColor(selected.channel)} 4%, transparent), transparent)` }}>
                 <div className="flex items-start gap-3 flex-1 min-w-0">
-                  {/* List toggle — opens/closes the left panel so the seller
-                      can extend the thread to full width. Persisted in
-                      sessionStorage; defaults open. */}
-                  <button
-                    type="button"
-                    onClick={toggleListCollapsed}
-                    title={listCollapsed ? "Mostrar lista" : "Ocultar lista"}
-                    className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-opacity hover:opacity-85 border"
-                    style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textMuted }}
-                  >
-                    {listCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
-                  </button>
+                  {/* Hide-list toggle — only when list is expanded. Reopen
+                      lives outside the conditional (top-left floating). */}
+                  {!listCollapsed && (
+                    <button
+                      type="button"
+                      onClick={toggleListCollapsed}
+                      title="Ocultar lista"
+                      className="hidden md:flex w-8 h-8 rounded-lg items-center justify-center shrink-0 transition-opacity hover:opacity-85 border"
+                      style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textMuted }}
+                    >
+                      <PanelLeftClose size={14} />
+                    </button>
+                  )}
                   {(() => {
                     const ac = avatarColor(selected.leadName);
                     return (
