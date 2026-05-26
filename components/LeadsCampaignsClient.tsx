@@ -11,7 +11,7 @@ import {
   Building2, Users as UsersIcon, MapPin, Globe, MessageCircle, ThumbsUp, Trophy,
 } from "lucide-react";
 import { LeadFilterBar, type LeadFilterState } from "@/components/LeadFilters";
-import OpportunitiesTable, { type OpportunityLead } from "@/components/OpportunitiesTable";
+import { type OpportunityLead } from "@/components/OpportunitiesTable";
 import { useToast } from "@/lib/toast";
 
 const gold = "var(--brand, #c9a83a)";
@@ -246,6 +246,167 @@ function LostLeadCard({ lead, selected, onToggle }: { lead: LostLead; selected: 
           <RefreshCw size={12} />
           Renurture — Create New Campaign
         </Link>
+      </div>
+    </div>
+  );
+}
+
+// ─── Won Lead Card (mirrors LostLeadCard layout, green palette) ─────────────
+// Same scaffolding as LostLeadCard so Won and Lost feel like a single
+// vocabulary. Only differences are: kind-specific badge (days-to-convert +
+// transferred), green border / green quote tint, no select checkbox, no
+// renurture footer (won leads don't get re-nurtured).
+function WonLeadCard({ lead }: { lead: OpportunityLead }) {
+  const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Unknown";
+  const badge = scoreBadge(lead.score, lead.is_priority);
+  const progress = lead.total_steps > 0 ? Math.round((lead.steps_to_convert / lead.total_steps) * 100) : 0;
+
+  return (
+    <div className="rounded-xl border overflow-hidden transition-shadow hover:shadow-md group/card"
+      style={{
+        backgroundColor: C.card,
+        borderLeftWidth: 3, borderLeftColor: C.green,
+      }}>
+      <Link href={`/opportunities/${lead.campaign_id ?? lead.id}`} className="block p-4 group">
+        {/* Lead info */}
+        <div className="flex items-start gap-3 mb-3">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+            style={{ background: `linear-gradient(135deg, ${C.green}, #34D399)`, color: "#fff" }}>
+            {((lead.company ?? name)[0] ?? "?").toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-bold group-hover:underline" style={{ color: C.textPrimary }}>{name}</span>
+              {lead.is_priority && <Star size={10} fill={gold} stroke={gold} />}
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: badge.bg, color: badge.color }}>{badge.label}</span>
+            </div>
+            <p className="text-xs" style={{ color: C.textMuted }}>
+              {lead.role ? `${lead.role} · ` : ""}{lead.company ?? "—"}
+            </p>
+          </div>
+          {/* Status badge (transferred / pending) */}
+          {lead.transferred ? (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-md shrink-0"
+              style={{ backgroundColor: C.greenLight, color: C.green }}>
+              <Trophy size={9} /> In CRM
+            </span>
+          ) : (
+            <span className="text-[10px] font-bold px-2.5 py-1 rounded-md shrink-0"
+              style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}>
+              Pending Transfer
+            </span>
+          )}
+        </div>
+
+        {/* Win reply text */}
+        {lead.win_text && (
+          <div className="rounded-lg px-3 py-2.5 mb-3 border" style={{ backgroundColor: C.greenLight, borderColor: C.green + "30" }}>
+            <p className="text-[10px] font-semibold mb-0.5" style={{ color: C.green }}>Their response:</p>
+            <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>&ldquo;{lead.win_text}&rdquo;</p>
+            {lead.win_date && (
+              <p className="text-[9px] mt-1" style={{ color: C.textDim }}>{timeAgo(lead.win_date)}</p>
+            )}
+          </div>
+        )}
+
+        {/* Campaign details */}
+        <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: C.bg, borderColor: C.border }}>
+          <div className="flex items-center gap-4 text-[10px] flex-wrap" style={{ color: C.textMuted }}>
+            {lead.campaign_name && (
+              <span><span className="font-semibold" style={{ color: C.textBody }}>Campaign:</span> {lead.campaign_name}</span>
+            )}
+            {lead.profile_name && (
+              <span><span className="font-semibold" style={{ color: C.textBody }}>Profile:</span> {lead.profile_name}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-4 mt-2 text-[10px]" style={{ color: C.textDim }}>
+            {lead.days_to_convert != null && (
+              <span>Days to convert: <span className="font-bold tabular-nums" style={{ color: gold }}>{lead.days_to_convert}</span></span>
+            )}
+            {lead.total_steps > 0 && (
+              <span>Steps: <span className="font-bold" style={{ color: C.textBody }}>{lead.steps_to_convert}/{lead.total_steps}</span></span>
+            )}
+            <span>Channels: <span className="font-bold" style={{ color: C.textBody }}>{lead.channels.join(", ") || "—"}</span></span>
+          </div>
+          {/* Progress bar */}
+          {lead.total_steps > 0 && (
+            <div className="flex items-center gap-2 mt-2">
+              <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
+                <div className="h-1.5 rounded-full" style={{ width: `${progress}%`, backgroundColor: C.green }} />
+              </div>
+              <span className="text-[9px] tabular-nums" style={{ color: C.textDim }}>{progress}% completed</span>
+            </div>
+          )}
+        </div>
+      </Link>
+    </div>
+  );
+}
+
+// ─── Won View ────────────────────────────────────────────────────────────────
+function WonView({ leads }: { leads: OpportunityLead[] }) {
+  const [search, setSearch] = useState("");
+  const [profileFilter, setProfileFilter] = useState("all");
+  const [transferFilter, setTransferFilter] = useState<"all" | "yes" | "no">("all");
+
+  const profileNames = [...new Set(leads.map(l => l.profile_name).filter(Boolean))] as string[];
+
+  const filtered = leads.filter(l => {
+    if (search) {
+      const q = search.toLowerCase();
+      if (!`${l.first_name} ${l.last_name} ${l.company} ${l.campaign_name}`.toLowerCase().includes(q)) return false;
+    }
+    if (profileFilter !== "all" && l.profile_name !== profileFilter) return false;
+    if (transferFilter === "yes" && !l.transferred) return false;
+    if (transferFilter === "no" && l.transferred) return false;
+    return true;
+  });
+
+  const selectStyle = { color: C.textPrimary, backgroundColor: C.bg, border: `1px solid ${C.border}` };
+
+  if (leads.length === 0) {
+    return (
+      <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <Trophy size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
+        <p className="text-sm font-medium" style={{ color: C.textBody }}>No opportunities yet</p>
+        <p className="text-xs mt-1" style={{ color: C.textMuted }}>
+          Wins show up here when a lead replies positively or a call gets classified as Positive.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full">
+      {/* Filters bar (same shape as Lost view) */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5 flex-1 min-w-[200px] max-w-md"
+          style={{ borderColor: C.border, backgroundColor: C.card }}>
+          <Search size={14} style={{ color: C.textDim }} />
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search opportunities..." className="bg-transparent text-sm outline-none flex-1"
+            style={{ color: C.textPrimary }} />
+          {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
+        </div>
+        {profileNames.length > 1 && (
+          <select value={profileFilter} onChange={e => setProfileFilter(e.target.value)}
+            className="rounded-lg px-3 py-1.5 text-xs" style={selectStyle}>
+            <option value="all">All Profiles</option>
+            {profileNames.map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+        )}
+        <select value={transferFilter} onChange={e => setTransferFilter(e.target.value as "all" | "yes" | "no")}
+          className="rounded-lg px-3 py-1.5 text-xs" style={selectStyle}>
+          <option value="all">All Status</option>
+          <option value="yes">Transferred</option>
+          <option value="no">Pending Transfer</option>
+        </select>
+        <span className="text-xs" style={{ color: C.textMuted }}>{filtered.length} results</span>
+      </div>
+
+      {/* Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {filtered.map(l => <WonLeadCard key={l.id} lead={l} />)}
       </div>
     </div>
   );
@@ -1504,7 +1665,7 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
                   );
                 })}
               </div>
-              {resultsSubview === "won" && <OpportunitiesTable leads={wonLeads} />}
+              {resultsSubview === "won" && <WonView leads={wonLeads} />}
               {resultsSubview === "lost" && <LostLeadsView leads={lostLeads} />}
               {resultsSubview === "renurturing" && <RenurturingView leads={renurturingLeads} />}
             </div>
