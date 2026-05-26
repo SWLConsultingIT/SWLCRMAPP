@@ -198,9 +198,13 @@ export async function GET(
         const at = (msg?.timestamp as string | undefined) ?? (msg?.created_at as string | undefined);
         if (!at) continue;
         // Unipile flags whether the sender is the connected account ("us").
+        // Critical: Unipile returns `is_sender` as a numeric 0/1, NOT a
+        // boolean — `=== true` always fails and the message gets mis-attributed
+        // to the lead. Fran caught this on 2026-05-26 (Diego Acosta thread
+        // showed our outbound intro labelled as "Diego Acosta replied").
         const isFromUs =
-          msg?.is_sender === true ||
-          msg?.from_me === true ||
+          msg?.is_sender === true || msg?.is_sender === 1 ||
+          msg?.from_me === true || msg?.from_me === 1 ||
           (typeof msg?.sender_id === "string" && msg.sender_id === unipileAccountId);
         // De-dupe inbound messages by text+timestamp (within 60s) against
         // what we already have, since lead_replies stores reply_text but not
