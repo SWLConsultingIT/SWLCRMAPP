@@ -514,6 +514,18 @@ export const en: Dict = {
   "dashx.brand.captionMain": "Live metrics · never cached",
   "dashx.brand.captionDetail": "Drill-down analytics · live data",
   "dashx.brand.tagline": "GrowthAI · Sales Engine",
+  // Heatmap labels (days + tooltip unit + legend)
+  "dashx.day.sun": "Sun",
+  "dashx.day.mon": "Mon",
+  "dashx.day.tue": "Tue",
+  "dashx.day.wed": "Wed",
+  "dashx.day.thu": "Thu",
+  "dashx.day.fri": "Fri",
+  "dashx.day.sat": "Sat",
+  "dashx.heat.unitReplies": "replies",
+  "dashx.heat.unitSends": "sends",
+  "dashx.heat.legendMin": "Less",
+  "dashx.heat.legendMax": "More",
 };
 
 export const es: Dict = {
@@ -1028,6 +1040,18 @@ export const es: Dict = {
   "dashx.brand.captionMain": "Métricas en vivo · nunca cacheadas",
   "dashx.brand.captionDetail": "Drill-down analytics · datos en vivo",
   "dashx.brand.tagline": "GrowthAI · Sales Engine",
+  // Heatmap labels (days + tooltip unit + legend)
+  "dashx.day.sun": "Dom",
+  "dashx.day.mon": "Lun",
+  "dashx.day.tue": "Mar",
+  "dashx.day.wed": "Mié",
+  "dashx.day.thu": "Jue",
+  "dashx.day.fri": "Vie",
+  "dashx.day.sat": "Sáb",
+  "dashx.heat.unitReplies": "respuestas",
+  "dashx.heat.unitSends": "envíos",
+  "dashx.heat.legendMin": "Menos",
+  "dashx.heat.legendMax": "Más",
 };
 
 export const dicts: Record<Locale, Dict> = { en, es };

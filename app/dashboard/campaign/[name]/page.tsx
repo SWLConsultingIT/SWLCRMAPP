@@ -46,7 +46,7 @@ type CampRow = {
   completed_at: string | null;
   stop_reason: string | null;
   paused_until: string | null;
-  leads: { id: string; primary_first_name: string | null; primary_last_name: string | null; primary_title: string | null; company_name: string | null; status: string | null; icp_profile_id: string | null; company_bio_id: string } | { id: string; primary_first_name: string | null; primary_last_name: string | null; primary_title: string | null; company_name: string | null; status: string | null; icp_profile_id: string | null; company_bio_id: string }[];
+  leads: { id: string; primary_first_name: string | null; primary_last_name: string | null; primary_title_role: string | null; company_name: string | null; status: string | null; icp_profile_id: string | null; company_bio_id: string } | { id: string; primary_first_name: string | null; primary_last_name: string | null; primary_title_role: string | null; company_name: string | null; status: string | null; icp_profile_id: string | null; company_bio_id: string }[];
 };
 type ReplyRow = { id: string; lead_id: string | null; campaign_id: string | null; classification: string | null; channel: string | null; received_at: string | null };
 type MsgRow = { id: string; campaign_id: string | null; step_number: number | null; status: string | null; sent_at: string | null; channel: string | null };
@@ -57,7 +57,7 @@ async function loadCampaignDetail(name: string) {
   const bioId = scope.isScoped ? scope.companyBioId! : null;
 
   const campsQ = supabase.from("campaigns")
-    .select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, created_at, started_at, completed_at, stop_reason, paused_until, leads!inner(id, primary_first_name, primary_last_name, primary_title, company_name, status, icp_profile_id, company_bio_id)")
+    .select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, created_at, started_at, completed_at, stop_reason, paused_until, leads!inner(id, primary_first_name, primary_last_name, primary_title_role, company_name, status, icp_profile_id, company_bio_id)")
     .eq("name", name);
   const { data: campRaw } = bioId
     ? await campsQ.eq("leads.company_bio_id", bioId)
@@ -241,7 +241,7 @@ async function loadCampaignDetail(name: string) {
       campaignId: c.id,
       leadId: c.lead_id,
       name: `${l?.primary_first_name ?? ""} ${l?.primary_last_name ?? ""}`.trim() || "—",
-      title: l?.primary_title ?? null,
+      title: l?.primary_title_role ?? null,
       company: l?.company_name ?? null,
       step: c.current_step ?? 0,
       status: c.status ?? "",
@@ -422,7 +422,13 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
       <section>
         <SectionHeader icon={Clock} title={t("dashx.detail.campaign.heat.title")} subtitle={t("dashx.detail.campaign.heat.subtitle")} />
         <Panel>
-          <Heatmap matrix={d.heatmap} />
+          <Heatmap
+            matrix={d.heatmap}
+            days={["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map(dy => t(`dashx.day.${dy}`))}
+            unitLabel={t("dashx.heat.unitReplies")}
+            legendMin={t("dashx.heat.legendMin")}
+            legendMax={t("dashx.heat.legendMax")}
+          />
         </Panel>
       </section>
 

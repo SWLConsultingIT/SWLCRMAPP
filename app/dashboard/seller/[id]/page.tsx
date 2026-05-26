@@ -364,10 +364,22 @@ export default async function SellerDetailPage({ params }: { params: Promise<{ i
       {/* ─── Send vs Reply timing heatmaps side-by-side ────────── */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <Panel title={t("dashx.detail.seller.sendHeat.title")} subtitle={t("dashx.detail.seller.sendHeat.subtitle")}>
-          <Heatmap matrix={d.sendHeatmap} />
+          <Heatmap
+            matrix={d.sendHeatmap}
+            days={["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map(dy => t(`dashx.day.${dy}`))}
+            unitLabel={t("dashx.heat.unitSends")}
+            legendMin={t("dashx.heat.legendMin")}
+            legendMax={t("dashx.heat.legendMax")}
+          />
         </Panel>
         <Panel title={t("dashx.detail.seller.replyHeat.title")} subtitle={t("dashx.detail.seller.replyHeat.subtitle")}>
-          <Heatmap matrix={d.replyHeatmap} />
+          <Heatmap
+            matrix={d.replyHeatmap}
+            days={["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map(dy => t(`dashx.day.${dy}`))}
+            unitLabel={t("dashx.heat.unitReplies")}
+            legendMin={t("dashx.heat.legendMin")}
+            legendMax={t("dashx.heat.legendMax")}
+          />
         </Panel>
       </section>
 

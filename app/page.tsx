@@ -411,7 +411,13 @@ export default async function DashboardPage({
             ]} />
           </Panel>
           <Panel title={t("dashx.heat.title")} subtitle={t("dashx.heat.subtitle")} className="lg:col-span-5">
-            <Heatmap matrix={data.heatmap} />
+            <Heatmap
+              matrix={data.heatmap}
+              days={["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map(d => t(`dashx.day.${d}`))}
+              unitLabel={t("dashx.heat.unitReplies")}
+              legendMin={t("dashx.heat.legendMin")}
+              legendMax={t("dashx.heat.legendMax")}
+            />
           </Panel>
         </div>
       </section>

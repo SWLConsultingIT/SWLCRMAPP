@@ -54,7 +54,7 @@ type LeadRow = {
   company_name: string | null;
   primary_first_name: string | null;
   primary_last_name: string | null;
-  primary_title: string | null;
+  primary_title_role: string | null;
   created_at: string | null;
 };
 type CampRow = { id: string; name: string; status: string | null; channel: string | null; lead_id: string | null; current_step: number | null; sequence_steps: unknown; seller_id: string | null };
@@ -76,7 +76,7 @@ async function loadIcpDetail(icpId: string) {
   const profile = prof as IcpRow;
 
   const { data: leadsRaw } = await supabase.from("leads")
-    .select("id, status, lead_score, company_name, primary_first_name, primary_last_name, primary_title, created_at")
+    .select("id, status, lead_score, company_name, primary_first_name, primary_last_name, primary_title_role, created_at")
     .eq("icp_profile_id", icpId)
     .order("lead_score", { ascending: false });
   const leads = (leadsRaw ?? []) as LeadRow[];
@@ -270,7 +270,7 @@ async function loadIcpDetail(icpId: string) {
   const topLeads = leads.slice(0, 12).map(l => ({
     id: l.id,
     name: `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || "—",
-    title: l.primary_title,
+    title: l.primary_title_role,
     company: l.company_name,
     score: l.lead_score ?? 0,
     status: l.status,
@@ -455,7 +455,13 @@ export default async function IcpDetailPage({ params }: { params: Promise<{ id: 
           ]} />
         </Panel>
         <Panel title={t("dashx.detail.icp.heat.title")} subtitle={t("dashx.detail.icp.heat.subtitle")} className="lg:col-span-5">
-          <Heatmap matrix={d.heatmap} />
+          <Heatmap
+            matrix={d.heatmap}
+            days={["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map(dy => t(`dashx.day.${dy}`))}
+            unitLabel={t("dashx.heat.unitReplies")}
+            legendMin={t("dashx.heat.legendMin")}
+            legendMax={t("dashx.heat.legendMax")}
+          />
         </Panel>
       </section>
 
