@@ -17,6 +17,7 @@ import { C } from "@/lib/design";
 import { getUserScope } from "@/lib/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getDashboardData } from "@/lib/dashboard-data";
+import { getT, getServerLocale } from "@/lib/i18n-server";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
 import PageHero from "@/components/PageHero";
 import FiltersBar from "@/components/dashboard/FiltersBar";
@@ -32,26 +33,46 @@ import StepPerformance from "@/components/dashboard/StepPerformance";
 
 const gold = "var(--brand, #c9a83a)";
 
-const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-  linkedin: { icon: Share2,        color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,          color: "#059669", label: "Email" },
-  call:     { icon: Phone,         color: "#EA580C", label: "Llamadas" },
-  whatsapp: { icon: Smartphone,    color: "#25D366", label: "WhatsApp" },
+const channelMeta: Record<string, { icon: React.ElementType; color: string; labelKey: string }> = {
+  linkedin: { icon: Share2,        color: "#0A66C2", labelKey: "dashx.ch.linkedin" },
+  email:    { icon: Mail,          color: "#059669", labelKey: "dashx.ch.email" },
+  call:     { icon: Phone,         color: "#EA580C", labelKey: "dashx.ch.call" },
+  whatsapp: { icon: Smartphone,    color: "#25D366", labelKey: "dashx.ch.whatsapp" },
 };
 
-const classColors: Record<string, { label: string; color: string }> = {
-  positive:       { label: "Positiva",      color: "#16A34A" },
-  meeting_intent: { label: "Meeting intent",color: "#059669" },
-  negative:       { label: "Negativa",      color: "#DC2626" },
-  not_now:        { label: "Not now",       color: "#F59E0B" },
-  unsubscribe:    { label: "Unsubscribe",   color: "#9CA3AF" },
-  needs_info:     { label: "Necesita info", color: "#7C3AED" },
-  question:       { label: "Pregunta",      color: "#0A66C2" },
-  nurturing:      { label: "Nurturing",     color: "#6B7280" },
-  spam:           { label: "Spam",          color: "#374151" },
-  auto_reply:     { label: "Auto-reply",    color: "#94A3B8" },
-  unclassified:   { label: "Sin clasificar",color: "#9CA3AF" },
+// Reply classification labels are locale-driven; the translation key is
+// composed at render time from `dashx.reply.<class>`. Falls back to the raw
+// key (which i18n returns when missing), so a new class added on the AI side
+// shows up untranslated rather than crashing the dashboard.
+const classColors: Record<string, string> = {
+  positive:       "#16A34A",
+  meeting_intent: "#059669",
+  negative:       "#DC2626",
+  not_now:        "#F59E0B",
+  unsubscribe:    "#9CA3AF",
+  needs_info:     "#7C3AED",
+  question:       "#0A66C2",
+  nurturing:      "#6B7280",
+  spam:           "#374151",
+  auto_reply:     "#94A3B8",
+  unclassified:   "#9CA3AF",
 };
+
+/** Maps the dashboard-data funnel stage labels to translation keys. Data
+ * layer returns them in Spanish for legacy reasons; this resolves them to
+ * locale-agnostic keys consumed by the dashx.funnel.stage.* dict entries. */
+function stageKey(label: string): string {
+  const map: Record<string, string> = {
+    "Importados": "imported",
+    "Contactados": "contacted",
+    "Aceptaron": "accepted",
+    "Respondieron": "replied",
+    "Positivos": "positive",
+    "Reunión": "meeting",
+    "Ganados": "won",
+  };
+  return map[label] ?? "";
+}
 
 function parseFilters(sp: Record<string, string | string[] | undefined>) {
   const get = (k: string) => {
@@ -104,27 +125,33 @@ export default async function DashboardPage({
   const sp = await searchParams;
   const filters = parseFilters(sp);
   const bioId = scope.isScoped ? scope.companyBioId! : null;
-  const [data, options] = await Promise.all([
+  const [data, options, t, locale] = await Promise.all([
     getDashboardData(filters),
     loadFilterOptions(bioId),
+    getT(),
+    getServerLocale(),
   ]);
+  const dateLoc = locale === "es" ? "es-AR" : "en-US";
 
   const { headline, deltas, trend30d } = data;
 
-  // Reply classification → donut data
+  // Reply classification → donut data. Labels come from the locale dict so
+  // the donut speaks the user's language; falls back to the raw class string
+  // when the key is missing (resilient to AI-side schema drift).
   const donutSlices = Object.entries(data.replyClassCounts)
     .filter(([, v]) => v > 0)
     .map(([k, v]) => ({
-      label: classColors[k]?.label ?? k,
+      label: t(`dashx.reply.${k}`) === `dashx.reply.${k}` ? k : t(`dashx.reply.${k}`),
       value: v,
-      color: classColors[k]?.color ?? "#9CA3AF",
+      color: classColors[k] ?? "#9CA3AF",
     }))
     .sort((a, b) => b.value - a.value);
 
-  // Compact period label for the hero
+  // Compact period label for the hero. Locale-aware date formatting matches
+  // the user's chosen interface language.
   const periodLabel = filters.from && filters.to
-    ? `${new Date(filters.from).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })} – ${new Date(filters.to).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}`
-    : `Últimos ${data.period.days} días`;
+    ? `${new Date(filters.from).toLocaleDateString(dateLoc, { day: "2-digit", month: "short" })} – ${new Date(filters.to).toLocaleDateString(dateLoc, { day: "2-digit", month: "short" })}`
+    : t("dashx.period.last", { n: data.period.days });
 
   // True when any filter (campaign / icp / seller) is active beyond the default
   // period. Drives the "differentiated empty state" copy in tables — "no data"
@@ -142,9 +169,9 @@ export default async function DashboardPage({
 
       <PageHero
         icon={TrendingUp}
-        section="Sales Engine"
-        title="Tu pipeline, en profundidad"
-        description="De la empresa entera a campañas, ICPs y sellers. Hacé clic en cualquier fila para abrir el detalle con gráficos."
+        section={t("dashx.hero.section")}
+        title={t("dashx.hero.title")}
+        description={t("dashx.hero.desc")}
         accentColor={gold}
         status={{ label: periodLabel, active: true }}
         action={(
@@ -155,7 +182,7 @@ export default async function DashboardPage({
               className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-opacity hover:opacity-85 whitespace-nowrap"
               style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`, color: "#04070d", boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 28%, transparent)` }}
             >
-              <FileDown size={13} /> Descargar PDF
+              <FileDown size={13} /> {t("dashx.hero.download")}
             </Link>
           </div>
         )}
@@ -175,66 +202,66 @@ export default async function DashboardPage({
           <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>
             <span className="inline-flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#0A66C2" }} />
-              Leading <span style={{ color: C.textDim }}>· señales tempranas</span>
+              {t("dashx.kpi.leading")} <span style={{ color: C.textDim }}>· {t("dashx.kpi.leadingHint")}</span>
             </span>
             <span style={{ color: C.textDim }}>|</span>
             <span className="inline-flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: C.green }} />
-              Lagging <span style={{ color: C.textDim }}>· resultado final</span>
+              {t("dashx.kpi.lagging")} <span style={{ color: C.textDim }}>· {t("dashx.kpi.laggingHint")}</span>
             </span>
           </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <KpiCard
-            label="Contactados"
-            value={headline.contactedLeads.toLocaleString("es-AR")}
+            label={t("dashx.kpi.contacted")}
+            value={headline.contactedLeads.toLocaleString(dateLoc)}
             delta={deltas.contacted}
             trend={trend30d.sent}
             icon={Send}
             accent="#0A66C2"
-            hint="Leading · CRs/intros enviadas"
+            hint={t("dashx.kpi.contactedHint")}
           />
           <KpiCard
-            label="Aceptaron CR"
+            label={t("dashx.kpi.acceptCR")}
             value={`${headline.acceptanceRate}%`}
             icon={ChevronsRight}
             accent="#0A66C2"
-            hint={`Leading · ${headline.connectedLeads.toLocaleString("es-AR")} aceptaron`}
+            hint={t("dashx.kpi.acceptCRHint", { n: headline.connectedLeads.toLocaleString(dateLoc) })}
           />
           <KpiCard
-            label="Respuestas"
-            value={headline.repliedCount.toLocaleString("es-AR")}
+            label={t("dashx.kpi.replies")}
+            value={headline.repliedCount.toLocaleString(dateLoc)}
             delta={deltas.replied}
             trend={trend30d.replies}
             icon={MessageSquare}
             accent="#7C3AED"
-            hint={`Leading · ${headline.responseRate}% tasa`}
+            hint={t("dashx.kpi.repliesHint", { n: headline.responseRate })}
             href="/queue?tab=inbox"
           />
           <KpiCard
-            label="Positivas"
-            value={headline.positiveCount.toLocaleString("es-AR")}
+            label={t("dashx.kpi.positives")}
+            value={headline.positiveCount.toLocaleString(dateLoc)}
             delta={deltas.positive}
             trend={trend30d.positive}
             icon={ThumbsUp}
             accent={C.green}
-            hint={`Lagging · ${headline.positiveRate}% de respuestas`}
+            hint={t("dashx.kpi.positivesHint", { n: headline.positiveRate })}
             href="/opportunities"
           />
           <KpiCard
-            label="Reuniones"
-            value={headline.meetingCount.toLocaleString("es-AR")}
+            label={t("dashx.kpi.meetings")}
+            value={headline.meetingCount.toLocaleString(dateLoc)}
             icon={Target}
             accent="#F59E0B"
-            hint="Lagging · leads qualified"
+            hint={t("dashx.kpi.meetingsHint")}
             href="/opportunities"
           />
           <KpiCard
-            label="Ganados"
-            value={headline.wonCount.toLocaleString("es-AR")}
+            label={t("dashx.kpi.wins")}
+            value={headline.wonCount.toLocaleString(dateLoc)}
             icon={Trophy}
             accent="#DC2626"
-            hint={`Lagging · ${data.velocity.winRate}% win rate`}
+            hint={t("dashx.kpi.winsHint", { n: data.velocity.winRate })}
           />
         </div>
       </section>
@@ -246,34 +273,34 @@ export default async function DashboardPage({
           <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x" style={{ borderColor: C.border, color: C.border }}>
             <VelocityStat
               icon={Sparkles}
-              label="Velocity"
+              label={t("dashx.vel.velocity")}
               value={`${data.velocity.perDay}`}
-              unit="positivas/día"
-              hint="A velocidad actual"
+              unit={t("dashx.vel.velocityUnit")}
+              hint={t("dashx.vel.velocityHint")}
               tone="brand"
             />
             <VelocityStat
               icon={Target}
-              label="Pronóstico fin de mes"
+              label={t("dashx.vel.forecast")}
               value={`${data.velocity.forecastMonthEnd}`}
-              unit="positivas extra"
-              hint="Proyectado al ritmo actual"
+              unit={t("dashx.vel.forecastUnit")}
+              hint={t("dashx.vel.forecastHint")}
               tone="brand"
             />
             <VelocityStat
               icon={Clock}
-              label="Tiempo a 1ª respuesta"
+              label={t("dashx.vel.ttfr")}
               value={data.velocity.medianTimeToReplyMin === null ? "—" : formatMinutes(data.velocity.medianTimeToReplyMin)}
-              unit="mediana"
-              hint="Desde el primer mensaje"
+              unit={t("dashx.vel.ttfrUnit")}
+              hint={t("dashx.vel.ttfrHint")}
               tone="neutral"
             />
             <VelocityStat
               icon={Trophy}
-              label="Win rate"
+              label={t("dashx.vel.winrate")}
               value={`${data.velocity.winRate}%`}
-              unit="de contactados"
-              hint="Ganados / contactados"
+              unit={t("dashx.vel.winrateUnit")}
+              hint={t("dashx.vel.winrateHint")}
               tone="success"
             />
           </div>
@@ -285,33 +312,33 @@ export default async function DashboardPage({
         <div className="rounded-2xl border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.card }}>
           <div className="px-4 py-2.5 border-b flex items-center gap-2" style={{ borderColor: C.border }}>
             <Activity size={12} style={{ color: C.textMuted }} />
-            <h3 className="text-[12px] font-semibold" style={{ color: C.textPrimary }}>Salud del motor</h3>
-            <span className="text-[11px]" style={{ color: C.textMuted }}>· señales operativas que no aparecen en KPIs</span>
+            <h3 className="text-[12px] font-semibold" style={{ color: C.textPrimary }}>{t("dashx.health.title")}</h3>
+            <span className="text-[11px]" style={{ color: C.textMuted }}>· {t("dashx.health.subtitle")}</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: C.border }}>
             <HealthStat
-              label="Saturación"
+              label={t("dashx.health.sat")}
               value={data.health.saturationRate === null ? "—" : `${data.health.saturationRate}%`}
-              unit={data.health.saturationRate === null ? "n insuf." : "secuencias completas sin reply"}
+              unit={data.health.saturationRate === null ? t("dashx.insuf") : t("dashx.health.satUnit")}
               hint={data.health.saturationRate === null
-                ? "Necesitás ≥5 secuencias terminadas"
-                : `${data.health.saturatedCount} campañas quemaron toda la secuencia sin respuesta`}
+                ? t("dashx.health.satInsuf")
+                : t("dashx.health.satHint", { n: data.health.saturatedCount })}
               tone={data.health.saturationRate !== null && data.health.saturationRate >= 60 ? "warning" : "neutral"}
             />
             <HealthStat
-              label="Pipeline en riesgo"
+              label={t("dashx.health.risk")}
               value={`${data.health.atRiskCount}`}
-              unit="campañas frenadas"
-              hint="Pausadas o activas sin envío en 7d"
+              unit={t("dashx.health.riskUnit")}
+              hint={t("dashx.health.riskHint")}
               tone={data.health.atRiskCount >= 5 ? "warning" : "neutral"}
             />
             <HealthStat
-              label="Canal mismatch"
+              label={t("dashx.health.mismatch")}
               value={data.health.channelMismatchRate === null ? "—" : `${data.health.channelMismatchRate}%`}
-              unit={data.health.channelMismatchRate === null ? "n insuf." : "respondieron por otro canal"}
+              unit={data.health.channelMismatchRate === null ? t("dashx.insuf") : t("dashx.health.mismatchUnit")}
               hint={data.health.channelMismatchRate === null
-                ? "Necesitás ≥10 respuestas con canal"
-                : `${data.health.mismatchCount} leads prefirieron otro canal — señal de preferencia del ICP`}
+                ? t("dashx.health.mismatchInsuf")
+                : t("dashx.health.mismatchHint", { n: data.health.mismatchCount })}
               tone="neutral"
             />
           </div>
@@ -322,18 +349,18 @@ export default async function DashboardPage({
       <section>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
           {/* Funnel — 5 cols */}
-          <Panel title="Embudo de conversión" subtitle="Drop-off etapa por etapa" className="lg:col-span-5">
-            <Funnel stages={data.funnel} />
+          <Panel title={t("dashx.funnel.title")} subtitle={t("dashx.funnel.subtitle")} className="lg:col-span-5">
+            <Funnel stages={data.funnel.map(s => ({ ...s, stage: t(`dashx.funnel.stage.${stageKey(s.stage)}`) || s.stage }))} />
           </Panel>
           {/* Donut — 3 cols */}
-          <Panel title="Clasificación de respuestas" subtitle="Distribución del período" className="lg:col-span-4">
+          <Panel title={t("dashx.donut.title")} subtitle={t("dashx.donut.subtitle")} className="lg:col-span-4">
             <Donut data={donutSlices} />
           </Panel>
           {/* Insights — 4 cols */}
-          <Panel title="Insights" subtitle="Movimientos detectados" className="lg:col-span-3">
+          <Panel title={t("dashx.insights.title")} subtitle={t("dashx.insights.subtitle")} className="lg:col-span-3">
             {data.insights.length === 0 ? (
               <div className="text-xs py-6 text-center" style={{ color: C.textDim }}>
-                Sin movimientos llamativos en el período.
+                {t("dashx.insights.empty")}
               </div>
             ) : (
               <div className="space-y-2">
@@ -358,31 +385,31 @@ export default async function DashboardPage({
 
       {/* ─── ICP × Channel matrix — the high-leverage comparison ──────── */}
       <section>
-        <SectionHeader icon={Target} title="ICP × Canal" subtitle="Reply rate por combinación · color por z-score · click para drill-down" />
+        <SectionHeader icon={Target} title={t("dashx.matrix.title")} subtitle={t("dashx.matrix.subtitle")} />
         <Panel>
-          <IcpChannelMatrix matrix={data.matrix} />
+          <IcpChannelMatrix matrix={data.matrix} locale={locale} />
         </Panel>
       </section>
 
       {/* ─── Step performance — which step of the sequence kills the funnel? ─ */}
       <section>
-        <SectionHeader icon={ChevronsRight} title="Performance por paso" subtitle="Reply rate por step de la secuencia · identificá el mensaje débil" />
+        <SectionHeader icon={ChevronsRight} title={t("dashx.step.title")} subtitle={t("dashx.step.subtitle")} />
         <Panel>
-          <StepPerformance steps={data.stepPerformance} />
+          <StepPerformance steps={data.stepPerformance} locale={locale} />
         </Panel>
       </section>
 
       {/* ─── Trend chart + heatmap in a 7/5 split ───────────────────────── */}
       <section>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-          <Panel title="Actividad 30 días" subtitle="Enviados · respuestas · positivas" className="lg:col-span-7">
+          <Panel title={t("dashx.trend.title")} subtitle={t("dashx.trend.subtitle")} className="lg:col-span-7">
             <MultiLineChart series={[
-              { name: "Enviados",   color: "#0A66C2", data: trend30d.sent },
-              { name: "Respuestas", color: "#7C3AED", data: trend30d.replies },
-              { name: "Positivas",  color: C.green,    data: trend30d.positive },
+              { name: t("dashx.trend.sent"),      color: "#0A66C2", data: trend30d.sent },
+              { name: t("dashx.trend.replies"),   color: "#7C3AED", data: trend30d.replies },
+              { name: t("dashx.trend.positives"), color: C.green,    data: trend30d.positive },
             ]} />
           </Panel>
-          <Panel title="¿Cuándo responden los leads?" subtitle="Día × hora — mediana del período" className="lg:col-span-5">
+          <Panel title={t("dashx.heat.title")} subtitle={t("dashx.heat.subtitle")} className="lg:col-span-5">
             <Heatmap matrix={data.heatmap} />
           </Panel>
         </div>
@@ -390,13 +417,14 @@ export default async function DashboardPage({
 
       {/* ─── Performance per channel — compact card row ─────────────────── */}
       <section>
-        <SectionHeader icon={Send} title="Performance por canal" subtitle="Volumen y conversión por canal de outreach" />
+        <SectionHeader icon={Send} title={t("dashx.channels.title")} subtitle={t("dashx.channels.subtitle")} />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {data.channelBreakdown.length === 0 ? (
-            <EmptyHint>Sin actividad por canal todavía.</EmptyHint>
+            <EmptyHint>{t("dashx.channels.empty")}</EmptyHint>
           ) : data.channelBreakdown.map(ch => {
-            const meta = channelMeta[ch.channel] ?? { icon: Share2, color: C.textMuted, label: ch.channel };
+            const meta = channelMeta[ch.channel] ?? { icon: Share2, color: C.textMuted, labelKey: "" };
             const Icon = meta.icon;
+            const channelLabel = meta.labelKey ? t(meta.labelKey) : ch.channel;
             return (
               <div key={ch.channel} className="rounded-xl border p-3.5 transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-md"
                 style={{ borderColor: C.border, backgroundColor: C.card, borderLeft: `3px solid ${meta.color}` }}>
@@ -406,18 +434,18 @@ export default async function DashboardPage({
                       style={{ backgroundColor: `color-mix(in srgb, ${meta.color} 14%, transparent)`, color: meta.color }}>
                       <Icon size={13} />
                     </span>
-                    <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{meta.label}</span>
+                    <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{channelLabel}</span>
                   </div>
                   <span className="text-[10px] tabular-nums font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                     style={{ backgroundColor: `color-mix(in srgb, ${meta.color} 12%, transparent)`, color: meta.color }}>
-                    {ch.responseRate}% RESP
+                    {ch.responseRate}% {t("dashx.channels.respShort")}
                   </span>
                 </div>
                 <div className="grid grid-cols-4 gap-2 text-xs">
-                  <Stat label="Env." value={ch.sent} />
-                  <Stat label="Cont." value={ch.contacted} />
-                  <Stat label="Resp." value={ch.replied} />
-                  <Stat label="Pos." value={ch.positive} accent={C.green} />
+                  <Stat label={t("dashx.channels.sent")} value={ch.sent} />
+                  <Stat label={t("dashx.channels.contacted")} value={ch.contacted} />
+                  <Stat label={t("dashx.channels.replied")} value={ch.replied} />
+                  <Stat label={t("dashx.channels.positive")} value={ch.positive} accent={C.green} />
                 </div>
               </div>
             );
@@ -427,34 +455,34 @@ export default async function DashboardPage({
 
       {/* ─── Tables: ICP / Campaigns / Sellers — all with inline sparklines ── */}
       <section>
-        <SectionHeader icon={Target} title="Comparativo de ICPs" subtitle="Qué perfil ideal convierte mejor · clic para detalle" />
+        <SectionHeader icon={Target} title={t("dashx.tbl.icp.title")} subtitle={t("dashx.tbl.icp.subtitle")} />
         <Panel>
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
-                <Th align="left">ICP</Th>
-                <Th align="right">Leads</Th>
-                <Th align="right">Cont.</Th>
-                <Th align="right">Resp.</Th>
-                <Th align="right">Pos.</Th>
-                <Th align="right">Resp %</Th>
-                <Th align="right">Conv %</Th>
-                <Th align="left">Tendencia 14d</Th>
+                <Th align="left">{t("dashx.tbl.col.icp")}</Th>
+                <Th align="right">{t("dashx.tbl.col.leads")}</Th>
+                <Th align="right">{t("dashx.tbl.col.contacted")}</Th>
+                <Th align="right">{t("dashx.tbl.col.replied")}</Th>
+                <Th align="right">{t("dashx.tbl.col.positive")}</Th>
+                <Th align="right">{t("dashx.tbl.col.respPct")}</Th>
+                <Th align="right">{t("dashx.tbl.col.convPct")}</Th>
+                <Th align="left">{t("dashx.tbl.col.trend14")}</Th>
                 <Th align="left" style={{ width: 24 }}></Th>
               </tr>
             </thead>
             <tbody>
               {data.icpPerformance.length === 0 ? (
-                <tr><td colSpan={9} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kind="ICPs" /></td></tr>
+                <tr><td colSpan={9} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="icps" t={t} /></td></tr>
               ) : data.icpPerformance.map((icp, idx) => (
                 <tr key={icp.id} className="border-t hover:bg-black/[0.02] transition-colors group" style={{ borderColor: C.border }}>
                   <Td>
                     <div className="flex items-center gap-2">
-                      <TopRankDot rank={idx} />
+                      <TopRankDot rank={idx} t={t} />
                       {icp.id !== "_unknown" ? (
                         <Link href={`/dashboard/icp/${icp.id}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{icp.name}</Link>
                       ) : (
-                        <span style={{ color: C.textMuted }}>{icp.name}</span>
+                        <span style={{ color: C.textMuted }}>{t("dashx.tbl.icp.unknown")}</span>
                       )}
                     </div>
                   </Td>
@@ -474,31 +502,31 @@ export default async function DashboardPage({
       </section>
 
       <section>
-        <SectionHeader icon={Megaphone} title="Comparativo de campañas" subtitle="Performance por secuencia · clic para drill-down" />
+        <SectionHeader icon={Megaphone} title={t("dashx.tbl.camp.title")} subtitle={t("dashx.tbl.camp.subtitle")} />
         <Panel>
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
-                <Th align="left">Campaña</Th>
-                <Th align="left">Canales</Th>
-                <Th align="right">Leads</Th>
-                <Th align="right">Env.</Th>
-                <Th align="right">Resp.</Th>
-                <Th align="right">Pos.</Th>
-                <Th align="right">Conv %</Th>
-                <Th align="left">Estado</Th>
-                <Th align="left">Tendencia 14d</Th>
+                <Th align="left">{t("dashx.tbl.col.campaign")}</Th>
+                <Th align="left">{t("dashx.tbl.col.channels")}</Th>
+                <Th align="right">{t("dashx.tbl.col.leads")}</Th>
+                <Th align="right">{t("dashx.tbl.col.sent")}</Th>
+                <Th align="right">{t("dashx.tbl.col.replied")}</Th>
+                <Th align="right">{t("dashx.tbl.col.positive")}</Th>
+                <Th align="right">{t("dashx.tbl.col.convPct")}</Th>
+                <Th align="left">{t("dashx.tbl.col.status")}</Th>
+                <Th align="left">{t("dashx.tbl.col.trend14")}</Th>
                 <Th align="left" style={{ width: 24 }}></Th>
               </tr>
             </thead>
             <tbody>
               {data.campaignPerformance.length === 0 ? (
-                <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kind="campañas" /></td></tr>
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="campaigns" t={t} /></td></tr>
               ) : data.campaignPerformance.map((c, idx) => (
                 <tr key={c.name} className="border-t hover:bg-black/[0.02] transition-colors group" style={{ borderColor: C.border }}>
                   <Td>
                     <div className="flex items-center gap-2">
-                      <TopRankDot rank={idx} />
+                      <TopRankDot rank={idx} t={t} />
                       <Link href={`/dashboard/campaign/${encodeURIComponent(c.name)}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{c.name}</Link>
                     </div>
                   </Td>
@@ -516,7 +544,7 @@ export default async function DashboardPage({
                   <NumCell value={c.replied} />
                   <NumCell value={c.positive} accent={c.positive > 0 ? C.green : undefined} bold />
                   <RateCell value={c.conversionRate} color={C.green} />
-                  <td className="px-3 py-2"><StatusBadge status={c.status} /></td>
+                  <td className="px-3 py-2"><StatusBadge status={c.status} t={t} /></td>
                   <td className="px-3 py-2"><InlineSpark data={c.spark} color="#0A66C2" /></td>
                   <td className="pr-3" style={{ color: C.textDim }}><Link href={`/dashboard/campaign/${encodeURIComponent(c.name)}`} className="inline-flex"><ArrowRight size={12} /></Link></td>
                 </tr>
@@ -527,26 +555,26 @@ export default async function DashboardPage({
       </section>
 
       <section>
-        <SectionHeader icon={Trophy} title="Leaderboard de sellers" subtitle="Quién está moviendo el pipeline · clic para detalle" />
+        <SectionHeader icon={Trophy} title={t("dashx.tbl.seller.title")} subtitle={t("dashx.tbl.seller.subtitle")} />
         <Panel>
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
                 <Th align="left" style={{ width: 28 }}>#</Th>
-                <Th align="left">Seller</Th>
-                <Th align="right">Activas</Th>
-                <Th align="right">Cont.</Th>
-                <Th align="right">Env.</Th>
-                <Th align="right">Resp.</Th>
-                <Th align="right">Pos.</Th>
-                <Th align="right">Conv %</Th>
-                <Th align="left">Tendencia 14d</Th>
+                <Th align="left">{t("dashx.tbl.col.seller")}</Th>
+                <Th align="right">{t("dashx.tbl.col.active")}</Th>
+                <Th align="right">{t("dashx.tbl.col.contacted")}</Th>
+                <Th align="right">{t("dashx.tbl.col.sent")}</Th>
+                <Th align="right">{t("dashx.tbl.col.replied")}</Th>
+                <Th align="right">{t("dashx.tbl.col.positive")}</Th>
+                <Th align="right">{t("dashx.tbl.col.convPct")}</Th>
+                <Th align="left">{t("dashx.tbl.col.trend14")}</Th>
                 <Th align="left" style={{ width: 24 }}></Th>
               </tr>
             </thead>
             <tbody>
               {data.sellerPerformance.length === 0 ? (
-                <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kind="sellers" /></td></tr>
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="sellers" t={t} /></td></tr>
               ) : data.sellerPerformance.map((s, idx) => (
                 <tr key={s.id} className="border-t hover:bg-black/[0.02] transition-colors" style={{ borderColor: C.border }}>
                   <Td>
@@ -646,18 +674,19 @@ function RateCell({ value, color }: { value: number; color: string }) {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { color: string; label: string }> = {
-    active:    { color: C.green, label: "Activa" },
-    paused:    { color: "#D97706", label: "Pausada" },
-    completed: { color: "#6B7280", label: "Cerrada" },
+function StatusBadge({ status, t }: { status: string; t: (k: string) => string }) {
+  const map: Record<string, { color: string; key: string }> = {
+    active:    { color: C.green,   key: "dashx.tbl.status.active" },
+    paused:    { color: "#D97706", key: "dashx.tbl.status.paused" },
+    completed: { color: "#6B7280", key: "dashx.tbl.status.completed" },
   };
-  const s = map[status] ?? { color: C.textMuted, label: status };
+  const s = map[status] ?? { color: C.textMuted, key: "" };
+  const label = s.key ? t(s.key) : status;
   return (
     <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
       style={{ backgroundColor: `color-mix(in srgb, ${s.color} 12%, transparent)`, color: s.color }}>
       {status === "active" && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: s.color }} />}
-      {s.label}
+      {label}
     </span>
   );
 }
@@ -694,33 +723,34 @@ function VelocityStat({
 /** Small gold dot marking the row's primary ranking position. Only rendered
  * for `rank === 0` — the visual marker for the period's top performer. Kept
  * subtle on purpose: skim-ability win without competing with the row content. */
-function TopRankDot({ rank }: { rank: number }) {
+function TopRankDot({ rank, t }: { rank: number; t: (k: string) => string }) {
   if (rank !== 0) return <span className="inline-block w-1.5 shrink-0" />;
   return (
     <span
       className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
       style={{ background: gold, boxShadow: `0 0 0 2px color-mix(in srgb, ${gold} 18%, transparent)` }}
-      title="Top performer del período"
-      aria-label="Top performer"
+      title={t("dashx.tbl.top")}
+      aria-label={t("dashx.tbl.top")}
     />
   );
 }
 
 /** Differentiated empty state for tables — separates "no data ever" from "no
  * data with these filters". The latter has a clear CTA back to a fresh view. */
-function EmptyTableState({ filtered, kind }: { filtered: boolean; kind: string }) {
+function EmptyTableState({ filtered, kindKey, t }: { filtered: boolean; kindKey: "icps" | "campaigns" | "sellers"; t: (k: string, vars?: Record<string, string | number>) => string }) {
+  const kind = t(`dashx.tbl.empty.${kindKey}`);
   if (filtered) {
     return (
       <div className="flex flex-col items-center gap-1.5">
-        <span style={{ color: C.textMuted }}>Sin {kind} para los filtros actuales.</span>
+        <span style={{ color: C.textMuted }}>{t("dashx.tbl.empty.filtered", { kind })}</span>
         <Link href="/" className="text-[10px] font-semibold uppercase tracking-wider transition-opacity hover:opacity-70"
           style={{ color: gold }}>
-          Limpiar filtros
+          {t("dashx.tbl.empty.clearFilters")}
         </Link>
       </div>
     );
   }
-  return <span style={{ color: C.textMuted }}>Sin actividad de {kind} en el período.</span>;
+  return <span style={{ color: C.textMuted }}>{t("dashx.tbl.empty.unfiltered", { kind })}</span>;
 }
 
 /** Compact stat tile used inside the "Salud del motor" strip. Same density

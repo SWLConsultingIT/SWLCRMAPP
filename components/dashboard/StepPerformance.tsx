@@ -12,6 +12,7 @@
 
 import { AlertTriangle } from "lucide-react";
 import { C } from "@/lib/design";
+import { t as tFn, type Locale } from "@/lib/i18n-server";
 
 type Step = {
   step: number;
@@ -22,16 +23,18 @@ type Step = {
 
 const gold = "var(--brand, #c9a83a)";
 
-export default function StepPerformance({ steps }: { steps: Step[] }) {
+export default function StepPerformance({ steps, locale }: { steps: Step[]; locale: Locale }) {
+  const t = (k: string, vars?: Record<string, string | number>) => tFn(locale, k, vars);
+
   if (steps.length === 0) {
     return (
       <div className="py-8 text-center text-[12px]" style={{ color: C.textMuted }}>
-        Sin mensajes enviados en el período.
+        {t("dashx.step.empty")}
       </div>
     );
   }
 
-  const labelFor = (n: number) => n === 0 ? "Paso 1 — Connection / Intro" : `Paso ${n + 1} — Follow-up`;
+  const labelFor = (n: number) => n === 0 ? t("dashx.step.cr") : t("dashx.step.followup", { n: n + 1 });
   const maxSent = Math.max(...steps.map(s => s.sent), 1);
   const maxRate = Math.max(...steps.map(s => s.replyRate ?? 0), 1);
 
@@ -52,10 +55,10 @@ export default function StepPerformance({ steps }: { steps: Step[] }) {
     <div className="space-y-2">
       {/* Column header */}
       <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-        <span>Paso de la secuencia</span>
-        <span className="text-right w-16">Enviados</span>
-        <span className="text-right w-16">Resp.</span>
-        <span className="text-right w-12">Rate</span>
+        <span>{t("dashx.step.colStep")}</span>
+        <span className="text-right w-16">{t("dashx.step.colSent")}</span>
+        <span className="text-right w-16">{t("dashx.step.colReplied")}</span>
+        <span className="text-right w-12">{t("dashx.step.colRate")}</span>
       </div>
       {steps.map(s => {
         const sentPct = (s.sent / maxSent) * 100;
@@ -72,7 +75,7 @@ export default function StepPerformance({ steps }: { steps: Step[] }) {
                 {isDrop && (
                   <span className="inline-flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-sm"
                     style={{ background: `color-mix(in srgb, ${C.red} 12%, transparent)`, color: C.red }}>
-                    <AlertTriangle size={9} /> Drop
+                    <AlertTriangle size={9} /> {t("dashx.step.drop")}
                   </span>
                 )}
               </div>
@@ -94,7 +97,7 @@ export default function StepPerformance({ steps }: { steps: Step[] }) {
         );
       })}
       <div className="px-1 pt-1 text-[10px]" style={{ color: C.textDim }}>
-        Reply attribution: cada respuesta se asigna al último step enviado antes de su llegada. Pasos con &lt;5 envíos muestran "—".
+        {t("dashx.step.note")}
       </div>
     </div>
   );

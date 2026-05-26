@@ -13,13 +13,14 @@
 import Link from "next/link";
 import { Share2, Mail, Phone, Smartphone, MessageSquare } from "lucide-react";
 import { C } from "@/lib/design";
+import { t as tFn, type Locale } from "@/lib/i18n-server";
 
-const channelMeta: Record<string, { Icon: React.ElementType; label: string }> = {
-  linkedin: { Icon: Share2,        label: "LinkedIn" },
-  email:    { Icon: Mail,          label: "Email" },
-  call:     { Icon: Phone,         label: "Llamada" },
-  whatsapp: { Icon: Smartphone,    label: "WhatsApp" },
-  sms:      { Icon: MessageSquare, label: "SMS" },
+const channelMeta: Record<string, { Icon: React.ElementType; key: string }> = {
+  linkedin: { Icon: Share2,        key: "dashx.ch.linkedin" },
+  email:    { Icon: Mail,          key: "dashx.ch.email" },
+  call:     { Icon: Phone,         key: "dashx.ch.call" },
+  whatsapp: { Icon: Smartphone,    key: "dashx.ch.whatsapp" },
+  sms:      { Icon: MessageSquare, key: "dashx.ch.linkedin" }, // no SMS dict key yet; fallback to channel id
 };
 
 type Matrix = {
@@ -39,14 +40,16 @@ type Matrix = {
 
 const gold = "var(--brand, #c9a83a)";
 
-export default function IcpChannelMatrix({ matrix }: { matrix: Matrix }) {
+export default function IcpChannelMatrix({ matrix, locale }: { matrix: Matrix; locale: Locale }) {
+  const t = (k: string, vars?: Record<string, string | number>) => tFn(locale, k, vars);
+
   if (matrix.icps.length === 0 || matrix.channels.length === 0) {
     return (
       <div className="py-10 text-center text-[12px]" style={{ color: C.textMuted }}>
-        Sin combinaciones ICP × canal aún.
+        {t("dashx.matrix.empty")}
         <br />
         <span className="text-[10.5px]" style={{ color: C.textDim }}>
-          La matriz aparece con al menos una campaña por ICP.
+          {t("dashx.matrix.emptyHint")}
         </span>
       </div>
     );
@@ -61,15 +64,16 @@ export default function IcpChannelMatrix({ matrix }: { matrix: Matrix }) {
         <thead>
           <tr>
             <th className="text-left px-2 py-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-              ICP
+              {t("dashx.matrix.icpCol")}
             </th>
             {matrix.channels.map(ch => {
-              const meta = channelMeta[ch] ?? { Icon: Share2, label: ch };
+              const meta = channelMeta[ch] ?? { Icon: Share2, key: "" };
               const Icon = meta.Icon;
+              const label = meta.key ? t(meta.key) : ch;
               return (
                 <th key={ch} className="text-center px-2 py-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
                   <span className="inline-flex items-center gap-1 justify-center">
-                    <Icon size={10} /> {meta.label}
+                    <Icon size={10} /> {label}
                   </span>
                 </th>
               );
@@ -86,7 +90,7 @@ export default function IcpChannelMatrix({ matrix }: { matrix: Matrix }) {
                 const cell = cellByKey.get(`${icp.id}|${ch}`);
                 return (
                   <td key={ch} className="p-0">
-                    <Cell cell={cell} icpId={icp.id} channel={ch} />
+                    <Cell cell={cell} icpId={icp.id} channel={ch} t={t} />
                   </td>
                 );
               })}
@@ -96,7 +100,7 @@ export default function IcpChannelMatrix({ matrix }: { matrix: Matrix }) {
       </table>
 
       <div className="flex items-center justify-end gap-2 mt-3 px-2 text-[10.5px]" style={{ color: C.textDim }}>
-        <span>Color por z-score</span>
+        <span>{t("dashx.matrix.legend")}</span>
         <div className="flex gap-[1px]">
           {[-2, -1, 0, 1, 2].map(z => (
             <div key={z} className="w-3.5 h-2.5 rounded-sm" style={{ background: zToColor(z) }} />
@@ -107,12 +111,12 @@ export default function IcpChannelMatrix({ matrix }: { matrix: Matrix }) {
   );
 }
 
-function Cell({ cell, icpId, channel }: { cell: Matrix["cells"][number] | undefined; icpId: string; channel: string }) {
+function Cell({ cell, icpId, channel, t }: { cell: Matrix["cells"][number] | undefined; icpId: string; channel: string; t: (k: string, vars?: Record<string, string | number>) => string }) {
   if (!cell || cell.contacted === 0) {
     return (
       <div className="h-10 rounded-md flex items-center justify-center text-[10px]"
         style={{ background: C.surface, color: C.textDim }}
-        title="Sin actividad"
+        title={t("dashx.matrix.cellEmpty")}
       >
         —
       </div>
@@ -122,9 +126,9 @@ function Cell({ cell, icpId, channel }: { cell: Matrix["cells"][number] | undefi
     return (
       <div className="h-10 rounded-md flex flex-col items-center justify-center"
         style={{ background: C.surface, color: C.textDim }}
-        title={`Volumen insuficiente: ${cell.contacted} contactos (mín 10)`}
+        title={t("dashx.matrix.cellInsuf", { n: cell.contacted })}
       >
-        <span className="text-[10px]">n insuf.</span>
+        <span className="text-[10px]">{t("dashx.insuf")}</span>
         <span className="text-[9px] tabular-nums opacity-80">n={cell.contacted}</span>
       </div>
     );

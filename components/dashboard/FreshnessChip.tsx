@@ -9,9 +9,11 @@
 
 import { useEffect, useState } from "react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 export default function FreshnessChip({ renderedAt }: { renderedAt: string }) {
   const [elapsedSec, setElapsedSec] = useState(0);
+  const { t } = useLocale();
 
   useEffect(() => {
     const anchor = new Date(renderedAt).getTime();
@@ -23,7 +25,7 @@ export default function FreshnessChip({ renderedAt }: { renderedAt: string }) {
 
   const isStale = elapsedSec > 300; // 5 min
   const dotColor = isStale ? "#D97706" : "#16A34A";
-  const label = elapsedSec < 10 ? "ahora" :
+  const label = elapsedSec < 10 ? t("dashx.fresh.now") :
                 elapsedSec < 60 ? `${elapsedSec}s` :
                 elapsedSec < 3600 ? `${Math.floor(elapsedSec / 60)}m` :
                 `${Math.floor(elapsedSec / 3600)}h`;
@@ -32,7 +34,7 @@ export default function FreshnessChip({ renderedAt }: { renderedAt: string }) {
     <div
       className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-1 rounded-md border tabular-nums"
       style={{ borderColor: C.border, color: C.textMuted, background: C.card }}
-      title={isStale ? "Refrescá para datos al día" : "Datos en vivo"}
+      title={isStale ? t("dashx.fresh.stale") : t("dashx.fresh.live")}
     >
       <span
         className="w-1.5 h-1.5 rounded-full"
