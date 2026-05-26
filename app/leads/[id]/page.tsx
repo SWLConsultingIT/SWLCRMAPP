@@ -477,9 +477,18 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           <div className="flex flex-col-reverse sm:flex-col gap-3 sm:gap-4 sm:items-end shrink-0 w-full sm:w-auto">
             {/* Actions: Call + Delete — full-width on mobile, inline on sm+ */}
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap justify-stretch sm:justify-end w-full sm:w-auto">
-              {lead.primary_phone && (
+              {(lead.primary_phone || lead.primary_secondary_phone) && (
                 <div className="flex-1 sm:flex-initial">
-                  <CallButton phone={lead.primary_phone} leadId={id} size="sm" defaultNumberId={campaign?.aircall_number_id ?? null} />
+                  <CallButton
+                    phone={lead.primary_phone ?? lead.primary_secondary_phone ?? null}
+                    leadId={id}
+                    size="sm"
+                    defaultNumberId={campaign?.aircall_number_id ?? null}
+                    phones={[
+                      ...(lead.primary_phone ? [{ label: "Mobile", value: lead.primary_phone }] : []),
+                      ...(lead.primary_secondary_phone ? [{ label: "Work", value: lead.primary_secondary_phone }] : []),
+                    ]}
+                  />
                 </div>
               )}
               <DeleteLeadButton leadId={id} leadName={contactName} />
@@ -1186,8 +1195,17 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               {calls.length > 0 ? `${calls.length} call${calls.length === 1 ? "" : "s"} recorded` : "No calls yet"}
             </p>
             <div className="flex items-center gap-2">
-              {lead.primary_phone && (
-                <CallButton phone={lead.primary_phone} leadId={id} size="sm" defaultNumberId={campaign?.aircall_number_id ?? null} />
+              {(lead.primary_phone || lead.primary_secondary_phone) && (
+                <CallButton
+                  phone={lead.primary_phone ?? lead.primary_secondary_phone ?? null}
+                  leadId={id}
+                  size="sm"
+                  defaultNumberId={campaign?.aircall_number_id ?? null}
+                  phones={[
+                    ...(lead.primary_phone ? [{ label: "Mobile", value: lead.primary_phone }] : []),
+                    ...(lead.primary_secondary_phone ? [{ label: "Work", value: lead.primary_secondary_phone }] : []),
+                  ]}
+                />
               )}
               <SyncAircallButton />
             </div>

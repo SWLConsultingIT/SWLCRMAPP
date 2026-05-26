@@ -29,6 +29,7 @@ type PendingCall = {
   company: string | null;
   role: string | null;
   phone: string | null;
+  secondaryPhone: string | null;
   email: string | null;
   sellerName: string | null;
   talkingPoints: Array<string | { type: "pain" | "fit" | "opener"; text: string }> | null;
@@ -571,13 +572,21 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
                             demoted to a small "Call again" link so the inline
                             classify buttons below become the primary action. */}
                         <div className="flex items-center gap-2 shrink-0 relative group/call">
-                          {call.leadId ? (
-                            awaitingOutcome ? (
-                              <CallButton phone={call.phone} leadId={call.leadId} size="sm" variant="ghost" label="Call again" defaultNumberId={call.aircallNumberId ?? null} />
+                          {call.leadId ? (() => {
+                            // Build phones array so the seller can pick Mobile vs Work
+                            // when the lead has both. Single-phone leads fall back to
+                            // the `phone` prop and the picker stays hidden inside the
+                            // CallButton component.
+                            const phonesList = [
+                              ...(call.phone ? [{ label: "Mobile", value: call.phone }] : []),
+                              ...(call.secondaryPhone ? [{ label: "Work", value: call.secondaryPhone }] : []),
+                            ];
+                            return awaitingOutcome ? (
+                              <CallButton phone={call.phone ?? call.secondaryPhone ?? null} leadId={call.leadId} size="sm" variant="ghost" label="Call again" defaultNumberId={call.aircallNumberId ?? null} phones={phonesList} />
                             ) : (
-                              <CallButton phone={call.phone} leadId={call.leadId} size="md" defaultNumberId={call.aircallNumberId ?? null} />
-                            )
-                          ) : (
+                              <CallButton phone={call.phone ?? call.secondaryPhone ?? null} leadId={call.leadId} size="md" defaultNumberId={call.aircallNumberId ?? null} phones={phonesList} />
+                            );
+                          })() : (
                             <span className="flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-xs"
                               style={{ backgroundColor: C.surface, color: C.textDim }}>
                               <PhoneOff size={12} /> No lead linked

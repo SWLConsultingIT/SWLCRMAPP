@@ -10,8 +10,10 @@ export default async function LeadsImportPage() {
   if (!scope.userId) redirect("/login");
 
   const canImport = canEditTenantSettings(scope.tier) || scope.tier === "manager";
-  const isSwlInternal = scope.tier === "super_admin" && !scope.companyBioId;
-  const willEncrypt = !isSwlInternal;
+  // SWL admin can choose to encrypt or not per import (defaults to plain so
+  // they read everything in the UI without decryption). Non-SWL roles always
+  // encrypt — that's the privacy contract for client-tenant data.
+  const isSwlAdmin = scope.tier === "super_admin";
 
   return (
     <div className="p-6 w-full">
@@ -20,12 +22,12 @@ export default async function LeadsImportPage() {
         section="Operations"
         title="Import Leads"
         description={
-          willEncrypt
-            ? "Upload a CSV or Excel file. Your leads will be encrypted at rest — only your team and the AI agent can read them."
-            : "SWL admin import — leads will be stored unencrypted (legacy flow). Use this only for SWL-managed campaigns."
+          isSwlAdmin
+            ? "SWL admin import. By default leads stay plaintext (you read them directly). Toggle encryption on for sensitive tenants."
+            : "Upload a CSV or Excel file. Your leads will be encrypted at rest — only your team and the AI agent can read them."
         }
         accentColor={C.gold}
-        status={{ label: willEncrypt ? "Encrypted" : "Plain", active: true }}
+        status={{ label: isSwlAdmin ? "Plain by default" : "Encrypted", active: true }}
       />
 
       {!canImport ? (
@@ -35,7 +37,7 @@ export default async function LeadsImportPage() {
           </p>
         </div>
       ) : (
-        <ImportWizardClient willEncrypt={willEncrypt} />
+        <ImportWizardClient isSwlAdmin={isSwlAdmin} />
       )}
     </div>
   );

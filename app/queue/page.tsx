@@ -48,7 +48,7 @@ async function getQueueData() {
 
   // Campaigns
   let campQuery = supabase.from("campaigns")
-    .select("id, name, channel, current_step, sequence_steps, last_step_at, lead_id, seller_id, aircall_number_id, call_advance_mode, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, primary_title_role, primary_phone, primary_work_email, company_bio_id, call_talking_points), sellers(name)")
+    .select("id, name, channel, current_step, sequence_steps, last_step_at, lead_id, seller_id, aircall_number_id, call_advance_mode, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, primary_title_role, primary_phone, primary_secondary_phone, primary_work_email, company_bio_id, call_talking_points), sellers(name)")
     .eq("status", "active")
     .order("last_step_at", { ascending: true })
     .limit(200);
@@ -214,6 +214,7 @@ async function getQueueData() {
       company: lead?.company_name ?? null,
       role: lead?.primary_title_role ?? null,
       phone: lead?.primary_phone ?? null,
+      secondaryPhone: lead?.primary_secondary_phone ?? null,
       email: lead?.primary_work_email ?? null,
       sellerName: (c as any)?.sellers?.name ?? null,
       talkingPoints: (lead as any)?.call_talking_points ?? null,

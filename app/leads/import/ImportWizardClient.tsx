@@ -38,7 +38,21 @@ type MappingResult = { source_tool: string; mappings: Mapping[] };
 
 type Step = "upload" | "map" | "confirm" | "done";
 
-export default function ImportWizardClient({ willEncrypt }: { willEncrypt: boolean }) {
+type ImportResult = {
+  inserted: number;
+  updated: number;
+  skipped: number;
+  errors: number;
+  encrypted: boolean;
+  rowResults?: Array<{
+    rowIndex: number;
+    status: "inserted" | "updated" | "skipped_duplicate" | "skipped_no_data" | "error";
+    leadId?: string | null;
+    reason?: string;
+  }>;
+};
+
+export default function ImportWizardClient({ isSwlAdmin }: { isSwlAdmin: boolean }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("upload");
   const [file, setFile] = useState<File | null>(null);
@@ -49,8 +63,13 @@ export default function ImportWizardClient({ willEncrypt }: { willEncrypt: boole
   const [mappingLoading, setMappingLoading] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ inserted: number; skipped: number } | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  // SWL admins can override the default plaintext save and force encryption
+  // for sensitive uploads (eg a client who specifically asked for it). Non-SWL
+  // roles never see the toggle — encryption is mandatory for them.
+  const [encryptOverride, setEncryptOverride] = useState(false);
+  const willEncrypt = isSwlAdmin ? encryptOverride : true;
 
   const handleFile = useCallback(async (f: File) => {
     setFile(f);
@@ -126,11 +145,21 @@ export default function ImportWizardClient({ willEncrypt }: { willEncrypt: boole
           fileName: parsed.fileName,
           rows: parsed.rows,
           mapping: { source_tool: sourceTool, mappings: mapping.filter(m => m.target && m.target !== "_skip") },
+          // SWL admin can opt-in to encryption. Other roles always encrypt;
+          // the server enforces this regardless of what we send.
+          encrypt: willEncrypt,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Import failed");
-      setResult({ inserted: data.inserted, skipped: data.skipped });
+      setResult({
+        inserted: data.inserted ?? 0,
+        updated: data.updated ?? 0,
+        skipped: data.skipped ?? 0,
+        errors: data.errors ?? 0,
+        encrypted: data.encrypted ?? willEncrypt,
+        rowResults: data.rowResults,
+      });
       setStep("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Import failed");
@@ -198,6 +227,9 @@ export default function ImportWizardClient({ willEncrypt }: { willEncrypt: boole
           recognisedCount={recognisedCount}
           extraCount={extraCount}
           willEncrypt={willEncrypt}
+          isSwlAdmin={isSwlAdmin}
+          encryptOverride={encryptOverride}
+          setEncryptOverride={setEncryptOverride}
           committing={committing}
           onBack={() => setStep("map")}
           onCommit={handleCommit}
@@ -205,7 +237,7 @@ export default function ImportWizardClient({ willEncrypt }: { willEncrypt: boole
       )}
 
       {step === "done" && result && (
-        <DoneStep result={result} willEncrypt={willEncrypt} onAnother={reset} onBack={() => router.push("/leads")} />
+        <DoneStep result={result} onAnother={reset} onBack={() => router.push("/leads")} />
       )}
     </div>
   );
@@ -415,7 +447,7 @@ function MapStep({
 }
 
 function ConfirmStep({
-  parsed, mapping, sourceTool, recognisedCount, extraCount, willEncrypt, committing, onBack, onCommit,
+  parsed, mapping, sourceTool, recognisedCount, extraCount, willEncrypt, isSwlAdmin, encryptOverride, setEncryptOverride, committing, onBack, onCommit,
 }: {
   parsed: ParsedSheet;
   mapping: Mapping[];
@@ -423,6 +455,9 @@ function ConfirmStep({
   recognisedCount: number;
   extraCount: number;
   willEncrypt: boolean;
+  isSwlAdmin: boolean;
+  encryptOverride: boolean;
+  setEncryptOverride: (v: boolean) => void;
   committing: boolean;
   onBack: () => void;
   onCommit: () => void;
@@ -444,6 +479,45 @@ function ConfirmStep({
         )}
       </div>
 
+      {/* Encryption toggle — only SWL admin sees it. Other roles always
+          encrypt and skip this section. Default OFF for SWL so Fran reads
+          everything directly without decryption overhead. */}
+      {isSwlAdmin && (
+        <div className="rounded-2xl border p-4" style={{ borderColor: C.border, backgroundColor: C.card }}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>
+                Encrypt these leads at rest?
+              </p>
+              <p className="text-[11px] leading-relaxed" style={{ color: C.textMuted }}>
+                Default: <strong>off</strong> — leads stored as <code style={{ fontFamily: "monospace" }}>source=swl</code> plaintext, you read them directly. Turn on only when uploading sensitive data on behalf of a client that explicitly asked for at-rest encryption.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={encryptOverride}
+              onClick={() => setEncryptOverride(!encryptOverride)}
+              className="shrink-0 inline-flex items-center rounded-full transition-colors"
+              style={{
+                width: 44, height: 24,
+                backgroundColor: encryptOverride ? C.green : C.border,
+                padding: 2,
+              }}
+            >
+              <span
+                className="inline-block rounded-full transition-transform"
+                style={{
+                  width: 20, height: 20, backgroundColor: "#fff",
+                  transform: encryptOverride ? "translateX(20px)" : "translateX(0)",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                }}
+              />
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-2xl border p-4 flex items-start gap-3" style={{ borderColor: willEncrypt ? `${C.green}30` : `${C.orange}30`, backgroundColor: willEncrypt ? C.greenLight : C.orangeLight }}>
         {willEncrypt
           ? <Lock size={16} style={{ color: C.green, flexShrink: 0, marginTop: 2 }} />
@@ -455,7 +529,7 @@ function ConfirmStep({
           <p className="text-[11px] leading-relaxed" style={{ color: C.textBody }}>
             {willEncrypt
               ? "These leads will be marked source=client and stored encrypted. SWL admin views will see redacted PII for these leads."
-              : "These leads will be marked source=swl and stored in plain text (legacy SWL flow)."}
+              : "These leads will be marked source=swl and stored in plain text. You read them directly in the UI."}
           </p>
         </div>
       </div>
@@ -479,32 +553,89 @@ function ConfirmStep({
 }
 
 function DoneStep({
-  result, willEncrypt, onAnother, onBack,
+  result, onAnother, onBack,
 }: {
-  result: { inserted: number; skipped: number };
-  willEncrypt: boolean;
+  result: ImportResult;
   onAnother: () => void;
   onBack: () => void;
 }) {
+  const total = result.inserted + result.updated + result.skipped + result.errors;
+  const hasIssues = result.errors > 0 || result.skipped > 0;
   return (
-    <div className="rounded-2xl border p-10 text-center" style={{ borderColor: C.border, backgroundColor: C.card }}>
-      <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: C.greenLight }}>
-        <CheckCircle2 size={28} style={{ color: C.green }} />
+    <div className="rounded-2xl border p-8" style={{ borderColor: C.border, backgroundColor: C.card }}>
+      <div className="flex items-center gap-4 mb-6">
+        <div className="w-14 h-14 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: result.errors === 0 ? C.greenLight : C.redLight }}>
+          {result.errors === 0
+            ? <CheckCircle2 size={26} style={{ color: C.green }} />
+            : <AlertTriangle size={26} style={{ color: C.red }} />}
+        </div>
+        <div>
+          <p className="text-lg font-bold" style={{ color: C.textPrimary }}>
+            {result.inserted.toLocaleString()} leads inserted
+          </p>
+          <p className="text-xs" style={{ color: C.textMuted }}>
+            of {total.toLocaleString()} rows processed
+            {result.encrypted ? " · stored encrypted" : " · stored plaintext"}
+          </p>
+        </div>
       </div>
-      <p className="text-lg font-bold mb-1" style={{ color: C.textPrimary }}>
-        Imported {result.inserted.toLocaleString()} leads
-      </p>
-      {result.skipped > 0 && (
-        <p className="text-xs mb-3" style={{ color: C.textMuted }}>
-          {result.skipped} rows skipped (missing name and contact info)
-        </p>
+
+      {/* Breakdown grid — matches the Sheets sync color palette (green/blue/amber/red) */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <BreakdownTile label="Inserted" value={result.inserted} color={C.green} />
+        <BreakdownTile label="Updated" value={result.updated} color={C.blue} />
+        <BreakdownTile label="Skipped" value={result.skipped} color="#D97706" />
+        <BreakdownTile label="Errors" value={result.errors} color={C.red} />
+      </div>
+
+      {/* Per-row details when there were any non-inserted outcomes. Collapsed
+          by default — operator can scroll the list to see exactly why each
+          row was skipped or failed. */}
+      {hasIssues && result.rowResults && result.rowResults.length > 0 && (
+        <details className="mb-6 rounded-xl border" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+          <summary className="px-4 py-3 cursor-pointer text-xs font-semibold flex items-center gap-2" style={{ color: C.textBody }}>
+            Show row-level details ({result.rowResults.filter(r => r.status !== "inserted").length} non-insert outcomes)
+          </summary>
+          <div className="max-h-72 overflow-y-auto border-t" style={{ borderColor: C.border }}>
+            <table className="w-full text-xs">
+              <thead style={{ position: "sticky", top: 0, backgroundColor: C.surface }}>
+                <tr>
+                  <th className="text-left px-3 py-2 font-semibold" style={{ color: C.textMuted, width: 80 }}>Row</th>
+                  <th className="text-left px-3 py-2 font-semibold" style={{ color: C.textMuted, width: 140 }}>Status</th>
+                  <th className="text-left px-3 py-2 font-semibold" style={{ color: C.textMuted }}>Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.rowResults
+                  .filter(r => r.status !== "inserted")
+                  .slice(0, 200)
+                  .map(r => {
+                    const meta = {
+                      "updated": { label: "Updated", color: C.blue },
+                      "skipped_duplicate": { label: "Duplicate", color: "#D97706" },
+                      "skipped_no_data": { label: "No data", color: "#6B7280" },
+                      "error": { label: "Error", color: C.red },
+                      "inserted": { label: "Inserted", color: C.green },
+                    }[r.status];
+                    return (
+                      <tr key={r.rowIndex} style={{ borderTop: `1px solid ${C.border}` }}>
+                        <td className="px-3 py-2 tabular-nums" style={{ color: C.textBody }}>{r.rowIndex}</td>
+                        <td className="px-3 py-2">
+                          <span className="font-semibold text-[11px] px-2 py-0.5 rounded" style={{ color: meta.color, backgroundColor: `color-mix(in srgb, ${meta.color} 12%, transparent)` }}>
+                            {meta.label}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2" style={{ color: C.textMuted }}>{r.reason ?? "—"}</td>
+                      </tr>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
+        </details>
       )}
-      {willEncrypt && (
-        <p className="text-xs mb-6 flex items-center justify-center gap-1.5" style={{ color: C.green }}>
-          <Lock size={11} /> Stored encrypted at rest
-        </p>
-      )}
-      <div className="flex items-center justify-center gap-3">
+
+      <div className="flex items-center justify-end gap-3">
         <button onClick={onAnother} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>
           Import another file
         </button>
@@ -516,6 +647,15 @@ function DoneStep({
           View leads →
         </button>
       </div>
+    </div>
+  );
+}
+
+function BreakdownTile({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="rounded-xl border p-3" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+      <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{label}</p>
+      <p className="text-xl font-bold tabular-nums" style={{ color: value > 0 ? color : C.textDim }}>{value.toLocaleString()}</p>
     </div>
   );
 }

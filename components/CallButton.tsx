@@ -32,6 +32,8 @@ function countryLabel(country: string): string {
   return names[country] ?? country;
 }
 
+type PhoneOption = { label: string; value: string };
+
 type Props = {
   phone: string | null;
   leadId: string;
@@ -42,9 +44,15 @@ type Props = {
   // not dialing again.
   label?: string;
   defaultNumberId?: number | null;
+  // Optional: when a lead has multiple phones (eg primary_phone + work
+  // secondary phone), pass them all here so the seller can pick which one to
+  // dial before clicking Call. The first entry is the default selection. If
+  // only one valid number exists or the prop is omitted, behaviour falls back
+  // to the `phone` prop and the picker stays hidden.
+  phones?: PhoneOption[];
 };
 
-export default function CallButton({ phone, leadId, size = "md", variant = "solid", label, defaultNumberId }: Props) {
+export default function CallButton({ phone, leadId, size = "md", variant = "solid", label, defaultNumberId, phones }: Props) {
   const router = useRouter();
   const toast = useToast();
   const [numbers, setNumbers] = useState<AircallNumber[]>([]);
@@ -52,6 +60,13 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
   const [state, setState] = useState<"idle" | "calling" | "called" | "error">("idle");
   const [picker, setPicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // When multiple phones exist for the lead, sellers pick which to dial.
+  // Defaults to first option (typically primary_phone / mobile).
+  const phoneOptions: PhoneOption[] = (phones && phones.length > 0)
+    ? phones.filter(p => p.value && p.value.trim().length > 0)
+    : (phone ? [{ label: "Mobile", value: phone }] : []);
+  const [selectedPhone, setSelectedPhone] = useState<string | null>(phoneOptions[0]?.value ?? null);
+  const [phonePicker, setPhonePicker] = useState(false);
   // Post-call classification prompt — auto-opens after a successful dial so
   // sellers don't forget to log the outcome. Sellers were leaving calls in
   // "initiated" forever, polluting /queue with phantom pending tasks.
@@ -93,7 +108,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
     }
   }
 
-  if (!phone) {
+  if (phoneOptions.length === 0) {
     return (
       <span
         className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs"
@@ -106,13 +121,15 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
 
   async function handleDial() {
     if (state === "calling") return;
+    const dialingPhone = selectedPhone || phoneOptions[0]?.value;
+    if (!dialingPhone) return;
     setState("calling");
     try {
       const res = await fetch("/api/aircall/dial", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          phone,
+          phone: dialingPhone,
           leadId,
           numberId: selectedNumberId,
           aircallUserId: DEFAULT_AIRCALL_USER_ID,
@@ -153,6 +170,8 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
     : { backgroundColor: "#FFF7ED", color: "#EA580C", border: "1px solid #FED7AA" };
 
   const selected = numbers.find(n => n.id === selectedNumberId);
+  const selectedPhoneOpt = phoneOptions.find(p => p.value === selectedPhone) ?? phoneOptions[0];
+  const dialingPhoneDisplay = selectedPhoneOpt?.value ?? phone;
 
   return (
     <div className="inline-flex items-center gap-1.5 relative">
@@ -169,9 +188,58 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
         {state === "calling" ? <><Loader2 size={iconSize} className="animate-spin" /> Calling…</>
           : state === "called" ? <><CheckCheck size={iconSize} /> Call initiated</>
           : state === "error" ? <><PhoneOff size={iconSize} /> Failed</>
-          : <><Phone size={iconSize} /> {label ?? `Call ${phone}`}</>
+          : <><Phone size={iconSize} /> {label ?? `Call ${dialingPhoneDisplay}`}</>
         }
       </button>
+
+      {/* Lead phone picker — only shown when the lead has more than one
+          valid phone number (eg mobile + corporate). For single-phone leads
+          we hide the chip entirely to keep the row compact. */}
+      {phoneOptions.length > 1 && (
+        <>
+          <button
+            onClick={() => setPhonePicker(v => !v)}
+            className={`flex items-center gap-1 rounded-lg ${padding} ${text} font-medium`}
+            style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}
+            title="Change which lead phone to dial"
+          >
+            <Phone size={iconSize - 2} />
+            <span className="font-semibold">{selectedPhoneOpt?.label ?? "Phone"}</span>
+            <ChevronDown size={10} />
+          </button>
+          {phonePicker && (
+            <div
+              className="absolute top-full left-0 mt-1 rounded-lg border shadow-lg z-50 min-w-[220px]"
+              style={{ backgroundColor: C.card, borderColor: C.border }}
+            >
+              <div className="px-3 py-2 border-b" style={{ borderColor: C.border }}>
+                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>Call which number</p>
+              </div>
+              {phoneOptions.map(opt => {
+                const isSel = opt.value === selectedPhone;
+                return (
+                  <button
+                    key={opt.value + opt.label}
+                    onClick={() => { setSelectedPhone(opt.value); setPhonePicker(false); }}
+                    className="w-full text-left px-3 py-2.5 hover:bg-black/[0.03] transition-colors flex items-center gap-2.5"
+                    style={{
+                      backgroundColor: isSel ? "#FFF7ED" : "transparent",
+                      borderLeft: isSel ? "3px solid #F97316" : "3px solid transparent",
+                    }}
+                  >
+                    <Phone size={12} style={{ color: isSel ? "#F97316" : C.textMuted }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold" style={{ color: isSel ? "#EA580C" : C.textPrimary }}>{opt.label}</p>
+                      <p className="text-[10px] tabular-nums" style={{ color: C.textMuted }}>{opt.value}</p>
+                    </div>
+                    {isSel && <CheckCheck size={12} style={{ color: "#F97316" }} />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
 
       {numbers.length > 0 && (
         <button
