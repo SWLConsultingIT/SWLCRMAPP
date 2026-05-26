@@ -7,6 +7,7 @@
 
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { Suspense } from "react";
 import {
   Users, Send, MessageSquare, ThumbsUp, Trophy, Megaphone, Target,
   TrendingUp, Sparkles, AlertTriangle, Lightbulb, ArrowRight, CheckCircle2,
@@ -148,8 +149,13 @@ export default async function DashboardPage({
         </Link>
       </div>
 
-      {/* ─── Sticky filters strip ─────────────────────────────────────────── */}
-      <FiltersBar options={options} />
+      {/* ─── Sticky filters strip ───────────────────────────────────────────
+          Wrapped in Suspense because FiltersBar reads useSearchParams() —
+          App Router requires the boundary on any client component using
+          search-params hooks. Without it the page bails to the 500. */}
+      <Suspense fallback={<div className="h-10" />}>
+        <FiltersBar options={options} />
+      </Suspense>
 
       {/* ─── KPIs Leading / Lagging in one row (research: 5-9 KPIs max, leading first) ─ */}
       <section>
