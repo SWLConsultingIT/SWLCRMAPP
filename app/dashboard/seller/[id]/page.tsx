@@ -36,10 +36,20 @@ type CampRow = { id: string; name: string; status: string | null; channel: strin
 type MsgRow = { id: string; campaign_id: string | null; status: string | null; sent_at: string | null; step_number: number | null };
 type ReplyRow = { id: string; lead_id: string | null; campaign_id: string | null; classification: string | null; received_at: string | null };
 
-async function loadSellerDetail(sellerId: string) {
+async function loadSellerDetail(sellerId: string, dateFrom: string | null, dateTo: string | null) {
   const supabase = await getSupabaseServer();
   const scope = await getUserScope();
   const bioId = scope.isScoped ? scope.companyBioId! : null;
+
+  const fromMs = dateFrom ? new Date(`${dateFrom}T00:00:00Z`).getTime() : null;
+  const toMs = dateTo ? new Date(`${dateTo}T23:59:59Z`).getTime() : null;
+  const inWindow = (iso: string | null | undefined) => {
+    if (!iso) return fromMs === null && toMs === null;
+    const t = new Date(iso).getTime();
+    if (fromMs !== null && t < fromMs) return false;
+    if (toMs !== null && t > toMs) return false;
+    return true;
+  };
 
   const sQ = supabase.from("sellers").select("id, name, active, company_bio_id, shared_with_company_bio_ids").eq("id", sellerId);
   const { data: sellerRaw } = bioId
@@ -77,8 +87,11 @@ async function loadSellerDetail(sellerId: string) {
       ? supabase.from("icp_profiles").select("id, profile_name").in("id", icpIds)
       : Promise.resolve({ data: [] }),
   ]);
-  const msgs = (msgsRaw ?? []) as MsgRow[];
-  const replies = (repliesRaw ?? []) as ReplyRow[];
+  // Keep "all" copies for the trailing 30d trend; period-filter the rest.
+  const allMsgs = (msgsRaw ?? []) as MsgRow[];
+  const allReplies = (repliesRaw ?? []) as ReplyRow[];
+  const msgs = allMsgs.filter(m => inWindow(m.sent_at));
+  const replies = allReplies.filter(r => inWindow(r.received_at));
   const icpMap = new Map<string, string>();
   for (const i of ((icpsRaw ?? []) as { id: string; profile_name: string }[])) icpMap.set(i.id, i.profile_name);
 
@@ -172,17 +185,19 @@ async function loadSellerDetail(sellerId: string) {
   })).sort((a, b) => b.positive - a.positive || b.leads - a.leads);
 
   // ─── 30d trend ───────────────────────────────────────────────────────
+  // Always trailing 30 days regardless of the period filter — uses the
+  // unfiltered data so the chart context survives any user-applied window.
   const today = new Date(); today.setHours(23, 59, 59, 999);
   const dayBucket = (iso: string) => Math.floor((today.getTime() - new Date(iso).getTime()) / 86_400_000);
   const trendSent = new Array(30).fill(0) as number[];
   const trendReplies = new Array(30).fill(0) as number[];
   const trendPositive = new Array(30).fill(0) as number[];
-  for (const m of msgs) {
+  for (const m of allMsgs) {
     if (!m.sent_at) continue;
     const idx = 29 - dayBucket(m.sent_at);
     if (idx >= 0 && idx < 30) trendSent[idx]++;
   }
-  for (const r of replies) {
+  for (const r of allReplies) {
     if (!r.received_at) continue;
     const idx = 29 - dayBucket(r.received_at);
     if (idx >= 0 && idx < 30) {
@@ -253,18 +268,32 @@ async function loadSellerDetail(sellerId: string) {
   };
 }
 
-export default async function SellerDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function SellerDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const scope = await getUserScope();
   if (scope.userId && scope.tier !== "super_admin" && !scope.companyBioId) redirect("/onboarding");
 
   const { id } = await params;
+  const sp = await searchParams;
+  const periodFrom = typeof sp.from === "string" ? sp.from : null;
+  const periodTo = typeof sp.to === "string" ? sp.to : null;
+
   const [d, tenant, t, locale] = await Promise.all([
-    loadSellerDetail(id),
-    getDashboardData({ from: null, to: null }),
+    loadSellerDetail(id, periodFrom, periodTo),
+    // Team comparison stays on the same window so the vs-team lift is meaningful.
+    getDashboardData({ from: periodFrom, to: periodTo }),
     getT(),
     getServerLocale(),
   ]);
   const dateLoc = locale === "es" ? "es-AR" : "en-US";
+  const periodChip = periodFrom && periodTo
+    ? `${new Date(periodFrom).toLocaleDateString(dateLoc, { day: "2-digit", month: "short" })} – ${new Date(periodTo).toLocaleDateString(dateLoc, { day: "2-digit", month: "short" })}`
+    : null;
 
   if (!d) {
     return (
@@ -287,9 +316,18 @@ export default async function SellerDetailPage({ params }: { params: Promise<{ i
 
   return (
     <div className="p-4 sm:p-6 w-full space-y-6">
-      <Link href="/" className="inline-flex items-center gap-1 text-xs hover:underline transition-opacity hover:opacity-70" style={{ color: C.textMuted }}>
-        <ArrowLeft size={12} /> {t("dashx.detail.back")}
-      </Link>
+      <div className="flex items-center justify-between gap-2">
+        <Link href={periodChip ? `/?from=${periodFrom}&to=${periodTo}` : "/"} className="inline-flex items-center gap-1 text-xs hover:underline transition-opacity hover:opacity-70" style={{ color: C.textMuted }}>
+          <ArrowLeft size={12} /> {t("dashx.detail.back")}
+        </Link>
+        {periodChip && (
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-md border tabular-nums"
+            style={{ borderColor: C.border, color: C.textBody, background: C.card }}
+            title={t("dashx.detail.periodInherited")}>
+            <Clock size={11} style={{ color: gold }} /> {periodChip}
+          </span>
+        )}
+      </div>
 
       {/* Custom header with avatar + status */}
       <header className="rounded-2xl border p-5 flex items-start gap-4" style={{ borderColor: C.border, backgroundColor: C.card }}>

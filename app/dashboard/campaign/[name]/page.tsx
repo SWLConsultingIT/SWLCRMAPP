@@ -51,10 +51,22 @@ type CampRow = {
 type ReplyRow = { id: string; lead_id: string | null; campaign_id: string | null; classification: string | null; channel: string | null; received_at: string | null };
 type MsgRow = { id: string; campaign_id: string | null; step_number: number | null; status: string | null; sent_at: string | null; channel: string | null };
 
-async function loadCampaignDetail(name: string) {
+async function loadCampaignDetail(name: string, dateFrom: string | null, dateTo: string | null) {
   const supabase = await getSupabaseServer();
   const scope = await getUserScope();
   const bioId = scope.isScoped ? scope.companyBioId! : null;
+
+  // Period filter inherited from the dashboard. inWindow gates the
+  // reply/message aggregates so KPIs match the window the user came from.
+  const fromMs = dateFrom ? new Date(`${dateFrom}T00:00:00Z`).getTime() : null;
+  const toMs = dateTo ? new Date(`${dateTo}T23:59:59Z`).getTime() : null;
+  const inWindow = (iso: string | null | undefined) => {
+    if (!iso) return fromMs === null && toMs === null;
+    const t = new Date(iso).getTime();
+    if (fromMs !== null && t < fromMs) return false;
+    if (toMs !== null && t > toMs) return false;
+    return true;
+  };
 
   const campsQ = supabase.from("campaigns")
     .select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, created_at, started_at, completed_at, stop_reason, paused_until, leads!inner(id, primary_first_name, primary_last_name, primary_title_role, company_name, status, icp_profile_id, company_bio_id)")
@@ -80,8 +92,11 @@ async function loadCampaignDetail(name: string) {
       ? supabase.from("icp_profiles").select("id, profile_name").in("id", icpIds)
       : Promise.resolve({ data: [] }),
   ]);
-  const msgs = (msgsRaw ?? []) as MsgRow[];
-  const replies = (repliesRaw ?? []) as ReplyRow[];
+  // Keep "all" copies for the trailing 30d trend; period-filter the rest.
+  const allMsgs = (msgsRaw ?? []) as MsgRow[];
+  const allReplies = (repliesRaw ?? []) as ReplyRow[];
+  const msgs = allMsgs.filter(m => inWindow(m.sent_at));
+  const replies = allReplies.filter(r => inWindow(r.received_at));
   const sellerMap = new Map<string, string>();
   for (const s of ((sellersRaw ?? []) as { id: string; name: string }[])) sellerMap.set(s.id, s.name);
   const icpMap = new Map<string, string>();
@@ -146,25 +161,32 @@ async function loadCampaignDetail(name: string) {
   // ─── 30d trend + classification + heatmap ────────────────────────
   const today = new Date(); today.setHours(23, 59, 59, 999);
   const dayBucket = (iso: string) => Math.floor((today.getTime() - new Date(iso).getTime()) / 86_400_000);
+  // Trend is "trailing 30 days" by convention — uses unfiltered data so
+  // the chart context survives any user-applied period filter.
   const trendSent = new Array(30).fill(0) as number[];
   const trendReplies = new Array(30).fill(0) as number[];
   const trendPositive = new Array(30).fill(0) as number[];
-  for (const m of sentMsgs) {
+  const allSentMsgs = allMsgs.filter(m => m.status === "sent");
+  for (const m of allSentMsgs) {
     if (!m.sent_at) continue;
     const idx = 29 - dayBucket(m.sent_at);
     if (idx >= 0 && idx < 30) trendSent[idx]++;
   }
+  for (const r of allReplies) {
+    if (!r.received_at) continue;
+    const idx = 29 - dayBucket(r.received_at);
+    if (idx >= 0 && idx < 30) {
+      trendReplies[idx]++;
+      if (POSITIVE_CLASS.has(r.classification ?? "")) trendPositive[idx]++;
+    }
+  }
+  // Period-scoped classification + heatmap.
   const classCounts: Record<string, number> = {};
   const heatmap = Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]);
   for (const r of replies) {
     const cls = r.classification ?? "unclassified";
     classCounts[cls] = (classCounts[cls] ?? 0) + 1;
     if (r.received_at) {
-      const idx = 29 - dayBucket(r.received_at);
-      if (idx >= 0 && idx < 30) {
-        trendReplies[idx]++;
-        if (POSITIVE_CLASS.has(cls)) trendPositive[idx]++;
-      }
       const d = new Date(r.received_at);
       heatmap[d.getDay()][d.getHours()]++;
     }
@@ -280,18 +302,31 @@ async function loadCampaignDetail(name: string) {
   };
 }
 
-export default async function CampaignDetailPage({ params }: { params: Promise<{ name: string }> }) {
+export default async function CampaignDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ name: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const scope = await getUserScope();
   if (scope.userId && scope.tier !== "super_admin" && !scope.companyBioId) redirect("/onboarding");
 
   const { name: rawName } = await params;
   const name = decodeURIComponent(rawName);
+  const sp = await searchParams;
+  const periodFrom = typeof sp.from === "string" ? sp.from : null;
+  const periodTo = typeof sp.to === "string" ? sp.to : null;
+
   const [d, t, locale] = await Promise.all([
-    loadCampaignDetail(name),
+    loadCampaignDetail(name, periodFrom, periodTo),
     getT(),
     getServerLocale(),
   ]);
   const dateLoc = locale === "es" ? "es-AR" : "en-US";
+  const periodChip = periodFrom && periodTo
+    ? `${new Date(periodFrom).toLocaleDateString(dateLoc, { day: "2-digit", month: "short" })} – ${new Date(periodTo).toLocaleDateString(dateLoc, { day: "2-digit", month: "short" })}`
+    : null;
 
   if (!d) {
     return (
@@ -323,9 +358,18 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
 
   return (
     <div className="p-4 sm:p-6 w-full space-y-6">
-      <Link href="/" className="inline-flex items-center gap-1 text-xs hover:underline transition-opacity hover:opacity-70" style={{ color: C.textMuted }}>
-        <ArrowLeft size={12} /> {t("dashx.detail.back")}
-      </Link>
+      <div className="flex items-center justify-between gap-2">
+        <Link href={periodChip ? `/?from=${periodFrom}&to=${periodTo}` : "/"} className="inline-flex items-center gap-1 text-xs hover:underline transition-opacity hover:opacity-70" style={{ color: C.textMuted }}>
+          <ArrowLeft size={12} /> {t("dashx.detail.back")}
+        </Link>
+        {periodChip && (
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-md border tabular-nums"
+            style={{ borderColor: C.border, color: C.textBody, background: C.card }}
+            title={t("dashx.detail.periodInherited")}>
+            <Clock size={11} style={{ color: gold }} /> {periodChip}
+          </span>
+        )}
+      </div>
 
       <PageHero
         icon={Megaphone}

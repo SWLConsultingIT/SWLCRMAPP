@@ -59,6 +59,18 @@ const classColors: Record<string, string> = {
   unclassified:   "#9CA3AF",
 };
 
+/** Appends the active period filter (from/to) to a drill-down URL so the
+ * detail page inherits the same window the user was looking at on the
+ * dashboard. Without this, clicking a row from "Last 7 days" landed on a
+ * detail showing the full history — confusing context switch. */
+function withFilters(base: string, filters: { from: string | null; to: string | null }): string {
+  const params = new URLSearchParams();
+  if (filters.from) params.set("from", filters.from);
+  if (filters.to) params.set("to", filters.to);
+  const q = params.toString();
+  return q ? `${base}?${q}` : base;
+}
+
 /** Maps the dashboard-data funnel stage labels to translation keys. Data
  * layer returns them in Spanish for legacy reasons; this resolves them to
  * locale-agnostic keys consumed by the dashx.funnel.stage.* dict entries. */
@@ -495,7 +507,7 @@ export default async function DashboardPage({
                     <div className="flex items-center gap-2">
                       <TopRankDot rank={idx} t={t} />
                       {icp.id !== "_unknown" ? (
-                        <Link href={`/dashboard/icp/${icp.id}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{icp.name}</Link>
+                        <Link href={withFilters(`/dashboard/icp/${icp.id}`, filters)} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{icp.name}</Link>
                       ) : (
                         <span style={{ color: C.textMuted }}>{t("dashx.tbl.icp.unknown")}</span>
                       )}
@@ -508,7 +520,7 @@ export default async function DashboardPage({
                   <RateCell value={icp.responseRate} color="#7C3AED" />
                   <RateCell value={icp.conversionRate} color={C.green} />
                   <td className="px-3 py-2"><InlineSpark data={icp.spark} color="#7C3AED" /></td>
-                  <td className="pr-3" style={{ color: C.textDim }}>{icp.id !== "_unknown" && <Link href={`/dashboard/icp/${icp.id}`} className="inline-flex"><ArrowRight size={12} /></Link>}</td>
+                  <td className="pr-3" style={{ color: C.textDim }}>{icp.id !== "_unknown" && <Link href={withFilters(`/dashboard/icp/${icp.id}`, filters)} className="inline-flex"><ArrowRight size={12} /></Link>}</td>
                 </tr>
               ))}
             </tbody>
@@ -542,7 +554,7 @@ export default async function DashboardPage({
                   <Td>
                     <div className="flex items-center gap-2">
                       <TopRankDot rank={idx} t={t} />
-                      <Link href={`/dashboard/campaign/${encodeURIComponent(c.name)}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{c.name}</Link>
+                      <Link href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{c.name}</Link>
                     </div>
                   </Td>
                   <td className="px-3 py-2">
@@ -561,7 +573,7 @@ export default async function DashboardPage({
                   <RateCell value={c.conversionRate} color={C.green} />
                   <td className="px-3 py-2"><StatusBadge status={c.status} t={t} /></td>
                   <td className="px-3 py-2"><InlineSpark data={c.spark} color="#0A66C2" /></td>
-                  <td className="pr-3" style={{ color: C.textDim }}><Link href={`/dashboard/campaign/${encodeURIComponent(c.name)}`} className="inline-flex"><ArrowRight size={12} /></Link></td>
+                  <td className="pr-3" style={{ color: C.textDim }}><Link href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)} className="inline-flex"><ArrowRight size={12} /></Link></td>
                 </tr>
               ))}
             </tbody>
@@ -598,7 +610,7 @@ export default async function DashboardPage({
                       {idx + 1}
                     </span>
                   </Td>
-                  <Td><Link href={`/dashboard/seller/${s.id}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{s.name}</Link></Td>
+                  <Td><Link href={withFilters(`/dashboard/seller/${s.id}`, filters)} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{s.name}</Link></Td>
                   <NumCell value={s.active} />
                   <NumCell value={s.contacted} />
                   <NumCell value={s.sent} />
@@ -606,7 +618,7 @@ export default async function DashboardPage({
                   <NumCell value={s.positive} accent={s.positive > 0 ? C.green : undefined} bold />
                   <RateCell value={s.conversionRate} color={C.green} />
                   <td className="px-3 py-2"><InlineSpark data={s.spark} color={gold} /></td>
-                  <td className="pr-3" style={{ color: C.textDim }}><Link href={`/dashboard/seller/${s.id}`} className="inline-flex"><ArrowRight size={12} /></Link></td>
+                  <td className="pr-3" style={{ color: C.textDim }}><Link href={withFilters(`/dashboard/seller/${s.id}`, filters)} className="inline-flex"><ArrowRight size={12} /></Link></td>
                 </tr>
               ))}
             </tbody>

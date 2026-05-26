@@ -61,10 +61,23 @@ type CampRow = { id: string; name: string; status: string | null; channel: strin
 type ReplyRow = { id: string; lead_id: string | null; campaign_id: string | null; classification: string | null; channel: string | null; received_at: string | null };
 type MsgRow = { id: string; status: string | null; sent_at: string | null; campaign_id: string | null; step_number: number | null };
 
-async function loadIcpDetail(icpId: string) {
+async function loadIcpDetail(icpId: string, dateFrom: string | null, dateTo: string | null) {
   const supabase = await getSupabaseServer();
   const scope = await getUserScope();
   const bioId = scope.isScoped ? scope.companyBioId! : null;
+
+  // Period filter — inherited from the dashboard the user clicked through
+  // from. When set, every reply/message aggregate is scoped to this window
+  // so the detail page matches the conversation the user was already in.
+  const fromMs = dateFrom ? new Date(`${dateFrom}T00:00:00Z`).getTime() : null;
+  const toMs = dateTo ? new Date(`${dateTo}T23:59:59Z`).getTime() : null;
+  const inWindow = (iso: string | null | undefined) => {
+    if (!iso) return fromMs === null && toMs === null; // null timestamps survive only when no filter
+    const t = new Date(iso).getTime();
+    if (fromMs !== null && t < fromMs) return false;
+    if (toMs !== null && t > toMs) return false;
+    return true;
+  };
 
   const profileQ = supabase.from("icp_profiles")
     .select("id, profile_name, target_industries, target_roles, pain_points, solutions_offered, company_bio_id")
@@ -95,8 +108,15 @@ async function loadIcpDetail(icpId: string) {
     supabase.from("sellers").select("id, name"),
   ]);
   const camps = (campsRaw ?? []) as CampRow[];
-  const replies = (repliesRaw ?? []) as ReplyRow[];
-  const msgs = (msgsRaw ?? []) as MsgRow[];
+  // Keep "all" copies for the trailing 30d trend chart (it has its own time
+  // semantics — always trailing 30 days regardless of the period filter).
+  // The filtered copies feed every other aggregate so the headline KPIs,
+  // donut, heatmap, channel mix, step performance, and TTFR all reflect
+  // the same window the user came from.
+  const allReplies = (repliesRaw ?? []) as ReplyRow[];
+  const allMsgs = (msgsRaw ?? []) as MsgRow[];
+  const replies = allReplies.filter(r => inWindow(r.received_at));
+  const msgs = allMsgs.filter(m => inWindow(m.sent_at));
   const sellerMap = new Map<string, string>();
   for (const s of ((sellersRaw ?? []) as { id: string; name: string }[])) sellerMap.set(s.id, s.name);
 
@@ -180,27 +200,36 @@ async function loadIcpDetail(icpId: string) {
   })).sort((a, b) => b.conversionRate - a.conversionRate || b.leads - a.leads);
 
   // ─── 30-day trends + reply classification ────────────────────────────
+  // Trend chart uses the UNFILTERED data because it's a "trailing 30 days"
+  // convention — same as the main dashboard. The period filter affects the
+  // headline KPIs + donut + heatmap (which are period-scoped views).
   const today = new Date(); today.setHours(23, 59, 59, 999);
   const dayBucket = (iso: string) => Math.floor((today.getTime() - new Date(iso).getTime()) / 86_400_000);
   const trendSent = new Array(30).fill(0) as number[];
   const trendReplies = new Array(30).fill(0) as number[];
   const trendPositive = new Array(30).fill(0) as number[];
-  for (const m of msgs) {
+  for (const m of allMsgs) {
     if (!m.sent_at) continue;
     const idx = 29 - dayBucket(m.sent_at);
     if (idx >= 0 && idx < 30) trendSent[idx]++;
   }
   const classCounts: Record<string, number> = {};
   const heatmap = Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]);
-  for (const r of replies) {
+  for (const r of allReplies) {
     const cls = r.classification ?? "unclassified";
-    classCounts[cls] = (classCounts[cls] ?? 0) + 1;
     if (r.received_at) {
       const idx = 29 - dayBucket(r.received_at);
       if (idx >= 0 && idx < 30) {
         trendReplies[idx]++;
         if (POSITIVE_CLASS.has(cls)) trendPositive[idx]++;
       }
+    }
+  }
+  // Period-scoped classification + heatmap (these reflect the active window).
+  for (const r of replies) {
+    const cls = r.classification ?? "unclassified";
+    classCounts[cls] = (classCounts[cls] ?? 0) + 1;
+    if (r.received_at) {
       const d = new Date(r.received_at);
       heatmap[d.getDay()][d.getHours()]++;
     }
@@ -306,18 +335,34 @@ async function loadIcpDetail(icpId: string) {
   };
 }
 
-export default async function IcpDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function IcpDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const scope = await getUserScope();
   if (scope.userId && scope.tier !== "super_admin" && !scope.companyBioId) redirect("/onboarding");
 
   const { id } = await params;
+  const sp = await searchParams;
+  const periodFrom = typeof sp.from === "string" ? sp.from : null;
+  const periodTo = typeof sp.to === "string" ? sp.to : null;
+
   const [d, tenantData, t, locale] = await Promise.all([
-    loadIcpDetail(id),
-    getDashboardData({ from: null, to: null }),
+    loadIcpDetail(id, periodFrom, periodTo),
+    // Tenant comparison stays on the same window so the lift % is meaningful.
+    getDashboardData({ from: periodFrom, to: periodTo }),
     getT(),
     getServerLocale(),
   ]);
   const dateLoc = locale === "es" ? "es-AR" : "en-US";
+
+  // Human-friendly period chip for the back-link row.
+  const periodChip = periodFrom && periodTo
+    ? `${new Date(periodFrom).toLocaleDateString(dateLoc, { day: "2-digit", month: "short" })} – ${new Date(periodTo).toLocaleDateString(dateLoc, { day: "2-digit", month: "short" })}`
+    : null;
 
   if (!d) {
     return (
@@ -360,9 +405,18 @@ export default async function IcpDetailPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="p-4 sm:p-6 w-full space-y-6">
-      <Link href="/" className="inline-flex items-center gap-1 text-xs hover:underline transition-opacity hover:opacity-70" style={{ color: C.textMuted }}>
-        <ArrowLeft size={12} /> {t("dashx.detail.back")}
-      </Link>
+      <div className="flex items-center justify-between gap-2">
+        <Link href={periodChip ? `/?from=${periodFrom}&to=${periodTo}` : "/"} className="inline-flex items-center gap-1 text-xs hover:underline transition-opacity hover:opacity-70" style={{ color: C.textMuted }}>
+          <ArrowLeft size={12} /> {t("dashx.detail.back")}
+        </Link>
+        {periodChip && (
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2.5 py-1 rounded-md border tabular-nums"
+            style={{ borderColor: C.border, color: C.textBody, background: C.card }}
+            title={t("dashx.detail.periodInherited")}>
+            <Clock size={11} style={{ color: gold }} /> {periodChip}
+          </span>
+        )}
+      </div>
 
       <PageHero
         icon={Target}

@@ -380,6 +380,7 @@ export const en: Dict = {
   "dashx.reply.unclassified": "Unclassified",
   // Detail pages — shared
   "dashx.detail.back": "Back to dashboard",
+  "dashx.detail.periodInherited": "Period inherited from dashboard — KPIs and breakdowns scoped to this window",
   // ICP detail page
   "dashx.detail.icp.section": "ICP detail",
   "dashx.detail.icp.noDef": "ICP definition pending",
@@ -910,6 +911,7 @@ export const es: Dict = {
   "dashx.reply.unclassified": "Sin clasificar",
   // Detail pages — shared
   "dashx.detail.back": "Volver al dashboard",
+  "dashx.detail.periodInherited": "Período heredado del dashboard — KPIs y breakdowns scoped a esta ventana",
   // ICP detail page
   "dashx.detail.icp.section": "Detalle de ICP",
   "dashx.detail.icp.noDef": "Definición del ICP pendiente",
