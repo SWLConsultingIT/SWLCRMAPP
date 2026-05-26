@@ -83,6 +83,7 @@ type ThreadEntry = {
   direction: "outbound" | "inbound" | "event";
   channel: string | null;
   body: string;
+  subject?: string | null;
   at: string;
   classification?: string | null;
   stepNumber?: number | null;
@@ -729,6 +730,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                       lastDayKey = dayKey;
                       const dayLabel = formatDayLabel(entry.at);
                       const isLast = idx === thread.length - 1;
+                      const isEmail = entry.channel === "email";
                       return (
                         <div key={entry.id}>
                           {showDayHeader && (
@@ -741,6 +743,114 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                               <div className="flex-1 h-px" style={{ backgroundColor: C.border }} />
                             </div>
                           )}
+                          {isEmail ? (
+                            /* Email card — full-width with From / Subject / body so an email
+                               actually reads like an email, not a chat bubble. */
+                            <div
+                              className="rounded-xl border overflow-hidden"
+                              style={{
+                                backgroundColor: isOut
+                                  ? `color-mix(in srgb, var(--brand, #c9a83a) 5%, ${C.card})`
+                                  : C.card,
+                                borderColor: C.border,
+                                borderLeftWidth: 3,
+                                borderLeftColor: isOut
+                                  ? "var(--brand, #c9a83a)"
+                                  : channelColor("email"),
+                              }}
+                            >
+                              {/* From / To / time */}
+                              <div className="px-4 py-3 border-b flex items-center gap-3" style={{ borderColor: C.border }}>
+                                {isOut ? (
+                                  <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                                    style={{ backgroundColor: `color-mix(in srgb, ${channelColor("email")} 18%, transparent)`, color: channelColor("email") }}>
+                                    <Icon size={13} />
+                                  </div>
+                                ) : (
+                                  <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold"
+                                    style={{ backgroundColor: leadAvatar.bg, color: leadAvatar.fg }}>
+                                    {initials(selected.leadName)}
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-semibold truncate" style={{ color: C.textPrimary }}>
+                                    {isOut ? "Tu equipo" : selected.leadName}
+                                    <span className="ml-2 text-[10px] font-normal" style={{ color: C.textMuted }}>
+                                      → {isOut ? selected.leadName : "Tu equipo"}
+                                    </span>
+                                  </p>
+                                  <p className="text-[10px]" style={{ color: C.textMuted }}>
+                                    <Mail size={9} className="inline mr-1 -mt-0.5" /> Email
+                                    {stepLabel && (
+                                      <>
+                                        <span className="mx-1.5">·</span>
+                                        <span className="px-1 py-0.5 rounded" style={{ backgroundColor: C.surface, color: C.textMuted }}>
+                                          {stepLabel}
+                                        </span>
+                                      </>
+                                    )}
+                                  </p>
+                                </div>
+                                <span className="text-[10px] tabular-nums shrink-0" style={{ color: C.textDim }}>{time}</span>
+                              </div>
+                              {/* Subject */}
+                              {entry.subject && (
+                                <div className="px-4 py-2.5 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted }}>Subject</p>
+                                  <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{entry.subject}</p>
+                                </div>
+                              )}
+                              {/* Body */}
+                              <div className="px-4 py-4">
+                                {entry.body && entry.body.trim() ? (
+                                  <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: C.textBody }}>{entry.body}</p>
+                                ) : entry.attachments && entry.attachments.length > 0 ? null : (
+                                  <p className="text-sm italic" style={{ color: C.textMuted }}>(sin contenido)</p>
+                                )}
+                                {entry.attachments && entry.attachments.length > 0 && (
+                                  <div className="flex flex-wrap gap-2 mt-3">
+                                    {entry.attachments.map((a, ai) => (
+                                      a.isImage && a.url ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <a key={ai} href={a.url} target="_blank" rel="noreferrer" className="block">
+                                          <img src={a.thumbUrl || a.url} alt={a.name ?? "image"}
+                                            className="max-w-[240px] max-h-[240px] rounded-lg border"
+                                            style={{ borderColor: C.border, objectFit: "cover" }} />
+                                        </a>
+                                      ) : (
+                                        <a key={ai} href={a.url ?? "#"} target="_blank" rel="noreferrer"
+                                          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-xs hover:opacity-85"
+                                          style={{ borderColor: C.border, backgroundColor: C.surface, color: C.textBody }}>
+                                          <ExternalLink size={11} />
+                                          <span className="truncate max-w-[180px]">{a.name ?? "Attachment"}</span>
+                                          {a.size != null && (
+                                            <span className="text-[10px]" style={{ color: C.textDim }}>{(a.size / 1024).toFixed(0)} KB</span>
+                                          )}
+                                        </a>
+                                      )
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              {/* Footer: receipts */}
+                              {isOut && (entry.seen || entry.delivered) && (
+                                <div className="px-4 py-2 border-t flex items-center justify-end gap-1.5 text-[10px]"
+                                  style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textDim }}>
+                                  {entry.seen ? (
+                                    <span className="inline-flex items-center gap-1" style={{ color: channelColor("email") }} title={entry.seenAt ? `Visto ${formatTimeOnly(entry.seenAt)}` : "Visto"}>
+                                      <span className="font-bold tracking-tighter">✓✓</span>
+                                      <span>Visto{entry.seenAt ? ` ${formatTimeOnly(entry.seenAt)}` : ""}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1" title="Entregado">
+                                      <span className="font-bold tracking-tighter">✓✓</span>
+                                      <span>Entregado</span>
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ) : (
                           <div className={`flex items-end gap-2 ${isOut ? "flex-row-reverse" : "flex-row"}`}>
                             {/* Avatar: lead initials on their bubbles, channel
                                 icon on ours so it's clear the bot/seller sent it. */}
@@ -843,6 +953,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                               </div>
                             </div>
                           </div>
+                          )}
                           {isLast && isOut && !entry.seen && (
                             <p className="text-[10px] mt-2 mr-9 text-right" style={{ color: C.textDim }}>
                               Esperando respuesta del lead…

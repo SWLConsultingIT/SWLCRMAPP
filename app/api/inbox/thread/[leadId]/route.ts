@@ -139,11 +139,13 @@ export async function GET(
     const provId = ((m as any).provider_message_id as string | null) ?? null;
     if (provId) seenProviderIds.add(provId);
     if (!chatIdFromDb && typeof meta.chat_id === "string") chatIdFromDb = meta.chat_id as string;
+    const subject = typeof meta.subject === "string" ? (meta.subject as string) : null;
     entries.push({
       id: `out-${(m as any).id}`,
       direction: "outbound",
       channel: (m as any).channel ?? null,
       body,
+      subject,
       at: sentAt,
       stepNumber: (m as any).step_number ?? null,
       kind: "sent",
