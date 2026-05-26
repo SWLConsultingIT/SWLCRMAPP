@@ -1,4 +1,5 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -17,28 +18,22 @@ const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";
 const goldGlow = "color-mix(in srgb, var(--brand, #c9a83a) 15%, transparent)";
 
 // ── Data fetchers ──
+//
+// Encrypted tenants (`source='client'`, encryption_mode='standard') store
+// company_name inside encrypted_payload, so `.eq("company_name", ...)` against
+// the column returns 0 rows. We work around it by fetching all leads in the
+// tenant scope (RLS already narrows this) and filtering on the decrypted
+// value in memory.
 
-async function getCompanyContacts(companyName: string) {
+async function getCompanyLeads(companyName: string) {
   const supabase = await getSupabaseServer();
-  const { data } = await supabase
-    .from("leads")
-    .select("id, primary_first_name, primary_last_name, primary_title_role, primary_seniority, status, lead_score, is_priority, allow_linkedin, allow_email, allow_call, primary_work_email, primary_phone, primary_linkedin_url, current_channel")
-    .eq("company_name", companyName)
-    .order("lead_score", { ascending: false });
-  return data ?? [];
-}
-
-async function getCompanyLead(companyName: string) {
-  const supabase = await getSupabaseServer();
-  // Get full data from first/best lead for company-level fields
   const { data } = await supabase
     .from("leads")
     .select("*")
-    .eq("company_name", companyName)
     .order("lead_score", { ascending: false })
-    .limit(1)
-    .single();
-  return data;
+    .limit(5000);
+  const hydrated = await hydrateClientLeads((data ?? []) as Record<string, unknown>[] as Array<{ id?: string; source?: string | null; encrypted_payload?: unknown; company_bio_id?: string | null; company_name?: string | null }>);
+  return hydrated.filter(l => (l as { company_name?: string }).company_name === companyName);
 }
 
 async function getCampaignStats(leadIds: string[]) {
@@ -88,12 +83,10 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
   const { name } = await params;
   const companyName = decodeURIComponent(name);
 
-  const [lead, allContacts] = await Promise.all([
-    getCompanyLead(companyName),
-    getCompanyContacts(companyName),
-  ]);
-
-  if (!lead || !allContacts.length) notFound();
+  const allContacts = await getCompanyLeads(companyName);
+  if (!allContacts.length) notFound();
+  // Use the highest-scoring lead as the source of company-level fields.
+  const lead = allContacts[0] as Record<string, any>;
 
   const contactIds = allContacts.map((c: any) => c.id);
   const stats = await getCampaignStats(contactIds);

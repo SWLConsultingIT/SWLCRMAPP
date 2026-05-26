@@ -104,6 +104,63 @@ async function getData() {
     });
   })();
 
+  // Build a company-level aggregation from the decrypted set. Used by the
+  // "Companies" sub-view inside All Leads. Company-level facts come from
+  // whichever lead of that company we encounter first (after the
+  // lead_score-desc order, that's the highest-scoring contact).
+  type CompanyAgg = {
+    name: string;
+    industry: string | null;
+    subIndustry: string | null;
+    shortDesc: string | null;
+    description: string | null;
+    tagline: string | null;
+    city: string | null;
+    state: string | null;
+    country: string | null;
+    website: string | null;
+    employees: string | null;
+    logoUrl: string | null;
+    leadIds: string[];
+  };
+  const companiesAgg: Record<string, CompanyAgg> = {};
+  for (const l of (allLeads ?? []) as Array<Record<string, any>>) {
+    const name = (l.company_name ?? "").trim();
+    if (!name) continue;
+    const existing = companiesAgg[name];
+    if (!existing) {
+      companiesAgg[name] = {
+        name,
+        industry: l.company_industry ?? null,
+        subIndustry: l.company_sub_industry ?? null,
+        shortDesc: l.organization_short_desc ?? null,
+        description: l.organization_description ?? null,
+        tagline: l.organization_tagline ?? null,
+        city: l.company_city ?? null,
+        state: l.company_state ?? null,
+        country: l.company_country ?? null,
+        website: l.company_website ?? null,
+        employees: l.employees ?? null,
+        logoUrl: l.organization_logo_url ?? null,
+        leadIds: [l.id],
+      };
+    } else {
+      existing.leadIds.push(l.id);
+      // Backfill anything missing — earlier lead wins for any populated field
+      existing.industry      ??= l.company_industry ?? null;
+      existing.subIndustry   ??= l.company_sub_industry ?? null;
+      existing.shortDesc     ??= l.organization_short_desc ?? null;
+      existing.description   ??= l.organization_description ?? null;
+      existing.tagline       ??= l.organization_tagline ?? null;
+      existing.city          ??= l.company_city ?? null;
+      existing.state         ??= l.company_state ?? null;
+      existing.country       ??= l.company_country ?? null;
+      existing.website       ??= l.company_website ?? null;
+      existing.employees     ??= l.employees ?? null;
+      existing.logoUrl       ??= l.organization_logo_url ?? null;
+    }
+  }
+
   const icpMap: Record<string, { id: string; profile_name: string; target_industries?: string[]; target_roles?: string[] }> = {};
   for (const p of profiles ?? []) icpMap[p.id] = p;
 
@@ -362,6 +419,29 @@ async function getData() {
     });
   }
 
+  // Finalize the companies list with per-company outreach stats derived from
+  // the same campaigns/replies maps we already computed above.
+  const companies = Object.values(companiesAgg).map(c => {
+    let contactedCount = 0, repliedCount = 0, positiveCount = 0, wonCount = 0;
+    for (const lid of c.leadIds) {
+      const camps = campsByLead[lid] ?? [];
+      const replies = repliesByLead[lid] ?? [];
+      if (camps.length > 0) contactedCount++;
+      if (replies.length > 0) repliedCount++;
+      if (replies.some(r => r.classification === "positive" || r.classification === "meeting_intent")) positiveCount++;
+      const leadObj = (allLeads ?? []).find((x: any) => x.id === lid);
+      if (leadObj && (leadObj as any).status === "closed_won") wonCount++;
+    }
+    return {
+      ...c,
+      leadCount: c.leadIds.length,
+      contactedCount,
+      repliedCount,
+      positiveCount,
+      wonCount,
+    };
+  }).sort((a, b) => b.leadCount - a.leadCount || a.name.localeCompare(b.name));
+
   return {
     profileGroups: groupList,
     allLeads: allLeadsList,
@@ -369,6 +449,7 @@ async function getData() {
     renurturingLeads,
     icpMap,
     campaignGroups,
+    companies,
     uncampaignedGroups: Object.values(uncampaignedByProfile),
     stats: { activeProfiles: groupList.filter(g => (g.statusCounts.active ?? 0) > 0).length, totalLeads, responseRate, positiveReplies: positiveCount, activeCampaigns: campaignGroups.filter(g => g.status === "active").length },
     totalLeadCount: typeof totalLeadCount === "number" ? totalLeadCount : (allLeadsList?.length ?? 0),
@@ -376,7 +457,7 @@ async function getData() {
 }
 
 export default async function LeadsCampaignsPage() {
-  const { profileGroups, allLeads, lostLeads, renurturingLeads, stats, totalLeadCount } = await getData();
+  const { profileGroups, allLeads, lostLeads, renurturingLeads, companies, stats, totalLeadCount } = await getData();
   const scope = await getUserScope();
   const canImport = canEditTenantSettings(scope.tier) || scope.tier === "manager";
 
@@ -422,6 +503,7 @@ export default async function LeadsCampaignsPage() {
         allLeads={JSON.parse(JSON.stringify(allLeads))}
         lostLeads={JSON.parse(JSON.stringify(lostLeads))}
         renurturingLeads={JSON.parse(JSON.stringify(renurturingLeads))}
+        companies={JSON.parse(JSON.stringify(companies))}
         stats={stats}
         totalLeadCount={totalLeadCount}
       />

@@ -8,6 +8,7 @@ import {
   Megaphone, ChevronRight, Target,
   Search, X, CheckCircle, Star, RefreshCw, Trash2, Square, CheckSquare,
   Phone, MoreHorizontal, Mail, Flame,
+  Building2, Users as UsersIcon, MapPin, Globe, MessageCircle, ThumbsUp, Trophy,
 } from "lucide-react";
 import { LeadFilterBar, type LeadFilterState } from "@/components/LeadFilters";
 import { useToast } from "@/lib/toast";
@@ -86,11 +87,33 @@ type RenurturingLead = LostLead & {
   new_campaign_total_steps: number | null;
 };
 
+type CompanyInfo = {
+  name: string;
+  industry: string | null;
+  subIndustry: string | null;
+  shortDesc: string | null;
+  description: string | null;
+  tagline: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  website: string | null;
+  employees: string | null;
+  logoUrl: string | null;
+  leadCount: number;
+  contactedCount: number;
+  repliedCount: number;
+  positiveCount: number;
+  wonCount: number;
+  leadIds: string[];
+};
+
 type Props = {
   profileGroups: ProfileGroup[];
   allLeads: LeadInfo[];
   lostLeads: LostLead[];
   renurturingLeads: RenurturingLead[];
+  companies: CompanyInfo[];
   stats: { totalLeads: number; responseRate: number; positiveReplies: number; activeCampaigns: number };
   /** Total leads in the tenant (unfiltered), from a separate count() query.
    *  When greater than `allLeads.length`, the page hit the 500-row cap and
@@ -500,6 +523,139 @@ function LostLeadsView({ leads }: { leads: LostLead[] }) {
         {filtered.map(l => <LostLeadCard key={l.id} lead={l} selected={selected.has(l.id)} onToggle={toggleOne} />)}
       </div>
     </div>
+  );
+}
+
+// ─── Companies Grid ─────────────────────────────────────────────────────────
+// Aggregated company-level view of the same `allLeads` set, one card per
+// distinct company_name. Each card links to /companies/[name] which has the
+// existing detail page (contacts, activity, intel).
+function CompaniesGrid({ companies }: { companies: CompanyInfo[] }) {
+  const [search, setSearch] = useState("");
+
+  const filtered = !search ? companies : companies.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    (c.industry ?? "").toLowerCase().includes(search.toLowerCase()) ||
+    (c.city ?? "").toLowerCase().includes(search.toLowerCase()) ||
+    (c.shortDesc ?? "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="w-full">
+      {/* Search */}
+      <div className="flex items-center gap-2 mb-4 rounded-lg border px-3 py-1.5 max-w-sm"
+        style={{ borderColor: C.border, backgroundColor: C.card }}>
+        <Search size={14} style={{ color: C.textDim }} />
+        <input
+          type="text" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Search company, industry, city…"
+          className="bg-transparent text-sm outline-none flex-1"
+          style={{ color: C.textPrimary }}
+        />
+        {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <Building2 size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
+          <p className="text-sm font-medium" style={{ color: C.textBody }}>
+            {search ? "No companies match your search" : "No companies yet"}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map(c => <CompanyCard key={c.name} company={c} />)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompanyCard({ company }: { company: CompanyInfo }) {
+  const initial = (company.name?.[0] ?? "?").toUpperCase();
+  const location = [company.city, company.country].filter(Boolean).join(", ");
+  const summary = company.shortDesc ?? company.description ?? company.tagline;
+  return (
+    <Link
+      href={`/companies/${encodeURIComponent(company.name)}`}
+      className="block rounded-xl border overflow-hidden transition-[box-shadow,transform] hover:shadow-md hover:-translate-y-px"
+      style={{ backgroundColor: C.card, borderColor: C.border }}
+    >
+      {/* Header */}
+      <div className="px-4 pt-4 pb-3 flex items-start gap-3 border-b" style={{ borderColor: C.border }}>
+        {company.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={company.logoUrl} alt="" className="w-11 h-11 rounded-lg object-cover border shrink-0" style={{ borderColor: C.border }} />
+        ) : (
+          <div className="w-11 h-11 rounded-lg flex items-center justify-center text-base font-bold shrink-0"
+            style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
+            {initial}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <h3 className="text-sm font-bold truncate" style={{ color: C.textPrimary }}>{company.name}</h3>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5 text-[11px]" style={{ color: C.textMuted }}>
+            {company.industry && (
+              <span className="flex items-center gap-1">
+                <Building2 size={10} /> {company.industry}
+              </span>
+            )}
+            {location && (
+              <span className="flex items-center gap-1">
+                <MapPin size={10} /> {location}
+              </span>
+            )}
+          </div>
+        </div>
+        <ChevronRight size={14} style={{ color: C.textDim }} className="shrink-0 mt-1" />
+      </div>
+
+      {/* Description */}
+      {summary && (
+        <div className="px-4 py-3 text-[12px] leading-relaxed line-clamp-3" style={{ color: C.textBody }}>
+          {summary}
+        </div>
+      )}
+
+      {/* Stats */}
+      <div className="px-4 py-3 border-t flex items-center justify-between gap-2 flex-wrap"
+        style={{ borderColor: C.border, backgroundColor: C.bg }}>
+        <div className="flex items-center gap-3 text-[11px]">
+          <span className="flex items-center gap-1" style={{ color: C.textBody }}>
+            <UsersIcon size={11} style={{ color: gold }} />
+            <span className="font-semibold tabular-nums">{company.leadCount}</span>
+            <span style={{ color: C.textMuted }}>{company.leadCount === 1 ? "lead" : "leads"}</span>
+          </span>
+          {company.contactedCount > 0 && (
+            <span className="flex items-center gap-1" style={{ color: C.textBody }}>
+              <MessageCircle size={11} style={{ color: C.blue }} />
+              <span className="font-semibold tabular-nums">{company.contactedCount}</span>
+              <span style={{ color: C.textMuted }}>contacted</span>
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {company.positiveCount > 0 && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded inline-flex items-center gap-1"
+              style={{ backgroundColor: C.greenLight, color: C.green }}>
+              <ThumbsUp size={9} /> {company.positiveCount}
+            </span>
+          )}
+          {company.wonCount > 0 && (
+            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded inline-flex items-center gap-1"
+              style={{ backgroundColor: C.greenLight, color: C.green }}>
+              <Trophy size={9} /> {company.wonCount}
+            </span>
+          )}
+          {company.website && (
+            <span className="text-[10px] font-medium inline-flex items-center gap-1 px-1.5 py-0.5 rounded"
+              style={{ backgroundColor: C.cardHov, color: C.textMuted }}>
+              <Globe size={9} /> site
+            </span>
+          )}
+        </div>
+      </div>
+    </Link>
   );
 }
 
@@ -1113,9 +1269,10 @@ function ProfileCard({ group }: { group: ProfileGroup }) {
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
-export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLeads, renurturingLeads, stats, totalLeadCount }: Props) {
+export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLeads, renurturingLeads, companies, stats, totalLeadCount }: Props) {
   const [mainView, setMainView] = useState<"leads" | "campaigns">("leads");
   const [leadsTab, setLeadsTab] = useState(0);
+  const [allLeadsSubview, setAllLeadsSubview] = useState<"people" | "companies">("people");
   const [search, setSearch] = useState("");
 
   const activeGroups = profileGroups.filter(g => (g.statusCounts.active ?? 0) + (g.statusCounts.paused ?? 0) > 0);
@@ -1267,7 +1424,46 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
             })}
           </div>
 
-          {leadsTab === 0 && <AllLeadsTable leads={allLeads} />}
+          {leadsTab === 0 && (
+            <div>
+              {/* People / Companies sub-toggle */}
+              <div className="flex items-center gap-1 mb-5 p-1 rounded-lg border max-w-fit"
+                style={{ backgroundColor: C.card, borderColor: C.border }}>
+                {([
+                  { key: "people" as const,    label: "People",    icon: UsersIcon,   count: allLeads.length },
+                  { key: "companies" as const, label: "Companies", icon: Building2,   count: companies.length },
+                ]).map(opt => {
+                  const isActive = allLeadsSubview === opt.key;
+                  const Icon = opt.icon;
+                  return (
+                    <button
+                      key={opt.key}
+                      onClick={() => setAllLeadsSubview(opt.key)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-[background-color,color] duration-150"
+                      style={{
+                        backgroundColor: isActive ? gold : "transparent",
+                        color: isActive ? "#04070d" : C.textBody,
+                      }}
+                    >
+                      <Icon size={12} />
+                      {opt.label}
+                      <span
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{
+                          backgroundColor: isActive ? "rgba(4,7,13,0.14)" : C.cardHov,
+                          color: isActive ? "#04070d" : C.textDim,
+                        }}
+                      >
+                        {opt.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {allLeadsSubview === "people" && <AllLeadsTable leads={allLeads} />}
+              {allLeadsSubview === "companies" && <CompaniesGrid companies={companies} />}
+            </div>
+          )}
           {leadsTab === 1 && <LostLeadsView leads={lostLeads} />}
           {leadsTab === 2 && <RenurturingView leads={renurturingLeads} />}
         </div>
