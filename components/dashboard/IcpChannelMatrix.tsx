@@ -55,6 +55,28 @@ export default function IcpChannelMatrix({ matrix, locale }: { matrix: Matrix; l
     );
   }
 
+  // The matrix only earns its space when there are at least 2 valid cells
+  // (≥10 contacts each) to compare. Anything less is duplication of the
+  // Channel breakdown below — a 1×1 or 1×n "matrix" with one filled cell
+  // is just a single number on a grid and clutters the dashboard.
+  const validCellCount = matrix.cells.filter(c => c.replyRate !== null).length;
+  if (validCellCount < 2) {
+    return (
+      <div className="py-8 text-center">
+        <p className="text-[12.5px]" style={{ color: C.textMuted }}>
+          {t("dashx.matrix.notMeaningfulTitle")}
+        </p>
+        <p className="text-[10.5px] mt-1 max-w-md mx-auto leading-relaxed" style={{ color: C.textDim }}>
+          {t("dashx.matrix.notMeaningfulHint", {
+            icps: matrix.icps.length,
+            channels: matrix.channels.length,
+            cells: validCellCount,
+          })}
+        </p>
+      </div>
+    );
+  }
+
   const cellByKey = new Map<string, Matrix["cells"][number]>();
   for (const c of matrix.cells) cellByKey.set(`${c.icpId}|${c.channel}`, c);
 

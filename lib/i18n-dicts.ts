@@ -296,6 +296,11 @@ export const en: Dict = {
   "dashx.matrix.emptyHint": "The matrix appears with at least one campaign per ICP.",
   "dashx.matrix.cellEmpty": "No activity",
   "dashx.matrix.cellInsuf": "Low volume: {n} contacts (min 10)",
+  "dashx.matrix.notMeaningfulTitle": "Not enough variety yet to compare",
+  "dashx.matrix.notMeaningfulHint": "The matrix needs 2+ valid cells (≥10 contacts each) across ICPs and channels. You currently have {icps} ICP(s), {channels} channel(s), {cells} cell(s) with significant volume. See the Channel breakdown below for the single-segment view.",
+  "dashx.step.crBadge": "CR",
+  "dashx.step.crNoteTooltip": "Connection requests don't usually get text replies — their outcome is the acceptance rate, tracked separately.",
+  "dashx.step.crFootnote": "Step 1 (CR) replies are rare by design — the real CR outcome is acceptance rate, surfaced as a separate KPI in the main dashboard.",
   // Step performance
   "dashx.step.title": "Performance by step",
   "dashx.step.subtitle": "Reply rate per sequence step · spot the weak message",
@@ -805,6 +810,11 @@ export const es: Dict = {
   "dashx.matrix.emptyHint": "La matriz aparece con al menos una campaña por ICP.",
   "dashx.matrix.cellEmpty": "Sin actividad",
   "dashx.matrix.cellInsuf": "Volumen insuficiente: {n} contactos (mín 10)",
+  "dashx.matrix.notMeaningfulTitle": "Todavía no hay variedad suficiente para comparar",
+  "dashx.matrix.notMeaningfulHint": "La matriz necesita al menos 2 celdas válidas (≥10 contactos c/u) entre ICPs y canales. Hoy tenés {icps} ICP(s), {channels} canal(es), {cells} celda(s) con volumen suficiente. Mirá el Channel breakdown abajo para la vista de un solo segmento.",
+  "dashx.step.crBadge": "CR",
+  "dashx.step.crNoteTooltip": "Las connection requests no suelen recibir respuestas de texto — su outcome real es la tasa de aceptación, que se mide aparte.",
+  "dashx.step.crFootnote": "Las respuestas al Paso 1 (CR) son raras por diseño — el outcome real de la CR es la tasa de aceptación, que se muestra como KPI separado en el dashboard principal.",
   // Step performance
   "dashx.step.title": "Performance por paso",
   "dashx.step.subtitle": "Reply rate por step de la secuencia · identificá el mensaje débil",
