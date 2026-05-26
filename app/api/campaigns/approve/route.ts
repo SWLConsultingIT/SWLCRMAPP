@@ -107,16 +107,35 @@ export async function POST(req: NextRequest) {
 
     const allIds = (profileLeads ?? []).map(l => l.id);
 
-    // Exclude leads that already have an active/paused campaign
+    // Exclude leads that:
+    //   (a) currently have an active/paused campaign, OR
+    //   (b) received ANY sent campaign message in the last 90 days
+    //       (including from completed campaigns) — prevents the "two intros
+    //       a month apart" problem Fran flagged on 2026-05-26 for De Vera
+    //       Grill (6 of 22 leads got intro-April + intro-May from two
+    //       different campaigns, second one re-engaged a lead that had
+    //       already declined). Sellers can still re-engage older cold leads
+    //       (≥ 90 days since last touch); that's intentional.
     if (allIds.length > 0) {
-      const { data: existingCampaigns } = await supabase
-        .from("campaigns")
-        .select("lead_id")
-        .in("lead_id", allIds)
-        .in("status", ["active", "paused"]);
+      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+      const [activeRes, recentTouchRes] = await Promise.all([
+        supabase
+          .from("campaigns")
+          .select("lead_id")
+          .in("lead_id", allIds)
+          .in("status", ["active", "paused"]),
+        supabase
+          .from("campaign_messages")
+          .select("lead_id")
+          .in("lead_id", allIds)
+          .eq("status", "sent")
+          .gte("sent_at", ninetyDaysAgo),
+      ]);
 
-      const activeLids = new Set((existingCampaigns ?? []).map(c => c.lead_id));
-      leadIds = allIds.filter(id => !activeLids.has(id));
+      const excluded = new Set<string>();
+      for (const c of activeRes.data ?? []) excluded.add((c as any).lead_id);
+      for (const m of recentTouchRes.data ?? []) excluded.add((m as any).lead_id);
+      leadIds = allIds.filter(id => !excluded.has(id));
     }
   }
 
