@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
@@ -239,6 +239,71 @@ export default function NewCampaignWizard() {
   const channelOptions = ALL_CHANNEL_OPTIONS.filter(c => !c.superAdminOnly || isSuperAdmin);
   const [language, setLanguage] = useState("es");
   const [timezone, setTimezone] = useState("America/Argentina/La_Rioja");
+
+  // Wizard draft autosave — persist sequence + channelMessages + the meta
+  // settings to sessionStorage so a refresh or accidental nav never wipes
+  // the work-in-progress. Scoped per ICP so different campaigns don't
+  // collide. Cleared on successful submit.
+  const draftKey = `swl-wizard-draft:${profileId}`;
+  const [draftRestored, setDraftRestored] = useState(false);
+  // Track when state has been hydrated at least once so the save effect
+  // doesn't write a half-empty draft on the very first render.
+  const draftHydratedRef = useRef(false);
+
+  // RESTORE on mount — runs BEFORE template apply so template-from-URL
+  // takes precedence (user explicitly picked a template → ignore stale draft).
+  useEffect(() => {
+    const fromUrl = searchParams.get("template_id");
+    let pendingTemplate: string | null = null;
+    try { pendingTemplate = sessionStorage.getItem("swl-pending-template-id"); } catch { /* no-op */ }
+    if (fromUrl || pendingTemplate) {
+      // Template apply path owns the state. Skip draft restore.
+      draftHydratedRef.current = true;
+      return;
+    }
+    try {
+      const raw = sessionStorage.getItem(draftKey);
+      if (!raw) { draftHydratedRef.current = true; return; }
+      const d = JSON.parse(raw);
+      if (d.campaignName) setCampaignName(d.campaignName);
+      if (Array.isArray(d.sequence) && d.sequence.length > 0) setSequence(d.sequence);
+      if (d.channelMessages && typeof d.channelMessages === "object") setChannelMessages(d.channelMessages);
+      if (d.language) setLanguage(d.language);
+      if (d.timezone) setTimezone(d.timezone);
+      if (typeof d.wizardStep === "number" && d.wizardStep >= 0 && d.wizardStep <= 3) setWizardStep(d.wizardStep);
+      if (Array.isArray(d.selectedSignals)) setSelectedSignals(d.selectedSignals);
+      if (Array.isArray(d.sellerQuotas) && d.sellerQuotas.length > 0) setSellerQuotas(d.sellerQuotas);
+      if (typeof d.selectedAircallNumberId === "number") setSelectedAircallNumberId(d.selectedAircallNumberId);
+      if (d.callAdvanceMode === "auto" || d.callAdvanceMode === "manual") setCallAdvanceMode(d.callAdvanceMode);
+      setDraftRestored(true);
+    } catch { /* corrupt draft — ignore */ }
+    draftHydratedRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // SAVE on change — debounced so we don't write on every keystroke.
+  useEffect(() => {
+    if (!draftHydratedRef.current) return;
+    const t = setTimeout(() => {
+      try {
+        sessionStorage.setItem(draftKey, JSON.stringify({
+          campaignName,
+          sequence,
+          channelMessages,
+          language,
+          timezone,
+          wizardStep,
+          selectedSignals,
+          sellerQuotas,
+          selectedAircallNumberId,
+          callAdvanceMode,
+          savedAt: Date.now(),
+        }));
+      } catch { /* quota exceeded / private mode — ignore */ }
+    }, 400);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campaignName, sequence, channelMessages, language, timezone, wizardStep, selectedSignals, sellerQuotas, selectedAircallNumberId, callAdvanceMode]);
 
   useEffect(() => {
     async function load() {
@@ -526,6 +591,9 @@ export default function NewCampaignWizard() {
       setSubmitting(false);
     } else {
       setSubmitting(false);
+      // Wizard succeeded — drop the autosave draft so the next visit to this
+      // ICP's wizard starts fresh (not restoring an already-submitted state).
+      try { sessionStorage.removeItem(draftKey); } catch { /* no-op */ }
       // Offer to save as a reusable template before showing the success screen.
       setTplName(campaignName.trim() || insertData.name);
       setTplDesc("");
@@ -680,6 +748,40 @@ export default function NewCampaignWizard() {
           </div>
         );
       })()}
+
+      {/* Draft-restored notice — surfaces when we recovered a work-in-progress
+          from sessionStorage so the seller knows their fields aren't fresh
+          defaults. Dismissable; also auto-disappears when they navigate. */}
+      {draftRestored && (
+        <div className="mb-4 rounded-xl border px-4 py-2.5 flex items-center gap-3"
+          style={{ backgroundColor: `color-mix(in srgb, ${gold} 6%, transparent)`, borderColor: `color-mix(in srgb, ${gold} 25%, transparent)` }}>
+          <span className="text-xs font-semibold" style={{ color: gold }}>Draft restored</span>
+          <span className="text-xs" style={{ color: C.textMuted }}>
+            Recuperamos tu trabajo en progreso. Si querés empezar de cero, descartá el borrador.
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              try { sessionStorage.removeItem(draftKey); } catch { /* no-op */ }
+              // Reset to defaults
+              setCampaignName("");
+              setSequence([
+                { channel: "linkedin", daysAfter: 0 },
+                { channel: "email", daysAfter: 3 },
+                { channel: "linkedin", daysAfter: 3 },
+              ]);
+              setChannelMessages({ steps: [], autoReplies: { positive: "", negative: "", question: "" } });
+              setSelectedSignals([]);
+              setWizardStep(0);
+              setDraftRestored(false);
+            }}
+            className="ml-auto text-xs font-medium hover:underline"
+            style={{ color: C.textMuted }}
+          >
+            Descartar borrador
+          </button>
+        </div>
+      )}
 
       {/* Step indicator — sticky so the seller always knows where they are
           in the wizard even on the long Sequence + Messages screens. Solid
