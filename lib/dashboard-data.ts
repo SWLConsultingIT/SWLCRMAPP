@@ -211,6 +211,69 @@ export async function getDashboardData(filters: DashboardFilters) {
   const conversionRate = contactedLeads > 0 ? Math.round((positiveCount / contactedLeads) * 100) : 0;
   const acceptanceRate = contactedLeads > 0 ? Math.round((connectedLeads / contactedLeads) * 100) : 0;
 
+  // ── Engine health signals ───────────────────────────────────────────────
+  //
+  // Saturation Index: campaigns that reached the END of their sequence
+  // (current_step >= total steps) WITHOUT any reply. If this gets high, the
+  // machine is burning inboxes for nothing — either the messaging or the
+  // targeting is off. Floor at 5 campaigns total to avoid noise from tiny
+  // tenants.
+  let saturatedCount = 0;
+  let evaluatedSeqCount = 0;
+  for (const c of campaigns) {
+    const total = Array.isArray(c.sequence_steps) ? c.sequence_steps.length : 0;
+    if (total < 1) continue;
+    evaluatedSeqCount++;
+    if ((c.current_step ?? 0) >= total && c.lead_id && !repliedLeadIds.has(c.lead_id)) {
+      saturatedCount++;
+    }
+  }
+  const saturationRate = evaluatedSeqCount >= 5
+    ? Math.round((saturatedCount / evaluatedSeqCount) * 100)
+    : null;
+
+  // Pipeline at risk: paused campaigns + active campaigns with NO message
+  // sent in the last 7 days. The 7d window is heuristic — anything stalled
+  // longer than the longest typical step gap is suspicious. We compute per
+  // campaign-id, so a campaign with `status='active'` but `current_step=0`
+  // and no recent send counts as "at risk" (likely never dispatched).
+  const SEVEN_DAYS_MS = 7 * 86_400_000;
+  const nowMs = Date.now();
+  const lastSentByCampaign = new Map<string, number>();
+  for (const m of allMessages) {
+    if (!m.campaign_id || !m.sent_at) continue;
+    if (m.status !== "sent") continue;
+    const t = new Date(m.sent_at).getTime();
+    const prev = lastSentByCampaign.get(m.campaign_id) ?? 0;
+    if (t > prev) lastSentByCampaign.set(m.campaign_id, t);
+  }
+  let atRiskCount = 0;
+  for (const c of campaigns) {
+    if (c.status === "paused") { atRiskCount++; continue; }
+    if (c.status === "active") {
+      const last = lastSentByCampaign.get(c.id) ?? 0;
+      if (nowMs - last > SEVEN_DAYS_MS) atRiskCount++;
+    }
+  }
+
+  // Channel mismatch: % of replies that arrived through a channel DIFFERENT
+  // from the campaign's channel. Strong signal that the lead's preferred
+  // channel doesn't match what we picked — informative for ICP-level channel
+  // selection. Only counts replies that have a recorded channel AND a
+  // resolvable campaign.
+  let mismatchCount = 0;
+  let evaluatedReplies = 0;
+  for (const r of replies) {
+    if (!r.channel || !r.campaign_id) continue;
+    const c = campaigns.find(x => x.id === r.campaign_id);
+    if (!c?.channel) continue;
+    evaluatedReplies++;
+    if (r.channel !== c.channel) mismatchCount++;
+  }
+  const channelMismatchRate = evaluatedReplies >= 10
+    ? Math.round((mismatchCount / evaluatedReplies) * 100)
+    : null;
+
   // ── Per-channel breakdown ───────────────────────────────────────────────
   const channelStats = new Map<string, { sent: number; contacted: Set<string>; replied: Set<string>; positive: Set<string> }>();
   for (const c of campaigns) {
@@ -571,6 +634,18 @@ export async function getDashboardData(filters: DashboardFilters) {
         const remainingDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
         return Math.round(velocityPerDay * remainingDays);
       })(),
+    },
+    health: {
+      /** % of campaigns that finished their sequence with 0 replies. null when <5 evaluated. */
+      saturationRate,
+      /** Absolute count of saturated campaigns (sequences finished, 0 replies). */
+      saturatedCount,
+      /** Campaigns paused OR active without any send in the last 7 days. */
+      atRiskCount,
+      /** % of replies that arrived on a channel different from the campaign's. null when <10 evaluated. */
+      channelMismatchRate,
+      /** Absolute count of mismatched-channel replies. */
+      mismatchCount,
     },
     heatmap, // [7][24] — Sun..Sat × 0..23h
   };

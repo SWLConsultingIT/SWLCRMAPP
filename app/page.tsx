@@ -11,7 +11,7 @@ import { Suspense } from "react";
 import {
   Users, Send, MessageSquare, ThumbsUp, Trophy, Megaphone, Target,
   TrendingUp, Sparkles, AlertTriangle, Lightbulb, ArrowRight, CheckCircle2,
-  Share2, Mail, Phone, Smartphone, FileDown, Clock, ChevronsRight,
+  Share2, Mail, Phone, Smartphone, FileDown, Clock, ChevronsRight, Activity,
 } from "lucide-react";
 import { C } from "@/lib/design";
 import { getUserScope } from "@/lib/scope";
@@ -273,6 +273,44 @@ export default async function DashboardPage({
               unit="de contactados"
               hint="Ganados / contactados"
               tone="success"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Engine health — saturation, at-risk, channel-mismatch ────────── */}
+      <section>
+        <div className="rounded-2xl border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.card }}>
+          <div className="px-4 py-2.5 border-b flex items-center gap-2" style={{ borderColor: C.border }}>
+            <Activity size={12} style={{ color: C.textMuted }} />
+            <h3 className="text-[12px] font-semibold" style={{ color: C.textPrimary }}>Salud del motor</h3>
+            <span className="text-[11px]" style={{ color: C.textMuted }}>· señales operativas que no aparecen en KPIs</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: C.border }}>
+            <HealthStat
+              label="Saturación"
+              value={data.health.saturationRate === null ? "—" : `${data.health.saturationRate}%`}
+              unit={data.health.saturationRate === null ? "n insuf." : "secuencias completas sin reply"}
+              hint={data.health.saturationRate === null
+                ? "Necesitás ≥5 secuencias terminadas"
+                : `${data.health.saturatedCount} campañas quemaron toda la secuencia sin respuesta`}
+              tone={data.health.saturationRate !== null && data.health.saturationRate >= 60 ? "warning" : "neutral"}
+            />
+            <HealthStat
+              label="Pipeline en riesgo"
+              value={`${data.health.atRiskCount}`}
+              unit="campañas frenadas"
+              hint="Pausadas o activas sin envío en 7d"
+              tone={data.health.atRiskCount >= 5 ? "warning" : "neutral"}
+            />
+            <HealthStat
+              label="Canal mismatch"
+              value={data.health.channelMismatchRate === null ? "—" : `${data.health.channelMismatchRate}%`}
+              unit={data.health.channelMismatchRate === null ? "n insuf." : "respondieron por otro canal"}
+              hint={data.health.channelMismatchRate === null
+                ? "Necesitás ≥10 respuestas con canal"
+                : `${data.health.mismatchCount} leads prefirieron otro canal — señal de preferencia del ICP`}
+              tone="neutral"
             />
           </div>
         </div>
@@ -665,6 +703,29 @@ function EmptyTableState({ filtered, kind }: { filtered: boolean; kind: string }
     );
   }
   return <span style={{ color: C.textMuted }}>Sin actividad de {kind} en el período.</span>;
+}
+
+/** Compact stat tile used inside the "Salud del motor" strip. Same density
+ * grammar as VelocityStat but no gold gradient — visually quieter so the
+ * Velocity strip stays the dominant north-star band above it. */
+function HealthStat({ label, value, unit, hint, tone }: {
+  label: string;
+  value: string;
+  unit: string;
+  hint: string;
+  tone: "neutral" | "warning";
+}) {
+  const accent = tone === "warning" ? "#D97706" : C.textPrimary;
+  return (
+    <div className="px-5 py-3.5 flex flex-col gap-0.5">
+      <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: C.textMuted }}>{label}</p>
+      <p className="flex items-baseline gap-1.5">
+        <span className="text-[20px] font-semibold tabular-nums tracking-tight" style={{ color: accent }}>{value}</span>
+        <span className="text-[11px]" style={{ color: C.textMuted }}>{unit}</span>
+      </p>
+      <p className="text-[10.5px] leading-snug" style={{ color: C.textDim }}>{hint}</p>
+    </div>
+  );
 }
 
 function formatMinutes(min: number): string {
