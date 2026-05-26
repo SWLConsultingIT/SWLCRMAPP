@@ -17,6 +17,8 @@ export default function KpiCard({
   accent,
   hint,
   href,
+  vsPriorLabel = "vs prior",
+  noPriorLabel = "No comparable",
 }: {
   label: string;
   value: string | number;
@@ -27,6 +29,10 @@ export default function KpiCard({
   accent?: string;
   hint?: string;
   href?: string;
+  /** Locale-aware label rendered after the delta number ("vs prior", "vs anterior"). */
+  vsPriorLabel?: string;
+  /** Shown when delta is explicitly null (e.g. no prior data for comparison). */
+  noPriorLabel?: string;
 }) {
   const accentColor = accent ?? C.gold;
   const Body = (
@@ -98,10 +104,10 @@ export default function KpiCard({
                 <Minus size={11} className="inline -mt-0.5" /> 0%
               </span>
             )}
-            <span className="ml-1">vs anterior</span>
+            <span className="ml-1">{vsPriorLabel}</span>
           </p>
         ) : delta === null ? (
-          <p className="text-[11px] truncate" style={{ color: C.textDim }}>Sin comparable</p>
+          <p className="text-[11px] truncate" style={{ color: C.textDim }}>{noPriorLabel}</p>
         ) : null}
         {hint && (
           <p className="text-[10px] mt-0.5 truncate" style={{ color: C.textMuted }} title={hint}>

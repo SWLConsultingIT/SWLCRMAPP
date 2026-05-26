@@ -380,6 +380,24 @@ export const en: Dict = {
   "dashx.decay.cutoffPending": "Curve still rising — keep watching, no clear plateau yet.",
   "dashx.decay.yAxis": "% replied",
   "dashx.decay.xAxis": "Days since first message",
+  // FiltersBar
+  "dashx.filters.period": "Period",
+  "dashx.filters.7d": "7 days",
+  "dashx.filters.30d": "30 days",
+  "dashx.filters.90d": "90 days",
+  "dashx.filters.all": "All time",
+  "dashx.filters.campaigns": "Campaigns",
+  "dashx.filters.icps": "ICPs",
+  "dashx.filters.sellers": "Sellers",
+  "dashx.filters.clear": "Clear filters",
+  "dashx.filters.noOptions": "No options available.",
+  // KpiCard delta labels
+  "dashx.kpi.vsPrior": "vs prior",
+  "dashx.kpi.noPrior": "No comparable",
+  // Funnel
+  "dashx.funnel.fromPrev": "of previous",
+  "dashx.funnel.priorLabel": "Prior period",
+  "dashx.funnel.vsPriorShort": "vs prior",
   // Reply classification labels (used by the donut)
   "dashx.reply.positive": "Positive",
   "dashx.reply.meeting_intent": "Meeting intent",
@@ -925,6 +943,24 @@ export const es: Dict = {
   "dashx.decay.cutoffPending": "La curva todavía sube — seguí observando, no hay plateau claro aún.",
   "dashx.decay.yAxis": "% que respondió",
   "dashx.decay.xAxis": "Días desde el primer mensaje",
+  // FiltersBar
+  "dashx.filters.period": "Período",
+  "dashx.filters.7d": "7 días",
+  "dashx.filters.30d": "30 días",
+  "dashx.filters.90d": "90 días",
+  "dashx.filters.all": "Todo",
+  "dashx.filters.campaigns": "Campañas",
+  "dashx.filters.icps": "ICPs",
+  "dashx.filters.sellers": "Sellers",
+  "dashx.filters.clear": "Limpiar filtros",
+  "dashx.filters.noOptions": "Sin opciones disponibles.",
+  // KpiCard delta labels
+  "dashx.kpi.vsPrior": "vs anterior",
+  "dashx.kpi.noPrior": "Sin comparable",
+  // Funnel
+  "dashx.funnel.fromPrev": "del anterior",
+  "dashx.funnel.priorLabel": "Período anterior",
+  "dashx.funnel.vsPriorShort": "vs anterior",
   // Reply classification labels (used by the donut)
   "dashx.reply.positive": "Positiva",
   "dashx.reply.meeting_intent": "Meeting intent",

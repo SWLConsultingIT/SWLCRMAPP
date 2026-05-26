@@ -176,6 +176,14 @@ export default async function DashboardPage({
     getServerLocale(),
   ]);
   const dateLoc = locale === "es" ? "es-AR" : "en-US";
+  // Locale-bound bundles spread onto every KpiCard / Funnel so we don't
+  // forget to pass them and have hardcoded Spanish leak through.
+  const kpi18n = { vsPriorLabel: t("dashx.kpi.vsPrior"), noPriorLabel: t("dashx.kpi.noPrior") };
+  const funnel18n = {
+    fromPrevLabel: t("dashx.funnel.fromPrev"),
+    priorLabel: t("dashx.funnel.priorLabel"),
+    vsPriorLabel: t("dashx.funnel.vsPriorShort"),
+  };
 
   const { headline, deltas, trend30d } = data;
 
@@ -256,7 +264,7 @@ export default async function DashboardPage({
           </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <KpiCard
+          <KpiCard {...kpi18n}
             label={t("dashx.kpi.contacted")}
             value={headline.contactedLeads.toLocaleString(dateLoc)}
             delta={deltas.contacted}
@@ -265,14 +273,14 @@ export default async function DashboardPage({
             accent="#0A66C2"
             hint={t("dashx.kpi.contactedHint")}
           />
-          <KpiCard
+          <KpiCard {...kpi18n}
             label={t("dashx.kpi.acceptCR")}
             value={`${headline.acceptanceRate}%`}
             icon={ChevronsRight}
             accent="#0A66C2"
             hint={t("dashx.kpi.acceptCRHint", { n: headline.connectedLeads.toLocaleString(dateLoc) })}
           />
-          <KpiCard
+          <KpiCard {...kpi18n}
             label={t("dashx.kpi.replies")}
             value={headline.repliedCount.toLocaleString(dateLoc)}
             delta={deltas.replied}
@@ -282,7 +290,7 @@ export default async function DashboardPage({
             hint={t("dashx.kpi.repliesHint", { n: headline.responseRate })}
             href="/queue?tab=inbox"
           />
-          <KpiCard
+          <KpiCard {...kpi18n}
             label={t("dashx.kpi.positives")}
             value={headline.positiveCount.toLocaleString(dateLoc)}
             delta={deltas.positive}
@@ -292,7 +300,7 @@ export default async function DashboardPage({
             hint={t("dashx.kpi.positivesHint", { n: headline.positiveRate })}
             href="/opportunities"
           />
-          <KpiCard
+          <KpiCard {...kpi18n}
             label={t("dashx.kpi.meetings")}
             value={headline.meetingCount.toLocaleString(dateLoc)}
             icon={Target}
@@ -300,7 +308,7 @@ export default async function DashboardPage({
             hint={t("dashx.kpi.meetingsHint")}
             href="/opportunities"
           />
-          <KpiCard
+          <KpiCard {...kpi18n}
             label={t("dashx.kpi.wins")}
             value={headline.wonCount.toLocaleString(dateLoc)}
             icon={Trophy}
@@ -398,7 +406,7 @@ export default async function DashboardPage({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
           {/* Funnel — 5 cols */}
           <Panel title={t("dashx.funnel.title")} subtitle={t("dashx.funnel.subtitle")} className="lg:col-span-5">
-            <Funnel stages={data.funnel.map(s => ({ ...s, stage: t(`dashx.funnel.stage.${stageKey(s.stage)}`) || s.stage }))} />
+            <Funnel {...funnel18n} stages={data.funnel.map(s => ({ ...s, stage: t(`dashx.funnel.stage.${stageKey(s.stage)}`) || s.stage }))} />
           </Panel>
           {/* Donut — 3 cols */}
           <Panel title={t("dashx.donut.title")} subtitle={t("dashx.donut.subtitle")} className="lg:col-span-4">

@@ -294,6 +294,7 @@ export default async function SellerDetailPage({
   const periodChip = periodFrom && periodTo
     ? `${new Date(periodFrom).toLocaleDateString(dateLoc, { day: "2-digit", month: "short" })} – ${new Date(periodTo).toLocaleDateString(dateLoc, { day: "2-digit", month: "short" })}`
     : null;
+  const kpi18n = { vsPriorLabel: t("dashx.kpi.vsPrior"), noPriorLabel: t("dashx.kpi.noPrior") };
 
   if (!d) {
     return (
@@ -378,12 +379,12 @@ export default async function SellerDetailPage({
       {/* ─── KPI band ───────────────────────────────────────────── */}
       <section>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <KpiCard label={t("dashx.detail.seller.kpi.sent")} value={d.totalSent.toLocaleString(dateLoc)} icon={Send} accent="#0A66C2" trend={d.trend30d.sent} />
-          <KpiCard label={t("dashx.detail.seller.kpi.contacted")} value={d.totalContacted.toLocaleString(dateLoc)} icon={User} accent={gold} />
-          <KpiCard label={t("dashx.detail.seller.kpi.replies")} value={d.repliedCount.toLocaleString(dateLoc)} icon={MessageSquare} accent="#7C3AED" trend={d.trend30d.replies} hint={t("dashx.detail.seller.kpi.repliesHint", { n: d.responseRate })} />
-          <KpiCard label={t("dashx.detail.seller.kpi.positives")} value={d.positiveCount.toLocaleString(dateLoc)} icon={ThumbsUp} accent={C.green} trend={d.trend30d.positive} hint={t("dashx.detail.seller.kpi.positivesHint", { n: d.conversionRate })} />
-          <KpiCard label={t("dashx.detail.seller.kpi.ttfr")} value={d.medianTTR === null ? "—" : formatMinutes(d.medianTTR)} icon={Clock} accent="#6B7280" hint={t("dashx.detail.seller.kpi.ttfrHint")} />
-          <KpiCard label={t("dashx.detail.seller.kpi.campaigns")} value={d.activeCampaigns.toLocaleString(dateLoc)} icon={Megaphone} accent="#F59E0B" hint={t("dashx.detail.seller.kpi.campaignsHint", { paused: d.pausedCampaigns, completed: d.completedCampaigns })} />
+          <KpiCard {...kpi18n} label={t("dashx.detail.seller.kpi.sent")} value={d.totalSent.toLocaleString(dateLoc)} icon={Send} accent="#0A66C2" trend={d.trend30d.sent} />
+          <KpiCard {...kpi18n} label={t("dashx.detail.seller.kpi.contacted")} value={d.totalContacted.toLocaleString(dateLoc)} icon={User} accent={gold} />
+          <KpiCard {...kpi18n} label={t("dashx.detail.seller.kpi.replies")} value={d.repliedCount.toLocaleString(dateLoc)} icon={MessageSquare} accent="#7C3AED" trend={d.trend30d.replies} hint={t("dashx.detail.seller.kpi.repliesHint", { n: d.responseRate })} />
+          <KpiCard {...kpi18n} label={t("dashx.detail.seller.kpi.positives")} value={d.positiveCount.toLocaleString(dateLoc)} icon={ThumbsUp} accent={C.green} trend={d.trend30d.positive} hint={t("dashx.detail.seller.kpi.positivesHint", { n: d.conversionRate })} />
+          <KpiCard {...kpi18n} label={t("dashx.detail.seller.kpi.ttfr")} value={d.medianTTR === null ? "—" : formatMinutes(d.medianTTR)} icon={Clock} accent="#6B7280" hint={t("dashx.detail.seller.kpi.ttfrHint")} />
+          <KpiCard {...kpi18n} label={t("dashx.detail.seller.kpi.campaigns")} value={d.activeCampaigns.toLocaleString(dateLoc)} icon={Megaphone} accent="#F59E0B" hint={t("dashx.detail.seller.kpi.campaignsHint", { paused: d.pausedCampaigns, completed: d.completedCampaigns })} />
         </div>
       </section>
 

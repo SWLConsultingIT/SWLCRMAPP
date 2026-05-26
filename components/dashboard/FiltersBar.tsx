@@ -9,16 +9,17 @@ import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Calendar, ChevronDown, X, Filter } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 
 type Option = { id: string; label: string };
 
 const PERIODS = [
-  { id: "7d",  label: "7 días",  days: 7 },
-  { id: "30d", label: "30 días", days: 30 },
-  { id: "90d", label: "90 días", days: 90 },
-  { id: "all", label: "Todo",    days: null as number | null },
+  { id: "7d",  labelKey: "dashx.filters.7d",  days: 7 },
+  { id: "30d", labelKey: "dashx.filters.30d", days: 30 },
+  { id: "90d", labelKey: "dashx.filters.90d", days: 90 },
+  { id: "all", labelKey: "dashx.filters.all", days: null as number | null },
 ];
 
 export default function FiltersBar({
@@ -29,6 +30,7 @@ export default function FiltersBar({
   const router = useRouter();
   const params = useSearchParams();
   const [pending, startTransition] = useTransition();
+  const { t } = useLocale();
 
   const currentFrom = params.get("from");
   const currentTo   = params.get("to");
@@ -94,7 +96,7 @@ export default function FiltersBar({
     >
       <div className="flex items-center gap-1.5 pl-1 pr-1" style={{ color: C.textMuted }}>
         <Calendar size={13} />
-        <span className="text-[11px] font-semibold uppercase tracking-wider">Período</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wider">{t("dashx.filters.period")}</span>
       </div>
       <div className="flex items-center gap-1">
         {PERIODS.map(p => {
@@ -110,7 +112,7 @@ export default function FiltersBar({
                 color: on ? gold : C.textBody,
               }}
             >
-              {p.label}
+              {t(p.labelKey)}
             </button>
           );
         })}
@@ -118,18 +120,18 @@ export default function FiltersBar({
 
       <div className="w-px h-5 mx-1" style={{ backgroundColor: C.border }} />
 
-      <MultiSelect label="Campañas" items={options.campaigns} value={selectedCampaigns}
-        onToggle={id => toggleMulti("campaigns", id)} />
-      <MultiSelect label="ICPs" items={options.icps} value={selectedIcps}
-        onToggle={id => toggleMulti("icps", id)} />
-      <MultiSelect label="Sellers" items={options.sellers} value={selectedSellers}
-        onToggle={id => toggleMulti("sellers", id)} />
+      <MultiSelect label={t("dashx.filters.campaigns")} items={options.campaigns} value={selectedCampaigns}
+        onToggle={id => toggleMulti("campaigns", id)} emptyLabel={t("dashx.filters.noOptions")} />
+      <MultiSelect label={t("dashx.filters.icps")} items={options.icps} value={selectedIcps}
+        onToggle={id => toggleMulti("icps", id)} emptyLabel={t("dashx.filters.noOptions")} />
+      <MultiSelect label={t("dashx.filters.sellers")} items={options.sellers} value={selectedSellers}
+        onToggle={id => toggleMulti("sellers", id)} emptyLabel={t("dashx.filters.noOptions")} />
 
       {anyFilter && (
         <button onClick={clearAll}
           className="ml-auto text-[11px] font-medium px-2.5 py-1 rounded-md inline-flex items-center gap-1 transition-colors hover:bg-black/[0.04]"
           style={{ color: C.textMuted, border: `1px solid ${C.border}` }}>
-          <X size={11} /> Limpiar filtros
+          <X size={11} /> {t("dashx.filters.clear")}
         </button>
       )}
     </div>
@@ -137,12 +139,13 @@ export default function FiltersBar({
 }
 
 function MultiSelect({
-  label, items, value, onToggle,
+  label, items, value, onToggle, emptyLabel,
 }: {
   label: string;
   items: Option[];
   value: string[];
   onToggle: (id: string) => void;
+  emptyLabel: string;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -173,7 +176,7 @@ function MultiSelect({
           <div className="absolute top-full left-0 mt-1.5 z-40 rounded-lg border shadow-lg overflow-hidden min-w-[220px] max-h-[320px] overflow-y-auto"
             style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}>
             {items.length === 0 ? (
-              <div className="px-3 py-3 text-xs" style={{ color: C.textMuted }}>Sin opciones disponibles.</div>
+              <div className="px-3 py-3 text-xs" style={{ color: C.textMuted }}>{emptyLabel}</div>
             ) : items.map(it => {
               const on = value.includes(it.id);
               return (

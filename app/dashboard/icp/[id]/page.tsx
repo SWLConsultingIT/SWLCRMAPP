@@ -358,6 +358,12 @@ export default async function IcpDetailPage({
     getServerLocale(),
   ]);
   const dateLoc = locale === "es" ? "es-AR" : "en-US";
+  const kpi18n = { vsPriorLabel: t("dashx.kpi.vsPrior"), noPriorLabel: t("dashx.kpi.noPrior") };
+  const funnel18n = {
+    fromPrevLabel: t("dashx.funnel.fromPrev"),
+    priorLabel: t("dashx.funnel.priorLabel"),
+    vsPriorLabel: t("dashx.funnel.vsPriorShort"),
+  };
 
   // Human-friendly period chip for the back-link row.
   const periodChip = periodFrom && periodTo
@@ -469,19 +475,19 @@ export default async function IcpDetailPage({
       {/* ─── KPIs detallados ─────────────────────────────────────────── */}
       <section>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <KpiCard label={t("dashx.detail.icp.kpi.contacted")} value={d.funnel.contacted.toLocaleString(dateLoc)} icon={Send} accent="#0A66C2" trend={d.trend30d.sent} />
-          <KpiCard label={t("dashx.detail.icp.kpi.accept")} value={`${d.rates.acceptance}%`} icon={Activity} accent="#0A66C2" hint={t("dashx.detail.icp.kpi.acceptHint", { n: d.funnel.connected })} />
-          <KpiCard label={t("dashx.detail.icp.kpi.replies")} value={d.funnel.replied.toLocaleString(dateLoc)} icon={MessageSquare} accent="#7C3AED" trend={d.trend30d.replies} hint={t("dashx.detail.icp.kpi.repliesHint", { n: d.rates.response })} />
-          <KpiCard label={t("dashx.detail.icp.kpi.positives")} value={d.funnel.positive.toLocaleString(dateLoc)} icon={ThumbsUp} accent={C.green} trend={d.trend30d.positive} hint={t("dashx.detail.icp.kpi.positivesHint", { n: d.rates.positiveOfReplies })} />
-          <KpiCard label={t("dashx.detail.icp.kpi.conversion")} value={`${d.rates.conversion}%`} icon={Target} accent="#F59E0B" hint={t("dashx.detail.icp.kpi.conversionHint")} />
-          <KpiCard label={t("dashx.detail.icp.kpi.ttfr")} value={d.medianTTR === null ? "—" : formatMinutes(d.medianTTR)} icon={Clock} accent="#6B7280" hint={t("dashx.detail.icp.kpi.ttfrHint")} />
+          <KpiCard {...kpi18n} label={t("dashx.detail.icp.kpi.contacted")} value={d.funnel.contacted.toLocaleString(dateLoc)} icon={Send} accent="#0A66C2" trend={d.trend30d.sent} />
+          <KpiCard {...kpi18n} label={t("dashx.detail.icp.kpi.accept")} value={`${d.rates.acceptance}%`} icon={Activity} accent="#0A66C2" hint={t("dashx.detail.icp.kpi.acceptHint", { n: d.funnel.connected })} />
+          <KpiCard {...kpi18n} label={t("dashx.detail.icp.kpi.replies")} value={d.funnel.replied.toLocaleString(dateLoc)} icon={MessageSquare} accent="#7C3AED" trend={d.trend30d.replies} hint={t("dashx.detail.icp.kpi.repliesHint", { n: d.rates.response })} />
+          <KpiCard {...kpi18n} label={t("dashx.detail.icp.kpi.positives")} value={d.funnel.positive.toLocaleString(dateLoc)} icon={ThumbsUp} accent={C.green} trend={d.trend30d.positive} hint={t("dashx.detail.icp.kpi.positivesHint", { n: d.rates.positiveOfReplies })} />
+          <KpiCard {...kpi18n} label={t("dashx.detail.icp.kpi.conversion")} value={`${d.rates.conversion}%`} icon={Target} accent="#F59E0B" hint={t("dashx.detail.icp.kpi.conversionHint")} />
+          <KpiCard {...kpi18n} label={t("dashx.detail.icp.kpi.ttfr")} value={d.medianTTR === null ? "—" : formatMinutes(d.medianTTR)} icon={Clock} accent="#6B7280" hint={t("dashx.detail.icp.kpi.ttfrHint")} />
         </div>
       </section>
 
       {/* ─── Funnel + Donut ─────────────────────────────────────────── */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-3">
         <Panel title={t("dashx.detail.icp.funnel.title")} subtitle={t("dashx.detail.icp.funnel.subtitle")} className="lg:col-span-7">
-          <Funnel stages={[
+          <Funnel {...funnel18n} stages={[
             { stage: t("dashx.funnel.stage.imported"),  count: d.funnel.total,     color: "neutral" },
             { stage: t("dashx.funnel.stage.contacted"), count: d.funnel.contacted, color: "info" },
             { stage: t("dashx.funnel.stage.accepted"),  count: d.funnel.connected, color: "info" },

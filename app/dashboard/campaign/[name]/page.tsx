@@ -327,6 +327,7 @@ export default async function CampaignDetailPage({
   const periodChip = periodFrom && periodTo
     ? `${new Date(periodFrom).toLocaleDateString(dateLoc, { day: "2-digit", month: "short" })} – ${new Date(periodTo).toLocaleDateString(dateLoc, { day: "2-digit", month: "short" })}`
     : null;
+  const kpi18n = { vsPriorLabel: t("dashx.kpi.vsPrior"), noPriorLabel: t("dashx.kpi.noPrior") };
 
   if (!d) {
     return (
@@ -419,12 +420,12 @@ export default async function CampaignDetailPage({
       {/* ─── KPI band ─────────────────────────────────────────────── */}
       <section>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <KpiCard label={t("dashx.detail.campaign.kpi.leads")} value={d.totalLeads.toLocaleString(dateLoc)} icon={Users} accent={gold} />
-          <KpiCard label={t("dashx.detail.campaign.kpi.sent")} value={d.totalSent.toLocaleString(dateLoc)} icon={Send} accent="#0A66C2" trend={d.trend30d.sent} />
-          <KpiCard label={t("dashx.detail.campaign.kpi.replies")} value={d.repliedCount.toLocaleString(dateLoc)} icon={MessageSquare} accent="#7C3AED" trend={d.trend30d.replies} hint={t("dashx.detail.campaign.kpi.repliesHint", { n: d.responseRate })} />
-          <KpiCard label={t("dashx.detail.campaign.kpi.positives")} value={d.positiveCount.toLocaleString(dateLoc)} icon={ThumbsUp} accent={C.green} trend={d.trend30d.positive} hint={t("dashx.detail.campaign.kpi.positivesHint", { n: d.positiveRate })} />
-          <KpiCard label={t("dashx.detail.campaign.kpi.meetings")} value={d.meetingCount.toLocaleString(dateLoc)} icon={Calendar} accent="#F59E0B" />
-          <KpiCard label={t("dashx.detail.campaign.kpi.wins")} value={d.wonCount.toLocaleString(dateLoc)} icon={Trophy} accent="#DC2626" hint={t("dashx.detail.campaign.kpi.winsHint", { n: d.conversionRate })} />
+          <KpiCard {...kpi18n} label={t("dashx.detail.campaign.kpi.leads")} value={d.totalLeads.toLocaleString(dateLoc)} icon={Users} accent={gold} />
+          <KpiCard {...kpi18n} label={t("dashx.detail.campaign.kpi.sent")} value={d.totalSent.toLocaleString(dateLoc)} icon={Send} accent="#0A66C2" trend={d.trend30d.sent} />
+          <KpiCard {...kpi18n} label={t("dashx.detail.campaign.kpi.replies")} value={d.repliedCount.toLocaleString(dateLoc)} icon={MessageSquare} accent="#7C3AED" trend={d.trend30d.replies} hint={t("dashx.detail.campaign.kpi.repliesHint", { n: d.responseRate })} />
+          <KpiCard {...kpi18n} label={t("dashx.detail.campaign.kpi.positives")} value={d.positiveCount.toLocaleString(dateLoc)} icon={ThumbsUp} accent={C.green} trend={d.trend30d.positive} hint={t("dashx.detail.campaign.kpi.positivesHint", { n: d.positiveRate })} />
+          <KpiCard {...kpi18n} label={t("dashx.detail.campaign.kpi.meetings")} value={d.meetingCount.toLocaleString(dateLoc)} icon={Calendar} accent="#F59E0B" />
+          <KpiCard {...kpi18n} label={t("dashx.detail.campaign.kpi.wins")} value={d.wonCount.toLocaleString(dateLoc)} icon={Trophy} accent="#DC2626" hint={t("dashx.detail.campaign.kpi.winsHint", { n: d.conversionRate })} />
         </div>
       </section>
 

@@ -20,7 +20,17 @@ const colorMap: Record<string, string> = {
   brand:   "#c9a83a",
 };
 
-export default function Funnel({ stages }: { stages: Stage[] }) {
+export default function Funnel({
+  stages,
+  fromPrevLabel = "of previous",
+  priorLabel = "Prior period",
+  vsPriorLabel = "vs prior",
+}: {
+  stages: Stage[];
+  fromPrevLabel?: string;
+  priorLabel?: string;
+  vsPriorLabel?: string;
+}) {
   const top = stages[0]?.count ?? 0;
   // Choose the visual scale from max(current, prior) so the ghost bar can
   // exceed the current bar when the previous period was bigger — common
@@ -45,7 +55,7 @@ export default function Funnel({ stages }: { stages: Stage[] }) {
             <div className="w-28 shrink-0 text-right">
               <p className="text-xs font-semibold" style={{ color: C.textBody }}>{s.stage}</p>
               {stepConversion !== null && (
-                <p className="text-[10px]" style={{ color: C.textDim }}>{stepConversion}% del anterior</p>
+                <p className="text-[10px]" style={{ color: C.textDim }}>{stepConversion}% {fromPrevLabel}</p>
               )}
             </div>
             <div
@@ -89,7 +99,7 @@ export default function Funnel({ stages }: { stages: Stage[] }) {
                 <p className="text-[10.5px] font-semibold tabular-nums" style={{ color: deltaColor }}>
                   {periodDelta > 0 ? "+" : ""}{periodDelta}%
                   <span className="block text-[9px] font-medium" style={{ color: C.textDim }}>
-                    vs prior
+                    {vsPriorLabel}
                   </span>
                 </p>
               ) : dropOff !== null && dropOff > 0 ? (
@@ -107,7 +117,7 @@ export default function Funnel({ stages }: { stages: Stage[] }) {
             background: `repeating-linear-gradient(45deg, ${C.border} 0 3px, transparent 3px 6px)`,
             border: `1px dashed ${C.border}`,
           }} />
-          <span>Prior period</span>
+          <span>{priorLabel}</span>
         </div>
       )}
     </div>
