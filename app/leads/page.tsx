@@ -34,7 +34,7 @@ async function getData() {
     .order("created_at", { ascending: false });
   let leadsQ = supabase
     .from("leads")
-    .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at, source, encrypted_payload, company_bio_id")
+    .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at, source, encrypted_payload, company_bio_id, transferred_to_odoo_at")
     .order("created_at", { ascending: false })
     // Hard cap to bound memory + payload size on a tenant with thousands of
     // leads. The full list is virtualized client-side and most users never
@@ -419,6 +419,50 @@ async function getData() {
     });
   }
 
+  // Build the Won (Opportunities) view from the same dataset. A lead is "won"
+  // if it has any positive/meeting_intent reply OR was transferred to Odoo.
+  // Shape mirrors /opportunities so we can reuse <OpportunitiesTable />.
+  const wonLeads: any[] = [];
+  for (const lead of (allLeads ?? []) as Array<Record<string, any>>) {
+    const leadReplies = repliesByLead[lead.id] ?? [];
+    const positiveReply = leadReplies.find(r => r.classification === "positive" || r.classification === "meeting_intent");
+    const isOdoo = !!lead.transferred_to_odoo_at;
+    if (!positiveReply && !isOdoo) continue;
+    const camp = (campaigns ?? []).find((c: any) => c.lead_id === lead.id);
+    const steps = Array.isArray(camp?.sequence_steps) ? camp.sequence_steps.length : 0;
+    const channels = camp ? [...new Set([camp.channel, ...(Array.isArray(camp.sequence_steps) ? camp.sequence_steps.map((s: any) => s.channel) : [])])].filter(Boolean) : (positiveReply?.channel ? [positiveReply.channel] : []);
+    const daysToConvert = positiveReply?.received_at && lead.created_at
+      ? Math.max(1, Math.round((new Date(positiveReply.received_at).getTime() - new Date(lead.created_at).getTime()) / 86400000))
+      : null;
+    wonLeads.push({
+      id: lead.id,
+      first_name: lead.primary_first_name,
+      last_name: lead.primary_last_name,
+      company: lead.company_name,
+      role: lead.primary_title_role,
+      score: lead.lead_score,
+      is_priority: !!lead.is_priority,
+      transferred: isOdoo,
+      profile_name: lead.icp_profile_id ? (icpMap[lead.icp_profile_id]?.profile_name ?? null) : null,
+      campaign_name: camp?.name ?? null,
+      campaign_id: camp?.id ?? null,
+      win_channel: positiveReply?.channel ?? camp?.channel ?? null,
+      win_text: positiveReply?.reply_text ?? null,
+      win_classification: positiveReply?.classification ?? "positive",
+      win_date: positiveReply?.received_at ?? null,
+      channels,
+      steps_to_convert: camp?.current_step ?? 0,
+      total_steps: steps,
+      days_to_convert: daysToConvert,
+    });
+  }
+  wonLeads.sort((a, b) => {
+    if (a.win_date && b.win_date) return new Date(b.win_date).getTime() - new Date(a.win_date).getTime();
+    if (a.win_date) return -1;
+    if (b.win_date) return 1;
+    return 0;
+  });
+
   // Finalize the companies list with per-company outreach stats derived from
   // the same campaigns/replies maps we already computed above.
   const companies = Object.values(companiesAgg).map(c => {
@@ -447,6 +491,7 @@ async function getData() {
     allLeads: allLeadsList,
     lostLeads,
     renurturingLeads,
+    wonLeads,
     icpMap,
     campaignGroups,
     companies,
@@ -457,7 +502,7 @@ async function getData() {
 }
 
 export default async function LeadsCampaignsPage() {
-  const { profileGroups, allLeads, lostLeads, renurturingLeads, companies, stats, totalLeadCount } = await getData();
+  const { profileGroups, allLeads, lostLeads, renurturingLeads, wonLeads, companies, stats, totalLeadCount } = await getData();
   const scope = await getUserScope();
   const canImport = canEditTenantSettings(scope.tier) || scope.tier === "manager";
 
@@ -503,6 +548,7 @@ export default async function LeadsCampaignsPage() {
         allLeads={JSON.parse(JSON.stringify(allLeads))}
         lostLeads={JSON.parse(JSON.stringify(lostLeads))}
         renurturingLeads={JSON.parse(JSON.stringify(renurturingLeads))}
+        wonLeads={JSON.parse(JSON.stringify(wonLeads))}
         companies={JSON.parse(JSON.stringify(companies))}
         stats={stats}
         totalLeadCount={totalLeadCount}

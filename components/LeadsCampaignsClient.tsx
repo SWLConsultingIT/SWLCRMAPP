@@ -11,6 +11,7 @@ import {
   Building2, Users as UsersIcon, MapPin, Globe, MessageCircle, ThumbsUp, Trophy,
 } from "lucide-react";
 import { LeadFilterBar, type LeadFilterState } from "@/components/LeadFilters";
+import OpportunitiesTable, { type OpportunityLead } from "@/components/OpportunitiesTable";
 import { useToast } from "@/lib/toast";
 
 const gold = "var(--brand, #c9a83a)";
@@ -113,6 +114,7 @@ type Props = {
   allLeads: LeadInfo[];
   lostLeads: LostLead[];
   renurturingLeads: RenurturingLead[];
+  wonLeads: OpportunityLead[];
   companies: CompanyInfo[];
   stats: { totalLeads: number; responseRate: number; positiveReplies: number; activeCampaigns: number };
   /** Total leads in the tenant (unfiltered), from a separate count() query.
@@ -1269,10 +1271,12 @@ function ProfileCard({ group }: { group: ProfileGroup }) {
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
-export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLeads, renurturingLeads, companies, stats, totalLeadCount }: Props) {
+export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLeads, renurturingLeads, wonLeads, companies, stats, totalLeadCount }: Props) {
   const [mainView, setMainView] = useState<"leads" | "campaigns">("leads");
+  // leadsTab: 0 = All Leads, 1 = Results. Results contains Won/Lost/Re-nurturing.
   const [leadsTab, setLeadsTab] = useState(0);
   const [allLeadsSubview, setAllLeadsSubview] = useState<"people" | "companies">("people");
+  const [resultsSubview, setResultsSubview] = useState<"won" | "lost" | "renurturing">("won");
   const [search, setSearch] = useState("");
 
   const activeGroups = profileGroups.filter(g => (g.statusCounts.active ?? 0) + (g.statusCounts.paused ?? 0) > 0);
@@ -1391,9 +1395,8 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
         <div>
           <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
             {[
-              { label: "All Leads",    count: allLeads.length,        color: gold },
-              { label: "Lost Leads",   count: lostLeads.length,       color: C.red },
-              { label: "Re-nurturing", count: renurturingLeads.length, color: C.green },
+              { label: "All Leads", count: allLeads.length, color: gold },
+              { label: "Results",   count: wonLeads.length + lostLeads.length + renurturingLeads.length, color: C.green },
             ].map((t, i) => {
               const isActive = leadsTab === i;
               return (
@@ -1464,8 +1467,48 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
               {allLeadsSubview === "companies" && <CompaniesGrid companies={companies} />}
             </div>
           )}
-          {leadsTab === 1 && <LostLeadsView leads={lostLeads} />}
-          {leadsTab === 2 && <RenurturingView leads={renurturingLeads} />}
+          {leadsTab === 1 && (
+            <div>
+              {/* Won / Lost / Re-nurturing sub-toggle */}
+              <div className="flex items-center gap-1 mb-5 p-1 rounded-lg border max-w-fit"
+                style={{ backgroundColor: C.card, borderColor: C.border }}>
+                {([
+                  { key: "won" as const,         label: "Won",          icon: Trophy,        count: wonLeads.length,         color: C.green },
+                  { key: "lost" as const,        label: "Lost",         icon: X,             count: lostLeads.length,        color: C.red },
+                  { key: "renurturing" as const, label: "Re-nurturing", icon: RefreshCw,     count: renurturingLeads.length, color: gold },
+                ]).map(opt => {
+                  const isActive = resultsSubview === opt.key;
+                  const Icon = opt.icon;
+                  return (
+                    <button
+                      key={opt.key}
+                      onClick={() => setResultsSubview(opt.key)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-[background-color,color] duration-150"
+                      style={{
+                        backgroundColor: isActive ? opt.color : "transparent",
+                        color: isActive ? "#fff" : C.textBody,
+                      }}
+                    >
+                      <Icon size={12} />
+                      {opt.label}
+                      <span
+                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                        style={{
+                          backgroundColor: isActive ? "rgba(255,255,255,0.22)" : C.cardHov,
+                          color: isActive ? "#fff" : C.textDim,
+                        }}
+                      >
+                        {opt.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              {resultsSubview === "won" && <OpportunitiesTable leads={wonLeads} />}
+              {resultsSubview === "lost" && <LostLeadsView leads={lostLeads} />}
+              {resultsSubview === "renurturing" && <RenurturingView leads={renurturingLeads} />}
+            </div>
+          )}
         </div>
       )}
 

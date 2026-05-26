@@ -8,7 +8,7 @@ import { useAuthUser } from "@/lib/auth-context";
 import TenantSwitcher from "@/components/TenantSwitcher";
 import {
   LayoutDashboard, Users, Megaphone,
-  Building2, Target, Shield, ChevronDown, Bell, Trophy, UserCircle, Settings, Inbox,
+  Building2, Target, Shield, ChevronDown, Bell, UserCircle, Settings, Inbox,
   PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -36,8 +36,9 @@ type NavItem = {
 //   GROWTH ENGINE: Lead Miner / Outreach Flow / Leads & Campaigns
 //      (creation tools + the list of what they produced; visually grouped so
 //      the seller's "I made it → here it is" flow lives in one place)
-//   OPERATIONS: Opportunities / Accounts (everything else operational)
-//   Admin pinned to the bottom (visible only to super_admin / owner / manager).
+//   OPERATIONS: Accounts / Admin (Opportunities folded into /leads → Results)
+//   Admin lives inside Operations now since the section needed more weight
+//   after Opportunities moved out. Still gated to super_admin/owner/manager.
 const sections: { labelKey: string; items: NavItem[] }[] = [
   {
     labelKey: "nav.section.main",
@@ -58,13 +59,7 @@ const sections: { labelKey: string; items: NavItem[] }[] = [
   {
     labelKey: "nav.section.operations",
     items: [
-      { href: "/opportunities", labelKey: "nav.opportunities", icon: Trophy },
       { href: "/accounts", labelKey: "nav.accounts", icon: UserCircle },
-    ],
-  },
-  {
-    labelKey: "nav.section.admin",
-    items: [
       { href: "/admin", labelKey: "nav.admin", icon: Shield, badgeKey: "pending", adminOnly: true },
     ],
   },
