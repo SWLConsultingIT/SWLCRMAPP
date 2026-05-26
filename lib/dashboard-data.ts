@@ -352,6 +352,99 @@ export async function getDashboardData(filters: DashboardFilters) {
     conversionRate: g.contacted.size > 0 ? Math.round((g.positive.size / g.contacted.size) * 100) : 0,
   })).sort((a, b) => b.positive - a.positive || b.sent - a.sent);
 
+  // ── Per-entity sparklines (last 14d, for inline use in tables) ─────────
+  // 14 instead of 30 keeps the rendered SVG narrow enough to fit beside
+  // numbers without crowding the row. Stripe/Linear use the same pattern.
+  const spark14d = (entries: { at: string | null | undefined }[]): number[] => {
+    const buckets = new Array(14).fill(0) as number[];
+    for (const e of entries) {
+      if (!e.at) continue;
+      const idx = 13 - Math.floor((today.getTime() - new Date(e.at).getTime()) / 86_400_000);
+      if (idx >= 0 && idx < 14) buckets[idx]++;
+    }
+    return buckets;
+  };
+  const sparkByCampaign = new Map<string, number[]>();
+  for (const c of campaigns) {
+    const msgsForC = messages.filter(m => m.campaign_id === c.id).map(m => ({ at: m.sent_at }));
+    const existing = sparkByCampaign.get(c.name) ?? new Array(14).fill(0);
+    const next = spark14d(msgsForC);
+    for (let i = 0; i < 14; i++) existing[i] += next[i];
+    sparkByCampaign.set(c.name, existing);
+  }
+  const sparkByIcp = new Map<string, number[]>();
+  for (const l of leads) {
+    const id = l.icp_profile_id ?? "_unknown";
+    if (!sparkByIcp.has(id)) sparkByIcp.set(id, new Array(14).fill(0));
+  }
+  for (const r of replies) {
+    if (!r.lead_id) continue;
+    const l = leads.find(x => x.id === r.lead_id);
+    if (!l) continue;
+    const id = l.icp_profile_id ?? "_unknown";
+    const arr = sparkByIcp.get(id);
+    if (!arr || !r.received_at) continue;
+    const idx = 13 - Math.floor((today.getTime() - new Date(r.received_at).getTime()) / 86_400_000);
+    if (idx >= 0 && idx < 14) arr[idx]++;
+  }
+  const sparkBySeller = new Map<string, number[]>();
+  for (const c of campaigns) {
+    if (!c.seller_id) continue;
+    const msgsForC = messages.filter(m => m.campaign_id === c.id).map(m => ({ at: m.sent_at }));
+    const existing = sparkBySeller.get(c.seller_id) ?? new Array(14).fill(0);
+    const next = spark14d(msgsForC);
+    for (let i = 0; i < 14; i++) existing[i] += next[i];
+    sparkBySeller.set(c.seller_id, existing);
+  }
+
+  // ── Activity heatmap — day-of-week × hour-of-day ───────────────────────
+  // Sundays (0) → Saturday (6); 0–23 hour bands. Same data Mixpanel /
+  // Amplitude show as a heatmap — answers "when do leads actually reply?".
+  const heatmap = Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]);
+  for (const r of replies) {
+    if (!r.received_at) continue;
+    const d = new Date(r.received_at);
+    heatmap[d.getDay()][d.getHours()]++;
+  }
+
+  // ── Time-to-first-reply (median minutes) ────────────────────────────────
+  // For every lead that replied, how many minutes elapsed between the lead's
+  // FIRST sent campaign_message and the lead's FIRST reply? Median is more
+  // useful than mean because a handful of slow replies skew the average.
+  const firstMsgAt = new Map<string, number>();
+  for (const m of messages) {
+    if (!m.sent_at || !m.campaign_id) continue;
+    const c = campaigns.find(x => x.id === m.campaign_id);
+    if (!c?.lead_id) continue;
+    const t = new Date(m.sent_at).getTime();
+    const prev = firstMsgAt.get(c.lead_id);
+    if (prev === undefined || t < prev) firstMsgAt.set(c.lead_id, t);
+  }
+  const firstReplyAt = new Map<string, number>();
+  for (const r of replies) {
+    if (!r.lead_id || !r.received_at) continue;
+    const t = new Date(r.received_at).getTime();
+    const prev = firstReplyAt.get(r.lead_id);
+    if (prev === undefined || t < prev) firstReplyAt.set(r.lead_id, t);
+  }
+  const timesToReply: number[] = [];
+  for (const [leadId, msgT] of firstMsgAt.entries()) {
+    const replyT = firstReplyAt.get(leadId);
+    if (replyT && replyT > msgT) timesToReply.push(Math.round((replyT - msgT) / 60_000));
+  }
+  timesToReply.sort((a, b) => a - b);
+  const medianTimeToReply = timesToReply.length > 0
+    ? timesToReply[Math.floor(timesToReply.length / 2)]
+    : null;
+
+  // ── Pipeline velocity ──────────────────────────────────────────────────
+  // Industry formula: (deals × avg deal size × win rate) / sales cycle days.
+  // We don't have deal size on the CRM yet, so we expose the COMPONENTS the
+  // seller can reason about + a velocity-of-positive-replies-per-day proxy.
+  const periodDays = Math.max(1, Math.round((toMs ?? Date.now()) - (fromMs ?? Date.now() - 30 * 86_400_000)) / 86_400_000);
+  const velocityPerDay = positiveCount / periodDays;
+  const winRate = contactedLeads > 0 ? Math.round((wonCount / contactedLeads) * 100) : 0;
+
   // ── 30-day daily trend ──────────────────────────────────────────────────
   // Buckets each metric by day so the dashboard can render sparklines + a
   // big multi-line chart. Always 30 buckets, oldest → newest.
@@ -451,15 +544,28 @@ export async function getDashboardData(filters: DashboardFilters) {
       { stage: "Ganados",      count: wonCount,      color: "brand" },
     ],
     channelBreakdown,
-    icpPerformance,
-    campaignPerformance,
-    sellerPerformance,
+    icpPerformance: icpPerformance.map(p => ({ ...p, spark: sparkByIcp.get(p.id) ?? new Array(14).fill(0) })),
+    campaignPerformance: campaignPerformance.map(c => ({ ...c, spark: sparkByCampaign.get(c.name) ?? new Array(14).fill(0) })),
+    sellerPerformance: sellerPerformance.map(s => ({ ...s, spark: sparkBySeller.get(s.id) ?? new Array(14).fill(0) })),
     trend30d,
     replyClassCounts,
     insights: insights.slice(0, 4),
     activeCampaignCount: campaigns.filter(c => c.status === "active").length,
     pausedCampaignCount: campaigns.filter(c => c.status === "paused").length,
     completedCampaignCount: campaigns.filter(c => c.status === "completed").length,
+    velocity: {
+      perDay: Math.round(velocityPerDay * 10) / 10,
+      winRate,
+      medianTimeToReplyMin: medianTimeToReply,
+      acceptanceRate,
+      // Forecast positives for the rest of the month at current velocity.
+      forecastMonthEnd: (() => {
+        const now = new Date();
+        const remainingDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
+        return Math.round(velocityPerDay * remainingDays);
+      })(),
+    },
+    heatmap, // [7][24] — Sun..Sat × 0..23h
   };
 }
 
