@@ -267,11 +267,17 @@ export default async function DashboardPage({
         </div>
       </section>
 
-      {/* ─── Velocity strip — "north star" line. Stripe/Linear-style band. ── */}
-      <section>
-        <div className="rounded-2xl border overflow-hidden"
-          style={{ borderColor: C.border, background: `linear-gradient(135deg, ${C.card} 0%, color-mix(in srgb, ${gold} 4%, ${C.card}) 100%)` }}>
-          <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x" style={{ borderColor: C.border, color: C.border }}>
+      {/* ─── Operations Pulse — velocity north-star + engine health, one card ─
+          Used to be two stacked sections (8 stats + headers + dividers,
+          ~280px vertical). Merged into a single surface so the top fold
+          breathes: gold-tinted top half is the velocity "north star",
+          neutral bottom half is health signals. Same data, half the
+          vertical real estate. */}
+      <section className="rounded-2xl border overflow-hidden"
+        style={{ borderColor: C.border, backgroundColor: C.card }}>
+        {/* Velocity row — gold gradient, 4 cols */}
+        <div style={{ background: `linear-gradient(135deg, ${C.card} 0%, color-mix(in srgb, ${gold} 5%, ${C.card}) 100%)` }}>
+          <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x" style={{ borderColor: C.border }}>
             <VelocityStat
               icon={Sparkles}
               label={t("dashx.vel.velocity")}
@@ -306,15 +312,13 @@ export default async function DashboardPage({
             />
           </div>
         </div>
-      </section>
 
-      {/* ─── Engine health — saturation, at-risk, channel-mismatch ────────── */}
-      <section>
-        <div className="rounded-2xl border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.card }}>
-          <div className="px-4 py-2.5 border-b flex items-center gap-2" style={{ borderColor: C.border }}>
-            <Activity size={12} style={{ color: C.textMuted }} />
-            <h3 className="text-[12px] font-semibold" style={{ color: C.textPrimary }}>{t("dashx.health.title")}</h3>
-            <span className="text-[11px]" style={{ color: C.textMuted }}>· {t("dashx.health.subtitle")}</span>
+        {/* Health row — quieter visual weight, 3 cols, separated by a single divider */}
+        <div className="border-t" style={{ borderColor: C.border }}>
+          <div className="px-4 py-2 flex items-center gap-2 border-b" style={{ borderColor: C.border }}>
+            <Activity size={11} style={{ color: C.textMuted }} />
+            <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em]" style={{ color: C.textMuted }}>{t("dashx.health.title")}</span>
+            <span className="text-[10.5px]" style={{ color: C.textDim }}>· {t("dashx.health.subtitle")}</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: C.border }}>
             <HealthStat
