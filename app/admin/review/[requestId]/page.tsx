@@ -175,7 +175,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
           <div className="px-5 py-3 flex items-center gap-2 border-b" style={{ borderColor: C.border, background: `${C.linkedin}06` }}>
             <UserPlus size={14} style={{ color: C.linkedin }} />
             <span className="text-sm font-bold" style={{ color: C.linkedin }}>LinkedIn Connection Request</span>
-            <span className="text-xs ml-auto" style={{ color: C.textDim }}>Max 300 chars · {connectionRequest.length}/300</span>
+            <span className="text-xs ml-auto" style={{ color: C.textDim }}>Max 200 chars · {connectionRequest.length}/200</span>
           </div>
           <div className="px-5 py-4">
             <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{connectionRequest}</p>
@@ -183,39 +183,47 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
         </div>
       )}
 
-      {/* Messages */}
+      {/* Messages — when sequence[0] is the LinkedIn day-0 invite, it IS the
+          Connection Request (rendered as the dedicated card above) and must
+          NOT also appear as Step 1 in the numbered list. */}
       <div className="space-y-4 mb-6">
         <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Outreach Messages</p>
-        {steps.map((msg: any, i: number) => {
-          const ch = msg.channel ?? sequence[i]?.channel ?? "linkedin";
-          const meta = channelMeta[ch];
-          if (!meta) return null;
-          const Icon = meta.icon;
-          return (
-            <div key={i} className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <div className="px-5 py-3 flex items-center gap-3 border-b" style={{ borderColor: C.border, background: `${meta.color}06` }}>
-                <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: meta.color }}>
-                  <Icon size={12} color="#fff" />
+        {(() => {
+          const hasCR = sequence[0]?.channel === "linkedin" && sequence[0]?.daysAfter === 0;
+          let displayNum = 0;
+          return steps.map((msg: any, i: number) => {
+            if (hasCR && i === 0) return null;
+            displayNum += 1;
+            const ch = msg.channel ?? sequence[i]?.channel ?? "linkedin";
+            const meta = channelMeta[ch];
+            if (!meta) return null;
+            const Icon = meta.icon;
+            return (
+              <div key={i} className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                <div className="px-5 py-3 flex items-center gap-3 border-b" style={{ borderColor: C.border, background: `${meta.color}06` }}>
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: meta.color }}>
+                    <Icon size={12} color="#fff" />
+                  </div>
+                  <span className="text-sm font-bold" style={{ color: C.textPrimary }}>Step {displayNum}</span>
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: `${meta.color}15`, color: meta.color }}>
+                    {msg.label || meta.label}
+                  </span>
+                  <span className="text-xs ml-auto tabular-nums" style={{ color: C.textDim }}>Day {dayPerStep[i] ?? 0}</span>
                 </div>
-                <span className="text-sm font-bold" style={{ color: C.textPrimary }}>Step {i + 1}</span>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: `${meta.color}15`, color: meta.color }}>
-                  {msg.label || meta.label}
-                </span>
-                <span className="text-xs ml-auto tabular-nums" style={{ color: C.textDim }}>Day {dayPerStep[i] ?? 0}</span>
-              </div>
-              <div className="px-5 py-4">
-                {msg.subject && (
-                  <p className="text-xs font-semibold mb-2" style={{ color: C.textMuted }}>
-                    Subject: <span style={{ color: C.textPrimary }}>{msg.subject}</span>
+                <div className="px-5 py-4">
+                  {msg.subject && (
+                    <p className="text-xs font-semibold mb-2" style={{ color: C.textMuted }}>
+                      Subject: <span style={{ color: C.textPrimary }}>{msg.subject}</span>
+                    </p>
+                  )}
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>
+                    {msg.body || "(empty)"}
                   </p>
-                )}
-                <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>
-                  {msg.body || "(empty)"}
-                </p>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          });
+        })()}
       </div>
 
       {/* Auto-Replies */}
