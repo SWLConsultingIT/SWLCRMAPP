@@ -5,17 +5,19 @@ import { C } from "@/lib/design";
 import Link from "next/link";
 import {
   ArrowLeft, Share2, Mail, Phone, Star, ExternalLink, Trophy,
-  Target, Megaphone, Calendar, Hash,
+  Megaphone, Calendar, Hash, Share2 as Linkedin, Send, Sparkles,
+  UserPlus, Reply, CheckCircle2, Clock,
 } from "lucide-react";
 import OpportunityStagePanel from "@/components/OpportunityStagePanel";
+import PersonalizedInfoPanel from "@/components/PersonalizedInfoPanel";
 import Breadcrumb from "@/components/Breadcrumb";
 
 const gold = "var(--brand, #c9a83a)";
 
 const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
-  linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,   color: "#7C3AED", label: "Email" },
-  call:     { icon: Phone,  color: "#F97316", label: "Call" },
+  linkedin: { icon: Linkedin, color: "#0A66C2", label: "LinkedIn" },
+  email:    { icon: Mail,     color: "#7C3AED", label: "Email" },
+  call:     { icon: Phone,    color: "#F97316", label: "Call" },
 };
 
 const classColors: Record<string, { color: string; bg: string; label: string }> = {
@@ -28,6 +30,11 @@ const classColors: Record<string, { color: string; bg: string; label: string }> 
 function formatDate(iso: string | null) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
+function formatDateTime(iso: string | null) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 function timeAgo(iso: string | null) {
@@ -46,19 +53,20 @@ function scoreBadge(score: number | null, priority: boolean) {
 }
 
 // ── Data fetchers ─────────────────────────────────────────────────────────
-// Two modes:
-//   1. Lead mode (default for Won card clicks) — id matches a lead. Page shows
-//      that ONE lead's win story: reply highlight, campaign context, stage
-//      panel, full reply timeline.
-//   2. Campaign mode (legacy bookmarks, old links) — id matches a campaign
-//      whose lead_id doesn't match a lead row. Page falls back to the
-//      campaign-rollup rendering.
 
 async function getLeadOpportunity(id: string) {
   const supabase = await getSupabaseServer();
   const { data: rawLead } = await supabase
     .from("leads")
-    .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, lead_score, is_priority, current_channel, transferred_to_odoo_at, icp_profile_id, opportunity_stage, opportunity_notes, opportunity_next_action, created_at, status")
+    .select(
+      "id, source, encrypted_payload, company_bio_id, " +
+      "primary_first_name, primary_last_name, primary_title_role, primary_seniority, primary_headline, " +
+      "primary_work_email, primary_linkedin_url, primary_phone, primary_photo_url, " +
+      "company_name, company_industry, " +
+      "lead_score, is_priority, current_channel, transferred_to_odoo_at, " +
+      "icp_profile_id, opportunity_stage, opportunity_notes, opportunity_next_action, " +
+      "enrichment, created_at, status"
+    )
     .eq("id", id)
     .maybeSingle();
   if (!rawLead) return null;
@@ -83,26 +91,58 @@ async function getLeadOpportunity(id: string) {
 
   const winReply = (replies ?? []).find((r: any) => r.classification === "positive" || r.classification === "meeting_intent");
   const isWon = !!winReply || !!lead.transferred_to_odoo_at;
-  if (!isWon) return null; // not a won opportunity
+  if (!isWon) return null;
 
-  // Pull templates from campaign_requests if we have a campaign.
-  let connectionNote: string | null = null;
-  let templates: Array<{ subject?: string | null; body?: string | null }> = [];
-  if (rawCamp?.name) {
-    const { data: req } = await supabase.from("campaign_requests")
-      .select("name, message_prompts")
-      .eq("name", rawCamp.name)
-      .limit(1)
-      .maybeSingle();
-    connectionNote = (req as any)?.message_prompts?.channelMessages?.connectionRequest ?? null;
-    templates = (req as any)?.message_prompts?.channelMessages?.steps ?? [];
-  }
+  // Pull messages sent to this lead (the journey)
+  const { data: messages } = rawCamp
+    ? await supabase.from("campaign_messages")
+        .select("id, step_number, channel, content, status, sent_at, metadata")
+        .eq("campaign_id", rawCamp.id)
+        .order("sent_at", { ascending: true, nullsFirst: false })
+    : { data: [] as any[] };
 
   const daysToConvert = winReply?.received_at && lead.created_at
     ? Math.max(1, Math.round((new Date(winReply.received_at).getTime() - new Date(lead.created_at).getTime()) / 86400000))
     : null;
 
   const totalSteps = Array.isArray(rawCamp?.sequence_steps) ? rawCamp.sequence_steps.length : 0;
+
+  // Build a unified chronological journey: lead created → messages sent →
+  // replies received → transferred to CRM. The winning reply is flagged so
+  // the renderer can highlight it.
+  type JourneyEvent =
+    | { kind: "created"; at: string }
+    | { kind: "message"; at: string; channel: string; subject: string | null; body: string; stepNumber: number }
+    | { kind: "reply"; at: string; channel: string; text: string | null; classification: string; isWin: boolean }
+    | { kind: "transferred"; at: string };
+
+  const journey: JourneyEvent[] = [];
+  if (lead.created_at) journey.push({ kind: "created", at: lead.created_at });
+  for (const m of (messages ?? []) as any[]) {
+    if (m.status !== "sent" || !m.sent_at) continue;
+    journey.push({
+      kind: "message",
+      at: m.sent_at,
+      channel: m.channel ?? "email",
+      subject: (m.metadata as any)?.subject ?? null,
+      body: m.content ?? "",
+      stepNumber: m.step_number ?? 0,
+    });
+  }
+  for (const r of (replies ?? []) as any[]) {
+    journey.push({
+      kind: "reply",
+      at: r.received_at,
+      channel: r.channel ?? "email",
+      text: r.reply_text,
+      classification: r.classification,
+      isWin: r.id === winReply?.id,
+    });
+  }
+  if (lead.transferred_to_odoo_at) {
+    journey.push({ kind: "transferred", at: lead.transferred_to_odoo_at });
+  }
+  journey.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
 
   return {
     mode: "lead" as const,
@@ -112,15 +152,21 @@ async function getLeadOpportunity(id: string) {
       lastName: lead.primary_last_name ?? null,
       fullName: `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown",
       role: lead.primary_title_role ?? null,
+      seniority: lead.primary_seniority ?? null,
+      headline: lead.primary_headline ?? null,
       company: lead.company_name ?? null,
+      industry: lead.company_industry ?? null,
       email: lead.primary_work_email ?? null,
       linkedinUrl: lead.primary_linkedin_url ?? null,
+      phone: lead.primary_phone ?? null,
+      photoUrl: lead.primary_photo_url ?? null,
       score: lead.lead_score ?? null,
       isPriority: !!lead.is_priority,
       status: lead.status ?? null,
       createdAt: lead.created_at ?? null,
       transferred: !!lead.transferred_to_odoo_at,
       transferredAt: lead.transferred_to_odoo_at ?? null,
+      enrichment: (lead.enrichment ?? null) as Record<string, unknown> | null,
     },
     win: winReply ? {
       replyText: winReply.reply_text ?? null,
@@ -128,20 +174,17 @@ async function getLeadOpportunity(id: string) {
       channel: winReply.channel ?? rawCamp?.channel ?? "email",
       receivedAt: winReply.received_at,
       daysToConvert,
+      stepAtWin: rawCamp?.current_step ?? 0,
+      totalSteps,
     } : null,
     campaign: rawCamp ? {
       id: rawCamp.id,
       name: rawCamp.name,
-      channel: rawCamp.channel,
-      currentStep: rawCamp.current_step ?? 0,
-      totalSteps,
-      startedAt: rawCamp.started_at ?? rawCamp.created_at ?? null,
       sellerName: (rawCamp.sellers as any)?.name ?? null,
-      connectionNote,
-      templates,
+      startedAt: rawCamp.started_at ?? rawCamp.created_at ?? null,
     } : null,
     profile: profile ?? null,
-    replies: replies ?? [],
+    journey,
     opportunityStage: lead.opportunity_stage ?? null,
     opportunityNotes: lead.opportunity_notes ?? null,
     opportunityNextAction: lead.opportunity_next_action ?? null,
@@ -164,7 +207,7 @@ async function getCampaignRollup(id: string) {
   const leadIds = (allCampaigns ?? []).map(c => c.lead_id).filter(Boolean);
   if (leadIds.length === 0) return null;
 
-  const [{ data: rawLeads }, { data: allReplies }, { data: campRequests }] = await Promise.all([
+  const [{ data: rawLeads }, { data: allReplies }] = await Promise.all([
     supabase.from("leads")
       .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, lead_score, is_priority, current_channel, transferred_to_odoo_at, icp_profile_id")
       .in("id", leadIds),
@@ -172,18 +215,8 @@ async function getCampaignRollup(id: string) {
       .select("id, lead_id, classification, channel, reply_text, received_at")
       .in("lead_id", leadIds)
       .order("received_at", { ascending: true }),
-    supabase.from("campaign_requests")
-      .select("name, message_prompts")
-      .eq("name", pivotName!)
-      .limit(1)
-      .maybeSingle(),
   ]);
   const leads = await hydrateClientLeads((rawLeads ?? []) as Record<string, unknown>[]) as any[];
-
-  const profileId = (leads ?? [])[0]?.icp_profile_id;
-  const { data: profile } = profileId
-    ? await supabase.from("icp_profiles").select("id, profile_name").eq("id", profileId).single()
-    : { data: null };
 
   const leadsMap: Record<string, any> = {};
   for (const l of leads ?? []) leadsMap[l.id] = l;
@@ -197,22 +230,6 @@ async function getCampaignRollup(id: string) {
   const positiveLeadIds = new Set(
     (allReplies ?? []).filter(r => r.classification === "positive" || r.classification === "meeting_intent").map(r => r.lead_id)
   );
-
-  const templates = (campRequests as any)?.message_prompts?.channelMessages?.steps ?? [];
-  const connectionNote = (campRequests as any)?.message_prompts?.channelMessages?.connectionRequest ?? null;
-
-  const channelStats: Record<string, { total: Set<string>; converted: Set<string> }> = {};
-  for (const c of allCampaigns ?? []) {
-    if (!channelStats[c.channel]) channelStats[c.channel] = { total: new Set(), converted: new Set() };
-    if (c.lead_id) {
-      channelStats[c.channel].total.add(c.lead_id);
-      if (positiveLeadIds.has(c.lead_id)) channelStats[c.channel].converted.add(c.lead_id);
-    }
-  }
-  const channelBreakdown = Object.entries(channelStats).map(([ch, s]) => ({
-    channel: ch, total: s.total.size, converted: s.converted.size,
-    rate: s.total.size > 0 ? Math.round((s.converted.size / s.total.size) * 100) : 0,
-  }));
 
   const totalLeads = (allCampaigns ?? []).length;
   const convertedLeads = [...positiveLeadIds].map(lid => {
@@ -229,25 +246,8 @@ async function getCampaignRollup(id: string) {
       channel: winReply?.channel ?? camp?.channel ?? "email",
       transferred: !!lead.transferred_to_odoo_at,
       winReplyText: winReply?.reply_text ?? null,
-      winReplyDate: winReply?.received_at ?? null,
-      winClassification: winReply?.classification ?? "positive",
-      stepsToConvert: camp?.current_step ?? 0,
-      totalSteps: Array.isArray(camp?.sequence_steps) ? camp.sequence_steps.length : 0,
-      allReplies: reps,
     };
   }).filter(Boolean) as any[];
-
-  const seqSteps = (allCampaigns ?? [])[0]?.sequence_steps ?? [];
-  const sequence = (Array.isArray(seqSteps) ? seqSteps : []).map((s: any, i: number) => ({
-    channel: s.channel ?? "email",
-    daysAfter: s.daysAfter ?? 0,
-    body: templates[i]?.body ?? null,
-    subject: templates[i]?.subject ?? null,
-  }));
-
-  const avgSteps = convertedLeads.length > 0
-    ? Math.round(convertedLeads.reduce((s, l: any) => s + l.stepsToConvert, 0) / convertedLeads.length * 10) / 10
-    : 0;
 
   return {
     mode: "campaign" as const,
@@ -256,22 +256,14 @@ async function getCampaignRollup(id: string) {
     converted: convertedLeads.length,
     transferred: convertedLeads.filter((l: any) => l.transferred).length,
     conversionRate: totalLeads > 0 ? Math.round((convertedLeads.length / totalLeads) * 100) : 0,
-    avgSteps,
-    channelBreakdown,
-    sequence,
-    connectionNote,
     convertedLeads,
-    profile: profile ?? null,
     seller: ((allCampaigns ?? [])[0]?.sellers as any)?.name ?? null,
   };
 }
 
 async function getOpportunityData(id: string) {
-  // Try lead-focused first — Won cards always link with the lead id.
   const lead = await getLeadOpportunity(id);
   if (lead) return lead;
-  // Legacy: id is a campaign id (old bookmarks, /opportunities table rows
-  // before the link was updated). Fall back to the campaign rollup.
   return await getCampaignRollup(id);
 }
 
@@ -283,19 +275,16 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
   return <CampaignOpportunityRollup data={data} />;
 }
 
-// ── Lead-focused detail (the default for Won card clicks) ──────────────────
+// ── Lead-focused detail (default for Won card clicks) ──────────────────────
 function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<typeof getLeadOpportunity>>> }) {
-  const { lead, win, campaign, profile, replies } = data;
+  const { lead, win, campaign, journey } = data;
   const badge = scoreBadge(lead.score, lead.isPriority);
   const winChMeta = win ? (channelMeta[win.channel] ?? channelMeta.email) : channelMeta.email;
   const WinChIcon = winChMeta.icon;
   const cls = win ? (classColors[win.classification] ?? classColors.positive) : classColors.positive;
-  const campProgressPct = campaign && campaign.totalSteps > 0
-    ? Math.round((campaign.currentStep / campaign.totalSteps) * 100)
-    : 0;
 
   return (
-    <div className="p-6 w-full max-w-5xl mx-auto">
+    <div className="p-6 w-full max-w-6xl mx-auto">
       <Breadcrumb
         crumbs={[
           { label: "Leads & Campaigns", href: "/leads" },
@@ -304,37 +293,74 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
         ]}
       />
 
-      {/* ═══ HERO ═══ */}
+      {/* ═══ HERO — the person ═══ */}
       <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border, borderLeftWidth: 3, borderLeftColor: C.green }}>
         <div className="p-6 flex items-start gap-5">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold shrink-0"
-            style={{ background: `linear-gradient(135deg, ${C.green}, #34D399)`, color: "#fff" }}>
-            {(lead.fullName[0] ?? "?").toUpperCase()}
-          </div>
+          {/* Photo */}
+          {lead.photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={lead.photoUrl} alt={lead.fullName}
+              className="w-20 h-20 rounded-2xl object-cover shrink-0 border-2"
+              style={{ borderColor: C.green }} />
+          ) : (
+            <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold shrink-0"
+              style={{ background: `linear-gradient(135deg, ${C.green}, #34D399)`, color: "#fff" }}>
+              {(lead.fullName[0] ?? "?").toUpperCase()}
+            </div>
+          )}
+          {/* Identity */}
           <div className="flex-1 min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-widest mb-1" style={{ color: C.green }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: C.green }}>
               <Trophy size={11} className="inline mr-1 -mt-0.5" /> Won Opportunity
             </p>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
               <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>{lead.fullName}</h1>
               {lead.isPriority && <Star size={14} fill={gold} stroke={gold} />}
               <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: badge.bg, color: badge.color }}>{badge.label}</span>
+              {lead.seniority && (
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded uppercase" style={{ backgroundColor: C.cardHov, color: C.textMuted }}>
+                  {lead.seniority.replace("_", " ")}
+                </span>
+              )}
             </div>
-            <p className="text-sm mt-1" style={{ color: C.textMuted }}>
-              {lead.role ? `${lead.role}` : ""}
+            <p className="text-sm" style={{ color: C.textBody }}>
+              {lead.role ?? "—"}
               {lead.role && lead.company ? " · " : ""}
               {lead.company && (
-                <Link href={`/companies/${encodeURIComponent(lead.company)}`} className="hover:underline" style={{ color: C.textBody }}>
+                <Link href={`/companies/${encodeURIComponent(lead.company)}`} className="font-semibold hover:underline" style={{ color: C.textPrimary }}>
                   {lead.company}
                 </Link>
               )}
             </p>
-            {profile && (
-              <p className="text-xs mt-1 flex items-center gap-1" style={{ color: C.textMuted }}>
-                <Target size={10} style={{ color: gold }} /> {(profile as { profile_name: string }).profile_name}
-              </p>
+            {lead.headline && (
+              <p className="text-xs mt-1 italic line-clamp-1" style={{ color: C.textMuted }}>&ldquo;{lead.headline}&rdquo;</p>
             )}
+            {/* Contact strip */}
+            <div className="flex items-center gap-4 mt-3 flex-wrap">
+              {lead.linkedinUrl && (
+                <a href={lead.linkedinUrl} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold hover:underline"
+                  style={{ color: "#0A66C2" }}>
+                  <Linkedin size={12} /> LinkedIn
+                </a>
+              )}
+              {lead.email && (
+                <a href={`mailto:${lead.email}`}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold hover:underline"
+                  style={{ color: "#7C3AED" }}>
+                  <Mail size={12} /> {lead.email}
+                </a>
+              )}
+              {lead.phone && (
+                <a href={`tel:${lead.phone}`}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold hover:underline"
+                  style={{ color: "#F97316" }}>
+                  <Phone size={12} /> {lead.phone}
+                </a>
+              )}
+            </div>
           </div>
+          {/* Status pill */}
           <div className="shrink-0 flex flex-col items-end gap-2">
             {lead.transferred ? (
               <span className="inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1.5 rounded-md"
@@ -348,18 +374,18 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
               </span>
             )}
             {lead.transferredAt && (
-              <span className="text-[10px]" style={{ color: C.textDim }}>{timeAgo(lead.transferredAt)}</span>
+              <span className="text-[10px]" style={{ color: C.textDim }}>Transferred {timeAgo(lead.transferredAt)}</span>
             )}
           </div>
         </div>
 
-        {/* Stats row */}
+        {/* Quick stats row */}
         <div className="border-t grid grid-cols-4 divide-x" style={{ borderColor: C.border }}>
           {[
             { label: "Days to Convert", value: win?.daysToConvert != null ? `${win.daysToConvert}` : "—", color: gold, icon: Calendar },
+            { label: "Replied at Step", value: win && win.totalSteps > 0 ? `${win.stepAtWin}/${win.totalSteps}` : "—", color: C.textBody, icon: Hash },
             { label: "Win Channel", value: winChMeta.label, color: winChMeta.color, icon: WinChIcon },
-            { label: "Reply Type", value: cls.label, color: cls.color, icon: Star },
-            { label: "Lead Score", value: lead.score != null ? `${lead.score}/100` : "—", color: badge.color, icon: Hash },
+            { label: "Reply Type", value: cls.label, color: cls.color, icon: Sparkles },
           ].map((s, i) => {
             const Icon = s.icon;
             return (
@@ -375,10 +401,65 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
         </div>
       </div>
 
+      {/* ═══ THE WIN — single hero card ═══ */}
+      {win && win.replyText && (
+        <div className="rounded-xl border p-6 mb-6 relative overflow-hidden"
+          style={{ backgroundColor: C.card, borderColor: C.green + "40", borderWidth: 1 }}>
+          <div className="absolute top-0 left-0 right-0 h-1" style={{ backgroundColor: C.green }} />
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: C.greenLight, color: C.green }}>
+              <Sparkles size={14} />
+            </div>
+            <div className="flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: C.green }}>
+                The Winning Reply
+              </p>
+              <p className="text-[10px]" style={{ color: C.textMuted }}>
+                {formatDateTime(win.receivedAt)} · {timeAgo(win.receivedAt)}
+              </p>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded"
+              style={{ backgroundColor: cls.bg, color: cls.color }}>
+              {cls.label}
+            </span>
+            <span className="text-[10px] flex items-center gap-1 ml-1" style={{ color: winChMeta.color }}>
+              <WinChIcon size={11} /> via {winChMeta.label}
+            </span>
+          </div>
+          <blockquote className="text-base leading-relaxed italic pl-4 border-l-2"
+            style={{ borderColor: C.green, color: C.textBody }}>
+            &ldquo;{win.replyText}&rdquo;
+          </blockquote>
+          <p className="text-[11px] mt-3" style={{ color: C.textMuted }}>
+            — {lead.fullName}{lead.role ? `, ${lead.role}` : ""}{lead.company ? ` at ${lead.company}` : ""}
+          </p>
+        </div>
+      )}
+
+      {/* Inline campaign + ICP tag (small, not a card) */}
+      {(campaign || data.profile) && (
+        <div className="flex items-center gap-2 mb-6 flex-wrap text-[11px]" style={{ color: C.textMuted }}>
+          <span>Won during</span>
+          {campaign && (
+            <Link href={`/campaigns/${campaign.id}`} className="font-semibold hover:underline" style={{ color: C.textBody }}>
+              {campaign.name}
+            </Link>
+          )}
+          {campaign?.sellerName && <span>· seller <span className="font-semibold" style={{ color: C.textBody }}>{campaign.sellerName}</span></span>}
+          {campaign?.startedAt && <span>· started {formatDate(campaign.startedAt)}</span>}
+          {data.profile && (
+            <span className="ml-auto text-[10px] px-2 py-0.5 rounded" style={{ backgroundColor: C.cardHov, color: C.textMuted }}>
+              ICP: {(data.profile as { profile_name: string }).profile_name}
+            </span>
+          )}
+        </div>
+      )}
+
       {/* ═══ TWO COLUMNS ═══ */}
       <div className="grid grid-cols-5 gap-6 mb-6">
 
-        {/* LEFT: Stage panel + Campaign context (2 cols) */}
+        {/* LEFT: Stage + Enrichment (2 cols) */}
         <div className="col-span-2 space-y-6">
           <OpportunityStagePanel
             leadId={lead.id}
@@ -386,99 +467,25 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
             initialNotes={data.opportunityNotes}
             initialNextAction={data.opportunityNextAction}
           />
-
-          {/* Campaign context */}
-          {campaign && (
-            <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>
-                Won via Campaign
-              </h2>
-              <p className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>{campaign.name}</p>
-              <div className="flex items-center gap-3 text-[11px] flex-wrap" style={{ color: C.textMuted }}>
-                {campaign.sellerName && <span>Seller: <span className="font-semibold" style={{ color: C.textBody }}>{campaign.sellerName}</span></span>}
-                {campaign.startedAt && <span>Started {formatDate(campaign.startedAt)}</span>}
-              </div>
-              {campaign.totalSteps > 0 && (
-                <div className="mt-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px]" style={{ color: C.textMuted }}>
-                      Sequence Progress · Step <span className="font-bold" style={{ color: C.textBody }}>{campaign.currentStep}</span> of {campaign.totalSteps}
-                    </span>
-                    <span className="text-[10px] font-bold tabular-nums" style={{ color: gold }}>{campProgressPct}%</span>
-                  </div>
-                  <div className="h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
-                    <div className="h-1.5 rounded-full" style={{ width: `${campProgressPct}%`, backgroundColor: gold }} />
-                  </div>
-                </div>
-              )}
-              <Link href={`/campaigns/${campaign.id}`} className="mt-4 flex items-center justify-center gap-1.5 w-full rounded-lg py-2 text-xs font-semibold transition-opacity hover:opacity-80"
-                style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
-                <Megaphone size={12} /> View Campaign Detail
-              </Link>
-            </div>
-          )}
+          <PersonalizedInfoPanel enrichment={lead.enrichment} />
         </div>
 
-        {/* RIGHT: Winning reply + full timeline (3 cols) */}
-        <div className="col-span-3 space-y-6">
-          {/* Winning reply highlight */}
-          {win && win.replyText && (
-            <div className="rounded-xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded"
-                  style={{ backgroundColor: cls.bg, color: cls.color }}>
-                  {cls.label}
-                </span>
-                <span className="text-[10px] flex items-center gap-1" style={{ color: winChMeta.color }}>
-                  <WinChIcon size={11} /> via {winChMeta.label}
-                </span>
-                <span className="text-[10px] ml-auto" style={{ color: C.textDim }}>
-                  {formatDate(win.receivedAt)} · {timeAgo(win.receivedAt)}
-                </span>
+        {/* RIGHT: Journey timeline (3 cols) */}
+        <div className="col-span-3">
+          <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
+              <div>
+                <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Journey to Win</h2>
+                <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
+                  Every touchpoint with {lead.firstName ?? "this lead"}, in order
+                </p>
               </div>
-              <p className="text-base leading-relaxed italic" style={{ color: C.textBody }}>
-                &ldquo;{win.replyText}&rdquo;
-              </p>
-              <p className="text-[11px] mt-3 pt-3 border-t" style={{ borderColor: C.border, color: C.textMuted }}>
-                — {lead.fullName}
-                {lead.role ? `, ${lead.role}` : ""}
-                {lead.company ? ` at ${lead.company}` : ""}
-              </p>
+              <span className="text-[10px] font-bold px-2 py-1 rounded-full" style={{ backgroundColor: C.cardHov, color: C.textMuted }}>
+                {journey.length} events
+              </span>
             </div>
-          )}
-
-          {/* Reply history (when there is more than the winning one) */}
-          {replies.length > 1 && (
-            <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <div className="px-5 py-3 border-b" style={{ borderColor: C.border }}>
-                <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Full Reply Timeline ({replies.length})</h2>
-              </div>
-              <div className="divide-y" style={{ borderColor: C.border }}>
-                {replies.map((r: any) => {
-                  const rCls = classColors[r.classification] ?? { color: C.textMuted, bg: C.surface, label: r.classification };
-                  const rCh = channelMeta[r.channel] ?? channelMeta.email;
-                  const RChIcon = rCh.icon;
-                  return (
-                    <div key={r.id} className="px-5 py-3 flex items-start gap-3" style={{ borderColor: C.border }}>
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: `${rCh.color}15` }}>
-                        <RChIcon size={13} style={{ color: rCh.color }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: rCls.bg, color: rCls.color }}>{rCls.label}</span>
-                          <span className="text-[10px]" style={{ color: C.textDim }}>{formatDate(r.received_at)} · {timeAgo(r.received_at)}</span>
-                        </div>
-                        {r.reply_text && (
-                          <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>&ldquo;{r.reply_text}&rdquo;</p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+            <JourneyTimeline events={journey} />
+          </div>
         </div>
       </div>
 
@@ -506,33 +513,129 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
   );
 }
 
-// ── Legacy campaign rollup (only reached when id is a campaign id, not a lead) ─
+// ── Journey timeline (per-lead chronological story) ────────────────────────
+function JourneyTimeline({ events }: { events: any[] }) {
+  if (events.length === 0) {
+    return <div className="px-5 py-8 text-center text-xs" style={{ color: C.textDim }}>No events recorded.</div>;
+  }
+  return (
+    <div className="relative">
+      {/* Vertical rail */}
+      <div className="absolute left-9 top-6 bottom-6 w-px" style={{ backgroundColor: C.border }} />
+      <ul>
+        {events.map((ev: any, idx) => {
+          let bullet: { icon: typeof Send; color: string; bg: string };
+          let title: React.ReactNode;
+          let body: React.ReactNode = null;
+          let highlight = false;
+
+          if (ev.kind === "created") {
+            bullet = { icon: UserPlus, color: C.textMuted, bg: C.cardHov };
+            title = <span className="text-xs" style={{ color: C.textBody }}>Lead added to pipeline</span>;
+          } else if (ev.kind === "message") {
+            const meta = channelMeta[ev.channel] ?? channelMeta.email;
+            bullet = { icon: Send, color: meta.color, bg: `color-mix(in srgb, ${meta.color} 12%, transparent)` };
+            title = (
+              <span className="text-xs" style={{ color: C.textBody }}>
+                <span className="font-semibold" style={{ color: meta.color }}>{meta.label}</span> message sent
+                <span className="ml-1" style={{ color: C.textMuted }}>· Step {ev.stepNumber}</span>
+              </span>
+            );
+            body = ev.body ? (
+              <div className="mt-2 rounded-lg border px-3 py-2.5" style={{ backgroundColor: C.bg, borderColor: C.border }}>
+                {ev.subject && (
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: C.textBody }}>
+                    Subject: <span className="font-normal" style={{ color: C.textBody }}>{ev.subject}</span>
+                  </p>
+                )}
+                <p className="text-[11px] leading-relaxed line-clamp-4 whitespace-pre-line" style={{ color: C.textMuted }}>
+                  {ev.body}
+                </p>
+              </div>
+            ) : null;
+          } else if (ev.kind === "reply") {
+            const meta = channelMeta[ev.channel] ?? channelMeta.email;
+            const cls = classColors[ev.classification] ?? classColors.positive;
+            bullet = ev.isWin
+              ? { icon: Trophy, color: "#fff", bg: C.green }
+              : { icon: Reply, color: meta.color, bg: `color-mix(in srgb, ${meta.color} 12%, transparent)` };
+            highlight = !!ev.isWin;
+            title = (
+              <span className="text-xs flex items-center gap-1.5 flex-wrap">
+                <span className="font-semibold" style={{ color: ev.isWin ? C.green : C.textBody }}>
+                  {ev.isWin ? "🏆 Winning reply" : "Reply received"}
+                </span>
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: cls.bg, color: cls.color }}>{cls.label}</span>
+                <span className="text-[10px]" style={{ color: meta.color }}>via {meta.label}</span>
+              </span>
+            );
+            body = ev.text ? (
+              <div className="mt-2 rounded-lg px-3 py-2.5 border"
+                style={{ backgroundColor: ev.isWin ? C.greenLight : C.bg, borderColor: ev.isWin ? C.green + "40" : C.border }}>
+                <p className="text-[11px] leading-relaxed italic" style={{ color: C.textBody }}>&ldquo;{ev.text}&rdquo;</p>
+              </div>
+            ) : null;
+          } else if (ev.kind === "transferred") {
+            bullet = { icon: CheckCircle2, color: "#fff", bg: C.green };
+            title = (
+              <span className="text-xs font-semibold" style={{ color: C.green }}>
+                Transferred to CRM
+              </span>
+            );
+          } else {
+            bullet = { icon: Clock, color: C.textMuted, bg: C.cardHov };
+            title = <span className="text-xs" style={{ color: C.textBody }}>Event</span>;
+          }
+
+          const BIcon = bullet.icon;
+          return (
+            <li key={idx} className="relative px-5 py-3 flex gap-4">
+              <div className="relative shrink-0 z-10">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: bullet.bg, boxShadow: `0 0 0 3px ${C.card}` }}>
+                  <BIcon size={14} style={{ color: bullet.color }} />
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline justify-between gap-2">
+                  {title}
+                  <span className="text-[10px] tabular-nums shrink-0" style={{ color: C.textDim }}>
+                    {formatDate(ev.at)} · {timeAgo(ev.at)}
+                  </span>
+                </div>
+                {body}
+                {highlight && (
+                  <p className="text-[10px] mt-2 font-semibold" style={{ color: C.green }}>
+                    🎯 This is the moment the deal turned.
+                  </p>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+// ── Legacy campaign rollup (reached only when id matches a campaign id) ────
 function CampaignOpportunityRollup({ data }: { data: NonNullable<Awaited<ReturnType<typeof getCampaignRollup>>> }) {
   return (
     <div className="p-6 w-full max-w-5xl mx-auto">
       <Breadcrumb crumbs={[{ label: "Opportunities", href: "/opportunities" }, { label: data.name ?? "Detail" }]} />
 
-      {/* ═══ HEADER ═══ */}
       <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="p-6">
           <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: C.green }}>Campaign Rollup</p>
           <h1 className="text-2xl font-bold mb-2" style={{ color: C.textPrimary }}>{data.name}</h1>
-          <div className="flex items-center gap-3 text-xs" style={{ color: C.textMuted }}>
-            {data.profile && (
-              <span className="flex items-center gap-1"><Target size={10} style={{ color: gold }} /> {(data.profile as { profile_name: string }).profile_name}</span>
-            )}
-            {data.seller && <span>· Seller: {data.seller}</span>}
-            <span>· {data.sequence.length} steps</span>
-          </div>
+          {data.seller && <p className="text-xs" style={{ color: C.textMuted }}>Seller: {data.seller}</p>}
         </div>
-
-        <div className="border-t grid grid-cols-5 divide-x" style={{ borderColor: C.border }}>
+        <div className="border-t grid grid-cols-4 divide-x" style={{ borderColor: C.border }}>
           {[
-            { label: "Total Leads", value: data.totalLeads, color: C.textBody },
-            { label: "Converted", value: data.converted, color: C.green },
-            { label: "Conversion Rate", value: `${data.conversionRate}%`, color: data.conversionRate >= 20 ? C.green : "#D97706" },
-            { label: "Avg Steps", value: data.avgSteps > 0 ? `${data.avgSteps}` : "—", color: gold },
-            { label: "Transferred", value: data.transferred, color: C.accent },
+            { label: "Total Leads",    value: data.totalLeads,           color: C.textBody },
+            { label: "Converted",      value: data.converted,            color: C.green },
+            { label: "Conversion",     value: `${data.conversionRate}%`, color: data.conversionRate >= 20 ? C.green : "#D97706" },
+            { label: "Transferred",    value: data.transferred,          color: C.accent },
           ].map(s => (
             <div key={s.label} className="px-5 py-4 text-center" style={{ borderColor: C.border }}>
               <p className="text-xl font-bold tabular-nums" style={{ color: s.color }}>{s.value}</p>
@@ -542,7 +645,6 @@ function CampaignOpportunityRollup({ data }: { data: NonNullable<Awaited<ReturnT
         </div>
       </div>
 
-      {/* Converted leads list */}
       <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
           <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Converted Leads ({data.convertedLeads.length})</h2>
