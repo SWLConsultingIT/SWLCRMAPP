@@ -1,5 +1,5 @@
 import { C } from "@/lib/design";
-import { Sparkles, TrendingUp, Building2, Info } from "lucide-react";
+import { Sparkles, TrendingUp, Building2, Info, Sun, ExternalLink } from "lucide-react";
 
 // Generic lead-enrichment panel. Renders whatever is in `lead.enrichment` jsonb.
 // Grouped by key prefix so each client can extend their own vocabulary without code changes.
@@ -79,7 +79,146 @@ const LABELS: Record<string, string> = {
   "ZI Person ID": "ZoomInfo ID",
   "ZoomInfo ID": "ZoomInfo ID",
   company_name: "Company (CH)",
+  // Rooftop intelligence (Gruppo Everest — solar / industrial energy)
+  rooftop_photo_url: "Rooftop Photo",
+  has_solar_panels: "Solar Panels Installed",
+  rooftop_area_m2: "Rooftop Area",
+  annual_electricity_kwh: "Annual Electricity",
+  estimated_bill_eur_year: "Estimated Energy Bill",
+  proposed_system_kwp: "Proposed System",
+  estimated_savings_pct_year1: "Year-1 Savings",
+  co2_offset_tons_year: "CO₂ Offset",
+  payback_months: "Payback",
+  cer_eligible: "CER Eligible",
+  transizione_5_0_eligible: "Transizione 5.0",
+  ai_outreach_angle: "AI Outreach Angle",
 };
+
+// Rooftop intelligence keys (Gruppo Everest). When `rooftop_photo_url` is present
+// we render them inside a dedicated section above the generic groups, so they
+// must NOT also render as part of the "other" bucket.
+const ROOFTOP_KEYS = new Set([
+  "rooftop_photo_url", "has_solar_panels",
+  "rooftop_area_m2", "annual_electricity_kwh", "estimated_bill_eur_year",
+  "proposed_system_kwp", "estimated_savings_pct_year1", "co2_offset_tons_year",
+  "payback_months", "cer_eligible", "transizione_5_0_eligible",
+  "ai_outreach_angle",
+]);
+
+function formatRooftopValue(key: string, value: unknown): string {
+  if (value == null || value === "") return "—";
+  const n = Number(value);
+  if (key === "rooftop_area_m2" && Number.isFinite(n)) return `${n.toLocaleString()} m²`;
+  if (key === "annual_electricity_kwh" && Number.isFinite(n)) {
+    return n >= 1_000_000 ? `${(n / 1_000_000).toFixed(2)} GWh/yr` : `${Math.round(n / 1000).toLocaleString()} MWh/yr`;
+  }
+  if (key === "estimated_bill_eur_year" && Number.isFinite(n)) return `€${Math.round(n).toLocaleString()}/yr`;
+  if (key === "proposed_system_kwp" && Number.isFinite(n)) return `${n.toLocaleString()} kWp`;
+  if (key === "estimated_savings_pct_year1" && Number.isFinite(n)) return `${n}%`;
+  if (key === "co2_offset_tons_year" && Number.isFinite(n)) return `${n.toLocaleString()} t/yr`;
+  if (key === "payback_months" && Number.isFinite(n)) return `${n} months`;
+  if (key === "cer_eligible" || key === "transizione_5_0_eligible") return value ? "Yes" : "No";
+  return String(value);
+}
+
+function RooftopSection({ data }: { data: Record<string, unknown> }) {
+  const photoUrl = data.rooftop_photo_url as string | undefined;
+  const hasSolar = String(data.has_solar_panels ?? "").toLowerCase() === "yes";
+  const angle = data.ai_outreach_angle as string | undefined;
+
+  const stats: Array<{ key: string; label: string }> = [
+    { key: "rooftop_area_m2", label: "Rooftop Area" },
+    { key: "annual_electricity_kwh", label: "Annual Use" },
+    { key: "estimated_bill_eur_year", label: "Energy Bill" },
+    { key: "proposed_system_kwp", label: "Proposed kWp" },
+    { key: "estimated_savings_pct_year1", label: "Year-1 Savings" },
+    { key: "payback_months", label: "Payback" },
+    { key: "co2_offset_tons_year", label: "CO₂ Offset" },
+  ];
+  const visibleStats = stats.filter(s => data[s.key] != null && data[s.key] !== "");
+
+  const badgeColor = hasSolar
+    ? { bg: C.greenLight, fg: C.green, label: "HAS SOLAR PANELS" }
+    : { bg: C.redLight,   fg: C.red,   label: "NO SOLAR PANELS" };
+
+  return (
+    <SectionBlock icon={Sun} title="Rooftop Intelligence" accent="#D97706" bg="#FFFBEB">
+      {/* Photo + headline badge */}
+      <div className="flex flex-col md:flex-row gap-4 items-stretch">
+        {photoUrl && (
+          <a
+            href={photoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="relative block rounded-lg overflow-hidden border group shrink-0"
+            style={{ borderColor: C.border, width: 220, height: 165 }}
+            title="Open full-size rooftop photo"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={photoUrl}
+              alt={hasSolar ? "Rooftop with solar panels" : "Rooftop without solar panels"}
+              className="w-full h-full object-cover transition-transform group-hover:scale-[1.02]"
+            />
+            <span className="absolute bottom-1.5 right-1.5 inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-1 rounded"
+              style={{ backgroundColor: "rgba(0,0,0,0.55)", color: "#fff" }}>
+              <ExternalLink size={10} /> Open
+            </span>
+          </a>
+        )}
+        <div className="flex-1 flex flex-col justify-between gap-3">
+          <div>
+            <span className="inline-block text-[11px] font-bold px-2.5 py-1 rounded tracking-wider"
+              style={{ backgroundColor: badgeColor.bg, color: badgeColor.fg }}>
+              {badgeColor.label}
+            </span>
+            {(data.cer_eligible === true || data.transizione_5_0_eligible === true) && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {data.cer_eligible === true && (
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                    style={{ backgroundColor: C.blueLight, color: C.blue }}>
+                    CER eligible
+                  </span>
+                )}
+                {data.transizione_5_0_eligible === true && (
+                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                    style={{ backgroundColor: "#F5F3FF", color: "#7C3AED" }}>
+                    Transizione 5.0
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+          {angle && (
+            <div className="text-[12px] leading-relaxed rounded-md p-3 border"
+              style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textBody }}>
+              <div className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: "#D97706" }}>
+                Outreach Angle
+              </div>
+              {angle}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Sizing stats */}
+      {visibleStats.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 mt-4">
+          {visibleStats.map(s => (
+            <div key={s.key} className="p-2.5 rounded-lg border" style={{ backgroundColor: C.bg, borderColor: C.border }}>
+              <p className="text-[9px] font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>
+                {s.label}
+              </p>
+              <div className="text-sm font-semibold" style={{ color: C.textPrimary, fontVariantNumeric: "tabular-nums" }}>
+                {formatRooftopValue(s.key, data[s.key])}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </SectionBlock>
+  );
+}
 
 // The 15 fields the client (Pathway) filters on — pulled to the top as stat cards.
 const PRIORITY_KEYS = [
@@ -390,9 +529,11 @@ export default function PersonalizedInfoPanel({ enrichment }: Props) {
   const priorityVisible = PRIORITY_KEYS.filter(present);
   const rfaExtra = sortKeys(Object.keys(data).filter(k => k.startsWith("rfa_") && !PRIORITY_KEYS.includes(k) && present(k)), RFA_ORDER);
   const chExtra  = sortKeys(Object.keys(data).filter(k => k.startsWith("ch_")  && !PRIORITY_KEYS.includes(k) && present(k)), CH_ORDER);
-  const other    = sortKeys(Object.keys(data).filter(k => !k.startsWith("rfa_") && !k.startsWith("ch_") && !PRIORITY_KEYS.includes(k) && present(k)), OTHER_ORDER);
+  const other    = sortKeys(Object.keys(data).filter(k => !k.startsWith("rfa_") && !k.startsWith("ch_") && !PRIORITY_KEYS.includes(k) && !ROOFTOP_KEYS.has(k) && present(k)), OTHER_ORDER);
 
-  if (priorityVisible.length === 0 && rfaExtra.length === 0 && chExtra.length === 0 && other.length === 0) return null;
+  const showRooftop = present("rooftop_photo_url") || present("has_solar_panels");
+
+  if (!showRooftop && priorityVisible.length === 0 && rfaExtra.length === 0 && chExtra.length === 0 && other.length === 0) return null;
 
   const gold = "var(--brand, #c9a83a)";
 
@@ -420,6 +561,9 @@ export default function PersonalizedInfoPanel({ enrichment }: Props) {
           </span>
         )}
       </div>
+
+      {/* Rooftop intelligence (Gruppo Everest) — renders only if present */}
+      {showRooftop && <RooftopSection data={data} />}
 
       {/* Priority KPI cards */}
       {priorityVisible.length > 0 && (
