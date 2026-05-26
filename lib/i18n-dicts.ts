@@ -528,6 +528,8 @@ export const en: Dict = {
   "dashx.heat.legendMax": "More",
   "dashx.donut.centerReplies": "replies",
   "dashx.donut.empty": "No replies in the period",
+  "dashx.trend.today": "Today",
+  "dashx.trend.daysAgo": "d",
 };
 
 export const es: Dict = {
@@ -1056,6 +1058,8 @@ export const es: Dict = {
   "dashx.heat.legendMax": "Más",
   "dashx.donut.centerReplies": "respuestas",
   "dashx.donut.empty": "Sin respuestas en el período",
+  "dashx.trend.today": "Hoy",
+  "dashx.trend.daysAgo": "d",
 };
 
 export const dicts: Record<Locale, Dict> = { en, es };

@@ -404,11 +404,15 @@ export default async function DashboardPage({
       <section>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
           <Panel title={t("dashx.trend.title")} subtitle={t("dashx.trend.subtitle")} className="lg:col-span-7">
-            <MultiLineChart series={[
-              { name: t("dashx.trend.sent"),      color: "#0A66C2", data: trend30d.sent },
-              { name: t("dashx.trend.replies"),   color: "#7C3AED", data: trend30d.replies },
-              { name: t("dashx.trend.positives"), color: C.green,    data: trend30d.positive },
-            ]} />
+            <MultiLineChart
+              todayLabel={t("dashx.trend.today")}
+              recentLabel={t("dashx.trend.daysAgo")}
+              series={[
+                { name: t("dashx.trend.sent"),      color: "#0A66C2", data: trend30d.sent },
+                { name: t("dashx.trend.replies"),   color: "#7C3AED", data: trend30d.replies },
+                { name: t("dashx.trend.positives"), color: C.green,   data: trend30d.positive },
+              ]}
+            />
           </Panel>
           <Panel title={t("dashx.heat.title")} subtitle={t("dashx.heat.subtitle")} className="lg:col-span-5">
             <Heatmap
