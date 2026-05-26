@@ -65,8 +65,13 @@ async function loadSellerDetail(sellerId: string) {
     campIds.length > 0
       ? supabase.from("campaign_messages").select("id, campaign_id, status, sent_at, step_number").in("campaign_id", campIds).eq("status", "sent")
       : Promise.resolve({ data: [] }),
-    leadIds.length > 0
-      ? supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, received_at").in("lead_id", leadIds)
+    // Scope replies by CAMPAIGN, not by lead. Filtering by lead_id over-counts
+    // when a lead has been worked by multiple sellers across different
+    // campaigns — replies from another seller's campaign on the same lead
+    // would leak into this seller's numbers. campaign_id is the right axis
+    // because each campaign has exactly one seller_id.
+    campIds.length > 0
+      ? supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, received_at").in("campaign_id", campIds)
       : Promise.resolve({ data: [] }),
     icpIds.length > 0
       ? supabase.from("icp_profiles").select("id, profile_name").in("id", icpIds)
