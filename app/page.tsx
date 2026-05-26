@@ -1,654 +1,481 @@
-import { getSupabaseServer } from "@/lib/supabase-server";
-import { getSupabaseService } from "@/lib/supabase-service";
-import { getUserScope } from "@/lib/scope";
-import { hydrateClientLeads } from "@/lib/leads-crypto";
+// New Dashboard (2026-05-26). Drops the Live / Reports tab split — the page
+// IS the analytics now, ordered from company-wide → channels → ICPs →
+// campaigns → sellers. Every table row drills into a dedicated detail view
+// (/dashboard/campaign/[name], /dashboard/icp/[id], /dashboard/seller/[id]).
+// The PDF export lives in /reports as a checklist menu that respects the
+// caller's tenant scope.
+
 import { redirect } from "next/navigation";
-import { C } from "@/lib/design";
-import { Share2, Mail, Phone, MessageSquare, Megaphone } from "lucide-react";
 import Link from "next/link";
-import DashboardHero from "@/components/DashboardHero";
-import DashboardStats from "@/components/DashboardStats";
-import OnboardingChecklist from "@/components/OnboardingChecklist";
-import DashboardTabs from "@/components/DashboardTabs";
-import DashboardFilters from "@/components/DashboardFilters";
-import CollapsibleCard from "@/components/CollapsibleCard";
+import {
+  Users, Send, MessageSquare, ThumbsUp, Trophy, CheckCircle2,
+  Megaphone, Target, TrendingUp, Sparkles, AlertTriangle,
+  Lightbulb, ArrowRight, Share2, Mail, Phone, Smartphone,
+  FileDown,
+} from "lucide-react";
+import { C } from "@/lib/design";
+import { getUserScope } from "@/lib/scope";
+import { getDashboardData } from "@/lib/dashboard-data";
+import PageHero from "@/components/PageHero";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
-import AlertsPanel from "@/components/AlertsPanel";
-import ReportsPage from "@/app/reports/page";
-
-export type DashboardFilterValues = {
-  from: string | null;       // ISO date "YYYY-MM-DD"
-  to: string | null;
-  campaignNames: string[];   // filter by campaign.name (groups of leads share a name)
-  sellerIds: string[];
-  icpIds: string[];
-};
-
-function parseFilters(sp: Record<string, string | string[] | undefined>): DashboardFilterValues {
-  const get = (k: string) => (Array.isArray(sp[k]) ? (sp[k] as string[])[0] : sp[k]) as string | undefined;
-  const split = (v: string | undefined) => (v ?? "").split(",").map(s => s.trim()).filter(Boolean);
-  return {
-    from: get("from") ?? null,
-    to: get("to") ?? null,
-    campaignNames: split(get("campaigns")),
-    sellerIds: split(get("sellers")),
-    icpIds: split(get("icps")),
-  };
-}
-
-// Skip the static-or-PPR optimization attempt — this page is fully
-// user-scoped (counts vary per tenant) so static gen is wasted work
-// that adds 200-500ms before falling back to dynamic on every cold request.
-export const dynamic = "force-dynamic";
+import KpiCard from "@/components/dashboard/KpiCard";
+import Funnel from "@/components/dashboard/Funnel";
+import MultiLineChart from "@/components/dashboard/MultiLineChart";
 
 const gold = "var(--brand, #c9a83a)";
 
-const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
-  linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
-  email:    { icon: Mail,   color: "#7C3AED", label: "Email" },
-  call:     { icon: Phone,  color: "#F97316", label: "Call" },
+const channelMeta: Record<string, { icon: React.ElementType; color: string; label: string }> = {
+  linkedin: { icon: Share2,        color: "#0A66C2", label: "LinkedIn" },
+  email:    { icon: Mail,          color: "#059669", label: "Email" },
+  call:     { icon: Phone,         color: "#EA580C", label: "Llamadas" },
+  whatsapp: { icon: Smartphone,    color: "#25D366", label: "WhatsApp" },
 };
 
-// Dark-mode-safe tints: color-mix(... transparent) yields a translucent
-// wash over whatever surface the chip is on, instead of a hardcoded light
-// hex that would glow on the dark theme.
-const tint = (color: string, pct = 12) => `color-mix(in srgb, ${color} ${pct}%, transparent)`;
-const classColors: Record<string, { color: string; bg: string; label: string }> = {
-  positive:       { color: C.green,   bg: tint(C.green, 14),   label: "Positive" },
-  meeting_intent: { color: C.green,   bg: tint(C.green, 14),   label: "Meeting Intent" },
-  negative:       { color: C.red,     bg: tint(C.red, 14),     label: "Negative" },
-  question:       { color: "#D97706", bg: tint("#D97706", 14), label: "Question" },
-};
-
-function timeAgo(iso: string) {
-  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return "Just now";
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
-
-async function getDashboardData(filters: DashboardFilterValues) {
-  const supabase = await getSupabaseServer();
-  const scope = await getUserScope();
-  const bioId = scope.isScoped ? scope.companyBioId! : null;
-
-  // Date window: explicit `from` / `to` overrides the default 7-day reply
-  // window so KPI cards and "recent replies" both honour the same range.
-  // `to` is treated as inclusive — anything sent that calendar day counts.
-  const now = Date.now();
-  const weekAgo = new Date(now - 7 * 86400000).toISOString();
-  const twoWeeksAgo = new Date(now - 14 * 86400000).toISOString();
-  const fromIso = filters.from ? new Date(`${filters.from}T00:00:00Z`).toISOString() : weekAgo;
-  const toIso = filters.to ? new Date(`${filters.to}T23:59:59Z`).toISOString() : null;
-
-  // Pre-resolve campaign IDs from the requested campaign names so subsequent
-  // counts can use `.in("campaign_id", ids)` without an extra join layer.
-  // `q` is typed as any: branching the select() string yields divergent inner-
-  // join shapes that the supabase-js inferred type can't reconcile, and the
-  // narrowing is irrelevant — we only read `id` off the row.
-  let campaignIdsForFilter: string[] | null = null;
-  if (filters.campaignNames.length > 0) {
-    const selectCols = filters.icpIds.length > 0
-      ? "id, leads!inner(company_bio_id, icp_profile_id)"
-      : "id, leads!inner(company_bio_id)";
-    let q: any = supabase.from("campaigns").select(selectCols).in("name", filters.campaignNames);
-    if (bioId) q = q.eq("leads.company_bio_id", bioId);
-    if (filters.sellerIds.length > 0) q = q.in("seller_id", filters.sellerIds);
-    if (filters.icpIds.length > 0) q = q.in("leads.icp_profile_id", filters.icpIds);
-    const { data } = await q;
-    const ids = (data ?? []).map((c: { id: string }) => c.id);
-    campaignIdsForFilter = ids.length > 0 ? ids : ["__none__"]; // sentinel: zero results
-  }
-
-  // Leads scope: direct eq on company_bio_id. ICP + date filters apply too —
-  // alert counts (pending review etc.) stay unfiltered below because those are
-  // operational signals that should remain visible regardless of the view.
-  let leadsCountQ = bioId
-    ? supabase.from("leads").select("*", { count: "exact", head: true }).eq("company_bio_id", bioId)
-    : supabase.from("leads").select("*", { count: "exact", head: true });
-  if (filters.icpIds.length > 0) leadsCountQ = leadsCountQ.in("icp_profile_id", filters.icpIds);
-  if (filters.from) leadsCountQ = leadsCountQ.gte("created_at", fromIso);
-  if (toIso) leadsCountQ = leadsCountQ.lte("created_at", toIso);
-
-  let activeCampsQ = bioId
-    ? supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, last_step_at, leads!inner(company_bio_id, icp_profile_id)").eq("leads.company_bio_id", bioId).in("status", ["active", "paused"])
-    : supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, last_step_at, leads(icp_profile_id)").in("status", ["active", "paused"]);
-  if (filters.campaignNames.length > 0) activeCampsQ = activeCampsQ.in("name", filters.campaignNames);
-  if (filters.sellerIds.length > 0) activeCampsQ = activeCampsQ.in("seller_id", filters.sellerIds);
-  if (filters.icpIds.length > 0) activeCampsQ = activeCampsQ.in("leads.icp_profile_id", filters.icpIds);
-
-  let transferredQ = bioId
-    ? supabase.from("leads").select("*", { count: "exact", head: true }).eq("company_bio_id", bioId).not("transferred_to_odoo_at", "is", null)
-    : supabase.from("leads").select("*", { count: "exact", head: true }).not("transferred_to_odoo_at", "is", null);
-  if (filters.icpIds.length > 0) transferredQ = transferredQ.in("icp_profile_id", filters.icpIds);
-  if (filters.from) transferredQ = transferredQ.gte("transferred_to_odoo_at", fromIso);
-  if (toIso) transferredQ = transferredQ.lte("transferred_to_odoo_at", toIso);
-
-  const pendingReviewRepliesQ = bioId
-    ? supabase.from("lead_replies").select("*, leads!inner(company_bio_id)", { count: "exact", head: true }).eq("leads.company_bio_id", bioId).eq("requires_human_review", true).eq("review_status", "pending")
-    : supabase.from("lead_replies").select("*", { count: "exact", head: true }).eq("requires_human_review", true).eq("review_status", "pending");
-
-  const pendingProfilesQ = bioId
-    ? supabase.from("icp_profiles").select("*", { count: "exact", head: true }).eq("company_bio_id", bioId).eq("status", "pending")
-    : supabase.from("icp_profiles").select("*", { count: "exact", head: true }).eq("status", "pending");
-
-  // Campaign requests: when scoped, filter to requests whose icp_profile
-  // belongs to this tenant. We do this via a join in one round-trip
-  // (campaign_requests!inner(icp_profiles)) instead of fetching profile IDs
-  // first and then filtering — that serial await blocked the parallel
-  // batch below for ~150-200ms.
-  const pendingCampReviewsQ = bioId
-    ? supabase
-        .from("campaign_requests")
-        .select("*, icp_profiles!inner(company_bio_id)", { count: "exact", head: true })
-        .eq("status", "pending_review")
-        .eq("icp_profiles.company_bio_id", bioId)
-    : supabase.from("campaign_requests").select("*", { count: "exact", head: true }).eq("status", "pending_review");
-
-  // Merged replies query: pull date-windowed rows for the widget. The default
-  // window is 7d; an explicit `from` overrides it. weekPositive + recent are
-  // both derived from this single payload. 200-row cap defends against inbox
-  // explosions; widget shows top 8 and downstream counters tolerate the trim.
-  let mergedRepliesQ = bioId
-    ? supabase.from("lead_replies")
-        .select("id, lead_id, classification, channel, reply_text, received_at, campaign_id, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id, icp_profile_id), campaigns(name)")
-        .eq("leads.company_bio_id", bioId)
-        .gte("received_at", fromIso)
-        .order("received_at", { ascending: false })
-        .limit(200)
-    : supabase.from("lead_replies")
-        .select("id, lead_id, classification, channel, reply_text, received_at, campaign_id, leads(id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, icp_profile_id), campaigns(name)")
-        .gte("received_at", fromIso)
-        .order("received_at", { ascending: false })
-        .limit(200);
-  if (toIso) mergedRepliesQ = mergedRepliesQ.lte("received_at", toIso);
-  if (filters.icpIds.length > 0) mergedRepliesQ = mergedRepliesQ.in("leads.icp_profile_id", filters.icpIds);
-  if (campaignIdsForFilter) mergedRepliesQ = mergedRepliesQ.in("campaign_id", campaignIdsForFilter);
-
-  // 14-day trend windows for KPI deltas + sparklines. Two-week window so we
-  // can split into current 7d vs prior 7d for the delta calc. ICP filter only
-  // applies to the leads creation query — replies/transfers already join
-  // through `leads` so we filter at the join. Date filter from the bar is
-  // intentionally NOT applied to trend windows: the spark/delta are about
-  // "the last 14 days" by definition, independent of the date filter view.
-  let leadTrendQ = bioId
-    ? supabase.from("leads").select("created_at, transferred_to_odoo_at").eq("company_bio_id", bioId).gte("created_at", twoWeeksAgo)
-    : supabase.from("leads").select("created_at, transferred_to_odoo_at").gte("created_at", twoWeeksAgo);
-  if (filters.icpIds.length > 0) leadTrendQ = leadTrendQ.in("icp_profile_id", filters.icpIds);
-
-  let transferTrendQ = bioId
-    ? supabase.from("leads").select("transferred_to_odoo_at").eq("company_bio_id", bioId).gte("transferred_to_odoo_at", twoWeeksAgo)
-    : supabase.from("leads").select("transferred_to_odoo_at").gte("transferred_to_odoo_at", twoWeeksAgo);
-  if (filters.icpIds.length > 0) transferTrendQ = transferTrendQ.in("icp_profile_id", filters.icpIds);
-
-  let replyTrendQ = bioId
-    ? supabase.from("lead_replies").select("received_at, classification, leads!inner(company_bio_id, icp_profile_id), campaign_id").eq("leads.company_bio_id", bioId).gte("received_at", twoWeeksAgo)
-    : supabase.from("lead_replies").select("received_at, classification, campaign_id").gte("received_at", twoWeeksAgo);
-  if (filters.icpIds.length > 0) replyTrendQ = replyTrendQ.in("leads.icp_profile_id", filters.icpIds);
-  if (campaignIdsForFilter) replyTrendQ = replyTrendQ.in("campaign_id", campaignIdsForFilter);
-
-  // Onboarding checklist signals — head-only counts so they're nearly free.
-  // Only render the checklist for tenant-scoped users (super_admin sees no
-  // hand-holding). Each query stays bio-scoped so a freshly-onboarded tenant
-  // doesn't see "Done ✓" because the SWL master account already has data.
-  //
-  // LinkedIn step counts sellers that THIS tenant can use — that's their own
-  // sellers PLUS sellers shared with them via admin's "Sellers shared with
-  // this client" toggle. Without the OR, tenants like Arqy that exclusively
-  // use shared SWL sellers see "Connect LinkedIn" forever stuck on pending.
-  const onboardingSellerQ = bioId
-    ? supabase
-        .from("sellers")
-        .select("id", { count: "exact", head: true })
-        .or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`)
-        .not("unipile_account_id", "is", null)
-    : null;
-  const onboardingIcpQ = bioId
-    ? supabase.from("icp_profiles").select("id", { count: "exact", head: true }).eq("company_bio_id", bioId).eq("status", "approved")
-    : null;
-  const onboardingLeadsQ = bioId
-    ? supabase.from("leads").select("id", { count: "exact", head: true }).eq("company_bio_id", bioId)
-    : null;
-  const onboardingCampaignQ = bioId
-    ? supabase.from("campaigns").select("id, leads!inner(company_bio_id)", { count: "exact", head: true }).eq("leads.company_bio_id", bioId).in("status", ["active", "paused"])
-    : null;
-
-  const [
-    { count: totalLeads },
-    { data: activeCampaigns },
-    { count: transferredCount },
-    { data: pendingReviewReplies },
-    { data: pendingCampReviews },
-    { data: pendingProfiles },
-    { data: weekAndRecentReplies },
-    { data: leadTrend },
-    { data: transferTrend },
-    { data: replyTrend },
-    onbSellerRes,
-    onbIcpRes,
-    onbLeadsRes,
-    onbCampaignRes,
-  ] = await Promise.all([
-    leadsCountQ,
-    activeCampsQ,
-    transferredQ,
-    pendingReviewRepliesQ,
-    pendingCampReviewsQ,
-    pendingProfilesQ,
-    mergedRepliesQ,
-    leadTrendQ,
-    transferTrendQ,
-    replyTrendQ,
-    onboardingSellerQ ?? Promise.resolve({ count: null as number | null }),
-    onboardingIcpQ ?? Promise.resolve({ count: null as number | null }),
-    onboardingLeadsQ ?? Promise.resolve({ count: null as number | null }),
-    onboardingCampaignQ ?? Promise.resolve({ count: null as number | null }),
-  ]) as any;
-
-  // Wrap into a single object so the page render keeps the shape stable.
-  const onboardingStatus = bioId ? {
-    hasSellerLinkedin: ((onbSellerRes as any)?.count ?? 0) > 0,
-    hasIcpApproved: ((onbIcpRes as any)?.count ?? 0) > 0,
-    hasLeads: ((onbLeadsRes as any)?.count ?? 0) > 0,
-    hasCampaign: ((onbCampaignRes as any)?.count ?? 0) > 0,
-  } : null;
-
-  // Decrypt client-source leads nested in reply rows so the dashboard widgets
-  // (recent replies, week positives) show real names instead of "Unknown".
-  // Hydration runs once per tick; reuses tenant key across rows.
-  const hydratedReplies = await (async () => {
-    const rows = (weekAndRecentReplies ?? []) as any[];
-    const nested = rows.map(r => r.leads).filter(Boolean) as Record<string, unknown>[];
-    if (nested.length === 0) return rows;
-    const hydrated = await hydrateClientLeads(nested);
-    const byId = new Map(hydrated.map(l => [(l as any).id as string, l]));
-    return rows.map(r => (r.leads ? { ...r, leads: byId.get((r.leads as any).id) ?? r.leads } : r));
-  })();
-  const weekReplies = hydratedReplies as Array<{ classification: string | null }>;
-  const recentReplies = hydratedReplies.slice(0, 8);
-
-  // Pipeline stats
-  const activeLeadIds = new Set((activeCampaigns ?? []).map((c: any) => c.lead_id).filter(Boolean));
-  const weekPositive = (weekReplies ?? []).filter((r: any) => r.classification === "positive" || r.classification === "meeting_intent").length;
-
-  // Campaign summary (group by name, top 5). pendingCalls counts leads whose
-  // current step is "call" AND whose wait window has already elapsed — same
-  // isDue filter the Queue page uses. Without the isDue filter the dashboard
-  // would tell the seller "X calls pending" while the Queue showed zero,
-  // because leads at a call step with a future eligible_at don't surface in
-  // the Queue yet. Counts now match between Dashboard and Queue tab.
-  const dashboardNow = Date.now();
-  const campGroups: Record<string, { name: string; firstId: string; channels: Set<string>; leads: number; active: number; totalSteps: number; progressSum: number; lastActivity: string | null; pendingCalls: number }> = {};
-  for (const c of activeCampaigns ?? []) {
-    if (!campGroups[c.name]) campGroups[c.name] = { name: c.name, firstId: c.id, channels: new Set(), leads: 0, active: 0, totalSteps: 0, progressSum: 0, lastActivity: null, pendingCalls: 0 };
-    const g = campGroups[c.name];
-    g.channels.add(c.channel);
-    g.leads++;
-    if (c.status === "active") g.active++;
-    const ts = Array.isArray(c.sequence_steps) ? c.sequence_steps.length : 0;
-    g.totalSteps = Math.max(g.totalSteps, ts);
-    g.progressSum += ts > 0 ? (c.current_step ?? 0) / ts : 0;
-    if (c.last_step_at && (!g.lastActivity || c.last_step_at > g.lastActivity)) g.lastActivity = c.last_step_at;
-    const steps = Array.isArray(c.sequence_steps) ? c.sequence_steps : [];
-    const currentStepIdx = c.current_step ?? 0;
-    if (steps[currentStepIdx]?.channel === "call") {
-      // Mirror Queue page's isDue filter exactly: dueAt = last_step_at +
-      // daysAfter; calls only count once the wait window has passed.
-      const daysAfter = steps[currentStepIdx]?.daysAfter ?? 0;
-      const dueAt = c.last_step_at ? new Date(c.last_step_at).getTime() + daysAfter * 86400000 : null;
-      const isDue = dueAt !== null ? dashboardNow >= dueAt : daysAfter === 0;
-      if (isDue) g.pendingCalls++;
-    }
-  }
-  const topCampaigns = Object.values(campGroups)
-    .map(g => ({ ...g, channels: [...g.channels], avgProgress: g.leads > 0 ? Math.round((g.progressSum / g.leads) * 100) : 0 }))
-    .sort((a, b) => b.active - a.active)
-    .slice(0, 5);
-
-  // Pending calls count (total across all campaigns) — kept for the legacy
-  // single "calls pending" alert when there's only one campaign with calls.
-  const pendingCallsCount = Object.values(campGroups).reduce((s, g) => s + g.pendingCalls, 0);
-  const campaignsWithPendingCalls = Object.values(campGroups).filter(g => g.pendingCalls > 0);
-
-  // Alerts. Calls split per-campaign so the caller sees "Architects: 34 calls"
-  // instead of an opaque "102 calls pending" — directly actionable. If a single
-  // campaign has all the calls, fall back to the original generic pill to
-  // avoid noise.
-  const alerts: { label: string; count: number; href: string; color: string }[] = [];
-  if ((pendingReviewReplies as any) > 0) alerts.push({ label: "replies pending review", count: pendingReviewReplies as any, href: "/queue", color: "#D97706" });
-  if (campaignsWithPendingCalls.length > 1) {
-    for (const g of campaignsWithPendingCalls) {
-      alerts.push({ label: `calls in ${g.name}`, count: g.pendingCalls, href: "/queue", color: "#F97316" });
-    }
-  } else if (pendingCallsCount > 0) {
-    alerts.push({ label: "calls pending", count: pendingCallsCount, href: "/queue", color: "#F97316" });
-  }
-  if ((pendingCampReviews as any) > 0) alerts.push({ label: "campaigns awaiting approval", count: pendingCampReviews as any, href: "/queue", color: C.blue });
-  if ((pendingProfiles as any) > 0) alerts.push({ label: "profiles awaiting approval", count: pendingProfiles as any, href: "/queue", color: C.blue });
-
-  // Recent replies formatted
-  const formattedReplies = (recentReplies ?? []).map((r: any) => {
-    const lead = r.leads;
-    const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
-    return {
-      id: r.id,
-      leadId: r.lead_id,
-      leadName,
-      company: lead?.company_name ?? null,
-      classification: r.classification,
-      channel: r.channel,
-      replyText: r.reply_text,
-      receivedAt: r.received_at,
-      campaignName: (r.campaigns as any)?.name ?? null,
-    };
-  });
-
-  // ── Compute deltas + sparklines from the 14d trend payloads ──
-  // Day buckets: index 0 = 13d ago, ... index 13 = today. Current 7d = idx 7..13,
-  // prior 7d = idx 0..6. Delta = (current - prior)/prior * 100; if prior is 0
-  // and current > 0 we report null (undefined growth, no meaningful %).
-  const dayStart = (offset: number) => new Date(now - offset * 86400000).setHours(0, 0, 0, 0);
-  const dayIdx = (iso: string | null) => {
-    if (!iso) return -1;
-    const t = new Date(iso).getTime();
-    for (let i = 0; i < 14; i++) {
-      const start = dayStart(13 - i);
-      const end = start + 86400000;
-      if (t >= start && t < end) return i;
-    }
-    return -1;
+function parseFilters(sp: Record<string, string | string[] | undefined>) {
+  const get = (k: string) => {
+    const v = sp[k];
+    return Array.isArray(v) ? v[0] : v ?? null;
   };
-  const bucket = (rows: Array<{ at: string | null }>): number[] => {
-    const b = Array(14).fill(0);
-    for (const r of rows) {
-      const i = dayIdx(r.at);
-      if (i >= 0) b[i]++;
-    }
-    return b;
-  };
-  const split = (b: number[]) => ({
-    prior: b.slice(0, 7).reduce((a, c) => a + c, 0),
-    current: b.slice(7).reduce((a, c) => a + c, 0),
-    spark: b.slice(7),
-  });
-  const pctDelta = (current: number, prior: number): number | null => {
-    if (prior === 0) return current === 0 ? 0 : null;
-    return ((current - prior) / prior) * 100;
-  };
-
-  const leadCreatedBuckets   = bucket((leadTrend     ?? []).map((r: any) => ({ at: r.created_at })));
-  const transferBuckets      = bucket((transferTrend ?? []).map((r: any) => ({ at: r.transferred_to_odoo_at })));
-  const replyBuckets         = bucket((replyTrend    ?? []).map((r: any) => ({ at: r.received_at })));
-  const positiveReplyBuckets = bucket((replyTrend    ?? [])
-    .filter((r: any) => r.classification === "positive" || r.classification === "meeting_intent")
-    .map((r: any) => ({ at: r.received_at })));
-
-  const leadsSplit     = split(leadCreatedBuckets);
-  const transferSplit  = split(transferBuckets);
-  const replySplit     = split(replyBuckets);
-  const positiveSplit  = split(positiveReplyBuckets);
-
-  // totalLeads delta = leads created this 7d vs prior 7d. leadsInCampaign is
-  // a point-in-time snapshot (no historical), so we skip delta but show a
-  // sparkline of new-leads-added per day as a proxy for pipeline momentum.
-  const deltas = {
-    totalLeads:        pctDelta(leadsSplit.current,    leadsSplit.prior),
-    leadsInCampaign:   null,
-    weekRepliesCount:  pctDelta(replySplit.current,    replySplit.prior),
-    weekPositive:      pctDelta(positiveSplit.current, positiveSplit.prior),
-    transferred:       pctDelta(transferSplit.current, transferSplit.prior),
-  };
-  const sparks = {
-    totalLeads:        leadsSplit.spark,
-    leadsInCampaign:   leadsSplit.spark, // proxy: new leads/day
-    weekRepliesCount:  replySplit.spark,
-    weekPositive:      positiveSplit.spark,
-    transferred:       transferSplit.spark,
-  };
-
-  // Today bucket = index 13 of the 14-day windows. Surfaced separately so
-  // the hero can show "what's happening RIGHT NOW" without re-running any
-  // queries — it's already in the trend payloads we fetched.
-  const todayPulse = {
-    leads:       leadCreatedBuckets[13] ?? 0,
-    replies:     replyBuckets[13] ?? 0,
-    transferred: transferBuckets[13] ?? 0,
-  };
-
   return {
-    totalLeads: totalLeads ?? 0,
-    leadsInCampaign: activeLeadIds.size,
-    activeCampaignCount: (activeCampaigns ?? []).filter((c: any) => c.status === "active").length,
-    weekRepliesCount: (weekReplies ?? []).length,
-    weekPositive,
-    transferred: transferredCount ?? 0,
-    deltas,
-    sparks,
-    alerts,
-    topCampaigns,
-    recentReplies: formattedReplies,
-    todayPulse,
-    onboardingStatus,
-  };
-}
-
-async function getFilterOptions(bioId: string | null) {
-  // Distinct campaign names + active sellers + approved ICPs for the dropdowns.
-  // Service role bypasses RLS so the listings are consistent regardless of the
-  // caller's tier (Arqy user vs SWL super_admin); company_bio_id still gates
-  // the rows we surface.
-  const svc = getSupabaseService();
-  const campsQ = bioId
-    ? svc.from("campaigns").select("name, leads!inner(company_bio_id)").eq("leads.company_bio_id", bioId)
-    : svc.from("campaigns").select("name");
-  const sellersQ = bioId
-    ? svc.from("sellers").select("id, name").or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`).eq("active", true).order("name")
-    : svc.from("sellers").select("id, name").eq("active", true).order("name");
-  const icpsQ = bioId
-    ? svc.from("icp_profiles").select("id, profile_name").eq("company_bio_id", bioId).order("profile_name")
-    : svc.from("icp_profiles").select("id, profile_name").order("profile_name");
-
-  const [{ data: camps }, { data: sellers }, { data: icps }] = await Promise.all([campsQ, sellersQ, icpsQ]);
-  const uniqueNames = Array.from(new Set((camps ?? []).map((c: { name: string }) => c.name).filter(Boolean))).sort();
-  return {
-    campaigns: uniqueNames.map(n => ({ id: n, label: n })),
-    sellers: (sellers ?? []).map((s: { id: string; name: string }) => ({ id: s.id, label: s.name })),
-    icps: (icps ?? []).map((p: { id: string; profile_name: string }) => ({ id: p.id, label: p.profile_name })),
+    from: get("from"),
+    to: get("to"),
+    campaignNames: [] as string[],
+    sellerIds: [] as string[],
+    icpIds: [] as string[],
   };
 }
 
 export default async function DashboardPage({
   searchParams,
-}: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  // Force new clients through onboarding if they haven't completed company_bio yet.
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const scope = await getUserScope();
-  // super_admin (SWL ops) doesn't need a tenant — they operate cross-tenant.
-  // Every other tier (owner/manager/seller/viewer) needs a company_bio_id;
-  // if missing, push through onboarding.
   if (scope.userId && scope.tier !== "super_admin" && !scope.companyBioId) {
     redirect("/onboarding");
   }
 
   const sp = await searchParams;
   const filters = parseFilters(sp);
-  const bioId = scope.isScoped ? scope.companyBioId! : null;
-  const [data, options] = await Promise.all([
-    getDashboardData(filters),
-    getFilterOptions(bioId),
-  ]);
+  const data = await getDashboardData(filters);
+
+  const { headline, deltas, trend30d } = data;
 
   return (
-    <div className="p-4 sm:p-6 w-full">
+    <div className="p-4 sm:p-6 w-full space-y-6">
       <ReliabilityBanner />
-      <DashboardHero pulse={{
-        leadsToday: data.todayPulse.leads,
-        repliesToday: data.todayPulse.replies,
-        transferredToday: data.todayPulse.transferred,
-      }} />
 
-      {data.onboardingStatus && (
-        <OnboardingChecklist status={data.onboardingStatus} />
+      {/* ─── Hero ──────────────────────────────────────────────────────── */}
+      <PageHero
+        icon={TrendingUp}
+        section="Sales Engine"
+        title="Tu pipeline, en profundidad"
+        description="De lo general a lo específico: hacé clic en cualquier ICP, campaña o seller para abrir su detalle con gráficos."
+        accentColor={gold}
+        status={{ label: `${data.period.days} días`, active: true }}
+        action={(
+          <Link
+            href="/reports"
+            className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-opacity hover:opacity-85"
+            style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`, color: "#04070d", boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 28%, transparent)` }}
+          >
+            <FileDown size={13} /> Descargar reporte
+          </Link>
+        )}
+      />
+
+      {/* ─── 1. Hero KPIs ────────────────────────────────────────────────
+          Six headline metrics that answer "how are we doing right now?". Each
+          card carries the delta vs prior period + a 30d sparkline so the
+          trajectory is read alongside the absolute. */}
+      <section>
+        <SectionHeader
+          title="Resumen general"
+          subtitle="Métricas principales con tendencia 30 días"
+        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+          <KpiCard
+            label="Leads totales"
+            value={headline.totalLeads.toLocaleString("es-AR")}
+            icon={Users}
+            accent={C.gold}
+            hint={`${data.activeCampaignCount} campañas activas`}
+            href="/leads"
+          />
+          <KpiCard
+            label="Contactados"
+            value={headline.contactedLeads.toLocaleString("es-AR")}
+            delta={deltas.contacted}
+            trend={trend30d.sent}
+            icon={Send}
+            accent="#0A66C2"
+            hint={`${headline.acceptanceRate}% aceptaron`}
+          />
+          <KpiCard
+            label="Respuestas"
+            value={headline.repliedCount.toLocaleString("es-AR")}
+            delta={deltas.replied}
+            trend={trend30d.replies}
+            icon={MessageSquare}
+            accent="#7C3AED"
+            hint={`${headline.responseRate}% tasa de respuesta`}
+            href="/queue?tab=inbox"
+          />
+          <KpiCard
+            label="Positivas"
+            value={headline.positiveCount.toLocaleString("es-AR")}
+            delta={deltas.positive}
+            trend={trend30d.positive}
+            icon={ThumbsUp}
+            accent={C.green}
+            hint={`${headline.positiveRate}% de los que responden`}
+            href="/opportunities"
+          />
+          <KpiCard
+            label="Reuniones"
+            value={headline.meetingCount.toLocaleString("es-AR")}
+            icon={Target}
+            accent="#F59E0B"
+            hint="Leads marcados como qualified"
+            href="/opportunities"
+          />
+          <KpiCard
+            label="Ganados"
+            value={headline.wonCount.toLocaleString("es-AR")}
+            icon={Trophy}
+            accent="#DC2626"
+            hint="Cerrados en closed_won"
+          />
+        </div>
+      </section>
+
+      {/* ─── 2. Insights ─────────────────────────────────────────────────
+          Auto-generated short prose strings, max 4. Surfaces the biggest
+          movement / outlier so the seller doesn't have to scan tables. */}
+      {data.insights.length > 0 && (
+        <section>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {data.insights.map((ins, i) => {
+              const tone =
+                ins.tone === "positive" ? { color: C.green, bg: `color-mix(in srgb, ${C.green} 8%, transparent)`, Icon: CheckCircle2 }
+                : ins.tone === "warning" ? { color: C.red, bg: `color-mix(in srgb, ${C.red} 8%, transparent)`, Icon: AlertTriangle }
+                : { color: gold, bg: `color-mix(in srgb, ${gold} 8%, transparent)`, Icon: Lightbulb };
+              const Ic = tone.Icon;
+              return (
+                <div key={i} className="rounded-xl border p-3.5 flex items-start gap-3"
+                  style={{ borderColor: C.border, backgroundColor: tone.bg }}>
+                  <Ic size={16} style={{ color: tone.color }} className="shrink-0 mt-0.5" />
+                  <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>{ins.text}</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
 
-      <DashboardTabs>
-        {/* ═══ TAB 0: OVERVIEW ═══ */}
-        <div>
-          <DashboardStats
-            data={{
-              totalLeads: data.totalLeads,
-              leadsInCampaign: data.leadsInCampaign,
-              weekRepliesCount: data.weekRepliesCount,
-              weekPositive: data.weekPositive,
-              transferred: data.transferred,
-            }}
-            deltas={data.deltas}
-            sparks={data.sparks}
-          />
+      {/* ─── 3. Funnel + 30d trend (side by side on wide screens) ────── */}
+      <section>
+        <SectionHeader
+          title="Conversión y actividad"
+          subtitle="Embudo de conversión + actividad de los últimos 30 días"
+        />
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <Card title="Embudo de conversión" subtitle="De importados a ganados">
+            <Funnel stages={data.funnel} />
+          </Card>
+          <Card title="Actividad 30 días" subtitle="Enviados / respuestas / positivas">
+            <MultiLineChart series={[
+              { name: "Enviados",  color: "#0A66C2", data: trend30d.sent },
+              { name: "Respuestas", color: "#7C3AED", data: trend30d.replies },
+              { name: "Positivas",  color: C.green,    data: trend30d.positive },
+            ]} />
+          </Card>
+        </div>
+      </section>
 
-          {/* Alerts */}
-          {data.alerts.length > 0 && <AlertsPanel alerts={data.alerts} />}
-
-          {/* Two-thirds Active Campaigns (operational priority) + one-third
-              Recent Replies (reactive). On narrow screens the grid collapses
-              to a single column so the campaigns table always reads first. */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
-            {/* Active Flows (2/3) */}
-            <div className="lg:col-span-2">
-            <CollapsibleCard
-              title="Active Flows"
-              description={`${data.activeCampaignCount} active across ${data.topCampaigns.length} flow${data.topCampaigns.length === 1 ? "" : "s"}`}
-              storageKey="live.activeCampaigns"
-              rightSlot={<Link href="/leads" className="text-[10px] font-semibold hover:underline" style={{ color: gold }}>View all</Link>}
-            >
-              {data.topCampaigns.length === 0 ? (
-                <div className="px-5 py-10 text-center">
-                  <div className="w-11 h-11 mx-auto mb-3 rounded-2xl flex items-center justify-center"
-                    style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)` }}>
-                    <Megaphone size={18} style={{ color: gold }} />
-                  </div>
-                  <p className="text-sm font-semibold mb-1" style={{ color: C.textBody }}>No active flows yet</p>
-                  <p className="text-[11px] leading-snug max-w-[260px] mx-auto mb-3" style={{ color: C.textMuted }}>
-                    Launch your first outreach flow to start contacting leads automatically.
-                  </p>
-                  <Link href="/campaigns?tab=new"
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-85"
-                    style={{ backgroundColor: gold, color: "#04070d" }}>
-                    Create a flow
-                  </Link>
+      {/* ─── 4. Channel breakdown ────────────────────────────────────── */}
+      <section>
+        <SectionHeader
+          title="Performance por canal"
+          subtitle="Qué canal está moviendo la aguja"
+        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {data.channelBreakdown.length === 0 ? (
+            <EmptyHint>Sin actividad por canal todavía.</EmptyHint>
+          ) : data.channelBreakdown.map(ch => {
+            const meta = channelMeta[ch.channel] ?? { icon: Share2, color: C.textMuted, label: ch.channel };
+            const Icon = meta.icon;
+            return (
+              <div key={ch.channel} className="rounded-2xl border p-4"
+                style={{ borderColor: C.border, backgroundColor: C.card, borderLeft: `3px solid ${meta.color}` }}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-7 h-7 rounded-md flex items-center justify-center"
+                    style={{ backgroundColor: `color-mix(in srgb, ${meta.color} 14%, transparent)`, color: meta.color }}>
+                    <Icon size={13} />
+                  </span>
+                  <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{meta.label}</span>
                 </div>
-              ) : (
-                data.topCampaigns.map((camp, i) => (
-                  <Link key={camp.name} href={`/campaigns/${camp.firstId}`}
-                    className="flex items-center gap-4 px-5 py-3 transition-colors hover:bg-black/[0.015] group"
-                    style={{ borderTop: i > 0 ? `1px solid ${C.border}` : "none" }}>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <p className="text-xs font-semibold truncate group-hover:underline" style={{ color: C.textPrimary }}>{camp.name}</p>
-                        {camp.channels.map(ch => {
-                          const meta = channelMeta[ch] ?? channelMeta.email;
-                          const Icon = meta.icon;
-                          return <Icon key={ch} size={10} style={{ color: meta.color }} />;
-                        })}
-                        {camp.pendingCalls > 0 && (
-                          <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap"
-                            style={{ backgroundColor: "#FFEDD5", color: "#9A3412", border: "1px solid #FED7AA" }}>
-                            <Phone size={8} /> {camp.pendingCalls} to call
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
-                          <div className="h-1.5 rounded-full" style={{ width: `${camp.avgProgress}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} />
-                        </div>
-                        <span className="text-[10px] tabular-nums shrink-0" style={{ color: C.textMuted }}>{camp.avgProgress}%</span>
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0 hidden sm:block">
-                      <p className="text-xs font-bold tabular-nums" style={{ color: C.textPrimary }}>{camp.leads}</p>
-                      <p className="text-[9px]" style={{ color: C.textMuted }}>leads</p>
-                    </div>
-                    <div className="text-right shrink-0 hidden md:block" style={{ minWidth: 70 }}>
-                      <p className="text-[10px] tabular-nums" style={{ color: C.textMuted }}>
-                        {camp.lastActivity ? timeAgo(camp.lastActivity) : "—"}
-                      </p>
-                      <p className="text-[9px]" style={{ color: C.textDim }}>last activity</p>
-                    </div>
-                  </Link>
-                ))
-              )}
-            </CollapsibleCard>
-            </div>
-
-            {/* Recent Replies (1/3 sidebar) */}
-            <CollapsibleCard
-              title="Recent Replies"
-              description="Latest responses"
-              storageKey="live.recentReplies"
-              rightSlot={<Link href="/queue" className="text-[10px] font-semibold hover:underline" style={{ color: gold }}>Queue</Link>}
-            >
-              {data.recentReplies.length === 0 ? (
-                <div className="px-5 py-10 text-center">
-                  <div className="w-11 h-11 mx-auto mb-3 rounded-2xl flex items-center justify-center"
-                    style={{ backgroundColor: `color-mix(in srgb, ${C.blue} 10%, transparent)` }}>
-                    <MessageSquare size={18} style={{ color: C.blue }} />
-                  </div>
-                  <p className="text-sm font-semibold" style={{ color: C.textBody }}>No replies yet</p>
-                  <p className="text-[11px] mt-1 leading-snug max-w-[200px] mx-auto" style={{ color: C.textMuted }}>
-                    The moment a lead writes back, they show up here.
-                  </p>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <Stat label="Enviados" value={ch.sent} />
+                  <Stat label="Contactados" value={ch.contacted} />
+                  <Stat label="Respondieron" value={ch.replied} />
+                  <Stat label="Positivos" value={ch.positive} accent={C.green} />
                 </div>
-              ) : (
-                data.recentReplies.map((r: any, i: number) => {
-                  const cls = classColors[r.classification] ?? { color: C.textMuted, bg: C.surface, label: r.classification ?? "Reply" };
-                  const chMeta = channelMeta[r.channel] ?? channelMeta.email;
-                  const ChIcon = chMeta.icon;
-                  return (
-                    <Link key={r.id} href={`/leads/${r.leadId}`}
-                      className="flex gap-3 px-5 py-3.5 transition-colors hover:bg-black/[0.015]"
-                      style={{ borderTop: i > 0 ? `1px solid ${C.border}` : "none" }}>
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5"
-                        style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
-                        {(r.leadName[0] ?? "?").toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>{r.leadName}</span>
-                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: cls.bg, color: cls.color }}>
-                            {cls.label}
-                          </span>
-                          <ChIcon size={9} style={{ color: chMeta.color }} />
-                        </div>
-                        {r.replyText ? (
-                          <p className="text-[11px] line-clamp-1 leading-snug" style={{ color: C.textMuted }}>
-                            &ldquo;{r.replyText}&rdquo;
-                          </p>
-                        ) : (
-                          <p className="text-[10px] italic" style={{ color: C.textDim }}>No text</p>
-                        )}
-                      </div>
-                      <span className="text-[10px] shrink-0 mt-1" style={{ color: C.textDim }}>{timeAgo(r.receivedAt)}</span>
-                    </Link>
-                  );
-                })
-              )}
-            </CollapsibleCard>
+                <div className="mt-3 pt-3 border-t flex items-center justify-between text-[11px]"
+                  style={{ borderColor: C.border, color: C.textMuted }}>
+                  <span>
+                    <span className="font-semibold" style={{ color: meta.color }}>{ch.responseRate}%</span> resp · <span className="font-semibold" style={{ color: C.green }}>{ch.conversionRate}%</span> conv
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ─── 5. ICP performance ──────────────────────────────────────── */}
+      <section>
+        <SectionHeader
+          title="Performance por ICP"
+          subtitle="Qué perfil ideal convierte mejor"
+        />
+        <Card title={null} subtitle={null}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
+                  <th className="text-left px-4 py-2 font-semibold">ICP</th>
+                  <th className="text-right px-3 py-2 font-semibold">Leads</th>
+                  <th className="text-right px-3 py-2 font-semibold">Contactados</th>
+                  <th className="text-right px-3 py-2 font-semibold">Respondieron</th>
+                  <th className="text-right px-3 py-2 font-semibold">Positivos</th>
+                  <th className="text-right px-3 py-2 font-semibold">Tasa resp</th>
+                  <th className="text-right px-3 py-2 font-semibold">Conversión</th>
+                  <th className="w-8 px-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.icpPerformance.length === 0 ? (
+                  <tr><td colSpan={8} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}>Sin ICPs aprobados todavía.</td></tr>
+                ) : data.icpPerformance.map(icp => (
+                  <tr key={icp.id} className="border-t hover:bg-black/[0.02] transition-colors" style={{ borderColor: C.border }}>
+                    <td className="px-4 py-2.5">
+                      {icp.id !== "_unknown" ? (
+                        <Link href={`/dashboard/icp/${icp.id}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>
+                          {icp.name}
+                        </Link>
+                      ) : (
+                        <span style={{ color: C.textMuted }}>{icp.name}</span>
+                      )}
+                    </td>
+                    <td className="text-right px-3 py-2.5 tabular-nums" style={{ color: C.textBody }}>{icp.leads}</td>
+                    <td className="text-right px-3 py-2.5 tabular-nums" style={{ color: C.textBody }}>{icp.contacted}</td>
+                    <td className="text-right px-3 py-2.5 tabular-nums" style={{ color: C.textBody }}>{icp.replied}</td>
+                    <td className="text-right px-3 py-2.5 tabular-nums font-semibold" style={{ color: icp.positive > 0 ? C.green : C.textMuted }}>{icp.positive}</td>
+                    <td className="text-right px-3 py-2.5">
+                      <RateBadge value={icp.responseRate} color="#7C3AED" />
+                    </td>
+                    <td className="text-right px-3 py-2.5">
+                      <RateBadge value={icp.conversionRate} color={C.green} />
+                    </td>
+                    <td className="px-2 py-2.5" style={{ color: C.textDim }}>
+                      {icp.id !== "_unknown" && <Link href={`/dashboard/icp/${icp.id}`}><ArrowRight size={12} /></Link>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
+        </Card>
+      </section>
 
-        {/* ═══ TAB 1: REPORTS ═══ */}
-        <div>
-          {/* Filters live ONLY on Reports — Live is a "right now" pipeline
-              view where a date range or seller scope doesn't apply, and the
-              old shared filter bar at page-level led sellers to expect the
-              Live cards to react to filter changes they couldn't visually
-              wire up. Reports is genuinely time/segment-scoped, so filters
-              earn their place here. */}
-          <DashboardFilters campaigns={options.campaigns} sellers={options.sellers} icps={options.icps} />
-          <ReportsPage searchParams={Promise.resolve(sp)} />
-        </div>
-      </DashboardTabs>
+      {/* ─── 6. Campaign performance ─────────────────────────────────── */}
+      <section>
+        <SectionHeader
+          title="Performance por campaña"
+          subtitle="Comparativo de secuencias activas y pasadas"
+        />
+        <Card title={null} subtitle={null}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
+                  <th className="text-left px-4 py-2 font-semibold">Campaña</th>
+                  <th className="text-left px-3 py-2 font-semibold">Canales</th>
+                  <th className="text-right px-3 py-2 font-semibold">Leads</th>
+                  <th className="text-right px-3 py-2 font-semibold">Enviados</th>
+                  <th className="text-right px-3 py-2 font-semibold">Respond.</th>
+                  <th className="text-right px-3 py-2 font-semibold">Positivos</th>
+                  <th className="text-right px-3 py-2 font-semibold">Conversión</th>
+                  <th className="px-3 py-2 font-semibold">Estado</th>
+                  <th className="w-8 px-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.campaignPerformance.length === 0 ? (
+                  <tr><td colSpan={9} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}>Sin campañas en este período.</td></tr>
+                ) : data.campaignPerformance.map(c => (
+                  <tr key={c.name} className="border-t hover:bg-black/[0.02] transition-colors" style={{ borderColor: C.border }}>
+                    <td className="px-4 py-2.5">
+                      <Link href={`/dashboard/campaign/${encodeURIComponent(c.name)}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>
+                        {c.name}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-1">
+                        {c.channels.map(ch => {
+                          const m = channelMeta[ch] ?? channelMeta.email;
+                          const Ic = m.icon;
+                          return <Ic key={ch} size={12} style={{ color: m.color }} />;
+                        })}
+                      </div>
+                    </td>
+                    <td className="text-right px-3 py-2.5 tabular-nums" style={{ color: C.textBody }}>{c.leads}</td>
+                    <td className="text-right px-3 py-2.5 tabular-nums" style={{ color: C.textBody }}>{c.sent}</td>
+                    <td className="text-right px-3 py-2.5 tabular-nums" style={{ color: C.textBody }}>{c.replied}</td>
+                    <td className="text-right px-3 py-2.5 tabular-nums font-semibold" style={{ color: c.positive > 0 ? C.green : C.textMuted }}>{c.positive}</td>
+                    <td className="text-right px-3 py-2.5">
+                      <RateBadge value={c.conversionRate} color={C.green} />
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <StatusBadge status={c.status} />
+                    </td>
+                    <td className="px-2 py-2.5" style={{ color: C.textDim }}>
+                      <Link href={`/dashboard/campaign/${encodeURIComponent(c.name)}`}><ArrowRight size={12} /></Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </section>
+
+      {/* ─── 7. Seller leaderboard ───────────────────────────────────── */}
+      <section>
+        <SectionHeader
+          title="Sellers"
+          subtitle="Quién está moviendo el pipeline"
+        />
+        <Card title={null} subtitle={null}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
+                  <th className="text-left px-4 py-2 font-semibold w-8">#</th>
+                  <th className="text-left px-3 py-2 font-semibold">Seller</th>
+                  <th className="text-right px-3 py-2 font-semibold">Activas</th>
+                  <th className="text-right px-3 py-2 font-semibold">Contact.</th>
+                  <th className="text-right px-3 py-2 font-semibold">Enviados</th>
+                  <th className="text-right px-3 py-2 font-semibold">Respond.</th>
+                  <th className="text-right px-3 py-2 font-semibold">Positivos</th>
+                  <th className="text-right px-3 py-2 font-semibold">Conversión</th>
+                  <th className="w-8 px-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.sellerPerformance.length === 0 ? (
+                  <tr><td colSpan={9} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}>Sin actividad de sellers en este período.</td></tr>
+                ) : data.sellerPerformance.map((s, idx) => (
+                  <tr key={s.id} className="border-t hover:bg-black/[0.02] transition-colors" style={{ borderColor: C.border }}>
+                    <td className="px-4 py-2.5">
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold"
+                        style={{ backgroundColor: idx === 0 ? `color-mix(in srgb, ${gold} 18%, transparent)` : C.surface, color: idx === 0 ? gold : C.textMuted }}>
+                        {idx + 1}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <Link href={`/dashboard/seller/${s.id}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{s.name}</Link>
+                    </td>
+                    <td className="text-right px-3 py-2.5 tabular-nums" style={{ color: C.textBody }}>{s.active}</td>
+                    <td className="text-right px-3 py-2.5 tabular-nums" style={{ color: C.textBody }}>{s.contacted}</td>
+                    <td className="text-right px-3 py-2.5 tabular-nums" style={{ color: C.textBody }}>{s.sent}</td>
+                    <td className="text-right px-3 py-2.5 tabular-nums" style={{ color: C.textBody }}>{s.replied}</td>
+                    <td className="text-right px-3 py-2.5 tabular-nums font-semibold" style={{ color: s.positive > 0 ? C.green : C.textMuted }}>{s.positive}</td>
+                    <td className="text-right px-3 py-2.5">
+                      <RateBadge value={s.conversionRate} color={C.green} />
+                    </td>
+                    <td className="px-2 py-2.5" style={{ color: C.textDim }}>
+                      <Link href={`/dashboard/seller/${s.id}`}><ArrowRight size={12} /></Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </section>
     </div>
+  );
+}
+
+// ─── Local presentation primitives ──────────────────────────────────────
+
+function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
+  return (
+    <div className="mb-3 flex items-end justify-between gap-2 flex-wrap">
+      <div>
+        <h2 className="text-base font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
+          {title}
+        </h2>
+        <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+function Card({ title, subtitle, children }: { title: string | null; subtitle: string | null; children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      {(title || subtitle) && (
+        <div className="px-5 py-3 border-b" style={{ borderColor: C.border }}>
+          {title && <p className="text-sm font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{title}</p>}
+          {subtitle && <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{subtitle}</p>}
+        </div>
+      )}
+      <div className="p-4">{children}</div>
+    </div>
+  );
+}
+
+function EmptyHint({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="col-span-full rounded-xl border border-dashed p-6 text-center text-xs"
+      style={{ borderColor: C.border, color: C.textMuted }}>{children}</div>
+  );
+}
+
+function Stat({ label, value, accent }: { label: string; value: number; accent?: string }) {
+  return (
+    <div>
+      <p className="text-[10px] uppercase tracking-wider" style={{ color: C.textDim }}>{label}</p>
+      <p className="text-base font-bold tabular-nums mt-0.5" style={{ color: accent ?? C.textPrimary }}>{value.toLocaleString("es-AR")}</p>
+    </div>
+  );
+}
+
+function RateBadge({ value, color }: { value: number; color: string }) {
+  const tint = value === 0 ? C.textMuted : color;
+  return (
+    <span className="inline-flex items-center justify-end gap-1 text-xs font-semibold tabular-nums px-2 py-0.5 rounded"
+      style={{ backgroundColor: value > 0 ? `color-mix(in srgb, ${color} 12%, transparent)` : "transparent", color: tint }}>
+      {value}%
+    </span>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { color: string; label: string }> = {
+    active:    { color: C.green, label: "Activa" },
+    paused:    { color: "#D97706", label: "Pausada" },
+    completed: { color: "#6B7280", label: "Cerrada" },
+  };
+  const s = map[status] ?? { color: C.textMuted, label: status };
+  return (
+    <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
+      style={{ backgroundColor: `color-mix(in srgb, ${s.color} 12%, transparent)`, color: s.color }}>
+      {status === "active" && <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: s.color }} />}
+      {s.label}
+    </span>
   );
 }

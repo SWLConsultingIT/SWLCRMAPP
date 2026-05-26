@@ -35,6 +35,20 @@ async function getBranding(): Promise<Branding> {
 
 async function getReportData() {
   const supabase = await getSupabaseServer();
+  // CRITICAL: scope every query to the caller's tenant. Pre-fix this route
+  // pulled leads/campaigns/replies/messages globally, which leaked every
+  // client's data into the PDF anyone exported. Fran caught this on
+  // 2026-05-26. Super_admin (no scope.companyBioId) still sees everything.
+  const scope = await getUserScope();
+  const bioId = scope.isScoped ? scope.companyBioId! : null;
+
+  const leadsQ = supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at, company_bio_id");
+  const campsQ = supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, created_at, leads!inner(company_bio_id)");
+  const repliesQ = supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, channel, received_at, leads!inner(company_bio_id)");
+  const msgsQ = supabase.from("campaign_messages").select("id, campaign_id, step_number, status, sent_at, campaigns!inner(leads!inner(company_bio_id))");
+  const profilesQ = supabase.from("icp_profiles").select("id, profile_name, company_bio_id").eq("status", "approved");
+  const sellersQ = supabase.from("sellers").select("id, name, active, company_bio_id");
+
   const [
     { data: allLeads },
     { data: allCampaigns },
@@ -43,12 +57,12 @@ async function getReportData() {
     { data: allProfiles },
     { data: allSellers },
   ] = await Promise.all([
-    supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at"),
-    supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, created_at"),
-    supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, channel, received_at"),
-    supabase.from("campaign_messages").select("id, campaign_id, step_number, status, sent_at"),
-    supabase.from("icp_profiles").select("id, profile_name").eq("status", "approved"),
-    supabase.from("sellers").select("id, name, active"),
+    bioId ? leadsQ.eq("company_bio_id", bioId) : leadsQ,
+    bioId ? campsQ.eq("leads.company_bio_id", bioId) : campsQ,
+    bioId ? repliesQ.eq("leads.company_bio_id", bioId) : repliesQ,
+    bioId ? msgsQ.eq("campaigns.leads.company_bio_id", bioId) : msgsQ,
+    bioId ? profilesQ.eq("company_bio_id", bioId) : profilesQ,
+    bioId ? sellersQ.or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`) : sellersQ,
   ]);
 
   const leads = allLeads ?? [];
@@ -165,7 +179,23 @@ const channelColor: Record<string, string> = { linkedin: "#0A66C2", email: "#7C3
 const classLabel: Record<string, string> = { positive: "Positive", meeting_intent: "Meeting Intent", negative: "Negative", question: "Question", unclassified: "Unclassified" };
 const classColor: Record<string, string> = { positive: "#16A34A", meeting_intent: "#059669", negative: "#DC2626", question: "#D97706", unclassified: "#9CA3AF" };
 
-export default async function ReportsPrintPage() {
+export default async function ReportsPrintPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const get = (k: string) => {
+    const v = sp[k];
+    return Array.isArray(v) ? v[0] : v;
+  };
+  // sections=headline,funnel,trend,channels,icps,campaigns,sellers,insights
+  // If not provided, default to "all on" (current behaviour).
+  const sectionsCsv = get("sections");
+  const include = sectionsCsv
+    ? new Set(sectionsCsv.split(",").map(s => s.trim()).filter(Boolean))
+    : new Set(["headline", "funnel", "trend", "channels", "icps", "campaigns", "sellers", "insights"]);
+
   const [data, brand] = await Promise.all([getReportData(), getBranding()]);
   const totalReplies = Object.values(data.replyBreakdown).reduce((a, b) => a + b, 0);
 
@@ -215,6 +245,7 @@ export default async function ReportsPrintPage() {
         </div>
 
         {/* ── KPI Row ── */}
+        {include.has("headline") && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 10, marginBottom: 24 }}>
           {[
             { label: "Total Leads",     value: data.totalLeads,       color: "#374151" },
@@ -230,8 +261,10 @@ export default async function ReportsPrintPage() {
             </div>
           ))}
         </div>
+        )}
 
         {/* ── Rates Row ── */}
+        {include.has("headline") && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 24 }}>
           {[
             { label: "Response Rate",  value: `${data.responseRate}%`,   sub: `${data.repliedCount} of ${data.contactedLeads} responded`,  color: "#2563EB" },
@@ -245,8 +278,10 @@ export default async function ReportsPrintPage() {
             </div>
           ))}
         </div>
+        )}
 
         {/* ── Campaign Comparison ── */}
+        {include.has("campaigns") && (
         <div style={{ marginBottom: 24 }}>
           <p style={{ fontSize: 12, fontWeight: 700, color: "#111827", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>Campaign Comparison</p>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
@@ -294,8 +329,10 @@ export default async function ReportsPrintPage() {
             </tbody>
           </table>
         </div>
+        )}
 
         {/* ── Two columns: Channel Analysis + Reply Breakdown ── */}
+        {include.has("channels") && (
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
 
           {/* Channel Analysis */}
@@ -355,9 +392,10 @@ export default async function ReportsPrintPage() {
             </div>
           </div>
         </div>
+        )}
 
         {/* ── Seller Performance ── */}
-        {data.sellerPerformance.length > 0 && (
+        {include.has("sellers") && data.sellerPerformance.length > 0 && (
           <div style={{ marginBottom: 24 }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: "#111827", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.06em" }}>Seller Performance</p>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
