@@ -14,6 +14,7 @@
 import { cache } from "react";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { getOrFetchProfile } from "@/lib/user-profile-cache";
 import { dicts, type Locale } from "@/lib/i18n-dicts";
 
 export const getServerLocale = cache(async function getServerLocale(): Promise<Locale> {
@@ -22,13 +23,11 @@ export const getServerLocale = cache(async function getServerLocale(): Promise<L
     const { data } = await supabase.auth.getUser();
     const userId = data.user?.id;
     if (!userId) return "en";
-    const svc = getSupabaseService();
-    const { data: profile } = await svc
-      .from("user_profiles")
-      .select("locale")
-      .eq("id", userId)
-      .maybeSingle();
-    const l = (profile as { locale?: string } | null)?.locale;
+    // Use the shared profile cache — same source the rest of the app reads
+    // for locale/theme. Avoids a duplicate user_profiles round-trip and
+    // guarantees we see the column name everyone else uses (user_id, not id).
+    const profile = await getOrFetchProfile(userId, getSupabaseService());
+    const l = profile?.locale;
     return l === "es" ? "es" : "en";
   } catch {
     return "en";
