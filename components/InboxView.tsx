@@ -89,6 +89,9 @@ type ThreadEntry = {
   kind?: string;
   source?: "db" | "unipile";
   attachments?: ThreadAttachment[];
+  seen?: boolean;
+  seenAt?: string | null;
+  delivered?: boolean;
 };
 
 function channelLabel(ch: string | null): string {
@@ -365,7 +368,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
             </div>
           </div>
 
-          <div className="overflow-y-auto flex-1">
+          <div className="overflow-y-auto flex-1 px-2 py-2" style={{ backgroundColor: `color-mix(in srgb, ${C.surface} 35%, ${C.bg})` }}>
             {filtered.length === 0 ? (
               <div className="px-4 py-10 text-center">
                 <div className="w-10 h-10 mx-auto mb-3 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)` }}>
@@ -377,7 +380,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                 </p>
               </div>
             ) : (
-              <ul>
+              <ul className="space-y-1.5">
                 {filtered.map(r => {
                   const isSelected = r.id === selectedId;
                   const Icon = channelIcon(r.channel);
@@ -388,12 +391,17 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                       <button
                         type="button"
                         onClick={() => setSelectedId(r.id)}
-                        className="w-full text-left px-3 py-2.5 border-b transition-colors"
+                        className="w-full text-left px-3 py-2.5 rounded-lg border transition-all hover:shadow-sm"
                         style={{
-                          borderColor: C.border,
-                          backgroundColor: isSelected ? `color-mix(in srgb, ${chColor} 10%, transparent)` : "transparent",
-                          // Channel-tinted left rail (3px when selected, 2px otherwise so the channel is identifiable at a glance even when unselected).
+                          borderColor: isSelected
+                            ? `color-mix(in srgb, ${chColor} 45%, transparent)`
+                            : C.border,
+                          backgroundColor: isSelected ? `color-mix(in srgb, ${chColor} 10%, ${C.card})` : C.card,
+                          // Channel-tinted left rail (slightly thicker when selected for clearer focus).
                           borderLeft: `3px solid ${isSelected ? chColor : `color-mix(in srgb, ${chColor} 35%, transparent)`}`,
+                          boxShadow: isSelected
+                            ? `0 1px 3px color-mix(in srgb, ${chColor} 18%, transparent)`
+                            : "none",
                         }}
                       >
                         <div className="flex items-start gap-2">
@@ -694,12 +702,38 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                                     </span>
                                   </>
                                 )}
+                                {/* Receipt indicator on outbound — single
+                                    check = enviado, double check tinted =
+                                    entregado, double check brand-tinted +
+                                    timestamp = visto. Inspired by
+                                    LinkedIn/WhatsApp conventions. */}
+                                {isOut && (entry.seen || entry.delivered) && (
+                                  <>
+                                    <span>·</span>
+                                    {entry.seen ? (
+                                      <span className="inline-flex items-center gap-1" style={{ color: C.linkedin }} title={entry.seenAt ? `Visto ${formatTimeOnly(entry.seenAt)}` : "Visto"}>
+                                        <span className="font-bold tracking-tighter">✓✓</span>
+                                        <span>Visto{entry.seenAt ? ` ${formatTimeOnly(entry.seenAt)}` : ""}</span>
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1" title="Entregado">
+                                        <span className="font-bold tracking-tighter">✓✓</span>
+                                        <span>Entregado</span>
+                                      </span>
+                                    )}
+                                  </>
+                                )}
                               </div>
                             </div>
                           </div>
-                          {isLast && isOut && (
+                          {isLast && isOut && !entry.seen && (
                             <p className="text-[10px] mt-2 mr-9 text-right" style={{ color: C.textDim }}>
                               Esperando respuesta del lead…
+                            </p>
+                          )}
+                          {isLast && isOut && entry.seen && (
+                            <p className="text-[10px] mt-2 mr-9 text-right" style={{ color: C.textDim }}>
+                              El lead vio el mensaje{entry.seenAt ? ` (${formatTimeOnly(entry.seenAt)})` : ""} pero todavía no respondió.
                             </p>
                           )}
                         </div>

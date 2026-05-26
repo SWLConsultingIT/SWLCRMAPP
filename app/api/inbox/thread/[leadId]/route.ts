@@ -47,6 +47,12 @@ type ThreadEntry = {
   providerMessageId?: string | null;
   source?: "db" | "unipile";
   attachments?: ThreadAttachment[];
+  // Delivery / read receipts from Unipile (LinkedIn shows "Seen" with a
+  // timestamp once the recipient opens the chat). seenAt = ISO when the
+  // lead first read this outbound message.
+  seen?: boolean;
+  seenAt?: string | null;
+  delivered?: boolean;
 };
 
 function normalizeAttachments(raw: any): ThreadAttachment[] {
@@ -193,10 +199,34 @@ export async function GET(
       const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
       for (const msg of items) {
         const provId = (msg?.id as string | undefined) ?? null;
-        if (provId && seenProviderIds.has(provId)) continue;
         const text = (msg?.text as string | undefined) ?? "";
         const at = (msg?.timestamp as string | undefined) ?? (msg?.created_at as string | undefined);
         if (!at) continue;
+        // Compute receipt flags up-front so we can enrich an already-merged
+        // DB entry OR attach to a new Unipile-sourced entry.
+        const seenInt = msg?.seen;
+        const seen = seenInt === 1 || seenInt === true;
+        const deliveredInt = msg?.delivered;
+        const delivered = deliveredInt === 1 || deliveredInt === true;
+        let seenAt: string | null = null;
+        if (seen && msg?.seen_by && typeof msg.seen_by === "object") {
+          for (const v of Object.values(msg.seen_by)) {
+            if (typeof v === "string") { seenAt = v; break; }
+          }
+        }
+        // If we already have this message from the DB, enrich it with the
+        // receipt info instead of re-pushing it. That way "Visto" badges
+        // show up on every outbound entry — DB or Unipile sourced — without
+        // duplicating the bubble.
+        if (provId && seenProviderIds.has(provId)) {
+          const existing = entries.find(e => e.providerMessageId === provId);
+          if (existing) {
+            existing.seen = seen;
+            existing.seenAt = seenAt;
+            existing.delivered = delivered;
+          }
+          continue;
+        }
         // Unipile flags whether the sender is the connected account ("us").
         // Critical: Unipile returns `is_sender` as a numeric 0/1, NOT a
         // boolean — `=== true` always fails and the message gets mis-attributed
@@ -228,6 +258,9 @@ export async function GET(
           source: "unipile",
           kind: isFromUs ? "auto_reply_or_manual" : undefined,
           attachments: normalizeAttachments(msg?.attachments),
+          seen,
+          seenAt,
+          delivered,
         });
       }
     }
