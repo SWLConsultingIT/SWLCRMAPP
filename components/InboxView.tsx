@@ -102,6 +102,19 @@ function channelLabel(ch: string | null): string {
   return ch;
 }
 
+// Per-channel color so the inbox card can be tinted at a glance — LinkedIn
+// stays blue, Email green, Call orange. Future Telegram / WhatsApp / SMS
+// fall back to a neutral until we pick brand tones for those.
+function channelColor(ch: string | null): string {
+  if (ch === "linkedin") return C.linkedin;
+  if (ch === "email") return C.email;
+  if (ch === "call" || ch === "phone") return C.phone;
+  if (ch === "whatsapp") return "#25D366";
+  if (ch === "sms") return "#6366F1";
+  if (ch === "telegram") return "#229ED9";
+  return C.textMuted;
+}
+
 // Spanish-friendly absolute timestamp. The thread is best read at a glance
 // with explicit "26-may, 12:30 a.m." rather than relative "2d ago", because
 // sellers are reconciling against LinkedIn's own timestamps.
@@ -329,6 +342,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                   const isSelected = r.id === selectedId;
                   const Icon = channelIcon(r.channel);
                   const badge = classBadge(r.classification);
+                  const chColor = channelColor(r.channel);
                   return (
                     <li key={r.id} className="relative group/ix">
                       <button
@@ -337,12 +351,13 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                         className="w-full text-left px-3 py-2.5 border-b transition-colors"
                         style={{
                           borderColor: C.border,
-                          backgroundColor: isSelected ? `color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)` : "transparent",
-                          borderLeft: isSelected ? "3px solid var(--brand, #c9a83a)" : "3px solid transparent",
+                          backgroundColor: isSelected ? `color-mix(in srgb, ${chColor} 10%, transparent)` : "transparent",
+                          // Channel-tinted left rail (3px when selected, 2px otherwise so the channel is identifiable at a glance even when unselected).
+                          borderLeft: `3px solid ${isSelected ? chColor : `color-mix(in srgb, ${chColor} 35%, transparent)`}`,
                         }}
                       >
                         <div className="flex items-start gap-2">
-                          <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: `color-mix(in srgb, ${badge?.color ?? C.textMuted} 14%, transparent)`, color: badge?.color ?? C.textMuted }}>
+                          <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5" style={{ backgroundColor: `color-mix(in srgb, ${chColor} 18%, transparent)`, color: chColor }}>
                             <Icon size={11} />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -370,6 +385,13 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                                 : (r.replyText && r.replyText.trim() ? r.replyText : "(sin texto)")}
                             </p>
                             <div className="flex items-center gap-1 mt-1 flex-wrap">
+                              {/* Channel pill — first so it always shows even
+                                  when no classification badge yet. Color-coded
+                                  to match the row's left rail + icon. */}
+                              <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color: chColor, backgroundColor: `color-mix(in srgb, ${chColor} 14%, transparent)` }}>
+                                <Icon size={9} />
+                                {channelLabel(r.channel)}
+                              </span>
                               {badge && (
                                 <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color: badge.color, backgroundColor: badge.bg }}>
                                   {badge.label}
@@ -460,7 +482,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                         Telegram threads later, the seller knows at a glance
                         which inbox they're reading. */}
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
-                      style={{ backgroundColor: `color-mix(in srgb, ${C.linkedin} 14%, transparent)`, color: C.linkedin }}>
+                      style={{ backgroundColor: `color-mix(in srgb, ${channelColor(selected.channel)} 14%, transparent)`, color: channelColor(selected.channel) }}>
                       {(() => { const Ic = channelIcon(selected.channel); return <Ic size={9} />; })()}
                       {channelLabel(selected.channel)}
                     </span>
