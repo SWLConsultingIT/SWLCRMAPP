@@ -26,15 +26,16 @@ type InboxReply = {
   positive: boolean;
 };
 
-type Tab = "unread" | "all" | "positive" | "negative" | "question" | "needs_human";
+// Inbox is intentionally 2-tab now: a Pending Review queue (everything the
+// AI couldn't decide for the seller) and All (the full history, including
+// what was already triaged). The classify buttons inside each card move a
+// row out of Pending Review and into All. Previously had 6 tabs which
+// Fran said was too noisy — sellers were toggling instead of working.
+type Tab = "pending" | "all";
 
 const TAB_LABELS: Record<Tab, string> = {
-  unread: "Unread",
+  pending: "Pending review",
   all: "All",
-  positive: "Positive",
-  negative: "Negative",
-  question: "Question",
-  needs_human: "Needs review",
 };
 
 function channelIcon(ch: string | null) {
@@ -81,7 +82,7 @@ type ThreadEntry = {
 export default function InboxView({ replies }: { replies: InboxReply[] }) {
   const router = useRouter();
   const toast = useToast();
-  const [tab, setTab] = useState<Tab>("unread");
+  const [tab, setTab] = useState<Tab>("pending");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(replies[0]?.id ?? null);
   const [working, setWorking] = useState(false);
@@ -93,22 +94,20 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
 
   // Counts by tab — computed once per render so the badges always reflect the
   // raw (unfiltered) totals, not the search-narrowed list.
+  // "Pending" = either explicit human-review flag from the AI classifier OR
+  // a reply that's never been touched (review_status pending). The moment the
+  // seller hits any classify button, the API flips status→approved and
+  // requires_human_review→false, so the row drops out of this tab into All.
+  const isPending = (r: InboxReply) =>
+    r.requiresHumanReview || r.reviewStatus === "pending";
   const counts = useMemo(() => ({
-    unread: replies.filter(r => r.reviewStatus === "pending" || r.requiresHumanReview).length,
+    pending: replies.filter(isPending).length,
     all: replies.length,
-    positive: replies.filter(r => r.positive).length,
-    negative: replies.filter(r => r.classification === "negative" || r.classification === "not_now").length,
-    question: replies.filter(r => r.classification === "question" || r.classification === "needs_info").length,
-    needs_human: replies.filter(r => r.requiresHumanReview).length,
   }), [replies]);
 
   const filtered = useMemo(() => {
     let list = replies;
-    if (tab === "unread") list = list.filter(r => r.reviewStatus === "pending" || r.requiresHumanReview);
-    else if (tab === "positive") list = list.filter(r => r.positive);
-    else if (tab === "negative") list = list.filter(r => r.classification === "negative" || r.classification === "not_now");
-    else if (tab === "question") list = list.filter(r => r.classification === "question" || r.classification === "needs_info");
-    else if (tab === "needs_human") list = list.filter(r => r.requiresHumanReview);
+    if (tab === "pending") list = list.filter(isPending);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(r =>
