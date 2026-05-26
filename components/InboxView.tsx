@@ -77,7 +77,21 @@ type ThreadEntry = {
   classification?: string | null;
   stepNumber?: number | null;
   kind?: string;
+  source?: "db" | "unipile";
 };
+
+// Spanish-friendly absolute timestamp. The thread is best read at a glance
+// with explicit "26-may, 12:30 a.m." rather than relative "2d ago", because
+// sellers are reconciling against LinkedIn's own timestamps.
+function formatAt(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleString("es-AR", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export default function InboxView({ replies }: { replies: InboxReply[] }) {
   const router = useRouter();
@@ -448,13 +462,19 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                   thread.map((entry, idx) => {
                     const isOut = entry.direction === "outbound";
                     const Icon = channelIcon(entry.channel);
+                    // Step labels only apply to messages we tracked through the
+                    // campaign (DB-sourced). Unipile-sourced entries (auto-reply
+                    // from the workflow, or messages the lead sent that the
+                    // n8n handler didn't capture) have no step_number — show
+                    // them with a "manual/auto" tag instead.
                     const stepLabel = entry.stepNumber === 0
                       ? "Connection Request"
                       : entry.stepNumber != null
                         ? `Step ${entry.stepNumber}`
-                        : null;
-                    const at = new Date(entry.at);
-                    const when = at.toLocaleString(undefined, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+                        : entry.source === "unipile" && isOut
+                          ? "Auto-reply / manual"
+                          : null;
+                    const when = formatAt(entry.at);
                     const senderLabel = isOut ? "We sent" : `${selected.leadName} replied`;
                     return (
                       <div key={entry.id} className={`flex flex-col ${isOut ? "items-end" : "items-start"}`}>

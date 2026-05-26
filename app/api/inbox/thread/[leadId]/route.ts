@@ -1,13 +1,26 @@
 // Returns the full chronological conversation for a lead — outbound messages
-// we sent (campaign_messages) merged with inbound replies (lead_replies) and
-// connection-accept events. Used by the Inbox right pane so the seller sees
-// the actual back-and-forth, not just the latest reply in isolation.
+// we actually sent (campaign_messages where status='sent') merged with inbound
+// replies (lead_replies), and topped up on-demand from Unipile to catch any
+// messages the n8n reply handler missed (sometimes a lead sends 2 messages
+// back-to-back and only the first lands in lead_replies).
+//
+// IMPORTANT: only status='sent' campaign_messages are returned. Queued/draft
+// messages are FUTURE sends — including them in the thread (a) confuses the
+// seller into thinking we sent template text with raw placeholders (the
+// rendered_content slot fills only at send time), and (b) breaks the
+// chronological order since they fall back to created_at which is the
+// approval timestamp, not the dispatch timestamp.
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 
 export const runtime = "nodejs";
+
+const UNIPILE_BASE = process.env.UNIPILE_DSN
+  ? `https://${process.env.UNIPILE_DSN}`
+  : "https://api21.unipile.com:15107";
+const UNIPILE_KEY = process.env.UNIPILE_API_KEY ?? "";
 
 type ThreadEntry = {
   id: string;
@@ -19,7 +32,22 @@ type ThreadEntry = {
   classification?: string | null;
   stepNumber?: number | null;
   kind?: string;
+  providerMessageId?: string | null;
+  source?: "db" | "unipile";
 };
+
+async function unipileGet(url: string): Promise<any | null> {
+  if (!UNIPILE_KEY) return null;
+  try {
+    const res = await fetch(url, {
+      headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" },
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
 
 export async function GET(
   _req: NextRequest,
@@ -33,8 +61,7 @@ export async function GET(
 
   const svc = getSupabaseService();
 
-  // Tenant gate — only fetch threads for leads in the caller's tenant scope.
-  // Super_admin sees everything.
+  // Tenant gate.
   if (scope.isScoped && scope.companyBioId) {
     const { data: lead } = await svc
       .from("leads")
@@ -46,32 +73,37 @@ export async function GET(
     }
   }
 
+  // ─── Pull DB-tracked messages (sent only) + replies in parallel ───
   const [messagesRes, repliesRes] = await Promise.all([
     svc
       .from("campaign_messages")
-      .select("id, step_number, channel, content, status, sent_at, scheduled_for, created_at, metadata")
+      .select("id, step_number, channel, content, status, sent_at, metadata, provider_message_id")
       .eq("lead_id", leadId)
-      .order("created_at", { ascending: true }),
+      .eq("status", "sent")
+      .order("sent_at", { ascending: true }),
     svc
       .from("lead_replies")
-      .select("id, channel, reply_text, received_at, classification")
+      .select("id, channel, reply_text, received_at, classification, provider_thread_id")
       .eq("lead_id", leadId)
       .order("received_at", { ascending: true }),
   ]);
 
   const entries: ThreadEntry[] = [];
+  // Track provider IDs we've already seen so Unipile fetch can dedupe.
+  const seenProviderIds = new Set<string>();
+  // Discover the Unipile chat_id from whichever source has it.
+  let chatIdFromDb: string | null = null;
+  let providerThreadId: string | null = null;
 
   for (const m of messagesRes.data ?? []) {
-    // Only include messages that actually went out OR are queued/sent (skip pure drafts
-    // that the seller hasn't sent yet — they're not part of the lead's experience).
-    const status = (m as any).status as string | null;
-    if (status !== "sent" && status !== "dispatching" && status !== "queued") continue;
-    const sentAt = (m as any).sent_at || (m as any).scheduled_for || (m as any).created_at;
+    const sentAt = (m as any).sent_at;
+    if (!sentAt) continue; // defensive — status=sent without sent_at shouldn't happen
     const meta = ((m as any).metadata ?? {}) as Record<string, unknown>;
-    // Some workflows write the rendered (placeholder-interpolated) body to
-    // metadata.rendered_content; prefer that over the template if present.
     const renderedFromMeta = typeof meta.rendered_content === "string" ? (meta.rendered_content as string) : null;
     const body = renderedFromMeta || ((m as any).content as string | null) || "";
+    const provId = ((m as any).provider_message_id as string | null) ?? null;
+    if (provId) seenProviderIds.add(provId);
+    if (!chatIdFromDb && typeof meta.chat_id === "string") chatIdFromDb = meta.chat_id as string;
     entries.push({
       id: `out-${(m as any).id}`,
       direction: "outbound",
@@ -79,11 +111,16 @@ export async function GET(
       body,
       at: sentAt,
       stepNumber: (m as any).step_number ?? null,
-      kind: status === "sent" ? "sent" : status,
+      kind: "sent",
+      providerMessageId: provId,
+      source: "db",
     });
   }
 
   for (const r of repliesRes.data ?? []) {
+    if (!providerThreadId && typeof (r as any).provider_thread_id === "string") {
+      providerThreadId = (r as any).provider_thread_id;
+    }
     entries.push({
       id: `in-${(r as any).id}`,
       direction: "inbound",
@@ -91,9 +128,79 @@ export async function GET(
       body: (r as any).reply_text || "",
       at: (r as any).received_at,
       classification: (r as any).classification ?? null,
+      source: "db",
     });
   }
 
+  // ─── On-demand Unipile top-up ─────────────────────────────────────────
+  // The n8n reply handler sometimes only captures the first inbound message
+  // in a session; subsequent ones in the same thread can be missed. We pull
+  // the live chat history from Unipile and merge anything we don't already
+  // have. Same for auto-replies the workflow sent but never wrote back to
+  // campaign_messages.
+  const chatId = chatIdFromDb || providerThreadId;
+  if (chatId) {
+    // Find the seller's Unipile account so we know which message is "ours".
+    const { data: camp } = await svc
+      .from("campaigns")
+      .select("seller_id")
+      .eq("lead_id", leadId)
+      .limit(1)
+      .maybeSingle();
+    const sellerId = (camp as any)?.seller_id ?? null;
+    let unipileAccountId: string | null = null;
+    if (sellerId) {
+      const { data: seller } = await svc
+        .from("sellers")
+        .select("unipile_account_id")
+        .eq("id", sellerId)
+        .maybeSingle();
+      unipileAccountId = (seller as any)?.unipile_account_id ?? null;
+    }
+
+    if (unipileAccountId) {
+      const url = `${UNIPILE_BASE}/api/v1/chats/${encodeURIComponent(chatId)}/messages?account_id=${encodeURIComponent(unipileAccountId)}&limit=50`;
+      const data = await unipileGet(url);
+      const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+      for (const msg of items) {
+        const provId = (msg?.id as string | undefined) ?? null;
+        if (provId && seenProviderIds.has(provId)) continue;
+        const text = (msg?.text as string | undefined) ?? "";
+        const at = (msg?.timestamp as string | undefined) ?? (msg?.created_at as string | undefined);
+        if (!at) continue;
+        // Unipile flags whether the sender is the connected account ("us").
+        const isFromUs =
+          msg?.is_sender === true ||
+          msg?.from_me === true ||
+          (typeof msg?.sender_id === "string" && msg.sender_id === unipileAccountId);
+        // De-dupe inbound messages by text+timestamp (within 60s) against
+        // what we already have, since lead_replies stores reply_text but not
+        // the provider_message_id in older rows.
+        if (!provId) {
+          const ts = new Date(at).getTime();
+          const dupe = entries.some(e => {
+            if (e.direction !== (isFromUs ? "outbound" : "inbound")) return false;
+            const diff = Math.abs(new Date(e.at).getTime() - ts);
+            return diff < 60_000 && (e.body || "").trim() === text.trim();
+          });
+          if (dupe) continue;
+        }
+        entries.push({
+          id: `unipile-${provId ?? at}`,
+          direction: isFromUs ? "outbound" : "inbound",
+          channel: "linkedin",
+          body: text,
+          at,
+          providerMessageId: provId,
+          source: "unipile",
+          kind: isFromUs ? "auto_reply_or_manual" : undefined,
+        });
+      }
+    }
+  }
+
+  // Final chronological sort. inbound = received_at, outbound = sent_at. Same
+  // tz handling via Date.parse — all timestamps end up as ms since epoch.
   entries.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
 
   return NextResponse.json({ thread: entries });
