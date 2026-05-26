@@ -398,6 +398,16 @@ export const en: Dict = {
   "dashx.funnel.fromPrev": "of previous",
   "dashx.funnel.priorLabel": "Prior period",
   "dashx.funnel.vsPriorShort": "vs prior",
+  // Concentration / Pareto
+  "dashx.pareto.title": "Concentration of positives",
+  "dashx.pareto.subtitle": "Where the wins are clustered · mono-segment risk indicator",
+  "dashx.pareto.icps": "ICPs",
+  "dashx.pareto.sellers": "Sellers",
+  "dashx.pareto.campaigns": "Campaigns",
+  "dashx.pareto.risk": "High concentration risk",
+  "dashx.pareto.healthy": "Healthy spread",
+  "dashx.pareto.pct": "{pct}% of positives from top {n} of {total}",
+  "dashx.pareto.empty": "Not enough positives yet to assess concentration.",
   // Reply classification labels (used by the donut)
   "dashx.reply.positive": "Positive",
   "dashx.reply.meeting_intent": "Meeting intent",
@@ -961,6 +971,16 @@ export const es: Dict = {
   "dashx.funnel.fromPrev": "del anterior",
   "dashx.funnel.priorLabel": "Período anterior",
   "dashx.funnel.vsPriorShort": "vs anterior",
+  // Concentration / Pareto
+  "dashx.pareto.title": "Concentración de positivas",
+  "dashx.pareto.subtitle": "Dónde se aglutinan los wins · indicador de riesgo de mono-segmento",
+  "dashx.pareto.icps": "ICPs",
+  "dashx.pareto.sellers": "Sellers",
+  "dashx.pareto.campaigns": "Campañas",
+  "dashx.pareto.risk": "Alto riesgo de concentración",
+  "dashx.pareto.healthy": "Distribución saludable",
+  "dashx.pareto.pct": "{pct}% de positivas vienen del top {n} de {total}",
+  "dashx.pareto.empty": "Aún no hay positivas suficientes para evaluar concentración.",
   // Reply classification labels (used by the donut)
   "dashx.reply.positive": "Positiva",
   "dashx.reply.meeting_intent": "Meeting intent",

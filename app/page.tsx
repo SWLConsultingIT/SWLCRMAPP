@@ -32,6 +32,7 @@ import IcpChannelMatrix from "@/components/dashboard/IcpChannelMatrix";
 import InlineSpark from "@/components/dashboard/InlineSpark";
 import StepPerformance from "@/components/dashboard/StepPerformance";
 import VelocityDecayCurve from "@/components/dashboard/VelocityDecayCurve";
+import ConcentrationPareto from "@/components/dashboard/ConcentrationPareto";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -452,6 +453,40 @@ export default async function DashboardPage({
         <SectionHeader icon={ChevronsRight} title={t("dashx.step.title")} subtitle={t("dashx.step.subtitle")} />
         <Panel>
           <StepPerformance steps={data.stepPerformance} locale={locale} />
+        </Panel>
+      </section>
+
+      {/* ─── Concentration Pareto — where the wins are clustered ─────── */}
+      <section>
+        <SectionHeader icon={Target} title={t("dashx.pareto.title")} subtitle={t("dashx.pareto.subtitle")} />
+        <Panel>
+          <ConcentrationPareto
+            rows={[
+              {
+                kind: "icp",
+                titleKey: t("dashx.pareto.icps"),
+                items: data.icpPerformance
+                  .filter(i => i.id !== "_unknown")
+                  .map(i => ({ id: i.id, name: i.name, positives: i.positive })),
+                hrefBase: `/dashboard/icp/`,
+              },
+              {
+                kind: "seller",
+                titleKey: t("dashx.pareto.sellers"),
+                items: data.sellerPerformance.map(s => ({ id: s.id, name: s.name, positives: s.positive })),
+                hrefBase: `/dashboard/seller/`,
+              },
+              {
+                kind: "campaign",
+                titleKey: t("dashx.pareto.campaigns"),
+                items: data.campaignPerformance.map(c => ({ id: c.name, name: c.name, positives: c.positive })),
+              },
+            ]}
+            riskLabel={t("dashx.pareto.risk")}
+            healthyLabel={t("dashx.pareto.healthy")}
+            pctLabel={t("dashx.pareto.pct")}
+            emptyLabel={t("dashx.pareto.empty")}
+          />
         </Panel>
       </section>
 
