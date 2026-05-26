@@ -303,6 +303,89 @@ export async function getDashboardData(filters: DashboardFilters) {
     conversionRate: s.contacted.size > 0 ? Math.round((s.positive.size / s.contacted.size) * 100) : 0,
   })).sort((a, b) => b.responseRate - a.responseRate);
 
+  // ── ICP × Channel matrix ─────────────────────────────────────────────
+  //
+  // The single highest-leverage question for SWL operators: which (ICP,
+  // channel) combination is producing the best response rate? Today's
+  // dashboard answers ICP and channel separately — you have to cross-
+  // reference mentally. This grid is the answer.
+  //
+  // Cell color is driven by z-score against the matrix's own distribution,
+  // not absolute thresholds, so the visualization self-scales whether your
+  // average reply rate is 5% or 25%. Cells with contacted < CELL_MIN are
+  // rendered as "n insuf." in the UI (we return rate=null here).
+  const CELL_MIN = 10;
+  type CellKey = string;
+  type CellAgg = { contacted: Set<string>; replied: Set<string> };
+  const matrixGrid = new Map<CellKey, CellAgg>();
+  const keyOf = (icp: string, ch: string): CellKey => `${icp}|${ch}`;
+  const ensureCell = (k: CellKey): CellAgg => {
+    let cell = matrixGrid.get(k);
+    if (!cell) { cell = { contacted: new Set(), replied: new Set() }; matrixGrid.set(k, cell); }
+    return cell;
+  };
+  // Lookup: lead_id → icp_profile_id (filtered set only).
+  const leadIcpMap = new Map<string, string>();
+  for (const l of leads) leadIcpMap.set(l.id, l.icp_profile_id ?? "_unknown");
+
+  for (const c of campaigns) {
+    if (!c.lead_id) continue;
+    const icpId = leadIcpMap.get(c.lead_id);
+    if (!icpId) continue; // lead was filtered out
+    const cell = ensureCell(keyOf(icpId, c.channel ?? "linkedin"));
+    cell.contacted.add(c.lead_id);
+    if (repliedLeadIds.has(c.lead_id)) cell.replied.add(c.lead_id);
+  }
+
+  const matrixIcps = new Set<string>();
+  const matrixChannels = new Set<string>();
+  for (const k of matrixGrid.keys()) {
+    const [icp, ch] = k.split("|");
+    matrixIcps.add(icp);
+    matrixChannels.add(ch);
+  }
+
+  const channelOrder = ["linkedin", "email", "call", "whatsapp", "sms"];
+  const orderedChannels = Array.from(matrixChannels).sort((a, b) => {
+    const ai = channelOrder.indexOf(a); const bi = channelOrder.indexOf(b);
+    if (ai === -1 && bi === -1) return a.localeCompare(b);
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
+  const orderedIcps = Array.from(matrixIcps)
+    .map(id => ({ id, name: profileMap.get(id) ?? "Sin ICP" }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  type MatrixCell = {
+    icpId: string;
+    channel: string;
+    contacted: number;
+    replied: number;
+    /** Reply rate (0..1). null when contacted < CELL_MIN. */
+    replyRate: number | null;
+    /** Z-score vs the matrix's own non-null distribution. null when rate is null. */
+    zScore: number | null;
+  };
+  const matrixCells: MatrixCell[] = [];
+  for (const icp of orderedIcps) {
+    for (const ch of orderedChannels) {
+      const cell = matrixGrid.get(keyOf(icp.id, ch));
+      const contacted = cell?.contacted.size ?? 0;
+      const replied = cell?.replied.size ?? 0;
+      const replyRate = contacted >= CELL_MIN ? replied / contacted : null;
+      matrixCells.push({ icpId: icp.id, channel: ch, contacted, replied, replyRate, zScore: null });
+    }
+  }
+  const rateValues = matrixCells.map(c => c.replyRate).filter((v): v is number => v !== null);
+  const matrixMean = rateValues.length > 0 ? rateValues.reduce((a, b) => a + b, 0) / rateValues.length : 0;
+  const matrixVariance = rateValues.length > 0 ? rateValues.reduce((a, b) => a + (b - matrixMean) ** 2, 0) / rateValues.length : 0;
+  const matrixStddev = Math.sqrt(matrixVariance);
+  for (const c of matrixCells) {
+    if (c.replyRate === null) continue;
+    c.zScore = matrixStddev > 0 ? (c.replyRate - matrixMean) / matrixStddev : 0;
+  }
+
   // ── ICP performance ─────────────────────────────────────────────────────
   type IcpAgg = { id: string; name: string; leads: number; contacted: number; replied: number; positive: number };
   const icpAgg = new Map<string, IcpAgg>();
@@ -634,6 +717,13 @@ export async function getDashboardData(filters: DashboardFilters) {
         const remainingDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate() - now.getDate();
         return Math.round(velocityPerDay * remainingDays);
       })(),
+    },
+    matrix: {
+      icps: orderedIcps,
+      channels: orderedChannels,
+      cells: matrixCells,
+      mean: matrixMean,
+      stddev: matrixStddev,
     },
     health: {
       /** % of campaigns that finished their sequence with 0 replies. null when <5 evaluated. */

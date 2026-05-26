@@ -26,6 +26,7 @@ import Funnel from "@/components/dashboard/Funnel";
 import MultiLineChart from "@/components/dashboard/MultiLineChart";
 import Donut from "@/components/dashboard/Donut";
 import Heatmap from "@/components/dashboard/Heatmap";
+import IcpChannelMatrix from "@/components/dashboard/IcpChannelMatrix";
 import InlineSpark from "@/components/dashboard/InlineSpark";
 
 const gold = "var(--brand, #c9a83a)";
@@ -352,6 +353,14 @@ export default async function DashboardPage({
             )}
           </Panel>
         </div>
+      </section>
+
+      {/* ─── ICP × Channel matrix — the high-leverage comparison ──────── */}
+      <section>
+        <SectionHeader icon={Target} title="ICP × Canal" subtitle="Reply rate por combinación · color por z-score · click para drill-down" />
+        <Panel>
+          <IcpChannelMatrix matrix={data.matrix} />
+        </Panel>
       </section>
 
       {/* ─── Trend chart + heatmap in a 7/5 split ───────────────────────── */}
