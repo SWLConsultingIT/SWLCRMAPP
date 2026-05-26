@@ -1056,34 +1056,35 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                         </div>
                       )}
                     </div>
-                    <div className="px-5 py-3 border-t flex justify-end gap-2" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                    <div className="px-4 py-3 border-t flex flex-wrap items-center gap-1.5" style={{ borderColor: C.border, backgroundColor: C.bg }}>
                       {!seller.hasLinkedin && !seller.isShared && (
                         <button onClick={() => setReconnectTarget(seller)}
-                          className="flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-md transition-opacity hover:opacity-80 mr-auto"
+                          className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-80 shrink-0 whitespace-nowrap"
                           style={{ backgroundColor: "#0A66C2", color: "#fff" }}><Share2 size={10} /> Connect Unipile</button>
                       )}
                       {!seller.hasLinkedin && !seller.isShared && isAdmin && (
                         <button onClick={() => setLinkTarget(seller)}
-                          className="flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-md transition-opacity hover:opacity-80"
+                          className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-80 shrink-0 whitespace-nowrap"
                           style={{ backgroundColor: "#0A66C215", color: "#0A66C2", border: "1px solid #0A66C230" }}><Share2 size={10} /> Link existing</button>
                       )}
                       <Link href={`/accounts/linkedin/${seller.id}`}
-                        className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-md transition-opacity hover:opacity-80"
+                        className="inline-flex items-center gap-1 text-[10px] font-medium px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-80 shrink-0 whitespace-nowrap"
                         style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}><TrendingUp size={10} /> Details</Link>
+                      <span className="flex-1" />
                       {!seller.isShared && (
                         <button onClick={() => setEditTarget(seller)}
-                          className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-md transition-opacity hover:opacity-80"
+                          className="inline-flex items-center gap-1 text-[10px] font-medium px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-80 shrink-0 whitespace-nowrap"
                           style={{ backgroundColor: C.blueLight, color: C.blue }}><Pencil size={10} /> Edit</button>
                       )}
                       {!seller.isShared && (
                         <button onClick={() => setDeleteTarget({ id: seller.id, name: seller.name })}
-                          className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-md transition-opacity hover:opacity-80"
+                          className="inline-flex items-center gap-1 text-[10px] font-medium px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-80 shrink-0 whitespace-nowrap"
                           style={{ backgroundColor: C.redLight, color: C.red }}><Trash2 size={10} /> Remove</button>
                       )}
                       {seller.isShared && isAdmin && authUser?.companyBioId && (
                         <button onClick={() => handleUnshare(seller.id)} disabled={unsharingId === seller.id}
                           title="Remove this shared seller from the current tenant (the primary owner is not touched)"
-                          className="flex items-center gap-1.5 text-[10px] font-medium px-3 py-1.5 rounded-md transition-opacity hover:opacity-80 disabled:opacity-50"
+                          className="inline-flex items-center gap-1 text-[10px] font-medium px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-80 disabled:opacity-50 shrink-0 whitespace-nowrap"
                           style={{ backgroundColor: C.redLight, color: C.red }}>
                           {unsharingId === seller.id ? <Loader2 size={10} className="animate-spin" /> : <Trash2 size={10} />}
                           {unsharingId === seller.id ? "Unsharing…" : "Unshare"}
