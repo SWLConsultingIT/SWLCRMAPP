@@ -277,11 +277,16 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
         toast.show({ kind: "error", title: "Couldn't classify", description: error || "Try again." });
         return;
       }
+      // Mirror the API's cascade response: positive/negative now pause the
+      // campaign + close the lead. Tell the seller so they don't expect
+      // another step to fire.
       toast.show({
         kind: classification === "positive" ? "success" : classification === "negative" ? "warning" : "info",
         title: classification === "follow_up"
-          ? "Marked for follow-up — campaign keeps running"
-          : `Marked as ${classification.replace("_", " ")}`,
+          ? "Marcado follow-up — la campaña sigue corriendo"
+          : classification === "positive"
+            ? "Marcado positive — campaña pausada, lead qualified"
+            : "Marcado negative — campaña pausada, lead closed_lost",
       });
       router.refresh();
     } finally {
