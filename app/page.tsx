@@ -22,6 +22,7 @@ import ReliabilityBanner from "@/components/ReliabilityBanner";
 import PageHero from "@/components/PageHero";
 import FiltersBar from "@/components/dashboard/FiltersBar";
 import FreshnessChip from "@/components/dashboard/FreshnessChip";
+import DashboardKeyboardShortcuts from "@/components/dashboard/DashboardKeyboardShortcuts";
 import SwlSignature from "@/components/dashboard/SwlSignature";
 import KpiCard from "@/components/dashboard/KpiCard";
 import Funnel from "@/components/dashboard/Funnel";
@@ -219,6 +220,7 @@ export default async function DashboardPage({
   return (
     <div className="p-4 sm:p-6 w-full space-y-5">
       <ReliabilityBanner />
+      <DashboardKeyboardShortcuts />
 
       <PageHero
         icon={TrendingUp}
