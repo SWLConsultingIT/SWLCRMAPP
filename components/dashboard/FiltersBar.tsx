@@ -38,7 +38,12 @@ export default function FiltersBar({
   const activePeriod = (() => {
     if (!currentFrom && !currentTo) return "30d";
     if (currentFrom && currentTo) {
-      const days = Math.round((new Date(currentTo).getTime() - new Date(currentFrom).getTime()) / 86_400_000) + 1;
+      // Exact day span between from/to — setPeriod writes them as
+      // (now - N*86400000) → now, so the diff is exactly N days. The
+      // earlier "+ 1" guard pushed the value off-by-one and meant no
+      // chip ever highlighted after a click. Bug: every period button
+      // looked inert because the matcher couldn't find days=8/31/91.
+      const days = Math.round((new Date(currentTo).getTime() - new Date(currentFrom).getTime()) / 86_400_000);
       const m = PERIODS.find(p => p.days === days);
       return m ? m.id : "custom";
     }

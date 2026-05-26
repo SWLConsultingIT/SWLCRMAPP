@@ -120,6 +120,13 @@ function stageKey(label: string): string {
   return map[label] ?? "";
 }
 
+// Never cached — without this, clicking the period chips changes the URL
+// but Next.js serves the cached server response and the page shows stale
+// numbers. Memory: feedback_dashboard_no_cache — reliability surfaces and
+// every detail page already follow this; the main dashboard was missing it.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 function parseFilters(sp: Record<string, string | string[] | undefined>) {
   const get = (k: string) => {
     const v = sp[k];
