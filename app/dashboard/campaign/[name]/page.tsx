@@ -340,7 +340,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
       />
 
       {/* ─── Status band: started, status mix, stop reason ─────────────── */}
-      <section className="rounded-2xl border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.card }}>
+      <section className="rounded-2xl border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.card, boxShadow: `inset 0 2px 0 0 color-mix(in srgb, ${gold} 35%, transparent)` }}>
         <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: C.border }}>
           <StatusTile
             label={t("dashx.detail.campaign.tile.started")}
@@ -525,16 +525,21 @@ function Panel({ title, subtitle, children, className }: { title?: string; subti
 
 function SectionHeader({ title, subtitle, icon: Icon }: { title: string; subtitle: string; icon?: React.ComponentType<{ size?: number; style?: React.CSSProperties }> }) {
   return (
-    <div className="mb-2.5 flex items-center gap-2.5">
+    <div className="mb-3 flex items-center gap-3">
+      <span
+        className="w-[3px] h-7 rounded-full shrink-0"
+        style={{ background: `linear-gradient(to bottom, ${gold}, color-mix(in srgb, ${gold} 55%, transparent))` }}
+        aria-hidden
+      />
       {Icon && (
-        <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
-          style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`, color: gold }}>
-          <Icon size={12} />
+        <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+          style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}>
+          <Icon size={13} />
         </span>
       )}
-      <div className="flex-1 min-w-0 flex items-baseline gap-2">
-        <h2 className="text-[13px] font-semibold leading-tight" style={{ color: C.textPrimary }}>{title}</h2>
-        <p className="text-[11px] truncate" style={{ color: C.textMuted }}>· {subtitle}</p>
+      <div className="flex-1 min-w-0">
+        <h2 className="text-[14px] font-semibold leading-tight tracking-tight" style={{ color: C.textPrimary }}>{title}</h2>
+        <p className="text-[11px] truncate mt-0.5" style={{ color: C.textMuted }}>{subtitle}</p>
       </div>
     </div>
   );

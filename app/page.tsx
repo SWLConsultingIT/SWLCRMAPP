@@ -609,18 +609,24 @@ export default async function DashboardPage({
 
 function SectionHeader({ title, subtitle, icon: Icon, action }: { title: string; subtitle: string; icon?: React.ComponentType<{ size?: number; style?: React.CSSProperties }>; action?: React.ReactNode }) {
   return (
-    <div className="mb-2.5 flex items-center gap-2.5">
+    <div className="mb-3 flex items-center gap-3">
+      {/* Gold accent bar — Vercel/Linear pattern, gives sections quiet brand weight */}
+      <span
+        className="w-[3px] h-7 rounded-full shrink-0"
+        style={{ background: `linear-gradient(to bottom, ${gold}, color-mix(in srgb, ${gold} 55%, transparent))` }}
+        aria-hidden
+      />
       {Icon && (
-        <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
-          style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`, color: gold }}>
-          <Icon size={12} />
+        <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+          style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}>
+          <Icon size={13} />
         </span>
       )}
-      <div className="flex-1 min-w-0 flex items-baseline gap-2">
-        <h2 className="text-[13px] font-semibold leading-tight" style={{ color: C.textPrimary, letterSpacing: "-0.005em" }}>
+      <div className="flex-1 min-w-0">
+        <h2 className="text-[14px] font-semibold leading-tight tracking-tight" style={{ color: C.textPrimary }}>
           {title}
         </h2>
-        <p className="text-[11px] truncate" style={{ color: C.textMuted }}>· {subtitle}</p>
+        <p className="text-[11px] truncate mt-0.5" style={{ color: C.textMuted }}>{subtitle}</p>
       </div>
       {action}
     </div>
