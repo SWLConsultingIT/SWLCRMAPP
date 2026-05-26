@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   Search, CheckCircle2, XCircle, MessageSquare, ExternalLink,
   ThumbsUp, ThumbsDown, HelpCircle, Inbox as InboxIcon, Share2, Mail, Phone, Smartphone,
-  Check, X as XIcon, ChevronRight,
+  Check, X as XIcon, ChevronRight, ChevronLeft, PanelLeftClose, PanelLeftOpen,
 } from "lucide-react";
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
@@ -183,6 +183,32 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
   // reply line.
   const [thread, setThread] = useState<ThreadEntry[]>([]);
   const [threadLoading, setThreadLoading] = useState(false);
+  const [stage, setStage] = useState<{
+    status: string | null;
+    currentStep: number | null;
+    totalSteps: number | null;
+    nextStepLabel: string | null;
+    nextStepChannel: string | null;
+    nextStepDueAt: string | null;
+    stopReason: string | null;
+  } | null>(null);
+  // Collapse the conversation list so the thread can take the full width.
+  // Persisted in sessionStorage so it survives navigating into a lead and
+  // back. Default open so first-time sellers see the inventory.
+  const [listCollapsed, setListCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      const v = sessionStorage.getItem("swl-inbox-list-collapsed");
+      if (v === "1") setListCollapsed(true);
+    } catch { /* no-op */ }
+  }, []);
+  function toggleListCollapsed() {
+    setListCollapsed(prev => {
+      const next = !prev;
+      try { sessionStorage.setItem("swl-inbox-list-collapsed", next ? "1" : "0"); } catch { /* no-op */ }
+      return next;
+    });
+  }
 
   // Counts by tab — computed once per render so the badges always reflect the
   // raw (unfiltered) totals, not the search-narrowed list.
@@ -227,13 +253,18 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
   // Fetch the full thread when the selected reply changes. Cancellation token
   // guards against out-of-order responses if the seller clicks quickly.
   useEffect(() => {
-    if (!selected?.leadId) { setThread([]); return; }
+    if (!selected?.leadId) { setThread([]); setStage(null); return; }
     let cancelled = false;
     setThreadLoading(true);
+    setStage(null);
     fetch(`/api/inbox/thread/${selected.leadId}`, { cache: "no-store" })
-      .then(r => r.ok ? r.json() : { thread: [] })
-      .then(data => { if (!cancelled) setThread(Array.isArray(data.thread) ? data.thread : []); })
-      .catch(() => { if (!cancelled) setThread([]); })
+      .then(r => r.ok ? r.json() : { thread: [], stage: null })
+      .then(data => {
+        if (cancelled) return;
+        setThread(Array.isArray(data.thread) ? data.thread : []);
+        setStage(data.stage ?? null);
+      })
+      .catch(() => { if (!cancelled) { setThread([]); setStage(null); } })
       .finally(() => { if (!cancelled) setThreadLoading(false); });
     return () => { cancelled = true; };
   }, [selected?.leadId]);
@@ -352,12 +383,15 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
       </div>
 
       {/* Split pane — fixed height so the inner list + thread can scroll
-          independently without growing the page. Previously max-h-[78vh] +
-          min-h-[60vh] let the container collapse to fit content, which made
-          the list non-scrollable when there were enough entries to overflow. */}
-      <div className="grid grid-cols-1 md:grid-cols-[minmax(300px,2fr)_3fr] h-[78vh]">
+          independently without growing the page. The list panel collapses
+          when the seller wants the thread full-width (toggled via the
+          chevron in the thread header, sticky in sessionStorage). */}
+      <div
+        className={`grid grid-cols-1 h-[78vh] ${listCollapsed ? "md:grid-cols-[0_1fr]" : "md:grid-cols-[minmax(300px,2fr)_3fr]"}`}
+        style={{ transition: "grid-template-columns 200ms ease" }}
+      >
         {/* List */}
-        <div className="border-b md:border-b-0 md:border-r overflow-hidden flex flex-col" style={{ borderColor: C.border }}>
+        <div className={`border-b md:border-b-0 md:border-r overflow-hidden flex flex-col ${listCollapsed ? "md:hidden" : ""}`} style={{ borderColor: C.border }}>
           {/* Search */}
           <div className="px-3 py-2 border-b" style={{ borderColor: C.border }}>
             <div className="relative">
@@ -514,6 +548,18 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
             <>
               <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: C.border, background: `linear-gradient(180deg, color-mix(in srgb, ${channelColor(selected.channel)} 4%, transparent), transparent)` }}>
                 <div className="flex items-start gap-3 flex-1 min-w-0">
+                  {/* List toggle — opens/closes the left panel so the seller
+                      can extend the thread to full width. Persisted in
+                      sessionStorage; defaults open. */}
+                  <button
+                    type="button"
+                    onClick={toggleListCollapsed}
+                    title={listCollapsed ? "Mostrar lista" : "Ocultar lista"}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-opacity hover:opacity-85 border"
+                    style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textMuted }}
+                  >
+                    {listCollapsed ? <PanelLeftOpen size={14} /> : <PanelLeftClose size={14} />}
+                  </button>
                   {(() => {
                     const ac = avatarColor(selected.leadName);
                     return (
@@ -550,6 +596,56 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                       {channelLabel(selected.channel)}
                     </span>
                   </div>
+                  {/* Campaign stage strip — quick "where in the flow" so the
+                      seller doesn't open another tab to check. Reads from the
+                      thread API's stage block (current_step + totalSteps,
+                      next step label/channel, days-until-next, terminal
+                      reason). */}
+                  {stage && (
+                    <div className="flex items-center gap-2 mt-2 flex-wrap text-[11px]">
+                      {stage.status === "completed" ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold"
+                          style={{
+                            backgroundColor: stage.stopReason?.includes("positive")
+                              ? `color-mix(in srgb, ${C.green} 14%, transparent)`
+                              : `color-mix(in srgb, ${C.red} 14%, transparent)`,
+                            color: stage.stopReason?.includes("positive") ? C.green : C.red,
+                          }}>
+                          Campaña cerrada
+                          {stage.stopReason?.includes("positive") && " · lead qualified"}
+                          {stage.stopReason?.includes("negative") && " · lead closed_lost"}
+                        </span>
+                      ) : stage.status === "paused" ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold"
+                          style={{ backgroundColor: `color-mix(in srgb, #D97706 14%, transparent)`, color: "#D97706" }}>
+                          Campaña pausada
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold"
+                          style={{ backgroundColor: `color-mix(in srgb, ${C.green} 14%, transparent)`, color: C.green }}>
+                          <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: C.green }} />
+                          Campaña activa
+                        </span>
+                      )}
+                      {stage.currentStep != null && stage.totalSteps != null && stage.totalSteps > 0 && (
+                        <span style={{ color: C.textMuted }}>
+                          Paso {stage.currentStep} de {stage.totalSteps}
+                        </span>
+                      )}
+                      {stage.nextStepLabel && stage.status !== "completed" && (
+                        <span style={{ color: C.textMuted }}>
+                          · Próximo: <span className="font-medium" style={{ color: channelColor(stage.nextStepChannel) }}>{stage.nextStepLabel}</span>
+                          {stage.nextStepDueAt && (() => {
+                            const when = new Date(stage.nextStepDueAt);
+                            const ms = when.getTime() - Date.now();
+                            const days = Math.ceil(ms / 86_400_000);
+                            if (ms <= 0) return <span style={{ color: C.textDim }}> · listo para disparar</span>;
+                            return <span style={{ color: C.textDim }}> · en {days} {days === 1 ? "día" : "días"}</span>;
+                          })()}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   </div>
                 </div>
                 <Link

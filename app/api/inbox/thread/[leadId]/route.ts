@@ -270,5 +270,51 @@ export async function GET(
   // tz handling via Date.parse — all timestamps end up as ms since epoch.
   entries.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
 
-  return NextResponse.json({ thread: entries });
+  // ─── Campaign stage summary ─────────────────────────────────────────────
+  // Surface a brief "where is this lead in the flow?" line for the seller.
+  // current_step, totalSteps, next channel/label, status, days until next.
+  const { data: campRow } = await svc
+    .from("campaigns")
+    .select("id, status, current_step, stop_reason, sequence_steps, next_step_due_at, last_step_at, started_at")
+    .eq("lead_id", leadId)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let stage: {
+    status: string | null;
+    currentStep: number | null;
+    totalSteps: number | null;
+    nextStepLabel: string | null;
+    nextStepChannel: string | null;
+    nextStepDueAt: string | null;
+    stopReason: string | null;
+  } | null = null;
+  if (campRow) {
+    const seq = Array.isArray((campRow as any).sequence_steps) ? (campRow as any).sequence_steps as any[] : [];
+    const cur = (campRow as any).current_step ?? 0;
+    // sequence_steps already excludes the CR slot post-2026-05-26, so
+    // current_step 0 = waiting on CR accept, 1 = first followup, etc.
+    const nextIdx = cur; // current_step is the LAST completed step; next is at index `cur`
+    const next = seq[nextIdx] || null;
+    const stepLabelFor = (channel: string | null, idx: number, allSteps: any[]) => {
+      if (!channel) return "Mensaje";
+      const same = allSteps.slice(0, idx + 1).filter(s => s?.channel === channel).length;
+      if (channel === "linkedin") return same === 1 ? "First DM" : `LinkedIn Follow-up ${same - 1}`;
+      if (channel === "email") return same === 1 ? "Email intro" : `Email Follow-up ${same - 1}`;
+      if (channel === "call") return same === 1 ? "First Call" : `Follow-up Call`;
+      return channel;
+    };
+    stage = {
+      status: (campRow as any).status ?? null,
+      currentStep: cur,
+      totalSteps: seq.length,
+      nextStepLabel: next ? stepLabelFor(next.channel, nextIdx, seq) : null,
+      nextStepChannel: next?.channel ?? null,
+      nextStepDueAt: (campRow as any).next_step_due_at ?? null,
+      stopReason: (campRow as any).stop_reason ?? null,
+    };
+  }
+
+  return NextResponse.json({ thread: entries, stage });
 }
