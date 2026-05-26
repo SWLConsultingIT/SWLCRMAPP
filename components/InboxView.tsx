@@ -68,6 +68,16 @@ function relativeTime(iso: string) {
 
 export type { InboxReply };
 
+type ThreadAttachment = {
+  id?: string | null;
+  name?: string | null;
+  mimeType?: string | null;
+  url?: string | null;
+  thumbUrl?: string | null;
+  size?: number | null;
+  isImage?: boolean;
+};
+
 type ThreadEntry = {
   id: string;
   direction: "outbound" | "inbound" | "event";
@@ -78,7 +88,19 @@ type ThreadEntry = {
   stepNumber?: number | null;
   kind?: string;
   source?: "db" | "unipile";
+  attachments?: ThreadAttachment[];
 };
+
+function channelLabel(ch: string | null): string {
+  if (!ch) return "—";
+  if (ch === "linkedin") return "LinkedIn";
+  if (ch === "email") return "Email";
+  if (ch === "call" || ch === "phone") return "Call";
+  if (ch === "whatsapp") return "WhatsApp";
+  if (ch === "sms") return "SMS";
+  if (ch === "telegram") return "Telegram";
+  return ch;
+}
 
 // Spanish-friendly absolute timestamp. The thread is best read at a glance
 // with explicit "26-may, 12:30 a.m." rather than relative "2d ago", because
@@ -430,9 +452,19 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                       ) : null;
                     })()}
                   </div>
-                  <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
-                    {selected.company ?? "—"}{selected.campaignName ? ` · ${selected.campaignName}` : ""} · {relativeTime(selected.receivedAt)} via {selected.channel ?? "unknown"}
-                  </p>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap text-xs" style={{ color: C.textMuted }}>
+                    <span>{selected.company ?? "—"}</span>
+                    {selected.campaignName && <span>· {selected.campaignName}</span>}
+                    <span>· {relativeTime(selected.receivedAt)}</span>
+                    {/* Channel pill — explicit so when we add WhatsApp/Email/
+                        Telegram threads later, the seller knows at a glance
+                        which inbox they're reading. */}
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
+                      style={{ backgroundColor: `color-mix(in srgb, ${C.linkedin} 14%, transparent)`, color: C.linkedin }}>
+                      {(() => { const Ic = channelIcon(selected.channel); return <Ic size={9} />; })()}
+                      {channelLabel(selected.channel)}
+                    </span>
+                  </div>
                 </div>
                 <Link
                   href={`/leads/${selected.leadId}`}
@@ -489,7 +521,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                           <span>· {when}</span>
                         </div>
                         <div
-                          className="rounded-2xl px-4 py-2.5 max-w-[80%]"
+                          className="rounded-2xl px-4 py-2.5 max-w-[80%] space-y-2"
                           style={{
                             borderTopLeftRadius: isOut ? 16 : 4,
                             borderTopRightRadius: isOut ? 4 : 16,
@@ -500,9 +532,45 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                             color: C.textPrimary,
                           }}
                         >
-                          <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                            {entry.body && entry.body.trim() ? entry.body : "(sin contenido)"}
-                          </p>
+                          {entry.body && entry.body.trim() ? (
+                            <p className="text-sm whitespace-pre-wrap leading-relaxed">{entry.body}</p>
+                          ) : entry.attachments && entry.attachments.length > 0 ? null : (
+                            <p className="text-sm" style={{ color: C.textMuted }}>(sin contenido)</p>
+                          )}
+                          {entry.attachments && entry.attachments.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {entry.attachments.map((a, ai) => (
+                                a.isImage && a.url ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <a key={ai} href={a.url} target="_blank" rel="noreferrer" className="block">
+                                    <img
+                                      src={a.thumbUrl || a.url}
+                                      alt={a.name ?? "image"}
+                                      className="max-w-[240px] max-h-[240px] rounded-lg border"
+                                      style={{ borderColor: C.border, objectFit: "cover" }}
+                                    />
+                                  </a>
+                                ) : (
+                                  <a
+                                    key={ai}
+                                    href={a.url ?? "#"}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-xs hover:opacity-85"
+                                    style={{ borderColor: C.border, backgroundColor: C.surface, color: C.textBody }}
+                                  >
+                                    <ExternalLink size={11} />
+                                    <span className="truncate max-w-[180px]">{a.name ?? "Attachment"}</span>
+                                    {a.size != null && (
+                                      <span className="text-[10px]" style={{ color: C.textDim }}>
+                                        {(a.size / 1024).toFixed(0)} KB
+                                      </span>
+                                    )}
+                                  </a>
+                                )
+                              ))}
+                            </div>
+                          )}
                         </div>
                         {idx === thread.length - 1 && isOut && (
                           <p className="text-[10px] mt-1" style={{ color: C.textDim }}>

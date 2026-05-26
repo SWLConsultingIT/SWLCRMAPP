@@ -22,6 +22,18 @@ const UNIPILE_BASE = process.env.UNIPILE_DSN
   : "https://api21.unipile.com:15107";
 const UNIPILE_KEY = process.env.UNIPILE_API_KEY ?? "";
 
+type ThreadAttachment = {
+  id?: string | null;
+  name?: string | null;
+  mimeType?: string | null;
+  url?: string | null;
+  thumbUrl?: string | null;
+  size?: number | null;
+  // Convenience flag — anything image/* renders inline, others render as a
+  // file pill with the icon + name.
+  isImage?: boolean;
+};
+
 type ThreadEntry = {
   id: string;
   direction: "outbound" | "inbound" | "event";
@@ -34,7 +46,24 @@ type ThreadEntry = {
   kind?: string;
   providerMessageId?: string | null;
   source?: "db" | "unipile";
+  attachments?: ThreadAttachment[];
 };
+
+function normalizeAttachments(raw: any): ThreadAttachment[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((a: any) => {
+    const mime = a?.mime_type ?? a?.mimeType ?? a?.type ?? null;
+    return {
+      id: a?.id ?? null,
+      name: a?.file_name ?? a?.name ?? null,
+      mimeType: mime,
+      url: a?.url ?? a?.file_url ?? null,
+      thumbUrl: a?.thumb_url ?? a?.thumbnail ?? null,
+      size: a?.size ?? null,
+      isImage: typeof mime === "string" && mime.startsWith("image/"),
+    };
+  });
+}
 
 async function unipileGet(url: string): Promise<any | null> {
   if (!UNIPILE_KEY) return null;
@@ -194,6 +223,7 @@ export async function GET(
           providerMessageId: provId,
           source: "unipile",
           kind: isFromUs ? "auto_reply_or_manual" : undefined,
+          attachments: normalizeAttachments(msg?.attachments),
         });
       }
     }
