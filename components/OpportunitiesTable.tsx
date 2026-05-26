@@ -155,7 +155,7 @@ export default function OpportunitiesTable({ leads }: { leads: OpportunityLead[]
                 return (
                   <tr key={lead.id} className="border-t transition-colors hover:bg-black/[0.015]" style={{ borderColor: C.border }}>
                     <td className="px-4 py-3">
-                      <Link href={`/opportunities/${lead.campaign_id ?? lead.id}`} className="flex items-center gap-2.5 group/row">
+                      <Link href={`/opportunities/${lead.id}`} className="flex items-center gap-2.5 group/row">
                         <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
                           style={{ background: `linear-gradient(135deg, ${C.green}, #34D399)`, color: "#fff" }}>
                           {(lead.first_name ?? "?")[0]?.toUpperCase()}
@@ -209,7 +209,7 @@ export default function OpportunitiesTable({ leads }: { leads: OpportunityLead[]
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Link href={`/opportunities/${lead.campaign_id ?? lead.id}`}
+                      <Link href={`/opportunities/${lead.id}`}
                         className="text-[10px] font-medium hover:underline flex items-center gap-0.5 justify-end"
                         style={{ color: gold }}>
                         Detail <ChevronRight size={10} />

@@ -267,7 +267,7 @@ function WonLeadCard({ lead }: { lead: OpportunityLead }) {
         backgroundColor: C.card,
         borderLeftWidth: 3, borderLeftColor: C.green,
       }}>
-      <Link href={`/opportunities/${lead.campaign_id ?? lead.id}`} className="block p-4 group">
+      <Link href={`/opportunities/${lead.id}`} className="block p-4 group">
         {/* Lead info */}
         <div className="flex items-start gap-3 mb-3">
           <div className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
