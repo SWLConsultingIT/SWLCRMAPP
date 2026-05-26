@@ -128,6 +128,46 @@ function formatAt(iso: string): string {
   });
 }
 
+// Just the time component for chat bubbles — the day separator carries the
+// date already.
+function formatTimeOnly(iso: string): string {
+  return new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+}
+
+// Day separator label. "Hoy" / "Ayer" / "Domingo 24 may" depending on age.
+function formatDayLabel(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  const yest = new Date();
+  yest.setDate(yest.getDate() - 1);
+  const sameDay = (a: Date, b: Date) =>
+    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  if (sameDay(d, today)) return "Hoy";
+  if (sameDay(d, yest)) return "Ayer";
+  const diffMs = today.getTime() - d.getTime();
+  const days = Math.floor(diffMs / 86_400_000);
+  // Recent week: weekday name. Otherwise the full date.
+  if (days < 7) return d.toLocaleDateString("es-AR", { weekday: "long" });
+  return d.toLocaleDateString("es-AR", { weekday: "long", day: "2-digit", month: "short" });
+}
+
+// First-letter initials for the avatar bubble. Falls back to "?" if empty.
+function initials(name: string | null | undefined): string {
+  if (!name) return "?";
+  const parts = name.trim().split(/\s+/).slice(0, 2);
+  return parts.map(p => p[0]?.toUpperCase() ?? "").join("") || "?";
+}
+
+// Deterministic pastel color per name so each lead's avatar is visually
+// distinct. Hash the name → hue, fixed saturation/lightness for legibility.
+function avatarColor(name: string | null | undefined): { bg: string; fg: string } {
+  if (!name) return { bg: "#E5E7EB", fg: "#374151" };
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  const hue = h % 360;
+  return { bg: `hsl(${hue}, 65%, 90%)`, fg: `hsl(${hue}, 55%, 32%)` };
+}
+
 export default function InboxView({ replies }: { replies: InboxReply[] }) {
   const router = useRouter();
   const toast = useToast();
@@ -459,8 +499,18 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
         <div className="flex flex-col overflow-hidden">
           {selected ? (
             <>
-              <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: C.border }}>
-                <div className="flex-1 min-w-0">
+              <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: C.border, background: `linear-gradient(180deg, color-mix(in srgb, ${channelColor(selected.channel)} 4%, transparent), transparent)` }}>
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  {(() => {
+                    const ac = avatarColor(selected.leadName);
+                    return (
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-sm font-bold"
+                        style={{ backgroundColor: ac.bg, color: ac.fg, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                        {initials(selected.leadName)}
+                      </div>
+                    );
+                  })()}
+                  <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h2 className="text-base font-bold truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}>
                       {selected.leadName}
@@ -487,6 +537,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                       {channelLabel(selected.channel)}
                     </span>
                   </div>
+                  </div>
                 </div>
                 <Link
                   href={`/leads/${selected.leadId}`}
@@ -501,107 +552,160 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                   on the right in brand-tinted bubbles, inbound (lead) on the
                   left in neutral bubbles. Chronological top→bottom so the
                   seller reads it like a chat. */}
-              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3" style={{ backgroundColor: `color-mix(in srgb, ${C.surface} 40%, ${C.bg})` }}>
                 {threadLoading ? (
-                  <div className="text-xs text-center py-8" style={{ color: C.textMuted }}>Loading conversation…</div>
+                  <div className="space-y-4 animate-pulse">
+                    {[0, 1, 2].map(i => (
+                      <div key={i} className={`flex items-end gap-2 ${i % 2 === 0 ? "" : "flex-row-reverse"}`}>
+                        <div className="w-7 h-7 rounded-full shrink-0" style={{ backgroundColor: C.border }} />
+                        <div className="rounded-2xl h-16" style={{ width: `${50 + (i * 8)}%`, backgroundColor: C.border, opacity: 0.4 }} />
+                      </div>
+                    ))}
+                  </div>
                 ) : thread.length === 0 ? (
-                  <div className="rounded-xl border px-4 py-3" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                    <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: C.textPrimary }}>
+                  <div className="flex flex-col items-center justify-center text-center py-12">
+                    <div className="w-14 h-14 rounded-full flex items-center justify-center mb-3"
+                      style={{ backgroundColor: `color-mix(in srgb, ${channelColor(selected.channel)} 14%, transparent)`, color: channelColor(selected.channel) }}>
+                      {selected.classification === "connection_accepted" ? <CheckCircle2 size={22} /> : <MessageSquare size={22} />}
+                    </div>
+                    <p className="text-sm font-semibold" style={{ color: C.textBody }}>
                       {selected.classification === "connection_accepted"
-                        ? "🤝 Aceptó la solicitud de conexión — todavía no hubo mensajes en el thread."
-                        : (selected.replyText ?? "(reply body not captured)")}
+                        ? "Aceptó la conexión"
+                        : "Sin mensajes todavía"}
+                    </p>
+                    <p className="text-xs mt-1 max-w-[280px]" style={{ color: C.textMuted }}>
+                      {selected.classification === "connection_accepted"
+                        ? "El primer mensaje del flow va a aparecer acá cuando se mande."
+                        : (selected.replyText ?? "Cuando el lead responda o vos le mandes algo, va a aparecer acá.")}
                     </p>
                   </div>
                 ) : (
-                  thread.map((entry, idx) => {
-                    const isOut = entry.direction === "outbound";
-                    const Icon = channelIcon(entry.channel);
-                    // Step labels only apply to messages we tracked through the
-                    // campaign (DB-sourced). Unipile-sourced entries (auto-reply
-                    // from the workflow, or messages the lead sent that the
-                    // n8n handler didn't capture) have no step_number — show
-                    // them with a "manual/auto" tag instead.
-                    const stepLabel = entry.stepNumber === 0
-                      ? "Connection Request"
-                      : entry.stepNumber != null
-                        ? `Step ${entry.stepNumber}`
-                        : entry.source === "unipile" && isOut
-                          ? "Auto-reply / manual"
-                          : null;
-                    const when = formatAt(entry.at);
-                    const senderLabel = isOut ? "We sent" : `${selected.leadName} replied`;
-                    return (
-                      <div key={entry.id} className={`flex flex-col ${isOut ? "items-end" : "items-start"}`}>
-                        <div className="flex items-center gap-1.5 mb-1 text-[10px]" style={{ color: C.textDim }}>
-                          <Icon size={9} />
-                          <span className="font-semibold">{senderLabel}</span>
-                          {stepLabel && (
-                            <span className="px-1 py-0.5 rounded font-medium" style={{ backgroundColor: C.surface, color: C.textMuted }}>
-                              {stepLabel}
-                            </span>
-                          )}
-                          <span>· {when}</span>
-                        </div>
-                        <div
-                          className="rounded-2xl px-4 py-2.5 max-w-[80%] space-y-2"
-                          style={{
-                            borderTopLeftRadius: isOut ? 16 : 4,
-                            borderTopRightRadius: isOut ? 4 : 16,
-                            backgroundColor: isOut
-                              ? `color-mix(in srgb, var(--brand, #c9a83a) 14%, transparent)`
-                              : C.bg,
-                            border: `1px solid ${isOut ? `color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` : C.border}`,
-                            color: C.textPrimary,
-                          }}
-                        >
-                          {entry.body && entry.body.trim() ? (
-                            <p className="text-sm whitespace-pre-wrap leading-relaxed">{entry.body}</p>
-                          ) : entry.attachments && entry.attachments.length > 0 ? null : (
-                            <p className="text-sm" style={{ color: C.textMuted }}>(sin contenido)</p>
-                          )}
-                          {entry.attachments && entry.attachments.length > 0 && (
-                            <div className="flex flex-wrap gap-2">
-                              {entry.attachments.map((a, ai) => (
-                                a.isImage && a.url ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <a key={ai} href={a.url} target="_blank" rel="noreferrer" className="block">
-                                    <img
-                                      src={a.thumbUrl || a.url}
-                                      alt={a.name ?? "image"}
-                                      className="max-w-[240px] max-h-[240px] rounded-lg border"
-                                      style={{ borderColor: C.border, objectFit: "cover" }}
-                                    />
-                                  </a>
-                                ) : (
-                                  <a
-                                    key={ai}
-                                    href={a.url ?? "#"}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-xs hover:opacity-85"
-                                    style={{ borderColor: C.border, backgroundColor: C.surface, color: C.textBody }}
-                                  >
-                                    <ExternalLink size={11} />
-                                    <span className="truncate max-w-[180px]">{a.name ?? "Attachment"}</span>
-                                    {a.size != null && (
-                                      <span className="text-[10px]" style={{ color: C.textDim }}>
-                                        {(a.size / 1024).toFixed(0)} KB
-                                      </span>
-                                    )}
-                                  </a>
-                                )
-                              ))}
+                  (() => {
+                    // Group entries by day so we can drop a sticky "Hoy /
+                    // Ayer / Domingo 24 may" separator between day boundaries.
+                    // Same pattern LinkedIn/WhatsApp use — it makes scanning a
+                    // long thread feel instant.
+                    let lastDayKey: string | null = null;
+                    const leadAvatar = avatarColor(selected.leadName);
+                    return thread.map((entry, idx) => {
+                      const isOut = entry.direction === "outbound";
+                      const Icon = channelIcon(entry.channel);
+                      const stepLabel = entry.stepNumber === 0
+                        ? "Connection Request"
+                        : entry.stepNumber != null && entry.stepNumber > 0
+                          ? `Step ${entry.stepNumber}`
+                          : entry.kind === "auto_reply" || (entry.source === "unipile" && isOut)
+                            ? "Auto-reply"
+                            : null;
+                      const time = formatTimeOnly(entry.at);
+                      const dayDate = new Date(entry.at);
+                      const dayKey = `${dayDate.getFullYear()}-${dayDate.getMonth()}-${dayDate.getDate()}`;
+                      const showDayHeader = dayKey !== lastDayKey;
+                      lastDayKey = dayKey;
+                      const dayLabel = formatDayLabel(entry.at);
+                      const isLast = idx === thread.length - 1;
+                      return (
+                        <div key={entry.id}>
+                          {showDayHeader && (
+                            <div className="flex items-center gap-3 my-4 first:mt-0">
+                              <div className="flex-1 h-px" style={{ backgroundColor: C.border }} />
+                              <span className="text-[10px] font-bold uppercase tracking-[0.12em] px-2 py-0.5 rounded-full"
+                                style={{ color: C.textDim, backgroundColor: C.surface }}>
+                                {dayLabel}
+                              </span>
+                              <div className="flex-1 h-px" style={{ backgroundColor: C.border }} />
                             </div>
                           )}
+                          <div className={`flex items-end gap-2 ${isOut ? "flex-row-reverse" : "flex-row"}`}>
+                            {/* Avatar: lead initials on their bubbles, channel
+                                icon on ours so it's clear the bot/seller sent it. */}
+                            {isOut ? (
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                                style={{ backgroundColor: `color-mix(in srgb, ${channelColor(entry.channel)} 18%, transparent)`, color: channelColor(entry.channel) }}>
+                                <Icon size={12} />
+                              </div>
+                            ) : (
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold"
+                                style={{ backgroundColor: leadAvatar.bg, color: leadAvatar.fg }}>
+                                {initials(selected.leadName)}
+                              </div>
+                            )}
+                            <div className={`flex flex-col max-w-[78%] ${isOut ? "items-end" : "items-start"}`}>
+                              <div
+                                className="rounded-2xl px-4 py-2.5 space-y-2 shadow-sm"
+                                style={{
+                                  borderTopLeftRadius: isOut ? 18 : 4,
+                                  borderTopRightRadius: isOut ? 4 : 18,
+                                  backgroundColor: isOut
+                                    ? `color-mix(in srgb, var(--brand, #c9a83a) 14%, transparent)`
+                                    : C.card,
+                                  border: `1px solid ${isOut ? `color-mix(in srgb, var(--brand, #c9a83a) 28%, transparent)` : C.border}`,
+                                  color: C.textPrimary,
+                                  boxShadow: `0 1px 2px color-mix(in srgb, ${isOut ? "var(--brand, #c9a83a)" : "#000"} 6%, transparent)`,
+                                }}
+                              >
+                                {entry.body && entry.body.trim() ? (
+                                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{entry.body}</p>
+                                ) : entry.attachments && entry.attachments.length > 0 ? null : (
+                                  <p className="text-sm" style={{ color: C.textMuted }}>(sin contenido)</p>
+                                )}
+                                {entry.attachments && entry.attachments.length > 0 && (
+                                  <div className="flex flex-wrap gap-2">
+                                    {entry.attachments.map((a, ai) => (
+                                      a.isImage && a.url ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <a key={ai} href={a.url} target="_blank" rel="noreferrer" className="block">
+                                          <img
+                                            src={a.thumbUrl || a.url}
+                                            alt={a.name ?? "image"}
+                                            className="max-w-[240px] max-h-[240px] rounded-lg border"
+                                            style={{ borderColor: C.border, objectFit: "cover" }}
+                                          />
+                                        </a>
+                                      ) : (
+                                        <a
+                                          key={ai}
+                                          href={a.url ?? "#"}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-xs hover:opacity-85"
+                                          style={{ borderColor: C.border, backgroundColor: C.surface, color: C.textBody }}
+                                        >
+                                          <ExternalLink size={11} />
+                                          <span className="truncate max-w-[180px]">{a.name ?? "Attachment"}</span>
+                                          {a.size != null && (
+                                            <span className="text-[10px]" style={{ color: C.textDim }}>
+                                              {(a.size / 1024).toFixed(0)} KB
+                                            </span>
+                                          )}
+                                        </a>
+                                      )
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1 text-[10px]" style={{ color: C.textDim }}>
+                                <span className="tabular-nums">{time}</span>
+                                {stepLabel && (
+                                  <>
+                                    <span>·</span>
+                                    <span className="px-1 py-0.5 rounded font-medium" style={{ backgroundColor: C.surface, color: C.textMuted }}>
+                                      {stepLabel}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          {isLast && isOut && (
+                            <p className="text-[10px] mt-2 mr-9 text-right" style={{ color: C.textDim }}>
+                              Esperando respuesta del lead…
+                            </p>
+                          )}
                         </div>
-                        {idx === thread.length - 1 && isOut && (
-                          <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
-                            Esperando respuesta del lead…
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })
+                      );
+                    });
+                  })()
                 )}
               </div>
 
