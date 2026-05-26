@@ -28,6 +28,7 @@ import Donut from "@/components/dashboard/Donut";
 import Heatmap from "@/components/dashboard/Heatmap";
 import IcpChannelMatrix from "@/components/dashboard/IcpChannelMatrix";
 import InlineSpark from "@/components/dashboard/InlineSpark";
+import StepPerformance from "@/components/dashboard/StepPerformance";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -360,6 +361,14 @@ export default async function DashboardPage({
         <SectionHeader icon={Target} title="ICP × Canal" subtitle="Reply rate por combinación · color por z-score · click para drill-down" />
         <Panel>
           <IcpChannelMatrix matrix={data.matrix} />
+        </Panel>
+      </section>
+
+      {/* ─── Step performance — which step of the sequence kills the funnel? ─ */}
+      <section>
+        <SectionHeader icon={ChevronsRight} title="Performance por paso" subtitle="Reply rate por step de la secuencia · identificá el mensaje débil" />
+        <Panel>
+          <StepPerformance steps={data.stepPerformance} />
         </Panel>
       </section>
 

@@ -303,6 +303,63 @@ export async function getDashboardData(filters: DashboardFilters) {
     conversionRate: s.contacted.size > 0 ? Math.round((s.positive.size / s.contacted.size) * 100) : 0,
   })).sort((a, b) => b.responseRate - a.responseRate);
 
+  // ── Sequence step performance ────────────────────────────────────────
+  //
+  // For each step in the sequence (step_number 0 = CR/intro, step 1+ = DM/email
+  // follow-ups), what's the reply rate? Today the dashboard reports aggregate
+  // reply rates per campaign or per channel — that hides which SPECIFIC step
+  // is killing the funnel. If step 2 has 0% reply and step 3 has 6%, you
+  // know to rewrite step 2.
+  //
+  // Reply attribution: for each reply, the "responsible step" is the
+  // step_number of the LAST sent message before the reply timestamp. This is
+  // the right proxy — the lead is reacting to that message.
+  type StepAgg = { sent: number; replied: number };
+  const stepAgg = new Map<number, StepAgg>();
+  const ensureStep = (n: number): StepAgg => {
+    let g = stepAgg.get(n);
+    if (!g) { g = { sent: 0, replied: 0 }; stepAgg.set(n, g); }
+    return g;
+  };
+  for (const m of messages) {
+    if (m.status !== "sent") continue;
+    const step = m.step_number ?? 0;
+    ensureStep(step).sent++;
+  }
+  // Index messages by campaign_id for fast last-sent lookup per reply.
+  const sentByCampaign = new Map<string, MsgRow[]>();
+  for (const m of messages) {
+    if (m.status !== "sent" || !m.sent_at || !m.campaign_id) continue;
+    const list = sentByCampaign.get(m.campaign_id) ?? [];
+    list.push(m);
+    sentByCampaign.set(m.campaign_id, list);
+  }
+  for (const [, list] of sentByCampaign) list.sort((a, b) => (a.sent_at && b.sent_at ? new Date(a.sent_at).getTime() - new Date(b.sent_at).getTime() : 0));
+
+  for (const r of replies) {
+    if (!r.campaign_id || !r.received_at) continue;
+    const list = sentByCampaign.get(r.campaign_id);
+    if (!list || list.length === 0) continue;
+    const replyT = new Date(r.received_at).getTime();
+    let attributedStep: number | null = null;
+    for (const m of list) {
+      if (!m.sent_at) continue;
+      const t = new Date(m.sent_at).getTime();
+      if (t <= replyT) attributedStep = m.step_number ?? 0;
+      else break;
+    }
+    if (attributedStep !== null) ensureStep(attributedStep).replied++;
+  }
+
+  const stepPerformance = Array.from(stepAgg.entries())
+    .map(([step, g]) => ({
+      step,
+      sent: g.sent,
+      replied: g.replied,
+      replyRate: g.sent >= 5 ? Math.round((g.replied / g.sent) * 100) : null,
+    }))
+    .sort((a, b) => a.step - b.step);
+
   // ── ICP × Channel matrix ─────────────────────────────────────────────
   //
   // The single highest-leverage question for SWL operators: which (ICP,
@@ -725,6 +782,7 @@ export async function getDashboardData(filters: DashboardFilters) {
       mean: matrixMean,
       stddev: matrixStddev,
     },
+    stepPerformance,
     health: {
       /** % of campaigns that finished their sequence with 0 replies. null when <5 evaluated. */
       saturationRate,
