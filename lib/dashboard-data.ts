@@ -738,6 +738,67 @@ export async function getDashboardData(filters: DashboardFilters) {
     positive: priorPositiveLeadIds.size,
   };
 
+  // ── Reply velocity decay curve ─────────────────────────────────────────
+  // For every lead that received at least one message, did they reply, and
+  // if so, on what day relative to their FIRST sent message? Result is a
+  // cumulative curve from day 0 to day 30 showing what % of all leads have
+  // replied by day D. Two operational uses:
+  //   1) See the day at which the curve plateaus — past that, sending more
+  //      messages mostly burns inboxes without yielding new replies.
+  //   2) Pin a stop-sending policy at, e.g., the day the curve hits 95% of
+  //      its final value.
+  // Uses ALL-TIME data (not the filtered window) because the decay shape
+  // is a structural property of the messaging program, not a function of
+  // any specific period.
+  const firstMsgAtAll = new Map<string, number>();
+  for (const m of allMessages) {
+    if (m.status !== "sent" || !m.sent_at || !m.campaign_id) continue;
+    const c = allCampaigns.find(x => x.id === m.campaign_id);
+    if (!c?.lead_id) continue;
+    const t = new Date(m.sent_at).getTime();
+    const prev = firstMsgAtAll.get(c.lead_id);
+    if (prev === undefined || t < prev) firstMsgAtAll.set(c.lead_id, t);
+  }
+  const firstReplyAtAll = new Map<string, number>();
+  for (const r of allReplies) {
+    if (!r.lead_id || !r.received_at) continue;
+    const t = new Date(r.received_at).getTime();
+    const prev = firstReplyAtAll.get(r.lead_id);
+    if (prev === undefined || t < prev) firstReplyAtAll.set(r.lead_id, t);
+  }
+  const daysToReplyList: number[] = [];
+  for (const [leadId, msgT] of firstMsgAtAll) {
+    const replyT = firstReplyAtAll.get(leadId);
+    if (replyT && replyT > msgT) {
+      daysToReplyList.push(Math.floor((replyT - msgT) / 86_400_000));
+    }
+  }
+  daysToReplyList.sort((a, b) => a - b);
+  const totalMessaged = firstMsgAtAll.size;
+  const decayCurve = new Array(31).fill(0) as number[];
+  if (totalMessaged > 0) {
+    let cursor = 0;
+    for (let d = 0; d <= 30; d++) {
+      while (cursor < daysToReplyList.length && daysToReplyList[cursor] <= d) cursor++;
+      decayCurve[d] = (cursor / totalMessaged) * 100;
+    }
+  }
+  // Find the day at which the curve has captured 95% of its final value —
+  // that's the operational "cutoff" suggestion.
+  const finalPct = decayCurve[30];
+  let cutoffDay: number | null = null;
+  if (finalPct > 0.5 && totalMessaged >= 30) {
+    for (let d = 0; d <= 30; d++) {
+      if (decayCurve[d] >= finalPct * 0.95) { cutoffDay = d; break; }
+    }
+  }
+  const velocityDecay = {
+    curve: decayCurve.map(v => Math.round(v * 10) / 10),
+    totalMessaged,
+    cutoffDay,
+    finalPct: Math.round(finalPct * 10) / 10,
+  };
+
   // ── Reply classification breakdown (donut data) ─────────────────────────
   const replyClassCounts: Record<string, number> = {};
   for (const r of replies) {
@@ -813,6 +874,7 @@ export async function getDashboardData(filters: DashboardFilters) {
       stddev: matrixStddev,
     },
     stepPerformance,
+    velocityDecay,
     health: {
       /** % of campaigns that finished their sequence with 0 replies. null when <5 evaluated. */
       saturationRate,

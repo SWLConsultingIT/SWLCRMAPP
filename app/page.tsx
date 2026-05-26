@@ -31,6 +31,7 @@ import Heatmap from "@/components/dashboard/Heatmap";
 import IcpChannelMatrix from "@/components/dashboard/IcpChannelMatrix";
 import InlineSpark from "@/components/dashboard/InlineSpark";
 import StepPerformance from "@/components/dashboard/StepPerformance";
+import VelocityDecayCurve from "@/components/dashboard/VelocityDecayCurve";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -443,6 +444,24 @@ export default async function DashboardPage({
         <SectionHeader icon={ChevronsRight} title={t("dashx.step.title")} subtitle={t("dashx.step.subtitle")} />
         <Panel>
           <StepPerformance steps={data.stepPerformance} locale={locale} />
+        </Panel>
+      </section>
+
+      {/* ─── Velocity decay — when to stop chasing silent leads ─────────── */}
+      <section>
+        <SectionHeader icon={Clock} title={t("dashx.decay.title")} subtitle={t("dashx.decay.subtitle")} />
+        <Panel>
+          <VelocityDecayCurve
+            curve={data.velocityDecay.curve}
+            totalMessaged={data.velocityDecay.totalMessaged}
+            cutoffDay={data.velocityDecay.cutoffDay}
+            finalPct={data.velocityDecay.finalPct}
+            emptyLabel={t("dashx.decay.empty")}
+            cutoffLabel={t("dashx.decay.cutoff")}
+            cutoffPendingLabel={t("dashx.decay.cutoffPending")}
+            yAxisLabel={t("dashx.decay.yAxis")}
+            xAxisLabel={t("dashx.decay.xAxis")}
+          />
         </Panel>
       </section>
 

@@ -372,6 +372,14 @@ export const en: Dict = {
   "dashx.callout.bottomIcp": "Lagging ICP: {name} at {rate}% over {leads} leads — review messaging or targeting.",
   "dashx.callout.bottomCampaign": "Lagging campaign: {name} at {rate}% over {leads} leads — consider pausing or rewriting.",
   "dashx.callout.bottomSeller": "Below team: {name} at {rate}% reply rate — coaching opportunity.",
+  // Velocity decay curve
+  "dashx.decay.title": "Reply velocity decay",
+  "dashx.decay.subtitle": "Cumulative reply probability by day since first message · find your stop-chasing line",
+  "dashx.decay.empty": "Not enough data yet — need ≥30 messaged leads.",
+  "dashx.decay.cutoff": "By day {n}, you've captured ~95% of all replies that will ever come — past that, sending more mostly burns inboxes.",
+  "dashx.decay.cutoffPending": "Curve still rising — keep watching, no clear plateau yet.",
+  "dashx.decay.yAxis": "% replied",
+  "dashx.decay.xAxis": "Days since first message",
   // Reply classification labels (used by the donut)
   "dashx.reply.positive": "Positive",
   "dashx.reply.meeting_intent": "Meeting intent",
@@ -909,6 +917,14 @@ export const es: Dict = {
   "dashx.callout.bottomIcp": "ICP rezagado: {name} al {rate}% sobre {leads} leads — revisá mensajes o targeting.",
   "dashx.callout.bottomCampaign": "Campaña rezagada: {name} al {rate}% sobre {leads} leads — considerá pausar o reescribir.",
   "dashx.callout.bottomSeller": "Debajo del equipo: {name} con {rate}% reply rate — oportunidad de coaching.",
+  // Velocity decay curve
+  "dashx.decay.title": "Decaimiento de velocidad de respuesta",
+  "dashx.decay.subtitle": "Probabilidad acumulada de respuesta por día desde el primer mensaje · encontrá tu línea de corte",
+  "dashx.decay.empty": "Aún no hay data suficiente — necesitás ≥30 leads contactados.",
+  "dashx.decay.cutoff": "Al día {n} ya capturaste ~95% de todas las respuestas que van a llegar — pasar de ahí mayormente quema inboxes.",
+  "dashx.decay.cutoffPending": "La curva todavía sube — seguí observando, no hay plateau claro aún.",
+  "dashx.decay.yAxis": "% que respondió",
+  "dashx.decay.xAxis": "Días desde el primer mensaje",
   // Reply classification labels (used by the donut)
   "dashx.reply.positive": "Positiva",
   "dashx.reply.meeting_intent": "Meeting intent",
