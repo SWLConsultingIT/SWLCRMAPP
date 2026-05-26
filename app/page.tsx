@@ -59,6 +59,36 @@ const classColors: Record<string, string> = {
   unclassified:   "#9CA3AF",
 };
 
+/** Small callout strip placed above each leaderboard that surfaces the
+ * single top performer (gold) and, when there's a meaningful gap, the
+ * lagging one (red). Skipped entirely when there are <2 rows to compare. */
+function LeaderCallout({
+  topText, bottomText,
+}: {
+  topText?: string | null;
+  bottomText?: string | null;
+}) {
+  if (!topText && !bottomText) return null;
+  return (
+    <div className="flex flex-col sm:flex-row gap-2 mb-3">
+      {topText && (
+        <div className="flex-1 flex items-start gap-2 px-3 py-2 rounded-lg"
+          style={{ background: `color-mix(in srgb, ${gold} 9%, transparent)`, borderLeft: `2px solid ${gold}` }}>
+          <Trophy size={12} style={{ color: gold }} className="mt-0.5 shrink-0" />
+          <p className="text-[11.5px] leading-snug" style={{ color: C.textBody }}>{topText}</p>
+        </div>
+      )}
+      {bottomText && (
+        <div className="flex-1 flex items-start gap-2 px-3 py-2 rounded-lg"
+          style={{ background: `color-mix(in srgb, ${C.red} 7%, transparent)`, borderLeft: `2px solid ${C.red}` }}>
+          <AlertTriangle size={12} style={{ color: C.red }} className="mt-0.5 shrink-0" />
+          <p className="text-[11.5px] leading-snug" style={{ color: C.textBody }}>{bottomText}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Appends the active period filter (from/to) to a drill-down URL so the
  * detail page inherits the same window the user was looking at on the
  * dashboard. Without this, clicking a row from "Last 7 days" landed on a
@@ -483,6 +513,22 @@ export default async function DashboardPage({
       {/* ─── Tables: ICP / Campaigns / Sellers — all with inline sparklines ── */}
       <section>
         <SectionHeader icon={Target} title={t("dashx.tbl.icp.title")} subtitle={t("dashx.tbl.icp.subtitle")} />
+        {(() => {
+          // Top + lagging callouts. Only when there are 2+ rows with ≥10 contacted
+          // (statistical floor) so the comparison is meaningful.
+          const eligible = data.icpPerformance.filter(i => i.contacted >= 10 && i.id !== "_unknown");
+          if (eligible.length < 2) return null;
+          const sorted = [...eligible].sort((a, b) => b.conversionRate - a.conversionRate);
+          const top = sorted[0]; const bottom = sorted[sorted.length - 1];
+          const gap = top.conversionRate - bottom.conversionRate;
+          const topText = top.conversionRate > 0
+            ? t("dashx.callout.topIcp", { name: top.name, rate: top.conversionRate, leads: top.leads })
+            : null;
+          const bottomText = gap >= 10
+            ? t("dashx.callout.bottomIcp", { name: bottom.name, rate: bottom.conversionRate, leads: bottom.leads })
+            : null;
+          return <LeaderCallout topText={topText} bottomText={bottomText} />;
+        })()}
         <Panel>
           <table className="w-full text-sm">
             <thead>
@@ -530,6 +576,20 @@ export default async function DashboardPage({
 
       <section>
         <SectionHeader icon={Megaphone} title={t("dashx.tbl.camp.title")} subtitle={t("dashx.tbl.camp.subtitle")} />
+        {(() => {
+          const eligible = data.campaignPerformance.filter(c => c.leads >= 10);
+          if (eligible.length < 2) return null;
+          const sorted = [...eligible].sort((a, b) => b.conversionRate - a.conversionRate);
+          const top = sorted[0]; const bottom = sorted[sorted.length - 1];
+          const gap = top.conversionRate - bottom.conversionRate;
+          const topText = top.conversionRate > 0
+            ? t("dashx.callout.topCampaign", { name: top.name, rate: top.conversionRate, leads: top.leads })
+            : null;
+          const bottomText = gap >= 10
+            ? t("dashx.callout.bottomCampaign", { name: bottom.name, rate: bottom.conversionRate, leads: bottom.leads })
+            : null;
+          return <LeaderCallout topText={topText} bottomText={bottomText} />;
+        })()}
         <Panel>
           <table className="w-full text-sm">
             <thead>
@@ -583,6 +643,22 @@ export default async function DashboardPage({
 
       <section>
         <SectionHeader icon={Trophy} title={t("dashx.tbl.seller.title")} subtitle={t("dashx.tbl.seller.subtitle")} />
+        {(() => {
+          // Seller comparison uses reply rate (normalized) and requires
+          // ≥20 contacted for fairness (consistent with the table threshold).
+          const eligible = data.sellerPerformance.filter(s => s.contacted >= 20);
+          if (eligible.length < 2) return null;
+          const sorted = [...eligible].sort((a, b) => b.responseRate - a.responseRate);
+          const top = sorted[0]; const bottom = sorted[sorted.length - 1];
+          const gap = top.responseRate - bottom.responseRate;
+          const topText = top.responseRate > 0
+            ? t("dashx.callout.topSeller", { name: top.name, rate: top.responseRate })
+            : null;
+          const bottomText = gap >= 15
+            ? t("dashx.callout.bottomSeller", { name: bottom.name, rate: bottom.responseRate })
+            : null;
+          return <LeaderCallout topText={topText} bottomText={bottomText} />;
+        })()}
         <Panel>
           <table className="w-full text-sm">
             <thead>
