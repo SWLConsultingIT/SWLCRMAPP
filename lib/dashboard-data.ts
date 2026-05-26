@@ -352,6 +352,14 @@ export async function getDashboardData(filters: DashboardFilters) {
     conversionRate: g.contacted.size > 0 ? Math.round((g.positive.size / g.contacted.size) * 100) : 0,
   })).sort((a, b) => b.positive - a.positive || b.sent - a.sent);
 
+  // Shared "now" anchor — used by the spark14d helpers below AND the 30-day
+  // trend block further down. Hoisting it here also dodges the TDZ crash
+  // where the original spark14d arrow function referenced `today` before
+  // it was declared in the 30d-trend section (Fran caught the resulting
+  // 500 on 2026-05-26).
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+
   // ── Per-entity sparklines (last 14d, for inline use in tables) ─────────
   // 14 instead of 30 keeps the rendered SVG narrow enough to fit beside
   // numbers without crowding the row. Stripe/Linear use the same pattern.
@@ -447,9 +455,8 @@ export async function getDashboardData(filters: DashboardFilters) {
 
   // ── 30-day daily trend ──────────────────────────────────────────────────
   // Buckets each metric by day so the dashboard can render sparklines + a
-  // big multi-line chart. Always 30 buckets, oldest → newest.
-  const today = new Date();
-  today.setHours(23, 59, 59, 999);
+  // big multi-line chart. Always 30 buckets, oldest → newest. `today` is
+  // declared above so the spark14d helpers can reuse the same anchor.
   const dayBucket = (iso: string) => {
     const d = new Date(iso);
     return Math.floor((today.getTime() - d.getTime()) / 86_400_000);
