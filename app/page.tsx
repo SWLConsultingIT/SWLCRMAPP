@@ -11,13 +11,14 @@ import { Suspense } from "react";
 import {
   Users, Send, MessageSquare, ThumbsUp, Trophy, Megaphone, Target,
   TrendingUp, Sparkles, AlertTriangle, Lightbulb, ArrowRight, CheckCircle2,
-  Share2, Mail, Phone, Smartphone, FileDown, Zap, Clock, ChevronsRight,
+  Share2, Mail, Phone, Smartphone, FileDown, Clock, ChevronsRight,
 } from "lucide-react";
 import { C } from "@/lib/design";
 import { getUserScope } from "@/lib/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getDashboardData } from "@/lib/dashboard-data";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
+import PageHero from "@/components/PageHero";
 import FiltersBar from "@/components/dashboard/FiltersBar";
 import KpiCard from "@/components/dashboard/KpiCard";
 import Funnel from "@/components/dashboard/Funnel";
@@ -123,31 +124,26 @@ export default async function DashboardPage({
     : `Últimos ${data.period.days} días`;
 
   return (
-    <div className="p-4 sm:p-5 w-full space-y-4">
+    <div className="p-4 sm:p-6 w-full space-y-5">
       <ReliabilityBanner />
 
-      {/* ─── Compact header strip — no big PageHero, density wins over wow ── */}
-      <div className="flex items-end justify-between gap-3 flex-wrap">
-        <div>
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>
-            <span className="inline-flex items-center gap-1">
-              <Zap size={11} style={{ color: gold }} /> SWL · Sales Engine
-            </span>
-            <span>·</span>
-            <span>{periodLabel}</span>
-          </div>
-          <h1 className="text-xl font-bold mt-1" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}>
-            Dashboard
-          </h1>
-        </div>
-        <Link
-          href="/reports"
-          className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-85"
-          style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`, color: "#04070d", boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 28%, transparent)` }}
-        >
-          <FileDown size={12} /> Descargar PDF
-        </Link>
-      </div>
+      <PageHero
+        icon={TrendingUp}
+        section="Sales Engine"
+        title="Tu pipeline, en profundidad"
+        description="De la empresa entera a campañas, ICPs y sellers. Hacé clic en cualquier fila para abrir el detalle con gráficos."
+        accentColor={gold}
+        status={{ label: periodLabel, active: true }}
+        action={(
+          <Link
+            href="/reports"
+            className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-opacity hover:opacity-85 whitespace-nowrap"
+            style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`, color: "#04070d", boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 28%, transparent)` }}
+          >
+            <FileDown size={13} /> Descargar PDF
+          </Link>
+        )}
+      />
 
       {/* ─── Sticky filters strip ───────────────────────────────────────────
           Wrapped in Suspense because FiltersBar reads useSearchParams() —
@@ -159,6 +155,19 @@ export default async function DashboardPage({
 
       {/* ─── KPIs Leading / Lagging in one row (research: 5-9 KPIs max, leading first) ─ */}
       <section>
+        <div className="flex items-center justify-between gap-2 mb-2.5">
+          <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#0A66C2" }} />
+              Leading <span style={{ color: C.textDim }}>· señales tempranas</span>
+            </span>
+            <span style={{ color: C.textDim }}>|</span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: C.green }} />
+              Lagging <span style={{ color: C.textDim }}>· resultado final</span>
+            </span>
+          </div>
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <KpiCard
             label="Contactados"
@@ -311,7 +320,7 @@ export default async function DashboardPage({
 
       {/* ─── Performance per channel — compact card row ─────────────────── */}
       <section>
-        <SectionHeader title="Por canal" subtitle="Volumen y conversión por canal de outreach" />
+        <SectionHeader icon={Send} title="Performance por canal" subtitle="Volumen y conversión por canal de outreach" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {data.channelBreakdown.length === 0 ? (
             <EmptyHint>Sin actividad por canal todavía.</EmptyHint>
@@ -348,7 +357,7 @@ export default async function DashboardPage({
 
       {/* ─── Tables: ICP / Campaigns / Sellers — all with inline sparklines ── */}
       <section>
-        <SectionHeader title="Comparativo de ICPs" subtitle="Qué perfil ideal convierte mejor" />
+        <SectionHeader icon={Target} title="Comparativo de ICPs" subtitle="Qué perfil ideal convierte mejor · clic para detalle" />
         <Panel>
           <table className="w-full text-sm">
             <thead>
@@ -392,7 +401,7 @@ export default async function DashboardPage({
       </section>
 
       <section>
-        <SectionHeader title="Comparativo de campañas" subtitle="Performance por secuencia · clic para drill-down" />
+        <SectionHeader icon={Megaphone} title="Comparativo de campañas" subtitle="Performance por secuencia · clic para drill-down" />
         <Panel>
           <table className="w-full text-sm">
             <thead>
@@ -442,7 +451,7 @@ export default async function DashboardPage({
       </section>
 
       <section>
-        <SectionHeader title="Sellers" subtitle="Leaderboard · clic para detalle" />
+        <SectionHeader icon={Trophy} title="Leaderboard de sellers" subtitle="Quién está moviendo el pipeline · clic para detalle" />
         <Panel>
           <table className="w-full text-sm">
             <thead>
@@ -491,15 +500,22 @@ export default async function DashboardPage({
 
 // ─── Local presentation primitives ──────────────────────────────────────
 
-function SectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
+function SectionHeader({ title, subtitle, icon: Icon }: { title: string; subtitle: string; icon?: React.ComponentType<{ size?: number; style?: React.CSSProperties }> }) {
   return (
-    <div className="mb-2 flex items-baseline justify-between gap-2 flex-wrap">
-      <div>
+    <div className="mb-3 flex items-center gap-3">
+      {Icon && (
+        <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+          style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold }}>
+          <Icon size={14} />
+        </span>
+      )}
+      <div className="flex-1 min-w-0">
         <h2 className="text-sm font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
           {title}
         </h2>
         <p className="text-[11px]" style={{ color: C.textMuted }}>{subtitle}</p>
       </div>
+      <div className="h-px flex-1 max-w-[180px]" style={{ background: `linear-gradient(90deg, color-mix(in srgb, ${gold} 25%, transparent), transparent)` }} />
     </div>
   );
 }
