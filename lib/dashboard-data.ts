@@ -708,6 +708,36 @@ export async function getDashboardData(filters: DashboardFilters) {
     positive:  pctDelta(positiveCount, priorPositiveSize),
   };
 
+  // ── Prior-period funnel — for the comparative overlay on the main Funnel.
+  // Computes the same 7 stages but for the period immediately preceding the
+  // current one. Allows the funnel to render "ghost bars" behind each
+  // current stage so the operator sees where the period got better/worse.
+  const priorCampaigns = allCampaigns.filter(c => c.created_at && new Date(c.created_at).getTime() >= priorFrom && new Date(c.created_at).getTime() < priorTo);
+  const priorContactedLeadIds = new Set(priorCampaigns.map(c => c.lead_id).filter(Boolean) as string[]);
+  const priorRepliedLeadIds = new Set(priorReplies.map(r => r.lead_id).filter(Boolean) as string[]);
+  const priorPositiveLeadIds = new Set(priorReplies.filter(r => POSITIVE_CLASS.has(r.classification ?? "")).map(r => r.lead_id).filter(Boolean) as string[]);
+  const priorConnectedLeadIds = new Set<string>();
+  for (const m of allMessages) {
+    if (m.status !== "sent" || !m.sent_at || !m.campaign_id) continue;
+    const t = new Date(m.sent_at).getTime();
+    if (t < priorFrom || t >= priorTo) continue;
+    if ((m.step_number ?? 0) < 1) continue;
+    const c = priorCampaigns.find(x => x.id === m.campaign_id);
+    if (c?.lead_id) priorConnectedLeadIds.add(c.lead_id);
+  }
+  for (const c of priorCampaigns) if ((c.current_step ?? 0) >= 1 && c.lead_id) priorConnectedLeadIds.add(c.lead_id);
+  // Imported in prior window = leads created in prior window.
+  const priorImported = allLeads.filter(l => l.created_at && new Date(l.created_at).getTime() >= priorFrom && new Date(l.created_at).getTime() < priorTo).length;
+  // "Meeting" + "Won" are status-based and don't have a created_at on the status change,
+  // so we omit them from the prior funnel comparison (the comparison would be misleading).
+  const priorFunnel = {
+    imported: priorImported,
+    contacted: priorContactedLeadIds.size,
+    connected: priorConnectedLeadIds.size,
+    replied: priorRepliedLeadIds.size,
+    positive: priorPositiveLeadIds.size,
+  };
+
   // ── Reply classification breakdown (donut data) ─────────────────────────
   const replyClassCounts: Record<string, number> = {};
   for (const r of replies) {
@@ -745,13 +775,13 @@ export async function getDashboardData(filters: DashboardFilters) {
     },
     deltas,
     funnel: [
-      { stage: "Importados",  count: totalLeads,    color: "neutral" },
-      { stage: "Contactados", count: contactedLeads, color: "info" },
-      { stage: "Aceptaron",   count: connectedLeads, color: "info" },
-      { stage: "Respondieron", count: repliedCount,  color: "warning" },
-      { stage: "Positivos",    count: positiveCount, color: "success" },
-      { stage: "Reunión",      count: meetingCount,  color: "success" },
-      { stage: "Ganados",      count: wonCount,      color: "brand" },
+      { stage: "Importados",  count: totalLeads,    prior: priorFunnel.imported,  color: "neutral" },
+      { stage: "Contactados", count: contactedLeads, prior: priorFunnel.contacted, color: "info" },
+      { stage: "Aceptaron",   count: connectedLeads, prior: priorFunnel.connected, color: "info" },
+      { stage: "Respondieron", count: repliedCount,  prior: priorFunnel.replied,   color: "warning" },
+      { stage: "Positivos",    count: positiveCount, prior: priorFunnel.positive,  color: "success" },
+      { stage: "Reunión",      count: meetingCount,  prior: null as number | null, color: "success" },
+      { stage: "Ganados",      count: wonCount,      prior: null as number | null, color: "brand" },
     ],
     channelBreakdown,
     icpPerformance: icpPerformance.map(p => ({ ...p, spark: sparkByIcp.get(p.id) ?? new Array(14).fill(0) })),
