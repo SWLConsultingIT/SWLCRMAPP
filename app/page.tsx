@@ -20,6 +20,7 @@ import { getDashboardData } from "@/lib/dashboard-data";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
 import PageHero from "@/components/PageHero";
 import FiltersBar from "@/components/dashboard/FiltersBar";
+import FreshnessChip from "@/components/dashboard/FreshnessChip";
 import KpiCard from "@/components/dashboard/KpiCard";
 import Funnel from "@/components/dashboard/Funnel";
 import MultiLineChart from "@/components/dashboard/MultiLineChart";
@@ -123,6 +124,16 @@ export default async function DashboardPage({
     ? `${new Date(filters.from).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })} – ${new Date(filters.to).toLocaleDateString("es-AR", { day: "2-digit", month: "short" })}`
     : `Últimos ${data.period.days} días`;
 
+  // True when any filter (campaign / icp / seller) is active beyond the default
+  // period. Drives the "differentiated empty state" copy in tables — "no data"
+  // vs "no matches with these filters" is a completely different user message.
+  const hasFilters = (filters.campaignNames?.length ?? 0) > 0 || (filters.icpIds?.length ?? 0) > 0 || (filters.sellerIds?.length ?? 0) > 0;
+
+  // Server timestamp for the "Updated · now" freshness indicator. Computed
+  // here (not on client) so it reflects when the page was actually rendered;
+  // the UI shows the human delta from this anchor.
+  const renderedAt = new Date().toISOString();
+
   return (
     <div className="p-4 sm:p-6 w-full space-y-5">
       <ReliabilityBanner />
@@ -135,13 +146,16 @@ export default async function DashboardPage({
         accentColor={gold}
         status={{ label: periodLabel, active: true }}
         action={(
-          <Link
-            href="/reports"
-            className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-opacity hover:opacity-85 whitespace-nowrap"
-            style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`, color: "#04070d", boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 28%, transparent)` }}
-          >
-            <FileDown size={13} /> Descargar PDF
-          </Link>
+          <div className="flex items-center gap-2">
+            <FreshnessChip renderedAt={renderedAt} />
+            <Link
+              href="/reports"
+              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-opacity hover:opacity-85 whitespace-nowrap"
+              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`, color: "#04070d", boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 28%, transparent)` }}
+            >
+              <FileDown size={13} /> Descargar PDF
+            </Link>
+          </div>
         )}
       />
 
@@ -375,15 +389,18 @@ export default async function DashboardPage({
             </thead>
             <tbody>
               {data.icpPerformance.length === 0 ? (
-                <tr><td colSpan={9} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}>Sin ICPs en el período.</td></tr>
-              ) : data.icpPerformance.map(icp => (
-                <tr key={icp.id} className="border-t hover:bg-black/[0.02] transition-colors" style={{ borderColor: C.border }}>
+                <tr><td colSpan={9} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kind="ICPs" /></td></tr>
+              ) : data.icpPerformance.map((icp, idx) => (
+                <tr key={icp.id} className="border-t hover:bg-black/[0.02] transition-colors group" style={{ borderColor: C.border }}>
                   <Td>
-                    {icp.id !== "_unknown" ? (
-                      <Link href={`/dashboard/icp/${icp.id}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{icp.name}</Link>
-                    ) : (
-                      <span style={{ color: C.textMuted }}>{icp.name}</span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <TopRankDot rank={idx} />
+                      {icp.id !== "_unknown" ? (
+                        <Link href={`/dashboard/icp/${icp.id}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{icp.name}</Link>
+                      ) : (
+                        <span style={{ color: C.textMuted }}>{icp.name}</span>
+                      )}
+                    </div>
                   </Td>
                   <NumCell value={icp.leads} />
                   <NumCell value={icp.contacted} />
@@ -420,11 +437,14 @@ export default async function DashboardPage({
             </thead>
             <tbody>
               {data.campaignPerformance.length === 0 ? (
-                <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}>Sin campañas en el período.</td></tr>
-              ) : data.campaignPerformance.map(c => (
-                <tr key={c.name} className="border-t hover:bg-black/[0.02] transition-colors" style={{ borderColor: C.border }}>
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kind="campañas" /></td></tr>
+              ) : data.campaignPerformance.map((c, idx) => (
+                <tr key={c.name} className="border-t hover:bg-black/[0.02] transition-colors group" style={{ borderColor: C.border }}>
                   <Td>
-                    <Link href={`/dashboard/campaign/${encodeURIComponent(c.name)}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{c.name}</Link>
+                    <div className="flex items-center gap-2">
+                      <TopRankDot rank={idx} />
+                      <Link href={`/dashboard/campaign/${encodeURIComponent(c.name)}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{c.name}</Link>
+                    </div>
                   </Td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1">
@@ -470,7 +490,7 @@ export default async function DashboardPage({
             </thead>
             <tbody>
               {data.sellerPerformance.length === 0 ? (
-                <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}>Sin actividad de sellers en este período.</td></tr>
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kind="sellers" /></td></tr>
               ) : data.sellerPerformance.map((s, idx) => (
                 <tr key={s.id} className="border-t hover:bg-black/[0.02] transition-colors" style={{ borderColor: C.border }}>
                   <Td>
@@ -500,22 +520,22 @@ export default async function DashboardPage({
 
 // ─── Local presentation primitives ──────────────────────────────────────
 
-function SectionHeader({ title, subtitle, icon: Icon }: { title: string; subtitle: string; icon?: React.ComponentType<{ size?: number; style?: React.CSSProperties }> }) {
+function SectionHeader({ title, subtitle, icon: Icon, action }: { title: string; subtitle: string; icon?: React.ComponentType<{ size?: number; style?: React.CSSProperties }>; action?: React.ReactNode }) {
   return (
-    <div className="mb-3 flex items-center gap-3">
+    <div className="mb-2.5 flex items-center gap-2.5">
       {Icon && (
-        <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-          style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold }}>
-          <Icon size={14} />
+        <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
+          style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`, color: gold }}>
+          <Icon size={12} />
         </span>
       )}
-      <div className="flex-1 min-w-0">
-        <h2 className="text-sm font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
+      <div className="flex-1 min-w-0 flex items-baseline gap-2">
+        <h2 className="text-[13px] font-semibold leading-tight" style={{ color: C.textPrimary, letterSpacing: "-0.005em" }}>
           {title}
         </h2>
-        <p className="text-[11px]" style={{ color: C.textMuted }}>{subtitle}</p>
+        <p className="text-[11px] truncate" style={{ color: C.textMuted }}>· {subtitle}</p>
       </div>
-      <div className="h-px flex-1 max-w-[180px]" style={{ background: `linear-gradient(90deg, color-mix(in srgb, ${gold} 25%, transparent), transparent)` }} />
+      {action}
     </div>
   );
 }
@@ -613,6 +633,38 @@ function VelocityStat({
       </div>
     </div>
   );
+}
+
+/** Small gold dot marking the row's primary ranking position. Only rendered
+ * for `rank === 0` — the visual marker for the period's top performer. Kept
+ * subtle on purpose: skim-ability win without competing with the row content. */
+function TopRankDot({ rank }: { rank: number }) {
+  if (rank !== 0) return <span className="inline-block w-1.5 shrink-0" />;
+  return (
+    <span
+      className="inline-block w-1.5 h-1.5 rounded-full shrink-0"
+      style={{ background: gold, boxShadow: `0 0 0 2px color-mix(in srgb, ${gold} 18%, transparent)` }}
+      title="Top performer del período"
+      aria-label="Top performer"
+    />
+  );
+}
+
+/** Differentiated empty state for tables — separates "no data ever" from "no
+ * data with these filters". The latter has a clear CTA back to a fresh view. */
+function EmptyTableState({ filtered, kind }: { filtered: boolean; kind: string }) {
+  if (filtered) {
+    return (
+      <div className="flex flex-col items-center gap-1.5">
+        <span style={{ color: C.textMuted }}>Sin {kind} para los filtros actuales.</span>
+        <Link href="/" className="text-[10px] font-semibold uppercase tracking-wider transition-opacity hover:opacity-70"
+          style={{ color: gold }}>
+          Limpiar filtros
+        </Link>
+      </div>
+    );
+  }
+  return <span style={{ color: C.textMuted }}>Sin actividad de {kind} en el período.</span>;
 }
 
 function formatMinutes(min: number): string {
