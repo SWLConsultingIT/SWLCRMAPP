@@ -71,8 +71,11 @@ export default function TodayCard({
   };
   locale: "en" | "es";
 }) {
+  // Boss feedback follow-up 2026-05-27: both buckets land collapsed so
+  // the operator sees the count + chooses where to drill. Expanding any
+  // section is one click; the default no longer commits to a guess.
   const [open, setOpen] = useState<Record<TodaySectionKey, boolean>>({
-    replies: data.replies.length > 0,
+    replies: false,
     positives: false,
     calls: false,
     unassigned: false,
@@ -91,7 +94,7 @@ export default function TodayCard({
     list: TodayLead[];
   }> = [
     { key: "replies",    icon: MessageSquare, accent: "#7C3AED", href: "/inbox",         list: data.replies },
-    { key: "calls",      icon: Phone,         accent: "#EA580C", href: "/calls",         list: data.calls },
+    { key: "calls",      icon: Phone,         accent: "#EA580C", href: "/queue",         list: data.calls },
   ];
 
   const totalItems = sections.reduce((acc, s) => acc + s.list.length, 0);

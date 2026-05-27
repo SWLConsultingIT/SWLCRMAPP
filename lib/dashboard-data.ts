@@ -1255,10 +1255,29 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
         .slice(0, 8)
         .map(l => summarize(l.id))
         .filter((x): x is TodayLead => x !== null);
+
+      // Today's pending calls — call-channel campaign messages queued/pending
+      // for sellers to dial. Mirrors the count surfaced in callsBreakdown but
+      // also gives us the actual lead list to render inline. Capped at 8.
+      const campaignById = new Map(allCampaigns.map(c => [c.id, c]));
+      const callsList: TodayLead[] = [];
+      const seenCalls = new Set<string>();
+      for (const m of allMessages) {
+        if (m.status !== "queued" && m.status !== "pending") continue;
+        if (!m.campaign_id) continue;
+        const camp = campaignById.get(m.campaign_id);
+        if (!camp || camp.channel !== "call") continue;
+        const leadId = camp.lead_id;
+        if (!leadId || seenCalls.has(leadId)) continue;
+        seenCalls.add(leadId);
+        const s = summarize(leadId, { when: null, tag: null });
+        if (s) callsList.push(s);
+        if (callsList.length >= 8) break;
+      }
       return {
         replies: repliesList,
         positives: positivesList,
-        calls: [] as TodayLead[],
+        calls: callsList,
         unassigned: unassignedList,
       };
     })(),
