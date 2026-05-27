@@ -757,13 +757,12 @@ export default async function DashboardPage({
             <thead>
               <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
                 <Th align="left">{t("dashx.tbl.col.campaign")}</Th>
-                <Th align="left">{t("dashx.tbl.col.channels")}</Th>
                 <Th align="right">{t("dashx.tbl.col.leads")}</Th>
-                <Th align="right">{t("dashx.tbl.col.sent")}</Th>
+                <Th align="right">{t("dashx.tbl.col.uncontacted")}</Th>
+                <Th align="left">{t("dashx.tbl.col.sentByChannel")}</Th>
                 <Th align="right">{t("dashx.tbl.col.replied")}</Th>
                 <Th align="right">{t("dashx.tbl.col.positive")}</Th>
                 <Th align="right">{t("dashx.tbl.col.convPct")}</Th>
-                <Th align="right">{t("dashx.tbl.col.velocity")}</Th>
                 <Th align="left">{t("dashx.tbl.col.status")}</Th>
                 <Th align="left">{t("dashx.tbl.col.trend14")}</Th>
                 <Th align="left" style={{ width: 24 }}></Th>
@@ -775,18 +774,10 @@ export default async function DashboardPage({
                   ? data.campaignPerformance
                   : data.campaignPerformance.filter(c => c.status === filters.campStatus);
                 if (visible.length === 0) {
-                  return <tr><td colSpan={11} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters || filters.campStatus !== "active"} kindKey="campaigns" t={t} /></td></tr>;
+                  return <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters || filters.campStatus !== "active"} kindKey="campaigns" t={t} /></td></tr>;
                 }
-                // Scale conversion bars to the tab's leader, not the whole
-                // table — keeps the visual ranking inside the active filter.
-                const maxConv = Math.max(1, ...visible.map(c => c.conversionRate));
-                return visible.map((c, idx) => {
-                // Velocity = positives per day in the active period. Lets the
-                // operator separate hot campaigns (winning the month) from
-                // sleepy ones (historical conversion but no momentum).
-                const velocity = data.period.days > 0 ? (c.positive / data.period.days) : 0;
-                const velocityLabel = velocity >= 0.1 ? velocity.toFixed(1) : velocity > 0 ? velocity.toFixed(2) : "0";
-                return (
+                const maxConv = Math.max(1, ...visible.map((c: any) => c.conversionRate));
+                return visible.map((c: any, idx: number) => (
                 <tr key={c.name} className="border-t hover:bg-black/[0.02] transition-colors group" style={{ borderColor: C.border }}>
                   <Td>
                     <div className="flex items-center gap-2 relative">
@@ -798,29 +789,30 @@ export default async function DashboardPage({
                       <Link href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{c.name}</Link>
                     </div>
                   </Td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-1">
-                      {(c.channels as string[]).map((ch: string) => {
-                        const m = channelMeta[ch] ?? channelMeta.email;
-                        const Ic = m.icon;
-                        return <Ic key={ch} size={12} style={{ color: m.color }} />;
-                      })}
-                    </div>
-                  </td>
                   <NumCell value={c.leads} />
-                  <NumCell value={c.sent} />
+                  <NumCell value={c.uncontactedLeads ?? 0} accent={(c.uncontactedLeads ?? 0) > 0 ? "#D97706" : undefined} />
+                  <td className="px-3 py-2">
+                    <ChannelTouches
+                      linkedinSent={c.sentLinkedin ?? 0}
+                      linkedinMsg={0}
+                      emailTouch={c.sentEmail ?? 0}
+                      callTouch={c.sentCall ?? 0}
+                      labels={{
+                        linkedinSent: t("dashx.touch.linkedinSent"),
+                        linkedinMsg: t("dashx.touch.linkedinMsg"),
+                        emailTouch: t("dashx.touch.emailTouch"),
+                        callTouch: t("dashx.touch.callTouch"),
+                      }}
+                    />
+                  </td>
                   <NumCell value={c.replied} />
                   <NumCell value={c.positive} accent={c.positive > 0 ? C.green : undefined} bold />
                   <td className="px-3 py-2"><div className="flex justify-end"><RateBar value={c.conversionRate} max={maxConv} color={C.green} /></div></td>
-                  <td className="px-3 py-2 text-right tabular-nums text-[12px]" style={{ color: velocity > 0 ? C.textPrimary : C.textDim }}>
-                    {velocityLabel}
-                    <span className="text-[9.5px] ml-0.5" style={{ color: C.textDim }}>/d</span>
-                  </td>
                   <td className="px-3 py-2"><StatusBadge status={c.status} t={t} /></td>
                   <td className="px-3 py-2"><InlineSpark data={c.spark} color="#0A66C2" /></td>
                   <td className="pr-3" style={{ color: C.textDim }}><Link href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)} className="inline-flex"><ArrowRight size={12} /></Link></td>
                 </tr>
-              );});
+              ));
               })()}
             </tbody>
           </table>

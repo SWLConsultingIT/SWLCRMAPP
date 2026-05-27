@@ -645,6 +645,9 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   })).sort((a, b) => b.conversionRate - a.conversionRate || b.leads - a.leads);
 
   // ── Campaign performance (grouped by name) ─────────────────────────────
+  // Per-campaign channel breakdown (boss feedback 2026-05-27): each
+  // campaign row now carries the per-channel send count + the count of
+  // its leads that haven't received any send yet ("leads sin contactar").
   type CampAgg = {
     name: string; channels: Set<string>;
     leads: Set<string>; replied: Set<string>; positive: Set<string>; negative: Set<string>;
@@ -653,13 +656,20 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     totalSteps: number;
     stepSum: number;
     stepCount: number;
+    sentLinkedin: number; sentEmail: number; sentCall: number;
+    contactedLeads: Set<string>;
   };
   const campAgg = new Map<string, CampAgg>();
+  const negativeLeadSet = new Set(negativeReplies.map(r => r.lead_id).filter(Boolean) as string[]);
   for (const c of campaigns) {
     let g = campAgg.get(c.name);
     if (!g) {
-      g = { name: c.name, channels: new Set(), leads: new Set(), replied: new Set(), positive: new Set(), negative: new Set(),
-            sent: 0, status: c.status ?? "active", statuses: new Set(), totalSteps: 0, stepSum: 0, stepCount: 0 };
+      g = {
+        name: c.name, channels: new Set(), leads: new Set(), replied: new Set(), positive: new Set(), negative: new Set(),
+        sent: 0, status: c.status ?? "active", statuses: new Set(), totalSteps: 0, stepSum: 0, stepCount: 0,
+        sentLinkedin: 0, sentEmail: 0, sentCall: 0,
+        contactedLeads: new Set(),
+      };
       campAgg.set(c.name, g);
     }
     g.channels.add(c.channel ?? "linkedin");
@@ -668,8 +678,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       g.leads.add(c.lead_id);
       if (repliedLeadIds.has(c.lead_id)) g.replied.add(c.lead_id);
       if (positiveLeadIds.has(c.lead_id)) g.positive.add(c.lead_id);
-      const ns = new Set(negativeReplies.map(r => r.lead_id).filter(Boolean) as string[]);
-      if (ns.has(c.lead_id)) g.negative.add(c.lead_id);
+      if (negativeLeadSet.has(c.lead_id)) g.negative.add(c.lead_id);
     }
     const ts = Array.isArray(c.sequence_steps) ? c.sequence_steps.length : 0;
     g.totalSteps = Math.max(g.totalSteps, ts);
@@ -681,11 +690,17 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     const c = campaigns.find(x => x.id === m.campaign_id);
     if (!c) continue;
     const g = campAgg.get(c.name);
-    if (g) g.sent++;
+    if (!g) continue;
+    if (m.status === "sent") {
+      g.sent++;
+      const ch = c.channel ?? "linkedin";
+      if (ch === "linkedin") g.sentLinkedin++;
+      else if (ch === "email") g.sentEmail++;
+      else if (ch === "call") g.sentCall++;
+      if (c.lead_id) g.contactedLeads.add(c.lead_id);
+    }
   }
   const campaignPerformance = Array.from(campAgg.values()).map(g => {
-    // Aggregate status: if any campaign in the group is active → active,
-    // else if any paused → paused, else completed.
     let status = "completed";
     if (g.statuses.has("active")) status = "active";
     else if (g.statuses.has("paused")) status = "paused";
@@ -694,6 +709,10 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       channels: Array.from(g.channels),
       leads: g.leads.size,
       sent: g.sent,
+      sentLinkedin: g.sentLinkedin,
+      sentEmail: g.sentEmail,
+      sentCall: g.sentCall,
+      uncontactedLeads: Math.max(0, g.leads.size - g.contactedLeads.size),
       replied: g.replied.size,
       positive: g.positive.size,
       negative: g.negative.size,
