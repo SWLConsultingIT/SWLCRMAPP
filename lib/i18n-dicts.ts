@@ -423,6 +423,10 @@ export const en: Dict = {
   "dashx.step.drop": "Drop",
   "dashx.step.note": "Reply attribution: each reply is assigned to the last sent step before its arrival. Steps with <5 sends show \"—\".",
   "dashx.step.empty": "No messages sent in the period.",
+  "dashx.step.best": "Best",
+  "dashx.step.replyShareTooltip": "Reply share inside the sent bar",
+  "dashx.step.deltaTooltip": "Change vs previous non-CR step",
+  "dashx.step.summary": "Step {step} is the weakest link at {rate}% reply rate.",
   // Trend + heatmap
   "dashx.trend.title": "30-day activity",
   "dashx.trend.subtitle": "Sent · replies · positives",
@@ -1178,6 +1182,10 @@ export const es: Dict = {
   "dashx.step.drop": "Drop",
   "dashx.step.note": "Reply attribution: cada respuesta se asigna al último step enviado antes de su llegada. Pasos con <5 envíos muestran \"—\".",
   "dashx.step.empty": "Sin mensajes enviados en el período.",
+  "dashx.step.best": "Mejor",
+  "dashx.step.replyShareTooltip": "Proporción de respuestas dentro del bar de envíos",
+  "dashx.step.deltaTooltip": "Cambio vs el step anterior (sin contar CR)",
+  "dashx.step.summary": "El Paso {step} es el eslabón débil — {rate}% de reply rate.",
   // Trend + heatmap
   "dashx.trend.title": "Actividad 30 días",
   "dashx.trend.subtitle": "Enviados · respuestas · positivas",

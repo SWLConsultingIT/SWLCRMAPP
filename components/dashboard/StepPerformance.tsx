@@ -1,14 +1,16 @@
-// Sequence step performance — horizontal flow visualization. Each step is a
-// card connected by an arrow to the next, with sent count + reply rate
-// inline. Reads naturally as "first this happens, then this, then this".
-// Replaces the dense table view which lost the sequence's temporal shape.
+// Sequence step performance — vertical funnel cascade. Each step is a
+// horizontal row that tapers as the sent count drops, with the reply rate
+// and the drop-off vs the previous step shown to the right. Reads top-to-
+// bottom as "and then we lost X% here, and Y% here" — the question the
+// boss actually asks when looking at this view.
 //
-// Drop flag (red ring) appears when a step's reply rate is <60% of the
-// median rate of preceding non-CR steps with data. Step 0 (CR) is always
-// rendered with a quieter style + footnote because CRs in SWL's data don't
-// generate text replies (their outcome is acceptance, tracked separately).
+// Step 0 (Connection Request) is rendered without a reply rate because
+// CRs in SWL's data are acceptance-tracked, not reply-tracked.
+//
+// Drop flag (red ring + delta tinted red) appears when a step's reply
+// rate is <60% of the median rate of preceding non-CR steps with data.
 
-import { AlertTriangle, ChevronRight } from "lucide-react";
+import { AlertTriangle, TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { C } from "@/lib/design";
 import { t as tFn, type Locale } from "@/lib/i18n-server";
 
@@ -33,8 +35,11 @@ export default function StepPerformance({ steps, locale }: { steps: Step[]; loca
   }
 
   const labelFor = (n: number) => n === 0 ? t("dashx.step.cr") : t("dashx.step.followup", { n: n + 1 });
-  const maxRate = Math.max(...steps.map(s => s.replyRate ?? 0), 1);
+  const maxSent = Math.max(...steps.map(s => s.sent), 1);
+  const maxReplyRate = Math.max(...steps.filter(s => s.step > 0).map(s => s.replyRate ?? 0), 1);
 
+  // Identify the leakage point: the non-CR step with the worst reply rate
+  // relative to the median of preceding non-CR steps.
   const dropFlags = new Set<number>();
   for (let i = 1; i < steps.length; i++) {
     const cur = steps[i].replyRate;
@@ -49,91 +54,187 @@ export default function StepPerformance({ steps, locale }: { steps: Step[]; loca
     if (median > 0 && cur < median * 0.6) dropFlags.add(steps[i].step);
   }
 
+  // Find the best non-CR step (highest reply rate) so we can crown it gold.
+  let bestStep: number | null = null;
+  let bestRate = 0;
+  for (const s of steps) {
+    if (s.step === 0 || s.replyRate === null) continue;
+    if (s.replyRate > bestRate) { bestRate = s.replyRate; bestStep = s.step; }
+  }
+
   return (
     <div className="space-y-3">
-      <div className="overflow-x-auto pb-1 -mx-1 px-1">
-        <div className="flex items-stretch gap-2 min-w-fit">
-          {steps.map((s, idx) => {
-            const isCR = s.step === 0;
-            const isDrop = dropFlags.has(s.step);
-            const insufficient = s.replyRate === null;
+      <div className="space-y-1.5">
+        {steps.map((s, idx) => {
+          const isCR = s.step === 0;
+          const isDrop = dropFlags.has(s.step);
+          const isBest = bestStep === s.step;
+          const insufficient = s.replyRate === null;
 
-            // Tile background tone: CR = neutral, drop = red wash, healthy
-            // top performer = gold wash, otherwise card surface. Reading is
-            // immediate: red = problem, gold = best step.
-            const tileBg = isCR ? C.surface :
-              isDrop ? `color-mix(in srgb, ${C.red} 7%, ${C.card})` :
-              !insufficient && s.replyRate! >= maxRate * 0.85
-                ? `color-mix(in srgb, ${gold} 9%, ${C.card})`
-                : C.card;
-            const tileBorder = isDrop ? C.red :
-              !insufficient && s.replyRate! >= maxRate * 0.85 ? `color-mix(in srgb, ${gold} 45%, transparent)` :
-              C.border;
+          const sentPct = Math.max(8, Math.round((s.sent / maxSent) * 100));
+          const ratePct = !insufficient && !isCR ? Math.round((s.replyRate! / maxReplyRate) * 100) : 0;
 
-            const rateColor = insufficient ? C.textDim :
-              isCR ? C.textMuted :
-              isDrop ? C.red :
-              s.replyRate! >= maxRate * 0.7 ? gold : C.textBody;
+          // Delta vs the previous non-CR step with a valid rate.
+          let deltaPp: number | null = null;
+          if (!isCR && !insufficient) {
+            for (let j = idx - 1; j >= 0; j--) {
+              const prev = steps[j];
+              if (prev.step === 0 || prev.replyRate === null) continue;
+              deltaPp = Math.round((s.replyRate! - prev.replyRate!) * 10) / 10;
+              break;
+            }
+          }
 
-            return (
-              <div key={s.step} className="contents">
-                <div
-                  className="rounded-xl border px-4 py-3 min-w-[180px] flex flex-col"
-                  style={{ background: tileBg, borderColor: tileBorder }}
+          // Bar color: CR neutral, drop red, best gold, default body.
+          const barColor = isCR ? C.textMuted
+            : isDrop ? C.red
+            : isBest ? gold
+            : "#7C3AED";
+          const rowAccent = isDrop ? "color-mix(in srgb, " + C.red + " 30%, transparent)"
+            : isBest ? "color-mix(in srgb, " + gold + " 35%, transparent)"
+            : "transparent";
+
+          return (
+            <div
+              key={s.step}
+              className="rounded-lg border px-3 py-2.5 grid grid-cols-12 items-center gap-3 transition-colors"
+              style={{
+                borderColor: isDrop || isBest ? rowAccent : C.border,
+                background: isDrop ? `color-mix(in srgb, ${C.red} 5%, ${C.card})`
+                  : isBest ? `color-mix(in srgb, ${gold} 6%, ${C.card})`
+                  : C.card,
+              }}
+            >
+              {/* Left: step label + flag */}
+              <div className="col-span-3 min-w-0 flex items-center gap-2">
+                <span
+                  className="w-6 h-6 rounded-md flex items-center justify-center shrink-0 text-[10.5px] font-bold tabular-nums"
+                  style={{
+                    background: isCR ? C.surface
+                      : isDrop ? `color-mix(in srgb, ${C.red} 18%, transparent)`
+                      : isBest ? `color-mix(in srgb, ${gold} 22%, transparent)`
+                      : `color-mix(in srgb, #7C3AED 14%, transparent)`,
+                    color: isCR ? C.textMuted : isDrop ? C.red : isBest ? gold : "#7C3AED",
+                  }}
                 >
-                  <div className="flex items-center gap-1.5 mb-1.5">
-                    <span className="text-[9.5px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>
-                      {t("dashx.detail.campaign.seq.step", { n: idx + 1 })}
-                    </span>
+                  {idx + 1}
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-semibold leading-tight truncate" style={{ color: C.textPrimary }} title={labelFor(s.step)}>
+                    {labelFor(s.step)}
+                  </p>
+                  <div className="flex items-center gap-1 mt-0.5">
                     {isCR && (
-                      <span className="text-[9px] font-medium uppercase tracking-wider px-1 py-px rounded-sm"
-                        style={{ background: `color-mix(in srgb, ${gold} 14%, transparent)`, color: C.textMuted }}
+                      <span className="text-[9px] font-medium uppercase tracking-wider"
+                        style={{ color: C.textDim }}
                         title={t("dashx.step.crNoteTooltip")}>
                         {t("dashx.step.crBadge")}
                       </span>
                     )}
                     {isDrop && (
-                      <span className="inline-flex items-center gap-1 text-[9px] font-semibold uppercase tracking-wider px-1 py-px rounded-sm"
-                        style={{ background: `color-mix(in srgb, ${C.red} 14%, transparent)`, color: C.red }}>
+                      <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wider"
+                        style={{ color: C.red }}>
                         <AlertTriangle size={8} /> {t("dashx.step.drop")}
                       </span>
                     )}
+                    {isBest && !isDrop && (
+                      <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: gold }}>
+                        {t("dashx.step.best")}
+                      </span>
+                    )}
                   </div>
-                  <p className="text-[12.5px] font-medium leading-tight truncate" style={{ color: C.textPrimary }} title={labelFor(s.step)}>
-                    {labelFor(s.step)}
-                  </p>
-                  <div className="mt-3 flex items-baseline gap-2">
-                    <span className="text-[20px] font-semibold tabular-nums leading-none" style={{ color: rateColor }}>
-                      {insufficient ? "—" : isCR ? "—" : `${s.replyRate}%`}
+                </div>
+              </div>
+
+              {/* Middle: tapering sent bar (funnel-cascade shape) */}
+              <div className="col-span-5">
+                <div className="relative h-7 rounded-md overflow-hidden" style={{ background: C.surface }}>
+                  <div
+                    className="absolute inset-y-0 left-0 transition-[width]"
+                    style={{
+                      width: `${sentPct}%`,
+                      background: isCR
+                        ? `linear-gradient(90deg, color-mix(in srgb, ${C.textMuted} 30%, transparent), color-mix(in srgb, ${C.textMuted} 14%, transparent))`
+                        : `linear-gradient(90deg, ${barColor}, color-mix(in srgb, ${barColor} 55%, transparent))`,
+                    }}
+                  />
+                  {/* Inner reply-rate ribbon — width proportional to rate within
+                      the sent bar. Visible inside the bar so the eye can directly
+                      compare "how much of what we sent actually got replies". */}
+                  {!isCR && !insufficient && (
+                    <div
+                      className="absolute top-1/2 left-1.5 -translate-y-1/2 h-3 rounded-sm"
+                      style={{
+                        width: `${Math.max(4, Math.round(sentPct * (ratePct / 100)))}%`,
+                        background: "rgba(255,255,255,0.65)",
+                        boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.06)",
+                      }}
+                      title={t("dashx.step.replyShareTooltip")}
+                    />
+                  )}
+                  <div className="absolute inset-0 flex items-center justify-between px-2.5 text-[10.5px] tabular-nums">
+                    <span style={{ color: sentPct > 40 ? "#fff" : C.textBody, fontWeight: 600, textShadow: sentPct > 40 ? "0 1px 2px rgba(0,0,0,0.25)" : undefined }}>
+                      {s.sent.toLocaleString("en-US")} {t("dashx.step.colSent").toLowerCase()}
                     </span>
-                    <span className="text-[10px]" style={{ color: C.textDim }}>{t("dashx.step.colRate")}</span>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between text-[10.5px] tabular-nums" style={{ color: C.textMuted }}>
-                    <span>{s.sent.toLocaleString("en-US")} {t("dashx.step.colSent").toLowerCase()}</span>
-                    <span style={{ color: s.replied > 0 ? C.green : C.textDim, fontWeight: s.replied > 0 ? 600 : 400 }}>
+                    <span style={{ color: s.replied > 0 ? "#fff" : C.textDim, fontWeight: s.replied > 0 ? 600 : 400, textShadow: s.replied > 0 && sentPct > 40 ? "0 1px 2px rgba(0,0,0,0.25)" : undefined }}>
                       {s.replied} {t("dashx.step.colReplied").toLowerCase()}
                     </span>
                   </div>
                 </div>
-                {idx < steps.length - 1 && (
-                  <div className="flex items-center justify-center w-6 shrink-0" aria-hidden>
-                    <ChevronRight size={14} style={{ color: C.textDim }} />
-                  </div>
+              </div>
+
+              {/* Right: rate + delta vs previous step */}
+              <div className="col-span-4 flex items-baseline justify-end gap-2">
+                <span className="text-[18px] font-bold tabular-nums leading-none"
+                  style={{
+                    color: isCR ? C.textDim
+                      : insufficient ? C.textDim
+                      : isDrop ? C.red
+                      : isBest ? gold
+                      : C.textPrimary,
+                  }}>
+                  {isCR ? "—" : insufficient ? "—" : `${s.replyRate}%`}
+                </span>
+                <span className="text-[10px]" style={{ color: C.textDim }}>{t("dashx.step.colRate")}</span>
+                {deltaPp !== null && (
+                  <span className="inline-flex items-center gap-0.5 text-[10.5px] font-semibold tabular-nums ml-1"
+                    style={{
+                      color: deltaPp <= -2 ? C.red : deltaPp >= 2 ? C.green : C.textMuted,
+                    }}
+                    title={t("dashx.step.deltaTooltip")}>
+                    {deltaPp <= -0.5 ? <TrendingDown size={11} /> : deltaPp >= 0.5 ? <TrendingUp size={11} /> : <Minus size={11} />}
+                    {deltaPp > 0 ? "+" : ""}{deltaPp}pp
+                  </span>
                 )}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          );
+        })}
       </div>
-      <p className="px-1 pt-1 text-[10px] leading-relaxed" style={{ color: C.textDim }}>
-        {t("dashx.step.note")}
-        {steps.some(s => s.step === 0) && (
-          <>
-            <br />
-            {t("dashx.step.crFootnote")}
-          </>
-        )}
-      </p>
+
+      {/* Headline insight under the rows */}
+      {(() => {
+        const eligible = steps.filter(s => s.step > 0 && s.replyRate !== null) as Array<Step & { replyRate: number }>;
+        if (eligible.length === 0) return null;
+        const worst = [...eligible].sort((a, b) => a.replyRate - b.replyRate)[0];
+        const isWorstFlagged = dropFlags.has(worst.step);
+        return (
+          <div className="px-1 pt-1 text-[10.5px] leading-relaxed flex items-start gap-2" style={{ color: C.textDim }}>
+            <span style={{ color: isWorstFlagged ? C.red : C.textMuted }}>
+              {isWorstFlagged ? <AlertTriangle size={11} className="mt-0.5" /> : <Minus size={11} className="mt-0.5" />}
+            </span>
+            <span>
+              {t("dashx.step.summary", { step: worst.step + 1, rate: worst.replyRate })}
+              {steps.some(s => s.step === 0) && (
+                <>
+                  {" "}
+                  <span style={{ color: C.textDim }}>· {t("dashx.step.crFootnote")}</span>
+                </>
+              )}
+            </span>
+          </div>
+        );
+      })()}
     </div>
   );
 }
