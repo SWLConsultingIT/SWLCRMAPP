@@ -104,6 +104,7 @@ const EMPTY_DASHBOARD = {
   campaignPerformance: [] as Array<any>,
   sellerPerformance: [] as Array<any>,
   trend30d: { sent: new Array(30).fill(0) as number[], replies: new Array(30).fill(0) as number[], positive: new Array(30).fill(0) as number[] },
+  trendPrior: { sent: new Array(30).fill(0) as number[], replies: new Array(30).fill(0) as number[], positive: new Array(30).fill(0) as number[] },
   replyClassCounts: { positive: 0, meeting_intent: 0 } as Record<string, number>,
   insights: [] as Array<{ tone: "positive" | "warning" | "neutral"; kind: string; vars: Record<string, string | number>; text: string }>,
   activeCampaignCount: 0,
@@ -903,6 +904,34 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     const t = new Date(r.received_at).getTime();
     return t >= priorFrom && t < priorTo;
   });
+
+  // ── Prior-period trend (ghost line on the 30-day chart) ────────────────
+  // Same shape and length as trend30d, but anchored at priorTo (= the
+  // period's `from`) and walking backwards trendDays days. Lets the
+  // chart overlay the previous period as a dashed reference line.
+  const priorTrendSent: number[] = new Array(trendDays).fill(0);
+  const priorTrendReplies: number[] = new Array(trendDays).fill(0);
+  const priorTrendPositive: number[] = new Array(trendDays).fill(0);
+  const priorTrendBucket = (iso: string): number => {
+    const tMs = new Date(iso).getTime();
+    return trendDays - 1 - Math.floor((priorTo - tMs) / 86_400_000);
+  };
+  for (const m of allMessages) {
+    if (m.status !== "sent" || !m.sent_at) continue;
+    const tMs = new Date(m.sent_at).getTime();
+    if (tMs < priorFrom || tMs >= priorTo) continue;
+    const idx = priorTrendBucket(m.sent_at);
+    if (idx >= 0 && idx < trendDays) priorTrendSent[idx]++;
+  }
+  for (const r of priorReplies) {
+    if (!r.received_at) continue;
+    const idx = priorTrendBucket(r.received_at);
+    if (idx >= 0 && idx < trendDays) {
+      priorTrendReplies[idx]++;
+      if (POSITIVE_CLASS.has(r.classification ?? "")) priorTrendPositive[idx]++;
+    }
+  }
+  const trendPrior = { sent: priorTrendSent, replies: priorTrendReplies, positive: priorTrendPositive };
   const priorContactedLeads = new Set(
     allCampaigns
       .filter(c => c.created_at && new Date(c.created_at).getTime() >= priorFrom && new Date(c.created_at).getTime() < priorTo)
@@ -1111,6 +1140,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     campaignPerformance: campaignPerformance.map(c => ({ ...c, spark: sparkByCampaign.get(c.name) ?? new Array(14).fill(0) })),
     sellerPerformance: sellerPerformance.map(s => ({ ...s, spark: sparkBySeller.get(s.id) ?? new Array(14).fill(0) })),
     trend30d,
+    trendPrior,
     replyClassCounts,
     insights: insights.slice(0, 4),
     activeCampaignCount: campaigns.filter(c => c.status === "active").length,

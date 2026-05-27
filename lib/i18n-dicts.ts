@@ -713,6 +713,9 @@ export const en: Dict = {
   "dashx.donut.empty": "No replies in the period",
   "dashx.trend.today": "Today",
   "dashx.trend.daysAgo": "d",
+  "dashx.trend.priorPeriod": "Prior period",
+  "dashx.trend.resetZoom": "Reset zoom",
+  "dashx.trend.total": "total",
 };
 
 export const es: Dict = {
@@ -1424,6 +1427,9 @@ export const es: Dict = {
   "dashx.donut.empty": "Sin respuestas en el período",
   "dashx.trend.today": "Hoy",
   "dashx.trend.daysAgo": "d",
+  "dashx.trend.priorPeriod": "Período anterior",
+  "dashx.trend.resetZoom": "Reset zoom",
+  "dashx.trend.total": "total",
 };
 
 export const dicts: Record<Locale, Dict> = { en, es };

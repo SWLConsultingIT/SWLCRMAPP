@@ -630,10 +630,18 @@ export default async function DashboardPage({
             <MultiLineChart
               todayLabel={t("dashx.trend.today")}
               recentLabel={t("dashx.trend.daysAgo")}
+              priorLabel={t("dashx.trend.priorPeriod")}
+              resetLabel={t("dashx.trend.resetZoom")}
+              totalLabel={t("dashx.trend.total")}
               series={[
                 { name: t("dashx.trend.sent"),      color: C.seriesSent,     data: trend30d.sent },
                 { name: t("dashx.trend.replies"),   color: C.seriesReplies,  data: trend30d.replies },
                 { name: t("dashx.trend.positives"), color: C.seriesPositive, data: trend30d.positive },
+              ]}
+              priorSeries={[
+                { name: t("dashx.trend.sent"),      color: C.seriesSent,     data: data.trendPrior.sent },
+                { name: t("dashx.trend.replies"),   color: C.seriesReplies,  data: data.trendPrior.replies },
+                { name: t("dashx.trend.positives"), color: C.seriesPositive, data: data.trendPrior.positive },
               ]}
             />
           </Panel>
