@@ -1,9 +1,17 @@
 "use client";
 
 // Sticky filter strip at the top of the dashboard. The whole page is
-// server-rendered, so changes here push to the URL via router.push() —
-// the server reads ?from / ?to / ?campaigns / ?icps / ?sellers and the
-// rest of the page re-renders against the filtered slice.
+// server-rendered, so changes here push to the URL — the server reads
+// ?from / ?to / ?campaigns / ?icps / ?sellers and the rest of the page
+// re-renders against the filtered slice.
+//
+// Speed pass (boss feedback 2026-05-27): the filter chip ABSOLUTELY MUST
+// look active the instant the user clicks, not after the server roundtrip
+// completes. We hold an optimistic snapshot of the desired URL params in
+// local state; the chip's "on" state reads from optimistic state first,
+// falling back to the actual URL. As soon as React commits the new URL
+// (transition ends), the optimistic state clears and the real URL takes
+// over. Result: instant visual feedback + still a single source of truth.
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -36,17 +44,28 @@ export default function FiltersBar({
   const [pending, startTransition] = useTransition();
   const { t } = useLocale();
 
-  const currentFrom = params.get("from");
-  const currentTo   = params.get("to");
-  // Infer the active preset from the URL if it matches.
+  // ── Optimistic params snapshot ─────────────────────────────────────────
+  // Holds the *desired* URL params the moment the user clicks. The UI
+  // reads its active state from here first, falling back to the real URL.
+  // Cleared when the URL actually matches what we wanted, so we never
+  // get stuck on stale optimistic state.
+  const [optimistic, setOptimistic] = useState<URLSearchParams | null>(null);
+  const effective = optimistic ?? params;
+
+  useEffect(() => {
+    // When the URL catches up to whatever we optimistically applied, drop
+    // the snapshot. Compare by stringified params so a stable input keeps
+    // the snapshot until React commits.
+    if (optimistic && optimistic.toString() === params.toString()) {
+      setOptimistic(null);
+    }
+  }, [params, optimistic]);
+
+  const currentFrom = effective.get("from");
+  const currentTo   = effective.get("to");
   const activePeriod = (() => {
     if (!currentFrom && !currentTo) return "30d";
     if (currentFrom && currentTo) {
-      // Exact day span between from/to — setPeriod writes them as
-      // (now - N*86400000) → now, so the diff is exactly N days. The
-      // earlier "+ 1" guard pushed the value off-by-one and meant no
-      // chip ever highlighted after a click. Bug: every period button
-      // looked inert because the matcher couldn't find days=8/31/91.
       const days = Math.round((new Date(currentTo).getTime() - new Date(currentFrom).getTime()) / 86_400_000);
       const m = PERIODS.find(p => p.days === days);
       return m ? m.id : "custom";
@@ -54,28 +73,39 @@ export default function FiltersBar({
     return "custom";
   })();
 
-  const selectedCampaigns = params.get("campaigns")?.split("|").filter(Boolean) ?? [];
-  const selectedIcps      = params.get("icps")?.split("|").filter(Boolean) ?? [];
-  const selectedSellers   = params.get("sellers")?.split("|").filter(Boolean) ?? [];
+  const selectedCampaigns = effective.get("campaigns")?.split("|").filter(Boolean) ?? [];
+  const selectedIcps      = effective.get("icps")?.split("|").filter(Boolean) ?? [];
+  const selectedSellers   = effective.get("sellers")?.split("|").filter(Boolean) ?? [];
+
+  /** Apply a builder to the current params and push immediately. The
+   *  optimistic snapshot updates synchronously so the chip switches to
+   *  "on" before the server has even started re-rendering. */
+  function apply(mutate: (p: URLSearchParams) => void) {
+    const next = new URLSearchParams(params.toString());
+    mutate(next);
+    setOptimistic(next);
+    const qs = next.toString();
+    startTransition(() => router.replace(qs ? `?${qs}` : "?", { scroll: false }));
+  }
 
   function setParam(key: string, value: string | null) {
-    const next = new URLSearchParams(params.toString());
-    if (value && value.length > 0) next.set(key, value); else next.delete(key);
-    startTransition(() => router.push(`?${next.toString()}`));
+    apply(p => {
+      if (value && value.length > 0) p.set(key, value); else p.delete(key);
+    });
   }
 
   function setPeriod(id: string) {
     const p = PERIODS.find(x => x.id === id);
     if (!p) return;
-    const next = new URLSearchParams(params.toString());
-    if (p.days === null) { next.delete("from"); next.delete("to"); }
-    else {
-      const to = new Date();
-      const from = new Date(Date.now() - p.days * 86_400_000);
-      next.set("from", from.toISOString().slice(0, 10));
-      next.set("to",   to.toISOString().slice(0, 10));
-    }
-    startTransition(() => router.push(`?${next.toString()}`));
+    apply(next => {
+      if (p.days === null) { next.delete("from"); next.delete("to"); }
+      else {
+        const to = new Date();
+        const from = new Date(Date.now() - p.days * 86_400_000);
+        next.set("from", from.toISOString().slice(0, 10));
+        next.set("to",   to.toISOString().slice(0, 10));
+      }
+    });
   }
 
   function toggleMulti(key: "campaigns" | "icps" | "sellers", id: string) {
@@ -87,22 +117,39 @@ export default function FiltersBar({
   const anyFilter = selectedCampaigns.length + selectedIcps.length + selectedSellers.length > 0;
 
   function clearAll() {
-    const next = new URLSearchParams();
-    startTransition(() => router.push(next.toString() ? `?${next.toString()}` : "?"));
+    apply(p => { for (const k of Array.from(p.keys())) p.delete(k); });
   }
 
   return (
     <div
-      className="sticky top-2 z-20 rounded-2xl border px-3 py-2 flex items-center gap-2 flex-wrap"
+      className="sticky top-2 z-20 rounded-2xl border px-3 py-2 flex items-center gap-2 flex-wrap relative overflow-hidden"
       style={{
         backgroundColor: C.card,
         borderColor: C.border,
         boxShadow: "0 4px 12px rgba(0,0,0,0.04)",
         backdropFilter: "blur(8px)",
-        opacity: pending ? 0.7 : 1,
-        transition: "opacity 150ms",
       }}
     >
+      {/* Pending indicator — thin gold strip animates left-to-right at the
+          top of the filter bar whenever a transition is in flight. Subtle
+          enough not to distract, loud enough to tell the user "data on
+          the way". */}
+      {pending && (
+        <span
+          aria-hidden
+          className="absolute top-0 left-0 right-0 h-[2px] overflow-hidden pointer-events-none"
+        >
+          <span
+            className="block h-full"
+            style={{
+              width: "30%",
+              background: `linear-gradient(90deg, transparent, ${gold} 50%, transparent)`,
+              animation: "swl-filter-pulse 0.9s linear infinite",
+            }}
+          />
+          <style>{`@keyframes swl-filter-pulse { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }`}</style>
+        </span>
+      )}
       <div className="flex items-center gap-1.5 pl-1 pr-1" style={{ color: C.textMuted }}>
         <Calendar size={13} />
         <span className="text-[11px] font-semibold uppercase tracking-wider">{t("dashx.filters.period")}</span>
@@ -135,10 +182,7 @@ export default function FiltersBar({
           currentFrom={currentFrom}
           currentTo={currentTo}
           onApply={(from, to) => {
-            const next = new URLSearchParams(params.toString());
-            next.set("from", from);
-            next.set("to", to);
-            startTransition(() => router.push(`?${next.toString()}`));
+            apply(next => { next.set("from", from); next.set("to", to); });
           }}
           customLabel={t("dashx.filters.custom")}
           applyLabel={t("dashx.filters.applyCustom")}

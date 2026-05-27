@@ -11,7 +11,7 @@
 // glow + bold label.
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { C, N } from "@/lib/design";
 
 const gold = "var(--brand, #c9a83a)";
@@ -33,30 +33,54 @@ export default function ChapterNav({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  const activeId = params.get("tab") || items[0]?.id || "";
+  // Optimistic tab snapshot — clicking switches the highlight INSTANTLY
+  // (no waiting on the server-side re-render to settle the URL). Cleared
+  // once the real URL catches up. Same pattern as FiltersBar.
+  const [optimistic, setOptimistic] = useState<string | null>(null);
+  const urlTab = params.get("tab") || items[0]?.id || "";
+  const activeId = optimistic ?? urlTab;
+  useEffect(() => {
+    if (optimistic && urlTab === optimistic) setOptimistic(null);
+  }, [urlTab, optimistic]);
 
   function goTo(id: string) {
+    setOptimistic(id);
     const next = new URLSearchParams(params.toString());
     if (id === items[0]?.id) next.delete("tab"); else next.set("tab", id);
     const qs = next.toString();
-    startTransition(() => router.push(qs ? `?${qs}` : "?"));
+    startTransition(() => router.replace(qs ? `?${qs}` : "?", { scroll: false }));
   }
 
   if (items.length < 2) return null;
 
   return (
     <nav
-      className="sticky top-0 z-30 -mx-4 sm:-mx-6 px-4 sm:px-6 flex items-center justify-between gap-3"
+      className="sticky top-0 z-30 -mx-4 sm:-mx-6 px-4 sm:px-6 flex items-center justify-between gap-3 relative"
       style={{
         backgroundColor: `color-mix(in srgb, ${C.card} 92%, transparent)`,
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
         borderBottom: `1px solid ${C.border}`,
-        opacity: pending ? 0.75 : 1,
-        transition: "opacity 150ms",
       }}
       aria-label="Dashboard tabs"
     >
+      {/* Pending indicator — same gold pulse used by FiltersBar so the user
+          sees a consistent "data in flight" signal across both navigations. */}
+      {pending && (
+        <span
+          aria-hidden
+          className="absolute top-0 left-0 right-0 h-[2px] overflow-hidden pointer-events-none"
+        >
+          <span
+            className="block h-full"
+            style={{
+              width: "30%",
+              background: `linear-gradient(90deg, transparent, ${gold} 50%, transparent)`,
+              animation: "swl-filter-pulse 0.9s linear infinite",
+            }}
+          />
+        </span>
+      )}
       <div className="flex items-stretch gap-1 overflow-x-auto flex-1 min-w-0">
         {items.map(it => {
           const on = activeId === it.id;
