@@ -50,18 +50,23 @@ const channelMeta: Record<string, { icon: React.ElementType; color: string; labe
 // composed at render time from `dashx.reply.<class>`. Falls back to the raw
 // key (which i18n returns when missing), so a new class added on the AI side
 // shows up untranslated rather than crashing the dashboard.
+//
+// Palette is SWL-cohesive (gold for engagement-style replies that still
+// need work, green for positive outcomes, red for hard nos, slate for
+// neutral/automated). Replaced the prior rainbow (purple/orange/blue) that
+// didn't speak to the brand.
 const classColors: Record<string, string> = {
-  positive:       "#16A34A",
-  meeting_intent: "#059669",
-  negative:       "#DC2626",
-  not_now:        "#F59E0B",
-  unsubscribe:    "#9CA3AF",
-  needs_info:     "#7C3AED",
-  question:       "#0A66C2",
-  nurturing:      "#6B7280",
-  spam:           "#374151",
-  auto_reply:     "#94A3B8",
-  unclassified:   "#9CA3AF",
+  positive:       "#10B981",   // green — outcome
+  meeting_intent: "#059669",   // green darker — strongest outcome
+  negative:       "#DC2626",   // red — outcome
+  not_now:        "#E08A1A",   // amber — not now (kindred to gold)
+  unsubscribe:    "#B91C1C",   // red darker — hard out
+  needs_info:     "#c9a83a",   // SWL gold — needs more from us
+  question:       "#D9B95E",   // gold lighter — open dialogue
+  nurturing:      "#94A3B8",   // slate — passive
+  spam:           "#475569",   // dark slate — junk
+  auto_reply:     "#94A3B8",   // slate — automated
+  unclassified:   "#94A3B8",   // slate — unknown
 };
 
 /** Small callout strip placed above each leaderboard that surfaces the

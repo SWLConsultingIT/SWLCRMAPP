@@ -12,15 +12,16 @@ import { C } from "@/lib/design";
 
 type Stage = { stage: string; count: number; color: string; prior?: number | null };
 
-// Funnel colors — slightly more saturated than defaults so the bars feel
-// alive against the white card. The "brand" tone (Won stage) reads as a
-// premium gold gradient via the bar styles below.
+// Funnel palette — cohesive progression: cool slate at the top (raw lead),
+// navy as the lead "gets in motion", gold as engagement deepens, green at
+// the positive-outcome bucket, premium gold gradient on Won. No more random
+// blue / orange / green hops that didn't belong to the SWL system.
 const colorMap: Record<string, string> = {
-  neutral: "#94A3B8",
-  info:    "#1F6FE5",
-  warning: "#E08A1A",
-  success: "#10B981",
-  brand:   "#c9a83a",
+  neutral: "#94A3B8",   // imported  — slate (raw lead)
+  info:    "#3D5A8F",   // contacted/accepted — navy (in motion)
+  warning: "#B79832",   // replied   — dark gold (engaged)
+  success: "#10B981",   // positives/meeting — green (interested)
+  brand:   "#c9a83a",   // won       — SWL gold (premium gradient via bar style)
 };
 
 export default function Funnel({

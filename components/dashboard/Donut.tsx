@@ -1,10 +1,11 @@
-// Reply classification donut. Pure SVG — no chart lib. Renders each slice
-// with the seed color from the classification map + a legend below. The
-// center value is the total, formatted as 1.2k when ≥1000 so the layout
-// doesn't break with high-volume tenants.
+// Reply classification donut. Centered layout: ring on top, legend chips
+// below — clean, symmetric, no off-balance left-vs-right composition.
 //
-// Labels (center caption, "no data" copy) come in via props so the parent
-// controls the language and the wording.
+// Color palette is SWL-cohesive (gold for engagement-style replies, green
+// for positive outcomes, red for negative, slate for auto/neutral). The
+// upstream caller passes raw classification colors but the donut renders
+// whatever it receives — palette is owned by app/page.tsx so a tenant can
+// tweak it without changing this component.
 
 import { C } from "@/lib/design";
 
@@ -12,17 +13,15 @@ type Slice = { label: string; value: number; color: string };
 
 export default function Donut({
   data,
-  size = 180,
-  thickness = 26,
+  size = 200,
+  thickness = 28,
   centerLabel = "replies",
   emptyLabel = "No replies in the period",
 }: {
   data: Slice[];
   size?: number;
   thickness?: number;
-  /** Caption under the big number in the center (e.g. "replies", "respuestas"). */
   centerLabel?: string;
-  /** Shown in the legend when total = 0. */
   emptyLabel?: string;
 }) {
   const total = data.reduce((acc, s) => acc + s.value, 0);
@@ -32,11 +31,11 @@ export default function Donut({
   const displayTotal = total >= 1000 ? `${(total / 1000).toFixed(1)}k` : total.toLocaleString("en-US");
 
   return (
-    <div className="flex items-center gap-5">
+    <div className="flex flex-col items-center gap-4">
+      {/* Ring */}
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-        {/* Track ring — visible only when there's data, so the empty state is empty by design */}
         {total > 0 && (
-          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.border} strokeWidth={thickness} opacity={0.5} />
+          <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.border} strokeWidth={thickness} opacity={0.45} />
         )}
         <g transform={`translate(${size / 2}, ${size / 2}) rotate(-90)`}>
           {total === 0 ? (
@@ -64,7 +63,7 @@ export default function Donut({
           <text
             x={size / 2} y={size / 2 - 2}
             textAnchor="middle"
-            fontSize={30}
+            fontSize={34}
             fontWeight={700}
             fill={C.textPrimary}
             style={{
@@ -75,12 +74,12 @@ export default function Donut({
             {displayTotal}
           </text>
           <text
-            x={size / 2} y={size / 2 + 16}
+            x={size / 2} y={size / 2 + 18}
             textAnchor="middle"
-            fontSize={9.5}
+            fontSize={10}
             fontWeight={600}
             fill={C.textMuted}
-            letterSpacing="0.16em"
+            letterSpacing="0.18em"
             style={{ textTransform: "uppercase" }}
           >
             {centerLabel}
@@ -88,24 +87,25 @@ export default function Donut({
         </g>
       </svg>
 
-      <div className="flex-1 space-y-1.5 min-w-0">
+      {/* Legend chips below — symmetric, centered, wrap freely. */}
+      <div className="w-full max-w-md">
         {data.length === 0 ? (
-          <p className="text-[11.5px]" style={{ color: C.textDim }}>{emptyLabel}</p>
-        ) : data.map(s => {
-          const pct = total > 0 ? Math.round((s.value / total) * 100) : 0;
-          return (
-            <div key={s.label} className="flex items-center justify-between text-xs gap-2">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                <span className="truncate text-[12px]" style={{ color: C.textBody }}>{s.label}</span>
-              </div>
-              <div className="flex items-center gap-2 shrink-0 tabular-nums" style={{ color: C.textMuted }}>
-                <span className="font-semibold text-[12px]" style={{ color: C.textPrimary }}>{s.value}</span>
-                <span className="text-[10.5px] w-9 text-right" style={{ color: C.textDim }}>{pct}%</span>
-              </div>
-            </div>
-          );
-        })}
+          <p className="text-[12px] text-center" style={{ color: C.textDim }}>{emptyLabel}</p>
+        ) : (
+          <div className="flex flex-wrap gap-x-4 gap-y-1.5 justify-center text-[12px]">
+            {data.map(s => {
+              const pct = total > 0 ? Math.round((s.value / total) * 100) : 0;
+              return (
+                <div key={s.label} className="inline-flex items-center gap-2 tabular-nums">
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+                  <span style={{ color: C.textBody }}>{s.label}</span>
+                  <span className="font-semibold" style={{ color: C.textPrimary }}>{s.value}</span>
+                  <span className="text-[10.5px]" style={{ color: C.textDim }}>{pct}%</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
