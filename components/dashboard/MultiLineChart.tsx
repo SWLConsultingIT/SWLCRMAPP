@@ -1,60 +1,83 @@
 "use client";
 
-// Interactive multi-line trend chart. Pure SVG (no chart lib) with:
-//   ─ Soft fills under each series + crisp top line
-//   ─ Final-point halo dot + peak ring per series
-//   ─ Hover crosshair that snaps to the closest day
+// Premium multi-line trend chart. Pure SVG, no chart lib.
 //
-// Period control lives at the dashboard level — this chart used to own a
-// 7d/14d/30d chip set but boss feedback (2026-05-27) made the call: charts
-// must adapt to the parent filter only. So the chart now renders whatever
-// length of data it receives; the parent picks the window.
+// Round 5 boss feedback:
+//   - Brush-zoom: drag horizontally on the chart to zoom into a range.
+//     Click "Reset" pill (top-right) to clear. No mode toggle, no chips.
+//   - Ghost line: optional `priorSeries` renders dashed, ~35% opacity
+//     under the live series — same metric from the previous period for
+//     instant period-over-period comparison.
+//   - Legend toggle: click any legend chip to hide/show that series.
+//   - Polish: smoother Catmull-Rom curves, refined grid, axis tick marks,
+//     hover dot halo, glass-tooltip pinned top-left so it doesn't fight
+//     the reset pill on the right.
 
-import { useState, useRef } from "react";
+import { useRef, useState } from "react";
 import { C } from "@/lib/design";
 
 const gold = "var(--brand, #c9a83a)";
 
 type Series = { name: string; color: string; data: number[] };
 
-type ZoomMode = "all" | 14 | 7;
-
 export default function MultiLineChart({
   series,
+  priorSeries,
   height = 280,
   todayLabel = "Today",
   recentLabel = "d",
-  zoomLabel = "Zoom",
+  priorLabel = "Prior period",
+  resetLabel = "Reset zoom",
+  totalLabel = "total",
 }: {
   series: Series[];
+  /** Optional same-shape series for the previous period — renders as
+   * dashed ghost lines under the live ones. */
+  priorSeries?: Series[];
   height?: number;
   todayLabel?: string;
   recentLabel?: string;
-  /** Locale label for the zoom toggle ("Zoom" / "Acercar"). */
-  zoomLabel?: string;
+  priorLabel?: string;
+  resetLabel?: string;
+  totalLabel?: string;
 }) {
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  const [zoom, setZoom] = useState<ZoomMode>("all");
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [drag, setDrag] = useState<{ startPx: number; endPx: number } | null>(null);
+  const [zoom, setZoom] = useState<{ a: number; b: number } | null>(null);
 
-  // Zoom slices the trailing window — chart-internal only, doesn't
-  // change the parent dashboard period. Boss feedback round 4 #5:
-  // wanted in-chart zoom in/out for a closer look at recent days.
   const fullN = series[0]?.data.length ?? 0;
-  const visN = zoom === "all" ? fullN : Math.min(zoom, fullN);
-  const sliced = series.map(s => ({ ...s, data: s.data.slice(-visN) }));
+  const a = zoom ? Math.max(0, Math.min(zoom.a, fullN - 1)) : 0;
+  const b = zoom ? Math.max(a + 1, Math.min(zoom.b + 1, fullN)) : fullN;
+  const sliceRange = <T,>(arr: T[]) => arr.slice(a, b);
+  const visible = series.map(s => ({ ...s, data: sliceRange(s.data) }));
+  const priorVisible = (priorSeries ?? []).map(s => ({ ...s, data: sliceRange(s.data) }));
+
+  const isShown = (name: string) => !hidden.has(name);
 
   const width = 760;
   const padding = { t: 18, r: 18, b: 36, l: 44 };
   const innerW = width - padding.l - padding.r;
   const innerH = height - padding.t - padding.b;
-  const n = sliced[0]?.data.length ?? 0;
-  const max = Math.max(1, ...sliced.flatMap(s => s.data));
+  const n = visible[0]?.data.length ?? 0;
+  const valuesForMax = visible.filter(s => isShown(s.name)).flatMap(s => s.data);
+  const priorMax = priorVisible.filter(s => isShown(s.name)).flatMap(s => s.data);
+  const max = Math.max(1, ...valuesForMax, ...priorMax);
   const stepX = n > 1 ? innerW / (n - 1) : 0;
   const yFor = (v: number) => padding.t + innerH - (v / max) * innerH;
   const xFor = (i: number) => padding.l + i * stepX;
+  const dataAtPx = (px: number): number =>
+    Math.max(0, Math.min(n - 1, Math.round((px - padding.l) / Math.max(stepX, 0.0001))));
+  const clientToViewport = (clientX: number): number => {
+    const svg = svgRef.current;
+    if (!svg) return padding.l;
+    const rect = svg.getBoundingClientRect();
+    return ((clientX - rect.left) / rect.width) * width;
+  };
 
-  // 4 y-axis gridlines — integer ticks for small values, percent stops otherwise.
+  // 4–5 y-axis gridlines — integer ticks for small ranges, 25/50/75/100
+  // stops otherwise. Both end up at clean tabular numbers.
   const yTicks = (() => {
     if (max <= 4) {
       return Array.from({ length: max + 1 }, (_, i) => ({ v: i, y: yFor(i) }));
@@ -62,147 +85,154 @@ export default function MultiLineChart({
     return [0, 0.25, 0.5, 0.75, 1].map(p => ({ v: Math.round(max * p), y: yFor(max * p) }));
   })();
 
-  // Peak per series — used to draw the outlined ring + count label.
-  const peaks = sliced.map(s => {
-    const peakIdx = s.data.reduce((best, v, i) => v > s.data[best] ? i : best, 0);
-    return { idx: peakIdx, value: s.data[peakIdx] };
-  });
+  /** Catmull-Rom → cubic-bezier path. Produces smooth lines without the
+   * "spikes" you get from naive linear paths. tension=0.5 is the
+   * classic chart curve. */
+  function smoothPath(points: { x: number; y: number }[]): string {
+    if (points.length < 2) return "";
+    const t = 0.5;
+    let d = `M${points[0].x},${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i++) {
+      const p0 = points[i - 1] ?? points[i];
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const p3 = points[i + 2] ?? p2;
+      const c1x = p1.x + (p2.x - p0.x) * t / 3;
+      const c1y = p1.y + (p2.y - p0.y) * t / 3;
+      const c2x = p2.x - (p3.x - p1.x) * t / 3;
+      const c2y = p2.y - (p3.y - p1.y) * t / 3;
+      d += ` C${c1x},${c1y} ${c2x},${c2y} ${p2.x},${p2.y}`;
+    }
+    return d;
+  }
 
+  function onPointerDown(e: React.PointerEvent<SVGSVGElement>) {
+    const px = clientToViewport(e.clientX);
+    if (px < padding.l - 4 || px > width - padding.r + 4) return;
+    setDrag({ startPx: px, endPx: px });
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+  }
   function onPointerMove(e: React.PointerEvent<SVGSVGElement>) {
-    const svg = svgRef.current;
-    if (!svg) return;
-    const rect = svg.getBoundingClientRect();
-    // SVG viewBox is `0 0 ${width} ${height}`. Convert client X to viewBox X.
-    const px = ((e.clientX - rect.left) / rect.width) * width;
+    const px = clientToViewport(e.clientX);
+    if (drag) {
+      setDrag({ ...drag, endPx: px });
+      // While dragging, suppress the per-day hover so the brush feels
+      // like the dominant interaction.
+      setHoverIdx(null);
+      return;
+    }
     if (px < padding.l - 4 || px > width - padding.r + 4) {
       setHoverIdx(null);
       return;
     }
-    const idx = Math.max(0, Math.min(n - 1, Math.round((px - padding.l) / Math.max(stepX, 0.0001))));
-    setHoverIdx(idx);
+    setHoverIdx(dataAtPx(px));
+  }
+  function onPointerUp() {
+    if (!drag) return;
+    const minPx = Math.min(drag.startPx, drag.endPx);
+    const maxPx = Math.max(drag.startPx, drag.endPx);
+    setDrag(null);
+    // Treat <8px drag as a click — don't zoom.
+    if (maxPx - minPx < 8) return;
+    const ai = dataAtPx(minPx);
+    const bi = dataAtPx(maxPx);
+    if (bi - ai < 1) return;
+    // Translate the visible-window indices back to the full data range.
+    setZoom({ a: a + ai, b: a + bi });
+    setHoverIdx(null);
   }
 
-  const zoomChips: { id: ZoomMode; label: string }[] = [
-    { id: 7,  label: `7${recentLabel}` },
-    { id: 14, label: `14${recentLabel}` },
-    { id: "all", label: "All" },
-  ];
+  // Brush rectangle (during drag)
+  const brushRect = drag && Math.abs(drag.endPx - drag.startPx) >= 4 ? {
+    x: Math.max(padding.l, Math.min(drag.startPx, drag.endPx)),
+    width: Math.min(
+      width - padding.r - Math.max(padding.l, Math.min(drag.startPx, drag.endPx)),
+      Math.abs(drag.endPx - drag.startPx),
+    ),
+  } : null;
 
   return (
-    <div className="w-full">
-      {fullN > 7 && (
-        <div className="flex items-center justify-end gap-1.5 mb-2">
-          <span className="text-[9.5px] font-bold uppercase tracking-[0.16em]" style={{ color: C.textDim }}>
-            {zoomLabel}
-          </span>
-          <div className="inline-flex gap-0.5 rounded-md border p-0.5" style={{ borderColor: C.border }}>
-            {zoomChips.map(z => {
-              const on = z.id === zoom;
-              return (
-                <button
-                  key={String(z.id)}
-                  type="button"
-                  onClick={() => { setZoom(z.id); setHoverIdx(null); }}
-                  className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded transition-colors tabular-nums"
-                  style={{
-                    backgroundColor: on ? `color-mix(in srgb, ${gold} 22%, transparent)` : "transparent",
-                    color: on ? gold : C.textMuted,
-                  }}
-                >
-                  {z.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+    <div className="w-full select-none">
       <div className="relative w-full overflow-x-auto">
-        {/* Floating hover tooltip — pinned to the chart's top-right corner
-            (boss feedback round 3 #8: hover circles should tell you what
-            each one is). Cursor-following tooltips fight the SVG hit-test;
-            a fixed pinned card is simpler and reads well at any width. */}
-        {hoverIdx !== null && sliced[0] && (
+        {/* Hover tooltip — pinned top-left so it doesn't collide with the
+            Reset zoom pill on the right. */}
+        {hoverIdx !== null && visible[0] && (
           <div
-            className="absolute top-2 right-2 z-10 rounded-lg border px-3 py-2 text-[11px] tabular-nums pointer-events-none"
+            className="absolute top-2 left-2 z-10 rounded-lg border px-3 py-2 text-[11px] tabular-nums pointer-events-none"
             style={{
               backgroundColor: "color-mix(in srgb, var(--c-card) 96%, transparent)",
               borderColor: C.border,
-              backdropFilter: "blur(6px)",
-              boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
-              minWidth: 130,
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              boxShadow: "0 6px 20px rgba(0,0,0,0.1)",
+              minWidth: 150,
             }}
           >
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-1.5" style={{ color: C.textDim }}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-1.5" style={{ color: C.textDim }}>
               {hoverIdx === n - 1 ? todayLabel : `${n - 1 - hoverIdx}${recentLabel} ago`}
             </p>
             <ul className="space-y-1">
-              {sliced.map((s, sIdx) => (
-                <li key={sIdx} className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
-                  <span className="flex-1 truncate" style={{ color: C.textBody }}>{s.name}</span>
-                  <span className="font-bold" style={{ color: s.color }}>
-                    {s.data[hoverIdx] ?? 0}
-                  </span>
-                </li>
-              ))}
+              {visible.map((s) => {
+                const v = s.data[hoverIdx] ?? 0;
+                const pv = priorVisible.find(p => p.name === s.name)?.data[hoverIdx];
+                return (
+                  <li key={s.name} className="flex items-center gap-2" style={{ opacity: isShown(s.name) ? 1 : 0.4 }}>
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                    <span className="flex-1 truncate" style={{ color: C.textBody }}>{s.name}</span>
+                    <span className="font-bold" style={{ color: s.color }}>{v}</span>
+                    {pv !== undefined && (
+                      <span className="text-[9.5px]" style={{ color: C.textDim }}>· prior {pv}</span>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
+        )}
+        {/* Reset zoom pill — top right, only when zoomed */}
+        {zoom && (
+          <button
+            type="button"
+            onClick={() => { setZoom(null); setHoverIdx(null); }}
+            className="absolute top-2 right-2 z-10 rounded-md border px-2.5 py-1 text-[10.5px] font-bold uppercase tracking-[0.12em] transition-colors hover:opacity-90"
+            style={{
+              color: gold,
+              backgroundColor: `color-mix(in srgb, ${gold} 16%, transparent)`,
+              borderColor: `color-mix(in srgb, ${gold} 40%, transparent)`,
+            }}
+          >
+            ↺ {resetLabel}
+          </button>
         )}
         <svg
           ref={svgRef}
           viewBox={`0 0 ${width} ${height}`}
-          className="w-full select-none"
-          style={{ minWidth: 540, maxWidth: "100%" }}
+          className="w-full"
+          style={{ minWidth: 540, maxWidth: "100%", cursor: drag ? "ew-resize" : "crosshair" }}
+          onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
-          onPointerLeave={() => setHoverIdx(null)}
+          onPointerUp={onPointerUp}
+          onPointerLeave={() => { setHoverIdx(null); if (drag) setDrag(null); }}
         >
-          {/* Y-axis baseline (bold) + gridlines */}
-          <line
-            x1={padding.l} x2={padding.l}
-            y1={padding.t} y2={padding.t + innerH}
-            stroke={C.border}
-            strokeWidth={1.5}
-          />
-          <line
-            x1={padding.l} x2={width - padding.r}
-            y1={padding.t + innerH} y2={padding.t + innerH}
-            stroke={C.textDim}
-            strokeWidth={1.2}
-          />
+          {/* Y-axis baseline + bottom axis line */}
+          <line x1={padding.l} x2={padding.l} y1={padding.t} y2={padding.t + innerH} stroke={C.border} strokeWidth={1.4} />
+          <line x1={padding.l} x2={width - padding.r} y1={padding.t + innerH} y2={padding.t + innerH} stroke={C.textDim} strokeWidth={1.2} />
+
+          {/* Y gridlines + tick labels */}
           {yTicks.map((tk, i) => (
             <g key={i}>
               {i > 0 && (
-                <line
-                  x1={padding.l} x2={width - padding.r}
-                  y1={tk.y} y2={tk.y}
-                  stroke={C.border}
-                  strokeDasharray="3,4"
-                  opacity={0.55}
-                />
+                <line x1={padding.l} x2={width - padding.r} y1={tk.y} y2={tk.y} stroke={C.border} strokeDasharray="3,5" opacity={0.5} />
               )}
-              {/* Tick mark on the y-axis baseline */}
-              <line
-                x1={padding.l - 3} x2={padding.l}
-                y1={tk.y} y2={tk.y}
-                stroke={C.textDim}
-                strokeWidth={1.2}
-              />
-              <text
-                x={padding.l - 6} y={tk.y + 3}
-                textAnchor="end"
-                fontSize={10.5}
-                fontWeight={600}
-                fill={C.textMuted}
-                style={{ fontFeatureSettings: '"tnum"' }}
-              >
+              <line x1={padding.l - 3} x2={padding.l} y1={tk.y} y2={tk.y} stroke={C.textDim} strokeWidth={1.2} />
+              <text x={padding.l - 6} y={tk.y + 3} textAnchor="end" fontSize={10.5} fontWeight={600} fill={C.textMuted}
+                style={{ fontFeatureSettings: '"tnum"' }}>
                 {tk.v}
               </text>
             </g>
           ))}
 
-          {/* X-axis ticks — about 5 across the visible window. Adds a
-              proper tick-mark + bolder labels per boss round-4 #5
-              ("ejes que esten mas marcados y se entiendan"). */}
+          {/* X axis tick marks + labels (~5 across the visible window) */}
           {(() => {
             const step = Math.max(1, Math.floor(n / 5));
             const ticks: number[] = [];
@@ -210,121 +240,162 @@ export default function MultiLineChart({
             if (ticks[ticks.length - 1] !== n - 1) ticks.push(n - 1);
             return ticks.map(i => (
               <g key={i}>
-                <line
-                  x1={xFor(i)} x2={xFor(i)}
-                  y1={padding.t + innerH} y2={padding.t + innerH + 4}
-                  stroke={C.textDim}
-                  strokeWidth={1.2}
-                />
-                <text
-                  x={xFor(i)} y={height - 10}
-                  textAnchor="middle"
-                  fontSize={10.5}
-                  fontWeight={600}
-                  fill={C.textMuted}
-                  style={{ fontFeatureSettings: '"tnum"' }}
-                >
+                <line x1={xFor(i)} x2={xFor(i)} y1={padding.t + innerH} y2={padding.t + innerH + 4} stroke={C.textDim} strokeWidth={1.2} />
+                <text x={xFor(i)} y={height - 10} textAnchor="middle" fontSize={10.5} fontWeight={600} fill={C.textMuted}
+                  style={{ fontFeatureSettings: '"tnum"' }}>
                   {i === n - 1 ? todayLabel : `${n - 1 - i}${recentLabel}`}
                 </text>
               </g>
             ));
           })()}
 
-          {/* Series fills + lines */}
-          {sliced.map((s, sIdx) => {
-            const path = s.data.map((v, i) => (i === 0 ? "M" : "L") + xFor(i) + "," + yFor(v)).join(" ");
-            const fillPath = `${path} L${xFor(s.data.length - 1)},${padding.t + innerH} L${padding.l},${padding.t + innerH} Z`;
+          {/* Ghost / prior-period series — dashed under the live ones */}
+          {priorVisible.map((s) => {
+            if (!isShown(s.name)) return null;
+            const points = s.data.map((v, i) => ({ x: xFor(i), y: yFor(v) }));
+            return (
+              <path
+                key={`prior-${s.name}`}
+                d={smoothPath(points)}
+                fill="none"
+                stroke={s.color}
+                strokeWidth={1.4}
+                strokeDasharray="4,4"
+                opacity={0.42}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            );
+          })}
+
+          {/* Live series — soft fill + smooth line */}
+          {visible.map((s, sIdx) => {
+            if (!isShown(s.name)) return null;
+            const points = s.data.map((v, i) => ({ x: xFor(i), y: yFor(v) }));
+            const linePath = smoothPath(points);
+            const fillPath = `${linePath} L${xFor(s.data.length - 1)},${padding.t + innerH} L${padding.l},${padding.t + innerH} Z`;
             const gradId = `mlc-${sIdx}-${s.name.replace(/[^a-z0-9]/gi, "")}`;
             return (
-              <g key={`fill-${sIdx}`}>
+              <g key={`live-${s.name}`}>
                 <defs>
                   <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={s.color} stopOpacity={sIdx === 0 ? 0.22 : 0.1} />
+                    <stop offset="0%" stopColor={s.color} stopOpacity={sIdx === 0 ? 0.24 : 0.13} />
                     <stop offset="100%" stopColor={s.color} stopOpacity="0" />
                   </linearGradient>
                 </defs>
                 <path d={fillPath} fill={`url(#${gradId})`} />
-                <path
-                  d={path}
-                  fill="none"
-                  stroke={s.color}
-                  strokeWidth={sIdx === 0 ? 2.2 : 1.8}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
+                <path d={linePath} fill="none" stroke={s.color} strokeWidth={sIdx === 0 ? 2.4 : 2}
+                  strokeLinecap="round" strokeLinejoin="round" />
               </g>
             );
           })}
 
-          {/* Peak markers + final-point dots */}
-          {sliced.map((s, sIdx) => {
-            const peak = peaks[sIdx];
+          {/* Final-point dot per visible series — gold halo, brand bead */}
+          {visible.map((s) => {
+            if (!isShown(s.name)) return null;
             const lastIdx = s.data.length - 1;
-            const lastValue = s.data[lastIdx];
+            const lastValue = s.data[lastIdx] ?? 0;
             return (
-              <g key={`deco-${sIdx}`}>
-                <circle cx={xFor(lastIdx)} cy={yFor(lastValue)} r={9} fill={s.color} opacity={0.12} />
-                <circle cx={xFor(lastIdx)} cy={yFor(lastValue)} r={4.2} fill={s.color} stroke="var(--c-card)" strokeWidth={1.8} />
-                {peak.value > 0 && peak.idx !== lastIdx && (
-                  <g>
-                    <circle cx={xFor(peak.idx)} cy={yFor(peak.value)} r={6} fill="var(--c-card)" stroke={s.color} strokeWidth={1.8} />
-                    <text x={xFor(peak.idx)} y={yFor(peak.value) - 11} textAnchor="middle" fontSize={10} fontWeight={700} fill={s.color} style={{ fontFeatureSettings: '"tnum"' }}>
-                      {peak.value}
-                    </text>
-                  </g>
-                )}
+              <g key={`last-${s.name}`}>
+                <circle cx={xFor(lastIdx)} cy={yFor(lastValue)} r={10} fill={s.color} opacity={0.14} />
+                <circle cx={xFor(lastIdx)} cy={yFor(lastValue)} r={4.4} fill={s.color} stroke="var(--c-card)" strokeWidth={2} />
               </g>
             );
           })}
 
-          {/* Hover crosshair + per-series snap dots */}
-          {hoverIdx !== null && (
+          {/* Brush selection rectangle (during drag) */}
+          {brushRect && (
+            <rect
+              x={brushRect.x}
+              y={padding.t}
+              width={brushRect.width}
+              height={innerH}
+              fill={gold}
+              fillOpacity={0.12}
+              stroke={gold}
+              strokeOpacity={0.4}
+              strokeDasharray="4,3"
+              pointerEvents="none"
+            />
+          )}
+
+          {/* Hover crosshair + snap dots */}
+          {hoverIdx !== null && !drag && (
             <g pointerEvents="none">
               <line
                 x1={xFor(hoverIdx)} x2={xFor(hoverIdx)}
                 y1={padding.t} y2={padding.t + innerH}
-                stroke={gold}
-                strokeDasharray="3,3"
-                opacity={0.7}
+                stroke={gold} strokeDasharray="3,3" opacity={0.65}
               />
-              {sliced.map((s, sIdx) => (
-                <circle
-                  key={`hover-${sIdx}`}
-                  cx={xFor(hoverIdx)} cy={yFor(s.data[hoverIdx] ?? 0)}
-                  r={4.5}
-                  fill={s.color}
-                  stroke="var(--c-card)"
-                  strokeWidth={2}
-                />
-              ))}
+              {visible.map((s) => {
+                if (!isShown(s.name)) return null;
+                return (
+                  <g key={`hover-${s.name}`}>
+                    <circle cx={xFor(hoverIdx)} cy={yFor(s.data[hoverIdx] ?? 0)} r={8} fill={s.color} opacity={0.15} />
+                    <circle cx={xFor(hoverIdx)} cy={yFor(s.data[hoverIdx] ?? 0)} r={4.5} fill={s.color} stroke="var(--c-card)" strokeWidth={2} />
+                  </g>
+                );
+              })}
             </g>
           )}
         </svg>
+        {/* Subtle instruction line under the chart on first paint — fades
+            once the user has interacted (zoom set or hidden series). */}
+        {!zoom && hidden.size === 0 && fullN > 7 && (
+          <p className="absolute bottom-1 right-3 text-[9.5px] font-medium" style={{ color: C.textDim }}>
+            ↔ {todayLabel === "Today" ? "drag to zoom" : "arrastrá para zoom"}
+          </p>
+        )}
       </div>
 
-      {/* Legend — flips between aggregate totals and per-series hover values */}
-      <div className="flex items-center gap-4 mt-2 text-xs flex-wrap" style={{ color: C.textMuted }}>
-        {sliced.map((s, sIdx) => {
-          const total = s.data.reduce((a, b) => a + b, 0);
+      {/* Legend — click chip to hide/show that series. Hover state mirrors
+          chart hover so the legend and chart feel like one surface. */}
+      <div className="flex items-center gap-2 mt-3 flex-wrap">
+        {visible.map((s) => {
+          const total = s.data.reduce((acc, v) => acc + v, 0);
           const hovered = hoverIdx !== null ? s.data[hoverIdx] ?? 0 : null;
+          const shown = isShown(s.name);
           return (
-            <div key={s.name} className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
-              <span className="font-medium">{s.name}</span>
+            <button
+              key={s.name}
+              type="button"
+              onClick={() => {
+                setHidden(prev => {
+                  const next = new Set(prev);
+                  if (next.has(s.name)) next.delete(s.name);
+                  else next.add(s.name);
+                  return next;
+                });
+              }}
+              className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md border text-[11.5px] transition-colors"
+              style={{
+                backgroundColor: shown ? `color-mix(in srgb, ${s.color} 8%, transparent)` : "transparent",
+                borderColor: shown ? `color-mix(in srgb, ${s.color} 32%, transparent)` : C.border,
+                opacity: shown ? 1 : 0.55,
+              }}
+            >
+              <span
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{ backgroundColor: shown ? s.color : "transparent", border: shown ? "none" : `1.5px solid ${s.color}` }}
+              />
+              <span className="font-semibold" style={{ color: C.textBody }}>{s.name}</span>
               {hovered !== null ? (
-                <span className="tabular-nums font-semibold" style={{ color: s.color }}>
-                  {hovered}
-                </span>
+                <span className="tabular-nums font-bold" style={{ color: s.color }}>{hovered}</span>
               ) : (
-                <span className="tabular-nums" style={{ color: C.textDim }}>
-                  {total} total
-                </span>
+                <span className="tabular-nums text-[10px]" style={{ color: C.textDim }}>{total} {totalLabel}</span>
               )}
-              {/* Suppress unused-warning for sIdx in some bundlers */}
-              <span hidden>{sIdx}</span>
-            </div>
+            </button>
           );
         })}
+        {priorSeries && priorSeries.length > 0 && (
+          <span
+            className="inline-flex items-center gap-1.5 ml-auto pl-2 text-[10.5px]"
+            style={{ color: C.textDim }}
+          >
+            <span aria-hidden className="inline-block w-5 h-0" style={{ borderTop: `1.4px dashed ${C.textMuted}` }} />
+            {priorLabel}
+          </span>
+        )}
       </div>
     </div>
   );

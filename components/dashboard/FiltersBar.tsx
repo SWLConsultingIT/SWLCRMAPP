@@ -122,7 +122,7 @@ export default function FiltersBar({
 
   return (
     <div
-      className="sticky top-2 z-20 rounded-2xl border px-3 py-2 flex items-center gap-2 flex-wrap relative overflow-hidden"
+      className="sticky top-2 z-20 rounded-2xl border px-3 py-2 flex items-center gap-2 flex-wrap relative"
       style={{
         backgroundColor: C.card,
         borderColor: C.border,
@@ -272,8 +272,8 @@ function CustomPeriodChip({
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
           <div
-            className="absolute top-full right-0 mt-1.5 z-40 rounded-lg border shadow-lg p-3 min-w-[280px]"
-            style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 8px 24px rgba(0,0,0,0.14)" }}
+            className="absolute top-full right-0 mt-1.5 z-50 rounded-lg border shadow-lg p-3 min-w-[280px]"
+            style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 12px 32px rgba(0,0,0,0.18)" }}
           >
             <div className="flex flex-col gap-2">
               <label className="flex flex-col gap-1">
@@ -360,8 +360,8 @@ function MultiSelect({
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 mt-1.5 z-40 rounded-lg border shadow-lg overflow-hidden min-w-[220px] max-h-[320px] overflow-y-auto"
-            style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}>
+          <div className="absolute top-full left-0 mt-1.5 z-50 rounded-lg border shadow-lg min-w-[220px] max-h-[320px] overflow-y-auto py-1"
+            style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 12px 32px rgba(0,0,0,0.18)" }}>
             {items.length === 0 ? (
               <div className="px-3 py-3 text-xs" style={{ color: C.textMuted }}>{emptyLabel}</div>
             ) : items.map(it => {
