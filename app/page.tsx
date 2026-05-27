@@ -19,6 +19,7 @@ import { getDashboardData } from "@/lib/dashboard-data";
 import { getT, getServerLocale } from "@/lib/i18n-server";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
 import FiltersBar from "@/components/dashboard/FiltersBar";
+import CampStatusChipsLive from "@/components/dashboard/CampStatusChipsLive";
 import FreshnessChip from "@/components/dashboard/FreshnessChip";
 import DashboardKeyboardShortcuts from "@/components/dashboard/DashboardKeyboardShortcuts";
 import SwlSignature from "@/components/dashboard/SwlSignature";
@@ -831,46 +832,17 @@ export default async function DashboardPage({
             { id: "paused",    label: t("dashx.tbl.status.paused"),    count: counts.paused },
             { id: "completed", label: t("dashx.tbl.status.completed"), count: counts.completed },
             { id: "all",       label: t("dashx.filters.all"),          count: counts.all },
-          ] as const;
-          const buildHref = (id: string) => {
-            const params = new URLSearchParams();
-            // CRITICAL: preserve tab=campaigns or the click drops the user
-            // back to Overview because parseFilters defaults rawTab → "overview".
-            params.set("tab", "campaigns");
-            if (filters.from) params.set("from", filters.from);
-            if (filters.to) params.set("to", filters.to);
-            if (filters.campaignNames?.length) params.set("campaigns", filters.campaignNames.join("|"));
-            if (filters.icpIds?.length) params.set("icps", filters.icpIds.join("|"));
-            if (filters.sellerIds?.length) params.set("sellers", filters.sellerIds.join("|"));
-            if (id !== "active") params.set("camp_status", id);
-            return `/?${params.toString()}`;
-          };
-          return (
-            <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-              {tabs.map(tab => {
-                const on = filters.campStatus === tab.id;
-                return (
-                  <Link
-                    key={tab.id}
-                    href={buildHref(tab.id)}
-                    scroll={false}
-                    className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1.5 transition-colors"
-                    style={{
-                      backgroundColor: on ? `color-mix(in srgb, ${gold} 16%, transparent)` : "transparent",
-                      borderColor: on ? `color-mix(in srgb, ${gold} 40%, transparent)` : C.border,
-                      color: on ? gold : C.textBody,
-                    }}
-                  >
-                    {tab.label}
-                    <span className="text-[9.5px] tabular-nums px-1 py-0 rounded"
-                      style={{ background: on ? "transparent" : C.surface, color: on ? gold : C.textDim }}>
-                      {tab.count}
-                    </span>
-                  </Link>
-                );
-              })}
-            </div>
-          );
+          ];
+          // baseParams covers tab=campaigns + inherited from/to/etc; the
+          // client chip just appends its own camp_status.
+          const baseParams = new URLSearchParams();
+          baseParams.set("tab", "campaigns");
+          if (filters.from) baseParams.set("from", filters.from);
+          if (filters.to) baseParams.set("to", filters.to);
+          if (filters.campaignNames?.length) baseParams.set("campaigns", filters.campaignNames.join("|"));
+          if (filters.icpIds?.length) baseParams.set("icps", filters.icpIds.join("|"));
+          if (filters.sellerIds?.length) baseParams.set("sellers", filters.sellerIds.join("|"));
+          return <CampStatusChipsLive tabs={tabs} initial={filters.campStatus} baseParams={baseParams.toString()} />;
         })()}
         {(() => {
           const eligible = data.campaignPerformance.filter(c => c.leads >= 10);
@@ -961,51 +933,55 @@ export default async function DashboardPage({
                 <Th align="left" style={{ width: 24 }}></Th>
               </tr>
             </thead>
-            <tbody>
-              {(() => {
-                const visible = filters.campStatus === "all"
-                  ? data.campaignPerformance
-                  : data.campaignPerformance.filter(c => c.status === filters.campStatus);
-                if (visible.length === 0) {
-                  return <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters || filters.campStatus !== "active"} kindKey="campaigns" t={t} /></td></tr>;
-                }
-                const maxConv = Math.max(1, ...visible.map((c: any) => c.conversionRate));
-                return visible.map((c: any, idx: number) => (
-                <tr key={c.name} className="border-t hover:bg-black/[0.02] transition-colors group" style={{ borderColor: C.border }}>
-                  <Td>
-                    <div className="flex items-center gap-2 relative">
-                      {idx === 0 && (
-                        <span aria-hidden className="absolute -left-3 top-0 bottom-0 w-[3px] rounded-full"
-                          style={{ background: `linear-gradient(180deg, ${gold} 0%, color-mix(in srgb, ${gold} 50%, transparent) 100%)` }} />
-                      )}
-                      <TopRankDot rank={idx} t={t} />
-                      <Link href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{c.name}</Link>
-                    </div>
-                  </Td>
-                  <NumCell value={c.leads} />
-                  <NumCell value={c.uncontactedLeads ?? 0} accent={(c.uncontactedLeads ?? 0) > 0 ? "#D97706" : undefined} />
-                  <td className="px-3 py-2">
-                    <ChannelTouches
-                      linkedinSent={c.sentLinkedin ?? 0}
-                      linkedinMsg={0}
-                      emailTouch={c.sentEmail ?? 0}
-                      callTouch={c.sentCall ?? 0}
-                      labels={{
-                        linkedinSent: t("dashx.touch.linkedinSent"),
-                        linkedinMsg: t("dashx.touch.linkedinMsg"),
-                        emailTouch: t("dashx.touch.emailTouch"),
-                        callTouch: t("dashx.touch.callTouch"),
-                      }}
-                    />
-                  </td>
-                  <NumCell value={c.replied} />
-                  <NumCell value={c.positive} accent={c.positive > 0 ? C.green : undefined} bold />
-                  <td className="px-3 py-2"><div className="flex justify-end"><RateBar value={c.conversionRate} max={maxConv} color={C.green} /></div></td>
-                  <td className="px-3 py-2"><StatusBadge status={c.status} t={t} /></td>
-                  <td className="px-3 py-2"><InlineSpark data={c.spark} color="#0A66C2" /></td>
-                  <td className="pr-3" style={{ color: C.textDim }}><Link href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)} className="inline-flex"><ArrowRight size={12} /></Link></td>
-                </tr>
-              ));
+            <tbody className="camp-rows">
+              {data.campaignPerformance.length === 0 ? (
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="campaigns" t={t} /></td></tr>
+              ) : (() => {
+                // Rank/highlights stay computed against the FULL list because
+                // the active filter is now client-side (CSS visibility). #1
+                // by conversion stays #1 regardless of which chip is on.
+                const ranked = [...data.campaignPerformance].sort((a, b) => b.conversionRate - a.conversionRate);
+                const rankByName = new Map(ranked.map((c, idx) => [c.name, idx]));
+                const maxConv = Math.max(1, ...data.campaignPerformance.map(c => c.conversionRate));
+                return data.campaignPerformance.map((c: any) => {
+                  const idx = rankByName.get(c.name) ?? 0;
+                  return (
+                    <tr key={c.name} data-camp-status={c.status} className="border-t hover:bg-black/[0.02] transition-colors group" style={{ borderColor: C.border }}>
+                      <Td>
+                        <div className="flex items-center gap-2 relative">
+                          {idx === 0 && (
+                            <span aria-hidden className="absolute -left-3 top-0 bottom-0 w-[3px] rounded-full"
+                              style={{ background: `linear-gradient(180deg, ${gold} 0%, color-mix(in srgb, ${gold} 50%, transparent) 100%)` }} />
+                          )}
+                          <TopRankDot rank={idx} t={t} />
+                          <Link href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{c.name}</Link>
+                        </div>
+                      </Td>
+                      <NumCell value={c.leads} />
+                      <NumCell value={c.uncontactedLeads ?? 0} accent={(c.uncontactedLeads ?? 0) > 0 ? "#D97706" : undefined} />
+                      <td className="px-3 py-2">
+                        <ChannelTouches
+                          linkedinSent={c.sentLinkedin ?? 0}
+                          linkedinMsg={0}
+                          emailTouch={c.sentEmail ?? 0}
+                          callTouch={c.sentCall ?? 0}
+                          labels={{
+                            linkedinSent: t("dashx.touch.linkedinSent"),
+                            linkedinMsg: t("dashx.touch.linkedinMsg"),
+                            emailTouch: t("dashx.touch.emailTouch"),
+                            callTouch: t("dashx.touch.callTouch"),
+                          }}
+                        />
+                      </td>
+                      <NumCell value={c.replied} />
+                      <NumCell value={c.positive} accent={c.positive > 0 ? C.green : undefined} bold />
+                      <td className="px-3 py-2"><div className="flex justify-end"><RateBar value={c.conversionRate} max={maxConv} color={C.green} /></div></td>
+                      <td className="px-3 py-2"><StatusBadge status={c.status} t={t} /></td>
+                      <td className="px-3 py-2"><InlineSpark data={c.spark} color="#0A66C2" /></td>
+                      <td className="pr-3" style={{ color: C.textDim }}><Link href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)} className="inline-flex"><ArrowRight size={12} /></Link></td>
+                    </tr>
+                  );
+                });
               })()}
             </tbody>
           </table>
