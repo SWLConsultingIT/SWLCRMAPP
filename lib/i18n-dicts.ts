@@ -753,6 +753,7 @@ export const en: Dict = {
   "dashx.heat.bestWindowSubtitle": "Peak reply hour in the active period",
   "dashx.heat.bestWindowEmpty": "Not enough replies to recommend a window yet",
   "dashx.heat.peakLabel": "Peak (top 3)",
+  "dashx.heat.timezoneLabel": "Hours in",
   // Panel CTAs for the other 4 tabs
   "dashx.panel.openIcps": "Lead Miner",
   "dashx.panel.openCampaignsPage": "All campaigns",
@@ -1548,6 +1549,7 @@ export const es: Dict = {
   "dashx.heat.bestWindowSubtitle": "Hora pico de respuesta en el período activo",
   "dashx.heat.bestWindowEmpty": "Sin suficientes respuestas para recomendar una ventana todavía",
   "dashx.heat.peakLabel": "Pico (top 3)",
+  "dashx.heat.timezoneLabel": "Horas en",
   // Panel CTAs for the other 4 tabs
   "dashx.panel.openIcps": "Lead Miner",
   "dashx.panel.openCampaignsPage": "Ver campañas",

@@ -32,6 +32,7 @@ export default function Heatmap({
   bestWindowEmpty = "Not enough data yet",
   bestWindowSubtitle = "Recommended outreach time",
   peakLabel = "Peak (top 3)",
+  timezoneLabel = "Hours in",
 }: {
   /** Aggregate fallback. Used when byChannel is not supplied. */
   matrix: number[][];
@@ -47,8 +48,14 @@ export default function Heatmap({
   bestWindowEmpty?: string;
   bestWindowSubtitle?: string;
   peakLabel?: string;
+  timezoneLabel?: string;
 }) {
   const [channel, setChannel] = useState<HeatmapChannelKey>("all");
+  // Hours in the grid are interpreted in the browser's local timezone (we
+  // store reply timestamps in UTC and pass them to .getHours() which converts
+  // to local). Surfacing the resolved zone removes any "what timezone is this"
+  // ambiguity boss flagged on 2026-05-27.
+  const browserTz = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : "";
   const active = byChannel?.[channel] ?? matrix;
   const max = Math.max(1, ...active.flat());
 
@@ -78,6 +85,15 @@ export default function Heatmap({
 
   return (
     <div className="w-full">
+      {/* Timezone hint — always visible so the operator knows the hour
+          axis is local, not UTC. Small + dim so it doesn't compete with
+          the chart. */}
+      {browserTz && (
+        <p className="text-[10.5px] mb-2 flex items-center gap-1.5" style={{ color: C.textDim }}>
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: C.textMuted }} aria-hidden />
+          {timezoneLabel} <span className="font-medium" style={{ color: C.textMuted }}>{browserTz}</span>
+        </p>
+      )}
       {/* Channel filter chips (only when per-channel matrices supplied) */}
       {byChannel && (
         <div className="flex items-center gap-1 mb-3 flex-wrap">

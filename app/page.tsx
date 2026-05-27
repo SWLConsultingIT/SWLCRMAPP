@@ -700,6 +700,7 @@ export default async function DashboardPage({
               bestWindowSubtitle={t("dashx.heat.bestWindowSubtitle")}
               bestWindowEmpty={t("dashx.heat.bestWindowEmpty")}
               peakLabel={t("dashx.heat.peakLabel")}
+              timezoneLabel={t("dashx.heat.timezoneLabel")}
             />
           </Panel>
         </div>
