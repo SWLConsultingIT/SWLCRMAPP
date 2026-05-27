@@ -515,7 +515,7 @@ export default async function DashboardPage({
           the Insights are now surfaced as the Highlight banner above). */}
       <section>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-          <Panel title={t("dashx.funnel.title")} subtitle={t("dashx.funnel.subtitle")} className="lg:col-span-7"
+          <Panel title={t("dashx.funnel.title")} subtitle={t("dashx.funnel.subtitle")} className="lg:col-span-7" glow
             actionHref={withFilters("/?tab=campaigns", filters)} actionLabel={t("dashx.panel.openCampaigns")}
             insight={(() => {
               const sent = data.linkedinConnections?.sent ?? 0;
@@ -529,7 +529,7 @@ export default async function DashboardPage({
             })()}>
             <Funnel {...funnel18n} stages={data.funnel.map(s => ({ ...s, stage: t(`dashx.funnel.stage.${stageKey(s.stage)}`) || s.stage }))} />
           </Panel>
-          <Panel title={t("dashx.donut.title")} subtitle={t("dashx.donut.subtitle")} className="lg:col-span-5"
+          <Panel title={t("dashx.donut.title")} subtitle={t("dashx.donut.subtitle")} className="lg:col-span-5" glow
             actionHref="/inbox" actionLabel={t("dashx.panel.openInbox")}
             insight={(() => {
               const totalReplies = donutSlices.reduce((a, s) => a + s.value, 0);
@@ -1079,7 +1079,7 @@ function SectionHeader({ title, subtitle, icon: Icon, action }: { title: string;
  * actionHref renders a gold CTA pill in the header right slot — used by
  * each chart panel to deep-link into the surface where the data lives. */
 function Panel({
-  title, subtitle, children, className, actionHref, actionLabel, insight,
+  title, subtitle, children, className, actionHref, actionLabel, insight, glow,
 }: {
   title?: string;
   subtitle?: string;
@@ -1090,14 +1090,20 @@ function Panel({
   /** Optional one-line auto-derived narrative rendered as a gold-accented
    * footer strip below the chart body. Null/undefined → no footer. */
   insight?: string | null;
+  /** When true, gives the panel a stronger ambient gold halo + hover-lift.
+   * Used for the marquee charts (Funnel, Donut) so they feel "lit". */
+  glow?: boolean;
 }) {
+  const baseShadow = glow
+    ? "0 1px 2px rgba(0,0,0,0.04), 0 0 0 1px color-mix(in srgb, var(--brand, #c9a83a) 7%, transparent), 0 16px 34px -20px color-mix(in srgb, var(--brand, #c9a83a) 38%, transparent)"
+    : "0 1px 2px rgba(0,0,0,0.04)";
   return (
     <div
-      className={`rounded-2xl border overflow-hidden ${className ?? ""}`}
+      className={`group rounded-2xl border overflow-hidden ${glow ? "transition-shadow duration-200 hover:shadow-[0_18px_42px_-20px_color-mix(in_srgb,var(--brand,#c9a83a)_55%,transparent)]" : ""} ${className ?? ""}`}
       style={{
         backgroundColor: C.card,
-        borderColor: C.border,
-        boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+        borderColor: glow ? `color-mix(in srgb, ${gold} 22%, ${C.border})` : C.border,
+        boxShadow: baseShadow,
       }}
     >
       {(title || subtitle) && (
