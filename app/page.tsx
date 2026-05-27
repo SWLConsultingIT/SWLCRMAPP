@@ -32,8 +32,6 @@ import Heatmap from "@/components/dashboard/Heatmap";
 import IcpChannelMatrix from "@/components/dashboard/IcpChannelMatrix";
 import InlineSpark from "@/components/dashboard/InlineSpark";
 import StepPerformance from "@/components/dashboard/StepPerformance";
-import VelocityDecayCurve from "@/components/dashboard/VelocityDecayCurve";
-import ConcentrationPareto from "@/components/dashboard/ConcentrationPareto";
 import Chapter from "@/components/dashboard/Chapter";
 
 const gold = "var(--brand, #c9a83a)";
@@ -749,61 +747,6 @@ export default async function DashboardPage({
               ))}
             </tbody>
           </table>
-        </Panel>
-      </section>
-
-      {/* ═══ CHAPTER 6 · INTELLIGENCE ═══════════════════════════════════════
-          Advanced signals: where the wins are clustered (mono-segment risk)
-          and the day after which sending more messages mostly burns inboxes. */}
-      <Chapter id="intel" number={6} icon={Sparkles} title={t("dashx.chapter.intel")} description={t("dashx.chapter.intel.desc")} />
-
-      <section>
-        <SectionHeader icon={Target} title={t("dashx.pareto.title")} subtitle={t("dashx.pareto.subtitle")} />
-        <Panel>
-          <ConcentrationPareto
-            rows={[
-              {
-                kind: "icp",
-                titleKey: t("dashx.pareto.icps"),
-                items: data.icpPerformance
-                  .filter(i => i.id !== "_unknown")
-                  .map(i => ({ id: i.id, name: i.name, positives: i.positive })),
-                hrefBase: `/dashboard/icp/`,
-              },
-              {
-                kind: "seller",
-                titleKey: t("dashx.pareto.sellers"),
-                items: data.sellerPerformance.map(s => ({ id: s.id, name: s.name, positives: s.positive })),
-                hrefBase: `/dashboard/seller/`,
-              },
-              {
-                kind: "campaign",
-                titleKey: t("dashx.pareto.campaigns"),
-                items: data.campaignPerformance.map(c => ({ id: c.name, name: c.name, positives: c.positive })),
-              },
-            ]}
-            riskLabel={t("dashx.pareto.risk")}
-            healthyLabel={t("dashx.pareto.healthy")}
-            pctLabel={t("dashx.pareto.pct")}
-            emptyLabel={t("dashx.pareto.empty")}
-          />
-        </Panel>
-      </section>
-
-      <section>
-        <SectionHeader icon={Clock} title={t("dashx.decay.title")} subtitle={t("dashx.decay.subtitle")} />
-        <Panel>
-          <VelocityDecayCurve
-            curve={data.velocityDecay.curve}
-            totalMessaged={data.velocityDecay.totalMessaged}
-            cutoffDay={data.velocityDecay.cutoffDay}
-            finalPct={data.velocityDecay.finalPct}
-            emptyLabel={t("dashx.decay.empty")}
-            cutoffLabel={t("dashx.decay.cutoff")}
-            cutoffPendingLabel={t("dashx.decay.cutoffPending")}
-            yAxisLabel={t("dashx.decay.yAxis")}
-            xAxisLabel={t("dashx.decay.xAxis")}
-          />
         </Panel>
       </section>
 
