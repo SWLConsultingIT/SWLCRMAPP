@@ -656,26 +656,37 @@ export async function getDashboardData(filters: DashboardFilters) {
   const velocityPerDay = positiveCount / periodDays;
   const winRate = contactedLeads > 0 ? Math.round((wonCount / contactedLeads) * 100) : 0;
 
-  // ── 30-day daily trend ──────────────────────────────────────────────────
-  // Buckets each metric by day so the dashboard can render sparklines + a
-  // big multi-line chart. Always 30 buckets, oldest → newest. `today` is
-  // declared above so the spark14d helpers can reuse the same anchor.
-  const dayBucket = (iso: string) => {
-    const d = new Date(iso);
-    return Math.floor((today.getTime() - d.getTime()) / 86_400_000);
+  // ── Daily trend (period-aware) ─────────────────────────────────────────
+  // Buckets each metric by day. The trend used to be hardcoded at 30
+  // buckets ending today — fine for the default "last 30 days" view but
+  // wrong any time the user picked a different period. Now the trend
+  // tracks the *active period filter*:
+  //   - Bucket count = number of days in the period (clamped 7..180 so
+  //     we don't blow up the chart for "all time" or shrink it useless
+  //     for very tight ranges).
+  //   - Anchor = period end (toMs). When no period is set, end = today.
+  // Kept as `trend30d` for backwards-compat with detail page consumers;
+  // the name is a historical artifact, the length is now dynamic.
+  const trendEndMs = toMs ?? Date.now();
+  const trendStartMsRaw = fromMs ?? (trendEndMs - 30 * 86_400_000);
+  const rawDays = Math.round((trendEndMs - trendStartMsRaw) / 86_400_000);
+  const trendDays = Math.max(7, Math.min(180, rawDays || 30));
+  const trendSent: number[] = new Array(trendDays).fill(0);
+  const trendReplies: number[] = new Array(trendDays).fill(0);
+  const trendPositive: number[] = new Array(trendDays).fill(0);
+  const trendBucket = (iso: string): number => {
+    const tMs = new Date(iso).getTime();
+    return trendDays - 1 - Math.floor((trendEndMs - tMs) / 86_400_000);
   };
-  const trendSent: number[] = new Array(30).fill(0);
-  const trendReplies: number[] = new Array(30).fill(0);
-  const trendPositive: number[] = new Array(30).fill(0);
   for (const m of messages) {
     if (!m.sent_at) continue;
-    const idx = 29 - dayBucket(m.sent_at);
-    if (idx >= 0 && idx < 30) trendSent[idx]++;
+    const idx = trendBucket(m.sent_at);
+    if (idx >= 0 && idx < trendDays) trendSent[idx]++;
   }
   for (const r of replies) {
     if (!r.received_at) continue;
-    const idx = 29 - dayBucket(r.received_at);
-    if (idx >= 0 && idx < 30) {
+    const idx = trendBucket(r.received_at);
+    if (idx >= 0 && idx < trendDays) {
       trendReplies[idx]++;
       if (POSITIVE_CLASS.has(r.classification ?? "")) trendPositive[idx]++;
     }

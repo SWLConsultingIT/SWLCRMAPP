@@ -3,15 +3,14 @@
 // Interactive multi-line trend chart. Pure SVG (no chart lib) with:
 //   ─ Soft fills under each series + crisp top line
 //   ─ Final-point halo dot + peak ring per series
-//   ─ Window chips (7d / 14d / 30d) that slice the trailing data — gives the
-//     operator a "zoom" feel without needing to refetch
-//   ─ Hover crosshair that snaps to the closest day, with a per-series
-//     tooltip on the right column showing exact values
+//   ─ Hover crosshair that snaps to the closest day
 //
-// Series are passed in by the parent; the component owns only the
-// presentation + selected window + hover index.
+// Period control lives at the dashboard level — this chart used to own a
+// 7d/14d/30d chip set but boss feedback (2026-05-27) made the call: charts
+// must adapt to the parent filter only. So the chart now renders whatever
+// length of data it receives; the parent picks the window.
 
-import { useMemo, useState, useRef } from "react";
+import { useState, useRef } from "react";
 import { C } from "@/lib/design";
 
 const gold = "var(--brand, #c9a83a)";
@@ -23,33 +22,24 @@ export default function MultiLineChart({
   height = 240,
   todayLabel = "Today",
   recentLabel = "d",
-  defaultWindow = 30,
 }: {
   series: Series[];
   height?: number;
   todayLabel?: string;
   recentLabel?: string;
-  /** Initial window — 7 / 14 / 30 days. */
-  defaultWindow?: 7 | 14 | 30;
 }) {
-  const [windowDays, setWindowDays] = useState<7 | 14 | 30>(defaultWindow);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
-  // Slice the trailing window from each series — the chart always renders
-  // the last N days, the slider just changes what N is.
-  const sliced = useMemo(() => {
-    return series.map(s => ({
-      ...s,
-      data: s.data.slice(-windowDays),
-    }));
-  }, [series, windowDays]);
+  // Render whatever the parent passes — no slicing, no in-chart window
+  // selector. Period is decided upstream by FiltersBar.
+  const sliced = series;
 
   const width = 720;
   const padding = { t: 18, r: 18, b: 32, l: 40 };
   const innerW = width - padding.l - padding.r;
   const innerH = height - padding.t - padding.b;
-  const n = sliced[0]?.data.length ?? windowDays;
+  const n = sliced[0]?.data.length ?? 0;
   const max = Math.max(1, ...sliced.flatMap(s => s.data));
   const stepX = n > 1 ? innerW / (n - 1) : 0;
   const yFor = (v: number) => padding.t + innerH - (v / max) * innerH;
@@ -83,36 +73,8 @@ export default function MultiLineChart({
     setHoverIdx(idx);
   }
 
-  const windowChips: { id: 7 | 14 | 30; label: string }[] = [
-    { id: 7,  label: `7${recentLabel}` },
-    { id: 14, label: `14${recentLabel}` },
-    { id: 30, label: `30${recentLabel}` },
-  ];
-
   return (
     <div className="w-full">
-      {/* Window chips */}
-      <div className="flex items-center justify-end gap-1 mb-2">
-        {windowChips.map(w => {
-          const on = windowDays === w.id;
-          return (
-            <button
-              key={w.id}
-              type="button"
-              onClick={() => { setWindowDays(w.id); setHoverIdx(null); }}
-              className="text-[10.5px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-md border transition-colors tabular-nums"
-              style={{
-                backgroundColor: on ? `color-mix(in srgb, ${gold} 16%, transparent)` : "transparent",
-                borderColor: on ? `color-mix(in srgb, ${gold} 40%, transparent)` : C.border,
-                color: on ? gold : C.textMuted,
-              }}
-            >
-              {w.label}
-            </button>
-          );
-        })}
-      </div>
-
       <div className="relative w-full overflow-x-auto">
         <svg
           ref={svgRef}
