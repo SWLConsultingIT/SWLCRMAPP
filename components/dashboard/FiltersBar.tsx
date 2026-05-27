@@ -54,7 +54,7 @@ export default function FiltersBar() {
   const currentFrom = effective.get("from");
   const currentTo   = effective.get("to");
   const activePeriod = (() => {
-    if (!currentFrom && !currentTo) return "30d";
+    if (!currentFrom && !currentTo) return "all";
     if (currentFrom && currentTo) {
       const days = Math.round((new Date(currentTo).getTime() - new Date(currentFrom).getTime()) / 86_400_000);
       const m = PERIODS.find(p => p.days === days);
