@@ -33,7 +33,6 @@ import InlineSpark from "@/components/dashboard/InlineSpark";
 import StepPerformance from "@/components/dashboard/StepPerformance";
 import ChapterNav from "@/components/dashboard/ChapterNav";
 import ChannelComparison from "@/components/dashboard/ChannelComparison";
-import InsightPanel from "@/components/dashboard/InsightPanel";
 import MicroKpi from "@/components/dashboard/MicroKpi";
 import RateBar from "@/components/dashboard/RateBar";
 import ChannelCard from "@/components/dashboard/ChannelCard";
@@ -457,8 +456,8 @@ export default async function DashboardPage({
           <Panel title={t("dashx.funnel.title")} subtitle={t("dashx.funnel.subtitle")} className="lg:col-span-7"
             actionHref={withFilters("/?tab=campaigns", filters)} actionLabel={t("dashx.panel.openCampaigns")}
             insight={(() => {
-              const sent = data.funnel.find(s => s.stage === "linkedin_sent")?.count ?? 0;
-              const accepted = data.funnel.find(s => s.stage === "linkedin_accepted")?.count ?? 0;
+              const sent = data.linkedinConnections?.sent ?? 0;
+              const accepted = data.linkedinConnections?.accepted ?? 0;
               const replied = data.funnel.find(s => s.stage === "replied")?.count ?? 0;
               const won = data.funnel.find(s => s.stage === "won")?.count ?? 0;
               if (sent < 3) return null;
@@ -541,29 +540,6 @@ export default async function DashboardPage({
           </Panel>
         </div>
       </section>
-
-      {/* ─── ACT 3 · Insights — closes the narrative arc. Boss-feedback
-          2026-05-27 story mode: "what to do today → what happened → what
-          signals are emerging". The InsightPanel used to sit hero-sized at
-          the top; moved here as the closer so the data above informs how
-          the operator reads the signal. */}
-      {(() => {
-        const rank = (tone: string) => tone === "warning" ? 2 : tone === "positive" ? 1 : 0;
-        const insights = [...data.insights]
-          .sort((a, b) => rank(b.tone) - rank(a.tone))
-          .map(it => {
-            const key = `dashx.insight.${it.kind}`;
-            const translated = t(key, it.vars);
-            return { tone: it.tone, text: translated === key ? it.text : translated };
-          });
-        return (
-          <InsightPanel
-            title={t("dashx.insights.subtitle")}
-            insights={insights}
-            emptyText={t("dashx.insights.empty")}
-          />
-        );
-      })()}
 
       </section>
       )}
@@ -844,8 +820,8 @@ export default async function DashboardPage({
               Pulls sent + accepted counts from the funnel stages so it
               shares the canonical numbers with the funnel chart above. */}
           {(() => {
-            const liSent = data.funnel.find(s => s.stage === "linkedin_sent")?.count ?? 0;
-            const liAccepted = data.funnel.find(s => s.stage === "linkedin_accepted")?.count ?? 0;
+            const liSent = data.linkedinConnections?.sent ?? 0;
+            const liAccepted = data.linkedinConnections?.accepted ?? 0;
             return (
               <LinkedInConnectionsCard
                 sent={liSent}

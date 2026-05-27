@@ -17,7 +17,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   ChevronDown, ChevronRight, ArrowUpRight, Sparkles,
-  MessageSquare, ThumbsUp, Users, Phone,
+  MessageSquare, Phone,
 } from "lucide-react";
 import { C, N, T } from "@/lib/design";
 
@@ -78,6 +78,11 @@ export default function TodayCard({
     unassigned: false,
   });
 
+  // Boss simplified the hero (2026-05-27 follow-up): show only the two
+  // truly urgent buckets — Replies awaiting review + Pending calls. The
+  // positives / unassigned cohorts still exist in data but live in the
+  // MicroKpi strip beneath; they're state-of-world counts, not "to-do
+  // today" interrupts.
   const sections: Array<{
     key: TodaySectionKey;
     icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
@@ -86,9 +91,7 @@ export default function TodayCard({
     list: TodayLead[];
   }> = [
     { key: "replies",    icon: MessageSquare, accent: "#7C3AED", href: "/inbox",         list: data.replies },
-    { key: "positives",  icon: ThumbsUp,      accent: C.green,   href: "/opportunities", list: data.positives },
     { key: "calls",      icon: Phone,         accent: "#EA580C", href: "/calls",         list: data.calls },
-    { key: "unassigned", icon: Users,         accent: "#0A66C2", href: "/leads",         list: data.unassigned },
   ];
 
   const totalItems = sections.reduce((acc, s) => acc + s.list.length, 0);
@@ -102,29 +105,41 @@ export default function TodayCard({
         boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 18%, transparent), 0 8px 24px -12px ${N.ink}`,
       }}
     >
-      {/* Header */}
+      {/* Header — black surface with gold title (boss feedback 2026-05-27).
+          Body below stays light so the lead rows feel tactile. */}
       <div
-        className="px-5 py-4 flex items-center gap-3 border-b"
+        className="relative px-5 py-4 flex items-center gap-3 overflow-hidden"
         style={{
-          borderColor: C.border,
-          background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 12%, ${C.card}) 0%, ${C.card} 60%)`,
+          background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
+          borderBottom: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
         }}
       >
         <span
-          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+          aria-hidden
+          className="absolute -top-16 -left-12 w-48 h-48 rounded-full pointer-events-none"
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 18%, transparent) 0%, transparent 65%)` }}
+        />
+        <span
+          className="relative w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
           style={{
             background: `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 78%, white) 100%)`,
             color: N.ink,
-            boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 32%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
+            boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
           }}
         >
           <Sparkles size={15} />
         </span>
-        <div className="min-w-0">
-          <h3 className={`${T.cardTitle}`} style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+        <div className="relative min-w-0">
+          <h3
+            className={`${T.cardTitle}`}
+            style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
+          >
             {labels.title}
           </h3>
-          <p className="text-[11.5px] mt-0.5 truncate" style={{ color: C.textMuted }}>
+          <p
+            className="text-[11.5px] mt-0.5 truncate"
+            style={{ color: "color-mix(in srgb, white 65%, transparent)" }}
+          >
             {labels.subtitle.replace("{n}", String(totalItems))}
           </p>
         </div>

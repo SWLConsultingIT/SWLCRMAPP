@@ -91,18 +91,15 @@ const EMPTY_DASHBOARD = {
   headline: { totalLeads: 0, contactedLeads: 0, connectedLeads: 0, repliedCount: 0, positiveCount: 0, negativeCount: 0, meetingCount: 0, wonCount: 0, responseRate: 0, conversionRate: 0 },
   deltas: { contacted: null as number | null, replied: null as number | null, positive: null as number | null },
   funnel: [
-    { stage: "imported",            count: 0, prior: null as number | null, color: "neutral" },
-    { stage: "linkedin_sent",       count: 0, prior: null as number | null, color: "info" },
-    { stage: "linkedin_accepted",   count: 0, prior: null as number | null, color: "info" },
-    { stage: "linkedin_msg",        count: 0, prior: null as number | null, color: "info" },
-    { stage: "email_touch",         count: 0, prior: null as number | null, color: "info" },
-    { stage: "call_touch",          count: 0, prior: null as number | null, color: "info" },
-    { stage: "replied",             count: 0, prior: null as number | null, color: "warning" },
-    { stage: "lost",                count: 0, prior: null as number | null, color: "neutral" },
-    { stage: "won",                 count: 0, prior: null as number | null, color: "brand" },
+    { stage: "imported",          count: 0, prior: null as number | null, color: "neutral" },
+    { stage: "contacted",         count: 0, prior: null as number | null, color: "info" },
+    { stage: "linkedin_accepted", count: 0, prior: null as number | null, color: "info" },
+    { stage: "replied",           count: 0, prior: null as number | null, color: "warning" },
+    { stage: "won",               count: 0, prior: null as number | null, color: "brand" },
   ],
   channelBreakdown: [] as Array<{ channel: string; sent: number; contacted: number; replied: number; positive: number; responseRate: number; conversionRate: number }>,
   callsBreakdown: { pending: 0, completed: 0, answered: 0, positive: 0, negative: 0, total: 0 },
+  linkedinConnections: { sent: 0, accepted: 0 },
   icpPerformance: [] as Array<any>,
   campaignPerformance: [] as Array<any>,
   sellerPerformance: [] as Array<any>,
@@ -1092,24 +1089,24 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       responseRate, positiveRate, conversionRate, acceptanceRate,
     },
     deltas,
-    // Funnel redefined 2026-05-27 per boss spec: now tracks per-channel
-    // touch buckets explicitly instead of a single "contacted" stage, so
-    // the operator sees which channel is actually doing work. Stage IDs
-    // (used as i18n keys via stageKey() in page.tsx) are stable English
-    // tokens. The order matches what boss listed verbatim.
+    // Funnel — boss feedback 2026-05-27 round 3 ("too many bars, pongamos
+    // lo más importante"). Trimmed from 9 to 5 stages: the classic journey
+    // an operator scans (Imported → Contactados → LinkedIn Accepted →
+    // Respondieron → Ganados). Per-channel touch breakdowns live in the
+    // Channels tab as separate cards now.
     funnel: [
-      { stage: "imported",       count: totalLeads,            prior: priorFunnel.imported, color: "neutral" },
-      { stage: "linkedin_sent",  count: linkedinSentCount,     prior: null as number | null, color: "info" },
-      { stage: "linkedin_accepted", count: connectedLeads,     prior: priorFunnel.connected, color: "info" },
-      { stage: "linkedin_msg",   count: linkedinMessageCount,  prior: null as number | null, color: "info" },
-      { stage: "email_touch",    count: emailTouchCount,       prior: null as number | null, color: "info" },
-      { stage: "call_touch",     count: callTouchCount,        prior: null as number | null, color: "info" },
-      { stage: "replied",        count: repliedCount,          prior: priorFunnel.replied,   color: "warning" },
-      { stage: "lost",           count: lostCount,             prior: null as number | null, color: "neutral" },
-      { stage: "won",            count: wonCount,              prior: null as number | null, color: "brand" },
+      { stage: "imported",          count: totalLeads,     prior: priorFunnel.imported,  color: "neutral" },
+      { stage: "contacted",         count: contactedLeads, prior: priorFunnel.contacted, color: "info" },
+      { stage: "linkedin_accepted", count: connectedLeads, prior: priorFunnel.connected, color: "info" },
+      { stage: "replied",           count: repliedCount,   prior: priorFunnel.replied,   color: "warning" },
+      { stage: "won",               count: wonCount,       prior: null as number | null, color: "brand" },
     ],
     channelBreakdown,
     callsBreakdown,
+    // Exposed even after the funnel trim, so the LinkedIn Connections
+    // card on the Channels tab can keep showing Sent → Accepted → rate
+    // (those stages disappeared from the funnel proper).
+    linkedinConnections: { sent: linkedinSentCount, accepted: connectedLeads },
     icpPerformance: icpPerformance.map(p => ({ ...p, spark: sparkByIcp.get(p.id) ?? new Array(14).fill(0) })),
     campaignPerformance: campaignPerformance.map(c => ({ ...c, spark: sparkByCampaign.get(c.name) ?? new Array(14).fill(0) })),
     sellerPerformance: sellerPerformance.map(s => ({ ...s, spark: sparkBySeller.get(s.id) ?? new Array(14).fill(0) })),

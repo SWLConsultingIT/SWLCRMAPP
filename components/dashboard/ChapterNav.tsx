@@ -12,7 +12,7 @@
 
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { C, N } from "@/lib/design";
+import { N } from "@/lib/design";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -55,17 +55,21 @@ export default function ChapterNav({
 
   return (
     <nav
-      className="sticky top-0 z-30 -mx-4 sm:-mx-6 px-4 sm:px-6 flex items-center justify-between gap-3 relative"
+      className="sticky top-2 z-30 rounded-2xl px-3 sm:px-4 py-1 flex items-center justify-between gap-3 relative overflow-hidden"
       style={{
-        backgroundColor: `color-mix(in srgb, ${C.card} 92%, transparent)`,
-        backdropFilter: "blur(10px)",
-        WebkitBackdropFilter: "blur(10px)",
-        borderBottom: `1px solid ${C.border}`,
+        background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
+        border: `1px solid color-mix(in srgb, ${gold} 26%, ${N.hairline})`,
+        boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 18%, transparent), 0 10px 28px -14px ${N.ink}`,
       }}
       aria-label="Dashboard tabs"
     >
-      {/* Pending indicator — same gold pulse used by FiltersBar so the user
-          sees a consistent "data in flight" signal across both navigations. */}
+      {/* Soft gold radial in the top-left so the nav feels lit, not flat */}
+      <span
+        aria-hidden
+        className="absolute -top-20 -left-20 w-64 h-64 rounded-full pointer-events-none"
+        style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 14%, transparent) 0%, transparent 65%)` }}
+      />
+      {/* Pending indicator — gold pulse at the top of the nav */}
       {pending && (
         <span
           aria-hidden
@@ -81,7 +85,7 @@ export default function ChapterNav({
           />
         </span>
       )}
-      <div className="flex items-stretch gap-1 overflow-x-auto flex-1 min-w-0">
+      <div className="relative flex items-stretch gap-1 overflow-x-auto flex-1 min-w-0">
         {items.map(it => {
           const on = activeId === it.id;
           return (
@@ -90,36 +94,39 @@ export default function ChapterNav({
               type="button"
               onClick={() => goTo(it.id)}
               className="relative inline-flex items-center gap-2.5 px-3 sm:px-4 py-3 whitespace-nowrap group transition-colors"
-              style={{
-                color: on ? C.textPrimary : C.textMuted,
-              }}
             >
-              {/* Counter pill — ordinal in a tiny dark navy capsule when
-                  active, ghost outline when inactive. */}
+              {/* Counter pill — gold filled when active, ghost-outlined when not */}
               <span
                 className="text-[9.5px] font-bold tabular-nums tracking-[0.08em] px-1.5 py-[2px] rounded-md transition-colors"
                 style={{
-                  backgroundColor: on ? N.ink : "transparent",
-                  color: on ? "#E6C661" : C.textDim,
-                  border: on ? "none" : `1px solid ${C.border}`,
+                  backgroundColor: on
+                    ? `color-mix(in srgb, ${gold} 22%, transparent)`
+                    : "transparent",
+                  color: on ? gold : "color-mix(in srgb, white 45%, transparent)",
+                  border: on
+                    ? `1px solid color-mix(in srgb, ${gold} 55%, transparent)`
+                    : `1px solid color-mix(in srgb, white 12%, transparent)`,
                 }}
               >
                 {String(it.number).padStart(2, "0")}
               </span>
               <span
-                className="text-[12.5px] font-semibold tracking-[-0.005em]"
-                style={{ color: on ? C.textPrimary : C.textMuted }}
+                className="text-[12.5px] font-semibold tracking-[-0.005em] transition-colors"
+                style={{
+                  color: on ? gold : "color-mix(in srgb, white 65%, transparent)",
+                  textShadow: on ? `0 0 18px color-mix(in srgb, ${gold} 35%, transparent)` : "none",
+                }}
               >
                 {it.label}
               </span>
-              {/* Gold underline — primary active state signal */}
+              {/* Gold underline — primary active-state signal */}
               <span
                 aria-hidden
                 className="absolute left-3 right-3 bottom-0 h-[2.5px] rounded-t-full transition-opacity"
                 style={{
                   background: `linear-gradient(90deg, ${gold} 0%, color-mix(in srgb, ${gold} 60%, transparent) 100%)`,
                   opacity: on ? 1 : 0,
-                  boxShadow: on ? `0 0 12px color-mix(in srgb, ${gold} 38%, transparent)` : "none",
+                  boxShadow: on ? `0 0 12px color-mix(in srgb, ${gold} 50%, transparent)` : "none",
                 }}
               />
             </button>
@@ -127,7 +134,7 @@ export default function ChapterNav({
         })}
       </div>
       {actions && (
-        <div className="shrink-0 flex items-center gap-2 pr-1">
+        <div className="relative shrink-0 flex items-center gap-2 pr-1">
           {actions}
         </div>
       )}
