@@ -41,7 +41,6 @@ import LinkedInConnectionsCard from "@/components/dashboard/LinkedInConnectionsC
 import TodayCard from "@/components/dashboard/TodayCard";
 import ChannelTouches from "@/components/dashboard/ChannelTouches";
 import IcpHealthBadge from "@/components/dashboard/IcpHealthBadge";
-import StagnantIcpsAlert from "@/components/dashboard/StagnantIcpsAlert";
 import HeroKpiCard from "@/components/dashboard/HeroKpiCard";
 
 const gold = "var(--brand, #c9a83a)";
@@ -710,35 +709,6 @@ export default async function DashboardPage({
           the matrix below for the deeper 2D analysis. */}
       {filters.tab === "icps" && (
       <section className="space-y-6 pt-3">
-
-      {/* ── Stagnant ICPs alert (boss-feedback round 5 proposal 1) ──
-          Surfaces ICPs that have ≥10 contacted leads but 0% reply rate
-          OR 0 positives over ≥5 replies — the operator sees them before
-          they even scroll into the table. */}
-      {(() => {
-        const stagnant = data.icpPerformance
-          .filter(i => i.id !== "_unknown" && i.contacted >= 10)
-          .filter(i => i.responseRate === 0 || (i.replied >= 5 && i.conversionRate === 0))
-          .slice(0, 5);
-        if (stagnant.length === 0) return null;
-        return (
-          <StagnantIcpsAlert
-            title={t("dashx.icp.stagnantTitle")}
-            emptySubtitle={t("dashx.icp.stagnantSubtitle", { n: stagnant.length })}
-            ctaLabel={t("dashx.icp.stagnantCta")}
-            reasonNoReplies={t("dashx.icp.stagnantReasonNoReplies")}
-            reasonNoPositives={t("dashx.icp.stagnantReasonNoPositives")}
-            items={stagnant.map(s => ({
-              id: s.id,
-              name: s.name,
-              leads: s.leads,
-              contacted: s.contacted,
-              responseRate: s.responseRate,
-              conversionRate: s.conversionRate,
-            }))}
-          />
-        );
-      })()}
 
       <section>
         {(() => {
