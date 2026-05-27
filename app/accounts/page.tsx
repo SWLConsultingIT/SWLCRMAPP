@@ -183,14 +183,19 @@ async function getData() {
       })()
     : aircall;
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayISO = todayStart.toISOString();
+  // Rolling 24h window — matches the dispatcher's daily-cap accounting
+  // (see /api/cron/dispatch-queue: `since24h = nowMs - DAY_MS`). Previously
+  // this used `setHours(0,0,0,0)` which resolves to UTC midnight on Vercel
+  // and silently dropped sends that the dispatcher still counts against
+  // the seller's daily cap. On 2026-05-27 Fran saw Lucho's card at 0/50
+  // while LinkedIn was already 422-rate-limiting him — the UI told a
+  // different story than the dispatcher. Rolling 24h aligns the two.
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
   const { data: todayMessages } = await supabase
     .from("campaign_messages")
     .select("id, campaign_id, channel, sent_at, campaigns(seller_id)")
-    .gte("sent_at", todayISO)
+    .gte("sent_at", since24h)
     .not("sent_at", "is", null);
 
   const usageToday: Record<string, { linkedin: number; email: number; call: number }> = {};

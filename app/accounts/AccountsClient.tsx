@@ -927,7 +927,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
   });
 
   const tabs = [
-    { label: "Today's Usage", count: `${sellers.length}`, color: gold },
+    { label: "Last 24h", count: `${sellers.length}`, color: gold },
     { label: "History", count: `${dates.length}d`, color: C.blue },
   ];
 
@@ -945,7 +945,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
 
         <div className="rounded-2xl border p-4 card-lift" style={{ background: "linear-gradient(135deg, var(--c-card) 0%, #0A66C20D 100%)", borderColor: C.border, borderTop: "3px solid #0A66C2", boxShadow: "0 4px 16px rgba(10,102,194,0.06)" }}>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>LinkedIn Today</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>LinkedIn · Last 24h</span>
             <Share2 size={14} style={{ color: "#0A66C2" }} />
           </div>
           <p className="text-2xl font-bold tabular-nums" style={{ color: usageColor(liPct) }}>
