@@ -422,6 +422,11 @@ export const en: Dict = {
   "dashx.tbl.col.respPct": "Resp %",
   "dashx.tbl.col.convPct": "Conv %",
   "dashx.tbl.col.channels": "Channels",
+  // Channel-touch chip labels (used inside the inline ChannelTouches strip)
+  "dashx.touch.linkedinSent": "LinkedIn connections sent",
+  "dashx.touch.linkedinMsg": "LinkedIn messages",
+  "dashx.touch.emailTouch": "Emails",
+  "dashx.touch.callTouch": "Calls",
   "dashx.tbl.col.status": "Status",
   "dashx.tbl.col.trend14": "14d trend",
   "dashx.tbl.col.velocity": "Velocity",
@@ -1081,6 +1086,11 @@ export const es: Dict = {
   "dashx.tbl.col.respPct": "Resp %",
   "dashx.tbl.col.convPct": "Conv %",
   "dashx.tbl.col.channels": "Canales",
+  // Channel-touch chip labels
+  "dashx.touch.linkedinSent": "Conexiones LinkedIn enviadas",
+  "dashx.touch.linkedinMsg": "Mensajes LinkedIn",
+  "dashx.touch.emailTouch": "Emails",
+  "dashx.touch.callTouch": "Llamadas",
   "dashx.tbl.col.status": "Estado",
   "dashx.tbl.col.trend14": "Tendencia 14d",
   "dashx.tbl.col.velocity": "Velocidad",

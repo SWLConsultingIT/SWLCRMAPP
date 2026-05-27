@@ -38,6 +38,7 @@ import MicroKpi from "@/components/dashboard/MicroKpi";
 import RateBar from "@/components/dashboard/RateBar";
 import ChannelCard from "@/components/dashboard/ChannelCard";
 import TodayCard from "@/components/dashboard/TodayCard";
+import ChannelTouches from "@/components/dashboard/ChannelTouches";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -563,7 +564,7 @@ export default async function DashboardPage({
               <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
                 <Th align="left">{t("dashx.tbl.col.icp")}</Th>
                 <Th align="right">{t("dashx.tbl.col.leads")}</Th>
-                <Th align="right">{t("dashx.tbl.col.contacted")}</Th>
+                <Th align="left">{t("dashx.tbl.col.channels")}</Th>
                 <Th align="right">{t("dashx.tbl.col.replied")}</Th>
                 <Th align="right">{t("dashx.tbl.col.positive")}</Th>
                 <Th align="right">{t("dashx.tbl.col.respPct")}</Th>
@@ -599,7 +600,20 @@ export default async function DashboardPage({
                       </div>
                     </Td>
                     <NumCell value={icp.leads} />
-                    <NumCell value={icp.contacted} />
+                    <td className="px-3 py-2">
+                      <ChannelTouches
+                        linkedinSent={icp.linkedinSent}
+                        linkedinMsg={icp.linkedinMsg}
+                        emailTouch={icp.emailTouch}
+                        callTouch={icp.callTouch}
+                        labels={{
+                          linkedinSent: t("dashx.touch.linkedinSent"),
+                          linkedinMsg: t("dashx.touch.linkedinMsg"),
+                          emailTouch: t("dashx.touch.emailTouch"),
+                          callTouch: t("dashx.touch.callTouch"),
+                        }}
+                      />
+                    </td>
                     <NumCell value={icp.replied} />
                     <NumCell value={icp.positive} accent={icp.positive > 0 ? C.green : undefined} bold />
                     <td className="px-3 py-2"><div className="flex justify-end"><RateBar value={icp.responseRate} max={maxResp} color="#7C3AED" /></div></td>

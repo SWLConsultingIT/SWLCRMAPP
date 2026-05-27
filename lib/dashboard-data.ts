@@ -487,16 +487,35 @@ export async function getDashboardData(filters: DashboardFilters) {
   }
 
   // ── ICP performance ─────────────────────────────────────────────────────
-  type IcpAgg = { id: string; name: string; leads: number; contacted: number; replied: number; positive: number };
+  // Per-ICP channel-usage columns (boss-feedback 2026-05-27): lets the
+  // operator compare which ICP rides which channel. The four channels
+  // mirror the funnel stages (LI sent, LI msg post-accept, email, call).
+  type IcpAgg = {
+    id: string; name: string;
+    leads: number; contacted: number; replied: number; positive: number;
+    linkedinSent: number; linkedinMsg: number; emailTouch: number; callTouch: number;
+  };
   const icpAgg = new Map<string, IcpAgg>();
   for (const l of leads) {
     const id = l.icp_profile_id ?? "_unknown";
     let g = icpAgg.get(id);
-    if (!g) { g = { id, name: profileMap.get(id) ?? "Sin ICP", leads: 0, contacted: 0, replied: 0, positive: 0 }; icpAgg.set(id, g); }
+    if (!g) {
+      g = {
+        id,
+        name: profileMap.get(id) ?? "Sin ICP",
+        leads: 0, contacted: 0, replied: 0, positive: 0,
+        linkedinSent: 0, linkedinMsg: 0, emailTouch: 0, callTouch: 0,
+      };
+      icpAgg.set(id, g);
+    }
     g.leads++;
     if (leadsWithCampaign.has(l.id)) g.contacted++;
     if (repliedLeadIds.has(l.id)) g.replied++;
     if (positiveLeadIds.has(l.id)) g.positive++;
+    if (linkedinSentLeadIds.has(l.id)) g.linkedinSent++;
+    if (linkedinMessageLeadIds.has(l.id)) g.linkedinMsg++;
+    if (emailTouchLeadIds.has(l.id)) g.emailTouch++;
+    if (callTouchLeadIds.has(l.id)) g.callTouch++;
   }
   const icpPerformance = Array.from(icpAgg.values()).map(g => ({
     ...g,
