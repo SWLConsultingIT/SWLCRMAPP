@@ -281,7 +281,10 @@ export default async function DashboardPage({
             </span>
           </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        {/* 4 KPIs (was 6) — dropped "Reuniones" (lagging duplicate of Wins)
+            and moved "Aceptaron CR" down to the Health strip where the
+            LinkedIn warmup signal lives. Each card now breathes more. */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard {...kpi18n}
             label={t("dashx.kpi.contacted")}
             value={headline.contactedLeads.toLocaleString(dateLoc)}
@@ -290,13 +293,6 @@ export default async function DashboardPage({
             icon={Send}
             accent="#0A66C2"
             hint={t("dashx.kpi.contactedHint")}
-          />
-          <KpiCard {...kpi18n}
-            label={t("dashx.kpi.acceptCR")}
-            value={`${headline.acceptanceRate}%`}
-            icon={ChevronsRight}
-            accent="#0A66C2"
-            hint={t("dashx.kpi.acceptCRHint", { n: headline.connectedLeads.toLocaleString(dateLoc) })}
           />
           <KpiCard {...kpi18n}
             label={t("dashx.kpi.replies")}
@@ -316,14 +312,6 @@ export default async function DashboardPage({
             icon={ThumbsUp}
             accent={C.green}
             hint={t("dashx.kpi.positivesHint", { n: headline.positiveRate })}
-            href="/opportunities"
-          />
-          <KpiCard {...kpi18n}
-            label={t("dashx.kpi.meetings")}
-            value={headline.meetingCount.toLocaleString(dateLoc)}
-            icon={Target}
-            accent="#F59E0B"
-            hint={t("dashx.kpi.meetingsHint")}
             href="/opportunities"
           />
           <KpiCard {...kpi18n}
@@ -382,14 +370,23 @@ export default async function DashboardPage({
           </div>
         </div>
 
-        {/* Health row — quieter visual weight, 3 cols, separated by a single divider */}
+        {/* Health row — 4 cols now (was 3). Acceptance Rate moved here from
+            the KPI row above: it's a LinkedIn warmup signal, semantically
+            closer to engine health than to pipeline outcomes. */}
         <div className="border-t" style={{ borderColor: C.border }}>
           <div className="px-4 py-2 flex items-center gap-2 border-b" style={{ borderColor: C.border }}>
             <Activity size={11} style={{ color: C.textMuted }} />
             <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em]" style={{ color: C.textMuted }}>{t("dashx.health.title")}</span>
             <span className="text-[10.5px]" style={{ color: C.textDim }}>· {t("dashx.health.subtitle")}</span>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: C.border }}>
+          <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x" style={{ borderColor: C.border }}>
+            <HealthStat
+              label={t("dashx.kpi.acceptCR")}
+              value={`${headline.acceptanceRate}%`}
+              unit={t("dashx.kpi.acceptCRUnit")}
+              hint={t("dashx.kpi.acceptCRHint", { n: headline.connectedLeads.toLocaleString(dateLoc) })}
+              tone={headline.contactedLeads >= 50 && headline.acceptanceRate < 15 ? "warning" : "neutral"}
+            />
             <HealthStat
               label={t("dashx.health.sat")}
               value={data.health.saturationRate === null ? "—" : `${data.health.saturationRate}%`}
