@@ -570,6 +570,7 @@ export const en: Dict = {
   "dashx.filters.sellers": "Sellers",
   "dashx.filters.clear": "Clear filters",
   "dashx.filters.noOptions": "No options available.",
+  "dashx.filters.applied": "Filters",
   // KpiCard delta labels
   "dashx.kpi.vsPrior": "vs prior",
   "dashx.kpi.noPrior": "No comparable",
@@ -1382,6 +1383,7 @@ export const es: Dict = {
   "dashx.filters.sellers": "Sellers",
   "dashx.filters.clear": "Limpiar filtros",
   "dashx.filters.noOptions": "Sin opciones disponibles.",
+  "dashx.filters.applied": "Filtros",
   // KpiCard delta labels
   "dashx.kpi.vsPrior": "vs anterior",
   "dashx.kpi.noPrior": "Sin comparable",

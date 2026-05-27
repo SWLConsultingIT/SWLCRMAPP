@@ -20,6 +20,8 @@ import { getT, getServerLocale } from "@/lib/i18n-server";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
 import FiltersBar from "@/components/dashboard/FiltersBar";
 import CampStatusChipsLive from "@/components/dashboard/CampStatusChipsLive";
+import TabFilterBar from "@/components/dashboard/TabFilterBar";
+import { getSupabaseService } from "@/lib/supabase-service";
 import FreshnessChip from "@/components/dashboard/FreshnessChip";
 import DashboardKeyboardShortcuts from "@/components/dashboard/DashboardKeyboardShortcuts";
 import SwlSignature from "@/components/dashboard/SwlSignature";
@@ -160,6 +162,35 @@ function parseFilters(sp: Record<string, string | string[] | undefined>) {
   };
 }
 
+// Per-tab filter options — lightweight universe query so the chip
+// dropdowns show every available campaign/ICP/seller, not just the ones
+// surviving the current filter. Only runs for the 3 tabs that expose the
+// TabFilterBar (Campaigns / Channels / Sellers); Overview / ICPs skip it.
+async function loadFilterOptions(bioId: string | null) {
+  try {
+    const svc = getSupabaseService();
+    const campsQ = bioId
+      ? svc.from("campaigns").select("name, leads!inner(company_bio_id)").eq("leads.company_bio_id", bioId)
+      : svc.from("campaigns").select("name");
+    const sellersQ = bioId
+      ? svc.from("sellers").select("id, name").or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`).order("name")
+      : svc.from("sellers").select("id, name").order("name");
+    const icpsQ = bioId
+      ? svc.from("icp_profiles").select("id, profile_name").eq("company_bio_id", bioId).eq("status", "approved").order("profile_name")
+      : svc.from("icp_profiles").select("id, profile_name").eq("status", "approved").order("profile_name");
+    const [{ data: camps }, { data: sellers }, { data: icps }] = await Promise.all([campsQ, sellersQ, icpsQ]);
+    const uniqueNames = Array.from(new Set((camps ?? []).map((c: any) => c.name).filter(Boolean))).sort();
+    return {
+      campaigns: uniqueNames.map(n => ({ id: n, label: n })),
+      sellers: (sellers ?? []).map((s: any) => ({ id: s.id, label: s.name })),
+      icps: (icps ?? []).map((p: any) => ({ id: p.id, label: p.profile_name })),
+    };
+  } catch (e) {
+    console.error("[dashboard] loadFilterOptions failed:", e);
+    return { campaigns: [], sellers: [], icps: [] };
+  }
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -172,11 +203,25 @@ export default async function DashboardPage({
 
   const sp = await searchParams;
   const filters = parseFilters(sp);
-  const [data, t, locale] = await Promise.all([
+  const bioId = scope.isScoped ? scope.companyBioId! : null;
+  // Filter options only feed the TabFilterBar that lives inside Campaigns /
+  // Channels / Sellers. Overview + ICPs don't need them, so we skip the
+  // 3 extra queries on those tabs.
+  const needsFilterOptions = filters.tab === "campaigns" || filters.tab === "channels" || filters.tab === "sellers";
+  const [data, t, locale, filterOptions] = await Promise.all([
     getDashboardData(filters),
     getT(),
     getServerLocale(),
+    needsFilterOptions ? loadFilterOptions(bioId) : Promise.resolve({ campaigns: [], sellers: [], icps: [] }),
   ]);
+  const tabFilterLabels = {
+    campaigns: t("dashx.filters.campaigns"),
+    icps: t("dashx.filters.icps"),
+    sellers: t("dashx.filters.sellers"),
+    clear: t("dashx.filters.clear"),
+    empty: t("dashx.filters.noOptions"),
+    applied: t("dashx.filters.applied"),
+  };
   const dateLoc = locale === "es" ? "es-AR" : "en-US";
   // Locale-bound bundles spread onto every KpiCard / Funnel so we don't
   // forget to pass them and have hardcoded Spanish leak through.
@@ -869,6 +914,15 @@ export default async function DashboardPage({
       {filters.tab === "campaigns" && (
       <section className="space-y-6 pt-3">
 
+      {/* Per-tab filter bar — ICP + Seller dropdowns scope the campaigns list
+          and the Performance-by-step that lives below. Campaign self-filter
+          would be circular, so it's omitted here. */}
+      <TabFilterBar
+        icps={filterOptions.icps}
+        sellers={filterOptions.sellers}
+        labels={tabFilterLabels}
+      />
+
       <section>
         {/* Status tabs — default to "active" so historical clutter doesn't bury
             campaigns currently running. URL-state via ?camp_status=... so the
@@ -1070,6 +1124,15 @@ export default async function DashboardPage({
       {filters.tab === "channels" && (
       <section className="space-y-4 pt-2">
 
+      {/* Per-tab filter bar — Campaign + ICP + Seller. Filters the entire
+          channels chapter (cards + comparison + heatmap). */}
+      <TabFilterBar
+        campaigns={filterOptions.campaigns}
+        icps={filterOptions.icps}
+        sellers={filterOptions.sellers}
+        labels={tabFilterLabels}
+      />
+
       <section>
         <SectionHeader icon={Send} title={t("dashx.channels.title")} subtitle={t("dashx.channels.subtitle")} />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1175,6 +1238,14 @@ export default async function DashboardPage({
           happened to inherit more leads. */}
       {filters.tab === "sellers" && (
       <section className="space-y-6 pt-3">
+
+      {/* Per-tab filter bar — Campaign + ICP. Seller self-filter would be
+          circular (sellers are the rows) so we omit it. */}
+      <TabFilterBar
+        campaigns={filterOptions.campaigns}
+        icps={filterOptions.icps}
+        labels={tabFilterLabels}
+      />
 
       <section>
         {(() => {
