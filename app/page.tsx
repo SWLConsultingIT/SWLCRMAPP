@@ -39,6 +39,7 @@ import HeroStat from "@/components/dashboard/HeroStat";
 import InsightPanel from "@/components/dashboard/InsightPanel";
 import MicroKpi from "@/components/dashboard/MicroKpi";
 import RateBar from "@/components/dashboard/RateBar";
+import ChannelCard from "@/components/dashboard/ChannelCard";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -757,35 +758,21 @@ export default async function DashboardPage({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {data.channelBreakdown.length === 0 ? (
             <EmptyHint>{t("dashx.channels.empty")}</EmptyHint>
-          ) : data.channelBreakdown.map(ch => {
-            const meta = channelMeta[ch.channel] ?? { icon: Share2, color: C.textMuted, labelKey: "" };
-            const Icon = meta.icon;
-            const channelLabel = meta.labelKey ? t(meta.labelKey) : ch.channel;
-            return (
-              <div key={ch.channel} className="rounded-xl border p-3.5 transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-md"
-                style={{ borderColor: C.border, backgroundColor: C.card, borderLeft: `3px solid ${meta.color}` }}>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-7 h-7 rounded-md flex items-center justify-center"
-                      style={{ backgroundColor: `color-mix(in srgb, ${meta.color} 14%, transparent)`, color: meta.color }}>
-                      <Icon size={13} />
-                    </span>
-                    <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{channelLabel}</span>
-                  </div>
-                  <span className="text-[10px] tabular-nums font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
-                    style={{ backgroundColor: `color-mix(in srgb, ${meta.color} 12%, transparent)`, color: meta.color }}>
-                    {ch.responseRate}% {t("dashx.channels.respShort")}
-                  </span>
-                </div>
-                <div className="grid grid-cols-4 gap-2 text-xs">
-                  <Stat label={t("dashx.channels.sent")} value={ch.sent} />
-                  <Stat label={t("dashx.channels.contacted")} value={ch.contacted} />
-                  <Stat label={t("dashx.channels.replied")} value={ch.replied} />
-                  <Stat label={t("dashx.channels.positive")} value={ch.positive} accent={C.green} />
-                </div>
-              </div>
-            );
-          })}
+          ) : (() => {
+            // Find the top-performing channel by reply rate so we can crown
+            // it visually. Tie-broken by positives count (more wins = top).
+            const topChannel = [...data.channelBreakdown]
+              .sort((a, b) => b.responseRate - a.responseRate || b.positive - a.positive)[0]?.channel;
+            return data.channelBreakdown.map(ch => (
+              <ChannelCard
+                key={ch.channel}
+                row={ch}
+                isTop={ch.channel === topChannel && data.channelBreakdown.length > 1}
+                t={t}
+                topLabel={t("dashx.channels.topChannel")}
+              />
+            ));
+          })()}
         </div>
       </section>
 
@@ -934,15 +921,6 @@ function EmptyHint({ children }: { children: React.ReactNode }) {
   return (
     <div className="col-span-full rounded-xl border border-dashed p-6 text-center text-xs"
       style={{ borderColor: C.border, color: C.textMuted }}>{children}</div>
-  );
-}
-
-function Stat({ label, value, accent }: { label: string; value: number; accent?: string }) {
-  return (
-    <div>
-      <p className="text-[9px] uppercase tracking-wider" style={{ color: C.textDim }}>{label}</p>
-      <p className="text-sm font-bold tabular-nums mt-0.5" style={{ color: accent ?? C.textPrimary }}>{value.toLocaleString("es-AR")}</p>
-    </div>
   );
 }
 
