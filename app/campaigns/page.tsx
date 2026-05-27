@@ -19,7 +19,7 @@ async function getData() {
   const bioId = scope.isScoped ? scope.companyBioId! : null;
 
   const campsQ = supabase.from("campaigns")
-    .select("id, name, status, channel, current_step, sequence_steps, last_step_at, paused_until, completed_at, created_at, lead_id, leads!inner(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, status, lead_score, icp_profile_id, company_bio_id, created_at, source, encrypted_payload), sellers(name)")
+    .select("id, name, status, channel, current_step, sequence_steps, last_step_at, paused_until, completed_at, created_at, lead_id, leads!inner(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, status, lead_score, icp_profile_id, company_bio_id, created_at, source, encrypted_payload, linkedin_connected, transferred_to_odoo_at), sellers(name)")
     .in("status", ["active", "paused", "completed", "failed"])
     .order("created_at", { ascending: false }).limit(200);
 
@@ -94,17 +94,48 @@ async function getData() {
   const campIds: string[] = (campaigns ?? []).map((c: any) => c.id).filter(Boolean);
   const sentCountByCamp: Record<string, number> = {};
   const totalCountByCamp: Record<string, number> = {};
+  // Per-campaign channel breakdown so each Outreach Flow card can show how
+  // many LinkedIn invites (step 0), LinkedIn DMs (step 1+), and emails
+  // actually fired. Boss feedback 2026-05-27.
+  const liInvitesByCamp: Record<string, number> = {};
+  const liDmsByCamp: Record<string, number> = {};
+  const emailsByCamp: Record<string, number> = {};
   if (campIds.length > 0) {
     const { data: msgCounts } = await supabase
       .from("campaign_messages")
-      .select("campaign_id, status")
+      .select("campaign_id, status, channel, step_number")
       .in("campaign_id", campIds) as any;
     for (const m of msgCounts ?? []) {
       totalCountByCamp[m.campaign_id] = (totalCountByCamp[m.campaign_id] ?? 0) + 1;
       if (m.status === "sent" || m.status === "skipped") {
         sentCountByCamp[m.campaign_id] = (sentCountByCamp[m.campaign_id] ?? 0) + 1;
       }
+      if (m.status === "sent") {
+        if (m.channel === "linkedin") {
+          if (m.step_number === 0) liInvitesByCamp[m.campaign_id] = (liInvitesByCamp[m.campaign_id] ?? 0) + 1;
+          else liDmsByCamp[m.campaign_id] = (liDmsByCamp[m.campaign_id] ?? 0) + 1;
+        } else if (m.channel === "email") {
+          emailsByCamp[m.campaign_id] = (emailsByCamp[m.campaign_id] ?? 0) + 1;
+        }
+      }
     }
+  }
+  // Calls live outside campaign_messages — query the calls table separately
+  // and group by lead_id, then attribute to whichever campaign owns each
+  // lead. Each lead is in exactly one Outreach Flow per the schema.
+  const allCampLeadIds: string[] = (campaigns ?? []).map((c: any) => c.lead_id).filter(Boolean);
+  const callsByLead: Record<string, number> = {};
+  if (allCampLeadIds.length > 0) {
+    const { data: callRows } = await supabase.from("calls").select("lead_id").in("lead_id", allCampLeadIds);
+    for (const cr of callRows ?? []) {
+      const lid = (cr as any).lead_id as string | null;
+      if (lid) callsByLead[lid] = (callsByLead[lid] ?? 0) + 1;
+    }
+  }
+  const callsByCamp: Record<string, number> = {};
+  for (const c of (campaigns ?? []) as any[]) {
+    const lid = c.lead_id as string | null;
+    if (lid && callsByLead[lid]) callsByCamp[c.id] = (callsByCamp[c.id] ?? 0) + callsByLead[lid];
   }
 
   // Reply lookups
@@ -129,13 +160,19 @@ async function getData() {
   const positiveCount = [...contactedLeadIds].filter(id => positiveLeadIds.has(id)).length;
   const responseRate = contactedCount > 0 ? Math.round((repliedCount / contactedCount) * 100) : 0;
 
-  // Enrich campaigns with reply data and message-based progress counts
+  // Enrich campaigns with reply data + message-based progress counts +
+  // per-channel send breakdown so the cards can show LinkedIn invites
+  // / LinkedIn DMs / emails / calls separately.
   const enrichedCampaigns = (campaigns ?? []).map((c: any) => ({
     ...c,
     reply_count: repliesByCamp[c.id] ?? 0,
     positive_count: positiveByCamp[c.id] ?? 0,
     sent_steps: sentCountByCamp[c.id] ?? 0,
     total_steps: totalCountByCamp[c.id] ?? (c.sequence_steps?.length ?? 0),
+    linkedin_invites_sent: liInvitesByCamp[c.id] ?? 0,
+    linkedin_dms_sent: liDmsByCamp[c.id] ?? 0,
+    emails_sent: emailsByCamp[c.id] ?? 0,
+    calls_made: callsByCamp[c.id] ?? 0,
   }));
 
   // Uncampaigned leads

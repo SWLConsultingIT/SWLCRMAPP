@@ -52,6 +52,13 @@ type CampaignGroup = {
   lastActivity: string | null;
   status: string;
   icpProfileId: string | null;
+  // Per-channel send breakdown + win/lost (boss 2026-05-27).
+  liInvitesSent: number;
+  liDmsSent: number;
+  emailsSent: number;
+  callsMade: number;
+  wonCount: number;
+  lostCount: number;
 };
 
 type IcpSection = {
@@ -130,6 +137,15 @@ function groupCampaigns(campaigns: Campaign[]): CampaignGroup[] {
 
     const totalReplies = camps.reduce((s, c) => s + (c.reply_count ?? 0), 0);
     const totalPositive = camps.reduce((s, c) => s + (c.positive_count ?? 0), 0);
+    const liInvitesSent = camps.reduce((s, c) => s + ((c as any).linkedin_invites_sent ?? 0), 0);
+    const liDmsSent     = camps.reduce((s, c) => s + ((c as any).linkedin_dms_sent ?? 0), 0);
+    const emailsSent    = camps.reduce((s, c) => s + ((c as any).emails_sent ?? 0), 0);
+    const callsMade     = camps.reduce((s, c) => s + ((c as any).calls_made ?? 0), 0);
+    const wonCount  = camps.filter(c => {
+      const l = (c.leads as any);
+      return l?.status === "closed_won" || l?.status === "qualified" || !!l?.transferred_to_odoo_at;
+    }).length;
+    const lostCount = camps.filter(c => (c.leads as any)?.status === "closed_lost").length;
 
     const groupStatus = active > 0 ? "active" : paused > 0 ? "paused" : completed > 0 ? "completed" : "failed";
 
@@ -154,6 +170,12 @@ function groupCampaigns(campaigns: Campaign[]): CampaignGroup[] {
       lastActivity,
       status: groupStatus,
       icpProfileId: dominantIcp === "__none" ? null : dominantIcp,
+      liInvitesSent,
+      liDmsSent,
+      emailsSent,
+      callsMade,
+      wonCount,
+      lostCount,
     };
   }).sort((a, b) => b.active - a.active || b.totalLeads - a.totalLeads);
 }
@@ -321,8 +343,63 @@ function FlowRow({ group }: { group: CampaignGroup }) {
             </p>
           </div>
         </div>
+
+        {/* Channel breakdown strip — small inline chips for what's actually
+            been fired per channel + the win/lost counts. Boss asked for
+            these on 2026-05-27 so the card explains "where the work went"
+            without needing to open the campaign. Only renders chips that
+            have a non-zero value to keep the row tidy. */}
+        {(group.liInvitesSent + group.liDmsSent + group.emailsSent + group.callsMade + group.wonCount + group.lostCount) > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
+            {group.liInvitesSent > 0 && (
+              <MetricChip icon={<Share2 size={10} />} label="LI Invites" value={group.liInvitesSent} color="#0A66C2" />
+            )}
+            {group.liDmsSent > 0 && (
+              <MetricChip icon={<Share2 size={10} />} label="LI Messages" value={group.liDmsSent} color="#0A66C2" />
+            )}
+            {group.emailsSent > 0 && (
+              <MetricChip icon={<Mail size={10} />} label="Emails" value={group.emailsSent} color="#7C3AED" />
+            )}
+            {group.callsMade > 0 && (
+              <MetricChip icon={<Phone size={10} />} label="Calls" value={group.callsMade} color="#F97316" />
+            )}
+            <div className="flex-1" />
+            {group.wonCount > 0 && (
+              <MetricChip label="Won" value={group.wonCount} color={C.green} solid />
+            )}
+            {group.lostCount > 0 && (
+              <MetricChip label="Lost" value={group.lostCount} color={C.red} solid />
+            )}
+          </div>
+        )}
       </div>
     </Link>
+  );
+}
+
+// Compact inline chip for the channel-breakdown strip. Solid variant for
+// the win/lost terminal counts so they pop visually against the in-flight
+// channel chips.
+function MetricChip({ icon, label, value, color, solid }: {
+  icon?: React.ReactNode;
+  label: string;
+  value: number;
+  color: string;
+  solid?: boolean;
+}) {
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+      style={{
+        backgroundColor: solid ? color : `color-mix(in srgb, ${color} 12%, transparent)`,
+        color: solid ? "#fff" : color,
+        border: solid ? "none" : `1px solid color-mix(in srgb, ${color} 24%, transparent)`,
+      }}
+    >
+      {icon}
+      <span className="tabular-nums font-bold">{value}</span>
+      <span className="opacity-90">{label}</span>
+    </span>
   );
 }
 
