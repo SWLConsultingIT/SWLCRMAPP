@@ -62,6 +62,15 @@ type ReplyRow = { id: string; lead_id: string | null; campaign_id: string | null
 type MsgRow = { id: string; status: string | null; sent_at: string | null; campaign_id: string | null; step_number: number | null };
 
 async function loadIcpDetail(icpId: string, dateFrom: string | null, dateTo: string | null) {
+  try {
+    return await loadIcpDetailInternal(icpId, dateFrom, dateTo);
+  } catch (e) {
+    console.error("[icp detail] load failed", { icpId, error: e });
+    return null;
+  }
+}
+
+async function loadIcpDetailInternal(icpId: string, dateFrom: string | null, dateTo: string | null) {
   const supabase = await getSupabaseServer();
   const scope = await getUserScope();
   const bioId = scope.isScoped ? scope.companyBioId! : null;
