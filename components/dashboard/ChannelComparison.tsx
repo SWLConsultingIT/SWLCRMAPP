@@ -56,20 +56,27 @@ export default function ChannelComparison({
         const isTop = i === 0 && sorted.length > 1 && r.responseRate > 0;
 
         return (
-          <div key={r.channel} className="flex items-center gap-3 py-1.5">
+          <div
+            key={r.channel}
+            className="grid items-center gap-3 py-1.5"
+            // Boss feedback 2026-05-27: bar was hogging the row, metrics were
+            // cramped. Cap bar at ~40% of the row, give metrics ~46% so the
+            // numbers can breathe and read at scan distance.
+            style={{ gridTemplateColumns: "150px minmax(160px, 2fr) minmax(280px, 2.2fr)" }}
+          >
             {/* Left: channel icon + name */}
-            <div className="w-32 shrink-0 flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <span
-                className="w-7 h-7 rounded-md flex items-center justify-center"
+                className="w-8 h-8 rounded-md flex items-center justify-center shrink-0"
                 style={{ backgroundColor: `color-mix(in srgb, ${meta.color} 14%, transparent)`, color: meta.color }}
               >
-                <Icon size={13} />
+                <Icon size={15} />
               </span>
-              <span className="text-[13px] font-medium" style={{ color: C.textPrimary }}>{channelLabel}</span>
+              <span className="text-[13px] font-medium truncate" style={{ color: C.textPrimary }} title={channelLabel}>{channelLabel}</span>
             </div>
 
             {/* Bar */}
-            <div className="flex-1 relative h-8 rounded-md" style={{ background: C.surface }}>
+            <div className="relative h-8 rounded-md" style={{ background: C.surface }}>
               <div
                 className="absolute inset-y-0 left-0 rounded-md flex items-center px-3 transition-[width]"
                 style={{
@@ -88,11 +95,12 @@ export default function ChannelComparison({
               </div>
             </div>
 
-            {/* Counts on the right — fixed-width columns for clean alignment */}
-            <div className="hidden md:flex items-center gap-4 text-[11px] tabular-nums shrink-0" style={{ color: C.textMuted }}>
-              <Stat label={t("dashx.channels.sent")} value={r.sent} width={50} />
-              <Stat label={t("dashx.channels.replied")} value={r.replied} width={40} />
-              <Stat label={t("dashx.channels.positive")} value={r.positive} width={40} accent={r.positive > 0 ? C.green : undefined} />
+            {/* Counts on the right — wider cells so the numbers read at scan distance */}
+            <div className="hidden md:grid items-center gap-3 tabular-nums" style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
+              <Stat label={t("dashx.channels.sent")} value={r.sent} />
+              <Stat label={t("dashx.channels.contacted")} value={r.contacted} />
+              <Stat label={t("dashx.channels.replied")} value={r.replied} />
+              <Stat label={t("dashx.channels.positive")} value={r.positive} accent={r.positive > 0 ? C.green : undefined} />
             </div>
           </div>
         );
@@ -106,11 +114,11 @@ export default function ChannelComparison({
   );
 }
 
-function Stat({ label, value, width, accent }: { label: string; value: number; width: number; accent?: string }) {
+function Stat({ label, value, accent }: { label: string; value: number; accent?: string }) {
   return (
-    <div style={{ width }} className="text-right">
-      <p className="text-[9px] uppercase tracking-wider" style={{ color: C.textDim }}>{label}</p>
-      <p className="text-[12px] font-semibold tabular-nums" style={{ color: accent ?? C.textPrimary }}>{value.toLocaleString("en-US")}</p>
+    <div className="text-right min-w-0">
+      <p className="text-[9.5px] uppercase tracking-wider truncate" style={{ color: C.textDim }} title={label}>{label}</p>
+      <p className="text-[14px] font-bold tabular-nums" style={{ color: accent ?? C.textPrimary }}>{value.toLocaleString("en-US")}</p>
     </div>
   );
 }
