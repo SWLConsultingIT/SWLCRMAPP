@@ -232,6 +232,8 @@ export default async function DashboardPage({
       label: t(`dashx.reply.${k}`) === `dashx.reply.${k}` ? k : t(`dashx.reply.${k}`),
       value: v,
       color: classColors[k] ?? "#9CA3AF",
+      classKey: k,
+      prior: data.replyClassCountsPrior?.[k] ?? 0,
     }))
     .sort((a, b) => b.value - a.value);
 
@@ -600,7 +602,12 @@ export default async function DashboardPage({
               const positivesPct = totalReplies > 0 ? Math.round((positives / totalReplies) * 100) : 0;
               return t("dashx.donut.insight", { positivesPct, positives, total: totalReplies });
             })()}>
-            <Donut data={donutSlices} centerLabel={t("dashx.donut.centerReplies")} emptyLabel={t("dashx.donut.empty")} />
+            <Donut
+              data={donutSlices}
+              centerLabel={t("dashx.donut.centerReplies")}
+              emptyLabel={t("dashx.donut.empty")}
+              vsPriorLabel={t("dashx.kpi.vsPrior")}
+            />
           </Panel>
         </div>
       </section>
@@ -611,7 +618,7 @@ export default async function DashboardPage({
       <section>
         <div className="grid grid-cols-1 gap-3">
           <Panel title={t("dashx.trend.title")} subtitle={t("dashx.trend.subtitle")} glow
-            actionHref="/reports" actionLabel={t("dashx.panel.openReports")}
+            actionHref={withFilters("/?tab=campaigns", filters)} actionLabel={t("dashx.panel.openCampaigns")}
             insightEyebrow={t("dashx.insight.eyebrow")}
             insight={(() => {
               const n = trend30d.sent.length;

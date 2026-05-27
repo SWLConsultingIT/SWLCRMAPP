@@ -106,6 +106,7 @@ const EMPTY_DASHBOARD = {
   trend30d: { sent: new Array(30).fill(0) as number[], replies: new Array(30).fill(0) as number[], positive: new Array(30).fill(0) as number[] },
   trendPrior: { sent: new Array(30).fill(0) as number[], replies: new Array(30).fill(0) as number[], positive: new Array(30).fill(0) as number[] },
   replyClassCounts: { positive: 0, meeting_intent: 0 } as Record<string, number>,
+  replyClassCountsPrior: {} as Record<string, number>,
   insights: [] as Array<{ tone: "positive" | "warning" | "neutral"; kind: string; vars: Record<string, string | number>; text: string }>,
   activeCampaignCount: 0,
   pausedCampaignCount: 0,
@@ -1042,6 +1043,13 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   // Seed positive/meeting_intent at 0 so the donut/legend always shows
   // them — boss-feedback 2026-05-27: "positives debería aparecer aunque
   // sean 0". The render layer relies on these keys being present.
+  // Prior-period reply class counts — used by the Donut to render a
+  // +/- delta chip per classification (boss feedback round 5 #2).
+  const replyClassCountsPrior: Record<string, number> = { positive: 0, meeting_intent: 0 };
+  for (const r of priorReplies) {
+    const k = r.classification ?? "unclassified";
+    replyClassCountsPrior[k] = (replyClassCountsPrior[k] ?? 0) + 1;
+  }
   const replyClassCounts: Record<string, number> = { positive: 0, meeting_intent: 0 };
   for (const r of replies) {
     const k = r.classification ?? "unclassified";
@@ -1142,6 +1150,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     trend30d,
     trendPrior,
     replyClassCounts,
+    replyClassCountsPrior,
     insights: insights.slice(0, 4),
     activeCampaignCount: campaigns.filter(c => c.status === "active").length,
     pausedCampaignCount: campaigns.filter(c => c.status === "paused").length,

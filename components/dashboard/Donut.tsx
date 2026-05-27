@@ -1,20 +1,27 @@
 "use client";
 
 // Reply classification donut — premium interactive version.
-// Boss feedback 2026-05-27 round 3 #7: prior donut had too much empty
-// space, felt basic. This rebuild:
 //   - Hover/click any slice → it pops out, dims the others, the center
-//     label switches from total → that slice's count + %, with the
-//     classification name above it.
-//   - Legend chips on the right (not below) so the layout uses the
-//     panel width instead of stacking with a wide hole in the middle.
-//   - Subtle gold glow ring sits behind the SVG ring so the donut feels
-//     "lit" rather than flat.
+//     label switches from total → that slice's count + %.
+//   - Click navigates to the inbox filtered by that classification (each
+//     slice gets a `href`).
+//   - Period delta chip per legend item showing +/- vs prior period.
+//   - Vertical legend on the right uses the panel width and gives each
+//     entry room to breathe.
 
+import Link from "next/link";
 import { useState } from "react";
 import { C } from "@/lib/design";
 
-type Slice = { label: string; value: number; color: string };
+type Slice = {
+  label: string;
+  value: number;
+  color: string;
+  /** Optional classification id for /inbox?classification=... drill-down. */
+  classKey?: string;
+  /** Prior-period count for the delta chip. */
+  prior?: number;
+};
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -24,12 +31,15 @@ export default function Donut({
   thickness = 26,
   centerLabel = "replies",
   emptyLabel = "No replies in the period",
+  vsPriorLabel = "vs prior",
 }: {
   data: Slice[];
   size?: number;
   thickness?: number;
   centerLabel?: string;
   emptyLabel?: string;
+  /** Locale label used for the delta chip tooltip. */
+  vsPriorLabel?: string;
 }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const total = data.reduce((acc, s) => acc + s.value, 0);
@@ -140,9 +150,9 @@ export default function Donut({
         </svg>
       </div>
 
-      {/* Right column — legend list (boss feedback: prior horizontal
-          chip wrap left a wide empty space; vertical list reads tighter
-          and gives each entry room to breathe). */}
+      {/* Right column — clickable legend with delta chips. Each row links
+          into /inbox?classification=<key> so the donut becomes a drill-in
+          (boss feedback round 5 #2). */}
       <div className="flex-1 min-w-0 flex flex-col justify-center">
         {data.length === 0 ? (
           <p className="text-[12px] text-center sm:text-left" style={{ color: C.textDim }}>{emptyLabel}</p>
@@ -152,17 +162,15 @@ export default function Donut({
               const pct = total > 0 ? Math.round((s.value / total) * 100) : 0;
               const isHover = hoverIdx === i;
               const dim = hoverIdx !== null && !isHover;
-              return (
-                <li
-                  key={s.label}
-                  onMouseEnter={() => setHoverIdx(i)}
-                  onMouseLeave={() => setHoverIdx(null)}
-                  className="flex items-center gap-2.5 px-2 py-1 rounded-md text-[12px] tabular-nums transition-[background-color,opacity] cursor-pointer"
-                  style={{
-                    backgroundColor: isHover ? `color-mix(in srgb, ${s.color} 10%, transparent)` : "transparent",
-                    opacity: dim ? 0.55 : 1,
-                  }}
-                >
+              // Delta chip — only rendered when there's a prior figure
+              // to compare against, AND the change is meaningful. 0/0
+              // becomes null so we don't crow about "+0% from 0".
+              const delta = (s.prior != null && s.prior > 0)
+                ? Math.round(((s.value - s.prior) / s.prior) * 100)
+                : (s.prior === 0 && s.value > 0 ? 100 : null);
+              const href = s.classKey ? `/inbox?classification=${encodeURIComponent(s.classKey)}` : null;
+              const rowInner = (
+                <>
                   <span
                     className="w-2.5 h-2.5 rounded-full shrink-0"
                     style={{
@@ -171,8 +179,42 @@ export default function Donut({
                     }}
                   />
                   <span className="flex-1 truncate" style={{ color: C.textBody }}>{s.label}</span>
+                  {delta !== null && (
+                    <span
+                      className="inline-flex items-center text-[9.5px] font-bold tabular-nums px-1.5 py-[1px] rounded"
+                      style={{
+                        backgroundColor: delta > 0
+                          ? "color-mix(in srgb, #10B981 14%, transparent)"
+                          : delta < 0
+                          ? "color-mix(in srgb, #DC2626 14%, transparent)"
+                          : `color-mix(in srgb, ${C.textMuted} 8%, transparent)`,
+                        color: delta > 0 ? "#059669" : delta < 0 ? "#DC2626" : C.textMuted,
+                      }}
+                      title={vsPriorLabel}
+                    >
+                      {delta > 0 ? "+" : ""}{delta}%
+                    </span>
+                  )}
                   <span className="font-semibold" style={{ color: C.textPrimary }}>{s.value}</span>
                   <span className="text-[10.5px] tabular-nums" style={{ color: C.textDim }}>{pct}%</span>
+                </>
+              );
+              const rowProps = {
+                onMouseEnter: () => setHoverIdx(i),
+                onMouseLeave: () => setHoverIdx(null),
+                className: "flex items-center gap-2.5 px-2 py-1 rounded-md text-[12px] tabular-nums transition-[background-color,opacity] cursor-pointer",
+                style: {
+                  backgroundColor: isHover ? `color-mix(in srgb, ${s.color} 10%, transparent)` : "transparent",
+                  opacity: dim ? 0.55 : 1,
+                },
+              } as const;
+              return (
+                <li key={s.label}>
+                  {href ? (
+                    <Link href={href} {...rowProps}>{rowInner}</Link>
+                  ) : (
+                    <div {...rowProps}>{rowInner}</div>
+                  )}
                 </li>
               );
             })}
