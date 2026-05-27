@@ -927,6 +927,51 @@ export default async function DashboardPage({
             : null;
           return <LeaderCallout topText={topText} bottomText={bottomText} />;
         })()}
+        {/* Stagnant alert — surfaces active campaigns with ≥10 leads and
+            0% conversion. These are the ones quietly burning lead inventory
+            and should be reviewed or paused. Boss feedback 2026-05-27. */}
+        {(() => {
+          const stagnant = data.campaignPerformance.filter(c =>
+            c.status === "active" && c.leads >= 10 && c.conversionRate === 0
+          );
+          if (stagnant.length === 0) return null;
+          const top3 = stagnant.slice(0, 3);
+          return (
+            <div className="mb-3 rounded-xl border p-3.5 flex items-start gap-3"
+              style={{
+                borderColor: "color-mix(in srgb, #DC2626 35%, transparent)",
+                background: "linear-gradient(135deg, color-mix(in srgb, #DC2626 8%, transparent), transparent 70%)",
+              }}>
+              <span className="w-7 h-7 rounded-md flex items-center justify-center shrink-0 mt-0.5"
+                style={{ background: "color-mix(in srgb, #DC2626 16%, transparent)", color: "#DC2626" }}>
+                <Activity size={13} />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[12.5px] font-semibold" style={{ color: C.textPrimary }}>
+                  {t("dashx.camp.stagnantTitle", { n: stagnant.length })}
+                </p>
+                <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>
+                  {t("dashx.camp.stagnantHint")}
+                </p>
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {top3.map(c => (
+                    <Link key={c.name}
+                      href={`/dashboard/campaign/${encodeURIComponent(c.name)}`}
+                      className="inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-md border hover:bg-black/[0.03] transition-colors"
+                      style={{ borderColor: C.border, color: C.textBody, background: C.card }}>
+                      <span className="w-1 h-1 rounded-full" style={{ background: "#DC2626" }} />
+                      {c.name}
+                      <span className="tabular-nums" style={{ color: C.textDim }}>· {c.leads} leads</span>
+                    </Link>
+                  ))}
+                  {stagnant.length > 3 && (
+                    <span className="text-[11px]" style={{ color: C.textDim }}>+{stagnant.length - 3}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
         <Panel
           title={t("dashx.tbl.camp.title")}
           subtitle={t("dashx.tbl.camp.subtitle")}
