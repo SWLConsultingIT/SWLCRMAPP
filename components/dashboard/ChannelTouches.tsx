@@ -33,7 +33,7 @@ export default function ChannelTouches({
         return (
           <span
             key={i}
-            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10.5px] tabular-nums"
+            className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[12px] tabular-nums"
             style={{
               backgroundColor: has ? `color-mix(in srgb, ${it.color} 10%, transparent)` : "transparent",
               color: has ? it.color : C.textDim,
@@ -42,7 +42,7 @@ export default function ChannelTouches({
             title={`${it.title}: ${it.value}`}
             aria-label={`${it.title}: ${it.value}`}
           >
-            <it.Icon size={10} />
+            <it.Icon size={14} />
             <span className="font-semibold">{it.value}</span>
           </span>
         );

@@ -750,63 +750,68 @@ export default async function DashboardPage({
                 <Th align="left">{t("dashx.tbl.col.icp")}</Th>
                 <Th align="right">{t("dashx.tbl.col.leads")}</Th>
                 <Th align="left">{t("dashx.tbl.col.channels")}</Th>
-                <Th align="right">{t("dashx.tbl.col.replied")}</Th>
-                <Th align="right">{t("dashx.tbl.col.positive")}</Th>
-                <Th align="right">{t("dashx.tbl.col.respPct")}</Th>
-                <Th align="right">{t("dashx.tbl.col.convPct")}</Th>
+                <Th align="right"><span title={t("dashx.tbl.col.totalTouchesHint")}>{t("dashx.tbl.col.totalTouches")}</span></Th>
+                <Th align="right">{t("dashx.tbl.col.repliedFull")}</Th>
+                <Th align="right">{t("dashx.tbl.col.positiveFull")}</Th>
+                <Th align="right"><span title={t("dashx.tbl.col.respPctHint")}>{t("dashx.tbl.col.respPctFull")}</span></Th>
+                <Th align="right"><span title={t("dashx.tbl.col.convPctHint")}>{t("dashx.tbl.col.convPctFull")}</span></Th>
                 <Th align="left">{t("dashx.tbl.col.trend14")}</Th>
                 <Th align="left" style={{ width: 24 }}></Th>
               </tr>
             </thead>
             <tbody>
               {data.icpPerformance.length === 0 ? (
-                <tr><td colSpan={9} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="icps" t={t} /></td></tr>
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="icps" t={t} /></td></tr>
               ) : (() => {
                 // Scale rate bars against the table's own leader so the #1
                 // row hits full width; relative ranking reads at a glance.
                 const maxConv = Math.max(1, ...data.icpPerformance.map(i => i.conversionRate));
                 const maxResp = Math.max(1, ...data.icpPerformance.map(i => i.responseRate));
-                return data.icpPerformance.map((icp, idx) => (
-                  <tr key={icp.id} className="border-t hover:bg-black/[0.02] transition-colors group relative" style={{ borderColor: C.border }}>
-                    <Td>
-                      <div className="flex items-center gap-2 relative">
-                        {/* Gold strip on the #1 row — replaces the prior single
-                            dot with a more punchy "podium" treatment. */}
-                        {idx === 0 && (
-                          <span aria-hidden className="absolute -left-3 top-0 bottom-0 w-[3px] rounded-full"
-                            style={{ background: `linear-gradient(180deg, ${gold} 0%, color-mix(in srgb, ${gold} 50%, transparent) 100%)` }} />
-                        )}
-                        <TopRankDot rank={idx} t={t} />
-                        {icp.id !== "_unknown" ? (
-                          <Link href={`/leads/ticket/${icp.id}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{icp.name}</Link>
-                        ) : (
-                          <span style={{ color: C.textMuted }}>{t("dashx.tbl.icp.unknown")}</span>
-                        )}
-                      </div>
-                    </Td>
-                    <NumCell value={icp.leads} />
-                    <td className="px-3 py-2">
-                      <ChannelTouches
-                        linkedinSent={icp.linkedinSent}
-                        linkedinMsg={icp.linkedinMsg}
-                        emailTouch={icp.emailTouch}
-                        callTouch={icp.callTouch}
-                        labels={{
-                          linkedinSent: t("dashx.touch.linkedinSent"),
-                          linkedinMsg: t("dashx.touch.linkedinMsg"),
-                          emailTouch: t("dashx.touch.emailTouch"),
-                          callTouch: t("dashx.touch.callTouch"),
-                        }}
-                      />
-                    </td>
-                    <NumCell value={icp.replied} />
-                    <NumCell value={icp.positive} accent={icp.positive > 0 ? C.green : undefined} bold />
-                    <td className="px-3 py-2"><div className="flex justify-end"><RateBar value={icp.responseRate} max={maxResp} color="#7C3AED" /></div></td>
-                    <td className="px-3 py-2"><div className="flex justify-end"><RateBar value={icp.conversionRate} max={maxConv} color={C.green} /></div></td>
-                    <td className="px-3 py-2"><InlineSpark data={icp.spark} color="#7C3AED" /></td>
-                    <td className="pr-3" style={{ color: C.textDim }}>{icp.id !== "_unknown" && <Link href={`/leads/ticket/${icp.id}`} className="inline-flex"><ArrowRight size={12} /></Link>}</td>
-                  </tr>
-                ));
+                return data.icpPerformance.map((icp, idx) => {
+                  const totalTouches = (icp.linkedinSent ?? 0) + (icp.linkedinMsg ?? 0) + (icp.emailTouch ?? 0) + (icp.callTouch ?? 0);
+                  return (
+                    <tr key={icp.id} className="border-t hover:bg-black/[0.02] transition-colors group relative" style={{ borderColor: C.border }}>
+                      <Td>
+                        <div className="flex items-center gap-2 relative">
+                          {/* Gold strip on the #1 row — replaces the prior single
+                              dot with a more punchy "podium" treatment. */}
+                          {idx === 0 && (
+                            <span aria-hidden className="absolute -left-3 top-0 bottom-0 w-[3px] rounded-full"
+                              style={{ background: `linear-gradient(180deg, ${gold} 0%, color-mix(in srgb, ${gold} 50%, transparent) 100%)` }} />
+                          )}
+                          <TopRankDot rank={idx} t={t} />
+                          {icp.id !== "_unknown" ? (
+                            <Link href={`/leads/ticket/${icp.id}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{icp.name}</Link>
+                          ) : (
+                            <span style={{ color: C.textMuted }}>{t("dashx.tbl.icp.unknown")}</span>
+                          )}
+                        </div>
+                      </Td>
+                      <NumCell value={icp.leads} />
+                      <td className="px-3 py-2">
+                        <ChannelTouches
+                          linkedinSent={icp.linkedinSent}
+                          linkedinMsg={icp.linkedinMsg}
+                          emailTouch={icp.emailTouch}
+                          callTouch={icp.callTouch}
+                          labels={{
+                            linkedinSent: t("dashx.touch.linkedinSent"),
+                            linkedinMsg: t("dashx.touch.linkedinMsg"),
+                            emailTouch: t("dashx.touch.emailTouch"),
+                            callTouch: t("dashx.touch.callTouch"),
+                          }}
+                        />
+                      </td>
+                      <NumCell value={totalTouches} bold />
+                      <NumCell value={icp.replied} />
+                      <NumCell value={icp.positive} accent={icp.positive > 0 ? C.green : undefined} bold />
+                      <td className="px-3 py-2"><div className="flex justify-end" title={t("dashx.tbl.col.respPctHint")}><RateBar value={icp.responseRate} max={maxResp} color="#7C3AED" /></div></td>
+                      <td className="px-3 py-2"><div className="flex justify-end" title={t("dashx.tbl.col.convPctHint")}><RateBar value={icp.conversionRate} max={maxConv} color={C.green} /></div></td>
+                      <td className="px-3 py-2"><InlineSpark data={icp.spark} color="#7C3AED" /></td>
+                      <td className="pr-3" style={{ color: C.textDim }}>{icp.id !== "_unknown" && <Link href={`/leads/ticket/${icp.id}`} className="inline-flex"><ArrowRight size={12} /></Link>}</td>
+                    </tr>
+                  );
+                });
               })()}
             </tbody>
           </table>
