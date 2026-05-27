@@ -680,10 +680,21 @@ export default async function DashboardPage({
             })()}>
             <Heatmap
               matrix={data.heatmap}
+              byChannel={data.heatmapByChannel}
               days={["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map(d => t(`dashx.day.${d}`))}
               unitLabel={t("dashx.heat.unitReplies")}
               legendMin={t("dashx.heat.legendMin")}
               legendMax={t("dashx.heat.legendMax")}
+              channelLabels={{
+                all:      t("dashx.heat.chAll"),
+                linkedin: t("dashx.ch.linkedin"),
+                email:    t("dashx.ch.email"),
+                call:     t("dashx.ch.call"),
+              }}
+              bestWindowLabel={t("dashx.heat.bestWindow")}
+              bestWindowSubtitle={t("dashx.heat.bestWindowSubtitle")}
+              bestWindowEmpty={t("dashx.heat.bestWindowEmpty")}
+              peakLabel={t("dashx.heat.peakLabel")}
             />
           </Panel>
         </div>

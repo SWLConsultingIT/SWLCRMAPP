@@ -125,6 +125,12 @@ const EMPTY_DASHBOARD = {
   velocityDecay: { points: [] as Array<any>, cutoffDay: null as number | null, finalPct: 0 },
   health: {} as Record<string, unknown>,
   heatmap: Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]),
+  heatmapByChannel: {
+    all: Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]),
+    linkedin: Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]),
+    email: Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]),
+    call: Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]),
+  } as Record<string, number[][]>,
 };
 
 export async function getDashboardData(filters: DashboardFilters) {
@@ -810,13 +816,34 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   }
 
   // ── Activity heatmap — day-of-week × hour-of-day ───────────────────────
-  // Sundays (0) → Saturday (6); 0–23 hour bands. Same data Mixpanel /
-  // Amplitude show as a heatmap — answers "when do leads actually reply?".
-  const heatmap = Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]);
+  // Sundays (0) → Saturday (6); 0–23 hour bands. Round 5 boss feedback
+  // #3: per-channel heatmaps so the operator can see "LinkedIn replies
+  // come Tue morning, email comes Thu night" instead of an averaged
+  // mush. We compute one matrix per canonical channel + "all" so the
+  // chart can filter without a server roundtrip.
+  const blank = () => Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]);
+  const heatmap = blank(); // backward-compat: aggregate matrix
+  const heatmapByChannel: Record<string, number[][]> = {
+    all: heatmap,
+    linkedin: blank(),
+    email: blank(),
+    call: blank(),
+  };
   for (const r of replies) {
     if (!r.received_at) continue;
     const d = new Date(r.received_at);
-    heatmap[d.getDay()][d.getHours()]++;
+    const day = d.getDay();
+    const hour = d.getHours();
+    heatmap[day][hour]++;
+    // Reply has its own channel field (recorded at receipt time); falls
+    // back to the campaign's channel when the reply row is bare.
+    let ch: string | null = r.channel ?? null;
+    if (!ch && r.campaign_id) {
+      ch = campaignChannelById.get(r.campaign_id) ?? null;
+    }
+    if (ch && (ch === "linkedin" || ch === "email" || ch === "call")) {
+      heatmapByChannel[ch][day][hour]++;
+    }
   }
 
   // ── Time-to-first-reply (median minutes) ────────────────────────────────
@@ -1268,7 +1295,8 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       /** Absolute count of mismatched-channel replies. */
       mismatchCount,
     },
-    heatmap, // [7][24] — Sun..Sat × 0..23h
+    heatmap, // [7][24] — Sun..Sat × 0..23h (aggregate across channels)
+    heatmapByChannel,
   };
 }
 
