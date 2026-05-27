@@ -257,6 +257,8 @@ export const en: Dict = {
   "dashx.channels.acceptRate": "Accept rate",
   // Auto-derived chart-footer insights (one line each)
   "dashx.insight.eyebrow": "AI Insight",
+  "dashx.insight.hint": "Derived from heuristic rules over the period's data (top performer, leakage step, stagnant campaign). Not an LLM output.",
+  "dashx.donut.titleHint": "Each reply is auto-classified by the n8n classifier on receipt — positive / meeting_intent / negative / not_now / unsubscribe / needs_info / question / nurturing. meeting_intent triggers when the lead asks to schedule (calendly, agenda, schedule, link, etc).",
   "dashx.funnel.insight": "Accept rate {acceptPct}% · reply rate {replyPct}% post-accept · {won} won this period.",
   "dashx.donut.insight": "Positives = {positives}/{total} ({positivesPct}%) of period replies.",
   "dashx.trend.insight.up": "Send volume ↑{pct}% in the second half of the window vs the first.",
@@ -1069,6 +1071,8 @@ export const es: Dict = {
   "dashx.channels.acceptRate": "Tasa de aceptación",
   // Insights auto-derivados al pie de los charts
   "dashx.insight.eyebrow": "Insight AI",
+  "dashx.insight.hint": "Derivado de reglas heurísticas sobre los datos del período (top performer, paso con leakage, campaña estancada). No es output de LLM.",
+  "dashx.donut.titleHint": "Cada respuesta se clasifica automáticamente por el clasificador n8n al recibirla — positive / meeting_intent / negative / not_now / unsubscribe / needs_info / question / nurturing. meeting_intent se dispara cuando el lead pide agendar (calendly, agenda, schedule, link, etc).",
   "dashx.funnel.insight": "Tasa de aceptación {acceptPct}% · responden {replyPct}% post-aceptación · {won} ganados.",
   "dashx.donut.insight": "Positivas = {positives}/{total} ({positivesPct}%) de las respuestas del período.",
   "dashx.trend.insight.up": "Volumen ↑{pct}% en la segunda mitad del período vs la primera.",

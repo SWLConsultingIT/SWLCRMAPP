@@ -585,6 +585,7 @@ export default async function DashboardPage({
           <Panel title={t("dashx.funnel.title")} subtitle={t("dashx.funnel.subtitle")} className="lg:col-span-7" glow
             actionHref={withFilters("/?tab=campaigns", filters)} actionLabel={t("dashx.panel.openCampaigns")}
             insightEyebrow={t("dashx.insight.eyebrow")}
+            insightHint={t("dashx.insight.hint")}
             insight={(() => {
               const sent = data.linkedinConnections?.sent ?? 0;
               const accepted = data.linkedinConnections?.accepted ?? 0;
@@ -608,7 +609,9 @@ export default async function DashboardPage({
           </Panel>
           <Panel title={t("dashx.donut.title")} subtitle={t("dashx.donut.subtitle")} className="lg:col-span-5" glow
             actionHref="/inbox" actionLabel={t("dashx.panel.openInbox")}
+            titleHint={t("dashx.donut.titleHint")}
             insightEyebrow={t("dashx.insight.eyebrow")}
+            insightHint={t("dashx.insight.hint")}
             insight={(() => {
               const totalReplies = donutSlices.reduce((a, s) => a + s.value, 0);
               if (totalReplies < 3) return null;
@@ -634,6 +637,7 @@ export default async function DashboardPage({
           <Panel title={t("dashx.trend.title")} subtitle={t("dashx.trend.subtitle")} glow
             actionHref={withFilters("/?tab=campaigns", filters)} actionLabel={t("dashx.panel.openCampaigns")}
             insightEyebrow={t("dashx.insight.eyebrow")}
+            insightHint={t("dashx.insight.hint")}
             insight={(() => {
               const n = trend30d.sent.length;
               if (n < 4) return null;
@@ -677,6 +681,7 @@ export default async function DashboardPage({
           <Panel title={t("dashx.heat.title")} subtitle={t("dashx.heat.subtitle")} glow
             actionHref="/inbox" actionLabel={t("dashx.panel.openInbox")}
             insightEyebrow={t("dashx.insight.eyebrow")}
+            insightHint={t("dashx.insight.hint")}
             insight={(() => {
               let peakDay = 0; let peakHour = 0; let peak = 0;
               for (let d = 0; d < data.heatmap.length; d++) {
@@ -1297,6 +1302,7 @@ function SectionHeader({ title, subtitle, icon: Icon, action }: { title: string;
  * each chart panel to deep-link into the surface where the data lives. */
 function Panel({
   title, subtitle, children, className, actionHref, actionLabel, insight, insightEyebrow, glow,
+  titleHint, insightHint,
 }: {
   title?: string;
   subtitle?: string;
@@ -1313,6 +1319,13 @@ function Panel({
   /** When true, gives the panel a stronger ambient gold halo + hover-lift.
    * Used for the marquee charts (Funnel, Donut) so they feel "lit". */
   glow?: boolean;
+  /** Tooltip text shown when hovering a "?" badge next to the header title.
+   * Use for explaining what the panel measures (e.g. how the AI classifier
+   * works). */
+  titleHint?: string;
+  /** Same as titleHint but on the insight eyebrow — explains where the
+   * insight comes from (heuristic rules vs LLM). */
+  insightHint?: string;
 }) {
   const baseShadow = glow
     ? "0 1px 2px rgba(0,0,0,0.04), 0 0 0 1px color-mix(in srgb, var(--brand, #c9a83a) 7%, transparent), 0 16px 34px -20px color-mix(in srgb, var(--brand, #c9a83a) 38%, transparent)"
@@ -1337,10 +1350,25 @@ function Panel({
           <div className="min-w-0">
             {title && (
               <p
-                className="text-[13.5px] font-bold tracking-[-0.005em]"
+                className="text-[13.5px] font-bold tracking-[-0.005em] inline-flex items-center gap-1.5"
                 style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
               >
                 {title}
+                {titleHint && (
+                  <span
+                    role="img"
+                    aria-label="info"
+                    title={titleHint}
+                    className="text-[9px] font-bold rounded-full w-3.5 h-3.5 inline-flex items-center justify-center cursor-help"
+                    style={{
+                      background: "color-mix(in srgb, var(--brand, #c9a83a) 22%, transparent)",
+                      color: gold,
+                      border: `1px solid color-mix(in srgb, ${gold} 40%, transparent)`,
+                    }}
+                  >
+                    ?
+                  </span>
+                )}
               </p>
             )}
             {subtitle && (
@@ -1385,8 +1413,23 @@ function Panel({
           </span>
           <div className="flex-1 min-w-0">
             {insightEyebrow && (
-              <p className="text-[9.5px] font-bold uppercase tracking-[0.18em]" style={{ color: gold }}>
+              <p className="text-[9.5px] font-bold uppercase tracking-[0.18em] inline-flex items-center gap-1.5" style={{ color: gold }}>
                 {insightEyebrow}
+                {insightHint && (
+                  <span
+                    role="img"
+                    aria-label="info"
+                    title={insightHint}
+                    className="text-[8.5px] font-bold rounded-full w-3 h-3 inline-flex items-center justify-center cursor-help"
+                    style={{
+                      background: "color-mix(in srgb, var(--brand, #c9a83a) 22%, transparent)",
+                      color: gold,
+                      border: `1px solid color-mix(in srgb, ${gold} 40%, transparent)`,
+                    }}
+                  >
+                    ?
+                  </span>
+                )}
               </p>
             )}
             <p
