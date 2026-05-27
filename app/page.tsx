@@ -301,44 +301,20 @@ export default async function DashboardPage({
           where the work happens. Items with value=0 are hidden so the card
           only shows what truly needs attention. */}
       <TodayCard
-        title={t("dashx.today.title")}
-        emptyText={t("dashx.today.empty")}
-        actions={[
-          {
-            value: headline.repliedCount,
-            label: t("dashx.today.replies"),
-            hint: t("dashx.today.repliesHint"),
-            href: "/inbox",
-            icon: MessageSquare,
-            accent: "#7C3AED",
+        locale={locale === "es" ? "es" : "en"}
+        labels={{
+          title: t("dashx.today.title"),
+          subtitle: t("dashx.today.subtitle"),
+          empty: t("dashx.today.empty"),
+          noIcp: t("dashx.tbl.icp.unknown"),
+          sections: {
+            replies:    { label: t("dashx.today.replies"),         hint: t("dashx.today.repliesHint"),       cta: t("dashx.today.openInbox") },
+            positives:  { label: t("dashx.today.positives"),       hint: t("dashx.today.positivesHint"),     cta: t("dashx.today.openOpps") },
+            calls:      { label: t("dashx.today.calls"),           hint: t("dashx.today.callsHint"),         cta: t("dashx.today.openCalls") },
+            unassigned: { label: t("dashx.today.leadsNoCampaign"), hint: t("dashx.today.leadsNoCampaignHint"), cta: t("dashx.today.openLeads") },
           },
-          {
-            value: headline.positiveCount,
-            label: t("dashx.today.positives"),
-            hint: t("dashx.today.positivesHint"),
-            href: "/opportunities",
-            icon: ThumbsUp,
-            accent: C.green,
-          },
-          {
-            value: data.leadsWithoutCampaign,
-            label: t("dashx.today.leadsNoCampaign"),
-            hint: t("dashx.today.leadsNoCampaignHint"),
-            href: "/leads",
-            icon: Users,
-            accent: "#0A66C2",
-            showWhenEmpty: true,
-          },
-          {
-            value: data.activeCampaignCount,
-            label: t("dashx.today.activeCamps"),
-            hint: t("dashx.today.activeCampsHint", { paused: data.pausedCampaignCount }),
-            href: "/campaigns",
-            icon: Megaphone,
-            accent: gold,
-            showWhenEmpty: true,
-          },
-        ]}
+        }}
+        data={data.todayLists}
       />
 
       {/* ─── Compact KPI strips — boss-feedback 2026-05-27 expanded the

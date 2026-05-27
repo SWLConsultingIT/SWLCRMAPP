@@ -28,6 +28,7 @@ type LeadRow = {
   icp_profile_id: string | null;
   created_at: string | null;
   company_bio_id: string | null;
+  company_name: string | null;
 };
 type CampRow = {
   id: string;
@@ -112,6 +113,12 @@ const EMPTY_DASHBOARD = {
   completedCampaignCount: 0,
   leadsInActiveCampaigns: 0,
   leadsWithoutCampaign: 0,
+  todayLists: {
+    replies: [] as Array<{ id: string; company: string; icp: string | null; when: string | null; tag: string | null }>,
+    positives: [] as Array<{ id: string; company: string; icp: string | null; when: string | null; tag: string | null }>,
+    calls: [] as Array<{ id: string; company: string; icp: string | null; when: string | null; tag: string | null }>,
+    unassigned: [] as Array<{ id: string; company: string; icp: string | null; when: string | null; tag: string | null }>,
+  },
   velocity: { perDay: 0, winRate: 0, medianTimeToReplyMin: null as number | null, acceptanceRate: 0, forecastMonthEnd: 0 },
   matrix: { icps: [] as Array<{ id: string; name: string }>, channels: [] as string[], cells: [] as Array<any>, mean: 0, stddev: 0 },
   stepPerformance: [] as Array<any>,
@@ -134,7 +141,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const scope = await getUserScope();
   const bioId = scope.isScoped ? scope.companyBioId! : null;
 
-  const leadsQ = supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at, company_bio_id");
+  const leadsQ = supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at, company_bio_id, company_name");
   const campsQ = supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, created_at, stop_reason, leads!inner(company_bio_id)");
   const repliesQ = supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, channel, received_at, leads!inner(company_bio_id)");
   const msgsQ = supabase.from("campaign_messages").select("id, campaign_id, step_number, status, sent_at, campaigns!inner(leads!inner(company_bio_id))");
@@ -1061,6 +1068,63 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
         if (c.lead_id) withCampaign.add(c.lead_id);
       }
       return leads.filter(l => !withCampaign.has(l.id)).length;
+    })(),
+    // Actionable lead lists for the "What to do today" hero. Capped at 8
+    // each so the expanded panels stay scannable; full lists live on the
+    // deep-linked views. Uses non-encrypted company_name only (no
+    // decryption needed). Calls list intentionally omitted in this commit
+    // — re-introduced separately once the calls fetch is stabilized.
+    todayLists: (() => {
+      const leadById = new Map(leads.map(l => [l.id, l]));
+      const profileById = new Map(allProfiles.map(p => [p.id, p.profile_name]));
+      type TodayLead = { id: string; company: string; icp: string | null; when: string | null; tag: string | null };
+      const summarize = (leadId: string, extra: { when?: string | null; tag?: string | null } = {}): TodayLead | null => {
+        const l = leadById.get(leadId);
+        if (!l) return null;
+        return {
+          id: l.id,
+          company: l.company_name ?? "—",
+          icp: l.icp_profile_id ? (profileById.get(l.icp_profile_id) ?? null) : null,
+          when: extra.when ?? l.created_at ?? null,
+          tag: extra.tag ?? null,
+        };
+      };
+      const repliesSorted = [...replies]
+        .filter(r => r.lead_id && repliedLeadIds.has(r.lead_id))
+        .sort((a, b) => (b.received_at ?? "").localeCompare(a.received_at ?? ""));
+      const repliesList: TodayLead[] = [];
+      const seenReplied = new Set<string>();
+      for (const r of repliesSorted) {
+        if (!r.lead_id || seenReplied.has(r.lead_id)) continue;
+        seenReplied.add(r.lead_id);
+        const s = summarize(r.lead_id, { when: r.received_at, tag: r.classification });
+        if (s) repliesList.push(s);
+        if (repliesList.length >= 8) break;
+      }
+      const positivesList: TodayLead[] = [];
+      const seenPos = new Set<string>();
+      for (const r of repliesSorted) {
+        if (!r.lead_id || !POSITIVE_CLASS.has(r.classification ?? "")) continue;
+        if (seenPos.has(r.lead_id)) continue;
+        seenPos.add(r.lead_id);
+        const s = summarize(r.lead_id, { when: r.received_at, tag: r.classification });
+        if (s) positivesList.push(s);
+        if (positivesList.length >= 8) break;
+      }
+      const withCampaignSet = new Set<string>();
+      for (const c of allCampaigns) if (c.lead_id) withCampaignSet.add(c.lead_id);
+      const unassignedList: TodayLead[] = leads
+        .filter(l => !withCampaignSet.has(l.id))
+        .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
+        .slice(0, 8)
+        .map(l => summarize(l.id))
+        .filter((x): x is TodayLead => x !== null);
+      return {
+        replies: repliesList,
+        positives: positivesList,
+        calls: [] as TodayLead[],
+        unassigned: unassignedList,
+      };
     })(),
     velocity: {
       perDay: Math.round(velocityPerDay * 10) / 10,

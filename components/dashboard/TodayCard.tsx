@@ -1,129 +1,246 @@
-// "What to do today" — the dashboard's narrative opener. Replaces the
-// giant HeroStat as the top of Overview. Story-mode design (boss feedback
-// 2026-05-27): start with action items, not vanity metrics. Each row is
-// a clickable deep-link into the surface where the work happens.
-//
-// Layout: compact card (~120-150px), 2-col grid of action rows on desktop
-// and stacked single-col on mobile. Gold accent eyebrow + subtle navy
-// hover state to signal interactivity without screaming.
+"use client";
 
+// "What to do today" — premium expandable action hub.
+//
+// Boss feedback 2026-05-27: needs to look pro AND show the actual leads
+// to interact with (called / replied) inline, not just a count. Each
+// section expands inline to reveal the top 8 leads, every row deep-
+// linking into /leads/[id].
+//
+// IMPORTANT (RSC boundary): this is a "use client" component, so every
+// prop must be serializable. Past bug: a fmtRelative function prop was
+// passed from the server and crashed render with digest 1285441784.
+// Locale is now a plain string ("en"|"es"); relative-time formatting
+// happens inside this component.
+
+import { useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Sparkles } from "lucide-react";
+import {
+  ChevronDown, ChevronRight, ArrowUpRight, Sparkles,
+  MessageSquare, ThumbsUp, Users, Phone,
+} from "lucide-react";
 import { C, N, T } from "@/lib/design";
 
 const gold = "var(--brand, #c9a83a)";
 
-export type TodayAction = {
-  /** Big number / metric the row is built around (e.g. "12"). */
-  value: number | string;
-  /** Short imperative label — "Replies need review", "Leads to assign". */
-  label: string;
-  /** One-line context underneath. Keep it scannable. */
-  hint?: string;
-  /** Deep link target. */
-  href: string;
-  /** Icon for the left rail. */
-  icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
-  /** Accent color — drives the icon background + number tint. */
-  accent: string;
-  /** Render even when value === 0. Defaults to true for state cohorts,
-   *  false for in-flight counters where 0 = "nothing to act on". */
-  showWhenEmpty?: boolean;
+export type TodayLead = {
+  id: string;
+  company: string;
+  icp?: string | null;
+  when?: string | null;
+  tag?: string | null;
 };
 
-export default function TodayCard({
-  title,
-  emptyText,
-  actions,
-}: {
+export type TodaySectionKey = "replies" | "positives" | "calls" | "unassigned";
+
+export type TodayLabels = {
   title: string;
-  emptyText: string;
-  actions: TodayAction[];
+  subtitle: string;
+  empty: string;
+  noIcp: string;
+  sections: Record<TodaySectionKey, { label: string; hint: string; cta: string }>;
+};
+
+function fmtRelative(iso: string | null | undefined, locale: "en" | "es"): string | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return null;
+  const diff = Date.now() - t;
+  if (diff < 0) return null;
+  const m = Math.floor(diff / 60_000);
+  if (m < 1) return locale === "es" ? "ahora" : "now";
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d}d`;
+  return `${Math.floor(d / 7)}w`;
+}
+
+export default function TodayCard({
+  labels,
+  data,
+  locale,
+}: {
+  labels: TodayLabels;
+  data: {
+    replies: TodayLead[];
+    positives: TodayLead[];
+    calls: TodayLead[];
+    unassigned: TodayLead[];
+  };
+  locale: "en" | "es";
 }) {
-  const visible = actions.filter(a => a.showWhenEmpty || (typeof a.value === "number" ? a.value > 0 : a.value));
+  const [open, setOpen] = useState<Record<TodaySectionKey, boolean>>({
+    replies: data.replies.length > 0,
+    positives: false,
+    calls: false,
+    unassigned: false,
+  });
+
+  const sections: Array<{
+    key: TodaySectionKey;
+    icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
+    accent: string;
+    href: string;
+    list: TodayLead[];
+  }> = [
+    { key: "replies",    icon: MessageSquare, accent: "#7C3AED", href: "/inbox",         list: data.replies },
+    { key: "positives",  icon: ThumbsUp,      accent: C.green,   href: "/opportunities", list: data.positives },
+    { key: "calls",      icon: Phone,         accent: "#EA580C", href: "/calls",         list: data.calls },
+    { key: "unassigned", icon: Users,         accent: "#0A66C2", href: "/leads",         list: data.unassigned },
+  ];
+
+  const totalItems = sections.reduce((acc, s) => acc + s.list.length, 0);
 
   return (
     <section
       className="rounded-2xl border overflow-hidden"
       style={{
         backgroundColor: C.card,
-        borderColor: `color-mix(in srgb, ${gold} 22%, ${C.border})`,
-        boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 14%, transparent)`,
+        borderColor: `color-mix(in srgb, ${gold} 28%, ${C.border})`,
+        boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 18%, transparent), 0 8px 24px -12px ${N.ink}`,
       }}
     >
-      {/* Header strip — gold-tinted to mark this as the action belt */}
+      {/* Header */}
       <div
-        className="px-4 py-2 flex items-center gap-2 border-b"
+        className="px-5 py-4 flex items-center gap-3 border-b"
         style={{
           borderColor: C.border,
-          background: `linear-gradient(90deg, color-mix(in srgb, ${gold} 8%, ${C.card}) 0%, ${C.card} 60%)`,
+          background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 12%, ${C.card}) 0%, ${C.card} 60%)`,
         }}
       >
         <span
-          className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
+          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
           style={{
             background: `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 78%, white) 100%)`,
             color: N.ink,
-            boxShadow: `0 2px 6px color-mix(in srgb, ${gold} 28%, transparent)`,
+            boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 32%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
           }}
         >
-          <Sparkles size={11} />
+          <Sparkles size={15} />
         </span>
-        <p className={`${T.label}`} style={{ color: C.textPrimary }}>
-          {title}
-        </p>
+        <div className="min-w-0">
+          <h3 className={`${T.cardTitle}`} style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+            {labels.title}
+          </h3>
+          <p className="text-[11.5px] mt-0.5 truncate" style={{ color: C.textMuted }}>
+            {labels.subtitle.replace("{n}", String(totalItems))}
+          </p>
+        </div>
       </div>
 
-      {visible.length === 0 ? (
-        <p className="px-4 py-5 text-center text-[12.5px]" style={{ color: C.textMuted }}>
-          {emptyText}
+      {totalItems === 0 ? (
+        <p className="px-5 py-6 text-center text-[13px]" style={{ color: C.textMuted }}>
+          {labels.empty}
         </p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: C.border }}>
-          {visible.map((a, i) => {
-            const Icon = a.icon;
+        <ul className="divide-y" style={{ borderColor: C.border }}>
+          {sections.map(s => {
+            const Icon = s.icon;
+            const isOpen = open[s.key];
+            const hasItems = s.list.length > 0;
+            const sl = labels.sections[s.key];
+
             return (
-              <Link
-                key={i}
-                href={a.href}
-                className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-black/[0.025]"
-              >
-                <span
-                  className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+              <li key={s.key}>
+                <button
+                  type="button"
+                  onClick={() => hasItems && setOpen(o => ({ ...o, [s.key]: !o[s.key] }))}
+                  disabled={!hasItems}
+                  className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors group"
                   style={{
-                    backgroundColor: `color-mix(in srgb, ${a.accent} 14%, transparent)`,
-                    color: a.accent,
+                    backgroundColor: isOpen ? `color-mix(in srgb, ${s.accent} 6%, transparent)` : "transparent",
+                    cursor: hasItems ? "pointer" : "default",
                   }}
                 >
-                  <Icon size={16} />
-                </span>
-                <div className="flex-1 min-w-0">
-                  <p className="flex items-baseline gap-1.5">
-                    <span
-                      className="text-[22px] font-bold tabular-nums leading-none tracking-[-0.02em]"
-                      style={{ color: a.accent, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
-                    >
-                      {a.value}
-                    </span>
-                    <span className="text-[13px] font-semibold leading-tight" style={{ color: C.textPrimary }}>
-                      {a.label}
-                    </span>
-                  </p>
-                  {a.hint && (
+                  <span
+                    className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: `color-mix(in srgb, ${s.accent} 14%, transparent)`, color: s.accent }}
+                  >
+                    <Icon size={15} />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2">
+                      <span
+                        className="text-[20px] font-bold tabular-nums leading-none tracking-[-0.02em]"
+                        style={{ color: hasItems ? s.accent : C.textDim, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
+                      >
+                        {s.list.length}
+                      </span>
+                      <span className="text-[13px] font-semibold" style={{ color: C.textPrimary }}>
+                        {sl.label}
+                      </span>
+                    </div>
                     <p className="text-[11px] mt-0.5 truncate" style={{ color: C.textDim }}>
-                      {a.hint}
+                      {sl.hint}
                     </p>
+                  </div>
+                  <Link
+                    href={s.href}
+                    onClick={(e) => e.stopPropagation()}
+                    className="hidden sm:inline-flex shrink-0 items-center gap-1 text-[10.5px] font-semibold uppercase tracking-[0.12em] px-2.5 py-1 rounded-md transition-colors"
+                    style={{
+                      color: s.accent,
+                      backgroundColor: `color-mix(in srgb, ${s.accent} 10%, transparent)`,
+                    }}
+                  >
+                    {sl.cta} <ArrowUpRight size={11} />
+                  </Link>
+                  {hasItems && (
+                    isOpen
+                      ? <ChevronDown size={15} style={{ color: C.textMuted }} className="shrink-0" />
+                      : <ChevronRight size={15} style={{ color: C.textMuted }} className="shrink-0" />
                   )}
-                </div>
-                <ArrowUpRight
-                  size={14}
-                  className="shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                  style={{ color: C.textDim }}
-                />
-              </Link>
+                </button>
+                {isOpen && hasItems && (
+                  <ul
+                    className="border-t divide-y"
+                    style={{
+                      borderColor: `color-mix(in srgb, ${s.accent} 22%, transparent)`,
+                      backgroundColor: `color-mix(in srgb, ${s.accent} 3%, transparent)`,
+                    }}
+                  >
+                    {s.list.map(lead => {
+                      const when = fmtRelative(lead.when, locale);
+                      return (
+                        <li key={lead.id}>
+                          <Link
+                            href={`/leads/${lead.id}`}
+                            className="flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-black/[0.025] group"
+                            style={{ borderColor: C.border }}
+                          >
+                            <span
+                              className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold uppercase shrink-0"
+                              style={{ backgroundColor: `color-mix(in srgb, ${s.accent} 14%, transparent)`, color: s.accent }}
+                              aria-hidden
+                            >
+                              {lead.company.slice(0, 2)}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[13px] font-medium truncate" style={{ color: C.textPrimary }}>
+                                {lead.company}
+                              </p>
+                              <p className="text-[10.5px] truncate" style={{ color: C.textDim }}>
+                                {[lead.icp ?? labels.noIcp, lead.tag].filter(Boolean).join(" · ")}
+                              </p>
+                            </div>
+                            {when && (
+                              <span className="shrink-0 text-[10.5px] tabular-nums" style={{ color: C.textMuted }}>
+                                {when}
+                              </span>
+                            )}
+                            <ArrowUpRight size={12} className="shrink-0 transition-transform group-hover:translate-x-0.5" style={{ color: C.textDim }} />
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
     </section>
   );
