@@ -38,6 +38,7 @@ import ChannelComparison from "@/components/dashboard/ChannelComparison";
 import HeroStat from "@/components/dashboard/HeroStat";
 import InsightPanel from "@/components/dashboard/InsightPanel";
 import MicroKpi from "@/components/dashboard/MicroKpi";
+import RateBar from "@/components/dashboard/RateBar";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -531,28 +532,40 @@ export default async function DashboardPage({
             <tbody>
               {data.icpPerformance.length === 0 ? (
                 <tr><td colSpan={9} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="icps" t={t} /></td></tr>
-              ) : data.icpPerformance.map((icp, idx) => (
-                <tr key={icp.id} className="border-t hover:bg-black/[0.02] transition-colors group" style={{ borderColor: C.border }}>
-                  <Td>
-                    <div className="flex items-center gap-2">
-                      <TopRankDot rank={idx} t={t} />
-                      {icp.id !== "_unknown" ? (
-                        <Link href={withFilters(`/dashboard/icp/${icp.id}`, filters)} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{icp.name}</Link>
-                      ) : (
-                        <span style={{ color: C.textMuted }}>{t("dashx.tbl.icp.unknown")}</span>
-                      )}
-                    </div>
-                  </Td>
-                  <NumCell value={icp.leads} />
-                  <NumCell value={icp.contacted} />
-                  <NumCell value={icp.replied} />
-                  <NumCell value={icp.positive} accent={icp.positive > 0 ? C.green : undefined} bold />
-                  <RateCell value={icp.responseRate} color="#7C3AED" />
-                  <RateCell value={icp.conversionRate} color={C.green} />
-                  <td className="px-3 py-2"><InlineSpark data={icp.spark} color="#7C3AED" /></td>
-                  <td className="pr-3" style={{ color: C.textDim }}>{icp.id !== "_unknown" && <Link href={withFilters(`/dashboard/icp/${icp.id}`, filters)} className="inline-flex"><ArrowRight size={12} /></Link>}</td>
-                </tr>
-              ))}
+              ) : (() => {
+                // Scale rate bars against the table's own leader so the #1
+                // row hits full width; relative ranking reads at a glance.
+                const maxConv = Math.max(1, ...data.icpPerformance.map(i => i.conversionRate));
+                const maxResp = Math.max(1, ...data.icpPerformance.map(i => i.responseRate));
+                return data.icpPerformance.map((icp, idx) => (
+                  <tr key={icp.id} className="border-t hover:bg-black/[0.02] transition-colors group relative" style={{ borderColor: C.border }}>
+                    <Td>
+                      <div className="flex items-center gap-2 relative">
+                        {/* Gold strip on the #1 row — replaces the prior single
+                            dot with a more punchy "podium" treatment. */}
+                        {idx === 0 && (
+                          <span aria-hidden className="absolute -left-3 top-0 bottom-0 w-[3px] rounded-full"
+                            style={{ background: `linear-gradient(180deg, ${gold} 0%, color-mix(in srgb, ${gold} 50%, transparent) 100%)` }} />
+                        )}
+                        <TopRankDot rank={idx} t={t} />
+                        {icp.id !== "_unknown" ? (
+                          <Link href={withFilters(`/dashboard/icp/${icp.id}`, filters)} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{icp.name}</Link>
+                        ) : (
+                          <span style={{ color: C.textMuted }}>{t("dashx.tbl.icp.unknown")}</span>
+                        )}
+                      </div>
+                    </Td>
+                    <NumCell value={icp.leads} />
+                    <NumCell value={icp.contacted} />
+                    <NumCell value={icp.replied} />
+                    <NumCell value={icp.positive} accent={icp.positive > 0 ? C.green : undefined} bold />
+                    <td className="px-3 py-2"><div className="flex justify-end"><RateBar value={icp.responseRate} max={maxResp} color="#7C3AED" /></div></td>
+                    <td className="px-3 py-2"><div className="flex justify-end"><RateBar value={icp.conversionRate} max={maxConv} color={C.green} /></div></td>
+                    <td className="px-3 py-2"><InlineSpark data={icp.spark} color="#7C3AED" /></td>
+                    <td className="pr-3" style={{ color: C.textDim }}>{icp.id !== "_unknown" && <Link href={withFilters(`/dashboard/icp/${icp.id}`, filters)} className="inline-flex"><ArrowRight size={12} /></Link>}</td>
+                  </tr>
+                ));
+              })()}
             </tbody>
           </table>
         </Panel>
@@ -672,6 +685,9 @@ export default async function DashboardPage({
                 if (visible.length === 0) {
                   return <tr><td colSpan={11} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters || filters.campStatus !== "active"} kindKey="campaigns" t={t} /></td></tr>;
                 }
+                // Scale conversion bars to the tab's leader, not the whole
+                // table — keeps the visual ranking inside the active filter.
+                const maxConv = Math.max(1, ...visible.map(c => c.conversionRate));
                 return visible.map((c, idx) => {
                 // Velocity = positives per day in the active period. Lets the
                 // operator separate hot campaigns (winning the month) from
@@ -681,7 +697,11 @@ export default async function DashboardPage({
                 return (
                 <tr key={c.name} className="border-t hover:bg-black/[0.02] transition-colors group" style={{ borderColor: C.border }}>
                   <Td>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 relative">
+                      {idx === 0 && (
+                        <span aria-hidden className="absolute -left-3 top-0 bottom-0 w-[3px] rounded-full"
+                          style={{ background: `linear-gradient(180deg, ${gold} 0%, color-mix(in srgb, ${gold} 50%, transparent) 100%)` }} />
+                      )}
                       <TopRankDot rank={idx} t={t} />
                       <Link href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{c.name}</Link>
                     </div>
@@ -699,7 +719,7 @@ export default async function DashboardPage({
                   <NumCell value={c.sent} />
                   <NumCell value={c.replied} />
                   <NumCell value={c.positive} accent={c.positive > 0 ? C.green : undefined} bold />
-                  <RateCell value={c.conversionRate} color={C.green} />
+                  <td className="px-3 py-2"><div className="flex justify-end"><RateBar value={c.conversionRate} max={maxConv} color={C.green} /></div></td>
                   <td className="px-3 py-2 text-right tabular-nums text-[12px]" style={{ color: velocity > 0 ? C.textPrimary : C.textDim }}>
                     {velocityLabel}
                     <span className="text-[9.5px] ml-0.5" style={{ color: C.textDim }}>/d</span>
@@ -826,25 +846,37 @@ export default async function DashboardPage({
             <tbody>
               {data.sellerPerformance.length === 0 ? (
                 <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="sellers" t={t} /></td></tr>
-              ) : data.sellerPerformance.map((s, idx) => (
-                <tr key={s.id} className="border-t hover:bg-black/[0.02] transition-colors" style={{ borderColor: C.border }}>
-                  <Td>
-                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-bold"
-                      style={{ backgroundColor: idx === 0 ? `color-mix(in srgb, ${gold} 18%, transparent)` : C.surface, color: idx === 0 ? gold : C.textMuted }}>
-                      {idx + 1}
-                    </span>
-                  </Td>
-                  <Td><Link href={withFilters(`/dashboard/seller/${s.id}`, filters)} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{s.name}</Link></Td>
-                  <NumCell value={s.active} />
-                  <NumCell value={s.contacted} />
-                  <NumCell value={s.sent} />
-                  <NumCell value={s.replied} />
-                  <NumCell value={s.positive} accent={s.positive > 0 ? C.green : undefined} bold />
-                  <RateCell value={s.conversionRate} color={C.green} />
-                  <td className="px-3 py-2"><InlineSpark data={s.spark} color={gold} /></td>
-                  <td className="pr-3" style={{ color: C.textDim }}><Link href={withFilters(`/dashboard/seller/${s.id}`, filters)} className="inline-flex"><ArrowRight size={12} /></Link></td>
-                </tr>
-              ))}
+              ) : (() => {
+                const maxConv = Math.max(1, ...data.sellerPerformance.map(s => s.conversionRate));
+                return data.sellerPerformance.map((s, idx) => (
+                  <tr key={s.id} className="border-t hover:bg-black/[0.02] transition-colors" style={{ borderColor: C.border }}>
+                    <Td>
+                      {/* Podium rank — gold gradient for #1 to anchor the
+                          leaderboard; navy ink ghost for the rest so the eye
+                          jumps straight to the leader on first scan. */}
+                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-bold"
+                        style={{
+                          background: idx === 0
+                            ? `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 78%, white) 100%)`
+                            : `color-mix(in srgb, ${C.textMuted} 8%, transparent)`,
+                          color: idx === 0 ? "#1A1505" : C.textMuted,
+                          boxShadow: idx === 0 ? `0 2px 8px color-mix(in srgb, ${gold} 32%, transparent)` : "none",
+                        }}>
+                        {idx + 1}
+                      </span>
+                    </Td>
+                    <Td><Link href={withFilters(`/dashboard/seller/${s.id}`, filters)} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{s.name}</Link></Td>
+                    <NumCell value={s.active} />
+                    <NumCell value={s.contacted} />
+                    <NumCell value={s.sent} />
+                    <NumCell value={s.replied} />
+                    <NumCell value={s.positive} accent={s.positive > 0 ? C.green : undefined} bold />
+                    <td className="px-3 py-2"><div className="flex justify-end"><RateBar value={s.conversionRate} max={maxConv} color={C.green} /></div></td>
+                    <td className="px-3 py-2"><InlineSpark data={s.spark} color={gold} /></td>
+                    <td className="pr-3" style={{ color: C.textDim }}><Link href={withFilters(`/dashboard/seller/${s.id}`, filters)} className="inline-flex"><ArrowRight size={12} /></Link></td>
+                  </tr>
+                ));
+              })()}
             </tbody>
           </table>
         </Panel>
@@ -923,17 +955,6 @@ function Td({ children, style }: { children: React.ReactNode; style?: React.CSSP
 function NumCell({ value, bold, accent }: { value: number; bold?: boolean; accent?: string }) {
   return <td className="px-3 py-2 text-right tabular-nums" style={{ color: accent ?? (bold ? C.textPrimary : C.textBody), fontWeight: bold ? 600 : 400 }}>{value.toLocaleString("es-AR")}</td>;
 }
-function RateCell({ value, color }: { value: number; color: string }) {
-  return (
-    <td className="px-3 py-2 text-right">
-      <span className="inline-flex items-center justify-end gap-1 text-xs font-semibold tabular-nums px-1.5 py-0.5 rounded"
-        style={{ backgroundColor: value > 0 ? `color-mix(in srgb, ${color} 12%, transparent)` : "transparent", color: value > 0 ? color : C.textMuted }}>
-        {value}%
-      </span>
-    </td>
-  );
-}
-
 function StatusBadge({ status, t }: { status: string; t: (k: string) => string }) {
   const map: Record<string, { color: string; key: string }> = {
     active:    { color: C.green,   key: "dashx.tbl.status.active" },
