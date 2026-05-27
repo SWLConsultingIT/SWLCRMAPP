@@ -476,10 +476,12 @@ export default async function DashboardPage({
           the Insights are now surfaced as the Highlight banner above). */}
       <section>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-          <Panel title={t("dashx.funnel.title")} subtitle={t("dashx.funnel.subtitle")} className="lg:col-span-7">
+          <Panel title={t("dashx.funnel.title")} subtitle={t("dashx.funnel.subtitle")} className="lg:col-span-7"
+            actionHref={withFilters("/?tab=campaigns", filters)} actionLabel={t("dashx.panel.openCampaigns")}>
             <Funnel {...funnel18n} stages={data.funnel.map(s => ({ ...s, stage: t(`dashx.funnel.stage.${stageKey(s.stage)}`) || s.stage }))} />
           </Panel>
-          <Panel title={t("dashx.donut.title")} subtitle={t("dashx.donut.subtitle")} className="lg:col-span-5">
+          <Panel title={t("dashx.donut.title")} subtitle={t("dashx.donut.subtitle")} className="lg:col-span-5"
+            actionHref="/inbox" actionLabel={t("dashx.panel.openInbox")}>
             <Donut data={donutSlices} centerLabel={t("dashx.donut.centerReplies")} emptyLabel={t("dashx.donut.empty")} />
           </Panel>
         </div>
@@ -490,7 +492,8 @@ export default async function DashboardPage({
           general engagement charts, not in the per-channel chapter. */}
       <section>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-          <Panel title={t("dashx.trend.title")} subtitle={t("dashx.trend.subtitle")} className="lg:col-span-7">
+          <Panel title={t("dashx.trend.title")} subtitle={t("dashx.trend.subtitle")} className="lg:col-span-7"
+            actionHref="/reports" actionLabel={t("dashx.panel.openReports")}>
             <MultiLineChart
               todayLabel={t("dashx.trend.today")}
               recentLabel={t("dashx.trend.daysAgo")}
@@ -501,7 +504,8 @@ export default async function DashboardPage({
               ]}
             />
           </Panel>
-          <Panel title={t("dashx.heat.title")} subtitle={t("dashx.heat.subtitle")} className="lg:col-span-5">
+          <Panel title={t("dashx.heat.title")} subtitle={t("dashx.heat.subtitle")} className="lg:col-span-5"
+            actionHref={withFilters("/?tab=channels", filters)} actionLabel={t("dashx.panel.openChannels")}>
             <Heatmap
               matrix={data.heatmap}
               days={["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map(d => t(`dashx.day.${d}`))}
@@ -968,13 +972,64 @@ function SectionHeader({ title, subtitle, icon: Icon, action }: { title: string;
   );
 }
 
-function Panel({ title, subtitle, children, className }: { title?: string; subtitle?: string; children: React.ReactNode; className?: string }) {
+/** Panel — premium card with a navy-ink header and gold title (boss
+ * feedback 2026-05-27 "que sea negra con el titulo en oro"). Optional
+ * actionHref renders a gold CTA pill in the header right slot — used by
+ * each chart panel to deep-link into the surface where the data lives. */
+function Panel({
+  title, subtitle, children, className, actionHref, actionLabel,
+}: {
+  title?: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  className?: string;
+  actionHref?: string;
+  actionLabel?: string;
+}) {
   return (
-    <div className={`rounded-2xl border overflow-hidden ${className ?? ""}`} style={{ backgroundColor: C.card, borderColor: C.border }}>
+    <div
+      className={`rounded-2xl border overflow-hidden ${className ?? ""}`}
+      style={{
+        backgroundColor: C.card,
+        borderColor: C.border,
+        boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+      }}
+    >
       {(title || subtitle) && (
-        <div className="px-4 py-2.5 border-b" style={{ borderColor: C.border }}>
-          {title && <p className="text-sm font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{title}</p>}
-          {subtitle && <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>{subtitle}</p>}
+        <div
+          className="px-4 py-3 flex items-center justify-between gap-3"
+          style={{
+            background: "linear-gradient(135deg, #0B0F1A 0%, #111827 100%)",
+            color: "white",
+          }}
+        >
+          <div className="min-w-0">
+            {title && (
+              <p
+                className="text-[13.5px] font-bold tracking-[-0.005em]"
+                style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
+              >
+                {title}
+              </p>
+            )}
+            {subtitle && (
+              <p className="text-[10.5px] mt-0.5 truncate" style={{ color: "color-mix(in srgb, white 60%, transparent)" }}>
+                {subtitle}
+              </p>
+            )}
+          </div>
+          {actionHref && (
+            <Link
+              href={actionHref}
+              className="shrink-0 inline-flex items-center gap-1 text-[10.5px] font-semibold uppercase tracking-[0.14em] px-2.5 py-1 rounded-md transition-opacity hover:opacity-85"
+              style={{
+                color: gold,
+                backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 14%, transparent)",
+              }}
+            >
+              {actionLabel ?? "Open"} <ArrowRight size={11} />
+            </Link>
+          )}
         </div>
       )}
       <div className="p-3.5">{children}</div>
