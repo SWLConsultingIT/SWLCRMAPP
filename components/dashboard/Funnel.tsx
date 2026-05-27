@@ -12,11 +12,14 @@ import { C } from "@/lib/design";
 
 type Stage = { stage: string; count: number; color: string; prior?: number | null };
 
+// Funnel colors — slightly more saturated than defaults so the bars feel
+// alive against the white card. The "brand" tone (Won stage) reads as a
+// premium gold gradient via the bar styles below.
 const colorMap: Record<string, string> = {
-  neutral: "#9CA3AF",
-  info:    "#0A66C2",
-  warning: "#D97706",
-  success: "#059669",
+  neutral: "#94A3B8",
+  info:    "#1F6FE5",
+  warning: "#E08A1A",
+  success: "#10B981",
   brand:   "#c9a83a",
 };
 
@@ -81,14 +84,21 @@ export default function Funnel({
                 className="absolute inset-y-0 left-0 flex items-center px-3 rounded-lg transition-[width]"
                 style={{
                   width: `${widthPct}%`,
-                  background: `linear-gradient(90deg, ${color}, color-mix(in srgb, ${color} 75%, white))`,
-                  boxShadow: `0 1px 2px ${color}33`,
+                  background: s.color === "brand"
+                    ? `linear-gradient(135deg, ${color} 0%, color-mix(in srgb, ${color} 82%, white) 100%)`
+                    : `linear-gradient(90deg, ${color}, color-mix(in srgb, ${color} 78%, white))`,
+                  boxShadow: s.color === "brand"
+                    ? `0 4px 12px color-mix(in srgb, ${color} 32%, transparent), inset 0 1px 0 color-mix(in srgb, ${color} 30%, white)`
+                    : `0 2px 6px color-mix(in srgb, ${color} 22%, transparent)`,
                   minWidth: 80,
                 }}
               >
                 <span
                   className="text-sm font-bold tabular-nums"
-                  style={{ color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,0.2)" }}
+                  style={{
+                    color: s.color === "brand" ? "#1A1505" : "#fff",
+                    textShadow: s.color === "brand" ? "none" : "0 1px 2px rgba(0,0,0,0.18)",
+                  }}
                 >
                   {s.count.toLocaleString("en-US")}
                 </span>

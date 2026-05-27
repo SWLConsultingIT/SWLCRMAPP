@@ -87,18 +87,19 @@ export default function MultiLineChart({
           );
         })}
 
-        {/* Series lines + fills */}
+        {/* Series lines + fills. Order matters: render fills first (back),
+            then lines, then dots — so dots sit cleanly on top of every other
+            series's lines. */}
         {series.map((s, sIdx) => {
           const path = s.data.map((v, i) => (i === 0 ? "M" : "L") + xFor(i) + "," + yFor(v)).join(" ");
           const fillPath = `${path} L${xFor(s.data.length - 1)},${padding.t + innerH} L${padding.l},${padding.t + innerH} Z`;
           const gradId = `mlc-${sIdx}-${s.name.replace(/[^a-z0-9]/gi, "")}`;
-          const peak = peaks[sIdx];
 
           return (
-            <g key={sIdx}>
+            <g key={`fill-${sIdx}`}>
               <defs>
                 <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={s.color} stopOpacity={sIdx === 0 ? 0.18 : 0.08} />
+                  <stop offset="0%" stopColor={s.color} stopOpacity={sIdx === 0 ? 0.22 : 0.1} />
                   <stop offset="100%" stopColor={s.color} stopOpacity="0" />
                 </linearGradient>
               </defs>
@@ -107,39 +108,56 @@ export default function MultiLineChart({
                 d={path}
                 fill="none"
                 stroke={s.color}
-                strokeWidth={sIdx === 0 ? 2 : 1.7}
+                strokeWidth={sIdx === 0 ? 2.2 : 1.8}
                 strokeLinecap="round"
                 strokeLinejoin="round"
               />
+            </g>
+          );
+        })}
 
-              {/* End-of-series emphasis dot */}
+        {/* Decoration layer — peak rings + final dots. Drawn last so they sit
+            visually on top of every line/fill. */}
+        {series.map((s, sIdx) => {
+          const peak = peaks[sIdx];
+          const lastIdx = s.data.length - 1;
+          const lastValue = s.data[lastIdx];
+          return (
+            <g key={`deco-${sIdx}`}>
+              {/* Soft halo on the latest point — feels "live" without animating. */}
               <circle
-                cx={xFor(s.data.length - 1)}
-                cy={yFor(s.data[s.data.length - 1])}
-                r={3.8}
+                cx={xFor(lastIdx)}
+                cy={yFor(lastValue)}
+                r={9}
+                fill={s.color}
+                opacity={0.12}
+              />
+              <circle
+                cx={xFor(lastIdx)}
+                cy={yFor(lastValue)}
+                r={4.2}
                 fill={s.color}
                 stroke="var(--c-card)"
-                strokeWidth={1.5}
+                strokeWidth={1.8}
               />
 
-              {/* Peak marker — outlined ring so it doesn't read as a regular dot */}
-              {peak.value > 0 && peak.idx !== s.data.length - 1 && (
+              {/* Peak marker — outlined ring + count label. */}
+              {peak.value > 0 && peak.idx !== lastIdx && (
                 <g>
                   <circle
                     cx={xFor(peak.idx)}
                     cy={yFor(peak.value)}
-                    r={5.5}
-                    fill="none"
+                    r={6}
+                    fill="var(--c-card)"
                     stroke={s.color}
-                    strokeWidth={1.6}
-                    opacity={0.85}
+                    strokeWidth={1.8}
                   />
                   <text
                     x={xFor(peak.idx)}
-                    y={yFor(peak.value) - 9}
+                    y={yFor(peak.value) - 11}
                     textAnchor="middle"
-                    fontSize={9.5}
-                    fontWeight={600}
+                    fontSize={10}
+                    fontWeight={700}
                     fill={s.color}
                     style={{ fontFeatureSettings: '"tnum"' }}
                   >

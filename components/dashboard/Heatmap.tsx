@@ -54,27 +54,36 @@ export default function Heatmap({
         {days.map((label, d) => (
           <div key={d} className="flex items-center gap-1 mb-1">
             <span className="text-[10px] font-medium w-8 text-right tabular-nums" style={{ color: C.textMuted }}>{label}</span>
-            <div className="flex gap-1">
+            <div className="flex gap-[3px]">
               {Array.from({ length: 24 }).map((_, h) => {
                 const v = matrix[d]?.[h] ?? 0;
                 const intensity = v / max; // 0..1
+                // Stronger gold ramp — hot cells now go from 22% → 95% gold
+                // so the peak distribution reads from across the room. Empty
+                // cells use a neutral surface (not a tint) so the heat truly
+                // pops vs zero.
                 const bg = intensity === 0
                   ? C.surface
-                  : `color-mix(in srgb, ${gold} ${Math.round(15 + intensity * 70)}%, ${C.bg})`;
+                  : `color-mix(in srgb, ${gold} ${Math.round(22 + intensity * 73)}%, ${C.bg})`;
                 const peak = isTop(d, h);
                 return (
                   <div
                     key={h}
                     title={`${label} ${h}:00 — ${v} ${unitLabel}`}
                     style={{
-                      width: 16, height: 16, borderRadius: 3,
+                      width: 16, height: 16, borderRadius: 4,
                       backgroundColor: bg,
                       border: peak
                         ? `1.5px solid ${gold}`
                         : intensity === 0
                           ? `1px solid ${C.border}`
-                          : `1px solid color-mix(in srgb, ${gold} ${Math.round(intensity * 40)}%, transparent)`,
-                      boxShadow: peak ? `0 0 0 2px color-mix(in srgb, ${gold} 22%, transparent)` : undefined,
+                          : `1px solid color-mix(in srgb, ${gold} ${Math.round(20 + intensity * 35)}%, transparent)`,
+                      boxShadow: peak
+                        ? `0 0 0 2px color-mix(in srgb, ${gold} 28%, transparent), 0 2px 6px color-mix(in srgb, ${gold} 18%, transparent)`
+                        : intensity > 0.5
+                          ? `0 1px 2px color-mix(in srgb, ${gold} 14%, transparent)`
+                          : undefined,
+                      transition: "transform 120ms ease",
                     }}
                   />
                 );
