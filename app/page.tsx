@@ -33,6 +33,7 @@ import IcpChannelMatrix from "@/components/dashboard/IcpChannelMatrix";
 import InlineSpark from "@/components/dashboard/InlineSpark";
 import StepPerformance from "@/components/dashboard/StepPerformance";
 import Chapter from "@/components/dashboard/Chapter";
+import ChapterNav from "@/components/dashboard/ChapterNav";
 import HighlightCallout from "@/components/dashboard/HighlightCallout";
 
 const gold = "var(--brand, #c9a83a)";
@@ -260,6 +261,19 @@ export default async function DashboardPage({
       <Suspense fallback={<div className="h-10" />}>
         <FiltersBar options={options} />
       </Suspense>
+
+      {/* Sticky mini-nav — tracks scroll position and highlights the chapter
+          currently in view. Click jumps to it. Hidden on mobile (chapters
+          give the same orientation naturally on a long scroll). */}
+      <ChapterNav
+        items={[
+          { id: "overview",  number: 1, label: t("dashx.chapter.overview") },
+          { id: "icps",      number: 2, label: t("dashx.chapter.icps") },
+          { id: "campaigns", number: 3, label: t("dashx.chapter.campaigns") },
+          { id: "channels",  number: 4, label: t("dashx.chapter.channels") },
+          { id: "sellers",   number: 5, label: t("dashx.chapter.sellers") },
+        ]}
+      />
 
       {/* ═══ CHAPTER 1 · OVERVIEW ═══════════════════════════════════════════ */}
       <Chapter
