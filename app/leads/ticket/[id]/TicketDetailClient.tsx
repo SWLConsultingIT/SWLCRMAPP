@@ -6,6 +6,7 @@ import { C } from "@/lib/design";
 import {
   ArrowLeft, Star, Clock, ChevronRight, ChevronDown, ChevronUp, Megaphone,
   PlayCircle, CheckCircle, PauseCircle, XCircle,
+  Users as UsersIcon, UserPlus, Share2, Mail, Phone, Trophy, ThumbsDown, MessageSquare, Percent,
 } from "lucide-react";
 import { LeadFilterBar, type LeadFilterState } from "@/components/LeadFilters";
 
@@ -45,10 +46,24 @@ type CampaignGroup = {
   is_renurturing: boolean;
 };
 
+type TicketMetrics = {
+  totalLeads: number;
+  unassignedCount: number;
+  linkedinInvitesSent: number;
+  linkedinMessagesSent: number;
+  emailsSent: number;
+  callsMade: number;
+  won: number;
+  lost: number;
+  replyRate: number;
+  winRate: number;
+};
+
 type Props = {
   ticketName: string;
   campaigns: CampaignGroup[];
   leads: LeadInfo[];
+  metrics: TicketMetrics;
 };
 
 const statusMeta: Record<string, { color: string; bg: string; icon: typeof PlayCircle; label: string }> = {
@@ -342,14 +357,11 @@ function LeadsTable({ leads }: { leads: LeadInfo[] }) {
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
-export default function TicketDetailClient({ ticketName, campaigns, leads }: Props) {
+export default function TicketDetailClient({ ticketName, campaigns, leads, metrics }: Props) {
   const [tab, setTab] = useState(0);
 
   const totalLeads    = leads.length;
   const totalCamps    = campaigns.length;
-  const positiveCount = leads.filter(l => l.has_positive).length;
-  const replyCount    = leads.reduce((s, l) => s + l.reply_count, 0);
-  const noCampaignCount = leads.filter(l => !l.has_campaign).length;
 
   const tabs = [
     { label: "Leads",          count: totalLeads, color: C.blue },
@@ -368,29 +380,89 @@ export default function TicketDetailClient({ ticketName, campaigns, leads }: Pro
       </div>
 
       {/* Header */}
-      <div className="rounded-xl border mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <div className="p-6">
+      <div className="rounded-xl border mb-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="p-6 pb-4">
           <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Lead Miner Profile</p>
-          <h1 className="text-2xl font-bold mb-5" style={{ color: C.textPrimary }}>{ticketName}</h1>
-          <div className="flex items-center gap-6 flex-wrap">
-            {[
-              { label: "Leads",       value: totalLeads,      color: C.textBody },
-              { label: "Flows",       value: totalCamps,      color: gold },
-              { label: "Replies",     value: replyCount,      color: C.blue },
-              { label: "Positive",    value: positiveCount,   color: C.green },
-              { label: "No Campaign", value: noCampaignCount, color: "#92400E" },
-            ].map((s, i, arr) => (
-              <div key={s.label} className="flex items-center gap-5">
+          <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>{ticketName}</h1>
+        </div>
+
+        {/* Header stats — two rows: pipeline state (top) + channel activity (bottom).
+            Boss feedback 2026-05-27: surface per-channel counts + win/loss
+            metrics so the ticket reads at a glance without expanding any
+            campaign card. */}
+        <div className="border-t grid grid-cols-5 divide-x" style={{ borderColor: C.border }}>
+          {[
+            { icon: UsersIcon, label: "Leads",        value: metrics.totalLeads,     color: C.textBody },
+            { icon: UserPlus,  label: "Unassigned",   value: metrics.unassignedCount, color: metrics.unassignedCount > 0 ? "#92400E" : C.textMuted },
+            { icon: Megaphone, label: "Flows",        value: totalCamps,             color: gold },
+            { icon: Trophy,    label: "Won",          value: metrics.won,            color: C.green },
+            { icon: ThumbsDown,label: "Lost",         value: metrics.lost,           color: C.red },
+          ].map(s => {
+            const Icon = s.icon;
+            return (
+              <div key={s.label} className="px-5 py-3 flex items-center gap-3">
+                <Icon size={14} style={{ color: s.color }} />
                 <div>
-                  <p className="text-2xl font-bold tabular-nums" style={{ color: s.color }}>{s.value}</p>
+                  <p className="text-xl font-bold tabular-nums leading-tight" style={{ color: s.color }}>{s.value}</p>
                   <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{s.label}</p>
                 </div>
-                {i < arr.length - 1 && <div className="h-8 w-px" style={{ backgroundColor: C.border }} />}
               </div>
-            ))}
-          </div>
+            );
+          })}
+        </div>
+        <div className="border-t grid grid-cols-6 divide-x" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+          {[
+            { icon: Share2,        label: "LinkedIn Invites",  value: metrics.linkedinInvitesSent,   color: "#0A66C2" },
+            { icon: MessageSquare, label: "LinkedIn Messages", value: metrics.linkedinMessagesSent,  color: "#0A66C2" },
+            { icon: Mail,          label: "Emails Sent",       value: metrics.emailsSent,            color: "#7C3AED" },
+            { icon: Phone,         label: "Calls Made",        value: metrics.callsMade,             color: "#F97316" },
+            { icon: Percent,       label: "Reply Rate",        value: `${metrics.replyRate}%`,       color: metrics.replyRate >= 10 ? C.green : C.textBody },
+            { icon: Percent,       label: "Win Rate",          value: `${metrics.winRate}%`,         color: metrics.winRate >= 20 ? C.green : C.textBody },
+          ].map(s => {
+            const Icon = s.icon;
+            return (
+              <div key={s.label} className="px-4 py-2.5 flex items-center gap-2.5">
+                <Icon size={12} style={{ color: s.color }} />
+                <div className="min-w-0">
+                  <p className="text-sm font-bold tabular-nums leading-tight" style={{ color: s.color }}>{s.value}</p>
+                  <p className="text-[9px] font-semibold uppercase tracking-wider truncate" style={{ color: C.textMuted }}>{s.label}</p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
+
+      {/* Unassigned leads call-to-action — surfaces leads without a flow so
+          they're not buried inside the table filter. Click jumps to the
+          Leads tab with the "No Campaign" chip pre-applied. */}
+      {metrics.unassignedCount > 0 && (
+        <div className="mb-6 rounded-xl border p-4 flex items-center gap-4 flex-wrap"
+          style={{
+            backgroundColor: `color-mix(in srgb, #92400E 6%, ${C.card})`,
+            borderColor: `color-mix(in srgb, #92400E 35%, transparent)`,
+          }}>
+          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+            style={{ backgroundColor: `color-mix(in srgb, #92400E 14%, transparent)`, color: "#92400E" }}>
+            <UserPlus size={16} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>
+              {metrics.unassignedCount} {metrics.unassignedCount === 1 ? "lead is" : "leads are"} in this ICP but not assigned to any flow
+            </p>
+            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
+              These leads aren&apos;t receiving any outreach. Add them to an existing flow or create a new one.
+            </p>
+          </div>
+          <button
+            onClick={() => setTab(0)}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90"
+            style={{ backgroundColor: "#92400E", color: "#fff" }}
+          >
+            Review unassigned →
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>

@@ -11,7 +11,7 @@ async function getProfileData(profileId: string) {
   const [profileRes, leadsRes] = await Promise.all([
     supabase.from("icp_profiles").select("id, profile_name").eq("id", profileId).single(),
     supabase.from("leads")
-      .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, status, lead_score, is_priority, current_channel")
+      .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, status, lead_score, is_priority, current_channel, transferred_to_odoo_at")
       .eq("icp_profile_id", profileId)
       .order("created_at", { ascending: false }),
   ]);
@@ -21,7 +21,12 @@ async function getProfileData(profileId: string) {
   if (!profile) return null;
 
   const leadIds = (leads ?? []).map(l => l.id);
-  if (leadIds.length === 0) return { name: profile.profile_name, campaigns: [], leads: [] };
+  const emptyMetrics = {
+    totalLeads: 0, unassignedCount: 0,
+    linkedinInvitesSent: 0, linkedinMessagesSent: 0, emailsSent: 0, callsMade: 0,
+    won: 0, lost: 0, replyRate: 0, winRate: 0,
+  };
+  if (leadIds.length === 0) return { name: profile.profile_name, campaigns: [], leads: [], metrics: emptyMetrics };
 
   // Campaigns + replies both only depend on leadIds — parallelize. Saves another ~150ms.
   const [campaignsRes, repliesRes] = await Promise.all([
@@ -36,11 +41,24 @@ async function getProfileData(profileId: string) {
   const campaigns = campaignsRes.data;
   const replies = repliesRes.data;
 
-  // Messages depend on campIds (after campaigns) — keeps as serial.
+  // Messages + calls depend on campIds / leadIds (after campaigns + leads).
+  // We pull channel + step_number on messages so we can split LinkedIn
+  // Connection Requests (step 0) from regular LinkedIn DMs in the metrics
+  // strip. Calls are joined separately by lead_id since they live outside
+  // campaign_messages.
   const campIds = (campaigns ?? []).map(c => c.id);
-  const { data: messages } = campIds.length > 0
-    ? await supabase.from("campaign_messages").select("campaign_id, sent_at").in("campaign_id", campIds)
-    : { data: [] };
+  const [{ data: messages }, { data: callsRows }] = await Promise.all([
+    campIds.length > 0
+      ? supabase.from("campaign_messages")
+          .select("campaign_id, channel, step_number, sent_at")
+          .in("campaign_id", campIds)
+      : Promise.resolve({ data: [] as any[] }),
+    leadIds.length > 0
+      ? supabase.from("calls")
+          .select("id, lead_id, classification")
+          .in("lead_id", leadIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
 
   const repliesByLead: Record<string, any[]> = {};
   for (const r of replies ?? []) {
@@ -150,7 +168,65 @@ async function getProfileData(profileId: string) {
     };
   });
 
-  return { name: profile.profile_name, campaigns: campaignList, leads: leadList };
+  // ── Ticket-level metrics ──────────────────────────────────────────────
+  // Aggregates that don't fit neatly inside a campaign card. Boss asked
+  // 2026-05-27 to surface channel breakdowns + win/lost/reply/win rate at
+  // the ticket header so sellers can read the ICP's overall health
+  // without expanding every campaign.
+  let liInvitesSent = 0;
+  let liMessagesSent = 0;
+  let emailsSent = 0;
+  for (const m of (messages ?? []) as any[]) {
+    if (!m.sent_at) continue;
+    if (m.channel === "linkedin") {
+      if (m.step_number === 0) liInvitesSent++;
+      else liMessagesSent++;
+    } else if (m.channel === "email") {
+      emailsSent++;
+    }
+  }
+  const callsMade = (callsRows ?? []).length;
+  // Won / Lost classification — prefer the lead.status field (closed_won /
+  // closed_lost / qualified), with transferred_to_odoo_at as a belt-and-
+  // braces "this lead actually became an opportunity" signal.
+  const wonCount = (leads ?? []).filter((l: any) =>
+    l.status === "closed_won" || l.status === "qualified" || !!l.transferred_to_odoo_at).length;
+  const lostCount = (leads ?? []).filter((l: any) => l.status === "closed_lost").length;
+  // Reply rate = unique leads that ever replied / unique leads contacted
+  // (status moved past 'new'). Win rate = won / (won + lost), avoids
+  // dividing by total leads which exaggerates the metric when most leads
+  // are still in flight.
+  const contactedLeadIds = new Set(
+    (leads ?? []).filter((l: any) => l.status && l.status !== "new").map((l: any) => l.id),
+  );
+  const repliedLeadIds = new Set(
+    Object.keys(repliesByLead).filter(id => (repliesByLead[id] ?? []).length > 0),
+  );
+  const replyRate = contactedLeadIds.size > 0
+    ? Math.round((repliedLeadIds.size / contactedLeadIds.size) * 100)
+    : 0;
+  const winRate = (wonCount + lostCount) > 0
+    ? Math.round((wonCount / (wonCount + lostCount)) * 100)
+    : 0;
+  const unassignedCount = (leads ?? []).filter((l: any) => {
+    const hasCamp = (campsByLeadId[l.id] ?? []).length > 0;
+    return !hasCamp;
+  }).length;
+
+  const metrics = {
+    totalLeads: (leads ?? []).length,
+    unassignedCount,
+    linkedinInvitesSent: liInvitesSent,
+    linkedinMessagesSent: liMessagesSent,
+    emailsSent,
+    callsMade,
+    won: wonCount,
+    lost: lostCount,
+    replyRate,
+    winRate,
+  };
+
+  return { name: profile.profile_name, campaigns: campaignList, leads: leadList, metrics };
 }
 
 export default async function TicketDetailPage({
@@ -167,6 +243,7 @@ export default async function TicketDetailPage({
       ticketName={data.name}
       campaigns={data.campaigns}
       leads={data.leads}
+      metrics={data.metrics}
     />
   );
 }
