@@ -10,7 +10,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import {
   Users, Send, Trophy, Megaphone, Target,
-  TrendingUp, AlertTriangle, ArrowRight,
+  AlertTriangle, ArrowRight,
   Share2, Mail, Phone, Smartphone, FileDown, ChevronsRight, Activity,
 } from "lucide-react";
 import { C } from "@/lib/design";
@@ -31,7 +31,6 @@ import Heatmap from "@/components/dashboard/Heatmap";
 import IcpChannelMatrix from "@/components/dashboard/IcpChannelMatrix";
 import InlineSpark from "@/components/dashboard/InlineSpark";
 import StepPerformance from "@/components/dashboard/StepPerformance";
-import Chapter from "@/components/dashboard/Chapter";
 import ChapterNav from "@/components/dashboard/ChapterNav";
 import ChannelComparison from "@/components/dashboard/ChannelComparison";
 import HeroStat from "@/components/dashboard/HeroStat";
@@ -259,30 +258,10 @@ export default async function DashboardPage({
         <DashboardKeyboardShortcuts />
       </Suspense>
 
-      {/* ─── Thin action strip — replaces the prior PageHero. Holds the
-          freshness chip + PDF download on the right. No title text here
-          (the active tab serves as the section name), no overlap with
-          the filter bar below. */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: C.textDim }}>
-          {periodLabel}
-        </div>
-        <div className="flex items-center gap-2">
-          <FreshnessChip renderedAt={renderedAt} />
-          <Link
-            href="/reports"
-            className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-opacity hover:opacity-85 whitespace-nowrap"
-            style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`, color: "#04070d", boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 28%, transparent)` }}
-          >
-            <FileDown size={13} /> {t("dashx.hero.download")}
-          </Link>
-        </div>
-      </div>
-
-      {/* ─── Tab bar — sticky URL-driven nav. Lives above filters so the
-          tab acts as the primary navigation and filters scope whatever
-          tab is active. Wrapped in Suspense because it reads
-          useSearchParams. */}
+      {/* ─── Tab bar — sticky URL-driven nav with right-aligned actions.
+          Freshness chip + PDF Download live inside the tab bar so we
+          collapse what used to be a separate header strip into one row.
+          Wrapped in Suspense because the nav reads useSearchParams. */}
       <Suspense fallback={<div className="h-12" />}>
         <ChapterNav
           items={[
@@ -292,6 +271,18 @@ export default async function DashboardPage({
             { id: "channels",  number: 4, label: t("dashx.chapter.channels") },
             { id: "sellers",   number: 5, label: t("dashx.chapter.sellers") },
           ]}
+          actions={(
+            <>
+              <FreshnessChip renderedAt={renderedAt} />
+              <Link
+                href="/reports"
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11.5px] font-semibold transition-opacity hover:opacity-85 whitespace-nowrap"
+                style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`, color: "#04070d", boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 28%, transparent)` }}
+              >
+                <FileDown size={12} /> {t("dashx.hero.download")}
+              </Link>
+            </>
+          )}
         />
       </Suspense>
 
@@ -304,13 +295,6 @@ export default async function DashboardPage({
       {/* ═══ CHAPTER 1 · OVERVIEW ═══════════════════════════════════════════ */}
       {filters.tab === "overview" && (
       <section className="space-y-4 pt-2">
-      <Chapter
-        id="overview"
-        number={1}
-        icon={TrendingUp}
-        title={t("dashx.chapter.overview")}
-        description={t("dashx.chapter.overview.desc")}
-      />
 
       {/* ─── Hero row · HeroStat (Total Leads as the marquee number) +
           InsightPanel (top AI-derived insights). Replaces the prior 4-KPI
@@ -550,7 +534,6 @@ export default async function DashboardPage({
           the matrix below for the deeper 2D analysis. */}
       {filters.tab === "icps" && (
       <section className="space-y-4 pt-2">
-      <Chapter id="icps" number={2} icon={Target} title={t("dashx.chapter.icps")} description={t("dashx.chapter.icps.desc")} />
 
       <section>
         <SectionHeader icon={Target} title={t("dashx.tbl.icp.title")} subtitle={t("dashx.tbl.icp.subtitle")} />
@@ -645,7 +628,6 @@ export default async function DashboardPage({
           via the lagging callout. */}
       {filters.tab === "campaigns" && (
       <section className="space-y-4 pt-2">
-      <Chapter id="campaigns" number={3} icon={Megaphone} title={t("dashx.chapter.campaigns")} description={t("dashx.chapter.campaigns.desc")} />
 
       <section>
         <SectionHeader icon={Megaphone} title={t("dashx.tbl.camp.title")} subtitle={t("dashx.tbl.camp.subtitle")} />
@@ -810,7 +792,6 @@ export default async function DashboardPage({
           because it answers "which channel works" — a channel question. */}
       {filters.tab === "channels" && (
       <section className="space-y-4 pt-2">
-      <Chapter id="channels" number={4} icon={Send} title={t("dashx.chapter.channels")} description={t("dashx.chapter.channels.desc")} />
 
       <section>
         <SectionHeader icon={Send} title={t("dashx.channels.title")} subtitle={t("dashx.channels.subtitle")} />
@@ -855,7 +836,6 @@ export default async function DashboardPage({
           happened to inherit more leads. */}
       {filters.tab === "sellers" && (
       <section className="space-y-4 pt-2">
-      <Chapter id="sellers" number={5} icon={Trophy} title={t("dashx.chapter.sellers")} description={t("dashx.chapter.sellers.desc")} />
 
       <section>
         <SectionHeader icon={Trophy} title={t("dashx.tbl.seller.title")} subtitle={t("dashx.tbl.seller.subtitle")} />

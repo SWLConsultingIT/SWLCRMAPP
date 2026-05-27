@@ -18,7 +18,17 @@ const gold = "var(--brand, #c9a83a)";
 
 type ChapterItem = { id: string; number: number; label: string };
 
-export default function ChapterNav({ items }: { items: ChapterItem[] }) {
+export default function ChapterNav({
+  items,
+  actions,
+}: {
+  items: ChapterItem[];
+  /** Right-side slot — typically the freshness chip + a primary CTA. The
+   * tab bar is the most prominent surface on the dashboard, so action
+   * buttons that pair with the active chapter (Download PDF, Refresh chip,
+   * etc) live here instead of in a separate header strip. */
+  actions?: React.ReactNode;
+}) {
   const params = useSearchParams();
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -36,7 +46,7 @@ export default function ChapterNav({ items }: { items: ChapterItem[] }) {
 
   return (
     <nav
-      className="sticky top-0 z-30 -mx-4 sm:-mx-6 px-4 sm:px-6"
+      className="sticky top-0 z-30 -mx-4 sm:-mx-6 px-4 sm:px-6 flex items-center justify-between gap-3"
       style={{
         backgroundColor: `color-mix(in srgb, ${C.card} 92%, transparent)`,
         backdropFilter: "blur(10px)",
@@ -47,7 +57,7 @@ export default function ChapterNav({ items }: { items: ChapterItem[] }) {
       }}
       aria-label="Dashboard tabs"
     >
-      <div className="flex items-stretch gap-1 overflow-x-auto">
+      <div className="flex items-stretch gap-1 overflow-x-auto flex-1 min-w-0">
         {items.map(it => {
           const on = activeId === it.id;
           return (
@@ -92,6 +102,11 @@ export default function ChapterNav({ items }: { items: ChapterItem[] }) {
           );
         })}
       </div>
+      {actions && (
+        <div className="shrink-0 flex items-center gap-2 pr-1">
+          {actions}
+        </div>
+      )}
     </nav>
   );
 }

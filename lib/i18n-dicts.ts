@@ -249,6 +249,7 @@ export const en: Dict = {
   // Company-totals KPI band (replaces the granular engagement KPIs)
   "dashx.kpi.totalLeads": "Total leads",
   "dashx.kpi.totalLeadsHint": "{n} of them already contacted",
+  "dashx.kpi.replied": "Replied",
   "dashx.kpi.activeCampaigns": "Active campaigns",
   "dashx.kpi.activeCampaignsHint": "{paused} paused · {closed} closed",
   "dashx.kpi.activeCampaignsHintShort": "Currently running",
@@ -889,6 +890,7 @@ export const es: Dict = {
   // Company-totals KPI band (replaces the granular engagement KPIs)
   "dashx.kpi.totalLeads": "Total leads",
   "dashx.kpi.totalLeadsHint": "{n} ya contactados",
+  "dashx.kpi.replied": "Respondieron",
   "dashx.kpi.activeCampaigns": "Campañas activas",
   "dashx.kpi.activeCampaignsHint": "{paused} pausadas · {closed} cerradas",
   "dashx.kpi.activeCampaignsHintShort": "Corriendo ahora",
