@@ -59,67 +59,83 @@ const CHANNEL_COLORS: Record<string, { color: string; bg: string }> = {
   call:     { color: "#F97316", bg: "#FFF7ED" },
 };
 
-function badgeFromMsgStatus(s: MsgState, channel?: string): CardBadge | null {
+// Status of the LinkedIn Connection Request slot (step 0).
+function crBadge(camp: Campaign): CardBadge | null {
+  const s = camp.step_0;
   if (!s) return null;
-  const ch = s.channel ?? channel ?? "linkedin";
-  const colors = CHANNEL_COLORS[ch] ?? CHANNEL_COLORS.linkedin;
-  if (s.status === "failed") return { label: "FAILED", color: "#DC2626", bg: "#FEE2E2" };
-  if (s.status === "dispatching") return { label: "SENDING…", color: "#7C3AED", bg: "#EDE9FE" };
+  if (s.status === "sent") return { label: "CR SENT", color: "#16A34A", bg: "#DCFCE7" };
+  if (s.status === "failed") return { label: "CR FAILED", color: "#DC2626", bg: "#FEE2E2" };
+  if (s.status === "dispatching") return { label: "CR SENDING…", color: "#7C3AED", bg: "#EDE9FE" };
+  if (s.status === "skipped") {
+    const reason = (s.skippedReason ?? "").toLowerCase();
+    if (reason.includes("first_degree") || reason.includes("already a 1st")) return { label: "ALREADY CONNECTED", color: "#7C3AED", bg: "#EDE9FE" };
+    if (reason.includes("pending") || reason.includes("invitation_sent")) return { label: "INVITE PENDING", color: "#D97706", bg: "#FEF3C7" };
+    if (reason.includes("withdrawn") || reason.includes("ignored")) return { label: "INVITE WITHDRAWN", color: "#6B7280", bg: "#F3F4F6" };
+    const url = camp.leads?.primary_linkedin_url ?? null;
+    const looksLikeLinkedIn = !!url && /linkedin\.com\/in\//i.test(url);
+    if (!url) return { label: "NO LINKEDIN", color: "#DC2626", bg: "#FEE2E2" };
+    if (!looksLikeLinkedIn) return { label: "BAD URL", color: "#DC2626", bg: "#FEE2E2" };
+    return { label: "LOCKED PROFILE", color: "#DC2626", bg: "#FEE2E2" };
+  }
+  if (s.status === "draft") return { label: "CR DRAFT", color: "#6B7280", bg: "#F3F4F6" };
   if (s.status === "queued") {
     if (s.lastRateLimitAt) {
       const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
-      if (new Date(s.lastRateLimitAt).getTime() > fourHoursAgo) {
-        return { label: "COOLDOWN", color: "#D97706", bg: "#FFFBEB" };
-      }
+      if (new Date(s.lastRateLimitAt).getTime() > fourHoursAgo) return { label: "CR COOLDOWN", color: "#D97706", bg: "#FFFBEB" };
     }
-    return { label: "QUEUED", color: colors.color, bg: colors.bg };
+    return { label: "CR QUEUED", color: "#0A66C2", bg: "#DBEAFE" };
   }
   return null;
 }
 
-// Badge for each kanban card.
-// step 0: show connection invite status (QUEUED / REQUEST SENT / FAILED / LOCKED PROFILE…)
-// step > 0: show the first pending/failed message for this campaign
-function deriveCardBadge(camp: Campaign): CardBadge | null {
-  const cs = camp.current_step ?? 0;
-
-  if (cs === 0) {
-    const s = camp.step_0;
-    if (!s) return null;
-    if (s.status === "sent") return { label: "REQUEST SENT", color: "#16A34A", bg: "#DCFCE7" };
-    if (s.status === "skipped") {
-      // Surface the actual skip reason instead of dumping every skipped row
-      // into a misleading "LOCKED PROFILE" bucket. The dispatcher writes
-      // metadata.skipped_reason whenever it bails — the campaign detail
-      // page projects it into step_0.skippedReason for the kanban. Map
-      // known reasons to friendlier badges; unknown reasons fall back to
-      // the URL-shape heuristic for backwards compat.
-      const reason = (s.skippedReason ?? "").toLowerCase();
-      if (reason.includes("first_degree") || reason.includes("already a 1st")) {
-        return { label: "ALREADY CONNECTED", color: "#7C3AED", bg: "#EDE9FE" };
-      }
-      if (reason.includes("pending") || reason.includes("invitation_sent")) {
-        return { label: "INVITE PENDING", color: "#D97706", bg: "#FEF3C7" };
-      }
-      if (reason.includes("withdrawn") || reason.includes("ignored")) {
-        return { label: "INVITE WITHDRAWN", color: "#6B7280", bg: "#F3F4F6" };
-      }
-      const url = camp.leads?.primary_linkedin_url ?? null;
-      const looksLikeLinkedIn = !!url && /linkedin\.com\/in\//i.test(url);
-      if (!url) return { label: "NO LINKEDIN", color: "#DC2626", bg: "#FEE2E2" };
-      if (!looksLikeLinkedIn) return { label: "BAD URL", color: "#DC2626", bg: "#FEE2E2" };
-      // Last resort. Only show "LOCKED PROFILE" when we genuinely don't
-      // know why the dispatcher skipped — i.e., legacy rows from before
-      // skipped_reason was written. Going forward, every skip carries a
-      // reason and lands in one of the buckets above.
-      return { label: "LOCKED PROFILE", color: "#DC2626", bg: "#FEE2E2" };
+// Status of the step the card currently sits in (the next thing to fire,
+// not the CR). Returns null when nothing's queued/draft/failed for that
+// step yet — typical when current_step=0 and the dispatcher hasn't queued
+// the first followup yet.
+function stepBadge(camp: Campaign): CardBadge | null {
+  const m = camp.current_msg;
+  if (!m) return null;
+  const channel = (m.channel ?? "linkedin").toUpperCase();
+  const colors = CHANNEL_COLORS[m.channel] ?? CHANNEL_COLORS.linkedin;
+  if (m.status === "failed") return { label: `${channel} FAILED`, color: "#DC2626", bg: "#FEE2E2" };
+  if (m.status === "dispatching") return { label: `${channel} SENDING…`, color: "#7C3AED", bg: "#EDE9FE" };
+  if (m.status === "sent") return { label: `${channel} SENT`, color: "#16A34A", bg: "#DCFCE7" };
+  if (m.status === "queued") {
+    if (m.lastRateLimitAt) {
+      const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
+      if (new Date(m.lastRateLimitAt).getTime() > fourHoursAgo) return { label: `${channel} COOLDOWN`, color: "#D97706", bg: "#FFFBEB" };
     }
-    if (s.status === "draft") return { label: "DRAFT", color: "#6B7280", bg: "#F3F4F6" };
-    return badgeFromMsgStatus(s, "linkedin");
+    return { label: `${channel} QUEUED`, color: colors.color, bg: colors.bg };
   }
+  if (m.status === "draft") return { label: `${channel} DRAFT`, color: "#6B7280", bg: "#F3F4F6" };
+  return null;
+}
 
-  // Steps beyond connection: show first pending/failed message badge.
-  return badgeFromMsgStatus(camp.current_msg ?? null);
+// Up to 2 badges per card:
+//   - On step 0 columns (CR not yet "done"): show the CR badge only.
+//   - On step 1+ columns: show the column step's status (e.g. EMAIL QUEUED)
+//     PLUS the CR result (e.g. CR SENT / ALREADY CONNECTED) as a secondary
+//     reference so the seller can see both "what's about to fire" and
+//     "what already happened on LinkedIn". Fran flagged this on 2026-05-27
+//     because the previous logic only surfaced the CR status while the
+//     card visually sat in the Email column — looked like the wrong state.
+function deriveCardBadges(camp: Campaign): CardBadge[] {
+  const cs = camp.current_step ?? 0;
+  const cr = crBadge(camp);
+  if (cs === 0) {
+    // Pre-acceptance phase. Primary = CR status. If a followup somehow
+    // already has a draft/queued state (legacy data), surface it too.
+    const step = stepBadge(camp);
+    return [cr, step].filter((b): b is CardBadge => !!b);
+  }
+  // Past the connection phase — primary is the column step's status.
+  const step = stepBadge(camp);
+  // CR badge becomes a small secondary marker (typically CR SENT / ALREADY
+  // CONNECTED). Skip the trivial CR SENT once we're a couple of steps in
+  // to keep the card clean.
+  const showCrSecondary = !!cr && cr.label !== "CR SENT" || cs <= 1;
+  const secondary = showCrSecondary ? cr : null;
+  return [step, secondary].filter((b): b is CardBadge => !!b);
 }
 
 type Props = {
@@ -193,19 +209,17 @@ function LeadCard({ camp, isDragging }: { camp: Campaign; isDragging?: boolean }
             <User size={9} /> {camp.sellers.name}
           </span>
         ) : <span />}
-        <div className="flex items-center gap-1">
-          {(() => {
-            const b = deriveCardBadge(camp);
-            return b ? (
-              <span
-                className="text-[8.5px] font-bold tracking-wider px-1.5 py-0.5 rounded-full"
-                style={{ backgroundColor: b.bg, color: b.color, letterSpacing: "0.04em" }}
-                title={camp.step_0?.errorDetails ?? undefined}
-              >
-                {b.label}
-              </span>
-            ) : null;
-          })()}
+        <div className="flex items-center gap-1 flex-wrap justify-end">
+          {deriveCardBadges(camp).map((b, i) => (
+            <span
+              key={i}
+              className="text-[8.5px] font-bold tracking-wider px-1.5 py-0.5 rounded-full"
+              style={{ backgroundColor: b.bg, color: b.color, letterSpacing: "0.04em" }}
+              title={camp.step_0?.errorDetails ?? undefined}
+            >
+              {b.label}
+            </span>
+          ))}
           {camp.status === "completed" && <CheckCircle size={11} style={{ color: C.green }} />}
           {camp.status === "paused" && <span className="text-[9px] font-bold" style={{ color: "#D97706" }}>PAUSED</span>}
         </div>

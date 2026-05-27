@@ -630,13 +630,15 @@ export default function CampaignDetailClient({
               const inviteIsSent = inviteStatus === "sent";
               const inviteIsSkipped = inviteStatus === "skipped";
               const inviteOpen = expandedStep === -1;
-              // Position the invite right before the FIRST LinkedIn step in the
-              // sequence. If LinkedIn is the first step it sits at the top; if
-              // email is first and LinkedIn comes later, the invite shows after
-              // the email (which is what actually happens chronologically — the
-              // invite is now scheduled to fire ~24h before the LinkedIn DM).
+              // The connection request is conceptually the entry point for any
+              // LinkedIn-channel campaign — you have to send the invite before
+              // anything else on LinkedIn can happen. Always render it as the
+              // FIRST row, labeled Day 0. (Previously this tried to be clever
+              // and slot it before the first LinkedIn step; when a campaign
+              // led with email + had LinkedIn at day 2, the invite landed on
+              // row 2 and Fran flagged it as misleading on 2026-05-27.)
               const firstLinkedinIdx = sequence.findIndex(s => s.channel === "linkedin");
-              const inviteDay = firstLinkedinIdx >= 0 ? Math.max(0, (dayPerStep[firstLinkedinIdx] ?? 0) - 1) : 0;
+              const inviteDay = 0;
               const renderInvite = () => (
                 <div style={{ borderBottom: `1px solid ${C.border}` }}>
                   <button
@@ -693,13 +695,14 @@ export default function CampaignDetailClient({
               const bodyMessageCount = messages.filter(m => m.step_number > 0).length;
               const seqHasCRPlaceholder = sequence.length > bodyMessageCount;
               return (<>
+              {/* CR card always renders first — before any sequence row. */}
+              {showInviteCard && renderInvite()}
               {sequence.map((step, i) => {
-              // Only legacy-format campaigns get the early-return collapse —
-              // there's nothing to render at sequence[0] for them. New campaigns
-              // fall through and render the invite card BEFORE the regular
-              // step card (via renderInviteBefore below).
+              // Legacy-format campaigns saved the CR as sequence[0]. Now that
+              // we render the invite card at the very top unconditionally, we
+              // collapse that placeholder row to avoid a duplicate.
               if (seqHasCRPlaceholder && showInviteCard && i === firstLinkedinIdx && step.channel === "linkedin" && step.daysAfter === 0)
-                return <div key={i}>{renderInvite()}</div>;
+                return null;
               const meta = channelMeta[step.channel] ?? channelMeta.linkedin;
               const Icon = meta.icon;
               const msg = messages.find(m => m.step_number === i + stepOffset) ?? null;
@@ -714,16 +717,13 @@ export default function CampaignDetailClient({
               const isCurrent = i === currentStep;
               const isOpen = expandedStep === i;
               const isEditing = editingIdx === i;
-              // Inline "+ connection note" badge is redundant when the invite
-              // card is already rendering as a standalone row right above this
-              // step (showInviteCard). Only fall back to the inline badge if
-              // for some reason the standalone isn't being shown.
-              const renderInviteBefore = showInviteCard && i === firstLinkedinIdx;
+              // Inline "+ connection note" badge as a fallback only when the
+              // standalone CR card isn't being rendered above (showInviteCard
+              // is false for non-LinkedIn campaigns).
               const showConnNote = !showInviteCard && i === firstLinkedinIdx && (!!connectionNote || !!connReqMsg);
 
               return (
                 <div key={i}>
-                {renderInviteBefore && renderInvite()}
                 <div style={{ borderBottom: i < sequence.length - 1 ? `1px solid ${C.border}` : "none" }}>
                   <button onClick={() => setExpandedStep(isOpen ? null : i)}
                     className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-gray-50">

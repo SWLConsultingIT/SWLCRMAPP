@@ -234,7 +234,11 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
     const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const sbKey = process.env.SUPABASE_SERVICE_KEY!;
     const inClause = `(${allCampaignIds.join(",")})`;
-    const url = `${sbUrl}/rest/v1/campaign_messages?campaign_id=in.${encodeURIComponent(inClause)}&step_number=gt.0&status=in.(queued,failed,dispatching)&select=campaign_id,step_number,channel,status,metadata,error_details&order=step_number.asc`;
+    // Include `draft` so the kanban can surface "EMAIL DRAFT" / "CALL DRAFT"
+    // on cards that already have an upcoming follow-up authored but not yet
+    // queued by the dispatcher. Otherwise step-0 cards looked like they
+    // only had a CR pending, hiding the email/call sitting one step ahead.
+    const url = `${sbUrl}/rest/v1/campaign_messages?campaign_id=in.${encodeURIComponent(inClause)}&step_number=gt.0&status=in.(queued,draft,failed,dispatching)&select=campaign_id,step_number,channel,status,metadata,error_details&order=step_number.asc`;
     try {
       const res = await fetch(url, {
         headers: { apikey: sbKey, Authorization: `Bearer ${sbKey}` },
