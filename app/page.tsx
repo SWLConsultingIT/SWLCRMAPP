@@ -113,20 +113,12 @@ function withFilters(base: string, filters: { from: string | null; to: string | 
   return q ? `${base}?${q}` : base;
 }
 
-/** Maps the dashboard-data funnel stage labels to translation keys. Data
- * layer returns them in Spanish for legacy reasons; this resolves them to
- * locale-agnostic keys consumed by the dashx.funnel.stage.* dict entries. */
+/** Funnel stages are already English keys after the 2026-05-27 redefinition
+ * (e.g. "linkedin_sent", "email_touch"). This is now a pass-through used by
+ * the t() lookup in the Funnel render — kept as a function so the call site
+ * doesn't change and future renames stay scoped here. */
 function stageKey(label: string): string {
-  const map: Record<string, string> = {
-    "Importados": "imported",
-    "Contactados": "contacted",
-    "Aceptaron": "accepted",
-    "Respondieron": "replied",
-    "Positivos": "positive",
-    "Reunión": "meeting",
-    "Ganados": "won",
-  };
-  return map[label] ?? "";
+  return label;
 }
 
 // Never cached — without this, clicking the period chips changes the URL

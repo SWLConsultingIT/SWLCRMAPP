@@ -197,6 +197,44 @@ export async function getDashboardData(filters: DashboardFilters) {
   const meetingLeadIds = new Set(leads.filter(l => l.status === "qualified").map(l => l.id));
   const wonLeadIds = new Set(leads.filter(l => l.status === "closed_won").map(l => l.id));
 
+  // ── Per-channel touch sets (boss-feedback 2026-05-27 funnel redefinition).
+  // "Leads with ≥1 X" = leads who got at least one sent message via a
+  // campaign of channel=X. Computed once for the new funnel.
+  // The CR (step 0) counts as a LinkedIn "send" for the LI-Sent stage; for
+  // "≥1 LinkedIn message" we want a step >= 1 (post-acceptance reach-out).
+  const linkedinSentLeadIds = new Set<string>();
+  const linkedinMessageLeadIds = new Set<string>();
+  const emailTouchLeadIds = new Set<string>();
+  const callTouchLeadIds = new Set<string>();
+  const campaignChannelById = new Map<string, string>();
+  const campaignLeadById = new Map<string, string>();
+  for (const c of campaigns) {
+    if (c.channel) campaignChannelById.set(c.id, c.channel);
+    if (c.lead_id) campaignLeadById.set(c.id, c.lead_id);
+  }
+  for (const m of messages) {
+    if (m.status !== "sent" || !m.campaign_id) continue;
+    const ch = campaignChannelById.get(m.campaign_id);
+    const leadId = campaignLeadById.get(m.campaign_id);
+    if (!ch || !leadId) continue;
+    if (ch === "linkedin") {
+      linkedinSentLeadIds.add(leadId);
+      if ((m.step_number ?? 0) >= 1) linkedinMessageLeadIds.add(leadId);
+    } else if (ch === "email") {
+      emailTouchLeadIds.add(leadId);
+    } else if (ch === "call") {
+      callTouchLeadIds.add(leadId);
+    }
+  }
+
+  // Lost = explicit negative classification OR lead in closed_lost status.
+  // The two overlap in most cases (a negative reply triggers a status flip)
+  // but counting via a union covers manual closures too.
+  const lostLeadIds = new Set<string>([
+    ...(negativeReplies.map(r => r.lead_id).filter(Boolean) as string[]),
+    ...leads.filter(l => l.status === "closed_lost").map(l => l.id),
+  ]);
+
   const totalLeads = leads.length;
   const contactedLeads = leadsWithCampaign.size;
   const connectedLeads = connectedLeadIds.size;
@@ -205,6 +243,11 @@ export async function getDashboardData(filters: DashboardFilters) {
   const meetingCount = meetingLeadIds.size;
   const wonCount = wonLeadIds.size;
   const negativeCount = new Set(negativeReplies.map(r => r.lead_id).filter(Boolean) as string[]).size;
+  const linkedinSentCount = linkedinSentLeadIds.size;
+  const linkedinMessageCount = linkedinMessageLeadIds.size;
+  const emailTouchCount = emailTouchLeadIds.size;
+  const callTouchCount = callTouchLeadIds.size;
+  const lostCount = lostLeadIds.size;
 
   const responseRate = contactedLeads > 0 ? Math.round((repliedCount / contactedLeads) * 100) : 0;
   const positiveRate = repliedCount > 0 ? Math.round((positiveCount / repliedCount) * 100) : 0;
@@ -890,14 +933,21 @@ export async function getDashboardData(filters: DashboardFilters) {
       responseRate, positiveRate, conversionRate, acceptanceRate,
     },
     deltas,
+    // Funnel redefined 2026-05-27 per boss spec: now tracks per-channel
+    // touch buckets explicitly instead of a single "contacted" stage, so
+    // the operator sees which channel is actually doing work. Stage IDs
+    // (used as i18n keys via stageKey() in page.tsx) are stable English
+    // tokens. The order matches what boss listed verbatim.
     funnel: [
-      { stage: "Importados",  count: totalLeads,    prior: priorFunnel.imported,  color: "neutral" },
-      { stage: "Contactados", count: contactedLeads, prior: priorFunnel.contacted, color: "info" },
-      { stage: "Aceptaron",   count: connectedLeads, prior: priorFunnel.connected, color: "info" },
-      { stage: "Respondieron", count: repliedCount,  prior: priorFunnel.replied,   color: "warning" },
-      { stage: "Positivos",    count: positiveCount, prior: priorFunnel.positive,  color: "success" },
-      { stage: "Reunión",      count: meetingCount,  prior: null as number | null, color: "success" },
-      { stage: "Ganados",      count: wonCount,      prior: null as number | null, color: "brand" },
+      { stage: "imported",       count: totalLeads,            prior: priorFunnel.imported, color: "neutral" },
+      { stage: "linkedin_sent",  count: linkedinSentCount,     prior: null as number | null, color: "info" },
+      { stage: "linkedin_accepted", count: connectedLeads,     prior: priorFunnel.connected, color: "info" },
+      { stage: "linkedin_msg",   count: linkedinMessageCount,  prior: null as number | null, color: "info" },
+      { stage: "email_touch",    count: emailTouchCount,       prior: null as number | null, color: "info" },
+      { stage: "call_touch",     count: callTouchCount,        prior: null as number | null, color: "info" },
+      { stage: "replied",        count: repliedCount,          prior: priorFunnel.replied,   color: "warning" },
+      { stage: "lost",           count: lostCount,             prior: null as number | null, color: "neutral" },
+      { stage: "won",            count: wonCount,              prior: null as number | null, color: "brand" },
     ],
     channelBreakdown,
     icpPerformance: icpPerformance.map(p => ({ ...p, spark: sparkByIcp.get(p.id) ?? new Array(14).fill(0) })),
