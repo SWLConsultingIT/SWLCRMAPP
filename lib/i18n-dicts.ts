@@ -249,6 +249,7 @@ export const en: Dict = {
   // Company-totals KPI band (replaces the granular engagement KPIs)
   "dashx.kpi.totalLeads": "Total leads",
   "dashx.kpi.totalLeadsHint": "{n} of them already contacted",
+  "dashx.kpi.totalLeadsHintShort": "{n} contacted",
   "dashx.kpi.replied": "Replied",
   "dashx.kpi.activeCampaigns": "Active campaigns",
   "dashx.kpi.activeCampaignsHint": "{paused} paused · {closed} closed",
@@ -263,6 +264,17 @@ export const en: Dict = {
   "dashx.kpi.wonHint": "{n} positive replies this period",
   "dashx.kpi.lost": "Lost",
   "dashx.kpi.lostHint": "Negative replies + unsubscribes",
+  // "What to do today" card — narrative opener (boss feedback 2026-05-27)
+  "dashx.today.title": "What to do today",
+  "dashx.today.empty": "All caught up — nothing urgent right now.",
+  "dashx.today.replies": "Replies to review",
+  "dashx.today.repliesHint": "Open the inbox to triage them",
+  "dashx.today.positives": "Positives to follow up",
+  "dashx.today.positivesHint": "Convert them in Opportunities",
+  "dashx.today.leadsNoCampaign": "Leads to assign",
+  "dashx.today.leadsNoCampaignHint": "Without a campaign yet — start one",
+  "dashx.today.activeCamps": "Campaigns running",
+  "dashx.today.activeCampsHint": "{paused} paused waiting to resume",
   // Pipeline pulse strip — 4 rate / throughput stats
   "dashx.pulse.title": "Pipeline pulse",
   "dashx.pulse.subtitle": "rate + throughput signals across the period",
@@ -890,6 +902,7 @@ export const es: Dict = {
   // Company-totals KPI band (replaces the granular engagement KPIs)
   "dashx.kpi.totalLeads": "Total leads",
   "dashx.kpi.totalLeadsHint": "{n} ya contactados",
+  "dashx.kpi.totalLeadsHintShort": "{n} contactados",
   "dashx.kpi.replied": "Respondieron",
   "dashx.kpi.activeCampaigns": "Campañas activas",
   "dashx.kpi.activeCampaignsHint": "{paused} pausadas · {closed} cerradas",
@@ -904,6 +917,17 @@ export const es: Dict = {
   "dashx.kpi.wonHint": "{n} respuestas positivas en el período",
   "dashx.kpi.lost": "Perdidos",
   "dashx.kpi.lostHint": "Respuestas negativas + unsubscribes",
+  // "What to do today" card — narrative opener (boss feedback 2026-05-27)
+  "dashx.today.title": "Qué hacer hoy",
+  "dashx.today.empty": "Todo al día — nada urgente ahora mismo.",
+  "dashx.today.replies": "Respuestas para revisar",
+  "dashx.today.repliesHint": "Abrí Inbox para triarlas",
+  "dashx.today.positives": "Positivas para seguir",
+  "dashx.today.positivesHint": "Convertilas en Oportunidades",
+  "dashx.today.leadsNoCampaign": "Leads para asignar",
+  "dashx.today.leadsNoCampaignHint": "Sin campaña asignada — armá una",
+  "dashx.today.activeCamps": "Campañas corriendo",
+  "dashx.today.activeCampsHint": "{paused} pausadas esperando reanudar",
   // Pipeline pulse strip — 4 rate / throughput stats
   "dashx.pulse.title": "Pulso del pipeline",
   "dashx.pulse.subtitle": "señales de tasa + throughput del período",
