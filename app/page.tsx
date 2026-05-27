@@ -775,7 +775,7 @@ export default async function DashboardPage({
                         )}
                         <TopRankDot rank={idx} t={t} />
                         {icp.id !== "_unknown" ? (
-                          <Link href={withFilters(`/dashboard/icp/${icp.id}`, filters)} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{icp.name}</Link>
+                          <Link href={`/leads/ticket/${icp.id}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{icp.name}</Link>
                         ) : (
                           <span style={{ color: C.textMuted }}>{t("dashx.tbl.icp.unknown")}</span>
                         )}
@@ -812,7 +812,7 @@ export default async function DashboardPage({
                     <td className="px-3 py-2"><div className="flex justify-end"><RateBar value={icp.responseRate} max={maxResp} color="#7C3AED" /></div></td>
                     <td className="px-3 py-2"><div className="flex justify-end"><RateBar value={icp.conversionRate} max={maxConv} color={C.green} /></div></td>
                     <td className="px-3 py-2"><InlineSpark data={icp.spark} color="#7C3AED" /></td>
-                    <td className="pr-3" style={{ color: C.textDim }}>{icp.id !== "_unknown" && <Link href={withFilters(`/dashboard/icp/${icp.id}`, filters)} className="inline-flex"><ArrowRight size={12} /></Link>}</td>
+                    <td className="pr-3" style={{ color: C.textDim }}>{icp.id !== "_unknown" && <Link href={`/leads/ticket/${icp.id}`} className="inline-flex"><ArrowRight size={12} /></Link>}</td>
                   </tr>
                 ));
               })()}

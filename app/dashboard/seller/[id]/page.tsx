@@ -451,7 +451,7 @@ export default async function SellerDetailPage({
                       <div className="flex items-center gap-2">
                         <TopRankDot rank={idx} />
                         {i.id !== "_unknown" ? (
-                          <Link href={`/dashboard/icp/${i.id}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{i.name === "_unknown_icp" ? t("dashx.tbl.icp.unknown") : i.name}</Link>
+                          <Link href={`/leads/ticket/${i.id}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{i.name === "_unknown_icp" ? t("dashx.tbl.icp.unknown") : i.name}</Link>
                         ) : (
                           <span style={{ color: C.textMuted }}>{i.name === "_unknown_icp" ? t("dashx.tbl.icp.unknown") : i.name}</span>
                         )}
