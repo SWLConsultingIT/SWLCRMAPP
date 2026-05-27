@@ -35,6 +35,7 @@ import StepPerformance from "@/components/dashboard/StepPerformance";
 import Chapter from "@/components/dashboard/Chapter";
 import ChapterNav from "@/components/dashboard/ChapterNav";
 import HighlightCallout from "@/components/dashboard/HighlightCallout";
+import ChannelComparison from "@/components/dashboard/ChannelComparison";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -411,6 +412,34 @@ export default async function DashboardPage({
         </div>
       </section>
 
+      {/* ─── 30-day trend + reply timing heatmap — moved here from Channels.
+          They aggregate across ALL channels, so they belong in Overview as
+          general engagement charts, not in the per-channel chapter. */}
+      <section>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+          <Panel title={t("dashx.trend.title")} subtitle={t("dashx.trend.subtitle")} className="lg:col-span-7">
+            <MultiLineChart
+              todayLabel={t("dashx.trend.today")}
+              recentLabel={t("dashx.trend.daysAgo")}
+              series={[
+                { name: t("dashx.trend.sent"),      color: "#0A66C2", data: trend30d.sent },
+                { name: t("dashx.trend.replies"),   color: "#7C3AED", data: trend30d.replies },
+                { name: t("dashx.trend.positives"), color: C.green,   data: trend30d.positive },
+              ]}
+            />
+          </Panel>
+          <Panel title={t("dashx.heat.title")} subtitle={t("dashx.heat.subtitle")} className="lg:col-span-5">
+            <Heatmap
+              matrix={data.heatmap}
+              days={["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map(d => t(`dashx.day.${d}`))}
+              unitLabel={t("dashx.heat.unitReplies")}
+              legendMin={t("dashx.heat.legendMin")}
+              legendMax={t("dashx.heat.legendMax")}
+            />
+          </Panel>
+        </div>
+      </section>
+
       {/* ═══ CHAPTER 2 · ICPs ═══════════════════════════════════════════════
           Which ideal profiles convert best · which channel fits each one.
           Reading order: leaderboard first (the natural entry point), then
@@ -687,29 +716,16 @@ export default async function DashboardPage({
         </div>
       </section>
 
+      {/* ─── Channel comparison bar chart — VISUAL ranking of channels by
+          reply rate. Replaces the prior 30d trend + heatmap that lived
+          here (those weren't channel-specific so they moved up to Overview).
+          Bars are sorted by reply rate desc; length-encoded against the
+          top performer so the leader hits full width. */}
       <section>
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-          <Panel title={t("dashx.trend.title")} subtitle={t("dashx.trend.subtitle")} className="lg:col-span-7">
-            <MultiLineChart
-              todayLabel={t("dashx.trend.today")}
-              recentLabel={t("dashx.trend.daysAgo")}
-              series={[
-                { name: t("dashx.trend.sent"),      color: "#0A66C2", data: trend30d.sent },
-                { name: t("dashx.trend.replies"),   color: "#7C3AED", data: trend30d.replies },
-                { name: t("dashx.trend.positives"), color: C.green,   data: trend30d.positive },
-              ]}
-            />
-          </Panel>
-          <Panel title={t("dashx.heat.title")} subtitle={t("dashx.heat.subtitle")} className="lg:col-span-5">
-            <Heatmap
-              matrix={data.heatmap}
-              days={["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map(d => t(`dashx.day.${d}`))}
-              unitLabel={t("dashx.heat.unitReplies")}
-              legendMin={t("dashx.heat.legendMin")}
-              legendMax={t("dashx.heat.legendMax")}
-            />
-          </Panel>
-        </div>
+        <SectionHeader icon={Send} title={t("dashx.channels.compTitle")} subtitle={t("dashx.channels.compSubtitle")} />
+        <Panel>
+          <ChannelComparison channels={data.channelBreakdown} t={t} emptyLabel={t("dashx.channels.empty")} />
+        </Panel>
       </section>
 
       {/* ═══ CHAPTER 5 · SELLERS ═══════════════════════════════════════════
