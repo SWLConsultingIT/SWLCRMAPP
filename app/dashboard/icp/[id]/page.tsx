@@ -63,9 +63,33 @@ type MsgRow = { id: string; status: string | null; sent_at: string | null; campa
 
 async function loadIcpDetail(icpId: string, dateFrom: string | null, dateTo: string | null) {
   try {
-    return await loadIcpDetailInternal(icpId, dateFrom, dateTo);
+    const out = await loadIcpDetailInternal(icpId, dateFrom, dateTo);
+    if (out) {
+      // Diagnostic: log the shape so we can spot any null/undefined that
+      // the JSX render later assumes is filled.
+      console.log("[icp detail] load OK", {
+        icpId,
+        hasProfile: !!out.profile,
+        profileName: out.profile?.profile_name,
+        funnel: out.funnel,
+        rates: out.rates,
+        channelBreakdownLen: out.channelBreakdown?.length,
+        campaignBreakdownLen: out.campaignBreakdown?.length,
+        trend30dLen: out.trend30d?.sent?.length,
+        classCountsKeys: out.classCounts ? Object.keys(out.classCounts) : null,
+        heatmapShape: out.heatmap?.length,
+        medianTTR: out.medianTTR,
+        stepPerformanceLen: out.stepPerformance?.length,
+        topLeadsLen: out.topLeads?.length,
+      });
+    }
+    return out;
   } catch (e) {
-    console.error("[icp detail] load failed", { icpId, error: e });
+    console.error("[icp detail] load failed", {
+      icpId,
+      message: e instanceof Error ? e.message : String(e),
+      stack: e instanceof Error ? e.stack : null,
+    });
     return null;
   }
 }
@@ -418,7 +442,11 @@ export default async function IcpDetailPage({
     </div>
   );
 
-  return (
+  // Wrap the body construction in a try so that the actual error message
+  // surfaces inline instead of going through React 19's prod sanitization.
+  let body: React.ReactNode;
+  try {
+    body = (
     <div className="p-4 sm:p-6 w-full space-y-6">
       <div className="flex items-center justify-between gap-2">
         <Link href={periodChip ? `/?from=${periodFrom}&to=${periodTo}` : "/"} className="inline-flex items-center gap-1 text-xs hover:underline transition-opacity hover:opacity-70" style={{ color: C.textMuted }}>
@@ -674,7 +702,29 @@ export default async function IcpDetailPage({
 
       <SwlSignature caption={t("dashx.brand.captionDetail")} tagline={t("dashx.brand.tagline")} />
     </div>
-  );
+    );
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    const stack = e instanceof Error ? (e.stack ?? "") : "";
+    console.error("[icp detail] render failed", { icpId: id, message, stack });
+    body = (
+      <div className="p-6 max-w-2xl mx-auto">
+        <Link href="/" className="text-xs hover:underline" style={{ color: C.textMuted }}>
+          <ArrowLeft size={12} className="inline mr-1" /> {t("dashx.detail.back")}
+        </Link>
+        <div className="mt-4 rounded-xl border p-4" style={{ borderColor: C.border, backgroundColor: C.card }}>
+          <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>Render error (diagnostic)</p>
+          <p className="text-[11px] mt-1" style={{ color: C.textDim }}>This card is intentional — we catch the error here so the actual message is visible instead of being sanitized by React.</p>
+          <pre className="mt-3 text-[11px] text-left bg-slate-50 border rounded-md p-2 max-h-64 overflow-auto whitespace-pre-wrap break-all" style={{ borderColor: C.border, color: C.textBody }}>
+{message}
+{"\n\n"}
+{stack}
+          </pre>
+        </div>
+      </div>
+    );
+  }
+  return body;
 }
 
 // ─── Local primitives ────────────────────────────────────────────────────
