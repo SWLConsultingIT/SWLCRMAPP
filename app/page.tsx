@@ -34,6 +34,7 @@ import InlineSpark from "@/components/dashboard/InlineSpark";
 import StepPerformance from "@/components/dashboard/StepPerformance";
 import VelocityDecayCurve from "@/components/dashboard/VelocityDecayCurve";
 import ConcentrationPareto from "@/components/dashboard/ConcentrationPareto";
+import Chapter from "@/components/dashboard/Chapter";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -258,6 +259,15 @@ export default async function DashboardPage({
         <FiltersBar options={options} />
       </Suspense>
 
+      {/* ═══ CHAPTER 1 · OVERVIEW ═══════════════════════════════════════════ */}
+      <Chapter
+        id="overview"
+        number={1}
+        icon={TrendingUp}
+        title={t("dashx.chapter.overview")}
+        description={t("dashx.chapter.overview.desc")}
+      />
+
       {/* ─── KPIs Leading / Lagging in one row (research: 5-9 KPIs max, leading first) ─ */}
       <section>
         <div className="flex items-center justify-between gap-2 mb-2.5">
@@ -449,7 +459,12 @@ export default async function DashboardPage({
         </div>
       </section>
 
-      {/* ─── ICP × Channel matrix — the high-leverage comparison ──────── */}
+      {/* ═══ CHAPTER 2 · ICPs ═══════════════════════════════════════════════
+          Which ideal profiles convert best · which channel fits each one.
+          Reading order: matrix first (the 2D comparison), then the linear
+          leaderboard with conversion + trend + drilldown. */}
+      <Chapter id="icps" number={2} icon={Target} title={t("dashx.chapter.icps")} description={t("dashx.chapter.icps.desc")} />
+
       <section>
         <SectionHeader icon={Target} title={t("dashx.matrix.title")} subtitle={t("dashx.matrix.subtitle")} />
         <Panel>
@@ -457,131 +472,6 @@ export default async function DashboardPage({
         </Panel>
       </section>
 
-      {/* ─── Step performance — which step of the sequence kills the funnel? ─ */}
-      <section>
-        <SectionHeader icon={ChevronsRight} title={t("dashx.step.title")} subtitle={t("dashx.step.subtitle")} />
-        <Panel>
-          <StepPerformance steps={data.stepPerformance} locale={locale} />
-        </Panel>
-      </section>
-
-      {/* ─── Concentration Pareto — where the wins are clustered ─────── */}
-      <section>
-        <SectionHeader icon={Target} title={t("dashx.pareto.title")} subtitle={t("dashx.pareto.subtitle")} />
-        <Panel>
-          <ConcentrationPareto
-            rows={[
-              {
-                kind: "icp",
-                titleKey: t("dashx.pareto.icps"),
-                items: data.icpPerformance
-                  .filter(i => i.id !== "_unknown")
-                  .map(i => ({ id: i.id, name: i.name, positives: i.positive })),
-                hrefBase: `/dashboard/icp/`,
-              },
-              {
-                kind: "seller",
-                titleKey: t("dashx.pareto.sellers"),
-                items: data.sellerPerformance.map(s => ({ id: s.id, name: s.name, positives: s.positive })),
-                hrefBase: `/dashboard/seller/`,
-              },
-              {
-                kind: "campaign",
-                titleKey: t("dashx.pareto.campaigns"),
-                items: data.campaignPerformance.map(c => ({ id: c.name, name: c.name, positives: c.positive })),
-              },
-            ]}
-            riskLabel={t("dashx.pareto.risk")}
-            healthyLabel={t("dashx.pareto.healthy")}
-            pctLabel={t("dashx.pareto.pct")}
-            emptyLabel={t("dashx.pareto.empty")}
-          />
-        </Panel>
-      </section>
-
-      {/* ─── Velocity decay — when to stop chasing silent leads ─────────── */}
-      <section>
-        <SectionHeader icon={Clock} title={t("dashx.decay.title")} subtitle={t("dashx.decay.subtitle")} />
-        <Panel>
-          <VelocityDecayCurve
-            curve={data.velocityDecay.curve}
-            totalMessaged={data.velocityDecay.totalMessaged}
-            cutoffDay={data.velocityDecay.cutoffDay}
-            finalPct={data.velocityDecay.finalPct}
-            emptyLabel={t("dashx.decay.empty")}
-            cutoffLabel={t("dashx.decay.cutoff")}
-            cutoffPendingLabel={t("dashx.decay.cutoffPending")}
-            yAxisLabel={t("dashx.decay.yAxis")}
-            xAxisLabel={t("dashx.decay.xAxis")}
-          />
-        </Panel>
-      </section>
-
-      {/* ─── Trend chart + heatmap in a 7/5 split ───────────────────────── */}
-      <section>
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-          <Panel title={t("dashx.trend.title")} subtitle={t("dashx.trend.subtitle")} className="lg:col-span-7">
-            <MultiLineChart
-              todayLabel={t("dashx.trend.today")}
-              recentLabel={t("dashx.trend.daysAgo")}
-              series={[
-                { name: t("dashx.trend.sent"),      color: "#0A66C2", data: trend30d.sent },
-                { name: t("dashx.trend.replies"),   color: "#7C3AED", data: trend30d.replies },
-                { name: t("dashx.trend.positives"), color: C.green,   data: trend30d.positive },
-              ]}
-            />
-          </Panel>
-          <Panel title={t("dashx.heat.title")} subtitle={t("dashx.heat.subtitle")} className="lg:col-span-5">
-            <Heatmap
-              matrix={data.heatmap}
-              days={["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map(d => t(`dashx.day.${d}`))}
-              unitLabel={t("dashx.heat.unitReplies")}
-              legendMin={t("dashx.heat.legendMin")}
-              legendMax={t("dashx.heat.legendMax")}
-            />
-          </Panel>
-        </div>
-      </section>
-
-      {/* ─── Performance per channel — compact card row ─────────────────── */}
-      <section>
-        <SectionHeader icon={Send} title={t("dashx.channels.title")} subtitle={t("dashx.channels.subtitle")} />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {data.channelBreakdown.length === 0 ? (
-            <EmptyHint>{t("dashx.channels.empty")}</EmptyHint>
-          ) : data.channelBreakdown.map(ch => {
-            const meta = channelMeta[ch.channel] ?? { icon: Share2, color: C.textMuted, labelKey: "" };
-            const Icon = meta.icon;
-            const channelLabel = meta.labelKey ? t(meta.labelKey) : ch.channel;
-            return (
-              <div key={ch.channel} className="rounded-xl border p-3.5 transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-md"
-                style={{ borderColor: C.border, backgroundColor: C.card, borderLeft: `3px solid ${meta.color}` }}>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="w-7 h-7 rounded-md flex items-center justify-center"
-                      style={{ backgroundColor: `color-mix(in srgb, ${meta.color} 14%, transparent)`, color: meta.color }}>
-                      <Icon size={13} />
-                    </span>
-                    <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{channelLabel}</span>
-                  </div>
-                  <span className="text-[10px] tabular-nums font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
-                    style={{ backgroundColor: `color-mix(in srgb, ${meta.color} 12%, transparent)`, color: meta.color }}>
-                    {ch.responseRate}% {t("dashx.channels.respShort")}
-                  </span>
-                </div>
-                <div className="grid grid-cols-4 gap-2 text-xs">
-                  <Stat label={t("dashx.channels.sent")} value={ch.sent} />
-                  <Stat label={t("dashx.channels.contacted")} value={ch.contacted} />
-                  <Stat label={t("dashx.channels.replied")} value={ch.replied} />
-                  <Stat label={t("dashx.channels.positive")} value={ch.positive} accent={C.green} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ─── Tables: ICP / Campaigns / Sellers — all with inline sparklines ── */}
       <section>
         <SectionHeader icon={Target} title={t("dashx.tbl.icp.title")} subtitle={t("dashx.tbl.icp.subtitle")} />
         {(() => {
@@ -644,6 +534,12 @@ export default async function DashboardPage({
           </table>
         </Panel>
       </section>
+
+      {/* ═══ CHAPTER 3 · CAMPAIGNS ═══════════════════════════════════════════
+          Which sequences are working · per-step performance reveals which
+          message is killing the funnel. Pause / rewrite candidates surface
+          via the lagging callout. */}
+      <Chapter id="campaigns" number={3} icon={Megaphone} title={t("dashx.chapter.campaigns")} description={t("dashx.chapter.campaigns.desc")} />
 
       <section>
         <SectionHeader icon={Megaphone} title={t("dashx.tbl.camp.title")} subtitle={t("dashx.tbl.camp.subtitle")} />
@@ -712,6 +608,89 @@ export default async function DashboardPage({
         </Panel>
       </section>
 
+      {/* Step performance — sits inside CAMPAIGNS chapter because the
+          "which step is broken" question is per-sequence diagnostic. */}
+      <section>
+        <SectionHeader icon={ChevronsRight} title={t("dashx.step.title")} subtitle={t("dashx.step.subtitle")} />
+        <Panel>
+          <StepPerformance steps={data.stepPerformance} locale={locale} />
+        </Panel>
+      </section>
+
+      {/* ═══ CHAPTER 4 · CHANNELS ═══════════════════════════════════════════
+          How each outreach channel performs · when in the week replies
+          actually arrive. Channel breakdown lives here (not Overview)
+          because it answers "which channel works" — a channel question. */}
+      <Chapter id="channels" number={4} icon={Send} title={t("dashx.chapter.channels")} description={t("dashx.chapter.channels.desc")} />
+
+      <section>
+        <SectionHeader icon={Send} title={t("dashx.channels.title")} subtitle={t("dashx.channels.subtitle")} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {data.channelBreakdown.length === 0 ? (
+            <EmptyHint>{t("dashx.channels.empty")}</EmptyHint>
+          ) : data.channelBreakdown.map(ch => {
+            const meta = channelMeta[ch.channel] ?? { icon: Share2, color: C.textMuted, labelKey: "" };
+            const Icon = meta.icon;
+            const channelLabel = meta.labelKey ? t(meta.labelKey) : ch.channel;
+            return (
+              <div key={ch.channel} className="rounded-xl border p-3.5 transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-md"
+                style={{ borderColor: C.border, backgroundColor: C.card, borderLeft: `3px solid ${meta.color}` }}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="w-7 h-7 rounded-md flex items-center justify-center"
+                      style={{ backgroundColor: `color-mix(in srgb, ${meta.color} 14%, transparent)`, color: meta.color }}>
+                      <Icon size={13} />
+                    </span>
+                    <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{channelLabel}</span>
+                  </div>
+                  <span className="text-[10px] tabular-nums font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                    style={{ backgroundColor: `color-mix(in srgb, ${meta.color} 12%, transparent)`, color: meta.color }}>
+                    {ch.responseRate}% {t("dashx.channels.respShort")}
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-2 text-xs">
+                  <Stat label={t("dashx.channels.sent")} value={ch.sent} />
+                  <Stat label={t("dashx.channels.contacted")} value={ch.contacted} />
+                  <Stat label={t("dashx.channels.replied")} value={ch.replied} />
+                  <Stat label={t("dashx.channels.positive")} value={ch.positive} accent={C.green} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+          <Panel title={t("dashx.trend.title")} subtitle={t("dashx.trend.subtitle")} className="lg:col-span-7">
+            <MultiLineChart
+              todayLabel={t("dashx.trend.today")}
+              recentLabel={t("dashx.trend.daysAgo")}
+              series={[
+                { name: t("dashx.trend.sent"),      color: "#0A66C2", data: trend30d.sent },
+                { name: t("dashx.trend.replies"),   color: "#7C3AED", data: trend30d.replies },
+                { name: t("dashx.trend.positives"), color: C.green,   data: trend30d.positive },
+              ]}
+            />
+          </Panel>
+          <Panel title={t("dashx.heat.title")} subtitle={t("dashx.heat.subtitle")} className="lg:col-span-5">
+            <Heatmap
+              matrix={data.heatmap}
+              days={["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map(d => t(`dashx.day.${d}`))}
+              unitLabel={t("dashx.heat.unitReplies")}
+              legendMin={t("dashx.heat.legendMin")}
+              legendMax={t("dashx.heat.legendMax")}
+            />
+          </Panel>
+        </div>
+      </section>
+
+      {/* ═══ CHAPTER 5 · SELLERS ═══════════════════════════════════════════
+          Who's moving the pipeline. Ranking uses reply rate normalized by
+          contacted volume (≥20 floor) so the top isn't decided by who
+          happened to inherit more leads. */}
+      <Chapter id="sellers" number={5} icon={Trophy} title={t("dashx.chapter.sellers")} description={t("dashx.chapter.sellers.desc")} />
+
       <section>
         <SectionHeader icon={Trophy} title={t("dashx.tbl.seller.title")} subtitle={t("dashx.tbl.seller.subtitle")} />
         {(() => {
@@ -770,6 +749,61 @@ export default async function DashboardPage({
               ))}
             </tbody>
           </table>
+        </Panel>
+      </section>
+
+      {/* ═══ CHAPTER 6 · INTELLIGENCE ═══════════════════════════════════════
+          Advanced signals: where the wins are clustered (mono-segment risk)
+          and the day after which sending more messages mostly burns inboxes. */}
+      <Chapter id="intel" number={6} icon={Sparkles} title={t("dashx.chapter.intel")} description={t("dashx.chapter.intel.desc")} />
+
+      <section>
+        <SectionHeader icon={Target} title={t("dashx.pareto.title")} subtitle={t("dashx.pareto.subtitle")} />
+        <Panel>
+          <ConcentrationPareto
+            rows={[
+              {
+                kind: "icp",
+                titleKey: t("dashx.pareto.icps"),
+                items: data.icpPerformance
+                  .filter(i => i.id !== "_unknown")
+                  .map(i => ({ id: i.id, name: i.name, positives: i.positive })),
+                hrefBase: `/dashboard/icp/`,
+              },
+              {
+                kind: "seller",
+                titleKey: t("dashx.pareto.sellers"),
+                items: data.sellerPerformance.map(s => ({ id: s.id, name: s.name, positives: s.positive })),
+                hrefBase: `/dashboard/seller/`,
+              },
+              {
+                kind: "campaign",
+                titleKey: t("dashx.pareto.campaigns"),
+                items: data.campaignPerformance.map(c => ({ id: c.name, name: c.name, positives: c.positive })),
+              },
+            ]}
+            riskLabel={t("dashx.pareto.risk")}
+            healthyLabel={t("dashx.pareto.healthy")}
+            pctLabel={t("dashx.pareto.pct")}
+            emptyLabel={t("dashx.pareto.empty")}
+          />
+        </Panel>
+      </section>
+
+      <section>
+        <SectionHeader icon={Clock} title={t("dashx.decay.title")} subtitle={t("dashx.decay.subtitle")} />
+        <Panel>
+          <VelocityDecayCurve
+            curve={data.velocityDecay.curve}
+            totalMessaged={data.velocityDecay.totalMessaged}
+            cutoffDay={data.velocityDecay.cutoffDay}
+            finalPct={data.velocityDecay.finalPct}
+            emptyLabel={t("dashx.decay.empty")}
+            cutoffLabel={t("dashx.decay.cutoff")}
+            cutoffPendingLabel={t("dashx.decay.cutoffPending")}
+            yAxisLabel={t("dashx.decay.yAxis")}
+            xAxisLabel={t("dashx.decay.xAxis")}
+          />
         </Panel>
       </section>
 
