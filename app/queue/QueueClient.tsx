@@ -188,13 +188,14 @@ function InlineClassifier({ call }: { call: PendingCall }) {
 // ─── Main ──────────────────────────────────────────────────────────────────────
 export default function QueueClient({ pendingCalls, newReplies }: Props) {
   const searchParams = useSearchParams();
-  // Deep-linked tab via `?tab=inbox` / `?tab=history` (the /inbox redirect
-  // + empty-state CTAs still point here). Falls back to Calls. The old
-  // `?tab=reviews` and `?tab=updates` paths land on Calls now that those
-  // tabs were removed.
+  // Deep-linked tab via `?tab=calls` / `?tab=inbox` / `?tab=history`. Per
+  // boss feedback 2026-05-27, History is now the first tab — that's the
+  // surface sellers want when they open Notifications (positive replies +
+  // acceptances). Calls is second. Removed `?tab=reviews` / `?tab=updates`
+  // — those tabs were deleted; bookmarks land on History.
   const initialTab = (() => {
     const t = searchParams.get("tab");
-    if (t === "inbox" || t === "history") return 1;
+    if (t === "calls") return 1;
     return 0;
   })();
   const [tab, setTab] = useState(initialTab);
@@ -309,14 +310,13 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
     .filter(r => passesDate(r.receivedAt))
     .filter(r => passesSearch(`${r.leadName} ${r.company} ${r.campaignName} ${r.replyText}`));
 
-  // Notifications now only carries Calls + History (replies thread). Per boss
-  // feedback 2026-05-27, Pending Reviews was deleted entirely and Updates
-  // moved into Lead Miner where it belongs operationally. Today's Focus card
-  // was also removed because it added a third surface on top of the hero +
-  // tab counts.
+  // Notifications now only carries History + Calls. Boss feedback 2026-05-27:
+  // History is first (sellers open Notifications to triage replies +
+  // acceptances, not to start cold calls). Pending Reviews + Updates tabs
+  // were deleted entirely. Today's Focus card was removed too.
   const tabs = [
-    { label: "Calls",   count: pendingCalls.length, color: "#F97316", reviewCount: 0 },
     { label: "History", count: newReplies.length,   color: C.blue,    reviewCount: needsReviewCount },
+    { label: "Calls",   count: pendingCalls.length, color: "#F97316", reviewCount: 0 },
   ];
 
   return (
@@ -362,8 +362,9 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
         })}
         <div className="flex-1" />
         <div className="flex items-center gap-2 mb-1">
-          {/* Date filter — only affects notification tabs. Calls keep all. */}
-          {tab !== 0 && (
+          {/* Date filter — only affects History. Calls keep all (they're
+              time-bounded by the dispatcher already). */}
+          {tab !== 1 && (
             <select
               value={dateRange}
               onChange={e => setDateRange(e.target.value as DateRange)}
@@ -376,7 +377,7 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
             </select>
           )}
           {/* Restore button when stuff has been dismissed locally. */}
-          {dismissed.size > 0 && tab !== 0 && (
+          {dismissed.size > 0 && tab !== 1 && (
             <button onClick={clearDismissed}
               className="text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-colors"
               style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.card }}
@@ -395,8 +396,8 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
         </div>
       </div>
 
-      {/* ═══ Tab 0: Calls (To Call / Awaiting Outcome / Follow-ups) ═══ */}
-      {tab === 0 && (() => {
+      {/* ═══ Tab 1: Calls (To Call / Awaiting Outcome / Follow-ups) ═══ */}
+      {tab === 1 && (() => {
         const activeList = callSubTab === 0 ? filteredCallsToMake
           : callSubTab === 1 ? filteredCallsAwaiting
           : filteredCallsFollowUp;
@@ -642,8 +643,8 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
         );
       })()}
 
-      {/* ═══ Tab 1: History (split-pane reply triage with keyboard shortcuts) ═══ */}
-      {tab === 1 && (
+      {/* ═══ Tab 0: History (split-pane reply triage with keyboard shortcuts) ═══ */}
+      {tab === 0 && (
         <InboxView
           replies={(sortedReplies as NewReply[]).map((r): InboxReply => ({
             id: r.id,

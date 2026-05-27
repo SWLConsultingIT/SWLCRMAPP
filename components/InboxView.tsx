@@ -7,6 +7,7 @@ import {
   Search, CheckCircle2, XCircle, MessageSquare, ExternalLink,
   ThumbsUp, ThumbsDown, HelpCircle, Inbox as InboxIcon, Share2, Mail, Phone, Smartphone,
   Check, X as XIcon, ChevronRight, ChevronLeft, PanelLeftClose, PanelLeftOpen,
+  ChevronDown, Megaphone, Target, Radio,
 } from "lucide-react";
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
@@ -171,6 +172,62 @@ function avatarColor(name: string | null | undefined): { bg: string; fg: string 
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   const hue = h % 360;
   return { bg: `hsl(${hue}, 65%, 90%)`, fg: `hsl(${hue}, 55%, 32%)` };
+}
+
+// Chip-style filter for the History sidebar. Renders a pill button with
+// icon + current value + chevron, with a hidden native <select> overlaid
+// so the OS handles the picker UI (good a11y, no popover state to manage).
+// Brand-tinted background + bolder text when the filter is non-default.
+function FilterPill({
+  icon, accent, placeholder, value, options, onChange, truncateAt,
+}: {
+  icon: React.ReactNode;
+  accent: string;
+  placeholder: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (v: string) => void;
+  /** Cap the visible label length so long campaign / ICP names don't
+   *  blow out the sidebar. The full name stays in the title attribute. */
+  truncateAt?: number;
+}) {
+  const isActive = value !== "all";
+  const fullLabel = isActive ? (options.find(o => o.value === value)?.label ?? value) : placeholder;
+  const cap = truncateAt ?? 22;
+  const label = fullLabel.length > cap ? fullLabel.slice(0, cap - 1) + "…" : fullLabel;
+  return (
+    <span
+      className="relative inline-flex items-center gap-1.5 rounded-full border text-[10px] font-semibold transition-[background-color,color,box-shadow] cursor-pointer hover:shadow-sm"
+      style={{
+        backgroundColor: isActive
+          ? `color-mix(in srgb, ${accent} 14%, ${C.card})`
+          : C.card,
+        borderColor: isActive
+          ? `color-mix(in srgb, ${accent} 40%, transparent)`
+          : C.border,
+        color: isActive ? accent : C.textMuted,
+        paddingInline: "10px",
+        paddingBlock: "4px",
+        boxShadow: isActive
+          ? `0 1px 0 color-mix(in srgb, ${accent} 14%, transparent)`
+          : "none",
+      }}
+      title={fullLabel}
+    >
+      {icon}
+      <span className="truncate" style={{ maxWidth: 130 }}>{label}</span>
+      <ChevronDown size={10} style={{ opacity: 0.7 }} />
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="absolute inset-0 opacity-0 cursor-pointer"
+        aria-label={placeholder}
+      >
+        <option value="all">{placeholder}</option>
+        {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    </span>
+  );
 }
 
 export default function InboxView({ replies }: { replies: InboxReply[] }) {
@@ -434,49 +491,45 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
             {(campaignOptions.length > 0 || icpOptions.length > 0 || channelOptions.length > 0) && (
               <div className="flex items-center gap-1.5 flex-wrap">
                 {campaignOptions.length > 0 && (
-                  <select
+                  <FilterPill
+                    icon={<Megaphone size={11} />}
+                    accent="var(--brand, #c9a83a)"
+                    placeholder="All campaigns"
                     value={campaignFilter}
-                    onChange={e => setCampaignFilter(e.target.value)}
-                    className="rounded-md border px-2 py-1 text-[10px] focus:outline-none"
-                    style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary, maxWidth: 130 }}
-                    title="Filter by campaign"
-                  >
-                    <option value="all">All campaigns</option>
-                    {campaignOptions.map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
+                    options={campaignOptions.map(n => ({ value: n, label: n }))}
+                    onChange={setCampaignFilter}
+                    truncateAt={18}
+                  />
                 )}
                 {icpOptions.length > 0 && (
-                  <select
+                  <FilterPill
+                    icon={<Target size={11} />}
+                    accent="var(--brand, #c9a83a)"
+                    placeholder="All ICPs"
                     value={icpFilter}
-                    onChange={e => setIcpFilter(e.target.value)}
-                    className="rounded-md border px-2 py-1 text-[10px] focus:outline-none"
-                    style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary, maxWidth: 130 }}
-                    title="Filter by ICP"
-                  >
-                    <option value="all">All ICPs</option>
-                    {icpOptions.map(n => <option key={n} value={n}>{n}</option>)}
-                  </select>
+                    options={icpOptions.map(n => ({ value: n, label: n }))}
+                    onChange={setIcpFilter}
+                    truncateAt={18}
+                  />
                 )}
                 {channelOptions.length > 0 && (
-                  <select
+                  <FilterPill
+                    icon={<Radio size={11} />}
+                    accent={channelColor(channelFilter !== "all" ? channelFilter : null)}
+                    placeholder="All channels"
                     value={channelFilter}
-                    onChange={e => setChannelFilter(e.target.value)}
-                    className="rounded-md border px-2 py-1 text-[10px] focus:outline-none"
-                    style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
-                    title="Filter by channel"
-                  >
-                    <option value="all">All channels</option>
-                    {channelOptions.map(c => <option key={c} value={c}>{channelLabel(c)}</option>)}
-                  </select>
+                    options={channelOptions.map(c => ({ value: c, label: channelLabel(c) }))}
+                    onChange={setChannelFilter}
+                  />
                 )}
                 {(campaignFilter !== "all" || icpFilter !== "all" || channelFilter !== "all") && (
                   <button
                     onClick={() => { setCampaignFilter("all"); setIcpFilter("all"); setChannelFilter("all"); }}
-                    className="text-[10px] font-medium px-1.5 py-0.5 rounded hover:opacity-80"
-                    style={{ color: C.textMuted }}
-                    title="Clear filters"
+                    className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full hover:opacity-80 transition-opacity"
+                    style={{ color: C.textMuted, backgroundColor: C.surface }}
+                    title="Clear all filters"
                   >
-                    Clear
+                    <XIcon size={10} /> Clear
                   </button>
                 )}
               </div>
