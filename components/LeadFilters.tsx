@@ -233,7 +233,7 @@ export function LeadFilterBar({
         <div className="px-4 py-2.5 border-t flex items-start gap-3 flex-wrap" style={{ borderColor: C.border, backgroundColor: C.card }}>
           <PillGroup
             icon={<Target size={11} />}
-            label="Profile"
+            label="ICP"
             value={filters.profile}
             onChange={v => set("profile", v)}
             wrap
