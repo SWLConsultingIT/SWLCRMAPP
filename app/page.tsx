@@ -640,6 +640,7 @@ export default async function DashboardPage({
               return t(`dashx.trend.insight.${dir}`, { pct: Math.abs(delta) });
             })()}>
             <MultiLineChart
+              locale={locale}
               todayLabel={t("dashx.trend.today")}
               recentLabel={t("dashx.trend.daysAgo")}
               priorLabel={t("dashx.trend.priorPeriod")}

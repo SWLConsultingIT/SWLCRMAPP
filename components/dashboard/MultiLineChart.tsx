@@ -23,12 +23,13 @@ type Series = { name: string; color: string; data: number[] };
 export default function MultiLineChart({
   series,
   priorSeries,
-  height = 280,
+  height = 220,
   todayLabel = "Today",
   recentLabel = "d",
   priorLabel = "Prior period",
   resetLabel = "Reset zoom",
   totalLabel = "total",
+  locale = "en",
 }: {
   series: Series[];
   /** Optional same-shape series for the previous period — renders as
@@ -40,12 +41,27 @@ export default function MultiLineChart({
   priorLabel?: string;
   resetLabel?: string;
   totalLabel?: string;
+  /** Locale for the date axis formatter. Defaults to "en". */
+  locale?: "en" | "es";
 }) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const [drag, setDrag] = useState<{ startPx: number; endPx: number } | null>(null);
   const [zoom, setZoom] = useState<{ a: number; b: number } | null>(null);
+
+  // Date axis formatter — translates index → real calendar date. The chart
+  // is trailing-N-days where index n-1 is "today" and index 0 is "today - (n-1)
+  // days". Showing "12 May" instead of "29d ago" reads much faster for the
+  // operator who's used to thinking in dates (boss feedback 2026-05-27).
+  const dateLocStr = locale === "es" ? "es-AR" : "en-US";
+  const dateAtIdx = (idx: number, totalN: number) => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - (totalN - 1 - idx));
+    return d;
+  };
+  const fmtDate = (d: Date) => d.toLocaleDateString(dateLocStr, { day: "2-digit", month: "short" });
 
   const fullN = series[0]?.data.length ?? 0;
   const a = zoom ? Math.max(0, Math.min(zoom.a, fullN - 1)) : 0;
@@ -168,8 +184,11 @@ export default function MultiLineChart({
               minWidth: 150,
             }}
           >
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-1.5" style={{ color: C.textDim }}>
-              {hoverIdx === n - 1 ? todayLabel : `${n - 1 - hoverIdx}${recentLabel} ago`}
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-0.5" style={{ color: C.textDim }}>
+              {hoverIdx === n - 1 ? todayLabel : fmtDate(dateAtIdx(hoverIdx, n))}
+            </p>
+            <p className="text-[9px] mb-1.5" style={{ color: C.textDim }}>
+              {hoverIdx === n - 1 ? "" : `${n - 1 - hoverIdx}${recentLabel} ago`}
             </p>
             <ul className="space-y-1">
               {visible.map((s) => {
@@ -179,9 +198,9 @@ export default function MultiLineChart({
                   <li key={s.name} className="flex items-center gap-2" style={{ opacity: isShown(s.name) ? 1 : 0.4 }}>
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
                     <span className="flex-1 truncate" style={{ color: C.textBody }}>{s.name}</span>
-                    <span className="font-bold" style={{ color: s.color }}>{v}</span>
+                    <span className="font-bold tabular-nums" style={{ color: s.color }}>{v}</span>
                     {pv !== undefined && (
-                      <span className="text-[9.5px]" style={{ color: C.textDim }}>· prior {pv}</span>
+                      <span className="text-[9.5px] tabular-nums" style={{ color: C.textDim }}>· prior {pv}</span>
                     )}
                   </li>
                 );
@@ -243,7 +262,7 @@ export default function MultiLineChart({
                 <line x1={xFor(i)} x2={xFor(i)} y1={padding.t + innerH} y2={padding.t + innerH + 4} stroke={C.textDim} strokeWidth={1.2} />
                 <text x={xFor(i)} y={height - 10} textAnchor="middle" fontSize={10.5} fontWeight={600} fill={C.textMuted}
                   style={{ fontFeatureSettings: '"tnum"' }}>
-                  {i === n - 1 ? todayLabel : `${n - 1 - i}${recentLabel}`}
+                  {i === n - 1 ? todayLabel : fmtDate(dateAtIdx(i, n))}
                 </text>
               </g>
             ));
