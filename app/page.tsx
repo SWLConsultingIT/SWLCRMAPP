@@ -10,7 +10,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import {
   Users, Send, Trophy, Megaphone, Target,
-  AlertTriangle, ArrowRight, MessageSquare, ThumbsUp,
+  AlertTriangle, ArrowRight, MessageSquare, ThumbsUp, Sparkles,
   Share2, Mail, Phone, Smartphone, FileDown, ChevronsRight, Activity,
 } from "lucide-react";
 import { C } from "@/lib/design";
@@ -455,11 +455,28 @@ export default async function DashboardPage({
       <section>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
           <Panel title={t("dashx.funnel.title")} subtitle={t("dashx.funnel.subtitle")} className="lg:col-span-7"
-            actionHref={withFilters("/?tab=campaigns", filters)} actionLabel={t("dashx.panel.openCampaigns")}>
+            actionHref={withFilters("/?tab=campaigns", filters)} actionLabel={t("dashx.panel.openCampaigns")}
+            insight={(() => {
+              const sent = data.funnel.find(s => s.stage === "linkedin_sent")?.count ?? 0;
+              const accepted = data.funnel.find(s => s.stage === "linkedin_accepted")?.count ?? 0;
+              const replied = data.funnel.find(s => s.stage === "replied")?.count ?? 0;
+              const won = data.funnel.find(s => s.stage === "won")?.count ?? 0;
+              if (sent < 3) return null;
+              const acceptPct = sent > 0 ? Math.round((accepted / sent) * 100) : 0;
+              const replyPct = accepted > 0 ? Math.round((replied / accepted) * 100) : 0;
+              return t("dashx.funnel.insight", { acceptPct, replyPct, won });
+            })()}>
             <Funnel {...funnel18n} stages={data.funnel.map(s => ({ ...s, stage: t(`dashx.funnel.stage.${stageKey(s.stage)}`) || s.stage }))} />
           </Panel>
           <Panel title={t("dashx.donut.title")} subtitle={t("dashx.donut.subtitle")} className="lg:col-span-5"
-            actionHref="/inbox" actionLabel={t("dashx.panel.openInbox")}>
+            actionHref="/inbox" actionLabel={t("dashx.panel.openInbox")}
+            insight={(() => {
+              const totalReplies = donutSlices.reduce((a, s) => a + s.value, 0);
+              if (totalReplies < 3) return null;
+              const positives = (data.replyClassCounts["positive"] ?? 0) + (data.replyClassCounts["meeting_intent"] ?? 0);
+              const positivesPct = totalReplies > 0 ? Math.round((positives / totalReplies) * 100) : 0;
+              return t("dashx.donut.insight", { positivesPct, positives, total: totalReplies });
+            })()}>
             <Donut data={donutSlices} centerLabel={t("dashx.donut.centerReplies")} emptyLabel={t("dashx.donut.empty")} />
           </Panel>
         </div>
@@ -471,7 +488,21 @@ export default async function DashboardPage({
       <section>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
           <Panel title={t("dashx.trend.title")} subtitle={t("dashx.trend.subtitle")} className="lg:col-span-7"
-            actionHref="/reports" actionLabel={t("dashx.panel.openReports")}>
+            actionHref="/reports" actionLabel={t("dashx.panel.openReports")}
+            insight={(() => {
+              const n = trend30d.sent.length;
+              if (n < 4) return null;
+              const half = Math.floor(n / 2);
+              const sum = (a: number[], s: number, e: number) => a.slice(s, e).reduce((x, y) => x + y, 0);
+              const sentFirst = sum(trend30d.sent, 0, half);
+              const sentSecond = sum(trend30d.sent, half, n);
+              if (sentFirst + sentSecond === 0) return null;
+              const delta = sentFirst === 0
+                ? 100
+                : Math.round(((sentSecond - sentFirst) / sentFirst) * 100);
+              const dir = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
+              return t(`dashx.trend.insight.${dir}`, { pct: Math.abs(delta) });
+            })()}>
             <MultiLineChart
               todayLabel={t("dashx.trend.today")}
               recentLabel={t("dashx.trend.daysAgo")}
@@ -483,7 +514,23 @@ export default async function DashboardPage({
             />
           </Panel>
           <Panel title={t("dashx.heat.title")} subtitle={t("dashx.heat.subtitle")} className="lg:col-span-5"
-            actionHref={withFilters("/?tab=channels", filters)} actionLabel={t("dashx.panel.openChannels")}>
+            actionHref={withFilters("/?tab=channels", filters)} actionLabel={t("dashx.panel.openChannels")}
+            insight={(() => {
+              let peakDay = 0; let peakHour = 0; let peak = 0;
+              for (let d = 0; d < data.heatmap.length; d++) {
+                const row = data.heatmap[d];
+                for (let h = 0; h < row.length; h++) {
+                  if (row[h] > peak) { peak = row[h]; peakDay = d; peakHour = h; }
+                }
+              }
+              if (peak < 2) return null;
+              const dayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+              return t("dashx.heat.insight", {
+                day: t(`dashx.day.${dayKeys[peakDay]}`),
+                hour: peakHour,
+                count: peak,
+              });
+            })()}>
             <Heatmap
               matrix={data.heatmap}
               days={["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map(d => t(`dashx.day.${d}`))}
@@ -1002,7 +1049,7 @@ function SectionHeader({ title, subtitle, icon: Icon, action }: { title: string;
  * actionHref renders a gold CTA pill in the header right slot — used by
  * each chart panel to deep-link into the surface where the data lives. */
 function Panel({
-  title, subtitle, children, className, actionHref, actionLabel,
+  title, subtitle, children, className, actionHref, actionLabel, insight,
 }: {
   title?: string;
   subtitle?: string;
@@ -1010,6 +1057,9 @@ function Panel({
   className?: string;
   actionHref?: string;
   actionLabel?: string;
+  /** Optional one-line auto-derived narrative rendered as a gold-accented
+   * footer strip below the chart body. Null/undefined → no footer. */
+  insight?: string | null;
 }) {
   return (
     <div
@@ -1058,6 +1108,30 @@ function Panel({
         </div>
       )}
       <div className="p-3.5">{children}</div>
+      {insight && (
+        <div
+          className="px-4 py-2.5 flex items-start gap-2 border-t"
+          style={{
+            borderColor: C.border,
+            background: `linear-gradient(90deg, color-mix(in srgb, ${gold} 8%, ${C.card}) 0%, ${C.card} 70%)`,
+          }}
+        >
+          <span
+            aria-hidden
+            className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5"
+            style={{
+              background: `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 70%, white) 100%)`,
+              color: "#0B0F1A",
+              boxShadow: `0 1px 4px color-mix(in srgb, ${gold} 22%, transparent)`,
+            }}
+          >
+            <Sparkles size={10} />
+          </span>
+          <p className="text-[12px] leading-snug" style={{ color: C.textBody }}>
+            {insight}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
