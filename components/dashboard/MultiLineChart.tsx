@@ -76,6 +76,37 @@ export default function MultiLineChart({
   return (
     <div className="w-full">
       <div className="relative w-full overflow-x-auto">
+        {/* Floating hover tooltip — pinned to the chart's top-right corner
+            (boss feedback round 3 #8: hover circles should tell you what
+            each one is). Cursor-following tooltips fight the SVG hit-test;
+            a fixed pinned card is simpler and reads well at any width. */}
+        {hoverIdx !== null && sliced[0] && (
+          <div
+            className="absolute top-2 right-2 z-10 rounded-lg border px-3 py-2 text-[11px] tabular-nums pointer-events-none"
+            style={{
+              backgroundColor: "color-mix(in srgb, var(--c-card) 96%, transparent)",
+              borderColor: C.border,
+              backdropFilter: "blur(6px)",
+              boxShadow: "0 4px 14px rgba(0,0,0,0.08)",
+              minWidth: 130,
+            }}
+          >
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-1.5" style={{ color: C.textDim }}>
+              {hoverIdx === n - 1 ? todayLabel : `${n - 1 - hoverIdx}${recentLabel} ago`}
+            </p>
+            <ul className="space-y-1">
+              {sliced.map((s, sIdx) => (
+                <li key={sIdx} className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
+                  <span className="flex-1 truncate" style={{ color: C.textBody }}>{s.name}</span>
+                  <span className="font-bold" style={{ color: s.color }}>
+                    {s.data[hoverIdx] ?? 0}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <svg
           ref={svgRef}
           viewBox={`0 0 ${width} ${height}`}

@@ -543,12 +543,12 @@ export default async function DashboardPage({
         </div>
       </section>
 
-      {/* ─── 30-day trend + reply timing heatmap — moved here from Channels.
-          They aggregate across ALL channels, so they belong in Overview as
-          general engagement charts, not in the per-channel chapter. */}
+      {/* ─── 30-day trend (full width). Boss feedback round 3 #8 wanted
+          the trend to be more legible; promoted to its own row so the
+          line chart has room to render axis labels + tooltip. */}
       <section>
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-          <Panel title={t("dashx.trend.title")} subtitle={t("dashx.trend.subtitle")} className="lg:col-span-7"
+        <div className="grid grid-cols-1 gap-3">
+          <Panel title={t("dashx.trend.title")} subtitle={t("dashx.trend.subtitle")}
             actionHref="/reports" actionLabel={t("dashx.panel.openReports")}
             insight={(() => {
               const n = trend30d.sent.length;
@@ -574,7 +574,14 @@ export default async function DashboardPage({
               ]}
             />
           </Panel>
-          <Panel title={t("dashx.heat.title")} subtitle={t("dashx.heat.subtitle")} className="lg:col-span-5"
+        </div>
+      </section>
+      {/* ─── Heatmap (full width). #9 wanted the heatmap bigger; standalone
+          row + 22px cells lets the operator read the peak hours from
+          across the room. */}
+      <section>
+        <div className="grid grid-cols-1 gap-3">
+          <Panel title={t("dashx.heat.title")} subtitle={t("dashx.heat.subtitle")}
             actionHref={withFilters("/?tab=channels", filters)} actionLabel={t("dashx.panel.openChannels")}
             insight={(() => {
               let peakDay = 0; let peakHour = 0; let peak = 0;
