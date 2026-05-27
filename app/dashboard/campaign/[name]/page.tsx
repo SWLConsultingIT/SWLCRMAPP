@@ -6,10 +6,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
-  ArrowLeft, Megaphone, Send, MessageSquare, ThumbsUp, Users, Share2, Mail,
-  Phone, Smartphone, Trophy, Calendar, Clock, Activity, AlertTriangle,
+  ArrowLeft, ArrowRight, Megaphone, Send, MessageSquare, ThumbsUp, Users, Share2, Mail,
+  Phone, Smartphone, Trophy, Calendar, Clock, Activity, AlertTriangle, Sparkles,
 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C, N } from "@/lib/design";
 import { getUserScope } from "@/lib/scope";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getT, getServerLocale } from "@/lib/i18n-server";
@@ -442,14 +442,35 @@ export default async function CampaignDetailPage({
       {/* ─── Step performance ───────────────────────────────────── */}
       <section>
         <SectionHeader icon={Send} title={t("dashx.detail.campaign.step.title")} subtitle={t("dashx.detail.campaign.step.subtitle")} />
-        <Panel>
+        <Panel
+          glow
+          insightEyebrow={t("dashx.insight.eyebrow")}
+          insight={(() => {
+            const eligible = d.stepPerformance.filter(s => s.step > 0 && s.replyRate !== null) as Array<{ step: number; sent: number; replied: number; replyRate: number }>;
+            if (eligible.length < 2) return null;
+            const worst = [...eligible].sort((a, b) => a.replyRate - b.replyRate)[0];
+            return t("dashx.step.insight", { step: worst.step + 1, rate: worst.replyRate });
+          })()}
+        >
           <StepPerformance steps={d.stepPerformance} locale={locale} />
         </Panel>
       </section>
 
       {/* ─── 30d trend + classification donut ───────────────────── */}
       <section className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-        <Panel title={t("dashx.trend.title")} subtitle={t("dashx.detail.campaign.trend.subtitle")} className="lg:col-span-7">
+        <Panel
+          title={t("dashx.trend.title")}
+          subtitle={t("dashx.detail.campaign.trend.subtitle")}
+          className="lg:col-span-7"
+          glow
+          insightEyebrow={t("dashx.insight.eyebrow")}
+          insight={(() => {
+            const peak = d.trend30d.replies.reduce((acc, v, i) => v > acc.v ? { i, v } : acc, { i: -1, v: 0 });
+            if (peak.v === 0) return null;
+            const daysAgo = 29 - peak.i;
+            return t("dashx.detail.campaign.trend.insight", { replies: peak.v, daysAgo });
+          })()}
+        >
           <MultiLineChart
             todayLabel={t("dashx.trend.today")}
             recentLabel={t("dashx.trend.daysAgo")}
@@ -460,7 +481,20 @@ export default async function CampaignDetailPage({
             ]}
           />
         </Panel>
-        <Panel title={t("dashx.detail.campaign.donut.title")} subtitle={t("dashx.detail.campaign.donut.subtitle")} className="lg:col-span-5">
+        <Panel
+          title={t("dashx.detail.campaign.donut.title")}
+          subtitle={t("dashx.detail.campaign.donut.subtitle")}
+          className="lg:col-span-5"
+          glow
+          insightEyebrow={t("dashx.insight.eyebrow")}
+          insight={(() => {
+            if (donutSlices.length === 0) return null;
+            const total = donutSlices.reduce((a, s) => a + s.value, 0);
+            const top = donutSlices[0];
+            const share = total > 0 ? Math.round((top.value / total) * 100) : 0;
+            return t("dashx.detail.campaign.donut.insight", { label: top.label, share });
+          })()}
+        >
           {donutSlices.length > 0
             ? <Donut data={donutSlices} centerLabel={t("dashx.donut.centerReplies")} emptyLabel={t("dashx.donut.empty")} />
             : <div className="py-10 text-center text-[12px]" style={{ color: C.textMuted }}>{t("dashx.detail.campaign.donut.empty")}</div>}
@@ -470,7 +504,21 @@ export default async function CampaignDetailPage({
       {/* ─── Heatmap: when replies arrive ───────────────────────── */}
       <section>
         <SectionHeader icon={Clock} title={t("dashx.detail.campaign.heat.title")} subtitle={t("dashx.detail.campaign.heat.subtitle")} />
-        <Panel>
+        <Panel
+          insightEyebrow={t("dashx.insight.eyebrow")}
+          insight={(() => {
+            let best = { day: -1, hour: -1, v: 0 };
+            for (let dy = 0; dy < 7; dy++) {
+              for (let h = 0; h < 24; h++) {
+                const v = d.heatmap[dy]?.[h] ?? 0;
+                if (v > best.v) best = { day: dy, hour: h, v };
+              }
+            }
+            if (best.v === 0) return null;
+            const dayKey = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][best.day];
+            return t("dashx.detail.campaign.heat.insight", { day: t(`dashx.day.${dayKey}`), hour: `${best.hour}:00`, replies: best.v });
+          })()}
+        >
           <Heatmap
             matrix={d.heatmap}
             days={["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map(dy => t(`dashx.day.${dy}`))}
@@ -564,16 +612,86 @@ export default async function CampaignDetailPage({
 
 // ─── Local primitives (kept inline for now; will extract if a 4th page lands) ─
 
-function Panel({ title, subtitle, children, className }: { title?: string; subtitle?: string; children: React.ReactNode; className?: string }) {
+/** Panel — premium card matching the main dashboard's visual language.
+ * Navy-ink header w/ gold title, optional action CTA, optional insight
+ * footer, optional glow for marquee panels. Same component shape used in
+ * app/page.tsx so the drill-down feels like a continuation of the dashboard. */
+function Panel({
+  title, subtitle, children, className, actionHref, actionLabel, insight, insightEyebrow, glow,
+}: {
+  title?: string;
+  subtitle?: string;
+  children: React.ReactNode;
+  className?: string;
+  actionHref?: string;
+  actionLabel?: string;
+  insight?: string | null;
+  insightEyebrow?: string;
+  glow?: boolean;
+}) {
+  const baseShadow = glow
+    ? "0 1px 2px rgba(0,0,0,0.04), 0 0 0 1px color-mix(in srgb, var(--brand, #c9a83a) 7%, transparent), 0 16px 34px -20px color-mix(in srgb, var(--brand, #c9a83a) 38%, transparent)"
+    : "0 1px 2px rgba(0,0,0,0.04)";
   return (
-    <div className={`rounded-2xl border overflow-hidden ${className ?? ""}`} style={{ backgroundColor: C.card, borderColor: C.border }}>
+    <div
+      className={`group rounded-2xl border overflow-hidden ${glow ? "transition-shadow duration-200 hover:shadow-[0_18px_42px_-20px_color-mix(in_srgb,var(--brand,#c9a83a)_55%,transparent)]" : ""} ${className ?? ""}`}
+      style={{
+        backgroundColor: C.card,
+        borderColor: glow ? `color-mix(in srgb, ${gold} 22%, ${C.border})` : C.border,
+        boxShadow: baseShadow,
+      }}
+    >
       {(title || subtitle) && (
-        <div className="px-4 py-2.5 border-b" style={{ borderColor: C.border }}>
-          {title && <p className="text-[13px] font-semibold" style={{ color: C.textPrimary }}>{title}</p>}
-          {subtitle && <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>{subtitle}</p>}
+        <div className="px-4 py-3 flex items-center justify-between gap-3"
+          style={{ background: "linear-gradient(135deg, #0B0F1A 0%, #111827 100%)", color: "white" }}>
+          <div className="min-w-0">
+            {title && (
+              <p className="text-[13.5px] font-bold tracking-[-0.005em]"
+                style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                {title}
+              </p>
+            )}
+            {subtitle && (
+              <p className="text-[10.5px] mt-0.5 truncate" style={{ color: "color-mix(in srgb, white 60%, transparent)" }}>
+                {subtitle}
+              </p>
+            )}
+          </div>
+          {actionHref && (
+            <Link href={actionHref}
+              className="shrink-0 inline-flex items-center gap-1 text-[10.5px] font-semibold uppercase tracking-[0.14em] px-2.5 py-1 rounded-md transition-opacity hover:opacity-85"
+              style={{ color: gold, backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 14%, transparent)" }}>
+              {actionLabel ?? "Open"} <ArrowRight size={11} />
+            </Link>
+          )}
         </div>
       )}
-      <div className="p-4">{children}</div>
+      <div className="p-3.5">{children}</div>
+      {insight && (
+        <div className="px-5 py-3 flex items-start gap-2.5 border-t"
+          style={{
+            borderColor: `color-mix(in srgb, ${gold} 26%, ${C.border})`,
+            background: `linear-gradient(90deg, color-mix(in srgb, ${gold} 16%, ${C.card}) 0%, color-mix(in srgb, ${gold} 4%, ${C.card}) 80%)`,
+          }}>
+          <span aria-hidden
+            className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-px"
+            style={{
+              background: `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 70%, white) 100%)`,
+              color: N.ink,
+              boxShadow: `0 2px 10px color-mix(in srgb, ${gold} 32%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
+            }}>
+            <Sparkles size={12} />
+          </span>
+          <div className="flex-1 min-w-0">
+            {insightEyebrow && (
+              <p className="text-[9.5px] font-bold uppercase tracking-[0.18em]" style={{ color: gold }}>
+                {insightEyebrow}
+              </p>
+            )}
+            <p className="text-[12px] leading-snug" style={{ color: C.textBody }}>{insight}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
