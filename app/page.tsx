@@ -40,6 +40,8 @@ import CallsCard from "@/components/dashboard/CallsCard";
 import LinkedInConnectionsCard from "@/components/dashboard/LinkedInConnectionsCard";
 import TodayCard from "@/components/dashboard/TodayCard";
 import ChannelTouches from "@/components/dashboard/ChannelTouches";
+import IcpHealthBadge from "@/components/dashboard/IcpHealthBadge";
+import StagnantIcpsAlert from "@/components/dashboard/StagnantIcpsAlert";
 import HeroKpiCard from "@/components/dashboard/HeroKpiCard";
 
 const gold = "var(--brand, #c9a83a)";
@@ -709,6 +711,35 @@ export default async function DashboardPage({
       {filters.tab === "icps" && (
       <section className="space-y-6 pt-3">
 
+      {/* ── Stagnant ICPs alert (boss-feedback round 5 proposal 1) ──
+          Surfaces ICPs that have ≥10 contacted leads but 0% reply rate
+          OR 0 positives over ≥5 replies — the operator sees them before
+          they even scroll into the table. */}
+      {(() => {
+        const stagnant = data.icpPerformance
+          .filter(i => i.id !== "_unknown" && i.contacted >= 10)
+          .filter(i => i.responseRate === 0 || (i.replied >= 5 && i.conversionRate === 0))
+          .slice(0, 5);
+        if (stagnant.length === 0) return null;
+        return (
+          <StagnantIcpsAlert
+            title={t("dashx.icp.stagnantTitle")}
+            emptySubtitle={t("dashx.icp.stagnantSubtitle", { n: stagnant.length })}
+            ctaLabel={t("dashx.icp.stagnantCta")}
+            reasonNoReplies={t("dashx.icp.stagnantReasonNoReplies")}
+            reasonNoPositives={t("dashx.icp.stagnantReasonNoPositives")}
+            items={stagnant.map(s => ({
+              id: s.id,
+              name: s.name,
+              leads: s.leads,
+              contacted: s.contacted,
+              responseRate: s.responseRate,
+              conversionRate: s.conversionRate,
+            }))}
+          />
+        );
+      })()}
+
       <section>
         {(() => {
           const eligible = data.icpPerformance.filter(i => i.contacted >= 10 && i.id !== "_unknown");
@@ -743,6 +774,7 @@ export default async function DashboardPage({
             <thead>
               <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
                 <Th align="left">{t("dashx.tbl.col.icp")}</Th>
+                <Th align="left">{t("dashx.tbl.col.health")}</Th>
                 <Th align="right">{t("dashx.tbl.col.leads")}</Th>
                 <Th align="left">{t("dashx.tbl.col.channels")}</Th>
                 <Th align="right">{t("dashx.tbl.col.replied")}</Th>
@@ -755,7 +787,7 @@ export default async function DashboardPage({
             </thead>
             <tbody>
               {data.icpPerformance.length === 0 ? (
-                <tr><td colSpan={9} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="icps" t={t} /></td></tr>
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="icps" t={t} /></td></tr>
               ) : (() => {
                 // Scale rate bars against the table's own leader so the #1
                 // row hits full width; relative ranking reads at a glance.
@@ -779,6 +811,17 @@ export default async function DashboardPage({
                         )}
                       </div>
                     </Td>
+                    <td className="px-3 py-2">
+                      <IcpHealthBadge
+                        responseRate={icp.responseRate}
+                        conversionRate={icp.conversionRate}
+                        contacted={icp.contacted}
+                        labelHealthy={t("dashx.icp.healthy")}
+                        labelCooling={t("dashx.icp.cooling")}
+                        labelStalled={t("dashx.icp.stalled")}
+                        labelNeedsData={t("dashx.icp.lowData")}
+                      />
+                    </td>
                     <NumCell value={icp.leads} />
                     <td className="px-3 py-2">
                       <ChannelTouches

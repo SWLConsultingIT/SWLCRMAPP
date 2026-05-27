@@ -720,6 +720,20 @@ export const en: Dict = {
   "dashx.panel.openTeam": "Team",
   // Tab-level auto insights
   "dashx.icp.insight": "Top ICP: {name} at {rate}% conversion ({total} ICPs tracked).",
+  // Stagnant ICPs alert strip
+  "dashx.icp.stagnantTitle": "Stagnant ICPs",
+  "dashx.icp.stagnantSubtitle": "{n} ICP(s) flagged with no traction — open each to investigate",
+  "dashx.icp.stagnantCta": "Review",
+  "dashx.icp.stagnantReasonNoReplies": "0 replies on {contacted} contacted",
+  "dashx.icp.stagnantReasonNoPositives": "0 positives on {replied} replies",
+  // ICP health badge
+  "dashx.icp.healthy": "Healthy",
+  "dashx.icp.cooling": "Cooling",
+  "dashx.icp.stalled": "Stalled",
+  "dashx.icp.lowData": "Low data",
+  "dashx.tbl.col.health": "Health",
+  // Matrix
+  "dashx.matrix.contactsShort": "contacts",
   "dashx.matrix.insight": "Best combo: {icp} via {ch} at {rate}% reply rate.",
   "dashx.camp.insight": "Top campaign: {name} ({rate}%). {stagnant} active campaign(s) stalled at 0%.",
   "dashx.step.insight": "Step {step} is the leakage point — {rate}% reply rate is the lowest in the sequence.",
@@ -1450,6 +1464,20 @@ export const es: Dict = {
   "dashx.panel.openTeam": "Equipo",
   // Tab-level auto insights
   "dashx.icp.insight": "Top ICP: {name} a {rate}% de conversión ({total} ICPs activos).",
+  // Stagnant ICPs alert strip
+  "dashx.icp.stagnantTitle": "ICPs estancados",
+  "dashx.icp.stagnantSubtitle": "{n} ICP(s) sin tracción — abrí cada uno para investigar",
+  "dashx.icp.stagnantCta": "Revisar",
+  "dashx.icp.stagnantReasonNoReplies": "0 respuestas sobre {contacted} contactados",
+  "dashx.icp.stagnantReasonNoPositives": "0 positivas sobre {replied} respuestas",
+  // ICP health badge
+  "dashx.icp.healthy": "Sano",
+  "dashx.icp.cooling": "Enfriándose",
+  "dashx.icp.stalled": "Estancado",
+  "dashx.icp.lowData": "Poca data",
+  "dashx.tbl.col.health": "Salud",
+  // Matrix
+  "dashx.matrix.contactsShort": "contactos",
   "dashx.matrix.insight": "Mejor combo: {icp} vía {ch} a {rate}% de respuesta.",
   "dashx.camp.insight": "Top campaña: {name} ({rate}%). {stagnant} campaña(s) activa(s) estancada(s) en 0%.",
   "dashx.step.insight": "Paso {step} es el cuello de botella — {rate}% reply rate, el más bajo de la secuencia.",

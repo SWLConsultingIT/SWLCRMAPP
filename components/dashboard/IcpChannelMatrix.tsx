@@ -159,20 +159,25 @@ function Cell({ cell, icpId, channel, t }: { cell: Matrix["cells"][number] | und
   const bg = zToColor(cell.zScore ?? 0);
   const fg = (cell.zScore ?? 0) >= 1.5 ? "#1A1505" : C.textPrimary;
 
+  // Click cell → land in /leads filtered by (icp, channel). Boss round 5
+  // #2: the cell is more useful as a drill-to-leads than as a drill-to
+  // ICP detail (the latter doesn't filter by channel anyway).
+  const href = icpId === "_unknown"
+    ? `/leads?channel=${channel}`
+    : `/leads?icp=${icpId}&channel=${channel}`;
+
   return (
     <Link
-      href={icpId !== "_unknown"
-        ? `/dashboard/icp/${icpId}?channel=${channel}`
-        : `/leads?channel=${channel}`}
-      className="h-10 rounded-md flex flex-col items-center justify-center transition-transform hover:scale-[1.02] hover:shadow-sm"
+      href={href}
+      className="h-12 rounded-md flex flex-col items-center justify-center transition-transform hover:scale-[1.03] hover:shadow-md"
       style={{ background: bg, color: fg }}
-      title={`${(cell.replyRate * 100).toFixed(1)}% reply rate sobre ${cell.contacted} contactos · click para detalle`}
+      title={`${(cell.replyRate * 100).toFixed(1)}% reply rate · ${cell.contacted} contactos · click para abrir los leads`}
     >
-      <span className="text-[12.5px] font-semibold tabular-nums leading-none">
+      <span className="text-[13px] font-bold tabular-nums leading-none">
         {(cell.replyRate * 100).toFixed(1)}%
       </span>
-      <span className="text-[9px] tabular-nums opacity-80 leading-none mt-0.5">
-        n={cell.contacted}
+      <span className="text-[9.5px] tabular-nums opacity-75 leading-none mt-1 font-medium">
+        {cell.contacted} {t("dashx.matrix.contactsShort")}
       </span>
     </Link>
   );
