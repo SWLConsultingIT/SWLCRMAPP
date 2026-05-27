@@ -24,7 +24,7 @@ const channelMeta: Record<string, { Icon: React.ElementType; key: string }> = {
 };
 
 type Matrix = {
-  icps: { id: string; name: string }[];
+  icps: { id: string; name: string; totalLeads: number }[];
   channels: string[];
   cells: {
     icpId: string;
@@ -88,6 +88,9 @@ export default function IcpChannelMatrix({ matrix, locale }: { matrix: Matrix; l
             <th className="text-left px-2 py-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
               {t("dashx.matrix.icpCol")}
             </th>
+            <th className="text-right px-2 py-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
+              {t("dashx.matrix.leadsCol")}
+            </th>
             {matrix.channels.map(ch => {
               const meta = channelMeta[ch] ?? { Icon: Share2, key: "" };
               const Icon = meta.Icon;
@@ -95,7 +98,7 @@ export default function IcpChannelMatrix({ matrix, locale }: { matrix: Matrix; l
               return (
                 <th key={ch} className="text-center px-2 py-2 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
                   <span className="inline-flex items-center gap-1 justify-center">
-                    <Icon size={10} /> {label}
+                    <Icon size={12} /> {label}
                   </span>
                 </th>
               );
@@ -107,6 +110,9 @@ export default function IcpChannelMatrix({ matrix, locale }: { matrix: Matrix; l
             <tr key={icp.id}>
               <td className="px-2 py-1 text-[12.5px] font-medium max-w-[180px]" style={{ color: C.textPrimary }}>
                 <span className="truncate inline-block max-w-full align-middle" title={icp.name}>{icp.name}</span>
+              </td>
+              <td className="px-2 py-1 text-right text-[12px] tabular-nums" style={{ color: C.textBody }}>
+                {icp.totalLeads.toLocaleString("en-US")}
               </td>
               {matrix.channels.map(ch => {
                 const cell = cellByKey.get(`${icp.id}|${ch}`);

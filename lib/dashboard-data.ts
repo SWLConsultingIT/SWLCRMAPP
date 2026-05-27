@@ -120,7 +120,7 @@ const EMPTY_DASHBOARD = {
     unassigned: [] as Array<{ id: string; company: string; icp: string | null; when: string | null; tag: string | null }>,
   },
   velocity: { perDay: 0, winRate: 0, medianTimeToReplyMin: null as number | null, acceptanceRate: 0, forecastMonthEnd: 0 },
-  matrix: { icps: [] as Array<{ id: string; name: string }>, channels: [] as string[], cells: [] as Array<any>, mean: 0, stddev: 0 },
+  matrix: { icps: [] as Array<{ id: string; name: string; totalLeads: number }>, channels: [] as string[], cells: [] as Array<any>, mean: 0, stddev: 0 },
   stepPerformance: [] as Array<any>,
   velocityDecay: { points: [] as Array<any>, cutoffDay: null as number | null, finalPct: 0 },
   health: {} as Record<string, unknown>,
@@ -579,8 +579,16 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     if (bi === -1) return -1;
     return ai - bi;
   });
+  // Per-ICP total leads (filtered set). Drives the "Leads" column the boss
+  // wanted at the start of each matrix row — gives context for what
+  // "contacted" in each cell means as a share of the pool.
+  const totalLeadsByIcp = new Map<string, number>();
+  for (const l of leads) {
+    const id = l.icp_profile_id ?? "_unknown";
+    totalLeadsByIcp.set(id, (totalLeadsByIcp.get(id) ?? 0) + 1);
+  }
   const orderedIcps = Array.from(matrixIcps)
-    .map(id => ({ id, name: profileMap.get(id) ?? "Sin ICP" }))
+    .map(id => ({ id, name: profileMap.get(id) ?? "Sin ICP", totalLeads: totalLeadsByIcp.get(id) ?? 0 }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   type MatrixCell = {

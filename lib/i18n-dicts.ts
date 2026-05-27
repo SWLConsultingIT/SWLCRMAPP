@@ -773,6 +773,7 @@ export const en: Dict = {
   "dashx.tbl.col.health": "Health",
   // Matrix
   "dashx.matrix.contactsShort": "contacts",
+  "dashx.matrix.leadsCol": "Leads",
   "dashx.matrix.insight": "Best combo: {icp} via {ch} at {rate}% reply rate.",
   "dashx.camp.insight": "Top campaign: {name} ({rate}%). {stagnant} active campaign(s) stalled at 0%.",
   "dashx.camp.heroActive": "Active",
@@ -1567,6 +1568,7 @@ export const es: Dict = {
   "dashx.tbl.col.health": "Salud",
   // Matrix
   "dashx.matrix.contactsShort": "contactos",
+  "dashx.matrix.leadsCol": "Leads",
   "dashx.matrix.insight": "Mejor combo: {icp} vía {ch} a {rate}% de respuesta.",
   "dashx.camp.insight": "Top campaña: {name} ({rate}%). {stagnant} campaña(s) activa(s) estancada(s) en 0%.",
   "dashx.camp.heroActive": "Activas",
