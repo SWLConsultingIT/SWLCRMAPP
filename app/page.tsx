@@ -142,6 +142,9 @@ function parseFilters(sp: Record<string, string | string[] | undefined>) {
     campaignNames: getList("campaigns"),
     icpIds: getList("icps"),
     sellerIds: getList("sellers"),
+    /** Tab selection for the campaign leaderboard. Default = "active" so
+     * historical clutter doesn't bury the campaigns currently running. */
+    campStatus: (get("camp_status") as "active" | "paused" | "completed" | "all" | null) ?? "active",
   };
 }
 
@@ -534,6 +537,61 @@ export default async function DashboardPage({
 
       <section>
         <SectionHeader icon={Megaphone} title={t("dashx.tbl.camp.title")} subtitle={t("dashx.tbl.camp.subtitle")} />
+        {/* Status tabs — default to "active" so historical clutter doesn't bury
+            campaigns currently running. URL-state via ?camp_status=... so the
+            selection survives reload + shareable links. */}
+        {(() => {
+          const counts = {
+            active: data.campaignPerformance.filter(c => c.status === "active").length,
+            paused: data.campaignPerformance.filter(c => c.status === "paused").length,
+            completed: data.campaignPerformance.filter(c => c.status === "completed").length,
+            all: data.campaignPerformance.length,
+          };
+          const tabs = [
+            { id: "active",    label: t("dashx.tbl.status.active"),    count: counts.active },
+            { id: "paused",    label: t("dashx.tbl.status.paused"),    count: counts.paused },
+            { id: "completed", label: t("dashx.tbl.status.completed"), count: counts.completed },
+            { id: "all",       label: t("dashx.filters.all"),          count: counts.all },
+          ] as const;
+          const buildHref = (id: string) => {
+            const params = new URLSearchParams();
+            if (filters.from) params.set("from", filters.from);
+            if (filters.to) params.set("to", filters.to);
+            if (filters.campaignNames?.length) params.set("campaigns", filters.campaignNames.join("|"));
+            if (filters.icpIds?.length) params.set("icps", filters.icpIds.join("|"));
+            if (filters.sellerIds?.length) params.set("sellers", filters.sellerIds.join("|"));
+            if (id !== "active") params.set("camp_status", id);
+            // Hash so the page scrolls back to the chapter when the URL changes.
+            const q = params.toString();
+            return q ? `/?${q}#campaigns` : "/#campaigns";
+          };
+          return (
+            <div className="flex items-center gap-1.5 mb-3 flex-wrap">
+              {tabs.map(tab => {
+                const on = filters.campStatus === tab.id;
+                return (
+                  <Link
+                    key={tab.id}
+                    href={buildHref(tab.id)}
+                    scroll={false}
+                    className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1.5 transition-colors"
+                    style={{
+                      backgroundColor: on ? `color-mix(in srgb, ${gold} 16%, transparent)` : "transparent",
+                      borderColor: on ? `color-mix(in srgb, ${gold} 40%, transparent)` : C.border,
+                      color: on ? gold : C.textBody,
+                    }}
+                  >
+                    {tab.label}
+                    <span className="text-[9.5px] tabular-nums px-1 py-0 rounded"
+                      style={{ background: on ? "transparent" : C.surface, color: on ? gold : C.textDim }}>
+                      {tab.count}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          );
+        })()}
         {(() => {
           const eligible = data.campaignPerformance.filter(c => c.leads >= 10);
           if (eligible.length < 2) return null;
@@ -566,9 +624,14 @@ export default async function DashboardPage({
               </tr>
             </thead>
             <tbody>
-              {data.campaignPerformance.length === 0 ? (
-                <tr><td colSpan={11} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="campaigns" t={t} /></td></tr>
-              ) : data.campaignPerformance.map((c, idx) => {
+              {(() => {
+                const visible = filters.campStatus === "all"
+                  ? data.campaignPerformance
+                  : data.campaignPerformance.filter(c => c.status === filters.campStatus);
+                if (visible.length === 0) {
+                  return <tr><td colSpan={11} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters || filters.campStatus !== "active"} kindKey="campaigns" t={t} /></td></tr>;
+                }
+                return visible.map((c, idx) => {
                 // Velocity = positives per day in the active period. Lets the
                 // operator separate hot campaigns (winning the month) from
                 // sleepy ones (historical conversion but no momentum).
@@ -604,7 +667,8 @@ export default async function DashboardPage({
                   <td className="px-3 py-2"><InlineSpark data={c.spark} color="#0A66C2" /></td>
                   <td className="pr-3" style={{ color: C.textDim }}><Link href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)} className="inline-flex"><ArrowRight size={12} /></Link></td>
                 </tr>
-              );})}
+              );});
+              })()}
             </tbody>
           </table>
         </Panel>
