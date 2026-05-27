@@ -102,6 +102,7 @@ const EMPTY_DASHBOARD = {
     { stage: "won",                 count: 0, prior: null as number | null, color: "brand" },
   ],
   channelBreakdown: [] as Array<{ channel: string; sent: number; contacted: number; replied: number; positive: number; responseRate: number; conversionRate: number }>,
+  callsBreakdown: { pending: 0, completed: 0, answered: 0, positive: 0, negative: 0, total: 0 },
   icpPerformance: [] as Array<any>,
   campaignPerformance: [] as Array<any>,
   sellerPerformance: [] as Array<any>,
@@ -170,6 +171,30 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const allMessages = (allMsgsRaw ?? []) as MsgRow[];
   const allProfiles = (allProfilesRaw ?? []) as { id: string; profile_name: string }[];
   const allSellers = (allSellersRaw ?? []) as { id: string; name: string; active: boolean }[];
+
+  // Calls — fetched separately so any failure (RLS / missing column /
+  // FK metadata mismatch) doesn't bring the whole dashboard down. Scopes
+  // by lead_id IN(...) instead of relying on PostgREST relationship
+  // inference; the leads list is already bio-scoped above.
+  type CallRow = {
+    id: string; lead_id: string | null; status: string | null;
+    duration: number | null; classification: string | null; started_at: string | null;
+  };
+  let allCalls: CallRow[] = [];
+  try {
+    const cappedLeadIds = allLeads.map(l => l.id).slice(0, 5000);
+    if (cappedLeadIds.length > 0) {
+      const { data, error } = await supabase
+        .from("calls")
+        .select("id, lead_id, status, duration, classification, started_at")
+        .in("lead_id", cappedLeadIds);
+      if (error) throw error;
+      allCalls = (data ?? []) as CallRow[];
+    }
+  } catch (e) {
+    console.warn("[dashboard-data] calls fetch failed — degrading to empty breakdown:", e);
+    allCalls = [];
+  }
 
   // ── Apply user-supplied filters in-memory ───────────────────────────────
   const fromMs = filters.from ? new Date(`${filters.from}T00:00:00Z`).getTime() : null;
@@ -407,6 +432,34 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     responseRate: s.contacted.size > 0 ? Math.round((s.replied.size / s.contacted.size) * 100) : 0,
     conversionRate: s.contacted.size > 0 ? Math.round((s.positive.size / s.contacted.size) * 100) : 0,
   })).sort((a, b) => b.responseRate - a.responseRate);
+
+  // ── Calls breakdown (boss feedback 2026-05-27) ─────────────────────────
+  // 5 sub-counts: pending / completed / answered / positive / negative.
+  // Pending = queued/pending call-channel messages (state, not period).
+  // Completed/Answered/Positive/Negative come from the calls table,
+  // period-filtered by started_at.
+  const callsInPeriod = allCalls.filter(c => {
+    if (fromMs !== null || toMs !== null) {
+      if (!inWindow(c.started_at, fromMs, toMs)) return false;
+    }
+    return true;
+  });
+  const callsBreakdown = {
+    pending: (() => {
+      let n = 0;
+      for (const m of allMessages) {
+        if (m.status !== "queued" && m.status !== "pending") continue;
+        if (!m.campaign_id) continue;
+        if (campaignChannelById.get(m.campaign_id) === "call") n++;
+      }
+      return n;
+    })(),
+    completed: callsInPeriod.filter(c => c.status === "completed").length,
+    answered:  callsInPeriod.filter(c => (c.duration ?? 0) > 0).length,
+    positive:  callsInPeriod.filter(c => POSITIVE_CLASS.has(c.classification ?? "")).length,
+    negative:  callsInPeriod.filter(c => NEGATIVE_CLASS.has(c.classification ?? "")).length,
+    total:     callsInPeriod.length,
+  };
 
   // ── Sequence step performance ────────────────────────────────────────
   //
@@ -1037,6 +1090,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       { stage: "won",            count: wonCount,              prior: null as number | null, color: "brand" },
     ],
     channelBreakdown,
+    callsBreakdown,
     icpPerformance: icpPerformance.map(p => ({ ...p, spark: sparkByIcp.get(p.id) ?? new Array(14).fill(0) })),
     campaignPerformance: campaignPerformance.map(c => ({ ...c, spark: sparkByCampaign.get(c.name) ?? new Array(14).fill(0) })),
     sellerPerformance: sellerPerformance.map(s => ({ ...s, spark: sparkBySeller.get(s.id) ?? new Array(14).fill(0) })),

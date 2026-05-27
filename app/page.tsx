@@ -37,6 +37,8 @@ import InsightPanel from "@/components/dashboard/InsightPanel";
 import MicroKpi from "@/components/dashboard/MicroKpi";
 import RateBar from "@/components/dashboard/RateBar";
 import ChannelCard from "@/components/dashboard/ChannelCard";
+import CallsCard from "@/components/dashboard/CallsCard";
+import LinkedInConnectionsCard from "@/components/dashboard/LinkedInConnectionsCard";
 import TodayCard from "@/components/dashboard/TodayCard";
 import ChannelTouches from "@/components/dashboard/ChannelTouches";
 
@@ -799,22 +801,69 @@ export default async function DashboardPage({
       <section>
         <SectionHeader icon={Send} title={t("dashx.channels.title")} subtitle={t("dashx.channels.subtitle")} />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* LinkedIn Connections (invite leg) — boss-feedback 2026-05-27.
+              Pulls sent + accepted counts from the funnel stages so it
+              shares the canonical numbers with the funnel chart above. */}
+          {(() => {
+            const liSent = data.funnel.find(s => s.stage === "linkedin_sent")?.count ?? 0;
+            const liAccepted = data.funnel.find(s => s.stage === "linkedin_accepted")?.count ?? 0;
+            return (
+              <LinkedInConnectionsCard
+                sent={liSent}
+                accepted={liAccepted}
+                labels={{
+                  channel: t("dashx.channels.linkedinConnections"),
+                  eyebrow: t("dashx.channels.channelLabel"),
+                  sent: t("dashx.channels.sent"),
+                  accepted: t("dashx.channels.accepted"),
+                  acceptRate: t("dashx.channels.acceptRate"),
+                  cta: t("dashx.panel.openCampaigns"),
+                }}
+              />
+            );
+          })()}
           {data.channelBreakdown.length === 0 ? (
             <EmptyHint>{t("dashx.channels.empty")}</EmptyHint>
           ) : (() => {
-            // Find the top-performing channel by reply rate so we can crown
-            // it visually. Tie-broken by positives count (more wins = top).
             const topChannel = [...data.channelBreakdown]
               .sort((a, b) => b.responseRate - a.responseRate || b.positive - a.positive)[0]?.channel;
-            return data.channelBreakdown.map(ch => (
-              <ChannelCard
-                key={ch.channel}
-                row={ch}
-                isTop={ch.channel === topChannel && data.channelBreakdown.length > 1}
-                t={t}
-                topLabel={t("dashx.channels.topChannel")}
-              />
-            ));
+            return data.channelBreakdown.map(ch => {
+              // Calls get the dedicated 5-sub-count card; other channels
+              // keep the standard ChannelCard.
+              if (ch.channel === "call") {
+                return (
+                  <CallsCard
+                    key={ch.channel}
+                    pending={data.callsBreakdown.pending}
+                    completed={data.callsBreakdown.completed}
+                    answered={data.callsBreakdown.answered}
+                    positive={data.callsBreakdown.positive}
+                    negative={data.callsBreakdown.negative}
+                    total={data.callsBreakdown.total}
+                    labels={{
+                      channel: t("dashx.ch.call"),
+                      eyebrow: t("dashx.channels.channelLabel"),
+                      pending:   t("dashx.calls.pending"),
+                      completed: t("dashx.calls.completed"),
+                      answered:  t("dashx.calls.answered"),
+                      positive:  t("dashx.calls.positive"),
+                      negative:  t("dashx.calls.negative"),
+                      cta:       t("dashx.calls.openQueue"),
+                      totalUnit: t("dashx.calls.totalUnit"),
+                    }}
+                  />
+                );
+              }
+              return (
+                <ChannelCard
+                  key={ch.channel}
+                  row={ch}
+                  isTop={ch.channel === topChannel && data.channelBreakdown.length > 1}
+                  t={t}
+                  topLabel={t("dashx.channels.topChannel")}
+                />
+              );
+            });
           })()}
         </div>
       </section>
