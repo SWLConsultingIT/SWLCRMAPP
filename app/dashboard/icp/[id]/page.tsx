@@ -414,38 +414,70 @@ export default async function IcpDetailPage({
     );
   }
 
-  // ─── Reply classification → donut ─────────────────────────────────────
-  const classColors: Record<string, string> = {
-    positive: "#16A34A", meeting_intent: "#059669", negative: "#DC2626", not_now: "#F59E0B",
-    unsubscribe: "#9CA3AF", needs_info: "#7C3AED", question: "#0A66C2", nurturing: "#6B7280",
-    spam: "#374151", auto_reply: "#94A3B8", unclassified: "#9CA3AF",
-  };
-  const donutSlices = Object.entries(d.classCounts)
-    .filter(([, v]) => v > 0)
-    .map(([k, v]) => ({
-      label: t(`dashx.reply.${k}`) === `dashx.reply.${k}` ? k : t(`dashx.reply.${k}`),
-      value: v,
-      color: classColors[k] ?? "#9CA3AF",
-    }))
-    .sort((a, b) => b.value - a.value);
+  // Debug mode: ?debug=1 dumps the raw shape so we can see exactly what's
+  // arriving at render time. Bypasses ALL component rendering — pure text.
+  if (sp.debug === "1") {
+    // Convert Map → object for JSON.stringify visibility, and trim long arrays.
+    const safe = {
+      profile: d.profile,
+      funnel: d.funnel,
+      rates: d.rates,
+      channelBreakdown: d.channelBreakdown,
+      campaignBreakdown: d.campaignBreakdown.slice(0, 10),
+      trend30dLengths: { sent: d.trend30d.sent.length, replies: d.trend30d.replies.length, positive: d.trend30d.positive.length },
+      classCounts: d.classCounts,
+      heatmapShape: { rows: d.heatmap.length, cols: d.heatmap[0]?.length },
+      medianTTR: d.medianTTR,
+      stepPerformance: d.stepPerformance,
+      topLeadsLen: d.topLeads.length,
+      tenantHeadline: tenantData.headline,
+    };
+    return (
+      <div className="p-6">
+        <Link href="/" className="text-xs hover:underline" style={{ color: C.textMuted }}>
+          <ArrowLeft size={12} className="inline mr-1" /> back
+        </Link>
+        <pre className="mt-4 text-[11px] bg-slate-50 border rounded-md p-3 max-h-[80vh] overflow-auto whitespace-pre-wrap break-all" style={{ borderColor: C.border, color: C.textBody }}>
+{JSON.stringify(safe, null, 2)}
+        </pre>
+      </div>
+    );
+  }
 
-  // ─── Comparison vs tenant average ────────────────────────────────────
-  const tenantConv = tenantData.headline.conversionRate;
-  const lift = tenantConv > 0 ? Math.round(((d.rates.conversion / tenantConv) - 1) * 100) : null;
-  const liftKind = lift === null ? "neutral" : lift >= 25 ? "great" : lift >= 5 ? "good" : lift <= -25 ? "bad" : lift <= -5 ? "soft" : "neutral";
-
-  const heroStat = (label: string, value: string, hint?: string) => (
-    <div className="flex flex-col items-start gap-0.5">
-      <span className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>{label}</span>
-      <span className="text-[22px] font-semibold tabular-nums leading-tight" style={{ color: C.textPrimary }}>{value}</span>
-      {hint && <span className="text-[10.5px]" style={{ color: C.textDim }}>{hint}</span>}
-    </div>
-  );
-
-  // Wrap the body construction in a try so that the actual error message
-  // surfaces inline instead of going through React 19's prod sanitization.
+  // From this point on, wrap EVERYTHING in try/catch so React 19's prod
+  // sanitization can't hide the actual error. The previous wrapper only
+  // covered JSX construction; this one also covers the pre-JSX setup
+  // (donut slices, tenant comparison, etc.) — any of those can throw too.
   let body: React.ReactNode;
   try {
+    // ─── Reply classification → donut ───────────────────────────────────
+    const classColors: Record<string, string> = {
+      positive: "#16A34A", meeting_intent: "#059669", negative: "#DC2626", not_now: "#F59E0B",
+      unsubscribe: "#9CA3AF", needs_info: "#7C3AED", question: "#0A66C2", nurturing: "#6B7280",
+      spam: "#374151", auto_reply: "#94A3B8", unclassified: "#9CA3AF",
+    };
+    const donutSlices = Object.entries(d.classCounts)
+      .filter(([, v]) => v > 0)
+      .map(([k, v]) => ({
+        label: t(`dashx.reply.${k}`) === `dashx.reply.${k}` ? k : t(`dashx.reply.${k}`),
+        value: v,
+        color: classColors[k] ?? "#9CA3AF",
+      }))
+      .sort((a, b) => b.value - a.value);
+
+    // ─── Comparison vs tenant average ───────────────────────────────────
+    const tenantConv = tenantData.headline.conversionRate;
+    const lift = tenantConv > 0 ? Math.round(((d.rates.conversion / tenantConv) - 1) * 100) : null;
+    const liftKind = lift === null ? "neutral" : lift >= 25 ? "great" : lift >= 5 ? "good" : lift <= -25 ? "bad" : lift <= -5 ? "soft" : "neutral";
+
+    const heroStat = (label: string, value: string, hint?: string) => (
+      <div className="flex flex-col items-start gap-0.5">
+        <span className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>{label}</span>
+        <span className="text-[22px] font-semibold tabular-nums leading-tight" style={{ color: C.textPrimary }}>{value}</span>
+        {hint && <span className="text-[10.5px]" style={{ color: C.textDim }}>{hint}</span>}
+      </div>
+    );
+
     body = (
     <div className="p-4 sm:p-6 w-full space-y-6">
       <div className="flex items-center justify-between gap-2">
