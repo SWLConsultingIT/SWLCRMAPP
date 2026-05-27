@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { C, N } from "@/lib/design";
 import { getUserScope } from "@/lib/scope";
-import { getSupabaseService } from "@/lib/supabase-service";
 import { getDashboardData } from "@/lib/dashboard-data";
 import { getT, getServerLocale } from "@/lib/i18n-server";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
@@ -162,31 +161,6 @@ function parseFilters(sp: Record<string, string | string[] | undefined>) {
   };
 }
 
-async function loadFilterOptions(bioId: string | null) {
-  try {
-    const svc = getSupabaseService();
-    const campsQ = bioId
-      ? svc.from("campaigns").select("name, leads!inner(company_bio_id)").eq("leads.company_bio_id", bioId)
-      : svc.from("campaigns").select("name");
-    const sellersQ = bioId
-      ? svc.from("sellers").select("id, name").or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`).order("name")
-      : svc.from("sellers").select("id, name").order("name");
-    const icpsQ = bioId
-      ? svc.from("icp_profiles").select("id, profile_name").eq("company_bio_id", bioId).eq("status", "approved").order("profile_name")
-      : svc.from("icp_profiles").select("id, profile_name").eq("status", "approved").order("profile_name");
-    const [{ data: camps }, { data: sellers }, { data: icps }] = await Promise.all([campsQ, sellersQ, icpsQ]);
-    const uniqueNames = Array.from(new Set((camps ?? []).map((c: any) => c.name).filter(Boolean))).sort();
-    return {
-      campaigns: uniqueNames.map(n => ({ id: n, label: n })),
-      sellers: (sellers ?? []).map((s: any) => ({ id: s.id, label: s.name })),
-      icps: (icps ?? []).map((p: any) => ({ id: p.id, label: p.profile_name })),
-    };
-  } catch (e) {
-    console.error("[dashboard] loadFilterOptions failed:", e);
-    return { campaigns: [], sellers: [], icps: [] };
-  }
-}
-
 export default async function DashboardPage({
   searchParams,
 }: {
@@ -199,10 +173,8 @@ export default async function DashboardPage({
 
   const sp = await searchParams;
   const filters = parseFilters(sp);
-  const bioId = scope.isScoped ? scope.companyBioId! : null;
-  const [data, options, t, locale] = await Promise.all([
+  const [data, t, locale] = await Promise.all([
     getDashboardData(filters),
-    loadFilterOptions(bioId),
     getT(),
     getServerLocale(),
   ]);
@@ -352,7 +324,7 @@ export default async function DashboardPage({
       {/* ─── Filter bar — sits below tabs because filters scope the active
           tab's content. Suspense boundary required for useSearchParams. */}
       <Suspense fallback={<div className="h-10" />}>
-        <FiltersBar options={options} />
+        <FiltersBar />
       </Suspense>
 
       {/* ═══ CHAPTER 1 · OVERVIEW ═══════════════════════════════════════════ */}

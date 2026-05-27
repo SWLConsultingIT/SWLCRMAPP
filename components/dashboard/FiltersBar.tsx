@@ -1,27 +1,21 @@
 "use client";
 
-// Sticky filter strip at the top of the dashboard. The whole page is
-// server-rendered, so changes here push to the URL — the server reads
-// ?from / ?to / ?campaigns / ?icps / ?sellers and the rest of the page
-// re-renders against the filtered slice.
+// Sticky filter strip at the top of the dashboard. Period-only after the
+// 2026-05-27 simplification: the campaign / icp / seller multi-selects
+// were removed because they duplicated the click-into-row drill-down and
+// added invisible state (user couldn't tell what was filtered). Drilling
+// into a specific entity is now done by clicking it in its leaderboard.
 //
-// Speed pass (boss feedback 2026-05-27): the filter chip ABSOLUTELY MUST
-// look active the instant the user clicks, not after the server roundtrip
-// completes. We hold an optimistic snapshot of the desired URL params in
-// local state; the chip's "on" state reads from optimistic state first,
-// falling back to the actual URL. As soon as React commits the new URL
-// (transition ends), the optimistic state clears and the real URL takes
-// over. Result: instant visual feedback + still a single source of truth.
+// URL still parses ?campaigns / ?icps / ?sellers if present so old saved
+// links don't break — the bar just doesn't expose UI to set them.
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Calendar, ChevronDown, X, Filter } from "lucide-react";
+import { Calendar, ChevronDown } from "lucide-react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
-
-type Option = { id: string; label: string };
 
 const PERIODS = [
   { id: "7d",  labelKey: "dashx.filters.7d",  days: 7 },
@@ -34,11 +28,7 @@ function toIsoDay(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
-export default function FiltersBar({
-  options,
-}: {
-  options: { campaigns: Option[]; sellers: Option[]; icps: Option[] };
-}) {
+export default function FiltersBar() {
   const router = useRouter();
   const params = useSearchParams();
   const [pending, startTransition] = useTransition();
@@ -73,10 +63,6 @@ export default function FiltersBar({
     return "custom";
   })();
 
-  const selectedCampaigns = effective.get("campaigns")?.split("|").filter(Boolean) ?? [];
-  const selectedIcps      = effective.get("icps")?.split("|").filter(Boolean) ?? [];
-  const selectedSellers   = effective.get("sellers")?.split("|").filter(Boolean) ?? [];
-
   /** Apply a builder to the current params and push immediately. The
    *  optimistic snapshot updates synchronously so the chip switches to
    *  "on" before the server has even started re-rendering. */
@@ -86,12 +72,6 @@ export default function FiltersBar({
     setOptimistic(next);
     const qs = next.toString();
     startTransition(() => router.replace(qs ? `?${qs}` : "?", { scroll: false }));
-  }
-
-  function setParam(key: string, value: string | null) {
-    apply(p => {
-      if (value && value.length > 0) p.set(key, value); else p.delete(key);
-    });
   }
 
   function setPeriod(id: string) {
@@ -106,18 +86,6 @@ export default function FiltersBar({
         next.set("to",   to.toISOString().slice(0, 10));
       }
     });
-  }
-
-  function toggleMulti(key: "campaigns" | "icps" | "sellers", id: string) {
-    const current = key === "campaigns" ? selectedCampaigns : key === "icps" ? selectedIcps : selectedSellers;
-    const next = current.includes(id) ? current.filter(x => x !== id) : [...current, id];
-    setParam(key, next.length > 0 ? next.join("|") : null);
-  }
-
-  const anyFilter = selectedCampaigns.length + selectedIcps.length + selectedSellers.length > 0;
-
-  function clearAll() {
-    apply(p => { for (const k of Array.from(p.keys())) p.delete(k); });
   }
 
   return (
@@ -191,22 +159,6 @@ export default function FiltersBar({
         />
       </div>
 
-      <div className="w-px h-5 mx-1" style={{ backgroundColor: C.border }} />
-
-      <MultiSelect label={t("dashx.filters.campaigns")} items={options.campaigns} value={selectedCampaigns}
-        onToggle={id => toggleMulti("campaigns", id)} emptyLabel={t("dashx.filters.noOptions")} />
-      <MultiSelect label={t("dashx.filters.icps")} items={options.icps} value={selectedIcps}
-        onToggle={id => toggleMulti("icps", id)} emptyLabel={t("dashx.filters.noOptions")} />
-      <MultiSelect label={t("dashx.filters.sellers")} items={options.sellers} value={selectedSellers}
-        onToggle={id => toggleMulti("sellers", id)} emptyLabel={t("dashx.filters.noOptions")} />
-
-      {anyFilter && (
-        <button onClick={clearAll}
-          className="ml-auto text-[11px] font-medium px-2.5 py-1 rounded-md inline-flex items-center gap-1 transition-colors hover:bg-black/[0.04]"
-          style={{ color: C.textMuted, border: `1px solid ${C.border}` }}>
-          <X size={11} /> {t("dashx.filters.clear")}
-        </button>
-      )}
     </div>
   );
 }
@@ -325,64 +277,3 @@ function CustomPeriodChip({
   );
 }
 
-function MultiSelect({
-  label, items, value, onToggle, emptyLabel,
-}: {
-  label: string;
-  items: Option[];
-  value: string[];
-  onToggle: (id: string) => void;
-  emptyLabel: string;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 transition-colors"
-        style={{
-          backgroundColor: value.length > 0 ? `color-mix(in srgb, ${gold} 12%, transparent)` : "transparent",
-          borderColor: value.length > 0 ? `color-mix(in srgb, ${gold} 35%, transparent)` : C.border,
-          color: value.length > 0 ? gold : C.textBody,
-        }}
-      >
-        <Filter size={11} />
-        {label}
-        {value.length > 0 && (
-          <span className="ml-0.5 text-[10px] font-bold tabular-nums px-1 py-0 rounded"
-            style={{ backgroundColor: gold, color: "#04070d" }}>
-            {value.length}
-          </span>
-        )}
-        <ChevronDown size={11} />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 mt-1.5 z-50 rounded-lg border shadow-lg min-w-[220px] max-h-[320px] overflow-y-auto py-1"
-            style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 12px 32px rgba(0,0,0,0.18)" }}>
-            {items.length === 0 ? (
-              <div className="px-3 py-3 text-xs" style={{ color: C.textMuted }}>{emptyLabel}</div>
-            ) : items.map(it => {
-              const on = value.includes(it.id);
-              return (
-                <button
-                  key={it.id}
-                  onClick={() => onToggle(it.id)}
-                  className="w-full text-left px-3 py-2 text-xs flex items-center gap-2 transition-colors hover:bg-black/[0.04]"
-                >
-                  <span className="w-4 h-4 rounded border flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: on ? gold : "transparent", borderColor: on ? gold : C.border }}>
-                    {on && <span className="text-[#04070d] font-bold leading-none" style={{ fontSize: 9 }}>✓</span>}
-                  </span>
-                  <span className="truncate" style={{ color: C.textBody }}>{it.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
