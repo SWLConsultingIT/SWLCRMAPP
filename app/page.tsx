@@ -235,7 +235,7 @@ export default async function DashboardPage({
   const renderedAt = new Date().toISOString();
 
   return (
-    <div className="p-4 sm:p-6 w-full space-y-5">
+    <div className="p-4 sm:p-6 w-full space-y-4">
       <ReliabilityBanner />
       <DashboardKeyboardShortcuts />
 
@@ -282,6 +282,7 @@ export default async function DashboardPage({
       />
 
       {/* ═══ CHAPTER 1 · OVERVIEW ═══════════════════════════════════════════ */}
+      <section className="space-y-4 pt-3 sm:pt-4">
       <Chapter
         id="overview"
         number={1}
@@ -452,10 +453,12 @@ export default async function DashboardPage({
         </div>
       </section>
 
+      </section>
       {/* ═══ CHAPTER 2 · ICPs ═══════════════════════════════════════════════
           Which ideal profiles convert best · which channel fits each one.
           Reading order: leaderboard first (the natural entry point), then
           the matrix below for the deeper 2D analysis. */}
+      <section className="space-y-4 pt-6 sm:pt-10">
       <Chapter id="icps" number={2} icon={Target} title={t("dashx.chapter.icps")} description={t("dashx.chapter.icps.desc")} />
 
       <section>
@@ -531,10 +534,12 @@ export default async function DashboardPage({
         </Panel>
       </section>
 
+      </section>
       {/* ═══ CHAPTER 3 · CAMPAIGNS ═══════════════════════════════════════════
           Which sequences are working · per-step performance reveals which
           message is killing the funnel. Pause / rewrite candidates surface
           via the lagging callout. */}
+      <section className="space-y-4 pt-6 sm:pt-10">
       <Chapter id="campaigns" number={3} icon={Megaphone} title={t("dashx.chapter.campaigns")} description={t("dashx.chapter.campaigns.desc")} />
 
       <section>
@@ -685,10 +690,12 @@ export default async function DashboardPage({
         </Panel>
       </section>
 
+      </section>
       {/* ═══ CHAPTER 4 · CHANNELS ═══════════════════════════════════════════
           How each outreach channel performs · when in the week replies
           actually arrive. Channel breakdown lives here (not Overview)
           because it answers "which channel works" — a channel question. */}
+      <section className="space-y-4 pt-6 sm:pt-10">
       <Chapter id="channels" number={4} icon={Send} title={t("dashx.chapter.channels")} description={t("dashx.chapter.channels.desc")} />
 
       <section>
@@ -740,10 +747,12 @@ export default async function DashboardPage({
         </Panel>
       </section>
 
+      </section>
       {/* ═══ CHAPTER 5 · SELLERS ═══════════════════════════════════════════
           Who's moving the pipeline. Ranking uses reply rate normalized by
           contacted volume (≥20 floor) so the top isn't decided by who
           happened to inherit more leads. */}
+      <section className="space-y-4 pt-6 sm:pt-10">
       <Chapter id="sellers" number={5} icon={Trophy} title={t("dashx.chapter.sellers")} description={t("dashx.chapter.sellers.desc")} />
 
       <section>
@@ -807,6 +816,7 @@ export default async function DashboardPage({
         </Panel>
       </section>
 
+      </section>
       <SwlSignature caption={t("dashx.brand.captionMain")} tagline={t("dashx.brand.tagline")} />
     </div>
   );
@@ -977,17 +987,19 @@ function HealthStat({ label, value, unit, hint, tone }: {
   value: string;
   unit: string;
   hint: string;
-  tone: "neutral" | "warning";
+  tone: "neutral" | "warning" | "success";
 }) {
-  const accent = tone === "warning" ? "#D97706" : C.textPrimary;
+  const accent = tone === "warning" ? "#D97706"
+    : tone === "success" ? C.green
+    : C.textPrimary;
   return (
-    <div className="px-5 py-3.5 flex flex-col gap-0.5">
-      <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: C.textMuted }}>{label}</p>
-      <p className="flex items-baseline gap-1.5">
-        <span className="text-[20px] font-semibold tabular-nums tracking-tight" style={{ color: accent }}>{value}</span>
+    <div className="px-5 py-4 flex flex-col gap-0.5">
+      <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>{label}</p>
+      <p className="flex items-baseline gap-1.5 mt-1">
+        <span className="text-[24px] font-bold tabular-nums tracking-[-0.02em]" style={{ color: accent, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{value}</span>
         <span className="text-[11px]" style={{ color: C.textMuted }}>{unit}</span>
       </p>
-      <p className="text-[10.5px] leading-snug" style={{ color: C.textDim }}>{hint}</p>
+      <p className="text-[10.5px] leading-snug mt-0.5" style={{ color: C.textDim }}>{hint}</p>
     </div>
   );
 }

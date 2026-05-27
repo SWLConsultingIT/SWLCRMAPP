@@ -88,20 +88,41 @@ export const C = {
 export type Color = typeof C;
 
 // ── Typography scale (Inter body, Outfit headings) ──────────────────────────
-// Single source of truth so every page uses the same rhythm. Use these exact
-// values in className via arbitrary brackets (e.g. `text-[15px]`) when the
-// stock Tailwind sizes don't fit. Naming follows the visual hierarchy, not
-// pixel sizes, so the scale can be re-tuned without rewriting components.
+// Single source of truth so every page uses the same rhythm. Six visual
+// levels: hero (display number on a stat card), display (chapter title),
+// sectionTitle (panel header), cardTitle (sub-panel), body, label, meta.
+// Naming follows the visual hierarchy, not pixel sizes, so the scale can be
+// re-tuned without rewriting components.
 export const T = {
+  hero:        "text-[44px] sm:text-[52px] leading-[0.95] font-bold tracking-[-0.03em]",
+  display:     "text-[26px] sm:text-[30px] leading-[1.05] font-bold tracking-[-0.022em]",
   pageTitle:   "text-[28px] leading-[1.1] font-bold tracking-[-0.02em]",
-  sectionTitle:"text-[20px] leading-tight font-semibold tracking-[-0.015em]",
-  cardTitle:   "text-[15px] font-semibold",
+  sectionTitle:"text-[18px] leading-tight font-semibold tracking-[-0.015em]",
+  cardTitle:   "text-[14px] font-semibold tracking-[-0.005em]",
   body:        "text-[13.5px] leading-[1.55]",
   bodyMuted:   "text-[13.5px] leading-[1.55] text-[color:var(--c-textMuted)]",
-  label:       "text-[10px] font-bold tracking-[0.16em] uppercase",
+  label:       "text-[10px] font-bold tracking-[0.18em] uppercase",
   metaSmall:   "text-[11px] leading-tight",
-  numLg:       "text-[28px] font-bold tracking-tight tabular",
-  numMd:       "text-[20px] font-semibold tabular",
+  mono:        "text-[12.5px] font-medium tabular-nums",
+  numHero:     "text-[52px] font-bold tabular-nums leading-none tracking-[-0.03em]",
+  numLg:       "text-[28px] font-bold tracking-tight tabular-nums",
+  numMd:       "text-[20px] font-semibold tabular-nums",
+} as const;
+
+// ── Dark contrast palette (navy) — the structural counterpoint to gold ─────
+// Used for accent strips, chapter eyebrows, dark badges, and the "data
+// section" surfaces where we want gold to *pop*. Always pair gold with N.ink
+// (text on gold) or N.stripe (background behind gold) — never gold-on-light
+// without a dark anchor nearby. Empirically this is what makes the dashboard
+// feel like SWL, not a stock Tailwind kit.
+export const N = {
+  ink:        "#0B0F1A",   // deepest navy — text on gold, hero number backgrounds
+  ink2:       "#111827",   // primary navy — chapter strips, dark badges
+  ink3:       "#1F2A44",   // standard navy — dark surfaces, line baseline
+  stripe:     "#2A3654",   // softer navy — secondary dark surfaces / dividers
+  hairline:   "#3B486B",   // navy hairline for borders on dark backgrounds
+  // Gold-on-dark text color — readable on N.ink / N.ink2.
+  goldOnDark: "#E6C661",
 } as const;
 
 // ── Border radius scale (use these instead of ad-hoc rounded-* classes) ────

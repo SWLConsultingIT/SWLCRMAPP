@@ -1,13 +1,14 @@
-// Chapter divider — a self-contained banner card that lives inside the page
-// padding (no negative margins, no overflow risk). The banner IS the section
-// break: a horizontal gold-tinted strip with the chapter number, title, and
-// description. Heavier than a SectionHeader so the eye registers it as a
-// hierarchy jump, lighter than a full card-wrap so the content below still
-// breathes.
+// Chapter divider — the dashboard's hardest visual break.
+// Composition: a tall navy ink strip on the left (chapter ordinal in gold),
+// gold accent line, then the section title + description on the card surface.
+// The strip is the brand anchor; gold pops *off* it instead of fighting the
+// content surface. This is the move that makes the dashboard feel like SWL
+// rather than a stock template.
 //
-// Anchors enable in-page jumps from the sticky ChapterNav.
+// No negative margins — banner lives inside the parent's padding so it can
+// never overflow horizontally.
 
-import { C } from "@/lib/design";
+import { C, N, T } from "@/lib/design";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -27,48 +28,79 @@ export default function Chapter({
   return (
     <header
       id={id}
-      className="relative scroll-mt-20 rounded-2xl border overflow-hidden mt-4"
+      className="relative scroll-mt-24 rounded-2xl border overflow-hidden flex"
       style={{
-        borderColor: `color-mix(in srgb, ${gold} 22%, ${C.border})`,
-        background: `linear-gradient(135deg,
-          color-mix(in srgb, ${gold} 7%, ${C.card}) 0%,
-          ${C.card} 65%)`,
-        boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 18%, transparent), 0 6px 20px color-mix(in srgb, ${gold} 6%, transparent)`,
+        borderColor: `color-mix(in srgb, ${gold} 28%, ${C.border})`,
+        backgroundColor: C.card,
+        boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 22%, transparent), 0 8px 24px color-mix(in srgb, ${N.ink} 6%, transparent)`,
       }}
     >
-      {/* Left-edge accent — gold vertical bar that anchors the banner */}
+      {/* Navy ink strip — anchors the banner with the chapter ordinal. The
+          gold "01" / "02" sits against deep navy so it reads as a premium
+          chapter marker (Linear docs / Stripe issue tracker pattern). */}
       <div
-        aria-hidden
-        className="absolute left-0 top-0 bottom-0 w-1"
+        className="relative flex flex-col items-center justify-center px-4 sm:px-5 shrink-0"
         style={{
-          background: `linear-gradient(180deg, ${gold} 0%, color-mix(in srgb, ${gold} 60%, transparent) 100%)`,
+          background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
+          minWidth: 96,
         }}
-      />
+      >
+        <span
+          className="text-[10px] font-bold uppercase tracking-[0.24em] mb-1"
+          style={{ color: `color-mix(in srgb, ${gold} 70%, white)`, opacity: 0.85 }}
+        >
+          {/* eyebrow */}
+          CH
+        </span>
+        <span
+          className={`${T.numLg}`}
+          style={{
+            color: N.goldOnDark,
+            fontFamily: "var(--font-outfit), system-ui, sans-serif",
+            textShadow: `0 1px 0 ${N.ink}`,
+          }}
+        >
+          {String(number).padStart(2, "0")}
+        </span>
+        {/* Right-edge gold hairline — separates the strip from the content */}
+        <span
+          aria-hidden
+          className="absolute right-0 top-0 bottom-0 w-px"
+          style={{ background: `linear-gradient(to bottom, transparent 0%, ${gold} 18%, ${gold} 82%, transparent 100%)` }}
+        />
+      </div>
 
-      <div className="relative flex items-center gap-4 px-5 py-4 pl-6">
+      {/* Content side — title + description over the soft gold-tinted card */}
+      <div
+        className="relative flex-1 min-w-0 flex items-center gap-4 px-5 sm:px-6 py-4 sm:py-5"
+        style={{
+          background: `linear-gradient(90deg, color-mix(in srgb, ${gold} 9%, ${C.card}) 0%, ${C.card} 70%)`,
+        }}
+      >
         {Icon && (
           <span
             className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
             style={{
               background: `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 78%, white) 100%)`,
-              color: "#1A1505",
-              boxShadow: `0 4px 12px color-mix(in srgb, ${gold} 26%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
+              color: N.ink,
+              boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 28%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
             }}
           >
             <Icon size={18} />
           </span>
         )}
         <div className="flex-1 min-w-0">
-          <p
-            className="text-[10.5px] font-bold uppercase tracking-[0.22em] inline-flex items-center gap-2"
-            style={{ color: gold }}
+          <h2
+            className={`${T.display}`}
+            style={{
+              color: C.textPrimary,
+              fontFamily: "var(--font-outfit), system-ui, sans-serif",
+            }}
           >
-            <span className="tabular-nums opacity-75">{String(number).padStart(2, "0")}</span>
-            <span className="w-3 h-px" style={{ background: `color-mix(in srgb, ${gold} 50%, transparent)` }} aria-hidden />
-            <span>{title}</span>
-          </p>
+            {title}
+          </h2>
           <p
-            className="text-[13px] mt-1.5 max-w-[720px]"
+            className="text-[13.5px] mt-1.5 max-w-[760px] leading-relaxed"
             style={{ color: C.textMuted }}
           >
             {description}
