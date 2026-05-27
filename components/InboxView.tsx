@@ -17,6 +17,7 @@ type InboxReply = {
   leadName: string;
   company: string | null;
   campaignName: string | null;
+  icpProfileName: string | null;
   classification: string | null;
   channel: string | null;
   replyText: string | null;
@@ -177,6 +178,11 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
   const toast = useToast();
   const [tab, setTab] = useState<Tab>("pending");
   const [search, setSearch] = useState("");
+  // Filters added on 2026-05-27 per boss feedback — sellers needed to slice
+  // the History tab by Campaign / ICP / Channel before triaging.
+  const [campaignFilter, setCampaignFilter] = useState<string>("all");
+  const [icpFilter, setIcpFilter] = useState<string>("all");
+  const [channelFilter, setChannelFilter] = useState<string>("all");
   const [selectedId, setSelectedId] = useState<string | null>(replies[0]?.id ?? null);
   const [working, setWorking] = useState(false);
   // Thread state — fetched on selection change. Lets the right pane show the
@@ -224,9 +230,27 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
     all: replies.length,
   }), [replies]);
 
+  // Distinct values for the dropdown options. Recomputed when replies
+  // change so adding a new campaign / ICP / channel surfaces automatically.
+  const campaignOptions = useMemo(
+    () => [...new Set(replies.map(r => r.campaignName).filter((x): x is string => !!x))].sort(),
+    [replies],
+  );
+  const icpOptions = useMemo(
+    () => [...new Set(replies.map(r => r.icpProfileName).filter((x): x is string => !!x))].sort(),
+    [replies],
+  );
+  const channelOptions = useMemo(
+    () => [...new Set(replies.map(r => r.channel).filter((x): x is string => !!x))].sort(),
+    [replies],
+  );
+
   const filtered = useMemo(() => {
     let list = replies;
     if (tab === "pending") list = list.filter(isPending);
+    if (campaignFilter !== "all") list = list.filter(r => r.campaignName === campaignFilter);
+    if (icpFilter !== "all") list = list.filter(r => r.icpProfileName === icpFilter);
+    if (channelFilter !== "all") list = list.filter(r => r.channel === channelFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(r =>
@@ -237,7 +261,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
       );
     }
     return list;
-  }, [replies, tab, search]);
+  }, [replies, tab, search, campaignFilter, icpFilter, channelFilter]);
 
   // Ensure the currently-selected reply still belongs to the visible list; if
   // not (tab changed, search narrowed), jump to the first visible reply.
@@ -393,8 +417,9 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
       <div className="flex flex-col md:flex-row h-[78vh]">
         {/* List */}
         <div className={`${listCollapsed ? "hidden md:hidden" : "flex"} border-b md:border-b-0 md:border-r overflow-hidden flex-col md:w-[42%] md:min-w-[300px]`} style={{ borderColor: C.border }}>
-          {/* Search */}
-          <div className="px-3 py-2 border-b" style={{ borderColor: C.border }}>
+          {/* Search + filters (Campaign / ICP / Channel — added 2026-05-27
+              per boss feedback so sellers can slice History before triaging) */}
+          <div className="px-3 py-2 border-b space-y-2" style={{ borderColor: C.border }}>
             <div className="relative">
               <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: C.textMuted }} />
               <input
@@ -406,6 +431,56 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                 style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
               />
             </div>
+            {(campaignOptions.length > 0 || icpOptions.length > 0 || channelOptions.length > 0) && (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {campaignOptions.length > 0 && (
+                  <select
+                    value={campaignFilter}
+                    onChange={e => setCampaignFilter(e.target.value)}
+                    className="rounded-md border px-2 py-1 text-[10px] focus:outline-none"
+                    style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary, maxWidth: 130 }}
+                    title="Filter by campaign"
+                  >
+                    <option value="all">All campaigns</option>
+                    {campaignOptions.map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                )}
+                {icpOptions.length > 0 && (
+                  <select
+                    value={icpFilter}
+                    onChange={e => setIcpFilter(e.target.value)}
+                    className="rounded-md border px-2 py-1 text-[10px] focus:outline-none"
+                    style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary, maxWidth: 130 }}
+                    title="Filter by ICP"
+                  >
+                    <option value="all">All ICPs</option>
+                    {icpOptions.map(n => <option key={n} value={n}>{n}</option>)}
+                  </select>
+                )}
+                {channelOptions.length > 0 && (
+                  <select
+                    value={channelFilter}
+                    onChange={e => setChannelFilter(e.target.value)}
+                    className="rounded-md border px-2 py-1 text-[10px] focus:outline-none"
+                    style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
+                    title="Filter by channel"
+                  >
+                    <option value="all">All channels</option>
+                    {channelOptions.map(c => <option key={c} value={c}>{channelLabel(c)}</option>)}
+                  </select>
+                )}
+                {(campaignFilter !== "all" || icpFilter !== "all" || channelFilter !== "all") && (
+                  <button
+                    onClick={() => { setCampaignFilter("all"); setIcpFilter("all"); setChannelFilter("all"); }}
+                    className="text-[10px] font-medium px-1.5 py-0.5 rounded hover:opacity-80"
+                    style={{ color: C.textMuted }}
+                    title="Clear filters"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="overflow-y-auto flex-1 px-2 py-2" style={{ backgroundColor: `color-mix(in srgb, ${C.surface} 35%, ${C.bg})` }}>

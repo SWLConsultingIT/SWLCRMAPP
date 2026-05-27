@@ -66,7 +66,7 @@ async function getQueueData() {
   // destructure produced { data: null } and the Inbox tab rendered empty
   // (incident: De Vera Grill positive replies invisible 2026-05-24).
   let replyQuery = supabase.from("lead_replies")
-    .select("id, classification, received_at, channel, reply_text, lead_id, campaign_id, requires_human_review, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id), campaigns!inner(name, seller_id)")
+    .select("id, classification, received_at, channel, reply_text, lead_id, campaign_id, requires_human_review, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id, icp_profile_id), campaigns!inner(name, seller_id)")
     .neq("classification", "auto_reply")
     .order("received_at", { ascending: false })
     .limit(30);
@@ -84,7 +84,7 @@ async function getQueueData() {
   // queued_by marker (set only on acceptance flow) + a generous row cap to
   // keep this bounded, and surface freshness via metadata.accepted_at.
   let acceptQuery = supabase.from("campaign_messages")
-    .select("id, lead_id, campaign_id, sent_at, created_at, metadata, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id), campaigns!inner(name, seller_id)")
+    .select("id, lead_id, campaign_id, sent_at, created_at, metadata, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id, icp_profile_id), campaigns!inner(name, seller_id)")
     .eq("step_number", 1)
     .in("metadata->>queued_by", ["registro-nueva-conexion-webhook", "retroactive-fix-event-field-bug-2026-05-13"])
     .order("created_at", { ascending: false })
@@ -160,10 +160,23 @@ async function getQueueData() {
     const lead = c.leads as any;
     const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
     const daysAfter = steps[currentStepIdx]?.daysAfter ?? 0;
-    const dueAt = c.last_step_at ? new Date(c.last_step_at).getTime() + daysAfter * 86400000 : null;
-    // Only show calls that are actually due. A call step with daysAfter=6 should
-    // not appear in the queue until 6 days have passed since the previous step.
-    const isDue = dueAt !== null ? now >= dueAt : daysAfter === 0;
+    // Working-days math: dueAt counts calendar days as before, but if the
+    // resulting due-date lands on a Saturday or Sunday we push it forward
+    // to the next Monday. Sellers don't want "due today" calls surfaced on
+    // weekends — boss flagged this on 2026-05-27.
+    const rollWeekendForward = (ts: number) => {
+      const d = new Date(ts);
+      while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+      return d.getTime();
+    };
+    const rawDueAt = c.last_step_at ? new Date(c.last_step_at).getTime() + daysAfter * 86400000 : null;
+    const dueAt = rawDueAt !== null ? rollWeekendForward(rawDueAt) : null;
+    // Also gate on the viewing day: if today is Sat/Sun, no call should be
+    // "due today" — push the check to Monday's start.
+    const todayDow = new Date(now).getDay();
+    const isTodayWeekend = todayDow === 0 || todayDow === 6;
+    // Only show calls that are actually due (and not on a weekend).
+    const isDue = isTodayWeekend ? false : (dueAt !== null ? now >= dueAt : daysAfter === 0);
     if (!isDue) continue;
     const isOverdue = dueAt !== null && now > dueAt;
     const overdueDays = isOverdue && dueAt ? Math.floor((now - dueAt) / 86400000) : 0;
@@ -204,6 +217,22 @@ async function getQueueData() {
   // them ("Accepted") without a reply_text body. They sort by accepted_at so
   // the newest engagement floats to the top regardless of whether it was a
   // text reply or just an accept.
+  // Resolve ICP names per lead so the History tab can filter by ICP.
+  const icpIds = new Set<string>();
+  for (const r of (recentReplies ?? []) as any[]) {
+    const id = r.leads?.icp_profile_id; if (id) icpIds.add(id);
+  }
+  for (const a of (recentAccepts ?? []) as any[]) {
+    const id = a.leads?.icp_profile_id; if (id) icpIds.add(id);
+  }
+  const icpNameById: Record<string, string> = {};
+  if (icpIds.size > 0) {
+    const { data: icps } = await supabase.from("icp_profiles")
+      .select("id, profile_name")
+      .in("id", [...icpIds]);
+    for (const i of icps ?? []) icpNameById[(i as any).id] = (i as any).profile_name;
+  }
+
   const newReplies = [
     ...(recentReplies ?? []).map((r: any) => {
       const lead = r.leads;
@@ -218,6 +247,7 @@ async function getQueueData() {
         replyText: r.reply_text,
         receivedAt: r.received_at,
         campaignName: (r.campaigns as any)?.name ?? null,
+        icpProfileName: lead?.icp_profile_id ? (icpNameById[lead.icp_profile_id] ?? null) : null,
         requiresHumanReview: r.requires_human_review ?? false,
       };
     }),
@@ -236,6 +266,7 @@ async function getQueueData() {
         replyText: null,
         receivedAt: acceptedAt,
         campaignName: (a.campaigns as any)?.name ?? null,
+        icpProfileName: lead?.icp_profile_id ? (icpNameById[lead.icp_profile_id] ?? null) : null,
         requiresHumanReview: false,
       };
     }),

@@ -54,6 +54,7 @@ type NewReply = {
   replyText: string | null;
   receivedAt: string;
   campaignName: string | null;
+  icpProfileName?: string | null;
   requiresHumanReview?: boolean;
 };
 
@@ -532,8 +533,21 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
 
                         {/* Actions — in "awaiting outcome" the Call button is
                             demoted to a small "Call again" link so the inline
-                            classify buttons below become the primary action. */}
+                            classify buttons below become the primary action.
+                            An "Open lead" button is added next to it (boss
+                            feedback 2026-05-27 — sellers wanted an explicit
+                            jump per row, not just the name link). */}
                         <div className="flex items-center gap-2 shrink-0 relative group/call">
+                          {call.leadId && (
+                            <Link
+                              href={`/leads/${call.leadId}`}
+                              className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-opacity hover:opacity-80"
+                              style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textBody }}
+                              title="Open lead detail"
+                            >
+                              <User size={11} /> Open lead
+                            </Link>
+                          )}
                           {call.leadId ? (() => {
                             // Build phones array so the seller can pick Mobile vs Work
                             // when the lead has both. Single-phone leads fall back to
@@ -628,7 +642,7 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
         );
       })()}
 
-      {/* ═══ Tab 1: Inbox (split-pane reply triage with keyboard shortcuts) ═══ */}
+      {/* ═══ Tab 1: History (split-pane reply triage with keyboard shortcuts) ═══ */}
       {tab === 1 && (
         <InboxView
           replies={(sortedReplies as NewReply[]).map((r): InboxReply => ({
@@ -637,6 +651,7 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
             leadName: r.leadName,
             company: r.company,
             campaignName: r.campaignName ?? null,
+            icpProfileName: (r as any).icpProfileName ?? null,
             classification: r.classification,
             channel: r.channel,
             replyText: r.replyText,
