@@ -828,6 +828,34 @@ export default async function DashboardPage({
       {filters.tab === "campaigns" && (
       <section className="space-y-6 pt-3">
 
+      {/* Hero stat band — high-level portfolio state before the table. */}
+      {(() => {
+        const active = data.campaignPerformance.filter(c => c.status === "active");
+        const paused = data.campaignPerformance.filter(c => c.status === "paused");
+        const stagnant = active.filter(c => c.leads >= 10 && c.conversionRate === 0);
+        const activeWithReplies = active.filter(c => c.leads > 0);
+        const avgConv = activeWithReplies.length > 0
+          ? Math.round(activeWithReplies.reduce((acc, c) => acc + c.conversionRate, 0) / activeWithReplies.length)
+          : 0;
+        return (
+          <section className="rounded-2xl border overflow-hidden relative"
+            style={{ borderColor: C.border, backgroundColor: C.card, boxShadow: `inset 0 2px 0 0 color-mix(in srgb, ${gold} 35%, transparent)` }}>
+            <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: C.border }}>
+              <CampHeroStat label={t("dashx.camp.heroActive")} value={active.length.toString()}
+                hint={t("dashx.camp.heroActiveHint", { n: active.reduce((acc, c) => acc + c.leads, 0) })} />
+              <CampHeroStat label={t("dashx.camp.heroPaused")} value={paused.length.toString()}
+                hint={paused.length > 0 ? t("dashx.camp.heroPausedHint", { n: paused.reduce((acc, c) => acc + c.leads, 0) }) : t("dashx.camp.heroPausedNone")} />
+              <CampHeroStat label={t("dashx.camp.heroStagnant")} value={stagnant.length.toString()}
+                hint={t("dashx.camp.heroStagnantHint")}
+                tone={stagnant.length > 0 ? "warning" : "neutral"} />
+              <CampHeroStat label={t("dashx.camp.heroAvgConv")} value={`${avgConv}%`}
+                hint={t("dashx.camp.heroAvgConvHint", { n: activeWithReplies.length })}
+                tone={avgConv >= 5 ? "positive" : "neutral"} />
+            </div>
+          </section>
+        );
+      })()}
+
       <section>
         {/* Status tabs — default to "active" so historical clutter doesn't bury
             campaigns currently running. URL-state via ?camp_status=... so the
@@ -1472,6 +1500,24 @@ function PulseStat({ label, value, unit, hint, tone }: {
         <span className="text-[11px]" style={{ color: C.textMuted }}>{unit}</span>
       </p>
       <p className="text-[10.5px] leading-snug mt-0.5" style={{ color: C.textDim }}>{hint}</p>
+    </div>
+  );
+}
+
+function CampHeroStat({ label, value, hint, tone = "neutral" }: {
+  label: string;
+  value: string;
+  hint: string;
+  tone?: "neutral" | "warning" | "positive";
+}) {
+  const valueColor = tone === "warning" ? "#D97706"
+    : tone === "positive" ? C.green
+    : C.textPrimary;
+  return (
+    <div className="px-5 py-4 flex flex-col items-start gap-0.5">
+      <span className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>{label}</span>
+      <span className="text-[22px] font-semibold tabular-nums leading-tight" style={{ color: valueColor }}>{value}</span>
+      <span className="text-[10.5px]" style={{ color: C.textDim }}>{hint}</span>
     </div>
   );
 }

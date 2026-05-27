@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import CallButton from "@/components/CallButton";
-import TodayFocus from "@/components/TodayFocus";
 import InboxView, { type InboxReply } from "@/components/InboxView";
 import { classifyUrgency } from "@/lib/overdue";
 
@@ -58,30 +57,9 @@ type NewReply = {
   requiresHumanReview?: boolean;
 };
 
-type PendingReview = {
-  id: string;
-  type: "campaign" | "profile";
-  name: string;
-  subtitle: string;
-  createdAt: string;
-  href: string;
-};
-
-type Update = {
-  id: string;
-  kind: "campaign" | "profile";
-  name: string;
-  status: "approved" | "rejected";
-  subtitle: string;
-  createdAt: string;
-  href: string;
-};
-
 type Props = {
   pendingCalls: PendingCall[];
   newReplies: NewReply[];
-  pendingReviews: PendingReview[];
-  updates: Update[];
 };
 
 const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
@@ -207,15 +185,15 @@ function InlineClassifier({ call }: { call: PendingCall }) {
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
-export default function QueueClient({ pendingCalls, newReplies, pendingReviews, updates }: Props) {
+export default function QueueClient({ pendingCalls, newReplies }: Props) {
   const searchParams = useSearchParams();
-  // Deep-linked tab via `?tab=inbox` (used by the /inbox redirect + the empty
-  // state CTAs). Falls back to Calls.
+  // Deep-linked tab via `?tab=inbox` / `?tab=history` (the /inbox redirect
+  // + empty-state CTAs still point here). Falls back to Calls. The old
+  // `?tab=reviews` and `?tab=updates` paths land on Calls now that those
+  // tabs were removed.
   const initialTab = (() => {
     const t = searchParams.get("tab");
-    if (t === "inbox") return 1;
-    if (t === "reviews") return 2;
-    if (t === "updates") return 3;
+    if (t === "inbox" || t === "history") return 1;
     return 0;
   })();
   const [tab, setTab] = useState(initialTab);
@@ -311,7 +289,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
     return new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime();
   });
 
-  const totalCount = pendingCalls.length + newReplies.length + pendingReviews.length + updates.length;
+  const totalCount = pendingCalls.length + newReplies.length;
   const needsReviewCount = newReplies.filter(r => r.requiresHumanReview).length;
 
   const applyCallSearch = (list: PendingCall[]) => !search ? list
@@ -329,20 +307,15 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
     .filter(r => !dismissed.has(r.id))
     .filter(r => passesDate(r.receivedAt))
     .filter(r => passesSearch(`${r.leadName} ${r.company} ${r.campaignName} ${r.replyText}`));
-  const filteredReviews = pendingReviews
-    .filter(r => !dismissed.has(r.id))
-    .filter(r => passesDate(r.createdAt))
-    .filter(r => passesSearch(`${r.name} ${r.subtitle}`));
-  const filteredUpdates = updates
-    .filter(u => !dismissed.has(u.id))
-    .filter(u => passesDate(u.createdAt))
-    .filter(u => passesSearch(`${u.name} ${u.subtitle}`));
 
+  // Notifications now only carries Calls + History (replies thread). Per boss
+  // feedback 2026-05-27, Pending Reviews was deleted entirely and Updates
+  // moved into Lead Miner where it belongs operationally. Today's Focus card
+  // was also removed because it added a third surface on top of the hero +
+  // tab counts.
   const tabs = [
-    { label: "Calls",           count: pendingCalls.length,   color: "#F97316",  reviewCount: 0 },
-    { label: "Inbox",           count: newReplies.length,     color: C.blue,     reviewCount: needsReviewCount },
-    { label: "Pending Reviews", count: pendingReviews.length, color: gold,       reviewCount: 0 },
-    { label: "Updates",         count: updates.length,        color: "#7C3AED",  reviewCount: 0 },
+    { label: "Calls",   count: pendingCalls.length, color: "#F97316", reviewCount: 0 },
+    { label: "History", count: newReplies.length,   color: C.blue,    reviewCount: needsReviewCount },
   ];
 
   return (
@@ -358,18 +331,7 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
           { label: "Calls to make", value: pendingCalls.length, tone: pendingCalls.length > 0 ? "warning" : "neutral" },
           { label: "New replies", value: newReplies.length, tone: newReplies.length > 0 ? "positive" : "neutral" },
           { label: "Need review", value: needsReviewCount, tone: needsReviewCount > 0 ? "danger" : "neutral" },
-          { label: "Pending reviews", value: pendingReviews.length, tone: "neutral" },
         ]}
-      />
-
-      {/* Today's Focus — the "what should I do next" strip above the tabs.
-          Tells the seller one priority action + cross-tab counts so they
-          don't have to scan four tabs to find the highest-impact thing. */}
-      <TodayFocus
-        calls={pendingCalls}
-        replies={newReplies}
-        onJumpToCalls={() => { setTab(0); setCallSubTab(0); }}
-        onJumpToReplies={() => setTab(1)}
       />
 
       {/* Tabs + search */}
@@ -688,256 +650,6 @@ export default function QueueClient({ pendingCalls, newReplies, pendingReviews, 
             positive: r.classification === "positive" || r.classification === "meeting_intent",
           }))}
         />
-      )}
-
-      {/* (kept dead for reviewability) */}
-      {false && tab === 99 && (
-        filteredReplies.length === 0 ? (
-          <div className="rounded-2xl border py-12 px-6 text-center max-w-xl mx-auto"
-            style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-            <div className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center"
-              style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)` }}>
-              <CheckCircle size={22} style={{ color: C.green }} />
-            </div>
-            <p className="text-sm font-bold mb-1.5" style={{ color: C.textPrimary }}>
-              {search ? "No replies match your search" : "No replies waiting"}
-            </p>
-            <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
-              {search
-                ? "Try clearing the search or widening the date range above."
-                : "When a lead writes back or accepts a LinkedIn invite, the message lands here. Until then, focus on calls or check Flow progress."}
-            </p>
-            {!search && (
-              <button onClick={() => setTab(0)}
-                className="inline-flex items-center gap-1.5 mt-4 text-xs font-semibold px-3.5 py-1.5 rounded-lg transition-opacity hover:opacity-85"
-                style={{ backgroundColor: gold, color: "#04070d" }}>
-                Go to Calls <ChevronRight size={12} />
-              </button>
-            )}
-          </div>
-        ) : (
-          <>
-            {needsReviewCount > 0 && !search && (
-              <div className="flex items-center gap-3 rounded-2xl border px-4 py-3 mb-4"
-                style={{
-                  background: "linear-gradient(135deg, color-mix(in srgb, #D97706 8%, transparent) 0%, color-mix(in srgb, #D97706 14%, transparent) 100%)",
-                  borderColor: "color-mix(in srgb, #D97706 35%, transparent)",
-                  boxShadow: "0 4px 16px color-mix(in srgb, #D97706 10%, transparent)",
-                }}>
-                <AlertTriangle size={16} style={{ color: "#D97706" }} className="shrink-0" />
-                <p className="text-sm font-medium" style={{ color: "#D97706" }}>
-                  {needsReviewCount} {needsReviewCount === 1 ? "reply needs" : "replies need"} your attention — the AI answered but flagged these for human review.
-                </p>
-              </div>
-            )}
-            <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-              {filteredReplies.map((r, i) => {
-                const cls = classificationMeta[r.classification ?? ""] ?? { color: C.textMuted, bg: C.surface, label: r.classification ?? "Reply" };
-                const chMeta = channelMeta[r.channel] ?? channelMeta.email;
-                const ChIcon = chMeta.icon;
-
-                return (
-                  <Link key={r.id} href={`/leads/${r.leadId}`}
-                    className="flex gap-4 px-5 py-4 transition-colors hover:bg-black/[0.015] group"
-                    style={{
-                      borderTop: i > 0 ? `1px solid ${C.border}` : "none",
-                      borderLeft: r.requiresHumanReview ? "3px solid #F59E0B" : "3px solid transparent",
-                    }}>
-                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5"
-                      style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
-                      {(r.leadName[0] ?? "?").toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="text-sm font-semibold group-hover:underline" style={{ color: C.textPrimary }}>{r.leadName}</span>
-                        {r.company && <span className="text-xs" style={{ color: C.textMuted }}>· {r.company}</span>}
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: cls.bg, color: cls.color }}>
-                          {cls.label}
-                        </span>
-                        {r.requiresHumanReview && (
-                          <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded"
-                            style={{ backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#D97706" }}>
-                            <AlertTriangle size={9} /> Review
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mb-2 text-[10px]" style={{ color: C.textMuted }}>
-                        <span className="flex items-center gap-1" style={{ color: chMeta.color }}>
-                          <ChIcon size={10} /> {chMeta.label}
-                        </span>
-                        {r.campaignName && <span>· {r.campaignName}</span>}
-                      </div>
-                      {r.replyText ? (
-                        <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: cls.bg, borderColor: cls.color + "20" }}>
-                          <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>
-                            &ldquo;{r.replyText}&rdquo;
-                          </p>
-                        </div>
-                      ) : r.classification === "connection_accepted" ? (
-                        <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: cls.bg, borderColor: cls.color + "20" }}>
-                          <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>
-                            Accepted your LinkedIn connection request. First DM will go out in the next dispatch tick.
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="text-[10px] italic" style={{ color: C.textDim }}>No reply text</p>
-                      )}
-                    </div>
-                    <div className="flex flex-col items-end shrink-0 gap-1">
-                      <span className="text-[10px]" style={{ color: C.textDim }}>{timeAgo(r.receivedAt)}</span>
-                      <ChevronRight size={13} style={{ color: C.textDim }} />
-                    </div>
-                    {/* Dismiss button — preventDefault so it doesn't follow
-                        the parent <Link>. Reveals on hover (group-hover). */}
-                    <button
-                      onClick={e => { e.preventDefault(); e.stopPropagation(); dismiss(r.id); }}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-black/[0.05] shrink-0 self-start"
-                      title="Dismiss this notification"
-                      style={{ color: C.textDim }}>
-                      <X size={13} />
-                    </button>
-                  </Link>
-                );
-              })}
-            </div>
-          </>
-        )
-      )}
-
-      {/* ═══ Tab 2: Pending Reviews ═══ */}
-      {tab === 2 && (() => {
-        const campaigns = filteredReviews.filter(r => r.type === "campaign");
-        const profiles = filteredReviews.filter(r => r.type === "profile");
-
-        if (filteredReviews.length === 0) return (
-          <div className="rounded-2xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-            <CheckCircle size={28} className="mx-auto mb-3" style={{ color: C.green }} />
-            <p className="text-sm font-medium" style={{ color: C.textBody }}>
-              {search ? "No reviews match your search" : "All caught up"}
-            </p>
-          </div>
-        );
-
-        return (
-          <div className="space-y-6">
-            {campaigns.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Megaphone size={14} style={{ color: gold }} />
-                  <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Campaigns ({campaigns.length})</h3>
-                </div>
-                <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                  {campaigns.map((review, i) => (
-                    <Link key={review.id} href={review.href}
-                      className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-black/[0.015]"
-                      style={{ borderBottom: i < campaigns.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${gold} 7%, transparent)` }}>
-                        <Megaphone size={15} style={{ color: gold }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{review.name}</p>
-                        <p className="text-xs" style={{ color: C.textMuted }}>{review.subtitle}</p>
-                      </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded shrink-0" style={{ backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#D97706" }}>Under Review</span>
-                      <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{timeAgo(review.createdAt)}</span>
-                      <ChevronRight size={13} style={{ color: C.textDim }} className="shrink-0" />
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {profiles.length > 0 && (
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Target size={14} style={{ color: C.blue }} />
-                  <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Lead Gen Profiles ({profiles.length})</h3>
-                </div>
-                <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                  {profiles.map((review, i) => (
-                    <Link key={review.id} href={review.href}
-                      className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-black/[0.015]"
-                      style={{ borderBottom: i < profiles.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                      <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${C.blue}12` }}>
-                        <Target size={15} style={{ color: C.blue }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{review.name}</p>
-                        <p className="text-xs" style={{ color: C.textMuted }}>{review.subtitle}</p>
-                      </div>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded shrink-0" style={{ backgroundColor: C.blueLight, color: C.blue }}>Under Review</span>
-                      <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{timeAgo(review.createdAt)}</span>
-                      <ChevronRight size={13} style={{ color: C.textDim }} className="shrink-0" />
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* ═══ Tab 3: Updates (approved / rejected) ═══ */}
-      {tab === 3 && (
-        filteredUpdates.length === 0 ? (
-          <div className="rounded-2xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-            <CheckCircle size={28} className="mx-auto mb-3" style={{ color: C.green }} />
-            <p className="text-sm font-medium" style={{ color: C.textBody }}>
-              {search ? "No updates match your search" : "No recent updates"}
-            </p>
-            <p className="text-xs mt-1" style={{ color: C.textMuted }}>
-              Updates from the last 14 days will appear here.
-            </p>
-          </div>
-        ) : (
-          <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-            {filteredUpdates.map((u, i) => {
-              const isApproved = u.status === "approved";
-              const color = isApproved ? C.green : C.red;
-              const bg = isApproved ? C.greenLight : C.redLight;
-              const StatusIcon = isApproved ? Sparkles : XCircle;
-              const KindIcon = u.kind === "campaign" ? Megaphone : Target;
-              const message = isApproved
-                ? (u.kind === "campaign" ? "Campaign approved — leads are now in sequence" : "ICP profile approved — you can use it in campaigns")
-                : (u.kind === "campaign" ? "Campaign rejected" : "ICP profile rejected");
-
-              return (
-                <Link key={u.id} href={u.href}
-                  className="flex items-start gap-4 px-5 py-4 transition-colors hover:bg-black/[0.015] group"
-                  style={{
-                    borderTop: i > 0 ? `1px solid ${C.border}` : "none",
-                    borderLeft: `3px solid ${color}`,
-                  }}>
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5"
-                    style={{ backgroundColor: bg }}>
-                    <StatusIcon size={15} style={{ color }} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="text-sm font-semibold" style={{ color: C.textPrimary }}>{u.name}</span>
-                      <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: bg, color }}>
-                        <KindIcon size={9} /> {u.kind === "campaign" ? "Outreach Flow" : "Lead Miner Profile"} · {isApproved ? "APPROVED" : "REJECTED"}
-                      </span>
-                    </div>
-                    <p className="text-xs" style={{ color: C.textBody }}>{message}</p>
-                    <p className="text-[10px] mt-0.5" style={{ color: C.textDim }}>{u.subtitle}</p>
-                  </div>
-                  <div className="flex flex-col items-end shrink-0 gap-1">
-                    <span className="text-[10px]" style={{ color: C.textDim }}>{timeAgo(u.createdAt)}</span>
-                    <ChevronRight size={13} style={{ color: C.textDim }} />
-                  </div>
-                  <button
-                    onClick={e => { e.preventDefault(); e.stopPropagation(); dismiss(u.id); }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-black/[0.05] shrink-0 self-start"
-                    title="Dismiss this update"
-                    style={{ color: C.textDim }}>
-                    <X size={13} />
-                  </button>
-                </Link>
-              );
-            })}
-          </div>
-        )
       )}
     </div>
   );
