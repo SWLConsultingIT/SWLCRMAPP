@@ -90,7 +90,12 @@ export default function FiltersBar() {
 
   return (
     <div
-      className="sticky top-2 z-20 rounded-2xl border px-3 py-2 flex items-center gap-2 flex-wrap relative"
+      // ChapterNav above also uses sticky top-2 z-30 — the filter bar has to
+      // stack BELOW it (top-[60px] clears the nav's height with a few px of
+      // breathing room) and use a lower z so the chapter chips win when they
+      // overlap. Boss flagged on 2026-05-27 that the date filter wasn't
+      // reachable after scrolling.
+      className="sticky top-[60px] z-20 rounded-2xl border px-3 py-2 flex items-center gap-2 flex-wrap relative"
       style={{
         backgroundColor: C.card,
         borderColor: C.border,
