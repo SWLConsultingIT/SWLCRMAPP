@@ -707,13 +707,10 @@ export default async function DashboardPage({
           Reading order: leaderboard first (the natural entry point), then
           the matrix below for the deeper 2D analysis. */}
       {filters.tab === "icps" && (
-      <section className="space-y-4 pt-2">
+      <section className="space-y-6 pt-3">
 
       <section>
-        <SectionHeader icon={Target} title={t("dashx.tbl.icp.title")} subtitle={t("dashx.tbl.icp.subtitle")} />
         {(() => {
-          // Top + lagging callouts. Only when there are 2+ rows with ≥10 contacted
-          // (statistical floor) so the comparison is meaningful.
           const eligible = data.icpPerformance.filter(i => i.contacted >= 10 && i.id !== "_unknown");
           if (eligible.length < 2) return null;
           const sorted = [...eligible].sort((a, b) => b.conversionRate - a.conversionRate);
@@ -727,7 +724,21 @@ export default async function DashboardPage({
             : null;
           return <LeaderCallout topText={topText} bottomText={bottomText} />;
         })()}
-        <Panel>
+        <Panel
+          title={t("dashx.tbl.icp.title")}
+          subtitle={t("dashx.tbl.icp.subtitle")}
+          actionHref="/icp"
+          actionLabel={t("dashx.panel.openIcps")}
+          glow
+          insightEyebrow={t("dashx.insight.eyebrow")}
+          insight={(() => {
+            const eligible = data.icpPerformance.filter(i => i.contacted >= 10 && i.id !== "_unknown");
+            if (eligible.length < 2) return null;
+            const sorted = [...eligible].sort((a, b) => b.conversionRate - a.conversionRate);
+            const top = sorted[0];
+            return t("dashx.icp.insight", { name: top.name, rate: top.conversionRate, total: eligible.length });
+          })()}
+        >
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
@@ -797,12 +808,28 @@ export default async function DashboardPage({
         </Panel>
       </section>
 
-      {/* ICP × Channel matrix — sits AFTER the leaderboard now. The table is
-          the natural entry point ("which ICP wins?"); the matrix is the
-          deeper drilldown ("which channel works for each ICP?"). */}
+      {/* ICP × Channel matrix — sits AFTER the leaderboard now. The table
+          is the natural entry point; the matrix is the 2D drilldown. */}
       <section>
-        <SectionHeader icon={Target} title={t("dashx.matrix.title")} subtitle={t("dashx.matrix.subtitle")} />
-        <Panel>
+        <Panel
+          title={t("dashx.matrix.title")}
+          subtitle={t("dashx.matrix.subtitle")}
+          glow
+          insightEyebrow={t("dashx.insight.eyebrow")}
+          insight={(() => {
+            const valid = data.matrix.cells.filter(c => c.replyRate !== null);
+            if (valid.length < 2) return null;
+            const best = valid.reduce((a, b) => (a.replyRate ?? 0) > (b.replyRate ?? 0) ? a : b);
+            const icp = data.matrix.icps.find(i => i.id === best.icpId);
+            if (!icp || best.replyRate === null) return null;
+            const chLabel = t(`dashx.ch.${best.channel}`) === `dashx.ch.${best.channel}` ? best.channel : t(`dashx.ch.${best.channel}`);
+            return t("dashx.matrix.insight", {
+              icp: icp.name,
+              ch: chLabel,
+              rate: Math.round(best.replyRate * 100),
+            });
+          })()}
+        >
           <IcpChannelMatrix matrix={data.matrix} locale={locale} />
         </Panel>
       </section>
@@ -814,10 +841,9 @@ export default async function DashboardPage({
           message is killing the funnel. Pause / rewrite candidates surface
           via the lagging callout. */}
       {filters.tab === "campaigns" && (
-      <section className="space-y-4 pt-2">
+      <section className="space-y-6 pt-3">
 
       <section>
-        <SectionHeader icon={Megaphone} title={t("dashx.tbl.camp.title")} subtitle={t("dashx.tbl.camp.subtitle")} />
         {/* Status tabs — default to "active" so historical clutter doesn't bury
             campaigns currently running. URL-state via ?camp_status=... so the
             selection survives reload + shareable links. */}
@@ -887,7 +913,21 @@ export default async function DashboardPage({
             : null;
           return <LeaderCallout topText={topText} bottomText={bottomText} />;
         })()}
-        <Panel>
+        <Panel
+          title={t("dashx.tbl.camp.title")}
+          subtitle={t("dashx.tbl.camp.subtitle")}
+          actionHref="/campaigns"
+          actionLabel={t("dashx.panel.openCampaignsPage")}
+          glow
+          insightEyebrow={t("dashx.insight.eyebrow")}
+          insight={(() => {
+            const eligible = data.campaignPerformance.filter(c => c.leads >= 10);
+            if (eligible.length < 2) return null;
+            const stagnant = data.campaignPerformance.filter(c => c.leads >= 10 && c.conversionRate === 0 && c.status === "active").length;
+            const top = [...eligible].sort((a, b) => b.conversionRate - a.conversionRate)[0];
+            return t("dashx.camp.insight", { name: top.name, rate: top.conversionRate, stagnant });
+          })()}
+        >
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
@@ -957,8 +997,19 @@ export default async function DashboardPage({
       {/* Step performance — sits inside CAMPAIGNS chapter because the
           "which step is broken" question is per-sequence diagnostic. */}
       <section>
-        <SectionHeader icon={ChevronsRight} title={t("dashx.step.title")} subtitle={t("dashx.step.subtitle")} />
-        <Panel>
+        <Panel
+          title={t("dashx.step.title")}
+          subtitle={t("dashx.step.subtitle")}
+          glow
+          insightEyebrow={t("dashx.insight.eyebrow")}
+          insight={(() => {
+            const eligible = (data.stepPerformance as Array<{ step: number; replyRate: number | null }>)
+              .filter(s => s.step > 0 && s.replyRate !== null);
+            if (eligible.length < 2) return null;
+            const worst = [...eligible].sort((a, b) => (a.replyRate ?? 0) - (b.replyRate ?? 0))[0];
+            return t("dashx.step.insight", { step: worst.step + 1, rate: worst.replyRate ?? 0 });
+          })()}
+        >
           <StepPerformance steps={data.stepPerformance} locale={locale} />
         </Panel>
       </section>
@@ -1048,8 +1099,23 @@ export default async function DashboardPage({
           Bars are sorted by reply rate desc; length-encoded against the
           top performer so the leader hits full width. */}
       <section>
-        <SectionHeader icon={Send} title={t("dashx.channels.compTitle")} subtitle={t("dashx.channels.compSubtitle")} />
-        <Panel>
+        <Panel
+          title={t("dashx.channels.compTitle")}
+          subtitle={t("dashx.channels.compSubtitle")}
+          glow
+          insightEyebrow={t("dashx.insight.eyebrow")}
+          insight={(() => {
+            const eligible = data.channelBreakdown.filter(c => c.contacted >= 5);
+            if (eligible.length < 2) return null;
+            const sorted = [...eligible].sort((a, b) => b.responseRate - a.responseRate);
+            const best = sorted[0]; const worst = sorted[sorted.length - 1];
+            const gap = best.responseRate - worst.responseRate;
+            if (gap < 5) return null;
+            const bestLabel = t(`dashx.ch.${best.channel}`) === `dashx.ch.${best.channel}` ? best.channel : t(`dashx.ch.${best.channel}`);
+            const worstLabel = t(`dashx.ch.${worst.channel}`) === `dashx.ch.${worst.channel}` ? worst.channel : t(`dashx.ch.${worst.channel}`);
+            return t("dashx.channels.compInsight", { best: bestLabel, worst: worstLabel, gap });
+          })()}
+        >
           <ChannelComparison channels={data.channelBreakdown} t={t} emptyLabel={t("dashx.channels.empty")} />
         </Panel>
       </section>
@@ -1061,13 +1127,10 @@ export default async function DashboardPage({
           contacted volume (≥20 floor) so the top isn't decided by who
           happened to inherit more leads. */}
       {filters.tab === "sellers" && (
-      <section className="space-y-4 pt-2">
+      <section className="space-y-6 pt-3">
 
       <section>
-        <SectionHeader icon={Trophy} title={t("dashx.tbl.seller.title")} subtitle={t("dashx.tbl.seller.subtitle")} />
         {(() => {
-          // Seller comparison uses reply rate (normalized) and requires
-          // ≥20 contacted for fairness (consistent with the table threshold).
           const eligible = data.sellerPerformance.filter(s => s.contacted >= 20);
           if (eligible.length < 2) return null;
           const sorted = [...eligible].sort((a, b) => b.responseRate - a.responseRate);
@@ -1081,7 +1144,22 @@ export default async function DashboardPage({
             : null;
           return <LeaderCallout topText={topText} bottomText={bottomText} />;
         })()}
-        <Panel>
+        <Panel
+          title={t("dashx.tbl.seller.title")}
+          subtitle={t("dashx.tbl.seller.subtitle")}
+          actionHref="/admin"
+          actionLabel={t("dashx.panel.openTeam")}
+          glow
+          insightEyebrow={t("dashx.insight.eyebrow")}
+          insight={(() => {
+            const eligible = data.sellerPerformance.filter(s => s.contacted >= 20);
+            if (eligible.length < 2) return null;
+            const sorted = [...eligible].sort((a, b) => b.responseRate - a.responseRate);
+            const top = sorted[0]; const bottom = sorted[sorted.length - 1];
+            const gap = top.responseRate - bottom.responseRate;
+            return t("dashx.seller.insight", { name: top.name, rate: top.responseRate, gap });
+          })()}
+        >
           <table className="w-full text-sm">
             <thead>
               <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
