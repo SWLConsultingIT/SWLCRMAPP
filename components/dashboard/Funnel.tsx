@@ -10,7 +10,7 @@
 
 import { C } from "@/lib/design";
 
-type Stage = { stage: string; count: number; color: string; prior?: number | null };
+type Stage = { stage: string; count: number; color: string; prior?: number | null; definition?: string };
 
 // Funnel palette — SWL-gold heat progression. Raw leads start cool (slate),
 // then ride a gold intensity ramp (cream → mid gold → full SWL gold) as
@@ -62,7 +62,19 @@ export default function Funnel({
         return (
           <div key={s.stage} className="flex items-center gap-3">
             <div className="w-28 shrink-0 text-right">
-              <p className="text-xs font-semibold" style={{ color: C.textBody }}>{s.stage}</p>
+              <p
+                className="text-xs font-semibold inline-flex items-center justify-end gap-1"
+                style={{ color: C.textBody, cursor: s.definition ? "help" : undefined }}
+                title={s.definition}
+              >
+                {s.stage}
+                {s.definition && (
+                  <span aria-hidden className="text-[9px] font-bold rounded-full w-3 h-3 inline-flex items-center justify-center"
+                    style={{ background: C.surface, color: C.textDim, border: `1px solid ${C.border}` }}>
+                    ?
+                  </span>
+                )}
+              </p>
               {stepConversion !== null && (
                 <p className="text-[10px]" style={{ color: C.textDim }}>{stepConversion}% {fromPrevLabel}</p>
               )}
