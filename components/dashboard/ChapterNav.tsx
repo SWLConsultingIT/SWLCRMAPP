@@ -1,15 +1,17 @@
 "use client";
 
-// Sticky mini-nav of the dashboard chapters. Underline pattern (Linear /
-// Vercel docs): the active chapter gets a thick gold underline + bold gold
-// label; inactive chapters fade to muted with the ordinal as a thin counter
-// pill. Tracks scroll via IntersectionObserver and updates the active state
-// as the user moves through the page.
+// Dashboard tab bar — URL-driven tabs that swap the active chapter via
+// `?tab=overview|icps|campaigns|channels|sellers`. Replaces the prior
+// scroll-anchor model: today each tab renders only its own content
+// (server-side) instead of stacking everything on a single page.
 //
-// Hidden on narrow mobile — chapters give the same orientation naturally on
-// a long scroll.
+// Active state is read from the URL; clicks push a new URL preserving
+// every other filter (period, campaigns, icps, sellers). Inactive tabs
+// look muted with a counter pill; active tab gets a gold underline +
+// glow + bold label.
 
-import { useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useTransition } from "react";
 import { C, N } from "@/lib/design";
 
 const gold = "var(--brand, #c9a83a)";
@@ -17,58 +19,49 @@ const gold = "var(--brand, #c9a83a)";
 type ChapterItem = { id: string; number: number; label: string };
 
 export default function ChapterNav({ items }: { items: ChapterItem[] }) {
-  const [active, setActive] = useState<string>(items[0]?.id ?? "");
+  const params = useSearchParams();
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
 
-  useEffect(() => {
-    const observed = items
-      .map(it => document.getElementById(it.id))
-      .filter((el): el is HTMLElement => el !== null);
-    if (observed.length === 0) return;
+  const activeId = params.get("tab") || items[0]?.id || "";
 
-    const onSeen: IntersectionObserverCallback = (entries) => {
-      const visible = entries
-        .filter(e => e.isIntersecting)
-        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-      if (visible[0]) setActive(visible[0].target.id);
-    };
-
-    const io = new IntersectionObserver(onSeen, {
-      rootMargin: "0px 0px -80% 0px",
-      threshold: 0,
-    });
-    observed.forEach(el => io.observe(el));
-    return () => io.disconnect();
-  }, [items]);
+  function goTo(id: string) {
+    const next = new URLSearchParams(params.toString());
+    if (id === items[0]?.id) next.delete("tab"); else next.set("tab", id);
+    const qs = next.toString();
+    startTransition(() => router.push(qs ? `?${qs}` : "?"));
+  }
 
   if (items.length < 2) return null;
 
   return (
     <nav
-      className="sticky top-0 z-30 -mx-4 sm:-mx-6 px-4 sm:px-6 hidden sm:block"
+      className="sticky top-0 z-30 -mx-4 sm:-mx-6 px-4 sm:px-6"
       style={{
-        backgroundColor: `color-mix(in srgb, ${C.card} 88%, transparent)`,
+        backgroundColor: `color-mix(in srgb, ${C.card} 92%, transparent)`,
         backdropFilter: "blur(10px)",
         WebkitBackdropFilter: "blur(10px)",
         borderBottom: `1px solid ${C.border}`,
+        opacity: pending ? 0.75 : 1,
+        transition: "opacity 150ms",
       }}
-      aria-label="Dashboard chapters"
+      aria-label="Dashboard tabs"
     >
       <div className="flex items-stretch gap-1 overflow-x-auto">
         {items.map(it => {
-          const on = active === it.id;
+          const on = activeId === it.id;
           return (
-            <a
+            <button
               key={it.id}
-              href={`#${it.id}`}
+              type="button"
+              onClick={() => goTo(it.id)}
               className="relative inline-flex items-center gap-2.5 px-3 sm:px-4 py-3 whitespace-nowrap group transition-colors"
               style={{
                 color: on ? C.textPrimary : C.textMuted,
               }}
-              onClick={() => setActive(it.id)}
             >
-              {/* Counter pill — ordinal in a tiny dark navy capsule when active,
-                  ghost outline when inactive. Brings dark contrast right next
-                  to gold so the active state really pops. */}
+              {/* Counter pill — ordinal in a tiny dark navy capsule when
+                  active, ghost outline when inactive. */}
               <span
                 className="text-[9.5px] font-bold tabular-nums tracking-[0.08em] px-1.5 py-[2px] rounded-md transition-colors"
                 style={{
@@ -85,7 +78,7 @@ export default function ChapterNav({ items }: { items: ChapterItem[] }) {
               >
                 {it.label}
               </span>
-              {/* Gold underline — the primary active-state signal */}
+              {/* Gold underline — primary active state signal */}
               <span
                 aria-hidden
                 className="absolute left-3 right-3 bottom-0 h-[2.5px] rounded-t-full transition-opacity"
@@ -95,7 +88,7 @@ export default function ChapterNav({ items }: { items: ChapterItem[] }) {
                   boxShadow: on ? `0 0 12px color-mix(in srgb, ${gold} 38%, transparent)` : "none",
                 }}
               />
-            </a>
+            </button>
           );
         })}
       </div>

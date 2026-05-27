@@ -9,9 +9,9 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
 import {
-  Users, Send, MessageSquare, ThumbsUp, Trophy, Megaphone, Target,
-  TrendingUp, Sparkles, AlertTriangle, Lightbulb, ArrowRight, CheckCircle2,
-  Share2, Mail, Phone, Smartphone, FileDown, Clock, ChevronsRight, Activity,
+  Users, Send, Trophy, Megaphone, Target,
+  TrendingUp, AlertTriangle, ArrowRight,
+  Share2, Mail, Phone, Smartphone, FileDown, ChevronsRight, Activity,
 } from "lucide-react";
 import { C } from "@/lib/design";
 import { getUserScope } from "@/lib/scope";
@@ -19,7 +19,6 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import { getDashboardData } from "@/lib/dashboard-data";
 import { getT, getServerLocale } from "@/lib/i18n-server";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
-import PageHero from "@/components/PageHero";
 import FiltersBar from "@/components/dashboard/FiltersBar";
 import FreshnessChip from "@/components/dashboard/FreshnessChip";
 import DashboardKeyboardShortcuts from "@/components/dashboard/DashboardKeyboardShortcuts";
@@ -138,6 +137,9 @@ function stageKey(label: string): string {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+const DASHBOARD_TABS = ["overview", "icps", "campaigns", "channels", "sellers"] as const;
+type DashboardTab = (typeof DASHBOARD_TABS)[number];
+
 function parseFilters(sp: Record<string, string | string[] | undefined>) {
   const get = (k: string) => {
     const v = sp[k];
@@ -147,6 +149,10 @@ function parseFilters(sp: Record<string, string | string[] | undefined>) {
     const v = get(k);
     return v ? v.split("|").filter(Boolean) : [];
   };
+  const rawTab = get("tab");
+  const tab: DashboardTab = (DASHBOARD_TABS as readonly string[]).includes(rawTab ?? "")
+    ? (rawTab as DashboardTab)
+    : "overview";
   return {
     from: get("from"),
     to: get("to"),
@@ -156,6 +162,8 @@ function parseFilters(sp: Record<string, string | string[] | undefined>) {
     /** Tab selection for the campaign leaderboard. Default = "active" so
      * historical clutter doesn't bury the campaigns currently running. */
     campStatus: (get("camp_status") as "active" | "paused" | "completed" | "all" | null) ?? "active",
+    /** Active dashboard tab — drives which chapter renders. Default overview. */
+    tab,
   };
 }
 
@@ -241,52 +249,55 @@ export default async function DashboardPage({
   return (
     <div className="p-4 sm:p-6 w-full space-y-4">
       <ReliabilityBanner />
-      <DashboardKeyboardShortcuts />
+      <Suspense fallback={null}>
+        <DashboardKeyboardShortcuts />
+      </Suspense>
 
-      <PageHero
-        icon={TrendingUp}
-        section={t("dashx.hero.section")}
-        title={t("dashx.hero.title")}
-        description={t("dashx.hero.desc")}
-        accentColor={gold}
-        status={{ label: periodLabel, active: true }}
-        action={(
-          <div className="flex items-center gap-2">
-            <FreshnessChip renderedAt={renderedAt} />
-            <Link
-              href="/reports"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-opacity hover:opacity-85 whitespace-nowrap"
-              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`, color: "#04070d", boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 28%, transparent)` }}
-            >
-              <FileDown size={13} /> {t("dashx.hero.download")}
-            </Link>
-          </div>
-        )}
-      />
+      {/* ─── Thin action strip — replaces the prior PageHero. Holds the
+          freshness chip + PDF download on the right. No title text here
+          (the active tab serves as the section name), no overlap with
+          the filter bar below. */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: C.textDim }}>
+          {periodLabel}
+        </div>
+        <div className="flex items-center gap-2">
+          <FreshnessChip renderedAt={renderedAt} />
+          <Link
+            href="/reports"
+            className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-opacity hover:opacity-85 whitespace-nowrap"
+            style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`, color: "#04070d", boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 28%, transparent)` }}
+          >
+            <FileDown size={13} /> {t("dashx.hero.download")}
+          </Link>
+        </div>
+      </div>
 
-      {/* ─── Sticky filters strip ───────────────────────────────────────────
-          Wrapped in Suspense because FiltersBar reads useSearchParams() —
-          App Router requires the boundary on any client component using
-          search-params hooks. Without it the page bails to the 500. */}
+      {/* ─── Tab bar — sticky URL-driven nav. Lives above filters so the
+          tab acts as the primary navigation and filters scope whatever
+          tab is active. Wrapped in Suspense because it reads
+          useSearchParams. */}
+      <Suspense fallback={<div className="h-12" />}>
+        <ChapterNav
+          items={[
+            { id: "overview",  number: 1, label: t("dashx.chapter.overview") },
+            { id: "icps",      number: 2, label: t("dashx.chapter.icps") },
+            { id: "campaigns", number: 3, label: t("dashx.chapter.campaigns") },
+            { id: "channels",  number: 4, label: t("dashx.chapter.channels") },
+            { id: "sellers",   number: 5, label: t("dashx.chapter.sellers") },
+          ]}
+        />
+      </Suspense>
+
+      {/* ─── Filter bar — sits below tabs because filters scope the active
+          tab's content. Suspense boundary required for useSearchParams. */}
       <Suspense fallback={<div className="h-10" />}>
         <FiltersBar options={options} />
       </Suspense>
 
-      {/* Sticky mini-nav — tracks scroll position and highlights the chapter
-          currently in view. Click jumps to it. Hidden on mobile (chapters
-          give the same orientation naturally on a long scroll). */}
-      <ChapterNav
-        items={[
-          { id: "overview",  number: 1, label: t("dashx.chapter.overview") },
-          { id: "icps",      number: 2, label: t("dashx.chapter.icps") },
-          { id: "campaigns", number: 3, label: t("dashx.chapter.campaigns") },
-          { id: "channels",  number: 4, label: t("dashx.chapter.channels") },
-          { id: "sellers",   number: 5, label: t("dashx.chapter.sellers") },
-        ]}
-      />
-
       {/* ═══ CHAPTER 1 · OVERVIEW ═══════════════════════════════════════════ */}
-      <section className="space-y-4 pt-3 sm:pt-4">
+      {filters.tab === "overview" && (
+      <section className="space-y-4 pt-2">
       <Chapter
         id="overview"
         number={1}
@@ -490,11 +501,13 @@ export default async function DashboardPage({
       </section>
 
       </section>
+      )}
       {/* ═══ CHAPTER 2 · ICPs ═══════════════════════════════════════════════
           Which ideal profiles convert best · which channel fits each one.
           Reading order: leaderboard first (the natural entry point), then
           the matrix below for the deeper 2D analysis. */}
-      <section className="space-y-4 pt-6 sm:pt-10">
+      {filters.tab === "icps" && (
+      <section className="space-y-4 pt-2">
       <Chapter id="icps" number={2} icon={Target} title={t("dashx.chapter.icps")} description={t("dashx.chapter.icps.desc")} />
 
       <section>
@@ -583,11 +596,13 @@ export default async function DashboardPage({
       </section>
 
       </section>
+      )}
       {/* ═══ CHAPTER 3 · CAMPAIGNS ═══════════════════════════════════════════
           Which sequences are working · per-step performance reveals which
           message is killing the funnel. Pause / rewrite candidates surface
           via the lagging callout. */}
-      <section className="space-y-4 pt-6 sm:pt-10">
+      {filters.tab === "campaigns" && (
+      <section className="space-y-4 pt-2">
       <Chapter id="campaigns" number={3} icon={Megaphone} title={t("dashx.chapter.campaigns")} description={t("dashx.chapter.campaigns.desc")} />
 
       <section>
@@ -746,11 +761,13 @@ export default async function DashboardPage({
       </section>
 
       </section>
+      )}
       {/* ═══ CHAPTER 4 · CHANNELS ═══════════════════════════════════════════
           How each outreach channel performs · when in the week replies
           actually arrive. Channel breakdown lives here (not Overview)
           because it answers "which channel works" — a channel question. */}
-      <section className="space-y-4 pt-6 sm:pt-10">
+      {filters.tab === "channels" && (
+      <section className="space-y-4 pt-2">
       <Chapter id="channels" number={4} icon={Send} title={t("dashx.chapter.channels")} description={t("dashx.chapter.channels.desc")} />
 
       <section>
@@ -789,11 +806,13 @@ export default async function DashboardPage({
       </section>
 
       </section>
+      )}
       {/* ═══ CHAPTER 5 · SELLERS ═══════════════════════════════════════════
           Who's moving the pipeline. Ranking uses reply rate normalized by
           contacted volume (≥20 floor) so the top isn't decided by who
           happened to inherit more leads. */}
-      <section className="space-y-4 pt-6 sm:pt-10">
+      {filters.tab === "sellers" && (
+      <section className="space-y-4 pt-2">
       <Chapter id="sellers" number={5} icon={Trophy} title={t("dashx.chapter.sellers")} description={t("dashx.chapter.sellers.desc")} />
 
       <section>
@@ -870,6 +889,7 @@ export default async function DashboardPage({
       </section>
 
       </section>
+      )}
       <SwlSignature caption={t("dashx.brand.captionMain")} tagline={t("dashx.brand.tagline")} />
     </div>
   );
