@@ -807,24 +807,65 @@ export async function getDashboardData(filters: DashboardFilters) {
   }
 
   // ── Auto insights ───────────────────────────────────────────────────────
-  const insights: { tone: "positive" | "warning" | "neutral"; text: string }[] = [];
+  // Insights are returned as STRUCTURED objects (kind + vars) instead of
+  // pre-formatted strings. The UI layer translates them via i18n. This
+  // separation lets the same data layer serve EN and ES without duplicate
+  // string templates in two places. The legacy `text` field is kept as a
+  // best-effort English render for any caller still expecting a string,
+  // but the dashboard reads `kind` + `vars` and looks up the locale copy.
+  type Insight = {
+    tone: "positive" | "warning" | "neutral";
+    /** Stable identifier for the locale lookup ("insight.positivesUp" → translated template). */
+    kind: string;
+    /** Placeholder values substituted into the translated template. */
+    vars: Record<string, string | number>;
+    /** Legacy English fallback so existing string consumers don't blow up. */
+    text: string;
+  };
+  const insights: Insight[] = [];
   if (deltas.positive !== null && deltas.positive >= 15) {
-    insights.push({ tone: "positive", text: `Respuestas positivas ↑${deltas.positive}% vs período anterior — el flow está tomando tracción.` });
+    insights.push({
+      tone: "positive",
+      kind: "positivesUp",
+      vars: { n: deltas.positive },
+      text: `Positive replies ↑${deltas.positive}% vs prior period — the flow is gaining traction.`,
+    });
   } else if (deltas.positive !== null && deltas.positive <= -15) {
-    insights.push({ tone: "warning", text: `Respuestas positivas ↓${Math.abs(deltas.positive)}% vs período anterior — revisá qué campaña se enfrió.` });
+    insights.push({
+      tone: "warning",
+      kind: "positivesDown",
+      vars: { n: Math.abs(deltas.positive) },
+      text: `Positive replies ↓${Math.abs(deltas.positive)}% vs prior period — check what cooled off.`,
+    });
   }
   if (channelBreakdown.length >= 2) {
     const best = channelBreakdown[0];
     const worst = channelBreakdown[channelBreakdown.length - 1];
     const gap = best.responseRate - worst.responseRate;
-    if (gap >= 15) insights.push({ tone: "neutral", text: `${best.channel} responde ${gap}% mejor que ${worst.channel} — considerá rebalancear el mix.` });
+    if (gap >= 15) insights.push({
+      tone: "neutral",
+      kind: "channelGap",
+      vars: { best: best.channel, worst: worst.channel, gap },
+      text: `${best.channel} replies ${gap}pp better than ${worst.channel} — consider rebalancing the mix.`,
+    });
   }
   if (sellerPerformance.length >= 2 && sellerPerformance[0].positive >= sellerPerformance[1].positive + 3) {
-    insights.push({ tone: "positive", text: `${sellerPerformance[0].name} lidera con ${sellerPerformance[0].positive} positivas (+${sellerPerformance[0].positive - sellerPerformance[1].positive} sobre #2).` });
+    const lead = sellerPerformance[0].positive - sellerPerformance[1].positive;
+    insights.push({
+      tone: "positive",
+      kind: "topSeller",
+      vars: { name: sellerPerformance[0].name, n: sellerPerformance[0].positive, lead },
+      text: `${sellerPerformance[0].name} leads with ${sellerPerformance[0].positive} positives (+${lead} over #2).`,
+    });
   }
   const stagnant = campaignPerformance.filter(c => c.leads >= 10 && c.conversionRate === 0 && c.status === "active");
   if (stagnant.length > 0) {
-    insights.push({ tone: "warning", text: `${stagnant.length} campaña${stagnant.length === 1 ? "" : "s"} con 0% conversión y ≥10 leads — revisar mensajes o pausar.` });
+    insights.push({
+      tone: "warning",
+      kind: stagnant.length === 1 ? "stagnantSingle" : "stagnantMany",
+      vars: { n: stagnant.length },
+      text: `${stagnant.length} campaign${stagnant.length === 1 ? "" : "s"} with 0% conversion and ≥10 leads — review or pause.`,
+    });
   }
 
   return {

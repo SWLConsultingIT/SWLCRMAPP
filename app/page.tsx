@@ -396,7 +396,14 @@ export default async function DashboardPage({
         const eyebrow = top.tone === "warning" ? t("dashx.highlight.alert")
           : top.tone === "positive" ? t("dashx.highlight.opportunity")
           : t("dashx.highlight.headline");
-        return <HighlightCallout tone={top.tone} eyebrow={eyebrow} text={top.text} />;
+        // Insights are now structured (kind + vars). Translate at render
+        // time so the banner respects Settings → Language. Fallback to
+        // .text if a new kind appears without a matching i18n key — keeps
+        // a sane default instead of showing a raw key.
+        const key = `dashx.insight.${top.kind}`;
+        const translated = t(key, top.vars);
+        const text = translated === key ? top.text : translated;
+        return <HighlightCallout tone={top.tone} eyebrow={eyebrow} text={text} />;
       })()}
 
       {/* ─── Funnel + Donut · 7/5 split (was 5/4/3 with an Insights col,

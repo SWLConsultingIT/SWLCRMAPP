@@ -105,7 +105,9 @@ async function loadSellerDetail(sellerId: string, dateFrom: string | null, dateT
   for (const c of camps) {
     const icpId = leadFor(c)?.icp_profile_id ?? "_unknown";
     let g = icpAgg.get(icpId);
-    if (!g) { g = { id: icpId, name: icpMap.get(icpId) ?? "Sin ICP", leads: new Set(), replied: new Set(), positive: new Set() }; icpAgg.set(icpId, g); }
+    // Internal sentinel for "no ICP attached" — the render layer translates
+    // this to the locale-appropriate label so we don't leak Spanish through.
+    if (!g) { g = { id: icpId, name: icpMap.get(icpId) ?? "_unknown_icp", leads: new Set(), replied: new Set(), positive: new Set() }; icpAgg.set(icpId, g); }
     if (c.lead_id) {
       g.leads.add(c.lead_id);
       if (repliedSet.has(c.lead_id)) g.replied.add(c.lead_id);
@@ -449,9 +451,9 @@ export default async function SellerDetailPage({
                       <div className="flex items-center gap-2">
                         <TopRankDot rank={idx} />
                         {i.id !== "_unknown" ? (
-                          <Link href={`/dashboard/icp/${i.id}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{i.name}</Link>
+                          <Link href={`/dashboard/icp/${i.id}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{i.name === "_unknown_icp" ? t("dashx.tbl.icp.unknown") : i.name}</Link>
                         ) : (
-                          <span style={{ color: C.textMuted }}>{i.name}</span>
+                          <span style={{ color: C.textMuted }}>{i.name === "_unknown_icp" ? t("dashx.tbl.icp.unknown") : i.name}</span>
                         )}
                       </div>
                     </td>

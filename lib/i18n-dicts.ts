@@ -315,6 +315,14 @@ export const en: Dict = {
   "dashx.highlight.alert": "Alert",
   "dashx.highlight.opportunity": "Opportunity",
   "dashx.highlight.headline": "Highlight",
+  // Insight templates — picked up by HighlightCallout. Placeholders match
+  // the vars set in lib/dashboard-data.ts.
+  "dashx.insight.positivesUp": "Positive replies ↑{n}% vs prior period — the flow is gaining traction.",
+  "dashx.insight.positivesDown": "Positive replies ↓{n}% vs prior period — check which campaign cooled off.",
+  "dashx.insight.channelGap": "{best} replies {gap}pp better than {worst} — consider rebalancing the mix.",
+  "dashx.insight.topSeller": "{name} leads with {n} positives (+{lead} over #2).",
+  "dashx.insight.stagnantSingle": "{n} active campaign with 0% conversion on ≥10 leads — review or pause.",
+  "dashx.insight.stagnantMany": "{n} active campaigns with 0% conversion on ≥10 leads — review or pause.",
   // ICP × Channel
   "dashx.matrix.title": "ICP × Channel",
   "dashx.matrix.subtitle": "Reply rate per combination · color by z-score · click to drill down",
@@ -933,6 +941,13 @@ export const es: Dict = {
   "dashx.highlight.alert": "Alerta",
   "dashx.highlight.opportunity": "Oportunidad",
   "dashx.highlight.headline": "Highlight",
+  // Insight templates — picked up by HighlightCallout
+  "dashx.insight.positivesUp": "Respuestas positivas ↑{n}% vs período anterior — el flow está tomando tracción.",
+  "dashx.insight.positivesDown": "Respuestas positivas ↓{n}% vs período anterior — revisá qué campaña se enfrió.",
+  "dashx.insight.channelGap": "{best} responde {gap}pp mejor que {worst} — considerá rebalancear el mix.",
+  "dashx.insight.topSeller": "{name} lidera con {n} positivas (+{lead} sobre #2).",
+  "dashx.insight.stagnantSingle": "{n} campaña activa con 0% conversión sobre ≥10 leads — revisar o pausar.",
+  "dashx.insight.stagnantMany": "{n} campañas activas con 0% conversión sobre ≥10 leads — revisar o pausar.",
   // ICP × Channel
   "dashx.matrix.title": "ICP × Canal",
   "dashx.matrix.subtitle": "Reply rate por combinación · color por z-score · click para drill-down",
