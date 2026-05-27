@@ -34,8 +34,10 @@ import InlineSpark from "@/components/dashboard/InlineSpark";
 import StepPerformance from "@/components/dashboard/StepPerformance";
 import Chapter from "@/components/dashboard/Chapter";
 import ChapterNav from "@/components/dashboard/ChapterNav";
-import HighlightCallout from "@/components/dashboard/HighlightCallout";
 import ChannelComparison from "@/components/dashboard/ChannelComparison";
+import HeroStat from "@/components/dashboard/HeroStat";
+import InsightPanel from "@/components/dashboard/InsightPanel";
+import MicroKpi from "@/components/dashboard/MicroKpi";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -291,44 +293,100 @@ export default async function DashboardPage({
         description={t("dashx.chapter.overview.desc")}
       />
 
-      {/* ─── KPI band — company-level totals (Fran's feedback: prior 4 KPIs
-          were too granular; he wants thick top-of-funnel + outcome numbers).
-          Each card answers "how much" not "how fast / how good %": Total
-          Leads · Active Campaigns · Won · Lost. Engagement details
-          (Contacted / Replies / Positives) live one level below in the
-          funnel + per-channel/per-ICP/per-seller leaderboards. */}
+      {/* ─── Hero row · HeroStat (Total Leads as the marquee number) +
+          InsightPanel (top AI-derived insights). Replaces the prior 4-KPI
+          band and the standalone Highlight banner; collapses both into
+          one premium dark-navy hero row that anchors the dashboard. The
+          remaining secondary KPIs (Active Campaigns / Won / Lost) sit in
+          a compact MicroKpi strip beneath. */}
       <section>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <KpiCard {...kpi18n}
-            label={t("dashx.kpi.totalLeads")}
-            value={headline.totalLeads.toLocaleString(dateLoc)}
-            icon={Users}
-            accent="#0A66C2"
-            hint={t("dashx.kpi.totalLeadsHint", { n: headline.contactedLeads })}
-          />
-          <KpiCard {...kpi18n}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+          <div className="lg:col-span-7">
+            {(() => {
+              // Derive totalLeads delta from the funnel's "Importados" stage,
+              // which already carries the prior-period count. Null when
+              // there's no prior basis — the panel renders "no comparable".
+              const priorTotal = data.funnel[0]?.prior ?? null;
+              const heroDelta = priorTotal != null && priorTotal > 0
+                ? Math.round((headline.totalLeads / priorTotal - 1) * 100)
+                : null;
+              return (
+                <HeroStat
+                  eyebrow={t("dashx.hero.eyebrow")}
+                  label={t("dashx.kpi.totalLeads")}
+                  value={headline.totalLeads.toLocaleString(dateLoc)}
+                  delta={heroDelta}
+                  vsPriorLabel={t("dashx.kpi.vsPrior")}
+                  noPriorLabel={t("dashx.kpi.noPrior")}
+                  trend={trend30d.sent}
+                  icon={Users}
+                  secondary={[
+                    { label: t("dashx.kpi.contacted"), value: headline.contactedLeads.toLocaleString(dateLoc) },
+                    { label: t("dashx.kpi.replied"),   value: headline.repliedCount.toLocaleString(dateLoc), tone: "default" },
+                    { label: t("dashx.kpi.positives"), value: headline.positiveCount.toLocaleString(dateLoc), tone: "success" },
+                  ]}
+                />
+              );
+            })()}
+          </div>
+          <div className="lg:col-span-5">
+            {(() => {
+              // Translate + rank the structured insights once, then hand
+              // off to the dark-themed AI panel. Sort by severity so the
+              // top warning surfaces first, then positives, then neutral.
+              const rank = (tone: string) => tone === "warning" ? 2 : tone === "positive" ? 1 : 0;
+              const insights = [...data.insights]
+                .sort((a, b) => rank(b.tone) - rank(a.tone))
+                .map(it => {
+                  const key = `dashx.insight.${it.kind}`;
+                  const translated = t(key, it.vars);
+                  return { tone: it.tone, text: translated === key ? it.text : translated };
+                });
+              return (
+                <InsightPanel
+                  title={t("dashx.insights.subtitle")}
+                  insights={insights}
+                  emptyText={t("dashx.insights.empty")}
+                />
+              );
+            })()}
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Compact strip — secondary KPIs that don't deserve full hero
+          weight but still need to read at-a-glance. MicroKpi is single-
+          line so the strip stays a third the height of the hero row.   */}
+      <section>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <MicroKpi
             label={t("dashx.kpi.activeCampaigns")}
             value={data.activeCampaignCount.toLocaleString(dateLoc)}
             icon={Megaphone}
             accent={gold}
             hint={t("dashx.kpi.activeCampaignsHint", { paused: data.pausedCampaignCount, closed: data.completedCampaignCount })}
+            vsPriorLabel={t("dashx.kpi.vsPrior")}
+            noPriorLabel={t("dashx.kpi.noPrior")}
             href="/campaigns"
           />
-          <KpiCard {...kpi18n}
+          <MicroKpi
             label={t("dashx.kpi.won")}
             value={headline.wonCount.toLocaleString(dateLoc)}
-            trend={trend30d.positive}
             icon={Trophy}
             accent={C.green}
             hint={t("dashx.kpi.wonHint", { n: headline.positiveCount })}
+            vsPriorLabel={t("dashx.kpi.vsPrior")}
+            noPriorLabel={t("dashx.kpi.noPrior")}
             href="/opportunities"
           />
-          <KpiCard {...kpi18n}
+          <MicroKpi
             label={t("dashx.kpi.lost")}
             value={headline.negativeCount.toLocaleString(dateLoc)}
             icon={AlertTriangle}
             accent="#DC2626"
             hint={t("dashx.kpi.lostHint")}
+            vsPriorLabel={t("dashx.kpi.vsPrior")}
+            noPriorLabel={t("dashx.kpi.noPrior")}
           />
         </div>
       </section>
@@ -387,30 +445,6 @@ export default async function DashboardPage({
           })()}
         </div>
       </section>
-
-      {/* ─── Highlight callout — single most-important signal of the period.
-          Replaces what used to be a 4-bullet "Insights" box. Pick logic:
-          first warning wins, then positive, then neutral. When nothing
-          notable, the banner is hidden entirely — absence is a signal. */}
-      {(() => {
-        const sorted = [...data.insights].sort((a, b) => {
-          const rank = (tone: string) => tone === "warning" ? 2 : tone === "positive" ? 1 : 0;
-          return rank(b.tone) - rank(a.tone);
-        });
-        const top = sorted[0];
-        if (!top) return null;
-        const eyebrow = top.tone === "warning" ? t("dashx.highlight.alert")
-          : top.tone === "positive" ? t("dashx.highlight.opportunity")
-          : t("dashx.highlight.headline");
-        // Insights are now structured (kind + vars). Translate at render
-        // time so the banner respects Settings → Language. Fallback to
-        // .text if a new kind appears without a matching i18n key — keeps
-        // a sane default instead of showing a raw key.
-        const key = `dashx.insight.${top.kind}`;
-        const translated = t(key, top.vars);
-        const text = translated === key ? top.text : translated;
-        return <HighlightCallout tone={top.tone} eyebrow={eyebrow} text={text} />;
-      })()}
 
       {/* ─── Funnel + Donut · 7/5 split (was 5/4/3 with an Insights col,
           the Insights are now surfaced as the Highlight banner above). */}
