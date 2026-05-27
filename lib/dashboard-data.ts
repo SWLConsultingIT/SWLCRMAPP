@@ -811,7 +811,10 @@ export async function getDashboardData(filters: DashboardFilters) {
   };
 
   // ── Reply classification breakdown (donut data) ─────────────────────────
-  const replyClassCounts: Record<string, number> = {};
+  // Seed positive/meeting_intent at 0 so the donut/legend always shows
+  // them — boss-feedback 2026-05-27: "positives debería aparecer aunque
+  // sean 0". The render layer relies on these keys being present.
+  const replyClassCounts: Record<string, number> = { positive: 0, meeting_intent: 0 };
   for (const r of replies) {
     const k = r.classification ?? "unclassified";
     replyClassCounts[k] = (replyClassCounts[k] ?? 0) + 1;

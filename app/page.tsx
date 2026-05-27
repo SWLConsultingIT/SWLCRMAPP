@@ -221,8 +221,14 @@ export default async function DashboardPage({
   // Reply classification → donut data. Labels come from the locale dict so
   // the donut speaks the user's language; falls back to the raw class string
   // when the key is missing (resilient to AI-side schema drift).
+  // Always-visible classifications — per boss feedback (2026-05-27),
+  // "Positives" must show up in the legend even when the count is 0, so
+  // the operator immediately sees that the period had zero positives
+  // instead of a missing slot. Other classes still get hidden when 0
+  // because rendering every neutral category would clutter the legend.
+  const ALWAYS_SHOW_REPLY_CLASSES = new Set(["positive", "meeting_intent"]);
   const donutSlices = Object.entries(data.replyClassCounts)
-    .filter(([, v]) => v > 0)
+    .filter(([k, v]) => v > 0 || ALWAYS_SHOW_REPLY_CLASSES.has(k))
     .map(([k, v]) => ({
       label: t(`dashx.reply.${k}`) === `dashx.reply.${k}` ? k : t(`dashx.reply.${k}`),
       value: v,
