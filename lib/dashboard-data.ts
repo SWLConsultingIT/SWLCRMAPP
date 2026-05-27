@@ -336,6 +336,15 @@ export async function getDashboardData(filters: DashboardFilters) {
     const s = channelStats.get(c.channel ?? "linkedin");
     if (s) s.sent++;
   }
+  // Boss-feedback 2026-05-27: the Channels chapter must always show
+  // email / linkedin / call cards, even when activity is zero — a missing
+  // card silently looked like "we don't have this channel" when really
+  // it means "we haven't used it this period".
+  for (const ch of ["linkedin", "email", "call"]) {
+    if (!channelStats.has(ch)) {
+      channelStats.set(ch, { sent: 0, contacted: new Set(), replied: new Set(), positive: new Set() });
+    }
+  }
   const channelBreakdown = Array.from(channelStats.entries()).map(([channel, s]) => ({
     channel,
     sent: s.sent,
@@ -444,6 +453,12 @@ export async function getDashboardData(filters: DashboardFilters) {
     matrixIcps.add(icp);
     matrixChannels.add(ch);
   }
+  // Boss-feedback 2026-05-27: matrix must always include email (and the
+  // other canonical outreach channels) even when zero leads have been
+  // contacted via them — the empty cells render as "—" and tell the
+  // operator "this channel exists, you just haven't used it for this ICP".
+  // Without this, missing channels invisibly disappear from the matrix.
+  for (const ch of ["linkedin", "email", "call"]) matrixChannels.add(ch);
 
   const channelOrder = ["linkedin", "email", "call", "whatsapp", "sms"];
   const orderedChannels = Array.from(matrixChannels).sort((a, b) => {
