@@ -1214,10 +1214,10 @@ export default async function DashboardPage({
                 <Th align="left">{t("dashx.tbl.col.seller")}</Th>
                 <Th align="right">{t("dashx.tbl.col.active")}</Th>
                 <Th align="right">{t("dashx.tbl.col.contacted")}</Th>
-                <Th align="right">{t("dashx.tbl.col.sent")}</Th>
-                <Th align="right">{t("dashx.tbl.col.replied")}</Th>
-                <Th align="right">{t("dashx.tbl.col.positive")}</Th>
-                <Th align="right">{t("dashx.tbl.col.convPct")}</Th>
+                <Th align="left">{t("dashx.tbl.col.sentByChannel")}</Th>
+                <Th align="right">{t("dashx.tbl.col.repliedFull")}</Th>
+                <Th align="right">{t("dashx.tbl.col.positiveFull")}</Th>
+                <Th align="right"><span title={t("dashx.tbl.col.convPctHint")}>{t("dashx.tbl.col.convPctFull")}</span></Th>
                 <Th align="left">{t("dashx.tbl.col.trend14")}</Th>
                 <Th align="left" style={{ width: 24 }}></Th>
               </tr>
@@ -1227,12 +1227,9 @@ export default async function DashboardPage({
                 <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="sellers" t={t} /></td></tr>
               ) : (() => {
                 const maxConv = Math.max(1, ...data.sellerPerformance.map(s => s.conversionRate));
-                return data.sellerPerformance.map((s, idx) => (
+                return data.sellerPerformance.map((s: any, idx: number) => (
                   <tr key={s.id} className="border-t hover:bg-black/[0.02] transition-colors" style={{ borderColor: C.border }}>
                     <Td>
-                      {/* Podium rank — gold gradient for #1 to anchor the
-                          leaderboard; navy ink ghost for the rest so the eye
-                          jumps straight to the leader on first scan. */}
                       <span className="inline-flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-bold"
                         style={{
                           background: idx === 0
@@ -1247,10 +1244,23 @@ export default async function DashboardPage({
                     <Td><Link href={withFilters(`/dashboard/seller/${s.id}`, filters)} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{s.name}</Link></Td>
                     <NumCell value={s.active} />
                     <NumCell value={s.contacted} />
-                    <NumCell value={s.sent} />
+                    <td className="px-3 py-2">
+                      <ChannelTouches
+                        linkedinSent={s.sentLinkedinConn ?? 0}
+                        linkedinMsg={s.sentLinkedinMsg ?? 0}
+                        emailTouch={s.sentEmail ?? 0}
+                        callTouch={s.sentCall ?? 0}
+                        labels={{
+                          linkedinSent: t("dashx.touch.linkedinSent"),
+                          linkedinMsg: t("dashx.touch.linkedinMsg"),
+                          emailTouch: t("dashx.touch.emailTouch"),
+                          callTouch: t("dashx.touch.callTouch"),
+                        }}
+                      />
+                    </td>
                     <NumCell value={s.replied} />
                     <NumCell value={s.positive} accent={s.positive > 0 ? C.green : undefined} bold />
-                    <td className="px-3 py-2"><div className="flex justify-end"><RateBar value={s.conversionRate} max={maxConv} color={C.green} /></div></td>
+                    <td className="px-3 py-2"><div className="flex justify-end" title={t("dashx.tbl.col.convPctHint")}><RateBar value={s.conversionRate} max={maxConv} color={C.green} /></div></td>
                     <td className="px-3 py-2"><InlineSpark data={s.spark} color={gold} /></td>
                     <td className="pr-3" style={{ color: C.textDim }}><Link href={withFilters(`/dashboard/seller/${s.id}`, filters)} className="inline-flex"><ArrowRight size={12} /></Link></td>
                   </tr>

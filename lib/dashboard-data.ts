@@ -738,12 +738,30 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   }).sort((a, b) => b.conversionRate - a.conversionRate || b.leads - a.leads);
 
   // ── Seller leaderboard ─────────────────────────────────────────────────
-  type SellerAgg = { id: string; name: string; contacted: Set<string>; replied: Set<string>; positive: Set<string>; active: number; sent: number };
+  // Boss feedback 2026-05-27: per-seller breakdown should expose the actual
+  // channel volume (connections sent, LinkedIn messages, emails, calls) so
+  // the operator can spot who's doing what — the prior version only showed
+  // the aggregated counts.
+  type SellerAgg = {
+    id: string; name: string;
+    contacted: Set<string>; replied: Set<string>; positive: Set<string>;
+    active: number; sent: number;
+    sentLinkedinConn: number; sentLinkedinMsg: number; sentEmail: number; sentCall: number;
+  };
   const sellerAgg = new Map<string, SellerAgg>();
   for (const c of campaigns) {
     if (!c.seller_id) continue;
     let g = sellerAgg.get(c.seller_id);
-    if (!g) { g = { id: c.seller_id, name: sellerMap.get(c.seller_id) ?? "Sin asignar", contacted: new Set(), replied: new Set(), positive: new Set(), active: 0, sent: 0 }; sellerAgg.set(c.seller_id, g); }
+    if (!g) {
+      g = {
+        id: c.seller_id,
+        name: sellerMap.get(c.seller_id) ?? "Sin asignar",
+        contacted: new Set(), replied: new Set(), positive: new Set(),
+        active: 0, sent: 0,
+        sentLinkedinConn: 0, sentLinkedinMsg: 0, sentEmail: 0, sentCall: 0,
+      };
+      sellerAgg.set(c.seller_id, g);
+    }
     if (c.lead_id) {
       g.contacted.add(c.lead_id);
       if (repliedLeadIds.has(c.lead_id)) g.replied.add(c.lead_id);
@@ -756,7 +774,14 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     const c = campaigns.find(x => x.id === m.campaign_id);
     if (!c?.seller_id) continue;
     const g = sellerAgg.get(c.seller_id);
-    if (g) g.sent++;
+    if (!g) continue;
+    g.sent++;
+    const ch = c.channel ?? "linkedin";
+    if (ch === "linkedin") {
+      if ((m.step_number ?? 0) === 0) g.sentLinkedinConn++;
+      else g.sentLinkedinMsg++;
+    } else if (ch === "email") g.sentEmail++;
+    else if (ch === "call") g.sentCall++;
   }
   const sellerPerformance = Array.from(sellerAgg.values()).map(g => ({
     id: g.id,
@@ -766,6 +791,10 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     replied: g.replied.size,
     positive: g.positive.size,
     active: g.active,
+    sentLinkedinConn: g.sentLinkedinConn,
+    sentLinkedinMsg: g.sentLinkedinMsg,
+    sentEmail: g.sentEmail,
+    sentCall: g.sentCall,
     responseRate: g.contacted.size > 0 ? Math.round((g.replied.size / g.contacted.size) * 100) : 0,
     conversionRate: g.contacted.size > 0 ? Math.round((g.positive.size / g.contacted.size) * 100) : 0,
   })).sort((a, b) => b.positive - a.positive || b.sent - a.sent);
