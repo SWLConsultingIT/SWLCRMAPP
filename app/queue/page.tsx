@@ -94,48 +94,14 @@ async function getQueueData() {
     acceptQuery = acceptQuery.in("campaigns.seller_id", sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"]);
   }
 
-  // Pending campaign requests
-  let pendingCampQuery = supabase.from("campaign_requests")
-    .select("id, name, target_leads_count, created_at, icp_profile_id")
-    .eq("status", "pending_review")
-    .order("created_at", { ascending: true });
-  if (scopedProfileIds) pendingCampQuery = pendingCampQuery.in("icp_profile_id", scopedProfileIds.length > 0 ? scopedProfileIds : ["00000000-0000-0000-0000-000000000000"]);
-
-  // Pending profiles
-  let pendingProfQuery = supabase.from("icp_profiles")
-    .select("id, profile_name, created_at")
-    .eq("status", "pending")
-    .order("created_at", { ascending: true });
-  if (scopedCompanyBioId) pendingProfQuery = pendingProfQuery.eq("company_bio_id", scopedCompanyBioId);
-
-  // Recent resolved requests (for Updates tab)
-  const twoWeeksAgo = new Date(Date.now() - 14 * 86400000).toISOString();
-
-  let resolvedCampQuery = supabase.from("campaign_requests")
-    .select("id, name, status, created_at, target_leads_count, icp_profile_id")
-    .in("status", ["approved", "rejected"])
-    .gte("created_at", twoWeeksAgo)
-    .order("created_at", { ascending: false })
-    .limit(30);
-  if (scopedProfileIds) resolvedCampQuery = resolvedCampQuery.in("icp_profile_id", scopedProfileIds.length > 0 ? scopedProfileIds : ["00000000-0000-0000-0000-000000000000"]);
-
-  let resolvedProfQuery = supabase.from("icp_profiles")
-    .select("id, profile_name, status, created_at")
-    .in("status", ["approved", "rejected"])
-    .gte("created_at", twoWeeksAgo)
-    .order("created_at", { ascending: false })
-    .limit(30);
-  if (scopedCompanyBioId) resolvedProfQuery = resolvedProfQuery.eq("company_bio_id", scopedCompanyBioId);
-
+  // (Pending Reviews + Updates tabs were removed from /queue per boss
+  // feedback 2026-05-27 — Pending Reviews deleted entirely, Updates moved
+  // to Lead Miner. Their data fetches were dropped here too.)
   const [
     { data: rawActiveCampaigns },
     { data: rawRecentReplies },
     { data: rawRecentAccepts },
-    { data: pendingCampaigns },
-    { data: pendingProfiles },
-    { data: resolvedCamps },
-    { data: resolvedProfs },
-  ] = await Promise.all([campQuery, replyQuery, acceptQuery, pendingCampQuery, pendingProfQuery, resolvedCampQuery, resolvedProfQuery]);
+  ] = await Promise.all([campQuery, replyQuery, acceptQuery]);
 
   // Decrypt client-source leads nested inside the three join queries so
   // sellers see real names instead of "Unknown" for tenants with encrypted
@@ -275,49 +241,7 @@ async function getQueueData() {
     }),
   ].sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
 
-  // Pending Reviews
-  const pendingReviews = [
-    ...(pendingCampaigns ?? []).map(req => ({
-      id: `camp-${req.id}`,
-      type: "campaign" as const,
-      name: req.name,
-      subtitle: `${req.target_leads_count} ${req.target_leads_count === 1 ? "lead" : "leads"} targeted`,
-      createdAt: req.created_at,
-      href: "/campaigns",
-    })),
-    ...(pendingProfiles ?? []).map(p => ({
-      id: `prof-${p.id}`,
-      type: "profile" as const,
-      name: p.profile_name,
-      subtitle: "ICP profile awaiting approval",
-      createdAt: p.created_at,
-      href: "/icp",
-    })),
-  ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-
-  // Updates (approved / rejected recent)
-  const updates = [
-    ...(resolvedCamps ?? []).map(r => ({
-      id: `camp-${r.id}`,
-      kind: "campaign" as const,
-      name: r.name,
-      status: r.status as "approved" | "rejected",
-      subtitle: `${r.target_leads_count} ${r.target_leads_count === 1 ? "lead" : "leads"} targeted`,
-      createdAt: r.created_at,
-      href: "/campaigns",
-    })),
-    ...(resolvedProfs ?? []).map(p => ({
-      id: `prof-${p.id}`,
-      kind: "profile" as const,
-      name: p.profile_name,
-      status: p.status as "approved" | "rejected",
-      subtitle: "ICP profile",
-      createdAt: p.created_at,
-      href: "/icp",
-    })),
-  ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-  return { pendingCalls, newReplies, pendingReviews, updates };
+  return { pendingCalls, newReplies };
 }
 
 export default async function QueuePage() {
