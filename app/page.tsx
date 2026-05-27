@@ -40,7 +40,6 @@ import CallsCard from "@/components/dashboard/CallsCard";
 import LinkedInConnectionsCard from "@/components/dashboard/LinkedInConnectionsCard";
 import TodayCard from "@/components/dashboard/TodayCard";
 import ChannelTouches from "@/components/dashboard/ChannelTouches";
-import HeroKpiCard from "@/components/dashboard/HeroKpiCard";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -354,79 +353,29 @@ export default async function DashboardPage({
         data={data.todayLists}
       />
 
-      {/* ─── Compact KPI strips — boss-feedback 2026-05-27 expanded the
-          required KPI list. Two rows of 4 micro-cards each:
-            Row A: campaign-state cohorts (Active / Paused / In-Active /
-                   No-Campaign)
-            Row B: outcomes (Won / Lost) + percentage stats already in
-                   the Pipeline Pulse below — kept separate so the strip
-                   stays single-purpose.
-          MicroKpi is single-line so the eye scans the whole strip fast. */}
-      {/* ─── ACT 2A · Hero KPIs — the 4 outcome metrics that matter most
-          right after the to-do hero (Won · Lost · Reply rate · Win rate).
-          Bigger cards with sparklines, accent halo + gold glow on hover
-          so they read as headline outcomes, not strip data. Each card
-          deep-links into the surface where the operator can act. */}
+      {/* ─── GENERAL OVERVIEW · 9 headline metrics arranged as boss asked
+          on 2026-05-27. Row 1 = portfolio state (totals + campaign cohorts).
+          Row 2 = outcomes (replies, wins, losses, rates). One titled
+          section so it reads as a single chapter, not 9 floating cards. */}
       <section>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <HeroKpiCard
-            label={t("dashx.kpi.won")}
-            value={headline.wonCount.toLocaleString(dateLoc)}
-            icon={Trophy}
-            accent={C.green}
-            trend={trend30d.positive}
-            hint={t("dashx.kpi.wonHint", { n: headline.positiveCount })}
-            vsPriorLabel={t("dashx.kpi.vsPrior")}
-            noPriorLabel={t("dashx.kpi.noPrior")}
-            href="/opportunities"
-          />
-          <HeroKpiCard
-            label={t("dashx.kpi.lost")}
-            value={headline.negativeCount.toLocaleString(dateLoc)}
-            icon={AlertTriangle}
-            accent="#DC2626"
-            hint={t("dashx.kpi.lostHint")}
-            vsPriorLabel={t("dashx.kpi.vsPrior")}
-            noPriorLabel={t("dashx.kpi.noPrior")}
-            href="/leads/lost"
-          />
-          <HeroKpiCard
-            label={t("dashx.pulse.replyRate")}
-            value={`${headline.responseRate}`}
-            unit="%"
-            icon={MessageSquare}
-            accent="#7C3AED"
-            trend={trend30d.replies}
-            hint={t("dashx.pulse.replyRateHint", { n: headline.repliedCount.toLocaleString(dateLoc), c: headline.contactedLeads.toLocaleString(dateLoc) })}
-            vsPriorLabel={t("dashx.kpi.vsPrior")}
-            noPriorLabel={t("dashx.kpi.noPrior")}
-            href="/inbox"
-          />
-          <HeroKpiCard
-            label={t("dashx.pulse.winRate")}
-            value={`${data.velocity.winRate}`}
-            unit="%"
-            icon={ThumbsUp}
-            accent={gold}
-            hint={t("dashx.pulse.winRateHint", { n: headline.wonCount.toLocaleString(dateLoc), c: headline.contactedLeads.toLocaleString(dateLoc) })}
-            vsPriorLabel={t("dashx.kpi.vsPrior")}
-            noPriorLabel={t("dashx.kpi.noPrior")}
-            href="/opportunities"
-          />
-        </div>
-      </section>
-
-      {/* ─── ACT 2B · Pipeline state — the supporting "where are we now"
-          counters in a compact strip. Smaller than the hero row so the
-          eye knows these are context, not headline outcomes. */}
-      <section>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <SectionHeader icon={Activity} title={t("dashx.overview.title")} subtitle={t("dashx.overview.subtitle")} />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
           <MicroKpi
             label={t("dashx.kpi.totalLeads")}
             value={headline.totalLeads.toLocaleString(dateLoc)}
             icon={Users}
             accent={C.textPrimary}
             hint={t("dashx.kpi.totalLeadsHintShort", { n: headline.contactedLeads })}
+            vsPriorLabel={t("dashx.kpi.vsPrior")}
+            noPriorLabel={t("dashx.kpi.noPrior")}
+            href="/leads"
+          />
+          <MicroKpi
+            label={t("dashx.kpi.leadsNoCampaign")}
+            value={data.leadsWithoutCampaign.toLocaleString(dateLoc)}
+            icon={Users}
+            accent="#94A3B8"
+            hint={t("dashx.kpi.leadsNoCampaignHint")}
             vsPriorLabel={t("dashx.kpi.vsPrior")}
             noPriorLabel={t("dashx.kpi.noPrior")}
             href="/leads"
@@ -451,15 +400,57 @@ export default async function DashboardPage({
             noPriorLabel={t("dashx.kpi.noPrior")}
             href="/campaigns?status=paused"
           />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <MicroKpi
-            label={t("dashx.kpi.leadsNoCampaign")}
-            value={data.leadsWithoutCampaign.toLocaleString(dateLoc)}
-            icon={Users}
-            accent="#94A3B8"
-            hint={t("dashx.kpi.leadsNoCampaignHint")}
+            label={t("dashx.kpi.totalReplies")}
+            value={headline.repliedCount.toLocaleString(dateLoc)}
+            icon={MessageSquare}
+            accent="#7C3AED"
+            hint={t("dashx.kpi.totalRepliesHint")}
             vsPriorLabel={t("dashx.kpi.vsPrior")}
             noPriorLabel={t("dashx.kpi.noPrior")}
-            href="/leads"
+            href="/inbox"
+          />
+          <MicroKpi
+            label={t("dashx.kpi.won")}
+            value={headline.wonCount.toLocaleString(dateLoc)}
+            icon={Trophy}
+            accent={C.green}
+            hint={t("dashx.kpi.wonHint", { n: headline.positiveCount })}
+            vsPriorLabel={t("dashx.kpi.vsPrior")}
+            noPriorLabel={t("dashx.kpi.noPrior")}
+            href="/opportunities"
+          />
+          <MicroKpi
+            label={t("dashx.kpi.lost")}
+            value={headline.negativeCount.toLocaleString(dateLoc)}
+            icon={AlertTriangle}
+            accent="#DC2626"
+            hint={t("dashx.kpi.lostHint")}
+            vsPriorLabel={t("dashx.kpi.vsPrior")}
+            noPriorLabel={t("dashx.kpi.noPrior")}
+            href="/leads/lost"
+          />
+          <MicroKpi
+            label={t("dashx.pulse.replyRate")}
+            value={`${headline.responseRate}%`}
+            icon={MessageSquare}
+            accent="#7C3AED"
+            hint={t("dashx.pulse.replyRateHint", { n: headline.repliedCount.toLocaleString(dateLoc), c: headline.contactedLeads.toLocaleString(dateLoc) })}
+            vsPriorLabel={t("dashx.kpi.vsPrior")}
+            noPriorLabel={t("dashx.kpi.noPrior")}
+            href="/inbox"
+          />
+          <MicroKpi
+            label={t("dashx.pulse.winRate")}
+            value={`${data.velocity.winRate}%`}
+            icon={ThumbsUp}
+            accent={gold}
+            hint={t("dashx.pulse.winRateHint", { n: headline.wonCount.toLocaleString(dateLoc), c: headline.contactedLeads.toLocaleString(dateLoc) })}
+            vsPriorLabel={t("dashx.kpi.vsPrior")}
+            noPriorLabel={t("dashx.kpi.noPrior")}
+            href="/opportunities"
           />
         </div>
       </section>

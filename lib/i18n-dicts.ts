@@ -303,6 +303,11 @@ export const en: Dict = {
   "dashx.kpi.wonHint": "{n} positive replies this period",
   "dashx.kpi.lost": "Lost",
   "dashx.kpi.lostHint": "Negative replies + unsubscribes",
+  "dashx.kpi.totalReplies": "Total replies",
+  "dashx.kpi.totalRepliesHint": "Across every channel",
+  // General Overview section (boss feedback 2026-05-27)
+  "dashx.overview.title": "General Overview",
+  "dashx.overview.subtitle": "Portfolio state · outcomes · rates",
   // "What to do today" card — narrative opener (boss feedback 2026-05-27)
   "dashx.today.title": "What to do today",
   "dashx.today.empty": "All caught up — nothing urgent right now.",
@@ -1067,6 +1072,11 @@ export const es: Dict = {
   "dashx.kpi.wonHint": "{n} respuestas positivas en el período",
   "dashx.kpi.lost": "Perdidos",
   "dashx.kpi.lostHint": "Respuestas negativas + unsubscribes",
+  "dashx.kpi.totalReplies": "Total respuestas",
+  "dashx.kpi.totalRepliesHint": "En todos los canales",
+  // General Overview section (boss feedback 2026-05-27)
+  "dashx.overview.title": "General Overview",
+  "dashx.overview.subtitle": "Estado del portfolio · outcomes · ratios",
   // "What to do today" card — narrative opener (boss feedback 2026-05-27)
   "dashx.today.title": "Qué hacer hoy",
   "dashx.today.empty": "Todo al día — nada urgente ahora mismo.",
