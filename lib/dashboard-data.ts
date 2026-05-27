@@ -909,6 +909,29 @@ export async function getDashboardData(filters: DashboardFilters) {
     activeCampaignCount: campaigns.filter(c => c.status === "active").length,
     pausedCampaignCount: campaigns.filter(c => c.status === "paused").length,
     completedCampaignCount: campaigns.filter(c => c.status === "completed").length,
+    // Lead-state cohort counts (boss-feedback 2026-05-27).
+    // - leadsInActiveCampaigns: of the period's leads, how many currently
+    //   sit inside at least one active or paused campaign? Uses *all*
+    //   campaigns (not period-filtered) because campaign activity is
+    //   stateful, not period-bound.
+    // - leadsWithoutCampaign: of the period's leads, how many have zero
+    //   campaigns at all (regardless of status). Tells the operator how
+    //   much of the bucket is untouched.
+    leadsInActiveCampaigns: (() => {
+      const activeIds = new Set<string>();
+      for (const c of allCampaigns) {
+        if (!c.lead_id) continue;
+        if (c.status === "active" || c.status === "paused") activeIds.add(c.lead_id);
+      }
+      return leads.filter(l => activeIds.has(l.id)).length;
+    })(),
+    leadsWithoutCampaign: (() => {
+      const withCampaign = new Set<string>();
+      for (const c of allCampaigns) {
+        if (c.lead_id) withCampaign.add(c.lead_id);
+      }
+      return leads.filter(l => !withCampaign.has(l.id)).length;
+    })(),
     velocity: {
       perDay: Math.round(velocityPerDay * 10) / 10,
       winRate,

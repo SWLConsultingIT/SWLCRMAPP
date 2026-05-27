@@ -373,21 +373,57 @@ export default async function DashboardPage({
         </div>
       </section>
 
-      {/* ─── Compact strip — secondary KPIs that don't deserve full hero
-          weight but still need to read at-a-glance. MicroKpi is single-
-          line so the strip stays a third the height of the hero row.   */}
+      {/* ─── Compact KPI strips — boss-feedback 2026-05-27 expanded the
+          required KPI list. Two rows of 4 micro-cards each:
+            Row A: campaign-state cohorts (Active / Paused / In-Active /
+                   No-Campaign)
+            Row B: outcomes (Won / Lost) + percentage stats already in
+                   the Pipeline Pulse below — kept separate so the strip
+                   stays single-purpose.
+          MicroKpi is single-line so the eye scans the whole strip fast. */}
       <section>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <MicroKpi
             label={t("dashx.kpi.activeCampaigns")}
             value={data.activeCampaignCount.toLocaleString(dateLoc)}
             icon={Megaphone}
             accent={gold}
-            hint={t("dashx.kpi.activeCampaignsHint", { paused: data.pausedCampaignCount, closed: data.completedCampaignCount })}
+            hint={t("dashx.kpi.activeCampaignsHintShort")}
             vsPriorLabel={t("dashx.kpi.vsPrior")}
             noPriorLabel={t("dashx.kpi.noPrior")}
             href="/campaigns"
           />
+          <MicroKpi
+            label={t("dashx.kpi.pausedCampaigns")}
+            value={data.pausedCampaignCount.toLocaleString(dateLoc)}
+            icon={Megaphone}
+            accent="#D97706"
+            hint={t("dashx.kpi.pausedCampaignsHint")}
+            vsPriorLabel={t("dashx.kpi.vsPrior")}
+            noPriorLabel={t("dashx.kpi.noPrior")}
+            href="/campaigns?status=paused"
+          />
+          <MicroKpi
+            label={t("dashx.kpi.leadsInActive")}
+            value={data.leadsInActiveCampaigns.toLocaleString(dateLoc)}
+            icon={Users}
+            accent="#0A66C2"
+            hint={t("dashx.kpi.leadsInActiveHint")}
+            vsPriorLabel={t("dashx.kpi.vsPrior")}
+            noPriorLabel={t("dashx.kpi.noPrior")}
+          />
+          <MicroKpi
+            label={t("dashx.kpi.leadsNoCampaign")}
+            value={data.leadsWithoutCampaign.toLocaleString(dateLoc)}
+            icon={Users}
+            accent={C.textMuted}
+            hint={t("dashx.kpi.leadsNoCampaignHint")}
+            vsPriorLabel={t("dashx.kpi.vsPrior")}
+            noPriorLabel={t("dashx.kpi.noPrior")}
+            href="/leads?campaign=none"
+          />
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-2 gap-3 mt-3">
           <MicroKpi
             label={t("dashx.kpi.won")}
             value={headline.wonCount.toLocaleString(dateLoc)}
