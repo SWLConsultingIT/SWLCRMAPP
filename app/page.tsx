@@ -13,7 +13,7 @@ import {
   AlertTriangle, ArrowRight, MessageSquare, ThumbsUp, Sparkles,
   Share2, Mail, Phone, Smartphone, FileDown, ChevronsRight, Activity,
 } from "lucide-react";
-import { C } from "@/lib/design";
+import { C, N } from "@/lib/design";
 import { getUserScope } from "@/lib/scope";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getDashboardData } from "@/lib/dashboard-data";
@@ -40,6 +40,7 @@ import CallsCard from "@/components/dashboard/CallsCard";
 import LinkedInConnectionsCard from "@/components/dashboard/LinkedInConnectionsCard";
 import TodayCard from "@/components/dashboard/TodayCard";
 import ChannelTouches from "@/components/dashboard/ChannelTouches";
+import HeroKpiCard from "@/components/dashboard/HeroKpiCard";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -293,7 +294,7 @@ export default async function DashboardPage({
 
       {/* ═══ CHAPTER 1 · OVERVIEW ═══════════════════════════════════════════ */}
       {filters.tab === "overview" && (
-      <section className="space-y-4 pt-2">
+      <section className="space-y-6 pt-3">
 
       {/* ─── ACT 1 · "What to do today" — narrative opener. Boss feedback
           2026-05-27: the dashboard must tell a story, not lead with vanity
@@ -326,11 +327,65 @@ export default async function DashboardPage({
                    the Pipeline Pulse below — kept separate so the strip
                    stays single-purpose.
           MicroKpi is single-line so the eye scans the whole strip fast. */}
-      {/* ─── ACT 2 · "What happened so far" — the KPI band. Every card
-          deep-links into the surface where the operator can act on that
-          number, per boss feedback: "que se vincule a las otras views". */}
+      {/* ─── ACT 2A · Hero KPIs — the 4 outcome metrics that matter most
+          right after the to-do hero (Won · Lost · Reply rate · Win rate).
+          Bigger cards with sparklines, accent halo + gold glow on hover
+          so they read as headline outcomes, not strip data. Each card
+          deep-links into the surface where the operator can act. */}
       <section>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <HeroKpiCard
+            label={t("dashx.kpi.won")}
+            value={headline.wonCount.toLocaleString(dateLoc)}
+            icon={Trophy}
+            accent={C.green}
+            trend={trend30d.positive}
+            hint={t("dashx.kpi.wonHint", { n: headline.positiveCount })}
+            vsPriorLabel={t("dashx.kpi.vsPrior")}
+            noPriorLabel={t("dashx.kpi.noPrior")}
+            href="/opportunities"
+          />
+          <HeroKpiCard
+            label={t("dashx.kpi.lost")}
+            value={headline.negativeCount.toLocaleString(dateLoc)}
+            icon={AlertTriangle}
+            accent="#DC2626"
+            hint={t("dashx.kpi.lostHint")}
+            vsPriorLabel={t("dashx.kpi.vsPrior")}
+            noPriorLabel={t("dashx.kpi.noPrior")}
+            href="/leads/lost"
+          />
+          <HeroKpiCard
+            label={t("dashx.pulse.replyRate")}
+            value={`${headline.responseRate}`}
+            unit="%"
+            icon={MessageSquare}
+            accent="#7C3AED"
+            trend={trend30d.replies}
+            hint={t("dashx.pulse.replyRateHint", { n: headline.repliedCount.toLocaleString(dateLoc), c: headline.contactedLeads.toLocaleString(dateLoc) })}
+            vsPriorLabel={t("dashx.kpi.vsPrior")}
+            noPriorLabel={t("dashx.kpi.noPrior")}
+            href="/inbox"
+          />
+          <HeroKpiCard
+            label={t("dashx.pulse.winRate")}
+            value={`${data.velocity.winRate}`}
+            unit="%"
+            icon={ThumbsUp}
+            accent={gold}
+            hint={t("dashx.pulse.winRateHint", { n: headline.wonCount.toLocaleString(dateLoc), c: headline.contactedLeads.toLocaleString(dateLoc) })}
+            vsPriorLabel={t("dashx.kpi.vsPrior")}
+            noPriorLabel={t("dashx.kpi.noPrior")}
+            href="/opportunities"
+          />
+        </div>
+      </section>
+
+      {/* ─── ACT 2B · Pipeline state — the supporting "where are we now"
+          counters in a compact strip. Smaller than the hero row so the
+          eye knows these are context, not headline outcomes. */}
+      <section>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <MicroKpi
             label={t("dashx.kpi.totalLeads")}
             value={headline.totalLeads.toLocaleString(dateLoc)}
@@ -371,58 +426,61 @@ export default async function DashboardPage({
             noPriorLabel={t("dashx.kpi.noPrior")}
             href="/leads"
           />
-          <MicroKpi
-            label={t("dashx.kpi.won")}
-            value={headline.wonCount.toLocaleString(dateLoc)}
-            icon={Trophy}
-            accent={C.green}
-            hint={t("dashx.kpi.wonHint", { n: headline.positiveCount })}
-            vsPriorLabel={t("dashx.kpi.vsPrior")}
-            noPriorLabel={t("dashx.kpi.noPrior")}
-            href="/opportunities"
-          />
-          <MicroKpi
-            label={t("dashx.kpi.lost")}
-            value={headline.negativeCount.toLocaleString(dateLoc)}
-            icon={AlertTriangle}
-            accent="#DC2626"
-            hint={t("dashx.kpi.lostHint")}
-            vsPriorLabel={t("dashx.kpi.vsPrior")}
-            noPriorLabel={t("dashx.kpi.noPrior")}
-            href="/leads/lost"
-          />
         </div>
       </section>
 
-      {/* ─── Pipeline Pulse strip — 4 rate/throughput stats that summarize the
-          engine at company level. Replaces the prior "Engine Health" alarm
-          strip (Acceptance / Saturation / At Risk / Channel Mismatch). Those
-          alarms still compute in dashboard-data but only surface through the
-          Highlight callout above when they actually trigger — no point taking
-          dashboard real estate to say "everything's fine". */}
-      <section className="rounded-2xl border overflow-hidden"
-        style={{ borderColor: C.border, backgroundColor: C.card }}>
-        <div className="px-4 py-2 flex items-center gap-2 border-b" style={{ borderColor: C.border }}>
-          <Activity size={11} style={{ color: C.textMuted }} />
-          <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em]" style={{ color: C.textMuted }}>{t("dashx.pulse.title")}</span>
-          <span className="text-[10.5px]" style={{ color: C.textDim }}>· {t("dashx.pulse.subtitle")}</span>
+      {/* ─── Pipeline Pulse — operational vitals strip. Reply/Win rate moved
+          to the Hero row; this strip now carries the velocity signals that
+          tell you HOW the engine is running (acceptance, TTFR, daily
+          volume, sequence depth). Navy-ink header + gold accent rail per
+          SWL polish brief 2026-05-27 round 3. */}
+      <section className="rounded-2xl border overflow-hidden relative"
+        style={{
+          borderColor: `color-mix(in srgb, ${gold} 18%, ${C.border})`,
+          backgroundColor: C.card,
+          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 14%, transparent), 0 6px 18px -10px ${N.ink}`,
+        }}>
+        <div
+          className="relative px-4 py-2.5 flex items-center gap-2 overflow-hidden"
+          style={{
+            background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
+            borderBottom: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
+          }}
+        >
+          <span
+            aria-hidden
+            className="absolute -top-10 -left-10 w-32 h-32 rounded-full pointer-events-none"
+            style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 20%, transparent) 0%, transparent 65%)` }}
+          />
+          <span
+            className="relative w-5 h-5 rounded-md flex items-center justify-center shrink-0"
+            style={{
+              background: `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 70%, white) 100%)`,
+              color: N.ink,
+              boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 32%, transparent)`,
+            }}
+          >
+            <Activity size={11} />
+          </span>
+          <span
+            className="relative text-[11px] font-bold uppercase tracking-[0.14em]"
+            style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
+          >
+            {t("dashx.pulse.title")}
+          </span>
+          <span className="relative text-[10.5px]" style={{ color: "color-mix(in srgb, white 50%, transparent)" }}>
+            · {t("dashx.pulse.subtitle")}
+          </span>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x" style={{ borderColor: C.border }}>
-          <HealthStat
-            label={t("dashx.pulse.replyRate")}
-            value={`${headline.responseRate}%`}
-            unit={t("dashx.pulse.replyRateUnit")}
-            hint={t("dashx.pulse.replyRateHint", { n: headline.repliedCount.toLocaleString(dateLoc), c: headline.contactedLeads.toLocaleString(dateLoc) })}
-            tone="neutral"
+          <PulseStat
+            label={t("dashx.pulse.acceptanceRate")}
+            value={`${data.velocity.acceptanceRate}%`}
+            unit={t("dashx.pulse.acceptanceRateUnit")}
+            hint={t("dashx.pulse.acceptanceRateHint", { sent: data.linkedinConnections.sent, accepted: data.linkedinConnections.accepted })}
+            tone={data.velocity.acceptanceRate >= 30 ? "success" : "neutral"}
           />
-          <HealthStat
-            label={t("dashx.pulse.winRate")}
-            value={`${data.velocity.winRate}%`}
-            unit={t("dashx.pulse.winRateUnit")}
-            hint={t("dashx.pulse.winRateHint", { n: headline.wonCount.toLocaleString(dateLoc), c: headline.contactedLeads.toLocaleString(dateLoc) })}
-            tone={data.velocity.winRate >= 10 ? "success" : "neutral"}
-          />
-          <HealthStat
+          <PulseStat
             label={t("dashx.pulse.ttfr")}
             value={data.velocity.medianTimeToReplyMin === null ? "—" : formatMinutes(data.velocity.medianTimeToReplyMin)}
             unit={data.velocity.medianTimeToReplyMin === null ? t("dashx.insuf") : t("dashx.pulse.ttfrUnit")}
@@ -430,14 +488,11 @@ export default async function DashboardPage({
             tone={data.velocity.medianTimeToReplyMin !== null && data.velocity.medianTimeToReplyMin > 72 * 60 ? "warning" : "neutral"}
           />
           {(() => {
-            // Daily send volume — avg messages/day in the 30-day trailing
-            // trend. Uses trend30d (always-on) instead of period-filtered
-            // counts so the value stays stable across short-window filters.
             const total = trend30d.sent.reduce((a, b) => a + b, 0);
             const avg = total / 30;
             const label = avg >= 10 ? Math.round(avg) : avg.toFixed(1);
             return (
-              <HealthStat
+              <PulseStat
                 label={t("dashx.pulse.dailyVolume")}
                 value={`${label}`}
                 unit={t("dashx.pulse.dailyVolumeUnit")}
@@ -446,6 +501,13 @@ export default async function DashboardPage({
               />
             );
           })()}
+          <PulseStat
+            label={t("dashx.pulse.velocity")}
+            value={`${data.velocity.perDay}`}
+            unit={t("dashx.pulse.velocityUnit")}
+            hint={t("dashx.pulse.velocityHint")}
+            tone={data.velocity.perDay >= 1 ? "success" : "neutral"}
+          />
         </div>
       </section>
 
@@ -1202,7 +1264,7 @@ function EmptyTableState({ filtered, kindKey, t }: { filtered: boolean; kindKey:
 /** Compact stat tile used inside the "Salud del motor" strip. Same density
  * grammar as VelocityStat but no gold gradient — visually quieter so the
  * Velocity strip stays the dominant north-star band above it. */
-function HealthStat({ label, value, unit, hint, tone }: {
+function PulseStat({ label, value, unit, hint, tone }: {
   label: string;
   value: string;
   unit: string;
@@ -1212,8 +1274,18 @@ function HealthStat({ label, value, unit, hint, tone }: {
   const accent = tone === "warning" ? "#D97706"
     : tone === "success" ? C.green
     : C.textPrimary;
+  // Tone tints the left-edge rail too so the eye picks up "OK / warn /
+  // win" without reading the number first.
+  const rail = tone === "success" ? `color-mix(in srgb, ${C.green} 90%, transparent)`
+    : tone === "warning" ? "#D97706"
+    : `color-mix(in srgb, ${gold} 55%, transparent)`;
   return (
-    <div className="px-5 py-4 flex flex-col gap-0.5">
+    <div className="relative px-5 py-4 flex flex-col gap-0.5 group">
+      <span
+        aria-hidden
+        className="absolute left-0 top-3 bottom-3 w-[2px] rounded-full transition-opacity opacity-70 group-hover:opacity-100"
+        style={{ background: rail }}
+      />
       <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>{label}</p>
       <p className="flex items-baseline gap-1.5 mt-1">
         <span className="text-[24px] font-bold tabular-nums tracking-[-0.02em]" style={{ color: accent, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{value}</span>
