@@ -39,7 +39,6 @@ import CallsCard from "@/components/dashboard/CallsCard";
 import LinkedInConnectionsCard from "@/components/dashboard/LinkedInConnectionsCard";
 import TodayCard from "@/components/dashboard/TodayCard";
 import ChannelTouches from "@/components/dashboard/ChannelTouches";
-import IcpHealthBadge from "@/components/dashboard/IcpHealthBadge";
 import HeroKpiCard from "@/components/dashboard/HeroKpiCard";
 
 const gold = "var(--brand, #c9a83a)";
@@ -716,7 +715,6 @@ export default async function DashboardPage({
             <thead>
               <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
                 <Th align="left">{t("dashx.tbl.col.icp")}</Th>
-                <Th align="left">{t("dashx.tbl.col.health")}</Th>
                 <Th align="right">{t("dashx.tbl.col.leads")}</Th>
                 <Th align="left">{t("dashx.tbl.col.channels")}</Th>
                 <Th align="right">{t("dashx.tbl.col.replied")}</Th>
@@ -729,7 +727,7 @@ export default async function DashboardPage({
             </thead>
             <tbody>
               {data.icpPerformance.length === 0 ? (
-                <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="icps" t={t} /></td></tr>
+                <tr><td colSpan={9} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="icps" t={t} /></td></tr>
               ) : (() => {
                 // Scale rate bars against the table's own leader so the #1
                 // row hits full width; relative ranking reads at a glance.
@@ -753,17 +751,6 @@ export default async function DashboardPage({
                         )}
                       </div>
                     </Td>
-                    <td className="px-3 py-2">
-                      <IcpHealthBadge
-                        responseRate={icp.responseRate}
-                        conversionRate={icp.conversionRate}
-                        contacted={icp.contacted}
-                        labelHealthy={t("dashx.icp.healthy")}
-                        labelCooling={t("dashx.icp.cooling")}
-                        labelStalled={t("dashx.icp.stalled")}
-                        labelNeedsData={t("dashx.icp.lowData")}
-                      />
-                    </td>
                     <NumCell value={icp.leads} />
                     <td className="px-3 py-2">
                       <ChannelTouches
@@ -827,34 +814,6 @@ export default async function DashboardPage({
           via the lagging callout. */}
       {filters.tab === "campaigns" && (
       <section className="space-y-6 pt-3">
-
-      {/* Hero stat band — high-level portfolio state before the table. */}
-      {(() => {
-        const active = data.campaignPerformance.filter(c => c.status === "active");
-        const paused = data.campaignPerformance.filter(c => c.status === "paused");
-        const stagnant = active.filter(c => c.leads >= 10 && c.conversionRate === 0);
-        const activeWithReplies = active.filter(c => c.leads > 0);
-        const avgConv = activeWithReplies.length > 0
-          ? Math.round(activeWithReplies.reduce((acc, c) => acc + c.conversionRate, 0) / activeWithReplies.length)
-          : 0;
-        return (
-          <section className="rounded-2xl border overflow-hidden relative"
-            style={{ borderColor: C.border, backgroundColor: C.card, boxShadow: `inset 0 2px 0 0 color-mix(in srgb, ${gold} 35%, transparent)` }}>
-            <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: C.border }}>
-              <CampHeroStat label={t("dashx.camp.heroActive")} value={active.length.toString()}
-                hint={t("dashx.camp.heroActiveHint", { n: active.reduce((acc, c) => acc + c.leads, 0) })} />
-              <CampHeroStat label={t("dashx.camp.heroPaused")} value={paused.length.toString()}
-                hint={paused.length > 0 ? t("dashx.camp.heroPausedHint", { n: paused.reduce((acc, c) => acc + c.leads, 0) }) : t("dashx.camp.heroPausedNone")} />
-              <CampHeroStat label={t("dashx.camp.heroStagnant")} value={stagnant.length.toString()}
-                hint={t("dashx.camp.heroStagnantHint")}
-                tone={stagnant.length > 0 ? "warning" : "neutral"} />
-              <CampHeroStat label={t("dashx.camp.heroAvgConv")} value={`${avgConv}%`}
-                hint={t("dashx.camp.heroAvgConvHint", { n: activeWithReplies.length })}
-                tone={avgConv >= 5 ? "positive" : "neutral"} />
-            </div>
-          </section>
-        );
-      })()}
 
       <section>
         {/* Status tabs — default to "active" so historical clutter doesn't bury
@@ -1545,24 +1504,6 @@ function PulseStat({ label, value, unit, hint, tone }: {
         <span className="text-[11px]" style={{ color: C.textMuted }}>{unit}</span>
       </p>
       <p className="text-[10.5px] leading-snug mt-0.5" style={{ color: C.textDim }}>{hint}</p>
-    </div>
-  );
-}
-
-function CampHeroStat({ label, value, hint, tone = "neutral" }: {
-  label: string;
-  value: string;
-  hint: string;
-  tone?: "neutral" | "warning" | "positive";
-}) {
-  const valueColor = tone === "warning" ? "#D97706"
-    : tone === "positive" ? C.green
-    : C.textPrimary;
-  return (
-    <div className="px-5 py-4 flex flex-col items-start gap-0.5">
-      <span className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>{label}</span>
-      <span className="text-[22px] font-semibold tabular-nums leading-tight" style={{ color: valueColor }}>{value}</span>
-      <span className="text-[10.5px]" style={{ color: C.textDim }}>{hint}</span>
     </div>
   );
 }
