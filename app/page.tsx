@@ -449,16 +449,9 @@ export default async function DashboardPage({
 
       {/* ═══ CHAPTER 2 · ICPs ═══════════════════════════════════════════════
           Which ideal profiles convert best · which channel fits each one.
-          Reading order: matrix first (the 2D comparison), then the linear
-          leaderboard with conversion + trend + drilldown. */}
+          Reading order: leaderboard first (the natural entry point), then
+          the matrix below for the deeper 2D analysis. */}
       <Chapter id="icps" number={2} icon={Target} title={t("dashx.chapter.icps")} description={t("dashx.chapter.icps.desc")} />
-
-      <section>
-        <SectionHeader icon={Target} title={t("dashx.matrix.title")} subtitle={t("dashx.matrix.subtitle")} />
-        <Panel>
-          <IcpChannelMatrix matrix={data.matrix} locale={locale} />
-        </Panel>
-      </section>
 
       <section>
         <SectionHeader icon={Target} title={t("dashx.tbl.icp.title")} subtitle={t("dashx.tbl.icp.subtitle")} />
@@ -523,6 +516,16 @@ export default async function DashboardPage({
         </Panel>
       </section>
 
+      {/* ICP × Channel matrix — sits AFTER the leaderboard now. The table is
+          the natural entry point ("which ICP wins?"); the matrix is the
+          deeper drilldown ("which channel works for each ICP?"). */}
+      <section>
+        <SectionHeader icon={Target} title={t("dashx.matrix.title")} subtitle={t("dashx.matrix.subtitle")} />
+        <Panel>
+          <IcpChannelMatrix matrix={data.matrix} locale={locale} />
+        </Panel>
+      </section>
+
       {/* ═══ CHAPTER 3 · CAMPAIGNS ═══════════════════════════════════════════
           Which sequences are working · per-step performance reveals which
           message is killing the funnel. Pause / rewrite candidates surface
@@ -556,6 +559,7 @@ export default async function DashboardPage({
                 <Th align="right">{t("dashx.tbl.col.replied")}</Th>
                 <Th align="right">{t("dashx.tbl.col.positive")}</Th>
                 <Th align="right">{t("dashx.tbl.col.convPct")}</Th>
+                <Th align="right">{t("dashx.tbl.col.velocity")}</Th>
                 <Th align="left">{t("dashx.tbl.col.status")}</Th>
                 <Th align="left">{t("dashx.tbl.col.trend14")}</Th>
                 <Th align="left" style={{ width: 24 }}></Th>
@@ -563,8 +567,14 @@ export default async function DashboardPage({
             </thead>
             <tbody>
               {data.campaignPerformance.length === 0 ? (
-                <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="campaigns" t={t} /></td></tr>
-              ) : data.campaignPerformance.map((c, idx) => (
+                <tr><td colSpan={11} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="campaigns" t={t} /></td></tr>
+              ) : data.campaignPerformance.map((c, idx) => {
+                // Velocity = positives per day in the active period. Lets the
+                // operator separate hot campaigns (winning the month) from
+                // sleepy ones (historical conversion but no momentum).
+                const velocity = data.period.days > 0 ? (c.positive / data.period.days) : 0;
+                const velocityLabel = velocity >= 0.1 ? velocity.toFixed(1) : velocity > 0 ? velocity.toFixed(2) : "0";
+                return (
                 <tr key={c.name} className="border-t hover:bg-black/[0.02] transition-colors group" style={{ borderColor: C.border }}>
                   <Td>
                     <div className="flex items-center gap-2">
@@ -586,11 +596,15 @@ export default async function DashboardPage({
                   <NumCell value={c.replied} />
                   <NumCell value={c.positive} accent={c.positive > 0 ? C.green : undefined} bold />
                   <RateCell value={c.conversionRate} color={C.green} />
+                  <td className="px-3 py-2 text-right tabular-nums text-[12px]" style={{ color: velocity > 0 ? C.textPrimary : C.textDim }}>
+                    {velocityLabel}
+                    <span className="text-[9.5px] ml-0.5" style={{ color: C.textDim }}>/d</span>
+                  </td>
                   <td className="px-3 py-2"><StatusBadge status={c.status} t={t} /></td>
                   <td className="px-3 py-2"><InlineSpark data={c.spark} color="#0A66C2" /></td>
                   <td className="pr-3" style={{ color: C.textDim }}><Link href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)} className="inline-flex"><ArrowRight size={12} /></Link></td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
         </Panel>
