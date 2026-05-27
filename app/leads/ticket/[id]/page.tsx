@@ -240,6 +240,7 @@ export default async function TicketDetailPage({
 
   return (
     <TicketDetailClient
+      profileId={id}
       ticketName={data.name}
       campaigns={data.campaigns}
       leads={data.leads}

@@ -230,22 +230,56 @@ export function LeadFilterBar({
       </div>
 
       {showProfileFilter && profileNames && profileNames.length > 1 && (
-        <div className="px-4 py-2.5 border-t flex items-start gap-3 flex-wrap" style={{ borderColor: C.border, backgroundColor: C.card }}>
-          <PillGroup
-            icon={<Target size={11} />}
-            label="ICP"
-            value={filters.profile}
-            onChange={v => set("profile", v)}
-            wrap
-            options={[
-              { key: "all", label: "All" },
-              // No truncation — long ICP names like "Pathway Invoice
-              // Finance — Construction" used to all collapse to the same
-              // "Pathway Invoice Financ…" string and become indistinguishable.
-              // PillGroup wraps to multiple lines when names don't fit on one.
-              ...profileNames.map(n => ({ key: n, label: n })),
-            ]}
-          />
+        <div className="px-4 py-2.5 border-t flex items-center gap-3 flex-wrap" style={{ borderColor: C.border, backgroundColor: C.card }}>
+          {/* Many tenants have 10+ ICPs (Pathway has 13 active at peak). Wrap
+              pills become a paragraph of text; dropdown collapses to one tidy
+              control. Threshold of 5 keeps small tenants on the prettier pill
+              layout. */}
+          {profileNames.length > 5 ? (
+            <div className="flex items-center gap-2">
+              <span style={{ color: C.textDim }}><Target size={11} /></span>
+              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textMuted, letterSpacing: "0.08em" }}>ICP</span>
+              <div
+                className="flex items-center gap-1.5 rounded-lg border pl-2.5 pr-1.5 py-1"
+                style={{
+                  backgroundColor: filters.profile !== "all" ? `color-mix(in srgb, ${goldDark} 8%, ${C.bg})` : C.bg,
+                  borderColor: filters.profile !== "all" ? `color-mix(in srgb, ${goldDark} 32%, ${C.border})` : C.border,
+                }}
+              >
+                <select
+                  value={filters.profile}
+                  onChange={e => set("profile", e.target.value)}
+                  className="bg-transparent text-[11px] font-semibold outline-none appearance-none pr-1"
+                  style={{ color: filters.profile !== "all" ? goldDark : C.textBody, maxWidth: 280 }}
+                >
+                  <option value="all">All ICPs ({profileNames.length})</option>
+                  {profileNames.map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+                <ChevronDown size={11} style={{ color: filters.profile !== "all" ? goldDark : C.textDim }} />
+              </div>
+              {filters.profile !== "all" && (
+                <button
+                  onClick={() => set("profile", "all")}
+                  className="rounded p-0.5 hover:bg-black/5 transition-colors"
+                  title="Clear ICP filter"
+                >
+                  <X size={11} style={{ color: C.textDim }} />
+                </button>
+              )}
+            </div>
+          ) : (
+            <PillGroup
+              icon={<Target size={11} />}
+              label="ICP"
+              value={filters.profile}
+              onChange={v => set("profile", v)}
+              wrap
+              options={[
+                { key: "all", label: "All" },
+                ...profileNames.map(n => ({ key: n, label: n })),
+              ]}
+            />
+          )}
         </div>
       )}
     </div>

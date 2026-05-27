@@ -1431,14 +1431,184 @@ function ProfileCard({ group }: { group: ProfileGroup }) {
   );
 }
 
+// ─── Campaigns view (grouped by ICP / Lead Miner ticket, accordion style) ──
+// Mirrors the look of ActiveCampaignsView in /campaigns but works with the
+// lighter ProfileGroup shape that /leads already computes — so we don't
+// duplicate the campaign_messages aggregation server-side just to satisfy
+// the visual parity. Each section is one ICP (collapsible); the rows inside
+// are individual flow names with their status counts + reply rate.
+function CampaignsByIcpView({
+  groups, search, onSearchChange,
+}: {
+  groups: ProfileGroup[];
+  search: string;
+  onSearchChange: (v: string) => void;
+}) {
+  const filtered = !search ? groups : groups.filter(g =>
+    g.profileName.toLowerCase().includes(search.toLowerCase()) ||
+    g.campaigns.some(c => c.name.toLowerCase().includes(search.toLowerCase())) ||
+    g.leads.some(l => `${l.first_name ?? ""} ${l.last_name ?? ""} ${l.company ?? ""}`.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  return (
+    <div className="w-full">
+      <div className="flex items-center justify-end mb-4">
+        <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5" style={{ borderColor: C.border, backgroundColor: C.card }}>
+          <Search size={14} style={{ color: C.textDim }} />
+          <input
+            type="text" value={search} onChange={e => onSearchChange(e.target.value)}
+            placeholder="Search ICP, flow, or lead…"
+            className="bg-transparent text-sm outline-none w-64"
+            style={{ color: C.textPrimary }}
+          />
+          {search && <button onClick={() => onSearchChange("")}><X size={12} style={{ color: C.textDim }} /></button>}
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <Megaphone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
+          <p className="text-sm font-medium" style={{ color: C.textBody }}>
+            {search ? "No flows match your search" : "No active flows yet"}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((g, i) => (
+            <IcpFlowsSection key={g.profileId} group={g} defaultOpen={i === 0} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IcpFlowsSection({ group, defaultOpen }: { group: ProfileGroup; defaultOpen: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
+  const replyRate = group.contactedCount > 0 ? Math.round((group.totalReplies / group.contactedCount) * 100) : 0;
+
+  // Roll up campaigns by name so multiple per-lead campaign rows with the
+  // same flow show as a single row inside the section.
+  const flowMap: Record<string, { name: string; status: string; channels: Set<string>; total: number; active: number; sent: number }> = {};
+  for (const c of group.campaigns) {
+    if (!flowMap[c.name]) flowMap[c.name] = { name: c.name, status: c.status, channels: new Set(), total: 0, active: 0, sent: 0 };
+    const f = flowMap[c.name];
+    f.channels.add(c.channel);
+    f.total++;
+    if (c.status === "active" || c.status === "paused") f.active++;
+    f.sent += c.messages_sent ?? 0;
+    if (c.status === "active") f.status = "active";
+  }
+  const flows = Object.values(flowMap).sort((a, b) => b.active - a.active);
+
+  return (
+    <section className="rounded-2xl border overflow-hidden"
+      style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-black/[0.02]"
+        style={{ borderBottom: open ? `1px solid ${C.border}` : "none" }}>
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+          style={{
+            background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`,
+            boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 30%, transparent)`,
+          }}>
+          <Target size={16} style={{ color: "#fff" }} strokeWidth={2.2} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: gold }}>Lead Miner Profile</span>
+            <span className="text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-md" style={{ backgroundColor: C.surface, color: C.textMuted }}>
+              {flows.length} flow{flows.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          <h2 className="text-[16px] font-bold truncate" style={{ color: C.textPrimary }}>{group.profileName}</h2>
+        </div>
+        <div className="hidden md:flex items-center gap-5 shrink-0 mr-2">
+          <div className="text-right">
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>Leads</p>
+            <p className="text-base font-bold tabular-nums leading-none mt-0.5" style={{ color: C.textPrimary }}>{group.leads.length}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>Replies</p>
+            <p className="text-base font-bold tabular-nums leading-none mt-0.5" style={{ color: group.totalReplies > 0 ? C.blue : C.textPrimary }}>
+              {group.totalReplies}<span className="ml-1 text-[10px]" style={{ color: C.textDim }}>({replyRate}%)</span>
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>Positive</p>
+            <p className="text-base font-bold tabular-nums leading-none mt-0.5" style={{ color: group.positiveCount > 0 ? C.green : C.textPrimary }}>{group.positiveCount}</p>
+          </div>
+        </div>
+        <ChevronRight size={18} style={{ color: C.textMuted, transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s ease" }} />
+      </button>
+
+      {open && (
+        <div className="p-4 space-y-2" style={{ backgroundColor: C.bg }}>
+          {flows.map(f => {
+            const isActive = f.active > 0;
+            return (
+              <Link key={f.name} href={`/leads/ticket/${group.profileId}`}
+                className="flex items-center gap-3 rounded-xl border px-4 py-3 transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:shadow-md group"
+                style={{ backgroundColor: C.card, borderColor: C.border }}>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {[...f.channels].map(ch => {
+                    const meta: Record<string, { color: string }> = {
+                      linkedin: { color: "#0A66C2" },
+                      email:    { color: "#7C3AED" },
+                      whatsapp: { color: "#25D366" },
+                      call:     { color: "#F97316" },
+                    };
+                    const m = meta[ch] ?? { color: C.textDim };
+                    return (
+                      <span key={ch} className="w-2 h-2 rounded-full" style={{ backgroundColor: m.color }} />
+                    );
+                  })}
+                </div>
+                <h3 className="flex-1 min-w-0 text-[13px] font-semibold truncate group-hover:underline" style={{ color: C.textPrimary }}>{f.name}</h3>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0"
+                  style={{
+                    backgroundColor: isActive ? `color-mix(in srgb, ${gold} 14%, transparent)` : C.cardHov,
+                    color: isActive ? gold : C.textMuted,
+                    border: `1px solid color-mix(in srgb, ${isActive ? gold : C.textDim} 22%, transparent)`,
+                  }}>
+                  {isActive ? `${f.active} active` : "Idle"}
+                </span>
+                <div className="text-right shrink-0">
+                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>Leads</p>
+                  <p className="text-[13px] font-bold tabular-nums" style={{ color: C.textPrimary }}>{f.total}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>Sent</p>
+                  <p className="text-[13px] font-bold tabular-nums" style={{ color: C.textBody }}>{f.sent}</p>
+                </div>
+                <ChevronRight size={14} style={{ color: C.textDim }} className="transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
 // ─── Main ──────────────────────────────────────────────────────────────────────
 export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLeads, renurturingLeads, wonLeads, companies, stats, totalLeadCount }: Props) {
-  const [mainView, setMainView] = useState<"leads" | "campaigns">("leads");
-  // leadsTab: 0 = All Leads, 1 = Results. Results contains Won/Lost/Re-nurturing.
-  const [leadsTab, setLeadsTab] = useState(0);
-  const [allLeadsSubview, setAllLeadsSubview] = useState<"people" | "companies">("people");
-  const [resultsSubview, setResultsSubview] = useState<"won" | "lost" | "renurturing">("won");
+  // Boss feedback 2026-05-27 (Leads & Campaigns rework):
+  //   - Companies is now a top-level tab (was sub-toggle inside All Leads)
+  //   - Lead sub-tabs are FLAT (no "Results" wrapper): All / Without Campaign
+  //     / Won / Lost / Nurture
+  //   - Campaigns view groups flows by ICP/ticket so the manager scans by
+  //     Lead Miner profile, not by campaign name.
+  const [mainView, setMainView] = useState<"leads" | "companies" | "campaigns">("leads");
+  type LeadSubTab = "all" | "without_campaign" | "won" | "lost" | "nurture";
+  const [leadSubTab, setLeadSubTab] = useState<LeadSubTab>("all");
   const [search, setSearch] = useState("");
+
+  // Leads without an active campaign — derived once. The legacy "All Leads"
+  // view already exposes this via the saved-view chip "Without Campaign",
+  // but elevating it to a first-class sub-tab matches how the boss thinks
+  // about queue work ("who do I still need to schedule?").
+  const leadsWithoutCampaign = allLeads.filter(l => !l.has_campaign);
 
   const activeGroups = profileGroups.filter(g => (g.statusCounts.active ?? 0) + (g.statusCounts.paused ?? 0) > 0);
 
@@ -1517,18 +1687,23 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
         ))}
       </div>
 
-      {/* ═══ Main view toggle: Leads / Campaigns ═══ */}
+      {/* ═══ Main view toggle: Leads / Companies / Campaigns ═══
+          Companies graduated from a People/Companies sub-toggle inside Leads
+          to a first-class top-level tab. The boss reads them as parallel
+          surfaces, not as a "view onto leads". */}
       <div className="flex items-center gap-1.5 mb-5">
         {([
-          { key: "leads" as const,     label: "Leads",     count: allLeads.length },
-          { key: "campaigns" as const, label: "Campaigns", count: activeGroups.length },
+          { key: "leads" as const,     label: "Leads",     icon: UsersIcon, count: allLeads.length },
+          { key: "companies" as const, label: "Companies", icon: Building2, count: companies.length },
+          { key: "campaigns" as const, label: "Campaigns", icon: Megaphone, count: activeGroups.length },
         ]).map(v => {
           const isActive = mainView === v.key;
+          const Icon = v.icon;
           return (
             <button
               key={v.key}
               onClick={() => { setMainView(v.key); setSearch(""); }}
-              className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] duration-150 hover:opacity-95"
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] duration-150 hover:opacity-95 inline-flex items-center gap-2"
               style={{
                 background: isActive ? `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))` : C.card,
                 color: isActive ? "#04070d" : C.textBody,
@@ -1536,9 +1711,10 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
                 boxShadow: isActive ? `0 4px 16px color-mix(in srgb, ${gold} 28%, transparent)` : "none",
               }}
             >
+              <Icon size={13} />
               {v.label}
               <span
-                className="ml-2 text-xs font-bold px-1.5 py-0.5 rounded-full"
+                className="text-xs font-bold px-1.5 py-0.5 rounded-full"
                 style={{
                   backgroundColor: isActive ? "rgba(4,7,13,0.14)" : C.cardHov,
                   color: isActive ? "#04070d" : C.textDim,
@@ -1551,20 +1727,25 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
         })}
       </div>
 
-      {/* ═══ LEADS VIEW ═══ */}
+      {/* ═══ LEADS VIEW (flat sub-tabs: All / Without Campaign / Won / Lost / Nurture) ═══
+          No more "Results" wrapper. The 5 sub-tabs sit at the same level so
+          the manager doesn't have to two-click to reach Won/Lost. */}
       {mainView === "leads" && (
         <div>
-          <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
-            {[
-              { label: "All Leads", count: allLeads.length, color: gold },
-              { label: "Results",   count: wonLeads.length + lostLeads.length + renurturingLeads.length, color: C.green },
-            ].map((t, i) => {
-              const isActive = leadsTab === i;
+          <div className="flex items-center gap-1 border-b mb-6 overflow-x-auto" style={{ borderColor: C.border }}>
+            {([
+              { key: "all" as const,              label: "All Leads",         count: allLeads.length,             color: gold },
+              { key: "without_campaign" as const, label: "Without Campaign",  count: leadsWithoutCampaign.length, color: "#92400E" },
+              { key: "won" as const,              label: "Won",               count: wonLeads.length,             color: C.green },
+              { key: "lost" as const,             label: "Lost",              count: lostLeads.length,            color: C.red },
+              { key: "nurture" as const,          label: "Nurture",           count: renurturingLeads.length,     color: gold },
+            ]).map(t => {
+              const isActive = leadSubTab === t.key;
               return (
                 <button
-                  key={t.label}
-                  onClick={() => setLeadsTab(i)}
-                  className="flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-[color,background-color] duration-150 relative"
+                  key={t.key}
+                  onClick={() => setLeadSubTab(t.key)}
+                  className="flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-[color,background-color] duration-150 relative whitespace-nowrap"
                   style={{
                     color: isActive ? t.color : C.textMuted,
                     backgroundColor: isActive ? `color-mix(in srgb, ${t.color} 6%, transparent)` : "transparent",
@@ -1588,123 +1769,32 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
             })}
           </div>
 
-          {leadsTab === 0 && (
-            <div>
-              {/* People / Companies sub-toggle */}
-              <div className="flex items-center gap-1 mb-5 p-1 rounded-lg border max-w-fit"
-                style={{ backgroundColor: C.card, borderColor: C.border }}>
-                {([
-                  { key: "people" as const,    label: "People",    icon: UsersIcon,   count: allLeads.length },
-                  { key: "companies" as const, label: "Companies", icon: Building2,   count: companies.length },
-                ]).map(opt => {
-                  const isActive = allLeadsSubview === opt.key;
-                  const Icon = opt.icon;
-                  return (
-                    <button
-                      key={opt.key}
-                      onClick={() => setAllLeadsSubview(opt.key)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-[background-color,color] duration-150"
-                      style={{
-                        backgroundColor: isActive ? gold : "transparent",
-                        color: isActive ? "#04070d" : C.textBody,
-                      }}
-                    >
-                      <Icon size={12} />
-                      {opt.label}
-                      <span
-                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                        style={{
-                          backgroundColor: isActive ? "rgba(4,7,13,0.14)" : C.cardHov,
-                          color: isActive ? "#04070d" : C.textDim,
-                        }}
-                      >
-                        {opt.count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              {allLeadsSubview === "people" && <AllLeadsTable leads={allLeads} />}
-              {allLeadsSubview === "companies" && <CompaniesGrid companies={companies} />}
-            </div>
-          )}
-          {leadsTab === 1 && (
-            <div>
-              {/* Won / Lost / Re-nurturing sub-toggle */}
-              <div className="flex items-center gap-1 mb-5 p-1 rounded-lg border max-w-fit"
-                style={{ backgroundColor: C.card, borderColor: C.border }}>
-                {([
-                  { key: "won" as const,         label: "Won",          icon: Trophy,        count: wonLeads.length,         color: C.green },
-                  { key: "lost" as const,        label: "Lost",         icon: X,             count: lostLeads.length,        color: C.red },
-                  { key: "renurturing" as const, label: "Re-nurturing", icon: RefreshCw,     count: renurturingLeads.length, color: gold },
-                ]).map(opt => {
-                  const isActive = resultsSubview === opt.key;
-                  const Icon = opt.icon;
-                  return (
-                    <button
-                      key={opt.key}
-                      onClick={() => setResultsSubview(opt.key)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-[background-color,color] duration-150"
-                      style={{
-                        backgroundColor: isActive ? opt.color : "transparent",
-                        color: isActive ? "#fff" : C.textBody,
-                      }}
-                    >
-                      <Icon size={12} />
-                      {opt.label}
-                      <span
-                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                        style={{
-                          backgroundColor: isActive ? "rgba(255,255,255,0.22)" : C.cardHov,
-                          color: isActive ? "#fff" : C.textDim,
-                        }}
-                      >
-                        {opt.count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              {resultsSubview === "won" && <WonView leads={wonLeads} />}
-              {resultsSubview === "lost" && <LostLeadsView leads={lostLeads} />}
-              {resultsSubview === "renurturing" && <RenurturingView leads={renurturingLeads} />}
-            </div>
-          )}
+          {leadSubTab === "all" && <AllLeadsTable leads={allLeads} />}
+          {leadSubTab === "without_campaign" && <AllLeadsTable leads={leadsWithoutCampaign} />}
+          {leadSubTab === "won" && <WonView leads={wonLeads} />}
+          {leadSubTab === "lost" && <LostLeadsView leads={lostLeads} />}
+          {leadSubTab === "nurture" && <RenurturingView leads={renurturingLeads} />}
         </div>
       )}
 
-      {/* ═══ CAMPAIGNS VIEW ═══ */}
-      {mainView === "campaigns" && (
+      {/* ═══ COMPANIES VIEW (top-level) ═══ */}
+      {mainView === "companies" && (
         <div>
-          <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
-            <div className="flex items-center gap-2 px-5 py-3 text-sm font-medium relative" style={{ color: gold }}>
-              Active Flows
-              <span className="text-xs font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>{activeGroups.length}</span>
-              <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: gold }} />
-            </div>
-            <div className="flex-1 flex justify-end">
-              <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5 mb-1" style={{ borderColor: C.border, backgroundColor: C.card }}>
-                <Search size={14} style={{ color: C.textDim }} />
-                <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..."
-                  className="bg-transparent text-sm outline-none w-40" style={{ color: C.textPrimary }} />
-                {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
-              </div>
-            </div>
-          </div>
-
-          {filterGroups(activeGroups).length === 0 ? (
-            <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <Megaphone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-              <p className="text-sm font-medium" style={{ color: C.textBody }}>
-                {search ? "No profiles match your search" : "No active campaigns yet"}
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filterGroups(activeGroups).map(g => <ProfileCard key={g.profileId} group={g} />)}
-            </div>
-          )}
+          <CompaniesGrid companies={companies} />
         </div>
+      )}
+
+      {/* ═══ CAMPAIGNS VIEW — grouped by ICP / Lead Miner ticket ═══
+          Old layout was a 3-column grid of ProfileCard (one card per ICP).
+          The boss wanted the Lead Miner accordion look so each ICP is a
+          collapsible section listing its flows. CampaignsByIcpView wraps
+          that pattern using the data we already pass. */}
+      {mainView === "campaigns" && (
+        <CampaignsByIcpView
+          groups={activeGroups}
+          search={search}
+          onSearchChange={setSearch}
+        />
       )}
     </div>
   );

@@ -360,9 +360,25 @@ async function getData() {
 
   const groupList = Object.values(profileGroups).sort((a, b) => b.leads.length - a.leads.length);
   const totalLeads = (allLeads ?? []).length;
-  const contactedCount = new Set((campaigns ?? []).map(c => c.lead_id).filter(Boolean)).size;
+  // Response rate must be replied / actually-contacted, not replied / has-a-
+  // campaign-row. The previous formula used `unique lead_ids in campaigns`
+  // which includes queued/draft campaigns where no message ever fired —
+  // that inflated the denominator's quality (a queued lead can't reply yet)
+  // and the resulting rate read as suspiciously high (~58% on Pathway).
+  // Now the denominator is the set of leads with at least one message whose
+  // sent_at is non-null, and the numerator is the intersection of "replied"
+  // ∩ "contacted" so a stray inbound reply on a never-contacted lead can't
+  // skew the ratio either.
+  const sentLeadIds = new Set<string>();
+  for (const m of messages ?? []) {
+    if (!m.sent_at) continue;
+    const camp = (campaigns ?? []).find((c: any) => c.id === m.campaign_id);
+    if (camp?.lead_id) sentLeadIds.add(camp.lead_id);
+  }
+  const contactedCount = sentLeadIds.size;
+  const repliedAmongContacted = [...sentLeadIds].filter(id => (repliesByLead[id]?.length ?? 0) > 0).length;
   const positiveCount = groupList.reduce((s, g) => s + g.positiveCount, 0);
-  const responseRate = contactedCount > 0 ? Math.round((Object.keys(repliesByLead).length / contactedCount) * 100) : 0;
+  const responseRate = contactedCount > 0 ? Math.round((repliedAmongContacted / contactedCount) * 100) : 0;
 
   // ── Campaign groups for Campaigns view ──
   const campGroupsMap: Record<string, any[]> = {};
