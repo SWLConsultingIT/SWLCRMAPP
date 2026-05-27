@@ -12,16 +12,21 @@ import { C } from "@/lib/design";
 
 type Stage = { stage: string; count: number; color: string; prior?: number | null };
 
-// Funnel palette — cohesive progression: cool slate at the top (raw lead),
-// navy as the lead "gets in motion", gold as engagement deepens, green at
-// the positive-outcome bucket, premium gold gradient on Won. No more random
-// blue / orange / green hops that didn't belong to the SWL system.
+// Funnel palette — SWL-gold heat progression. Raw leads start cool (slate),
+// then ride a gold intensity ramp (cream → mid gold → full SWL gold) as
+// engagement deepens, with green claiming the OUTCOME stages (positives,
+// meetings) and premium gold for the Won climax.
+//
+// The story the eye reads: "raw lead → progressively warmer until they
+// engage with us → outcome lands in green → win in pure gold". Single
+// hue family with two semantic accents, much cleaner than the prior
+// gray / navy / amber / green chaos.
 const colorMap: Record<string, string> = {
-  neutral: "#94A3B8",   // imported  — slate (raw lead)
-  info:    "#3D5A8F",   // contacted/accepted — navy (in motion)
-  warning: "#B79832",   // replied   — dark gold (engaged)
-  success: "#10B981",   // positives/meeting — green (interested)
-  brand:   "#c9a83a",   // won       — SWL gold (premium gradient via bar style)
+  neutral: "#94A3B8",   // imported  — slate (raw, no signal yet)
+  info:    "#D4BA5C",   // contacted/accepted — mid gold (warm, in motion)
+  warning: "#c9a83a",   // replied   — full SWL gold (engaged)
+  success: "#10B981",   // positives/meeting — green (good outcome)
+  brand:   "#c9a83a",   // won       — SWL gold premium gradient via bar style
 };
 
 export default function Funnel({

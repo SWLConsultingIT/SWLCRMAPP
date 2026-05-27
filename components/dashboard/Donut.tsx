@@ -31,8 +31,10 @@ export default function Donut({
   const displayTotal = total >= 1000 ? `${(total / 1000).toFixed(1)}k` : total.toLocaleString("en-US");
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      {/* Ring */}
+    <div className="w-full flex flex-col items-center justify-center gap-4 py-2">
+      {/* Ring — wrapped in an explicit w-full flex-center so the SVG sits at
+          the true horizontal middle of the panel regardless of legend width. */}
+      <div className="w-full flex justify-center">
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         {total > 0 && (
           <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={C.border} strokeWidth={thickness} opacity={0.45} />
@@ -86,6 +88,7 @@ export default function Donut({
           </text>
         </g>
       </svg>
+      </div>
 
       {/* Legend chips below — symmetric, centered, wrap freely. */}
       <div className="w-full max-w-md">

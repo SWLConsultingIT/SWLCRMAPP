@@ -56,13 +56,13 @@ const channelMeta: Record<string, { icon: React.ElementType; color: string; labe
 // neutral/automated). Replaced the prior rainbow (purple/orange/blue) that
 // didn't speak to the brand.
 const classColors: Record<string, string> = {
-  positive:       "#10B981",   // green — outcome
-  meeting_intent: "#059669",   // green darker — strongest outcome
+  positive:       "#c9a83a",   // SWL gold — the WIN tone, our brand's victory color
+  meeting_intent: "#D4BA5C",   // gold lighter — strongest engagement
   negative:       "#DC2626",   // red — outcome
-  not_now:        "#E08A1A",   // amber — not now (kindred to gold)
+  not_now:        "#E08A1A",   // amber — not now
   unsubscribe:    "#B91C1C",   // red darker — hard out
-  needs_info:     "#c9a83a",   // SWL gold — needs more from us
-  question:       "#D9B95E",   // gold lighter — open dialogue
+  needs_info:     "#1F2A44",   // navy — open dialogue, needs more from us
+  question:       "#3D5A8F",   // navy lighter — question / clarification
   nurturing:      "#94A3B8",   // slate — passive
   spam:           "#475569",   // dark slate — junk
   auto_reply:     "#94A3B8",   // slate — automated
