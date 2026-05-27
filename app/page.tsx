@@ -498,43 +498,84 @@ export default async function DashboardPage({
             · {t("dashx.pulse.subtitle")}
           </span>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x" style={{ borderColor: C.border }}>
-          <PulseStat
-            label={t("dashx.pulse.acceptanceRate")}
-            value={`${data.velocity.acceptanceRate}%`}
-            unit={t("dashx.pulse.acceptanceRateUnit")}
-            hint={t("dashx.pulse.acceptanceRateHint", { sent: data.linkedinConnections.sent, accepted: data.linkedinConnections.accepted })}
-            tone={data.velocity.acceptanceRate >= 30 ? "success" : "neutral"}
-          />
-          <PulseStat
-            label={t("dashx.pulse.ttfr")}
-            value={data.velocity.medianTimeToReplyMin === null ? "—" : formatMinutes(data.velocity.medianTimeToReplyMin)}
-            unit={data.velocity.medianTimeToReplyMin === null ? t("dashx.insuf") : t("dashx.pulse.ttfrUnit")}
-            hint={t("dashx.pulse.ttfrHint")}
-            tone={data.velocity.medianTimeToReplyMin !== null && data.velocity.medianTimeToReplyMin > 72 * 60 ? "warning" : "neutral"}
-          />
-          {(() => {
-            const total = trend30d.sent.reduce((a, b) => a + b, 0);
-            const avg = total / 30;
-            const label = avg >= 10 ? Math.round(avg) : avg.toFixed(1);
-            return (
-              <PulseStat
-                label={t("dashx.pulse.dailyVolume")}
-                value={`${label}`}
-                unit={t("dashx.pulse.dailyVolumeUnit")}
-                hint={t("dashx.pulse.dailyVolumeHint", { n: total.toLocaleString(dateLoc) })}
-                tone="neutral"
-              />
-            );
-          })()}
-          <PulseStat
-            label={t("dashx.pulse.velocity")}
-            value={`${data.velocity.perDay}`}
-            unit={t("dashx.pulse.velocityUnit")}
-            hint={t("dashx.pulse.velocityHint")}
-            tone={data.velocity.perDay >= 1 ? "success" : "neutral"}
-          />
-        </div>
+        {(() => {
+          const liStats = data.channelBreakdown.find(c => c.channel === "linkedin") ?? { sent: 0, replied: 0 };
+          const emailStats = data.channelBreakdown.find(c => c.channel === "email") ?? { sent: 0, replied: 0 };
+          const callsMade = data.callsBreakdown.completed ?? 0;
+          const callsPending = data.callsBreakdown.pending ?? 0;
+          return (
+            <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x" style={{ borderColor: C.border }}>
+              {/* Left column — LinkedIn connection invitation flow (CR layer) */}
+              <div className="divide-y" style={{ borderColor: C.border }}>
+                <PulseStat
+                  label={t("dashx.pulse.connectionsSent")}
+                  value={data.linkedinConnections.sent.toLocaleString(dateLoc)}
+                  unit={t("dashx.pulse.connectionsSentUnit")}
+                  hint={t("dashx.pulse.connectionsSentHint")}
+                  tone="neutral"
+                />
+                <PulseStat
+                  label={t("dashx.pulse.acceptanceRate")}
+                  value={`${data.velocity.acceptanceRate}%`}
+                  unit={t("dashx.pulse.acceptanceRateUnit")}
+                  hint={t("dashx.pulse.acceptanceRateHint", { sent: data.linkedinConnections.sent, accepted: data.linkedinConnections.accepted })}
+                  tone={data.velocity.acceptanceRate >= 30 ? "success" : "neutral"}
+                />
+              </div>
+              {/* LinkedIn messaging layer (post-acceptance) */}
+              <div className="divide-y" style={{ borderColor: C.border }}>
+                <PulseStat
+                  label={t("dashx.pulse.linkedinSent")}
+                  value={liStats.sent.toLocaleString(dateLoc)}
+                  unit={t("dashx.pulse.messagesUnit")}
+                  hint={t("dashx.pulse.linkedinSentHint")}
+                  tone="neutral"
+                />
+                <PulseStat
+                  label={t("dashx.pulse.linkedinReplies")}
+                  value={liStats.replied.toLocaleString(dateLoc)}
+                  unit={t("dashx.pulse.repliesUnit")}
+                  hint={t("dashx.pulse.linkedinRepliesHint")}
+                  tone={liStats.replied > 0 ? "success" : "neutral"}
+                />
+              </div>
+              {/* Email column */}
+              <div className="divide-y" style={{ borderColor: C.border }}>
+                <PulseStat
+                  label={t("dashx.pulse.emailsSent")}
+                  value={emailStats.sent.toLocaleString(dateLoc)}
+                  unit={t("dashx.pulse.messagesUnit")}
+                  hint={t("dashx.pulse.emailsSentHint")}
+                  tone="neutral"
+                />
+                <PulseStat
+                  label={t("dashx.pulse.emailReplies")}
+                  value={emailStats.replied.toLocaleString(dateLoc)}
+                  unit={t("dashx.pulse.repliesUnit")}
+                  hint={t("dashx.pulse.emailRepliesHint")}
+                  tone={emailStats.replied > 0 ? "success" : "neutral"}
+                />
+              </div>
+              {/* Calls column */}
+              <div className="divide-y" style={{ borderColor: C.border }}>
+                <PulseStat
+                  label={t("dashx.pulse.phonesPending")}
+                  value={callsPending.toLocaleString(dateLoc)}
+                  unit={t("dashx.pulse.phonesUnit")}
+                  hint={t("dashx.pulse.phonesPendingHint")}
+                  tone={callsPending > 0 ? "warning" : "neutral"}
+                />
+                <PulseStat
+                  label={t("dashx.pulse.phonesMade")}
+                  value={callsMade.toLocaleString(dateLoc)}
+                  unit={t("dashx.pulse.phonesUnit")}
+                  hint={t("dashx.pulse.phonesMadeHint", { answered: data.callsBreakdown.answered })}
+                  tone={callsMade > 0 ? "success" : "neutral"}
+                />
+              </div>
+            </div>
+          );
+        })()}
       </section>
 
       {/* ─── Funnel + Donut · 7/5 split (was 5/4/3 with an Insights col,
