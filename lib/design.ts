@@ -73,7 +73,12 @@ export const C = {
   // Reserved for the trend/decay/comparison surfaces so charts feel like
   // they belong to the same product, not a stock template. Use seriesPositive
   // for positives/wins, seriesReplies for engagement, seriesSent for volume. */
-  seriesSent:     "#1F2A44",   // dark navy — volume baseline
+  // Trend palette — boss feedback round 4 #5 ("elegí mejores colores").
+  // Each color encodes the metric's *meaning*: sky blue = raw volume
+  // (cool, neutral), gold = engagement/replies (warm, SWL-signature),
+  // green = positive outcome. Navy was too close to the panel header
+  // and made the volume line invisible against the dark theme.
+  seriesSent:     "#38BDF8",   // sky 400 — volume baseline
   seriesReplies:  "#c9a83a",   // SWL gold — engagement
   seriesPositive: "#10B981",   // green — outcome
 

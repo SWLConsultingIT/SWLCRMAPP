@@ -256,6 +256,7 @@ export const en: Dict = {
   "dashx.channels.accepted": "Accepted",
   "dashx.channels.acceptRate": "Accept rate",
   // Auto-derived chart-footer insights (one line each)
+  "dashx.insight.eyebrow": "AI Insight",
   "dashx.funnel.insight": "Accept rate {acceptPct}% · reply rate {replyPct}% post-accept · {won} won this period.",
   "dashx.donut.insight": "Positives = {positives}/{total} ({positivesPct}%) of period replies.",
   "dashx.trend.insight.up": "Send volume ↑{pct}% in the second half of the window vs the first.",
@@ -968,6 +969,7 @@ export const es: Dict = {
   "dashx.channels.accepted": "Aceptadas",
   "dashx.channels.acceptRate": "Tasa de aceptación",
   // Insights auto-derivados al pie de los charts
+  "dashx.insight.eyebrow": "Insight AI",
   "dashx.funnel.insight": "Tasa de aceptación {acceptPct}% · responden {replyPct}% post-aceptación · {won} ganados.",
   "dashx.donut.insight": "Positivas = {positives}/{total} ({positivesPct}%) de las respuestas del período.",
   "dashx.trend.insight.up": "Volumen ↑{pct}% en la segunda mitad del período vs la primera.",

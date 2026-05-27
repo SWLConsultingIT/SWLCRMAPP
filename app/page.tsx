@@ -252,16 +252,65 @@ export default async function DashboardPage({
   const renderedAt = new Date().toISOString();
 
   return (
-    <div className="p-4 sm:p-6 w-full space-y-4">
+    <div className="p-4 sm:p-6 w-full space-y-5">
       <ReliabilityBanner />
       <Suspense fallback={null}>
         <DashboardKeyboardShortcuts />
       </Suspense>
 
-      {/* ─── Tab bar — sticky URL-driven nav with right-aligned actions.
-          Freshness chip + PDF Download live inside the tab bar so we
-          collapse what used to be a separate header strip into one row.
-          Wrapped in Suspense because the nav reads useSearchParams. */}
+      {/* ─── Welcome hero (boss feedback round 4 #2 — "Hace un Hero de
+          bienvenida arriba del todo"). Slim 3-row strip that anchors the
+          page: section eyebrow, big title, current period chip + actions.
+          Doesn't compete with the chart panels below; just orients. */}
+      <header
+        className="relative rounded-2xl border overflow-hidden px-5 sm:px-6 py-4 sm:py-5"
+        style={{
+          backgroundColor: C.card,
+          borderColor: `color-mix(in srgb, ${gold} 22%, ${C.border})`,
+          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 14%, transparent), 0 14px 28px -22px ${N.ink}`,
+        }}
+      >
+        <span
+          aria-hidden
+          className="absolute -top-20 -right-16 w-72 h-72 rounded-full pointer-events-none"
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 16%, transparent) 0%, transparent 65%)` }}
+        />
+        <div className="relative flex items-center justify-between gap-4 flex-wrap">
+          <div className="min-w-0">
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.22em]" style={{ color: gold }}>
+              {t("dashx.hero.section")}
+            </p>
+            <h1
+              className="text-[24px] sm:text-[28px] font-bold tracking-[-0.02em] leading-none mt-1.5"
+              style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
+            >
+              {t("dashx.hero.title")}
+            </h1>
+            <p className="text-[12px] mt-1.5" style={{ color: C.textMuted }}>
+              {t("dashx.hero.desc")}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10.5px] font-bold uppercase tracking-[0.14em]"
+              style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 26%, transparent)` }}
+            >
+              {periodLabel}
+            </span>
+            <FreshnessChip renderedAt={renderedAt} />
+            <Link
+              href="/reports"
+              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-opacity hover:opacity-85 whitespace-nowrap"
+              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`, color: "#04070d", boxShadow: `0 2px 8px color-mix(in srgb, ${gold} 30%, transparent)` }}
+            >
+              <FileDown size={13} /> {t("dashx.hero.download")}
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* ─── Tab bar — sticky URL-driven nav. Actions moved to the welcome
+          hero above, so this row is purely navigation. */}
       <Suspense fallback={<div className="h-12" />}>
         <ChapterNav
           items={[
@@ -271,18 +320,6 @@ export default async function DashboardPage({
             { id: "channels",  number: 4, label: t("dashx.chapter.channels") },
             { id: "sellers",   number: 5, label: t("dashx.chapter.sellers") },
           ]}
-          actions={(
-            <>
-              <FreshnessChip renderedAt={renderedAt} />
-              <Link
-                href="/reports"
-                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11.5px] font-semibold transition-opacity hover:opacity-85 whitespace-nowrap"
-                style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`, color: "#04070d", boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 28%, transparent)` }}
-              >
-                <FileDown size={12} /> {t("dashx.hero.download")}
-              </Link>
-            </>
-          )}
         />
       </Suspense>
 
@@ -294,7 +331,7 @@ export default async function DashboardPage({
 
       {/* ═══ CHAPTER 1 · OVERVIEW ═══════════════════════════════════════════ */}
       {filters.tab === "overview" && (
-      <section className="space-y-6 pt-3">
+      <section className="space-y-8 pt-3">
 
       {/* ─── ACT 1 · "What to do today" — narrative opener. Boss feedback
           2026-05-27: the dashboard must tell a story, not lead with vanity
@@ -517,6 +554,7 @@ export default async function DashboardPage({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
           <Panel title={t("dashx.funnel.title")} subtitle={t("dashx.funnel.subtitle")} className="lg:col-span-7" glow
             actionHref={withFilters("/?tab=campaigns", filters)} actionLabel={t("dashx.panel.openCampaigns")}
+            insightEyebrow={t("dashx.insight.eyebrow")}
             insight={(() => {
               const sent = data.linkedinConnections?.sent ?? 0;
               const accepted = data.linkedinConnections?.accepted ?? 0;
@@ -531,6 +569,7 @@ export default async function DashboardPage({
           </Panel>
           <Panel title={t("dashx.donut.title")} subtitle={t("dashx.donut.subtitle")} className="lg:col-span-5" glow
             actionHref="/inbox" actionLabel={t("dashx.panel.openInbox")}
+            insightEyebrow={t("dashx.insight.eyebrow")}
             insight={(() => {
               const totalReplies = donutSlices.reduce((a, s) => a + s.value, 0);
               if (totalReplies < 3) return null;
@@ -548,8 +587,9 @@ export default async function DashboardPage({
           line chart has room to render axis labels + tooltip. */}
       <section>
         <div className="grid grid-cols-1 gap-3">
-          <Panel title={t("dashx.trend.title")} subtitle={t("dashx.trend.subtitle")}
+          <Panel title={t("dashx.trend.title")} subtitle={t("dashx.trend.subtitle")} glow
             actionHref="/reports" actionLabel={t("dashx.panel.openReports")}
+            insightEyebrow={t("dashx.insight.eyebrow")}
             insight={(() => {
               const n = trend30d.sent.length;
               if (n < 4) return null;
@@ -581,8 +621,9 @@ export default async function DashboardPage({
           across the room. */}
       <section>
         <div className="grid grid-cols-1 gap-3">
-          <Panel title={t("dashx.heat.title")} subtitle={t("dashx.heat.subtitle")}
-            actionHref={withFilters("/?tab=channels", filters)} actionLabel={t("dashx.panel.openChannels")}
+          <Panel title={t("dashx.heat.title")} subtitle={t("dashx.heat.subtitle")} glow
+            actionHref="/inbox" actionLabel={t("dashx.panel.openInbox")}
+            insightEyebrow={t("dashx.insight.eyebrow")}
             insight={(() => {
               let peakDay = 0; let peakHour = 0; let peak = 0;
               for (let d = 0; d < data.heatmap.length; d++) {
@@ -1086,7 +1127,7 @@ function SectionHeader({ title, subtitle, icon: Icon, action }: { title: string;
  * actionHref renders a gold CTA pill in the header right slot — used by
  * each chart panel to deep-link into the surface where the data lives. */
 function Panel({
-  title, subtitle, children, className, actionHref, actionLabel, insight, glow,
+  title, subtitle, children, className, actionHref, actionLabel, insight, insightEyebrow, glow,
 }: {
   title?: string;
   subtitle?: string;
@@ -1097,6 +1138,9 @@ function Panel({
   /** Optional one-line auto-derived narrative rendered as a gold-accented
    * footer strip below the chart body. Null/undefined → no footer. */
   insight?: string | null;
+  /** Eyebrow text rendered above the insight body (locale-aware, supplied
+   * by the call site so Panel stays presentational). */
+  insightEyebrow?: string;
   /** When true, gives the panel a stronger ambient gold halo + hover-lift.
    * Used for the marquee charts (Funnel, Donut) so they feel "lit". */
   glow?: boolean;
@@ -1153,26 +1197,36 @@ function Panel({
       <div className="p-3.5">{children}</div>
       {insight && (
         <div
-          className="px-4 py-2.5 flex items-start gap-2 border-t"
+          className="px-5 py-3 flex items-start gap-2.5 border-t"
           style={{
-            borderColor: C.border,
-            background: `linear-gradient(90deg, color-mix(in srgb, ${gold} 8%, ${C.card}) 0%, ${C.card} 70%)`,
+            borderColor: `color-mix(in srgb, ${gold} 26%, ${C.border})`,
+            background: `linear-gradient(90deg, color-mix(in srgb, ${gold} 16%, ${C.card}) 0%, color-mix(in srgb, ${gold} 4%, ${C.card}) 80%)`,
           }}
         >
           <span
             aria-hidden
-            className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 mt-0.5"
+            className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-px"
             style={{
               background: `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 70%, white) 100%)`,
-              color: "#0B0F1A",
-              boxShadow: `0 1px 4px color-mix(in srgb, ${gold} 22%, transparent)`,
+              color: N.ink,
+              boxShadow: `0 2px 10px color-mix(in srgb, ${gold} 32%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
             }}
           >
-            <Sparkles size={10} />
+            <Sparkles size={12} />
           </span>
-          <p className="text-[12px] leading-snug" style={{ color: C.textBody }}>
-            {insight}
-          </p>
+          <div className="flex-1 min-w-0">
+            {insightEyebrow && (
+              <p className="text-[9.5px] font-bold uppercase tracking-[0.18em]" style={{ color: gold }}>
+                {insightEyebrow}
+              </p>
+            )}
+            <p
+              className="text-[13px] leading-snug font-semibold mt-0.5"
+              style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
+            >
+              {insight}
+            </p>
+          </div>
         </div>
       )}
     </div>

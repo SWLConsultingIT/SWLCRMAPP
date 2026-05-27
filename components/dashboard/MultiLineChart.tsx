@@ -17,26 +17,35 @@ const gold = "var(--brand, #c9a83a)";
 
 type Series = { name: string; color: string; data: number[] };
 
+type ZoomMode = "all" | 14 | 7;
+
 export default function MultiLineChart({
   series,
-  height = 240,
+  height = 280,
   todayLabel = "Today",
   recentLabel = "d",
+  zoomLabel = "Zoom",
 }: {
   series: Series[];
   height?: number;
   todayLabel?: string;
   recentLabel?: string;
+  /** Locale label for the zoom toggle ("Zoom" / "Acercar"). */
+  zoomLabel?: string;
 }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [zoom, setZoom] = useState<ZoomMode>("all");
   const svgRef = useRef<SVGSVGElement | null>(null);
 
-  // Render whatever the parent passes — no slicing, no in-chart window
-  // selector. Period is decided upstream by FiltersBar.
-  const sliced = series;
+  // Zoom slices the trailing window — chart-internal only, doesn't
+  // change the parent dashboard period. Boss feedback round 4 #5:
+  // wanted in-chart zoom in/out for a closer look at recent days.
+  const fullN = series[0]?.data.length ?? 0;
+  const visN = zoom === "all" ? fullN : Math.min(zoom, fullN);
+  const sliced = series.map(s => ({ ...s, data: s.data.slice(-visN) }));
 
-  const width = 720;
-  const padding = { t: 18, r: 18, b: 32, l: 40 };
+  const width = 760;
+  const padding = { t: 18, r: 18, b: 36, l: 44 };
   const innerW = width - padding.l - padding.r;
   const innerH = height - padding.t - padding.b;
   const n = sliced[0]?.data.length ?? 0;
@@ -73,8 +82,40 @@ export default function MultiLineChart({
     setHoverIdx(idx);
   }
 
+  const zoomChips: { id: ZoomMode; label: string }[] = [
+    { id: 7,  label: `7${recentLabel}` },
+    { id: 14, label: `14${recentLabel}` },
+    { id: "all", label: "All" },
+  ];
+
   return (
     <div className="w-full">
+      {fullN > 7 && (
+        <div className="flex items-center justify-end gap-1.5 mb-2">
+          <span className="text-[9.5px] font-bold uppercase tracking-[0.16em]" style={{ color: C.textDim }}>
+            {zoomLabel}
+          </span>
+          <div className="inline-flex gap-0.5 rounded-md border p-0.5" style={{ borderColor: C.border }}>
+            {zoomChips.map(z => {
+              const on = z.id === zoom;
+              return (
+                <button
+                  key={String(z.id)}
+                  type="button"
+                  onClick={() => { setZoom(z.id); setHoverIdx(null); }}
+                  className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded transition-colors tabular-nums"
+                  style={{
+                    backgroundColor: on ? `color-mix(in srgb, ${gold} 22%, transparent)` : "transparent",
+                    color: on ? gold : C.textMuted,
+                  }}
+                >
+                  {z.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       <div className="relative w-full overflow-x-auto">
         {/* Floating hover tooltip — pinned to the chart's top-right corner
             (boss feedback round 3 #8: hover circles should tell you what
@@ -115,21 +156,43 @@ export default function MultiLineChart({
           onPointerMove={onPointerMove}
           onPointerLeave={() => setHoverIdx(null)}
         >
-          {/* Gridlines */}
+          {/* Y-axis baseline (bold) + gridlines */}
+          <line
+            x1={padding.l} x2={padding.l}
+            y1={padding.t} y2={padding.t + innerH}
+            stroke={C.border}
+            strokeWidth={1.5}
+          />
+          <line
+            x1={padding.l} x2={width - padding.r}
+            y1={padding.t + innerH} y2={padding.t + innerH}
+            stroke={C.textDim}
+            strokeWidth={1.2}
+          />
           {yTicks.map((tk, i) => (
             <g key={i}>
+              {i > 0 && (
+                <line
+                  x1={padding.l} x2={width - padding.r}
+                  y1={tk.y} y2={tk.y}
+                  stroke={C.border}
+                  strokeDasharray="3,4"
+                  opacity={0.55}
+                />
+              )}
+              {/* Tick mark on the y-axis baseline */}
               <line
-                x1={padding.l} x2={width - padding.r}
+                x1={padding.l - 3} x2={padding.l}
                 y1={tk.y} y2={tk.y}
-                stroke={C.border}
-                strokeDasharray={i === 0 ? "0" : "3,4"}
-                opacity={i === 0 ? 1 : 0.5}
+                stroke={C.textDim}
+                strokeWidth={1.2}
               />
               <text
-                x={padding.l - 8} y={tk.y + 3}
+                x={padding.l - 6} y={tk.y + 3}
                 textAnchor="end"
-                fontSize={10}
-                fill={C.textDim}
+                fontSize={10.5}
+                fontWeight={600}
+                fill={C.textMuted}
                 style={{ fontFeatureSettings: '"tnum"' }}
               >
                 {tk.v}
@@ -137,22 +200,33 @@ export default function MultiLineChart({
             </g>
           ))}
 
-          {/* X-axis ticks — about 5 across the visible window */}
+          {/* X-axis ticks — about 5 across the visible window. Adds a
+              proper tick-mark + bolder labels per boss round-4 #5
+              ("ejes que esten mas marcados y se entiendan"). */}
           {(() => {
             const step = Math.max(1, Math.floor(n / 5));
             const ticks: number[] = [];
             for (let i = 0; i < n; i += step) ticks.push(i);
             if (ticks[ticks.length - 1] !== n - 1) ticks.push(n - 1);
             return ticks.map(i => (
-              <text
-                key={i}
-                x={xFor(i)} y={height - 10}
-                textAnchor="middle"
-                fontSize={10}
-                fill={C.textDim}
-              >
-                {i === n - 1 ? todayLabel : `${n - 1 - i}${recentLabel}`}
-              </text>
+              <g key={i}>
+                <line
+                  x1={xFor(i)} x2={xFor(i)}
+                  y1={padding.t + innerH} y2={padding.t + innerH + 4}
+                  stroke={C.textDim}
+                  strokeWidth={1.2}
+                />
+                <text
+                  x={xFor(i)} y={height - 10}
+                  textAnchor="middle"
+                  fontSize={10.5}
+                  fontWeight={600}
+                  fill={C.textMuted}
+                  style={{ fontFeatureSettings: '"tnum"' }}
+                >
+                  {i === n - 1 ? todayLabel : `${n - 1 - i}${recentLabel}`}
+                </text>
+              </g>
             ));
           })()}
 

@@ -218,6 +218,16 @@ export default function TodayCard({
                   >
                     {s.list.map(lead => {
                       const when = fmtRelative(lead.when, locale);
+                      // Company is the preferred primary label; when it
+                      // comes back empty ("—"), promote the ICP name so
+                      // the row never looks orphaned. The seller can still
+                      // click in to /leads/[id] to see the contact details.
+                      const hasCompany = lead.company && lead.company !== "—";
+                      const primary = hasCompany ? lead.company : (lead.icp ?? labels.noIcp);
+                      const secondary = hasCompany
+                        ? [lead.icp ?? labels.noIcp, lead.tag].filter(Boolean).join(" · ")
+                        : (lead.tag ?? "");
+                      const avatarText = primary.replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2).toUpperCase() || "··";
                       return (
                         <li key={lead.id}>
                           <Link
@@ -227,18 +237,24 @@ export default function TodayCard({
                           >
                             <span
                               className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold uppercase shrink-0"
-                              style={{ backgroundColor: `color-mix(in srgb, ${s.accent} 14%, transparent)`, color: s.accent }}
+                              style={{
+                                backgroundColor: `color-mix(in srgb, ${s.accent} 14%, transparent)`,
+                                color: s.accent,
+                                border: `1px solid color-mix(in srgb, ${s.accent} 22%, transparent)`,
+                              }}
                               aria-hidden
                             >
-                              {lead.company.slice(0, 2)}
+                              {avatarText}
                             </span>
                             <div className="flex-1 min-w-0">
                               <p className="text-[13px] font-medium truncate" style={{ color: C.textPrimary }}>
-                                {lead.company}
+                                {primary}
                               </p>
-                              <p className="text-[10.5px] truncate" style={{ color: C.textDim }}>
-                                {[lead.icp ?? labels.noIcp, lead.tag].filter(Boolean).join(" · ")}
-                              </p>
+                              {secondary && (
+                                <p className="text-[10.5px] truncate" style={{ color: C.textDim }}>
+                                  {secondary}
+                                </p>
+                              )}
                             </div>
                             {when && (
                               <span className="shrink-0 text-[10.5px] tabular-nums" style={{ color: C.textMuted }}>
