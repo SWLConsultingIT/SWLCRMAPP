@@ -454,9 +454,9 @@ export default async function CampaignDetailPage({
             todayLabel={t("dashx.trend.today")}
             recentLabel={t("dashx.trend.daysAgo")}
             series={[
-              { name: t("dashx.trend.sent"),      color: "#0A66C2", data: d.trend30d.sent },
-              { name: t("dashx.trend.replies"),   color: "#7C3AED", data: d.trend30d.replies },
-              { name: t("dashx.trend.positives"), color: C.green,   data: d.trend30d.positive },
+              { name: t("dashx.trend.sent"),      color: C.seriesSent,     data: d.trend30d.sent },
+              { name: t("dashx.trend.replies"),   color: C.seriesReplies,  data: d.trend30d.replies },
+              { name: t("dashx.trend.positives"), color: C.seriesPositive, data: d.trend30d.positive },
             ]}
           />
         </Panel>

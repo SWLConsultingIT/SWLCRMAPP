@@ -69,6 +69,14 @@ export const C = {
   email:          "#059669",
   phone:          "#EA580C",
 
+  // ── Series palette (cohesive SWL navy/gold/green for line + bar charts).
+  // Reserved for the trend/decay/comparison surfaces so charts feel like
+  // they belong to the same product, not a stock template. Use seriesPositive
+  // for positives/wins, seriesReplies for engagement, seriesSent for volume. */
+  seriesSent:     "#1F2A44",   // dark navy — volume baseline
+  seriesReplies:  "#c9a83a",   // SWL gold — engagement
+  seriesPositive: "#10B981",   // green — outcome
+
   // ── Legacy aliases (for components not yet migrated) ──
   cyan:           "#0A66C2",
   cyanGlow:       "rgba(10,102,194,0.1)",

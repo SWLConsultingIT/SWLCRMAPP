@@ -429,9 +429,9 @@ export default async function DashboardPage({
               todayLabel={t("dashx.trend.today")}
               recentLabel={t("dashx.trend.daysAgo")}
               series={[
-                { name: t("dashx.trend.sent"),      color: "#0A66C2", data: trend30d.sent },
-                { name: t("dashx.trend.replies"),   color: "#7C3AED", data: trend30d.replies },
-                { name: t("dashx.trend.positives"), color: C.green,   data: trend30d.positive },
+                { name: t("dashx.trend.sent"),      color: C.seriesSent,     data: trend30d.sent },
+                { name: t("dashx.trend.replies"),   color: C.seriesReplies,  data: trend30d.replies },
+                { name: t("dashx.trend.positives"), color: C.seriesPositive, data: trend30d.positive },
               ]}
             />
           </Panel>
