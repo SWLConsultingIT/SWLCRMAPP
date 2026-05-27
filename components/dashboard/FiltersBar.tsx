@@ -5,7 +5,7 @@
 // the server reads ?from / ?to / ?campaigns / ?icps / ?sellers and the
 // rest of the page re-renders against the filtered slice.
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Calendar, ChevronDown, X, Filter } from "lucide-react";
 import { C } from "@/lib/design";
@@ -21,6 +21,10 @@ const PERIODS = [
   { id: "90d", labelKey: "dashx.filters.90d", days: 90 },
   { id: "all", labelKey: "dashx.filters.all", days: null as number | null },
 ];
+
+function toIsoDay(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
 
 export default function FiltersBar({
   options,
@@ -121,6 +125,26 @@ export default function FiltersBar({
             </button>
           );
         })}
+        {/* Custom range — opens a popover with from/to date inputs. The
+            popover writes ?from / ?to directly, so the dashboard re-renders
+            against the picked window. Shows the picked range as the chip
+            label when active (e.g. "12 Jun — 28 Jun") so the user always
+            sees what window is in play. */}
+        <CustomPeriodChip
+          activePeriod={activePeriod}
+          currentFrom={currentFrom}
+          currentTo={currentTo}
+          onApply={(from, to) => {
+            const next = new URLSearchParams(params.toString());
+            next.set("from", from);
+            next.set("to", to);
+            startTransition(() => router.push(`?${next.toString()}`));
+          }}
+          customLabel={t("dashx.filters.custom")}
+          applyLabel={t("dashx.filters.applyCustom")}
+          fromLabel={t("dashx.filters.from")}
+          toLabel={t("dashx.filters.to")}
+        />
       </div>
 
       <div className="w-px h-5 mx-1" style={{ backgroundColor: C.border }} />
@@ -138,6 +162,120 @@ export default function FiltersBar({
           style={{ color: C.textMuted, border: `1px solid ${C.border}` }}>
           <X size={11} /> {t("dashx.filters.clear")}
         </button>
+      )}
+    </div>
+  );
+}
+
+function CustomPeriodChip({
+  activePeriod, currentFrom, currentTo, onApply,
+  customLabel, applyLabel, fromLabel, toLabel,
+}: {
+  activePeriod: string;
+  currentFrom: string | null;
+  currentTo: string | null;
+  onApply: (from: string, to: string) => void;
+  customLabel: string;
+  applyLabel: string;
+  fromLabel: string;
+  toLabel: string;
+}) {
+  const on = activePeriod === "custom";
+  const [open, setOpen] = useState(false);
+  // Initialize the inputs from the current URL window so the popover
+  // opens onto what the user is already looking at — feels native.
+  const today = toIsoDay(new Date());
+  const monthAgo = toIsoDay(new Date(Date.now() - 30 * 86_400_000));
+  const [from, setFrom] = useState<string>(currentFrom ?? monthAgo);
+  const [to, setTo] = useState<string>(currentTo ?? today);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  // Sync local state with URL when the user picks a preset elsewhere.
+  useEffect(() => {
+    if (currentFrom) setFrom(currentFrom);
+    if (currentTo) setTo(currentTo);
+  }, [currentFrom, currentTo]);
+
+  // Compact label — when custom is active, render the date span; otherwise
+  // just show "Custom" so the operator knows the option exists.
+  function fmt(iso: string) {
+    const d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString(undefined, { day: "2-digit", month: "short" });
+  }
+  const chipLabel = on && currentFrom && currentTo
+    ? `${fmt(currentFrom)} — ${fmt(currentTo)}`
+    : customLabel;
+
+  const valid = from && to && new Date(from) <= new Date(to);
+
+  return (
+    <div className="relative" ref={rootRef}>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="text-[11px] font-medium px-2.5 py-1 rounded-md border transition-colors inline-flex items-center gap-1"
+        style={{
+          backgroundColor: on ? `color-mix(in srgb, ${gold} 16%, transparent)` : "transparent",
+          borderColor: on ? `color-mix(in srgb, ${gold} 40%, transparent)` : C.border,
+          color: on ? gold : C.textBody,
+        }}
+      >
+        <Calendar size={11} />
+        {chipLabel}
+        <ChevronDown size={11} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div
+            className="absolute top-full right-0 mt-1.5 z-40 rounded-lg border shadow-lg p-3 min-w-[280px]"
+            style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 8px 24px rgba(0,0,0,0.14)" }}
+          >
+            <div className="flex flex-col gap-2">
+              <label className="flex flex-col gap-1">
+                <span className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: C.textMuted }}>{fromLabel}</span>
+                <input
+                  type="date"
+                  value={from}
+                  max={to || undefined}
+                  onChange={e => setFrom(e.target.value)}
+                  className="text-[12px] px-2.5 py-1.5 rounded-md border"
+                  style={{ borderColor: C.border, backgroundColor: C.surface, color: C.textPrimary }}
+                />
+              </label>
+              <label className="flex flex-col gap-1">
+                <span className="text-[10.5px] font-bold uppercase tracking-wider" style={{ color: C.textMuted }}>{toLabel}</span>
+                <input
+                  type="date"
+                  value={to}
+                  min={from || undefined}
+                  max={toIsoDay(new Date())}
+                  onChange={e => setTo(e.target.value)}
+                  className="text-[12px] px-2.5 py-1.5 rounded-md border"
+                  style={{ borderColor: C.border, backgroundColor: C.surface, color: C.textPrimary }}
+                />
+              </label>
+              <button
+                type="button"
+                disabled={!valid}
+                onClick={() => {
+                  if (!valid) return;
+                  onApply(from, to);
+                  setOpen(false);
+                }}
+                className="mt-1 text-[11px] font-semibold px-3 py-1.5 rounded-md transition-opacity"
+                style={{
+                  background: valid ? `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))` : C.surface,
+                  color: valid ? "#04070d" : C.textDim,
+                  cursor: valid ? "pointer" : "not-allowed",
+                  opacity: valid ? 1 : 0.6,
+                }}
+              >
+                {applyLabel}
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
