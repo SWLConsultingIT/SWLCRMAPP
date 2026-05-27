@@ -83,7 +83,53 @@ function pctDelta(curr: number, prev: number): number | null {
  * for SWL ops. Scoped users (client tenants) only see their own data via the
  * `leads.company_bio_id = bioId` join.
  */
+// Empty fallback returned when the main fetch throws — keeps the page
+// renderable. Boss-feedback rule: live clients never see a blank 500.
+const EMPTY_DASHBOARD = {
+  period: { from: null as string | null, to: null as string | null, days: 30 },
+  headline: { totalLeads: 0, contactedLeads: 0, connectedLeads: 0, repliedCount: 0, positiveCount: 0, negativeCount: 0, meetingCount: 0, wonCount: 0, responseRate: 0, conversionRate: 0 },
+  deltas: { contacted: null as number | null, replied: null as number | null, positive: null as number | null },
+  funnel: [
+    { stage: "imported",            count: 0, prior: null as number | null, color: "neutral" },
+    { stage: "linkedin_sent",       count: 0, prior: null as number | null, color: "info" },
+    { stage: "linkedin_accepted",   count: 0, prior: null as number | null, color: "info" },
+    { stage: "linkedin_msg",        count: 0, prior: null as number | null, color: "info" },
+    { stage: "email_touch",         count: 0, prior: null as number | null, color: "info" },
+    { stage: "call_touch",          count: 0, prior: null as number | null, color: "info" },
+    { stage: "replied",             count: 0, prior: null as number | null, color: "warning" },
+    { stage: "lost",                count: 0, prior: null as number | null, color: "neutral" },
+    { stage: "won",                 count: 0, prior: null as number | null, color: "brand" },
+  ],
+  channelBreakdown: [] as Array<{ channel: string; sent: number; contacted: number; replied: number; positive: number; responseRate: number; conversionRate: number }>,
+  icpPerformance: [] as Array<any>,
+  campaignPerformance: [] as Array<any>,
+  sellerPerformance: [] as Array<any>,
+  trend30d: { sent: new Array(30).fill(0) as number[], replies: new Array(30).fill(0) as number[], positive: new Array(30).fill(0) as number[] },
+  replyClassCounts: { positive: 0, meeting_intent: 0 } as Record<string, number>,
+  insights: [] as Array<{ tone: "positive" | "warning" | "neutral"; kind: string; vars: Record<string, string | number>; text: string }>,
+  activeCampaignCount: 0,
+  pausedCampaignCount: 0,
+  completedCampaignCount: 0,
+  leadsInActiveCampaigns: 0,
+  leadsWithoutCampaign: 0,
+  velocity: { perDay: 0, winRate: 0, medianTimeToReplyMin: null as number | null, acceptanceRate: 0, forecastMonthEnd: 0 },
+  matrix: { icps: [] as Array<{ id: string; name: string }>, channels: [] as string[], cells: [] as Array<any>, mean: 0, stddev: 0 },
+  stepPerformance: [] as Array<any>,
+  velocityDecay: { points: [] as Array<any>, cutoffDay: null as number | null, finalPct: 0 },
+  health: {} as Record<string, unknown>,
+  heatmap: Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]),
+};
+
 export async function getDashboardData(filters: DashboardFilters) {
+  try {
+    return await getDashboardDataInternal(filters);
+  } catch (e) {
+    console.error("[dashboard-data] unrecoverable error — serving empty dashboard:", e);
+    return EMPTY_DASHBOARD;
+  }
+}
+
+async function getDashboardDataInternal(filters: DashboardFilters) {
   const supabase = await getSupabaseServer();
   const scope = await getUserScope();
   const bioId = scope.isScoped ? scope.companyBioId! : null;

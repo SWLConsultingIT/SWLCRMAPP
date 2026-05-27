@@ -160,23 +160,28 @@ function parseFilters(sp: Record<string, string | string[] | undefined>) {
 }
 
 async function loadFilterOptions(bioId: string | null) {
-  const svc = getSupabaseService();
-  const campsQ = bioId
-    ? svc.from("campaigns").select("name, leads!inner(company_bio_id)").eq("leads.company_bio_id", bioId)
-    : svc.from("campaigns").select("name");
-  const sellersQ = bioId
-    ? svc.from("sellers").select("id, name").or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`).order("name")
-    : svc.from("sellers").select("id, name").order("name");
-  const icpsQ = bioId
-    ? svc.from("icp_profiles").select("id, profile_name").eq("company_bio_id", bioId).eq("status", "approved").order("profile_name")
-    : svc.from("icp_profiles").select("id, profile_name").eq("status", "approved").order("profile_name");
-  const [{ data: camps }, { data: sellers }, { data: icps }] = await Promise.all([campsQ, sellersQ, icpsQ]);
-  const uniqueNames = Array.from(new Set((camps ?? []).map((c: any) => c.name).filter(Boolean))).sort();
-  return {
-    campaigns: uniqueNames.map(n => ({ id: n, label: n })),
-    sellers: (sellers ?? []).map((s: any) => ({ id: s.id, label: s.name })),
-    icps: (icps ?? []).map((p: any) => ({ id: p.id, label: p.profile_name })),
-  };
+  try {
+    const svc = getSupabaseService();
+    const campsQ = bioId
+      ? svc.from("campaigns").select("name, leads!inner(company_bio_id)").eq("leads.company_bio_id", bioId)
+      : svc.from("campaigns").select("name");
+    const sellersQ = bioId
+      ? svc.from("sellers").select("id, name").or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`).order("name")
+      : svc.from("sellers").select("id, name").order("name");
+    const icpsQ = bioId
+      ? svc.from("icp_profiles").select("id, profile_name").eq("company_bio_id", bioId).eq("status", "approved").order("profile_name")
+      : svc.from("icp_profiles").select("id, profile_name").eq("status", "approved").order("profile_name");
+    const [{ data: camps }, { data: sellers }, { data: icps }] = await Promise.all([campsQ, sellersQ, icpsQ]);
+    const uniqueNames = Array.from(new Set((camps ?? []).map((c: any) => c.name).filter(Boolean))).sort();
+    return {
+      campaigns: uniqueNames.map(n => ({ id: n, label: n })),
+      sellers: (sellers ?? []).map((s: any) => ({ id: s.id, label: s.name })),
+      icps: (icps ?? []).map((p: any) => ({ id: p.id, label: p.profile_name })),
+    };
+  } catch (e) {
+    console.error("[dashboard] loadFilterOptions failed:", e);
+    return { campaigns: [], sellers: [], icps: [] };
+  }
 }
 
 export default async function DashboardPage({
@@ -766,7 +771,7 @@ export default async function DashboardPage({
                   </Td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1">
-                      {c.channels.map(ch => {
+                      {(c.channels as string[]).map((ch: string) => {
                         const m = channelMeta[ch] ?? channelMeta.email;
                         const Ic = m.icon;
                         return <Ic key={ch} size={12} style={{ color: m.color }} />;
