@@ -7,7 +7,7 @@ import {
   Search, CheckCircle2, XCircle, MessageSquare, ExternalLink,
   ThumbsUp, ThumbsDown, HelpCircle, Inbox as InboxIcon, Share2, Mail, Phone, Smartphone,
   Check, X as XIcon, ChevronRight, ChevronLeft, PanelLeftClose, PanelLeftOpen,
-  ChevronDown, Megaphone, Target, Radio,
+  ChevronDown, Megaphone, Target, Radio, Calendar,
 } from "lucide-react";
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
@@ -236,10 +236,28 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
   const [tab, setTab] = useState<Tab>("pending");
   const [search, setSearch] = useState("");
   // Filters added on 2026-05-27 per boss feedback — sellers needed to slice
-  // the History tab by Campaign / ICP / Channel before triaging.
+  // the History tab by Campaign / ICP / Channel / date before triaging.
   const [campaignFilter, setCampaignFilter] = useState<string>("all");
   const [icpFilter, setIcpFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>("all");
+  // Date range lives inside this component (was previously in QueueClient
+  // as a standalone toolbar dropdown that felt disconnected from the
+  // sidebar filters). Default "30d" — most sellers only triage the last
+  // month of replies; older entries stay archived.
+  type DateRange = "today" | "7d" | "30d" | "all";
+  const [dateRange, setDateRange] = useState<DateRange>("30d");
+  const dateCutoffMs = useMemo(() => {
+    if (dateRange === "today") return new Date(new Date().toDateString()).getTime();
+    if (dateRange === "7d")    return Date.now() - 7  * 86400000;
+    if (dateRange === "30d")   return Date.now() - 30 * 86400000;
+    return 0;
+  }, [dateRange]);
+  const DATE_LABEL: Record<DateRange, string> = {
+    today: "Today",
+    "7d":  "Last 7 days",
+    "30d": "Last 30 days",
+    all:   "All time",
+  };
   const [selectedId, setSelectedId] = useState<string | null>(replies[0]?.id ?? null);
   const [working, setWorking] = useState(false);
   // Thread state — fetched on selection change. Lets the right pane show the
@@ -308,6 +326,9 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
     if (campaignFilter !== "all") list = list.filter(r => r.campaignName === campaignFilter);
     if (icpFilter !== "all") list = list.filter(r => r.icpProfileName === icpFilter);
     if (channelFilter !== "all") list = list.filter(r => r.channel === channelFilter);
+    if (dateRange !== "all") {
+      list = list.filter(r => new Date(r.receivedAt).getTime() >= dateCutoffMs);
+    }
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(r =>
@@ -318,7 +339,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
       );
     }
     return list;
-  }, [replies, tab, search, campaignFilter, icpFilter, channelFilter]);
+  }, [replies, tab, search, campaignFilter, icpFilter, channelFilter, dateRange, dateCutoffMs]);
 
   // Ensure the currently-selected reply still belongs to the visible list; if
   // not (tab changed, search narrowed), jump to the first visible reply.
@@ -488,52 +509,61 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                 style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
               />
             </div>
-            {(campaignOptions.length > 0 || icpOptions.length > 0 || channelOptions.length > 0) && (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {campaignOptions.length > 0 && (
-                  <FilterPill
-                    icon={<Megaphone size={11} />}
-                    accent="var(--brand, #c9a83a)"
-                    placeholder="All campaigns"
-                    value={campaignFilter}
-                    options={campaignOptions.map(n => ({ value: n, label: n }))}
-                    onChange={setCampaignFilter}
-                    truncateAt={18}
-                  />
-                )}
-                {icpOptions.length > 0 && (
-                  <FilterPill
-                    icon={<Target size={11} />}
-                    accent="var(--brand, #c9a83a)"
-                    placeholder="All ICPs"
-                    value={icpFilter}
-                    options={icpOptions.map(n => ({ value: n, label: n }))}
-                    onChange={setIcpFilter}
-                    truncateAt={18}
-                  />
-                )}
-                {channelOptions.length > 0 && (
-                  <FilterPill
-                    icon={<Radio size={11} />}
-                    accent={channelColor(channelFilter !== "all" ? channelFilter : null)}
-                    placeholder="All channels"
-                    value={channelFilter}
-                    options={channelOptions.map(c => ({ value: c, label: channelLabel(c) }))}
-                    onChange={setChannelFilter}
-                  />
-                )}
-                {(campaignFilter !== "all" || icpFilter !== "all" || channelFilter !== "all") && (
-                  <button
-                    onClick={() => { setCampaignFilter("all"); setIcpFilter("all"); setChannelFilter("all"); }}
-                    className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full hover:opacity-80 transition-opacity"
-                    style={{ color: C.textMuted, backgroundColor: C.surface }}
-                    title="Clear all filters"
-                  >
-                    <XIcon size={10} /> Clear
-                  </button>
-                )}
-              </div>
-            )}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <FilterPill
+                icon={<Calendar size={11} />}
+                accent="var(--brand, #c9a83a)"
+                placeholder="Last 30 days"
+                /* For the date filter the "default" is 30d, not "all". So we
+                   treat any value other than 30d as an active state so the
+                   pill looks tinted when the user has narrowed/widened it. */
+                value={dateRange === "30d" ? "all" : dateRange}
+                options={(["today", "7d", "30d", "all"] as DateRange[]).map(d => ({ value: d, label: DATE_LABEL[d] }))}
+                onChange={(v) => setDateRange((v === "all" ? "all" : v) as DateRange)}
+              />
+              {campaignOptions.length > 0 && (
+                <FilterPill
+                  icon={<Megaphone size={11} />}
+                  accent="var(--brand, #c9a83a)"
+                  placeholder="All campaigns"
+                  value={campaignFilter}
+                  options={campaignOptions.map(n => ({ value: n, label: n }))}
+                  onChange={setCampaignFilter}
+                  truncateAt={18}
+                />
+              )}
+              {icpOptions.length > 0 && (
+                <FilterPill
+                  icon={<Target size={11} />}
+                  accent="var(--brand, #c9a83a)"
+                  placeholder="All ICPs"
+                  value={icpFilter}
+                  options={icpOptions.map(n => ({ value: n, label: n }))}
+                  onChange={setIcpFilter}
+                  truncateAt={18}
+                />
+              )}
+              {channelOptions.length > 0 && (
+                <FilterPill
+                  icon={<Radio size={11} />}
+                  accent={channelColor(channelFilter !== "all" ? channelFilter : null)}
+                  placeholder="All channels"
+                  value={channelFilter}
+                  options={channelOptions.map(c => ({ value: c, label: channelLabel(c) }))}
+                  onChange={setChannelFilter}
+                />
+              )}
+              {(campaignFilter !== "all" || icpFilter !== "all" || channelFilter !== "all" || dateRange !== "30d") && (
+                <button
+                  onClick={() => { setCampaignFilter("all"); setIcpFilter("all"); setChannelFilter("all"); setDateRange("30d"); }}
+                  className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full hover:opacity-80 transition-opacity"
+                  style={{ color: C.textMuted, backgroundColor: C.surface }}
+                  title="Clear all filters"
+                >
+                  <XIcon size={10} /> Clear
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="overflow-y-auto flex-1 px-2 py-2" style={{ backgroundColor: `color-mix(in srgb, ${C.surface} 35%, ${C.bg})` }}>

@@ -209,17 +209,10 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
   const [callSubTab, setCallSubTab] = useState<0 | 1 | 2>(0);
   const [search, setSearch] = useState("");
 
-  // Date filter for the notification tabs (Replies / Reviews / Updates).
-  // Calls tab ignores this — call work is operational and shouldn't be
-  // hidden by an age cutoff.
-  type DateRange = "today" | "7d" | "30d" | "all";
-  const [dateRange, setDateRange] = useState<DateRange>("30d");
-  const dateCutoffMs = (() => {
-    if (dateRange === "today") return new Date(new Date().toDateString()).getTime();
-    if (dateRange === "7d")    return Date.now() - 7  * 86400000;
-    if (dateRange === "30d")   return Date.now() - 30 * 86400000;
-    return 0;
-  })();
+  // History tab manages its own date filter inside InboxView now (used to
+  // be a toolbar dropdown here but it felt disconnected from the filter
+  // chips in the sidebar). Calls tab ignores date — call work is
+  // operational and shouldn't be hidden by an age cutoff.
 
   // Per-browser dismissal so a seller can clear notifications they've
   // already actioned without affecting other teammates. Stored in
@@ -300,15 +293,11 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
   const filteredCallsToMake = applyCallSearch(callsToMake);
   const filteredCallsAwaiting = applyCallSearch(callsAwaitingOutcome);
   const filteredCallsFollowUp = applyCallSearch(callsFollowUp);
-  // Notification tabs (Replies / Reviews / Updates) get date + dismissal
-  // filters on top of the search. Calls ignore these.
-  const passesDate = (iso: string) => new Date(iso).getTime() >= dateCutoffMs;
-  const passesSearch = (haystack: string) => !search || haystack.toLowerCase().includes(search.toLowerCase());
-
-  const filteredReplies = sortedReplies
-    .filter(r => !dismissed.has(r.id))
-    .filter(r => passesDate(r.receivedAt))
-    .filter(r => passesSearch(`${r.leadName} ${r.company} ${r.campaignName} ${r.replyText}`));
+  // History tab gets the dismissal filter applied here at the QueueClient
+  // level. Date + search + campaign/icp/channel filters live inside
+  // InboxView so the seller can change them without round-tripping
+  // through page state.
+  const filteredReplies = sortedReplies.filter(r => !dismissed.has(r.id));
 
   // Notifications now only carries History + Calls. Boss feedback 2026-05-27:
   // History is first (sellers open Notifications to triage replies +
@@ -362,21 +351,10 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
         })}
         <div className="flex-1" />
         <div className="flex items-center gap-2 mb-1">
-          {/* Date filter — only affects History. Calls keep all (they're
-              time-bounded by the dispatcher already). */}
-          {tab !== 1 && (
-            <select
-              value={dateRange}
-              onChange={e => setDateRange(e.target.value as DateRange)}
-              className="rounded-lg border px-2.5 py-1.5 text-xs font-medium outline-none"
-              style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}>
-              <option value="today">Today</option>
-              <option value="7d">Last 7 days</option>
-              <option value="30d">Last 30 days</option>
-              <option value="all">All time</option>
-            </select>
-          )}
-          {/* Restore button when stuff has been dismissed locally. */}
+          {/* History manages its own filters (date, campaign, ICP, channel,
+              search) inside the sidebar. Out here we only keep the
+              "Restore dismissed" + the global search input for the Calls
+              tab. */}
           {dismissed.size > 0 && tab !== 1 && (
             <button onClick={clearDismissed}
               className="text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-colors"
@@ -385,14 +363,16 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
               Restore {dismissed.size}
             </button>
           )}
-          <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5"
-            style={{ borderColor: C.border, backgroundColor: C.card }}>
-            <Search size={13} style={{ color: C.textDim }} />
-            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search..." className="bg-transparent text-sm outline-none w-36"
-              style={{ color: C.textPrimary }} />
-            {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
-          </div>
+          {tab === 1 && (
+            <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5"
+              style={{ borderColor: C.border, backgroundColor: C.card }}>
+              <Search size={13} style={{ color: C.textDim }} />
+              <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Search..." className="bg-transparent text-sm outline-none w-36"
+                style={{ color: C.textPrimary }} />
+              {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
+            </div>
+          )}
         </div>
       </div>
 
