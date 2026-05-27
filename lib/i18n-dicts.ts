@@ -288,6 +288,9 @@ export const en: Dict = {
   "dashx.insights.title": "Insights",
   "dashx.insights.subtitle": "Detected movements",
   "dashx.insights.empty": "No notable movements in the period.",
+  "dashx.highlight.alert": "Alert",
+  "dashx.highlight.opportunity": "Opportunity",
+  "dashx.highlight.headline": "Highlight",
   // ICP × Channel
   "dashx.matrix.title": "ICP × Channel",
   "dashx.matrix.subtitle": "Reply rate per combination · color by z-score · click to drill down",
@@ -875,6 +878,9 @@ export const es: Dict = {
   "dashx.insights.title": "Insights",
   "dashx.insights.subtitle": "Movimientos detectados",
   "dashx.insights.empty": "Sin movimientos llamativos en el período.",
+  "dashx.highlight.alert": "Alerta",
+  "dashx.highlight.opportunity": "Oportunidad",
+  "dashx.highlight.headline": "Highlight",
   // ICP × Channel
   "dashx.matrix.title": "ICP × Canal",
   "dashx.matrix.subtitle": "Reply rate por combinación · color por z-score · click para drill-down",

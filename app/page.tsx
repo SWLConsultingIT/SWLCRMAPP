@@ -33,6 +33,7 @@ import IcpChannelMatrix from "@/components/dashboard/IcpChannelMatrix";
 import InlineSpark from "@/components/dashboard/InlineSpark";
 import StepPerformance from "@/components/dashboard/StepPerformance";
 import Chapter from "@/components/dashboard/Chapter";
+import HighlightCallout from "@/components/dashboard/HighlightCallout";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -416,40 +417,32 @@ export default async function DashboardPage({
         </div>
       </section>
 
-      {/* ─── Funnel + Donut + Heatmap in a tight 3-column grid ────────────── */}
+      {/* ─── Highlight callout — single most-important signal of the period.
+          Replaces what used to be a 4-bullet "Insights" box. Pick logic:
+          first warning wins, then positive, then neutral. When nothing
+          notable, the banner is hidden entirely — absence is a signal. */}
+      {(() => {
+        const sorted = [...data.insights].sort((a, b) => {
+          const rank = (tone: string) => tone === "warning" ? 2 : tone === "positive" ? 1 : 0;
+          return rank(b.tone) - rank(a.tone);
+        });
+        const top = sorted[0];
+        if (!top) return null;
+        const eyebrow = top.tone === "warning" ? t("dashx.highlight.alert")
+          : top.tone === "positive" ? t("dashx.highlight.opportunity")
+          : t("dashx.highlight.headline");
+        return <HighlightCallout tone={top.tone} eyebrow={eyebrow} text={top.text} />;
+      })()}
+
+      {/* ─── Funnel + Donut · 7/5 split (was 5/4/3 with an Insights col,
+          the Insights are now surfaced as the Highlight banner above). */}
       <section>
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-          {/* Funnel — 5 cols */}
-          <Panel title={t("dashx.funnel.title")} subtitle={t("dashx.funnel.subtitle")} className="lg:col-span-5">
+          <Panel title={t("dashx.funnel.title")} subtitle={t("dashx.funnel.subtitle")} className="lg:col-span-7">
             <Funnel {...funnel18n} stages={data.funnel.map(s => ({ ...s, stage: t(`dashx.funnel.stage.${stageKey(s.stage)}`) || s.stage }))} />
           </Panel>
-          {/* Donut — 3 cols */}
-          <Panel title={t("dashx.donut.title")} subtitle={t("dashx.donut.subtitle")} className="lg:col-span-4">
+          <Panel title={t("dashx.donut.title")} subtitle={t("dashx.donut.subtitle")} className="lg:col-span-5">
             <Donut data={donutSlices} centerLabel={t("dashx.donut.centerReplies")} emptyLabel={t("dashx.donut.empty")} />
-          </Panel>
-          {/* Insights — 4 cols */}
-          <Panel title={t("dashx.insights.title")} subtitle={t("dashx.insights.subtitle")} className="lg:col-span-3">
-            {data.insights.length === 0 ? (
-              <div className="text-xs py-6 text-center" style={{ color: C.textDim }}>
-                {t("dashx.insights.empty")}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {data.insights.map((ins, i) => {
-                  const tone =
-                    ins.tone === "positive" ? { color: C.green, Icon: CheckCircle2 }
-                    : ins.tone === "warning" ? { color: C.red, Icon: AlertTriangle }
-                    : { color: gold, Icon: Lightbulb };
-                  const Ic = tone.Icon;
-                  return (
-                    <div key={i} className="flex items-start gap-2">
-                      <Ic size={13} style={{ color: tone.color }} className="shrink-0 mt-0.5" />
-                      <p className="text-[11px] leading-snug" style={{ color: C.textBody }}>{ins.text}</p>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </Panel>
         </div>
       </section>
