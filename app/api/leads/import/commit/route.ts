@@ -259,6 +259,12 @@ export async function POST(req: NextRequest) {
       if (shouldEncrypt) {
         const { operational, encrypted } = splitLeadForEncryption(mapped);
         const { ciphertext, version } = encryptWithResolvedKey(encrypted, tenantKey!);
+        // supabase-js JSON.stringify's Buffer as {"type":"Buffer","data":[...]}
+        // and Postgres stores it verbatim into the bytea column — corrupting
+        // the ciphertext so decrypt fails silently and the lead surfaces as
+        // "Unknown" everywhere. Force the wire format to Postgres's bytea
+        // hex literal so it lands as raw bytes. Same fix used in De Vera
+        // Grill + Everest + Pathway import scripts.
         toInsert.push({
           rowIndex,
           row: {
@@ -266,7 +272,7 @@ export async function POST(req: NextRequest) {
             ...allowDefaults,
             source: "client",
             company_bio_id: targetBioId,
-            encrypted_payload: ciphertext,
+            encrypted_payload: "\\x" + ciphertext.toString("hex"),
             encryption_version: version,
             sync_status: "synced",
             lead_score: score,
