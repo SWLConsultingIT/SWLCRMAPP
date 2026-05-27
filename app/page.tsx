@@ -258,50 +258,73 @@ export default async function DashboardPage({
         <DashboardKeyboardShortcuts />
       </Suspense>
 
-      {/* ─── Welcome hero (boss feedback round 4 #2 — "Hace un Hero de
-          bienvenida arriba del todo"). Slim 3-row strip that anchors the
-          page: section eyebrow, big title, current period chip + actions.
-          Doesn't compete with the chart panels below; just orients. */}
+      {/* ─── Welcome hero — same black-and-gold surface as the tabs nav,
+          TodayCard header and Panel headers. Boss-feedback round 4 #2
+          plus the consistency note: every hero in the dashboard rides
+          the navy-ink gradient with gold accents; no white islands. */}
       <header
-        className="relative rounded-2xl border overflow-hidden px-5 sm:px-6 py-4 sm:py-5"
+        className="relative rounded-2xl overflow-hidden px-5 sm:px-7 py-5 sm:py-6"
         style={{
-          backgroundColor: C.card,
-          borderColor: `color-mix(in srgb, ${gold} 22%, ${C.border})`,
-          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 14%, transparent), 0 14px 28px -22px ${N.ink}`,
+          background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
+          border: `1px solid color-mix(in srgb, ${gold} 28%, ${N.hairline})`,
+          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 20%, transparent), 0 14px 32px -18px ${N.ink}`,
         }}
       >
         <span
           aria-hidden
-          className="absolute -top-20 -right-16 w-72 h-72 rounded-full pointer-events-none"
-          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 16%, transparent) 0%, transparent 65%)` }}
+          className="absolute -top-24 -right-20 w-80 h-80 rounded-full pointer-events-none"
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 22%, transparent) 0%, transparent 65%)` }}
+        />
+        <span
+          aria-hidden
+          className="absolute -bottom-20 -left-16 w-64 h-64 rounded-full pointer-events-none"
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 10%, transparent) 0%, transparent 65%)` }}
         />
         <div className="relative flex items-center justify-between gap-4 flex-wrap">
           <div className="min-w-0">
-            <p className="text-[10.5px] font-bold uppercase tracking-[0.22em]" style={{ color: gold }}>
+            <p
+              className="text-[10.5px] font-bold uppercase tracking-[0.24em]"
+              style={{ color: gold }}
+            >
               {t("dashx.hero.section")}
             </p>
             <h1
-              className="text-[24px] sm:text-[28px] font-bold tracking-[-0.02em] leading-none mt-1.5"
-              style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
+              className="text-[26px] sm:text-[32px] font-bold tracking-[-0.022em] leading-[1.05] mt-2"
+              style={{
+                color: "white",
+                fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                textShadow: `0 2px 14px color-mix(in srgb, ${gold} 12%, transparent)`,
+              }}
             >
               {t("dashx.hero.title")}
             </h1>
-            <p className="text-[12px] mt-1.5" style={{ color: C.textMuted }}>
+            <p
+              className="text-[12.5px] mt-2 max-w-[640px]"
+              style={{ color: "color-mix(in srgb, white 65%, transparent)" }}
+            >
               {t("dashx.hero.desc")}
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <span
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10.5px] font-bold uppercase tracking-[0.14em]"
-              style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 26%, transparent)` }}
+              style={{
+                backgroundColor: `color-mix(in srgb, ${gold} 18%, transparent)`,
+                color: gold,
+                border: `1px solid color-mix(in srgb, ${gold} 38%, transparent)`,
+              }}
             >
               {periodLabel}
             </span>
             <FreshnessChip renderedAt={renderedAt} />
             <Link
               href="/reports"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-opacity hover:opacity-85 whitespace-nowrap"
-              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`, color: "#04070d", boxShadow: `0 2px 8px color-mix(in srgb, ${gold} 30%, transparent)` }}
+              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-opacity hover:opacity-90 whitespace-nowrap"
+              style={{
+                background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
+                color: N.ink,
+                boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 34%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
+              }}
             >
               <FileDown size={13} /> {t("dashx.hero.download")}
             </Link>
