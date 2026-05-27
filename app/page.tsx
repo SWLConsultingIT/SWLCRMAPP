@@ -326,57 +326,58 @@ export default async function DashboardPage({
         </div>
       </section>
 
-      {/* ─── Engine Health strip — the operational signals that don't show in
-          the headline KPIs (Velocity + Forecast were removed: too abstract,
-          user feedback "no lo entiendo"). What stays here are 4 concrete
-          warmup / saturation / pipeline-stall / channel-preference flags. */}
+      {/* ─── Pipeline Pulse strip — 4 rate/throughput stats that summarize the
+          engine at company level. Replaces the prior "Engine Health" alarm
+          strip (Acceptance / Saturation / At Risk / Channel Mismatch). Those
+          alarms still compute in dashboard-data but only surface through the
+          Highlight callout above when they actually trigger — no point taking
+          dashboard real estate to say "everything's fine". */}
       <section className="rounded-2xl border overflow-hidden"
         style={{ borderColor: C.border, backgroundColor: C.card }}>
-        <div>
-          <div className="px-4 py-2 flex items-center gap-2 border-b" style={{ borderColor: C.border }}>
-            <Activity size={11} style={{ color: C.textMuted }} />
-            <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em]" style={{ color: C.textMuted }}>{t("dashx.health.title")}</span>
-            <span className="text-[10.5px]" style={{ color: C.textDim }}>· {t("dashx.health.subtitle")}</span>
-          </div>
-          <div className="px-4 py-2 flex items-center gap-2 border-b" style={{ borderColor: C.border }}>
-            <Activity size={11} style={{ color: C.textMuted }} />
-            <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em]" style={{ color: C.textMuted }}>{t("dashx.health.title")}</span>
-            <span className="text-[10.5px]" style={{ color: C.textDim }}>· {t("dashx.health.subtitle")}</span>
-          </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x" style={{ borderColor: C.border }}>
-            <HealthStat
-              label={t("dashx.kpi.acceptCR")}
-              value={`${headline.acceptanceRate}%`}
-              unit={t("dashx.kpi.acceptCRUnit")}
-              hint={t("dashx.kpi.acceptCRHint", { n: headline.connectedLeads.toLocaleString(dateLoc) })}
-              tone={headline.contactedLeads >= 50 && headline.acceptanceRate < 15 ? "warning" : "neutral"}
-            />
-            <HealthStat
-              label={t("dashx.health.sat")}
-              value={data.health.saturationRate === null ? "—" : `${data.health.saturationRate}%`}
-              unit={data.health.saturationRate === null ? t("dashx.insuf") : t("dashx.health.satUnit")}
-              hint={data.health.saturationRate === null
-                ? t("dashx.health.satInsuf")
-                : t("dashx.health.satHint", { n: data.health.saturatedCount })}
-              tone={data.health.saturationRate !== null && data.health.saturationRate >= 60 ? "warning" : "neutral"}
-            />
-            <HealthStat
-              label={t("dashx.health.risk")}
-              value={`${data.health.atRiskCount}`}
-              unit={t("dashx.health.riskUnit")}
-              hint={t("dashx.health.riskHint")}
-              tone={data.health.atRiskCount >= 5 ? "warning" : "neutral"}
-            />
-            <HealthStat
-              label={t("dashx.health.mismatch")}
-              value={data.health.channelMismatchRate === null ? "—" : `${data.health.channelMismatchRate}%`}
-              unit={data.health.channelMismatchRate === null ? t("dashx.insuf") : t("dashx.health.mismatchUnit")}
-              hint={data.health.channelMismatchRate === null
-                ? t("dashx.health.mismatchInsuf")
-                : t("dashx.health.mismatchHint", { n: data.health.mismatchCount })}
-              tone="neutral"
-            />
-          </div>
+        <div className="px-4 py-2 flex items-center gap-2 border-b" style={{ borderColor: C.border }}>
+          <Activity size={11} style={{ color: C.textMuted }} />
+          <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em]" style={{ color: C.textMuted }}>{t("dashx.pulse.title")}</span>
+          <span className="text-[10.5px]" style={{ color: C.textDim }}>· {t("dashx.pulse.subtitle")}</span>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x" style={{ borderColor: C.border }}>
+          <HealthStat
+            label={t("dashx.pulse.replyRate")}
+            value={`${headline.responseRate}%`}
+            unit={t("dashx.pulse.replyRateUnit")}
+            hint={t("dashx.pulse.replyRateHint", { n: headline.repliedCount.toLocaleString(dateLoc), c: headline.contactedLeads.toLocaleString(dateLoc) })}
+            tone="neutral"
+          />
+          <HealthStat
+            label={t("dashx.pulse.winRate")}
+            value={`${data.velocity.winRate}%`}
+            unit={t("dashx.pulse.winRateUnit")}
+            hint={t("dashx.pulse.winRateHint", { n: headline.wonCount.toLocaleString(dateLoc), c: headline.contactedLeads.toLocaleString(dateLoc) })}
+            tone={data.velocity.winRate >= 10 ? "success" : "neutral"}
+          />
+          <HealthStat
+            label={t("dashx.pulse.ttfr")}
+            value={data.velocity.medianTimeToReplyMin === null ? "—" : formatMinutes(data.velocity.medianTimeToReplyMin)}
+            unit={data.velocity.medianTimeToReplyMin === null ? t("dashx.insuf") : t("dashx.pulse.ttfrUnit")}
+            hint={t("dashx.pulse.ttfrHint")}
+            tone={data.velocity.medianTimeToReplyMin !== null && data.velocity.medianTimeToReplyMin > 72 * 60 ? "warning" : "neutral"}
+          />
+          {(() => {
+            // Daily send volume — avg messages/day in the 30-day trailing
+            // trend. Uses trend30d (always-on) instead of period-filtered
+            // counts so the value stays stable across short-window filters.
+            const total = trend30d.sent.reduce((a, b) => a + b, 0);
+            const avg = total / 30;
+            const label = avg >= 10 ? Math.round(avg) : avg.toFixed(1);
+            return (
+              <HealthStat
+                label={t("dashx.pulse.dailyVolume")}
+                value={`${label}`}
+                unit={t("dashx.pulse.dailyVolumeUnit")}
+                hint={t("dashx.pulse.dailyVolumeHint", { n: total.toLocaleString(dateLoc) })}
+                tone="neutral"
+              />
+            );
+          })()}
         </div>
       </section>
 
