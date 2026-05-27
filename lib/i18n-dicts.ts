@@ -245,6 +245,15 @@ export const en: Dict = {
   "dashx.kpi.meetingsHint": "Lagging · leads qualified",
   "dashx.kpi.wins": "Wins",
   "dashx.kpi.winsHint": "Lagging · {n}% win rate",
+  // Company-totals KPI band (replaces the granular engagement KPIs)
+  "dashx.kpi.totalLeads": "Total leads",
+  "dashx.kpi.totalLeadsHint": "{n} of them already contacted",
+  "dashx.kpi.activeCampaigns": "Active campaigns",
+  "dashx.kpi.activeCampaignsHint": "{paused} paused · {closed} closed",
+  "dashx.kpi.won": "Won",
+  "dashx.kpi.wonHint": "{n} positive replies this period",
+  "dashx.kpi.lost": "Lost",
+  "dashx.kpi.lostHint": "Negative replies + unsubscribes",
   // Velocity strip
   "dashx.vel.velocity": "Velocity",
   "dashx.vel.velocityUnit": "positives/day",
@@ -836,6 +845,15 @@ export const es: Dict = {
   "dashx.kpi.meetingsHint": "Lagging · leads qualified",
   "dashx.kpi.wins": "Ganados",
   "dashx.kpi.winsHint": "Lagging · {n}% win rate",
+  // Company-totals KPI band (replaces the granular engagement KPIs)
+  "dashx.kpi.totalLeads": "Total leads",
+  "dashx.kpi.totalLeadsHint": "{n} ya contactados",
+  "dashx.kpi.activeCampaigns": "Campañas activas",
+  "dashx.kpi.activeCampaignsHint": "{paused} pausadas · {closed} cerradas",
+  "dashx.kpi.won": "Ganados",
+  "dashx.kpi.wonHint": "{n} respuestas positivas en el período",
+  "dashx.kpi.lost": "Perdidos",
+  "dashx.kpi.lostHint": "Respuestas negativas + unsubscribes",
   // Velocity strip
   "dashx.vel.velocity": "Velocity",
   "dashx.vel.velocityUnit": "positivas/día",

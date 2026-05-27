@@ -284,114 +284,60 @@ export default async function DashboardPage({
         description={t("dashx.chapter.overview.desc")}
       />
 
-      {/* ─── KPIs Leading / Lagging in one row (research: 5-9 KPIs max, leading first) ─ */}
+      {/* ─── KPI band — company-level totals (Fran's feedback: prior 4 KPIs
+          were too granular; he wants thick top-of-funnel + outcome numbers).
+          Each card answers "how much" not "how fast / how good %": Total
+          Leads · Active Campaigns · Won · Lost. Engagement details
+          (Contacted / Replies / Positives) live one level below in the
+          funnel + per-channel/per-ICP/per-seller leaderboards. */}
       <section>
-        <div className="flex items-center justify-between gap-2 mb-2.5">
-          <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#0A66C2" }} />
-              {t("dashx.kpi.leading")} <span style={{ color: C.textDim }}>· {t("dashx.kpi.leadingHint")}</span>
-            </span>
-            <span style={{ color: C.textDim }}>|</span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: C.green }} />
-              {t("dashx.kpi.lagging")} <span style={{ color: C.textDim }}>· {t("dashx.kpi.laggingHint")}</span>
-            </span>
-          </div>
-        </div>
-        {/* 4 KPIs (was 6) — dropped "Reuniones" (lagging duplicate of Wins)
-            and moved "Aceptaron CR" down to the Health strip where the
-            LinkedIn warmup signal lives. Each card now breathes more. */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <KpiCard {...kpi18n}
-            label={t("dashx.kpi.contacted")}
-            value={headline.contactedLeads.toLocaleString(dateLoc)}
-            delta={deltas.contacted}
-            trend={trend30d.sent}
-            icon={Send}
+            label={t("dashx.kpi.totalLeads")}
+            value={headline.totalLeads.toLocaleString(dateLoc)}
+            icon={Users}
             accent="#0A66C2"
-            hint={t("dashx.kpi.contactedHint")}
+            hint={t("dashx.kpi.totalLeadsHint", { n: headline.contactedLeads })}
           />
           <KpiCard {...kpi18n}
-            label={t("dashx.kpi.replies")}
-            value={headline.repliedCount.toLocaleString(dateLoc)}
-            delta={deltas.replied}
-            trend={trend30d.replies}
-            icon={MessageSquare}
-            accent="#7C3AED"
-            hint={t("dashx.kpi.repliesHint", { n: headline.responseRate })}
-            href="/queue?tab=inbox"
+            label={t("dashx.kpi.activeCampaigns")}
+            value={data.activeCampaignCount.toLocaleString(dateLoc)}
+            icon={Megaphone}
+            accent={gold}
+            hint={t("dashx.kpi.activeCampaignsHint", { paused: data.pausedCampaignCount, closed: data.completedCampaignCount })}
+            href="/campaigns"
           />
           <KpiCard {...kpi18n}
-            label={t("dashx.kpi.positives")}
-            value={headline.positiveCount.toLocaleString(dateLoc)}
-            delta={deltas.positive}
+            label={t("dashx.kpi.won")}
+            value={headline.wonCount.toLocaleString(dateLoc)}
             trend={trend30d.positive}
-            icon={ThumbsUp}
+            icon={Trophy}
             accent={C.green}
-            hint={t("dashx.kpi.positivesHint", { n: headline.positiveRate })}
+            hint={t("dashx.kpi.wonHint", { n: headline.positiveCount })}
             href="/opportunities"
           />
           <KpiCard {...kpi18n}
-            label={t("dashx.kpi.wins")}
-            value={headline.wonCount.toLocaleString(dateLoc)}
-            icon={Trophy}
+            label={t("dashx.kpi.lost")}
+            value={headline.negativeCount.toLocaleString(dateLoc)}
+            icon={AlertTriangle}
             accent="#DC2626"
-            hint={t("dashx.kpi.winsHint", { n: data.velocity.winRate })}
+            hint={t("dashx.kpi.lostHint")}
           />
         </div>
       </section>
 
-      {/* ─── Operations Pulse — velocity north-star + engine health, one card ─
-          Used to be two stacked sections (8 stats + headers + dividers,
-          ~280px vertical). Merged into a single surface so the top fold
-          breathes: gold-tinted top half is the velocity "north star",
-          neutral bottom half is health signals. Same data, half the
-          vertical real estate. */}
+      {/* ─── Engine Health strip — the operational signals that don't show in
+          the headline KPIs (Velocity + Forecast were removed: too abstract,
+          user feedback "no lo entiendo"). What stays here are 4 concrete
+          warmup / saturation / pipeline-stall / channel-preference flags. */}
       <section className="rounded-2xl border overflow-hidden"
         style={{ borderColor: C.border, backgroundColor: C.card }}>
-        {/* Velocity row — gold gradient, 4 cols */}
-        <div style={{ background: `linear-gradient(135deg, ${C.card} 0%, color-mix(in srgb, ${gold} 5%, ${C.card}) 100%)` }}>
-          <div className="grid grid-cols-2 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x" style={{ borderColor: C.border }}>
-            <VelocityStat
-              icon={Sparkles}
-              label={t("dashx.vel.velocity")}
-              value={`${data.velocity.perDay}`}
-              unit={t("dashx.vel.velocityUnit")}
-              hint={t("dashx.vel.velocityHint")}
-              tone="brand"
-            />
-            <VelocityStat
-              icon={Target}
-              label={t("dashx.vel.forecast")}
-              value={`${data.velocity.forecastMonthEnd}`}
-              unit={t("dashx.vel.forecastUnit")}
-              hint={t("dashx.vel.forecastHint")}
-              tone="brand"
-            />
-            <VelocityStat
-              icon={Clock}
-              label={t("dashx.vel.ttfr")}
-              value={data.velocity.medianTimeToReplyMin === null ? "—" : formatMinutes(data.velocity.medianTimeToReplyMin)}
-              unit={t("dashx.vel.ttfrUnit")}
-              hint={t("dashx.vel.ttfrHint")}
-              tone="neutral"
-            />
-            <VelocityStat
-              icon={Trophy}
-              label={t("dashx.vel.winrate")}
-              value={`${data.velocity.winRate}%`}
-              unit={t("dashx.vel.winrateUnit")}
-              hint={t("dashx.vel.winrateHint")}
-              tone="success"
-            />
+        <div>
+          <div className="px-4 py-2 flex items-center gap-2 border-b" style={{ borderColor: C.border }}>
+            <Activity size={11} style={{ color: C.textMuted }} />
+            <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em]" style={{ color: C.textMuted }}>{t("dashx.health.title")}</span>
+            <span className="text-[10.5px]" style={{ color: C.textDim }}>· {t("dashx.health.subtitle")}</span>
           </div>
-        </div>
-
-        {/* Health row — 4 cols now (was 3). Acceptance Rate moved here from
-            the KPI row above: it's a LinkedIn warmup signal, semantically
-            closer to engine health than to pipeline outcomes. */}
-        <div className="border-t" style={{ borderColor: C.border }}>
           <div className="px-4 py-2 flex items-center gap-2 border-b" style={{ borderColor: C.border }}>
             <Activity size={11} style={{ color: C.textMuted }} />
             <span className="text-[10.5px] font-semibold uppercase tracking-[0.12em]" style={{ color: C.textMuted }}>{t("dashx.health.title")}</span>
