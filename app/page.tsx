@@ -875,15 +875,16 @@ export default async function DashboardPage({
           ] as const;
           const buildHref = (id: string) => {
             const params = new URLSearchParams();
+            // CRITICAL: preserve tab=campaigns or the click drops the user
+            // back to Overview because parseFilters defaults rawTab → "overview".
+            params.set("tab", "campaigns");
             if (filters.from) params.set("from", filters.from);
             if (filters.to) params.set("to", filters.to);
             if (filters.campaignNames?.length) params.set("campaigns", filters.campaignNames.join("|"));
             if (filters.icpIds?.length) params.set("icps", filters.icpIds.join("|"));
             if (filters.sellerIds?.length) params.set("sellers", filters.sellerIds.join("|"));
             if (id !== "active") params.set("camp_status", id);
-            // Hash so the page scrolls back to the chapter when the URL changes.
-            const q = params.toString();
-            return q ? `/?${q}#campaigns` : "/#campaigns";
+            return `/?${params.toString()}`;
           };
           return (
             <div className="flex items-center gap-1.5 mb-3 flex-wrap">
