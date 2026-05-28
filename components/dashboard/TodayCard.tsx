@@ -17,7 +17,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   ChevronDown, ChevronRight, ArrowUpRight, Sparkles,
-  MessageSquare, Phone,
+  MessageSquare, Phone, ThumbsUp, UserPlus, AlertCircle,
 } from "lucide-react";
 import { C, N, T } from "@/lib/design";
 
@@ -31,7 +31,7 @@ export type TodayLead = {
   tag?: string | null;
 };
 
-export type TodaySectionKey = "replies" | "positives" | "calls" | "unassigned";
+export type TodaySectionKey = "replies" | "positives" | "calls" | "unassigned" | "stale";
 
 export type TodayLabels = {
   title: string;
@@ -68,6 +68,7 @@ export default function TodayCard({
     positives: TodayLead[];
     calls: TodayLead[];
     unassigned: TodayLead[];
+    stale: TodayLead[];
   };
   locale: "en" | "es";
 }) {
@@ -79,13 +80,18 @@ export default function TodayCard({
     positives: false,
     calls: false,
     unassigned: false,
+    stale: false,
   });
 
-  // Boss simplified the hero (2026-05-27 follow-up): show only the two
-  // truly urgent buckets — Replies awaiting review + Pending calls. The
-  // positives / unassigned cohorts still exist in data but live in the
-  // MicroKpi strip beneath; they're state-of-world counts, not "to-do
-  // today" interrupts.
+  // Five buckets, ordered by urgency:
+  //   1. Replies waiting — inbound, needs human triage now
+  //   2. Positives to follow up — convert before they cool
+  //   3. Today's calls — outbound queue
+  //   4. Stale leads — contacted >7d, no reply, momentum bleeding
+  //   5. Leads to assign — pipeline gap, no flow yet
+  // (Previous version hid 3/4/5 inside a separate strip; boss feedback
+  // 2026-05-28: the Today tab is the dedicated landing surface now, so
+  // we have the real estate to surface them all inline.)
   const sections: Array<{
     key: TodaySectionKey;
     icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
@@ -93,8 +99,11 @@ export default function TodayCard({
     href: string;
     list: TodayLead[];
   }> = [
-    { key: "replies",    icon: MessageSquare, accent: "#7C3AED", href: "/inbox",         list: data.replies },
-    { key: "calls",      icon: Phone,         accent: "#EA580C", href: "/queue",         list: data.calls },
+    { key: "replies",    icon: MessageSquare, accent: "#7C3AED", href: "/inbox",                 list: data.replies },
+    { key: "positives",  icon: ThumbsUp,      accent: "#10B981", href: "/opportunities",         list: data.positives },
+    { key: "calls",      icon: Phone,         accent: "#EA580C", href: "/queue",                 list: data.calls },
+    { key: "stale",      icon: AlertCircle,   accent: "#D97706", href: "/leads?filter=stale",    list: data.stale },
+    { key: "unassigned", icon: UserPlus,      accent: "#0EA5E9", href: "/leads?filter=no-camp",  list: data.unassigned },
   ];
 
   const totalItems = sections.reduce((acc, s) => acc + s.list.length, 0);

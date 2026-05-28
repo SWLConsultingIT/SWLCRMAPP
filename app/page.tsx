@@ -583,6 +583,7 @@ export default async function DashboardPage({
             positives:  { label: t("dashx.today.positives"),       hint: t("dashx.today.positivesHint"),     cta: t("dashx.today.openOpps") },
             calls:      { label: t("dashx.today.calls"),           hint: t("dashx.today.callsHint"),         cta: t("dashx.today.openCalls") },
             unassigned: { label: t("dashx.today.leadsNoCampaign"), hint: t("dashx.today.leadsNoCampaignHint"), cta: t("dashx.today.openLeads") },
+            stale:      { label: t("dashx.today.stale"),           hint: t("dashx.today.staleHint"),         cta: t("dashx.today.openLeads") },
           },
         }}
         data={data.todayLists}

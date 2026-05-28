@@ -118,6 +118,7 @@ const EMPTY_DASHBOARD = {
     positives: [] as Array<{ id: string; company: string; icp: string | null; when: string | null; tag: string | null }>,
     calls: [] as Array<{ id: string; company: string; icp: string | null; when: string | null; tag: string | null }>,
     unassigned: [] as Array<{ id: string; company: string; icp: string | null; when: string | null; tag: string | null }>,
+    stale: [] as Array<{ id: string; company: string; icp: string | null; when: string | null; tag: string | null }>,
   },
   velocity: { perDay: 0, winRate: 0, medianTimeToReplyMin: null as number | null, acceptanceRate: 0, forecastMonthEnd: 0 },
   matrix: { icps: [] as Array<{ id: string; name: string; totalLeads: number }>, channels: [] as string[], cells: [] as Array<any>, mean: 0, stddev: 0 },
@@ -1419,11 +1420,41 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
         if (s) callsList.push(s);
         if (callsList.length >= 8) break;
       }
+
+      // Stale leads — contacted ≥7d ago, never replied. Bleeding-momentum
+      // bucket. Per-lead latest sent_at comes from allMessages; we exclude
+      // any lead that ever replied. Sorted by oldest-touch-first so the
+      // operator works the riskiest cohort first. Capped at 8.
+      const STALE_DAYS = 7;
+      const staleCutoffMs = Date.now() - STALE_DAYS * 86_400_000;
+      const lastSentByLead = new Map<string, number>();
+      for (const m of allMessages) {
+        if (m.status !== "sent" || !m.sent_at || !m.campaign_id) continue;
+        const camp = campaignById.get(m.campaign_id);
+        if (!camp?.lead_id) continue;
+        const tMs = new Date(m.sent_at).getTime();
+        const prev = lastSentByLead.get(camp.lead_id);
+        if (prev === undefined || tMs > prev) lastSentByLead.set(camp.lead_id, tMs);
+      }
+      const staleCandidates: Array<{ leadId: string; lastSentIso: string; tMs: number }> = [];
+      for (const [leadId, tMs] of lastSentByLead.entries()) {
+        if (tMs > staleCutoffMs) continue;            // touched recently — not stale
+        if (repliedLeadIds.has(leadId)) continue;     // replied — not stale
+        if (!leadById.has(leadId)) continue;          // out of period scope
+        staleCandidates.push({ leadId, lastSentIso: new Date(tMs).toISOString(), tMs });
+      }
+      staleCandidates.sort((a, b) => a.tMs - b.tMs); // oldest first
+      const staleList: TodayLead[] = staleCandidates
+        .slice(0, 8)
+        .map(s => summarize(s.leadId, { when: s.lastSentIso, tag: null }))
+        .filter((x): x is TodayLead => x !== null);
+
       return {
         replies: repliesList,
         positives: positivesList,
         calls: callsList,
         unassigned: unassignedList,
+        stale: staleList,
       };
     })(),
     velocity: {
