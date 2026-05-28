@@ -21,7 +21,7 @@ import ReliabilityBanner from "@/components/ReliabilityBanner";
 import FiltersBar from "@/components/dashboard/FiltersBar";
 import CampStatusChipsLive from "@/components/dashboard/CampStatusChipsLive";
 import TabFilterBar from "@/components/dashboard/TabFilterBar";
-import SellerScorecard from "@/components/dashboard/SellerScorecard";
+import SellerRow from "@/components/dashboard/SellerRowExpand";
 import ChartFilterChips from "@/components/dashboard/ChartFilterChips";
 import { getSupabaseService } from "@/lib/supabase-service";
 import FreshnessChip from "@/components/dashboard/FreshnessChip";
@@ -1356,38 +1356,9 @@ export default async function DashboardPage({
           active: number; contacted: number; replied: number; positive: number;
           conversionRate: number; responseRate: number;
           sentLinkedinConn: number; sentLinkedinMsg: number; sentEmail: number; sentCall: number;
-          contactedLinkedin: number; repliedLinkedin: number; replyRateLinkedin: number;
-          contactedEmail: number;    repliedEmail: number;    replyRateEmail: number;
-          contactedCall: number;     repliedCall: number;     replyRateCall: number;
-          connectionsSent: number; connectionsAccepted: number; acceptanceRate: number;
           pendingCalls: number;
-          topCampaigns: { name: string; sent: number; replied: number; positive: number }[];
-          topIcps: { id: string; name: string; sent: number; replied: number; positive: number }[];
         };
         const sellers = data.sellerPerformance as unknown as SellerKpi[];
-        const cardLabels = {
-          eyebrow: t("dashx.seller.kpiCardEyebrow"),
-          eyebrowLead: t("dashx.seller.kpiCardEyebrowLead"),
-          active: t("dashx.seller.kpiCardActive"),
-          contacted: t("dashx.seller.kpiCardContacted"),
-          sent: t("dashx.seller.kpiCardSent"),
-          replies: t("dashx.seller.kpiCardReplies"),
-          won: t("dashx.seller.kpiCardWon"),
-          pending: t("dashx.seller.kpiCardPending"),
-          expand: t("dashx.seller.expand"),
-          collapse: t("dashx.seller.collapse"),
-          perChannelTitle: t("dashx.seller.perChannelTitle"),
-          connSent: t("dashx.seller.connSent"),
-          connAccepted: t("dashx.seller.connAccepted"),
-          campaignsTitle: t("dashx.seller.topCampaigns"),
-          icpsTitle: t("dashx.seller.topIcps"),
-          empty: t("dashx.seller.attrEmpty"),
-          sentShort: t("dashx.seller.sentShort"),
-          repliedShort: t("dashx.seller.repliedShort"),
-          positiveShort: t("dashx.seller.positiveShort"),
-          contactedShort: t("dashx.seller.contactedShort"),
-          openDetail: t("dashx.seller.openDetail"),
-        };
         return (
           <section>
             <SectionHeader
@@ -1396,25 +1367,71 @@ export default async function DashboardPage({
               subtitle={t("dashx.seller.kpiGridSubtitle")}
             />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {sellers.map((s, idx) => (
-                <SellerScorecard
-                  key={s.id}
-                  seller={s}
-                  idx={idx}
-                  detailHref={withFilters(`/dashboard/seller/${s.id}`, filters)}
-                  labels={cardLabels}
-                />
-              ))}
+              {sellers.map((s, idx) => {
+                const totalSent = s.sentLinkedinConn + s.sentLinkedinMsg + s.sentEmail + s.sentCall;
+                const isLead = idx === 0;
+                return (
+                  <Link
+                    key={s.id}
+                    href={withFilters(`/dashboard/seller/${s.id}`, filters)}
+                    className="group rounded-2xl border overflow-hidden p-4 relative transition-[transform,box-shadow] hover:-translate-y-px hover:shadow-[0_14px_32px_-12px_color-mix(in_srgb,var(--brand,#c9a83a)_30%,transparent)]"
+                    style={{
+                      backgroundColor: C.card,
+                      borderColor: isLead ? `color-mix(in srgb, ${gold} 38%, ${C.border})` : C.border,
+                      borderTop: `3px solid ${isLead ? gold : "#7C3AED"}`,
+                      boxShadow: isLead ? `0 6px 20px color-mix(in srgb, ${gold} 14%, transparent)` : "0 1px 2px rgba(0,0,0,0.03)",
+                    }}>
+                    {isLead && (
+                      <span aria-hidden className="absolute -top-12 -right-12 w-32 h-32 rounded-full pointer-events-none"
+                        style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 14%, transparent) 0%, transparent 70%)` }} />
+                    )}
+                    <div className="relative flex items-center gap-2.5 mb-3">
+                      <span
+                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-[13px] font-bold tabular-nums"
+                        style={{
+                          background: isLead
+                            ? `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 78%, white) 100%)`
+                            : `color-mix(in srgb, #7C3AED 14%, transparent)`,
+                          color: isLead ? "#1A1505" : "#7C3AED",
+                          border: isLead ? "none" : `1px solid color-mix(in srgb, #7C3AED 22%, transparent)`,
+                          boxShadow: isLead ? `0 2px 8px color-mix(in srgb, ${gold} 32%, transparent)` : "none",
+                        }}>
+                        {idx + 1}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>
+                          {isLead ? t("dashx.seller.kpiCardEyebrowLead") : t("dashx.seller.kpiCardEyebrow")}
+                        </p>
+                        <p className="text-[15px] font-bold leading-tight truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                          {s.name}
+                        </p>
+                      </div>
+                      <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded shrink-0"
+                        style={{ background: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}>
+                        {s.active} {t("dashx.seller.kpiCardActive")}
+                      </span>
+                    </div>
+                    <div className="relative grid grid-cols-2 gap-2">
+                      <SellerKpiTile label={t("dashx.seller.kpiCardContacted")} value={s.contacted} color={C.textBody} />
+                      <SellerKpiTile label={t("dashx.seller.kpiCardSent")} value={totalSent} color="#0284C7" />
+                      <SellerKpiTile label={t("dashx.seller.kpiCardReplies")} value={s.replied} sub={`${s.responseRate}% reply rate`} color="#7C3AED" />
+                      <SellerKpiTile label={t("dashx.seller.kpiCardWon")} value={s.positive} sub={`${s.conversionRate}% conv`} color={C.green} accent={s.positive > 0} />
+                    </div>
+                    {s.pendingCalls > 0 && (
+                      <p className="relative mt-3 text-[11px] inline-flex items-center gap-1.5"
+                        style={{ color: "#D97706" }}>
+                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#D97706" }} />
+                        {s.pendingCalls} {t("dashx.seller.kpiCardPending")}
+                      </p>
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           </section>
         );
       })()}
 
-      {/* Leaderboard table removed 2026-05-28 — the per-seller scorecard
-          grid above (expandable inline) carries the same data without the
-          redundant "table + cards" duplication boss flagged. The
-          top-performer callout still renders here as a hint when the
-          team has enough activity to compare. */}
       <section>
         {(() => {
           const eligible = data.sellerPerformance.filter(s => s.contacted >= 20);
@@ -1430,6 +1447,80 @@ export default async function DashboardPage({
             : null;
           return <LeaderCallout topText={topText} bottomText={bottomText} />;
         })()}
+        <Panel
+          title={t("dashx.tbl.seller.title")}
+          subtitle={withScope(t("dashx.tbl.seller.subtitle"))}
+          actionHref="/admin"
+          actionLabel={t("dashx.panel.openTeam")}
+          glow
+          insightEyebrow={t("dashx.insight.eyebrow")}
+          insight={(() => {
+            const eligible = data.sellerPerformance.filter(s => s.contacted >= 20);
+            if (eligible.length < 2) return null;
+            const sorted = [...eligible].sort((a, b) => b.responseRate - a.responseRate);
+            const top = sorted[0]; const bottom = sorted[sorted.length - 1];
+            const gap = top.responseRate - bottom.responseRate;
+            return t("dashx.seller.insight", { name: top.name, rate: top.responseRate, gap });
+          })()}
+        >
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
+                <Th align="left" style={{ width: 28 }}>#</Th>
+                <Th align="left">{t("dashx.tbl.col.seller")}</Th>
+                <Th align="right">{t("dashx.tbl.col.active")}</Th>
+                <Th align="right">{t("dashx.tbl.col.contacted")}</Th>
+                <Th align="left">{t("dashx.tbl.col.sentByChannel")}</Th>
+                <Th align="right">{t("dashx.tbl.col.repliedFull")}</Th>
+                <Th align="right">{t("dashx.tbl.col.positiveFull")}</Th>
+                <Th align="right"><span title={t("dashx.tbl.col.convPctHint")}>{t("dashx.tbl.col.convPctFull")}</span></Th>
+                <Th align="left">{t("dashx.tbl.col.trend14")}</Th>
+                <Th align="left" style={{ width: 24 }}></Th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.sellerPerformance.length === 0 ? (
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="sellers" t={t} /></td></tr>
+              ) : (() => {
+                const maxConv = Math.max(1, ...data.sellerPerformance.map(s => s.conversionRate));
+                const sellerLabels = {
+                  expand: t("dashx.seller.expand"),
+                  collapse: t("dashx.seller.collapse"),
+                  campaignsTitle: t("dashx.seller.topCampaigns"),
+                  icpsTitle: t("dashx.seller.topIcps"),
+                  empty: t("dashx.seller.attrEmpty"),
+                  sentShort: t("dashx.seller.sentShort"),
+                  repliedShort: t("dashx.seller.repliedShort"),
+                  positiveShort: t("dashx.seller.positiveShort"),
+                  contactedShort: t("dashx.seller.contactedShort"),
+                  perChannelTitle: t("dashx.seller.perChannelTitle"),
+                  connSent: t("dashx.seller.connSent"),
+                  connAccepted: t("dashx.seller.connAccepted"),
+                  pendingCallsLabel: t("dashx.seller.pendingCallsLabel"),
+                  totalSentLabel: t("dashx.seller.totalSentLabel"),
+                };
+                const sellerChannelLabels = {
+                  linkedinSent: t("dashx.touch.linkedinSent"),
+                  linkedinMsg: t("dashx.touch.linkedinMsg"),
+                  emailTouch: t("dashx.touch.emailTouch"),
+                  callTouch: t("dashx.touch.callTouch"),
+                };
+                return data.sellerPerformance.map((s: any, idx: number) => (
+                  <SellerRow
+                    key={s.id}
+                    seller={s}
+                    idx={idx}
+                    maxConv={maxConv}
+                    detailHref={withFilters(`/dashboard/seller/${s.id}`, filters)}
+                    labels={sellerLabels}
+                    channelLabels={sellerChannelLabels}
+                    formulaHint={t("dashx.tbl.col.convPctHint")}
+                  />
+                ));
+              })()}
+            </tbody>
+          </table>
+        </Panel>
       </section>
 
       {/* Channel Champions — who is best at each channel. Shows the seller
