@@ -1442,6 +1442,192 @@ export default async function DashboardPage({
         </Panel>
       </section>
 
+      {/* Channel Champions — who is best at each channel. Shows the seller
+          with the highest reply rate per channel (LinkedIn / Email / Call)
+          with their actual sent/replied so the operator picks the right
+          person to send a new channel-specific request to. Boss 2026-05-28
+          asked for more content under the seller leaderboard. */}
+      {(() => {
+        type SellerWithRates = {
+          id: string; name: string;
+          contactedLinkedin: number; repliedLinkedin: number; replyRateLinkedin: number;
+          contactedEmail: number;    repliedEmail: number;    replyRateEmail: number;
+          contactedCall: number;     repliedCall: number;     replyRateCall: number;
+          active: number; positive: number; pendingCalls: number;
+        };
+        const sellersData = data.sellerPerformance as unknown as SellerWithRates[];
+        const pickChampion = (channelKey: "linkedin" | "email" | "call") => {
+          const contactedKey = channelKey === "linkedin" ? "contactedLinkedin" : channelKey === "email" ? "contactedEmail" : "contactedCall";
+          const repliedKey   = channelKey === "linkedin" ? "repliedLinkedin"   : channelKey === "email" ? "repliedEmail"   : "repliedCall";
+          const rateKey      = channelKey === "linkedin" ? "replyRateLinkedin" : channelKey === "email" ? "replyRateEmail" : "replyRateCall";
+          // Floor of 5 contacted leads — anyone below that is noise.
+          const eligible = sellersData.filter(s => s[contactedKey] >= 5);
+          if (eligible.length === 0) return null;
+          const sorted = [...eligible].sort((a, b) => b[rateKey] - a[rateKey] || b[repliedKey] - a[repliedKey]);
+          return sorted[0];
+        };
+        const liChamp    = pickChampion("linkedin");
+        const emailChamp = pickChampion("email");
+        const callChamp  = pickChampion("call");
+        if (!liChamp && !emailChamp && !callChamp) return null;
+
+        const ChampCard = ({ Icon, color, channel, champion, channelLabel, contactedKey, repliedKey, rateKey }: {
+          Icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
+          color: string;
+          channel: string;
+          champion: SellerWithRates | null;
+          channelLabel: string;
+          contactedKey: "contactedLinkedin" | "contactedEmail" | "contactedCall";
+          repliedKey: "repliedLinkedin" | "repliedEmail" | "repliedCall";
+          rateKey: "replyRateLinkedin" | "replyRateEmail" | "replyRateCall";
+        }) => (
+          <div className="rounded-xl border p-4 relative overflow-hidden flex flex-col gap-3 transition-[transform,box-shadow] hover:-translate-y-px"
+            style={{
+              backgroundColor: C.card,
+              borderColor: C.border,
+              borderTop: `3px solid ${color}`,
+              boxShadow: champion ? `0 8px 22px -12px color-mix(in srgb, ${color} 30%, transparent)` : "0 1px 2px rgba(0,0,0,0.03)",
+            }}>
+            <span aria-hidden className="absolute -top-12 -right-12 w-32 h-32 rounded-full pointer-events-none"
+              style={{ background: `radial-gradient(circle, color-mix(in srgb, ${color} 12%, transparent) 0%, transparent 70%)` }} />
+            <div className="relative flex items-center gap-2.5">
+              <span className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: `color-mix(in srgb, ${color} 14%, transparent)`, color, border: `1px solid color-mix(in srgb, ${color} 22%, transparent)` }}>
+                <Icon size={16} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9.5px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>
+                  {t("dashx.seller.champTitle")}
+                </p>
+                <p className="text-[14px] font-bold leading-tight" style={{ color: C.textPrimary }}>{channelLabel}</p>
+              </div>
+            </div>
+            {champion ? (
+              <>
+                <div className="relative">
+                  <Link href={withFilters(`/dashboard/seller/${champion.id}`, filters)}
+                    className="text-[15px] font-bold leading-tight hover:underline truncate block"
+                    style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                    {champion.name}
+                  </Link>
+                  <p className="text-[10.5px] mt-0.5" style={{ color: C.textDim }}>
+                    {champion[repliedKey]} / {champion[contactedKey]} {t("dashx.seller.champReplies")}
+                  </p>
+                </div>
+                <div className="relative flex items-baseline gap-1.5">
+                  <span className="text-[32px] font-bold tabular-nums leading-none tracking-[-0.02em]"
+                    style={{ color, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                    {champion[rateKey]}%
+                  </span>
+                  <span className="text-[10.5px] uppercase tracking-wider font-semibold" style={{ color: C.textDim }}>
+                    {t("dashx.seller.champRate")}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <p className="relative text-[12px] py-3" style={{ color: C.textDim }}>
+                {t("dashx.seller.champNoData", { channel: channelLabel })}
+              </p>
+            )}
+          </div>
+        );
+
+        return (
+          <section className="mt-6">
+            <SectionHeader
+              icon={Trophy}
+              title={t("dashx.seller.champSectionTitle")}
+              subtitle={t("dashx.seller.champSectionSubtitle")}
+            />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <ChampCard
+                Icon={Share2}
+                color="#0284C7"
+                channel="linkedin"
+                channelLabel="LinkedIn"
+                champion={liChamp}
+                contactedKey="contactedLinkedin"
+                repliedKey="repliedLinkedin"
+                rateKey="replyRateLinkedin"
+              />
+              <ChampCard
+                Icon={Mail}
+                color="#047857"
+                channel="email"
+                channelLabel="Email"
+                champion={emailChamp}
+                contactedKey="contactedEmail"
+                repliedKey="repliedEmail"
+                rateKey="replyRateEmail"
+              />
+              <ChampCard
+                Icon={Phone}
+                color="#EA580C"
+                channel="call"
+                channelLabel="Call"
+                champion={callChamp}
+                contactedKey="contactedCall"
+                repliedKey="repliedCall"
+                rateKey="replyRateCall"
+              />
+            </div>
+          </section>
+        );
+      })()}
+
+      {/* Workload distribution — relative active-campaign load per seller.
+          Helps the manager see who's overloaded vs free to take new flows. */}
+      {(() => {
+        const sellersData = data.sellerPerformance as unknown as Array<{ id: string; name: string; active: number; pendingCalls: number }>;
+        const eligible = sellersData.filter(s => s.active > 0 || s.pendingCalls > 0);
+        if (eligible.length < 2) return null;
+        const maxActive = Math.max(1, ...eligible.map(s => s.active));
+        return (
+          <section className="mt-6">
+            <SectionHeader
+              icon={Activity}
+              title={t("dashx.seller.workloadTitle")}
+              subtitle={t("dashx.seller.workloadSubtitle")}
+            />
+            <Panel>
+              <div className="space-y-2.5">
+                {[...eligible].sort((a, b) => b.active - a.active).map(s => {
+                  const pct = Math.max(4, Math.round((s.active / maxActive) * 100));
+                  const overloaded = s.active >= maxActive * 0.85 && eligible.length > 2;
+                  const barColor = overloaded ? "#D97706" : gold;
+                  return (
+                    <div key={s.id} className="grid items-center gap-3" style={{ gridTemplateColumns: "180px 1fr 80px 80px" }}>
+                      <Link href={withFilters(`/dashboard/seller/${s.id}`, filters)} className="text-[12.5px] font-medium truncate hover:underline" style={{ color: C.textPrimary }}>
+                        {s.name}
+                      </Link>
+                      <div className="relative h-6 rounded-md overflow-hidden" style={{ background: C.surface }}>
+                        <div className="absolute inset-y-0 left-0 transition-[width] flex items-center px-2"
+                          style={{
+                            width: `${pct}%`,
+                            background: `linear-gradient(90deg, ${barColor}, color-mix(in srgb, ${barColor} 70%, white))`,
+                            minWidth: 36,
+                          }}>
+                          <span className="text-[11px] font-bold tabular-nums" style={{ color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,0.25)" }}>
+                            {s.active}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10.5px] tabular-nums text-right" style={{ color: C.textDim }}>
+                        {s.active} {t("dashx.seller.workloadActiveLabel")}
+                      </span>
+                      <span className="text-[10.5px] tabular-nums text-right"
+                        style={{ color: s.pendingCalls > 0 ? "#D97706" : C.textDim }}>
+                        {s.pendingCalls} {t("dashx.seller.workloadPendingLabel")}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </Panel>
+          </section>
+        );
+      })()}
+
       </section>
       )}
       <SwlSignature caption={t("dashx.brand.captionMain")} tagline={t("dashx.brand.tagline")} />
