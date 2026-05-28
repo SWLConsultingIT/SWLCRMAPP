@@ -2,7 +2,7 @@
 
 import { useState, useEffect, type ReactNode } from "react";
 import { C } from "@/lib/design";
-import { Search, X, SlidersHorizontal, Flame, Megaphone, MessageCircle, Target, ChevronDown } from "lucide-react";
+import { Search, X, SlidersHorizontal, Flame, Megaphone, MessageCircle, Target, ChevronDown, Briefcase, Building2 } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 const goldDark = "var(--brand-dark, #b79832)";
@@ -66,6 +66,11 @@ export type LeadFilterState = {
   campaign: string;
   reply: string;
   profile: string;
+  /** Job role / title. "all" or a string that must match (case-insensitive
+   *  contains) against the lead's primary_title_role. */
+  role: string;
+  /** Company industry. Same shape as role — "all" or a contains-match. */
+  industry: string;
 };
 
 export function LeadFilterBar({
@@ -74,6 +79,8 @@ export function LeadFilterBar({
   resultCount,
   totalCount,
   profileNames,
+  roleOptions,
+  industryOptions,
   showCampaignFilter = true,
   showProfileFilter = true,
 }: {
@@ -82,6 +89,12 @@ export function LeadFilterBar({
   resultCount: number;
   totalCount: number;
   profileNames?: string[];
+  /** Distinct role values present in the current lead set. Pass null/empty
+   *  to hide the Role filter. The bar autoswitches to a dropdown when the
+   *  list is long (>5) to match the ICP filter pattern. */
+  roleOptions?: string[];
+  /** Distinct industry values present in the current lead set. */
+  industryOptions?: string[];
   showCampaignFilter?: boolean;
   showProfileFilter?: boolean;
 }) {
@@ -94,7 +107,9 @@ export function LeadFilterBar({
     filters.score !== "all" ||
     filters.campaign !== "all" ||
     filters.reply !== "all" ||
-    filters.profile !== "all";
+    filters.profile !== "all" ||
+    filters.role !== "all" ||
+    filters.industry !== "all";
   const [expanded, setExpanded] = useState(hasFacetFilter);
   // Re-open the panel whenever a programmatic filter is applied (e.g. clicking
   // a saved view from the parent), so the user can see at a glance which
@@ -108,6 +123,8 @@ export function LeadFilterBar({
     (filters.campaign !== "all" ? 1 : 0) +
     (filters.reply !== "all" ? 1 : 0) +
     (filters.profile !== "all" ? 1 : 0) +
+    (filters.role !== "all" ? 1 : 0) +
+    (filters.industry !== "all" ? 1 : 0) +
     (filters.search !== "" ? 1 : 0);
   const hasActiveFilter = activeCount > 0;
 
@@ -173,7 +190,7 @@ export function LeadFilterBar({
 
         {hasActiveFilter && (
           <button
-            onClick={() => onChange({ search: "", score: "all", campaign: "all", reply: "all", profile: "all" })}
+            onClick={() => onChange({ search: "", score: "all", campaign: "all", reply: "all", profile: "all", role: "all", industry: "all" })}
             className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md transition-colors hover:bg-red-50"
             style={{ color: C.red, letterSpacing: "0.06em" }}
           >
@@ -229,59 +246,109 @@ export function LeadFilterBar({
         />
       </div>
 
-      {showProfileFilter && profileNames && profileNames.length > 1 && (
-        <div className="px-4 py-2.5 border-t flex items-center gap-3 flex-wrap" style={{ borderColor: C.border, backgroundColor: C.card }}>
-          {/* Many tenants have 10+ ICPs (Pathway has 13 active at peak). Wrap
-              pills become a paragraph of text; dropdown collapses to one tidy
-              control. Threshold of 5 keeps small tenants on the prettier pill
-              layout. */}
-          {profileNames.length > 5 ? (
-            <div className="flex items-center gap-2">
-              <span style={{ color: C.textDim }}><Target size={11} /></span>
-              <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textMuted, letterSpacing: "0.08em" }}>ICP</span>
-              <div
-                className="flex items-center gap-1.5 rounded-lg border pl-2.5 pr-1.5 py-1"
-                style={{
-                  backgroundColor: filters.profile !== "all" ? `color-mix(in srgb, ${goldDark} 8%, ${C.bg})` : C.bg,
-                  borderColor: filters.profile !== "all" ? `color-mix(in srgb, ${goldDark} 32%, ${C.border})` : C.border,
-                }}
-              >
-                <select
-                  value={filters.profile}
-                  onChange={e => set("profile", e.target.value)}
-                  className="bg-transparent text-[11px] font-semibold outline-none appearance-none pr-1"
-                  style={{ color: filters.profile !== "all" ? goldDark : C.textBody, maxWidth: 280 }}
-                >
-                  <option value="all">All ICPs ({profileNames.length})</option>
-                  {profileNames.map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-                <ChevronDown size={11} style={{ color: filters.profile !== "all" ? goldDark : C.textDim }} />
-              </div>
-              {filters.profile !== "all" && (
-                <button
-                  onClick={() => set("profile", "all")}
-                  className="rounded p-0.5 hover:bg-black/5 transition-colors"
-                  title="Clear ICP filter"
-                >
-                  <X size={11} style={{ color: C.textDim }} />
-                </button>
-              )}
-            </div>
-          ) : (
-            <PillGroup
+      {(showProfileFilter && profileNames && profileNames.length > 1)
+        || (roleOptions && roleOptions.length > 1)
+        || (industryOptions && industryOptions.length > 1) ? (
+        <div className="px-4 py-2.5 border-t flex items-center gap-4 flex-wrap" style={{ borderColor: C.border, backgroundColor: C.card }}>
+          {showProfileFilter && profileNames && profileNames.length > 1 && (
+            <FacetDropdown
               icon={<Target size={11} />}
               label="ICP"
               value={filters.profile}
               onChange={v => set("profile", v)}
-              wrap
-              options={[
-                { key: "all", label: "All" },
-                ...profileNames.map(n => ({ key: n, label: n })),
-              ]}
+              options={profileNames}
+              allLabel={`All ICPs (${profileNames.length})`}
+              dropdownThreshold={5}
+            />
+          )}
+          {roleOptions && roleOptions.length > 1 && (
+            <FacetDropdown
+              icon={<Briefcase size={11} />}
+              label="Role"
+              value={filters.role}
+              onChange={v => set("role", v)}
+              options={roleOptions}
+              allLabel={`All roles (${roleOptions.length})`}
+              dropdownThreshold={5}
+            />
+          )}
+          {industryOptions && industryOptions.length > 1 && (
+            <FacetDropdown
+              icon={<Building2 size={11} />}
+              label="Industry"
+              value={filters.industry}
+              onChange={v => set("industry", v)}
+              options={industryOptions}
+              allLabel={`All industries (${industryOptions.length})`}
+              dropdownThreshold={5}
             />
           )}
         </div>
-      )}
+      ) : null}
     </div>
+  );
+}
+
+// Shared facet picker — pills when ≤ threshold, dropdown when more. Used by
+// ICP, Role, Industry. Behaviour copies the pre-existing ICP filter so the
+// whole row stays visually consistent.
+function FacetDropdown({
+  icon, label, value, onChange, options, allLabel, dropdownThreshold = 5,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  allLabel: string;
+  dropdownThreshold?: number;
+}) {
+  if (options.length > dropdownThreshold) {
+    return (
+      <div className="flex items-center gap-2">
+        <span style={{ color: C.textDim }}>{icon}</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textMuted, letterSpacing: "0.08em" }}>{label}</span>
+        <div
+          className="flex items-center gap-1.5 rounded-lg border pl-2.5 pr-1.5 py-1"
+          style={{
+            backgroundColor: value !== "all" ? `color-mix(in srgb, ${goldDark} 8%, ${C.bg})` : C.bg,
+            borderColor: value !== "all" ? `color-mix(in srgb, ${goldDark} 32%, ${C.border})` : C.border,
+          }}
+        >
+          <select
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            className="bg-transparent text-[11px] font-semibold outline-none appearance-none pr-1"
+            style={{ color: value !== "all" ? goldDark : C.textBody, maxWidth: 220 }}
+          >
+            <option value="all">{allLabel}</option>
+            {options.map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+          <ChevronDown size={11} style={{ color: value !== "all" ? goldDark : C.textDim }} />
+        </div>
+        {value !== "all" && (
+          <button
+            onClick={() => onChange("all")}
+            className="rounded p-0.5 hover:bg-black/5 transition-colors"
+            title={`Clear ${label} filter`}
+          >
+            <X size={11} style={{ color: C.textDim }} />
+          </button>
+        )}
+      </div>
+    );
+  }
+  return (
+    <PillGroup
+      icon={icon}
+      label={label}
+      value={value}
+      onChange={onChange}
+      wrap
+      options={[
+        { key: "all", label: "All" },
+        ...options.map(n => ({ key: n, label: n })),
+      ]}
+    />
   );
 }

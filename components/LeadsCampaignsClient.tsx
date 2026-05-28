@@ -22,6 +22,7 @@ type LeadInfo = {
   last_name: string | null;
   company: string | null;
   role: string | null;
+  industry?: string | null;
   email: string | null;
   phone: string | null;
   status: string | null;
@@ -842,7 +843,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
   const router = useRouter();
   const toast = useToast();
   const [showCount, setShowCount] = useState(PAGE_SIZE);
-  const [filters, setFilters] = useState<LeadFilterState>({ search: "", score: "all", campaign: "all", reply: "all", profile: "all" });
+  const [filters, setFilters] = useState<LeadFilterState>({ search: "", score: "all", campaign: "all", reply: "all", profile: "all", role: "all", industry: "all" });
   const [activeView, setActiveView] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
@@ -852,12 +853,18 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
   const [rowUpdating, setRowUpdating] = useState<string | null>(null);
 
   const profileNames = [...new Set(leads.map(l => l.profile_name).filter(Boolean))] as string[];
+  // Distinct role + industry values from the current lead set, sorted
+  // alphabetically. Roles can be very noisy ("Senior Partner — Investments"
+  // vs "Senior Partner Investments") so we leave them verbatim — manager
+  // can pick the closest match. Industries are usually canonical.
+  const roleOptions = [...new Set(leads.map(l => (l.role ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const industryOptions = [...new Set(leads.map(l => (l.industry ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
   function applyView(viewId: string) {
     const v = SAVED_VIEWS.find(x => x.id === viewId);
     if (!v) return;
     // Reset to neutral state and overlay the view's partial filter.
-    setFilters({ search: filters.search, score: "all", campaign: "all", reply: "all", profile: "all", ...v.filters });
+    setFilters({ search: filters.search, score: "all", campaign: "all", reply: "all", profile: "all", role: "all", industry: "all", ...v.filters });
     setActiveView(viewId);
     setShowCount(PAGE_SIZE);
     setSelected(new Set());
@@ -867,7 +874,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
   // populated counts up-front and the user can see at a glance where the
   // pipeline pressure is.
   const viewCounts = SAVED_VIEWS.map(v => {
-    const f = { search: "", score: "all", campaign: "all", reply: "all", profile: "all", ...v.filters } as LeadFilterState;
+    const f = { search: "", score: "all", campaign: "all", reply: "all", profile: "all", role: "all", industry: "all", ...v.filters } as LeadFilterState;
     const count = leads.filter(l => {
       if (f.score === "hot" && !(l.is_priority || (l.score && l.score >= 80))) return false;
       if (f.score === "warm" && !(l.score && l.score >= 50 && l.score < 80 && !l.is_priority)) return false;
@@ -896,6 +903,8 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
     if (filters.campaign === "yes" && !l.has_campaign) return false;
     if (filters.campaign === "no" && l.has_campaign) return false;
     if (filters.profile !== "all" && l.profile_name !== filters.profile) return false;
+    if (filters.role !== "all" && (l.role ?? "").trim() !== filters.role) return false;
+    if (filters.industry !== "all" && (l.industry ?? "").trim() !== filters.industry) return false;
     return true;
   });
 
@@ -1126,6 +1135,8 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
         resultCount={filtered.length}
         totalCount={leads.length}
         profileNames={profileNames}
+        roleOptions={roleOptions}
+        industryOptions={industryOptions}
       />
 
       {selected.size > 0 && (

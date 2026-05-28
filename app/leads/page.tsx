@@ -255,6 +255,7 @@ async function getData() {
       last_name: lead.primary_last_name,
       company: lead.company_name,
       role: lead.primary_title_role,
+      industry: (lead as Record<string, any>).company_industry ?? null,
       email: lead.primary_work_email,
       linkedin_url: lead.primary_linkedin_url,
       phone: lead.primary_phone,

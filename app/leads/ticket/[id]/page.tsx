@@ -6,17 +6,34 @@ import TicketDetailClient from "./TicketDetailClient";
 async function getProfileData(profileId: string) {
   const supabase = await getSupabaseServer();
 
-  // Profile + leads only depend on profileId — parallelize. Was 2 round-trips,
-  // now 1. Saves ~150-200ms.
-  const [profileRes, leadsRes] = await Promise.all([
+  // Profile + leads + recent campaign-request updates parallelize off
+  // profileId alone. The updates feed lives here now (boss feedback
+  // 2026-05-27 — moved from the deprecated /queue Updates tab). Two weeks
+  // is the window the queue used; keep parity.
+  const twoWeeksAgo = new Date(Date.now() - 14 * 86400000).toISOString();
+  const [profileRes, leadsRes, updatesRes] = await Promise.all([
     supabase.from("icp_profiles").select("id, profile_name").eq("id", profileId).single(),
     supabase.from("leads")
       .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, status, lead_score, is_priority, current_channel, transferred_to_odoo_at")
       .eq("icp_profile_id", profileId)
       .order("created_at", { ascending: false }),
+    supabase.from("campaign_requests")
+      .select("id, name, status, created_at, target_leads_count")
+      .eq("icp_profile_id", profileId)
+      .in("status", ["approved", "rejected", "pending_review"])
+      .gte("created_at", twoWeeksAgo)
+      .order("created_at", { ascending: false })
+      .limit(40),
   ]);
   const profile = profileRes.data;
   const leads = await hydrateClientLeads((leadsRes.data ?? []) as Record<string, unknown>[]) as any[];
+  const updates = (updatesRes.data ?? []).map((r: any) => ({
+    id: r.id as string,
+    name: r.name as string,
+    status: r.status as "approved" | "rejected" | "pending_review",
+    createdAt: r.created_at as string,
+    targetLeadsCount: (r.target_leads_count as number | null) ?? null,
+  }));
 
   if (!profile) return null;
 
@@ -26,7 +43,7 @@ async function getProfileData(profileId: string) {
     linkedinInvitesSent: 0, linkedinMessagesSent: 0, emailsSent: 0, callsMade: 0,
     won: 0, lost: 0, replyRate: 0, winRate: 0,
   };
-  if (leadIds.length === 0) return { name: profile.profile_name, campaigns: [], leads: [], metrics: emptyMetrics };
+  if (leadIds.length === 0) return { name: profile.profile_name, campaigns: [], leads: [], metrics: emptyMetrics, updates };
 
   // Campaigns + replies both only depend on leadIds — parallelize. Saves another ~150ms.
   const [campaignsRes, repliesRes] = await Promise.all([
@@ -226,7 +243,7 @@ async function getProfileData(profileId: string) {
     winRate,
   };
 
-  return { name: profile.profile_name, campaigns: campaignList, leads: leadList, metrics };
+  return { name: profile.profile_name, campaigns: campaignList, leads: leadList, metrics, updates };
 }
 
 export default async function TicketDetailPage({
@@ -245,6 +262,7 @@ export default async function TicketDetailPage({
       campaigns={data.campaigns}
       leads={data.leads}
       metrics={data.metrics}
+      updates={data.updates}
     />
   );
 }

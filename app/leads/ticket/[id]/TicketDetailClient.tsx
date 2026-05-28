@@ -61,12 +61,21 @@ type TicketMetrics = {
   winRate: number;
 };
 
+type TicketUpdate = {
+  id: string;
+  name: string;
+  status: "approved" | "rejected" | "pending_review";
+  createdAt: string;
+  targetLeadsCount: number | null;
+};
+
 type Props = {
   profileId: string;
   ticketName: string;
   campaigns: CampaignGroup[];
   leads: LeadInfo[];
   metrics: TicketMetrics;
+  updates: TicketUpdate[];
 };
 
 const statusMeta: Record<string, { color: string; bg: string; icon: typeof PlayCircle; label: string }> = {
@@ -161,6 +170,49 @@ function CampaignCard({ camp }: { camp: CampaignGroup }) {
         <ChevronRight size={13} style={{ color: C.textDim }} className="shrink-0 transition-transform group-hover/card:translate-x-0.5" />
       </div>
     </Link>
+  );
+}
+
+// ─── Updates Tab ──────────────────────────────────────────────────────────────
+// Resolved + pending campaign requests scoped to this ICP. Moved from the
+// deprecated /queue Updates tab (boss feedback 2026-05-27) so the audit
+// trail lives next to the leads it affects, not in a generic notifications
+// feed nobody scrolled past tab 1.
+function UpdatesTab({ updates }: { updates: TicketUpdate[] }) {
+  if (updates.length === 0) {
+    return (
+      <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <p className="text-sm" style={{ color: C.textDim }}>No campaign-request activity in the last 2 weeks.</p>
+      </div>
+    );
+  }
+  const statusMeta: Record<TicketUpdate["status"], { color: string; bg: string; label: string }> = {
+    approved:       { color: C.green,    bg: C.greenLight, label: "Approved" },
+    rejected:       { color: C.red,      bg: C.redLight,   label: "Rejected" },
+    pending_review: { color: "#D97706",  bg: "#FFFBEB",    label: "Pending review" },
+  };
+  return (
+    <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      {updates.map((u, i) => {
+        const st = statusMeta[u.status];
+        return (
+          <div key={u.id} className="flex items-center gap-4 px-5 py-3"
+            style={{ borderBottom: i < updates.length - 1 ? `1px solid ${C.border}` : "none" }}>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md shrink-0"
+              style={{ backgroundColor: st.bg, color: st.color }}>
+              {st.label}
+            </span>
+            <span className="text-sm font-semibold flex-1 truncate" style={{ color: C.textBody }}>{u.name}</span>
+            {u.targetLeadsCount != null && (
+              <span className="text-[11px] tabular-nums shrink-0" style={{ color: C.textMuted }}>
+                {u.targetLeadsCount} lead{u.targetLeadsCount === 1 ? "" : "s"}
+              </span>
+            )}
+            <span className="text-[11px] shrink-0" style={{ color: C.textDim }}>{timeAgo(u.createdAt)}</span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -268,7 +320,7 @@ function LeadsTable({
   onSelectAllFiltered?: (ids: string[], allSelected: boolean) => void;
 }) {
   const [showCount, setShowCount] = useState(PAGE_SIZE);
-  const [filters, setFilters] = useState<LeadFilterState>({ search: "", score: "all", campaign: "all", reply: "all", profile: "all" });
+  const [filters, setFilters] = useState<LeadFilterState>({ search: "", score: "all", campaign: "all", reply: "all", profile: "all", role: "all", industry: "all" });
 
   const filtered = leads.filter(l => {
     if (filters.search) {
@@ -521,7 +573,7 @@ function AddToExistingModal({
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
-export default function TicketDetailClient({ profileId, ticketName, campaigns, leads, metrics }: Props) {
+export default function TicketDetailClient({ profileId, ticketName, campaigns, leads, metrics, updates }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState(0);
   // Inside the Leads tab the boss wants the seller to split leads by whether
@@ -569,8 +621,9 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
   }
 
   const tabs = [
-    { label: "Leads",          count: totalLeads, color: C.blue },
-    { label: "Outreach Flows", count: totalCamps, color: gold },
+    { label: "Leads",          count: totalLeads,     color: C.blue },
+    { label: "Outreach Flows", count: totalCamps,     color: gold },
+    { label: "Updates",        count: updates.length, color: C.green },
   ];
 
   return (
@@ -774,6 +827,9 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
 
       {/* Tab 1: Outreach Flows */}
       {tab === 1 && <OutreachFlowsTab campaigns={campaigns} />}
+
+      {/* Tab 2: Updates — campaign-request activity scoped to this ICP. */}
+      {tab === 2 && <UpdatesTab updates={updates} />}
 
       {showAddExisting && (
         <AddToExistingModal
