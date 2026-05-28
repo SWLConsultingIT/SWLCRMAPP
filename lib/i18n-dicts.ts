@@ -458,6 +458,9 @@ export const en: Dict = {
   // Step performance
   "dashx.step.title": "Performance by step",
   "dashx.step.subtitle": "Reply rate per sequence step · spot the weak message",
+  "dashx.step.scopeAll": "All campaigns",
+  "dashx.step.scopeOne": "Campaign: {name}",
+  "dashx.step.scopeMany": "{n} campaigns selected",
   "dashx.step.colStep": "Sequence step",
   "dashx.step.colSent": "Sent",
   "dashx.step.colReplied": "Replied",
@@ -1276,6 +1279,9 @@ export const es: Dict = {
   // Step performance
   "dashx.step.title": "Performance por paso",
   "dashx.step.subtitle": "Reply rate por step de la secuencia · identificá el mensaje débil",
+  "dashx.step.scopeAll": "Todas las campañas",
+  "dashx.step.scopeOne": "Campaña: {name}",
+  "dashx.step.scopeMany": "{n} campañas seleccionadas",
   "dashx.step.colStep": "Paso de la secuencia",
   "dashx.step.colSent": "Enviados",
   "dashx.step.colReplied": "Resp.",

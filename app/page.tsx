@@ -1108,23 +1108,35 @@ export default async function DashboardPage({
       </section>
 
       {/* Step performance — sits inside CAMPAIGNS chapter because the
-          "which step is broken" question is per-sequence diagnostic. */}
+          "which step is broken" question is per-sequence diagnostic.
+          Header explicitly states scope (boss: "no sé de qué campaña es"). */}
       <section>
-        <Panel
-          title={t("dashx.step.title")}
-          subtitle={t("dashx.step.subtitle")}
-          glow
-          insightEyebrow={t("dashx.insight.eyebrow")}
-          insight={(() => {
-            const eligible = (data.stepPerformance as Array<{ step: number; replyRate: number | null }>)
-              .filter(s => s.step > 0 && s.replyRate !== null);
-            if (eligible.length < 2) return null;
-            const worst = [...eligible].sort((a, b) => (a.replyRate ?? 0) - (b.replyRate ?? 0))[0];
-            return t("dashx.step.insight", { step: worst.step + 1, rate: worst.replyRate ?? 0 });
-          })()}
-        >
-          <StepPerformance steps={data.stepPerformance} locale={locale} />
-        </Panel>
+        {(() => {
+          const campsSel = filters.campaignNames ?? [];
+          const scopeLabel = campsSel.length === 0
+            ? t("dashx.step.scopeAll")
+            : campsSel.length === 1
+              ? t("dashx.step.scopeOne", { name: campsSel[0] })
+              : t("dashx.step.scopeMany", { n: campsSel.length });
+          return (
+            <Panel
+              title={t("dashx.step.title")}
+              subtitle={`${t("dashx.step.subtitle")} · ${scopeLabel}`}
+              glow
+              insightEyebrow={t("dashx.insight.eyebrow")}
+              insightHint={t("dashx.insight.hint")}
+              insight={(() => {
+                const eligible = (data.stepPerformance as Array<{ step: number; replyRate: number | null }>)
+                  .filter(s => s.step > 0 && s.replyRate !== null);
+                if (eligible.length < 2) return null;
+                const worst = [...eligible].sort((a, b) => (a.replyRate ?? 0) - (b.replyRate ?? 0))[0];
+                return t("dashx.step.insight", { step: worst.step + 1, rate: worst.replyRate ?? 0 });
+              })()}
+            >
+              <StepPerformance steps={data.stepPerformance} locale={locale} />
+            </Panel>
+          );
+        })()}
       </section>
 
       </section>
