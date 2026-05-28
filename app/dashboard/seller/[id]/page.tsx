@@ -8,7 +8,9 @@ import { redirect } from "next/navigation";
 import {
   ArrowLeft, User, Send, MessageSquare, ThumbsUp, Megaphone, Clock, Activity,
   TrendingUp, TrendingDown, Minus, Share2, Mail, Phone, Smartphone, Target,
+  Sparkles, ChevronRight, Quote, Sun,
 } from "lucide-react";
+import InlineSpark from "@/components/dashboard/InlineSpark";
 import { C } from "@/lib/design";
 import { getUserScope } from "@/lib/scope";
 import { getSupabaseServer } from "@/lib/supabase-server";
@@ -32,9 +34,10 @@ const channelMeta: Record<string, { Icon: React.ElementType; color: string }> = 
 };
 
 type SellerRow = { id: string; name: string; active: boolean | null; company_bio_id: string | null; shared_with_company_bio_ids: string[] | null };
-type CampRow = { id: string; name: string; status: string | null; channel: string | null; current_step: number | null; lead_id: string | null; created_at: string | null; leads: { id: string; icp_profile_id: string | null; company_bio_id: string } | { id: string; icp_profile_id: string | null; company_bio_id: string }[] };
+type LeadEmbed = { id: string; icp_profile_id: string | null; company_bio_id: string; primary_first_name: string | null; primary_last_name: string | null; company_name: string | null };
+type CampRow = { id: string; name: string; status: string | null; channel: string | null; current_step: number | null; lead_id: string | null; created_at: string | null; leads: LeadEmbed | LeadEmbed[] };
 type MsgRow = { id: string; campaign_id: string | null; status: string | null; sent_at: string | null; step_number: number | null };
-type ReplyRow = { id: string; lead_id: string | null; campaign_id: string | null; classification: string | null; received_at: string | null };
+type ReplyRow = { id: string; lead_id: string | null; campaign_id: string | null; classification: string | null; received_at: string | null; reply_text: string | null; channel: string | null };
 
 async function loadSellerDetail(sellerId: string, dateFrom: string | null, dateTo: string | null) {
   const supabase = await getSupabaseServer();
@@ -59,7 +62,7 @@ async function loadSellerDetail(sellerId: string, dateFrom: string | null, dateT
   const seller = sellerRaw as SellerRow;
 
   const campsQ = supabase.from("campaigns")
-    .select("id, name, status, channel, current_step, lead_id, created_at, leads!inner(id, icp_profile_id, company_bio_id)")
+    .select("id, name, status, channel, current_step, lead_id, created_at, leads!inner(id, icp_profile_id, company_bio_id, primary_first_name, primary_last_name, company_name)")
     .eq("seller_id", sellerId);
   const { data: campsRaw } = bioId
     ? await campsQ.eq("leads.company_bio_id", bioId)
@@ -81,7 +84,7 @@ async function loadSellerDetail(sellerId: string, dateFrom: string | null, dateT
     // would leak into this seller's numbers. campaign_id is the right axis
     // because each campaign has exactly one seller_id.
     campIds.length > 0
-      ? supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, received_at").in("campaign_id", campIds)
+      ? supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, received_at, reply_text, channel").in("campaign_id", campIds).order("received_at", { ascending: false })
       : Promise.resolve({ data: [] }),
     icpIds.length > 0
       ? supabase.from("icp_profiles").select("id, profile_name").in("id", icpIds)
@@ -249,6 +252,57 @@ async function loadSellerDetail(sellerId: string, dateFrom: string | null, dateT
   ttrSamples.sort((a, b) => a - b);
   const medianTTR = ttrSamples.length > 0 ? ttrSamples[Math.floor(ttrSamples.length / 2)] : null;
 
+  // ─── Top wins — last 5 positive replies with text, for the "Wins reel" ──
+  // Card surface needs lead name + company + a snippet of the reply text.
+  // Already ordered desc by received_at from the query.
+  const leadById = new Map<string, LeadEmbed>();
+  for (const c of camps) {
+    const l = leadFor(c);
+    if (l && c.lead_id) leadById.set(c.lead_id, l);
+  }
+  const topWins = (replies ?? [])
+    .filter(r => POSITIVE_CLASS.has(r.classification ?? "") && r.lead_id && r.reply_text)
+    .slice(0, 8)
+    .map(r => {
+      const lead = leadById.get(r.lead_id!);
+      return {
+        leadId: r.lead_id!,
+        leadName: lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown",
+        company: lead?.company_name ?? null,
+        replyText: r.reply_text,
+        channel: r.channel ?? "linkedin",
+        receivedAt: r.received_at,
+      };
+    });
+
+  // ─── Voice & Cadence narrative ──────────────────────────────────────────
+  // Premium replacement for the two giant heatmaps. We surface 3 numbers
+  // the manager actually uses: when the seller sends most (peak hour
+  // window), which weekday is theirs, and when replies typically land.
+  // Heatmaps kept on the same return so the "Show full matrix" expand can
+  // surface them on demand.
+  let peakSendHour = 10;
+  let peakSendCount = 0;
+  const sendByHour = new Array(24).fill(0) as number[];
+  for (let h = 0; h < 24; h++) {
+    for (let d = 0; d < 7; d++) sendByHour[h] += sendHeatmap[d][h];
+    if (sendByHour[h] > peakSendCount) { peakSendCount = sendByHour[h]; peakSendHour = h; }
+  }
+  let peakSendDay = 1; // Monday default
+  let peakSendDayCount = 0;
+  const sendByDay = new Array(7).fill(0) as number[];
+  for (let d = 0; d < 7; d++) {
+    for (let h = 0; h < 24; h++) sendByDay[d] += sendHeatmap[d][h];
+    if (sendByDay[d] > peakSendDayCount) { peakSendDayCount = sendByDay[d]; peakSendDay = d; }
+  }
+  let peakReplyHour: number | null = null;
+  let peakReplyCount = 0;
+  const replyByHour = new Array(24).fill(0) as number[];
+  for (let h = 0; h < 24; h++) {
+    for (let d = 0; d < 7; d++) replyByHour[h] += replyHeatmap[d][h];
+    if (replyByHour[h] > peakReplyCount) { peakReplyCount = replyByHour[h]; peakReplyHour = h; }
+  }
+
   return {
     seller,
     totalSent: msgs.length,
@@ -267,6 +321,16 @@ async function loadSellerDetail(sellerId: string, dateFrom: string | null, dateT
     trend30d: { sent: trendSent, replies: trendReplies, positive: trendPositive },
     sendHeatmap,
     replyHeatmap,
+    topWins,
+    cadence: {
+      peakSendHour,
+      peakSendCount,
+      peakSendDay,
+      peakSendDayCount,
+      peakReplyHour,
+      sendByDay,
+      sendByHour,
+    },
   };
 }
 
@@ -317,8 +381,15 @@ export default async function SellerDetailPage({
   // ─── Avatar (initials) ──────────────────────────────────────────
   const initials = d.seller.name.split(" ").slice(0, 2).map(s => s[0]?.toUpperCase() ?? "").join("");
 
+  // Pre-compute display strings for Voice & Cadence.
+  const dayKeys = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+  const peakDayLabel = t(`dashx.day.${dayKeys[d.cadence.peakSendDay]}`);
+  const hourRange = (h: number) => `${String(h).padStart(2, "0")}:00 – ${String((h + 1) % 24).padStart(2, "0")}:00`;
+  const sendHourSpark = d.cadence.sendByHour;
+  const sendDaySpark  = d.cadence.sendByDay;
+
   return (
-    <div className="p-4 sm:p-6 w-full space-y-6">
+    <div className="p-4 sm:p-6 w-full space-y-5">
       <div className="flex items-center justify-between gap-2">
         <Link href={periodChip ? `/?from=${periodFrom}&to=${periodTo}` : "/"} className="inline-flex items-center gap-1 text-xs hover:underline transition-opacity hover:opacity-70" style={{ color: C.textMuted }}>
           <ArrowLeft size={12} /> {t("dashx.detail.back")}
@@ -332,231 +403,447 @@ export default async function SellerDetailPage({
         )}
       </div>
 
-      {/* Custom header with avatar + status */}
-      <header className="rounded-2xl border p-5 flex items-start gap-4" style={{ borderColor: C.border, backgroundColor: C.card }}>
-        <div className="w-14 h-14 rounded-full flex items-center justify-center text-[18px] font-bold shrink-0"
-          style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#04070d" }}>
-          {initials || <User size={20} />}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-[20px] font-semibold tracking-tight" style={{ color: C.textPrimary }}>{d.seller.name}</h1>
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded"
-              style={{ background: d.seller.active ? `color-mix(in srgb, ${C.green} 14%, transparent)` : `color-mix(in srgb, ${C.textMuted} 14%, transparent)`,
-                       color: d.seller.active ? C.green : C.textMuted }}>
-              <span className="w-1.5 h-1.5 rounded-full" style={{ background: d.seller.active ? C.green : C.textMuted }} />
-              {d.seller.active ? t("dashx.detail.seller.active") : t("dashx.detail.seller.inactive")}
-            </span>
+      {/* ═══ HERO DOSSIER — dark+gold, SWL premium ═══
+          Avatar gold-tinted, name in Outfit, one-line narrative summary.
+          Same dark surface language the campaign detail uses so seller
+          + campaign read as a sibling pair. */}
+      <header
+        className="rounded-2xl border overflow-hidden relative"
+        style={{
+          backgroundColor: "#0F0F14",
+          borderColor: "color-mix(in srgb, #c9a83a 18%, #1d1f29)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.22), 0 0 0 1px color-mix(in srgb, #c9a83a 14%, transparent)",
+        }}
+      >
+        <div className="absolute inset-x-0 top-0 h-[2px] pointer-events-none" style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)`, opacity: 0.9 }} />
+        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 26%, transparent) 0%, transparent 65%)`, opacity: 0.55 }} />
+        <div className="absolute -bottom-32 -left-20 w-80 h-80 rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 14%, transparent) 0%, transparent 70%)`, opacity: 0.4 }} />
+
+        <div className="p-6 relative flex items-start gap-5">
+          <div
+            className="w-20 h-20 rounded-2xl flex items-center justify-center text-[26px] font-bold shrink-0"
+            style={{
+              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`,
+              color: "#04070d",
+              boxShadow: `0 8px 28px color-mix(in srgb, ${gold} 38%, transparent), inset 0 1px 0 rgba(255,255,255,0.4)`,
+              fontFamily: "var(--font-outfit), system-ui, sans-serif",
+            }}
+          >
+            {initials || <User size={28} />}
           </div>
-          <p className="text-[12px] mt-1" style={{ color: C.textMuted }}>
-            {t("dashx.detail.seller.summary", {
-              active: d.activeCampaigns,
-              contacted: d.totalContacted,
-              sent: d.totalSent,
-            })}
-          </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 mb-1.5">
+              <div className="h-px w-6" style={{ backgroundColor: gold }} />
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: gold, letterSpacing: "0.18em" }}>Seller Dossier</p>
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full ml-1"
+                style={{
+                  backgroundColor: d.seller.active ? `color-mix(in srgb, ${C.green} 18%, transparent)` : "rgba(255,255,255,0.08)",
+                  border: `1px solid color-mix(in srgb, ${d.seller.active ? C.green : "#F5F2E8"} ${d.seller.active ? 32 : 12}%, transparent)`,
+                  color: d.seller.active ? C.green : "color-mix(in srgb, #F5F2E8 55%, transparent)",
+                }}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: d.seller.active ? C.green : "color-mix(in srgb, #F5F2E8 35%, transparent)" }} />
+                {d.seller.active ? t("dashx.detail.seller.active") : t("dashx.detail.seller.inactive")}
+              </span>
+            </div>
+            <h1 className="text-[32px] font-bold leading-tight"
+              style={{
+                color: "#F5F2E8",
+                fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                letterSpacing: "-0.025em",
+              }}>
+              {d.seller.name}
+            </h1>
+            <p className="text-[12px] mt-2" style={{ color: "color-mix(in srgb, #F5F2E8 70%, transparent)" }}>
+              {t("dashx.detail.seller.summary", {
+                active: d.activeCampaigns,
+                contacted: d.totalContacted,
+                sent: d.totalSent,
+              })}
+            </p>
+            {lift !== null && (
+              <p className="text-[11px] mt-1.5 inline-flex items-center gap-1.5"
+                style={{ color: liftKind === "great" || liftKind === "good" ? C.green : liftKind === "bad" || liftKind === "soft" ? C.red : "color-mix(in srgb, #F5F2E8 55%, transparent)" }}>
+                <LiftIcon kind={liftKind} />
+                {teamResp > 0 ? t("dashx.detail.seller.hero.vsTeamHint", { team: teamResp, seller: d.responseRate }) : t("dashx.detail.seller.hero.vsTeamNoData")}
+              </p>
+            )}
+          </div>
         </div>
       </header>
 
-      {/* ─── Hero stat band: 4 numbers including vs-team lift ─────── */}
-      <section className="rounded-2xl border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.card, boxShadow: `inset 0 2px 0 0 color-mix(in srgb, ${gold} 35%, transparent)` }}>
-        <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: C.border }}>
-          <HeroStat label={t("dashx.detail.seller.hero.contacted")} value={d.totalContacted.toLocaleString(dateLoc)} hint={t("dashx.detail.seller.hero.contactedHint", { n: d.totalSent })} />
-          <HeroStat label={t("dashx.detail.seller.hero.replyRate")} value={`${d.responseRate}%`} hint={t("dashx.detail.seller.hero.replyRateHint", { n: d.repliedCount })} />
-          <HeroStat label={t("dashx.detail.seller.hero.positives")} value={d.positiveCount.toLocaleString(dateLoc)} hint={t("dashx.detail.seller.hero.positivesHint", { n: d.conversionRate })} />
-          <div className="px-5 py-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>{t("dashx.detail.seller.hero.vsTeam")}</p>
-            <p className="text-[22px] font-semibold tabular-nums leading-tight mt-0.5 inline-flex items-center gap-1.5"
-              style={{ color: liftKind === "great" || liftKind === "good" ? C.green : liftKind === "bad" || liftKind === "soft" ? C.red : C.textPrimary }}>
-              {lift === null ? "—" : `${lift > 0 ? "+" : ""}${lift}%`}
-              <LiftIcon kind={liftKind} />
-            </p>
-            <p className="text-[10.5px] mt-0.5" style={{ color: C.textDim }}>
-              {teamResp > 0 ? t("dashx.detail.seller.hero.vsTeamHint", { team: teamResp, seller: d.responseRate }) : t("dashx.detail.seller.hero.vsTeamNoData")}
-            </p>
+      {/* ═══ THREE BIG KPI TILES — Replies / Positives / Win Rate ═══
+          Replaces the 6-card uniform strip. Each tile carries a sparkline of
+          the trailing 30d so the manager sees trajectory next to the number.
+          Other KPIs (Sent, Contacted, TTFR, Active campaigns) move into the
+          collapsible "More details" panel below. */}
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <BigKpiTile
+          label={t("dashx.detail.seller.kpi.replies")}
+          value={d.repliedCount.toLocaleString(dateLoc)}
+          sub={`${d.responseRate}% ${t("dashx.detail.seller.hero.replyRate")}`}
+          sparkData={d.trend30d.replies}
+          color="#7C3AED"
+          icon={MessageSquare}
+        />
+        <BigKpiTile
+          label={t("dashx.detail.seller.kpi.positives")}
+          value={d.positiveCount.toLocaleString(dateLoc)}
+          sub={`${d.conversionRate}% ${t("dashx.detail.seller.hero.positives")}`}
+          sparkData={d.trend30d.positive}
+          color={C.green}
+          icon={ThumbsUp}
+        />
+        <BigKpiTile
+          label={t("dashx.detail.seller.kpi.sent")}
+          value={d.totalSent.toLocaleString(dateLoc)}
+          sub={`${d.totalContacted.toLocaleString(dateLoc)} ${t("dashx.detail.seller.hero.contacted").toLowerCase()}`}
+          sparkData={d.trend30d.sent}
+          color={gold}
+          icon={Send}
+        />
+      </section>
+
+      {/* ═══ VOICE & CADENCE — narrative panel ═══
+          Replaces the two giant heatmaps. We tell the manager when this
+          seller actually works in plain language plus tiny sparklines for
+          context. Heatmaps move to the More-details expand. */}
+      <section
+        className="rounded-2xl border overflow-hidden relative"
+        style={{
+          borderColor: `color-mix(in srgb, ${gold} 22%, ${C.border})`,
+          backgroundColor: C.card,
+          boxShadow: `0 6px 24px rgba(0,0,0,0.05), 0 0 0 1px color-mix(in srgb, ${gold} 10%, transparent)`,
+        }}
+      >
+        <div className="absolute inset-x-0 top-0 h-[2px] pointer-events-none" style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)`, opacity: 0.55 }} />
+        <div className="px-5 py-4 border-b flex items-center gap-3" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${gold} 5%, ${C.bg})` }}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+            style={{
+              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`,
+              boxShadow: `0 3px 14px color-mix(in srgb, ${gold} 32%, transparent)`,
+            }}>
+            <Sparkles size={15} style={{ color: "#fff" }} strokeWidth={2.2} />
+          </div>
+          <div className="flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: gold, letterSpacing: "0.14em" }}>Coaching Signal</p>
+            <p className="text-[14px] font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>Voice &amp; Cadence</p>
           </div>
         </div>
-      </section>
-
-      {/* ─── KPI band ───────────────────────────────────────────── */}
-      <section>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <KpiCard {...kpi18n} label={t("dashx.detail.seller.kpi.sent")} value={d.totalSent.toLocaleString(dateLoc)} icon={Send} accent="#0A66C2" trend={d.trend30d.sent} />
-          <KpiCard {...kpi18n} label={t("dashx.detail.seller.kpi.contacted")} value={d.totalContacted.toLocaleString(dateLoc)} icon={User} accent={gold} />
-          <KpiCard {...kpi18n} label={t("dashx.detail.seller.kpi.replies")} value={d.repliedCount.toLocaleString(dateLoc)} icon={MessageSquare} accent="#7C3AED" trend={d.trend30d.replies} hint={t("dashx.detail.seller.kpi.repliesHint", { n: d.responseRate })} />
-          <KpiCard {...kpi18n} label={t("dashx.detail.seller.kpi.positives")} value={d.positiveCount.toLocaleString(dateLoc)} icon={ThumbsUp} accent={C.green} trend={d.trend30d.positive} hint={t("dashx.detail.seller.kpi.positivesHint", { n: d.conversionRate })} />
-          <KpiCard {...kpi18n} label={t("dashx.detail.seller.kpi.ttfr")} value={d.medianTTR === null ? "—" : formatMinutes(d.medianTTR)} icon={Clock} accent="#6B7280" hint={t("dashx.detail.seller.kpi.ttfrHint")} />
-          <KpiCard {...kpi18n} label={t("dashx.detail.seller.kpi.campaigns")} value={d.activeCampaigns.toLocaleString(dateLoc)} icon={Megaphone} accent="#F59E0B" hint={t("dashx.detail.seller.kpi.campaignsHint", { paused: d.pausedCampaigns, completed: d.completedCampaigns })} />
+        <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <CadenceCard
+            icon={Sun}
+            label={t("dashx.detail.seller.cadence.peakHourLabel") || "Best send window"}
+            value={d.cadence.peakSendCount > 0 ? hourRange(d.cadence.peakSendHour) : "—"}
+            hint={d.cadence.peakSendCount > 0
+              ? (t("dashx.detail.seller.cadence.peakHourHint", { n: d.cadence.peakSendCount }) || `${d.cadence.peakSendCount} sends fired in this band`)
+              : (t("dashx.detail.seller.cadence.noData") || "Not enough sends yet")}
+            sparkData={sendHourSpark}
+            color={gold}
+          />
+          <CadenceCard
+            icon={Activity}
+            label={t("dashx.detail.seller.cadence.peakDayLabel") || "Sharpest weekday"}
+            value={d.cadence.peakSendDayCount > 0 ? peakDayLabel : "—"}
+            hint={d.cadence.peakSendDayCount > 0
+              ? (t("dashx.detail.seller.cadence.peakDayHint", { n: d.cadence.peakSendDayCount }) || `${d.cadence.peakSendDayCount} sends on ${peakDayLabel}`)
+              : (t("dashx.detail.seller.cadence.noData") || "Not enough sends yet")}
+            sparkData={sendDaySpark}
+            color="#0A66C2"
+          />
+          <CadenceCard
+            icon={MessageSquare}
+            label={t("dashx.detail.seller.cadence.peakReplyLabel") || "Replies typically arrive"}
+            value={d.cadence.peakReplyHour !== null ? hourRange(d.cadence.peakReplyHour) : "—"}
+            hint={d.cadence.peakReplyHour !== null
+              ? (t("dashx.detail.seller.cadence.peakReplyHint", { n: d.cadence.peakReplyHour }) || `Most replies land around ${hourRange(d.cadence.peakReplyHour)}`)
+              : (t("dashx.detail.seller.cadence.noReplies") || "No replies yet")}
+            sparkData={d.cadence.peakReplyHour !== null ? Array.from({ length: 24 }, (_, h) => { let s = 0; for (let day = 0; day < 7; day++) s += d.replyHeatmap[day][h]; return s; }) : []}
+            color={C.green}
+          />
         </div>
       </section>
 
-      {/* ─── 30d activity ──────────────────────────────────────── */}
-      <section>
-        <SectionHeader icon={Activity} title={t("dashx.trend.title")} subtitle={t("dashx.detail.seller.trend.subtitle")} />
-        <Panel>
-          <MultiLineChart
-            todayLabel={t("dashx.trend.today")}
-            recentLabel={t("dashx.trend.daysAgo")}
-            series={[
-              { name: t("dashx.trend.sent"),      color: C.seriesSent,     data: d.trend30d.sent },
-              { name: t("dashx.trend.replies"),   color: C.seriesReplies,  data: d.trend30d.replies },
-              { name: t("dashx.trend.positives"), color: C.seriesPositive, data: d.trend30d.positive },
-            ]}
-          />
-        </Panel>
-      </section>
-
-      {/* ─── Send vs Reply timing heatmaps side-by-side ────────── */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <Panel title={t("dashx.detail.seller.sendHeat.title")} subtitle={t("dashx.detail.seller.sendHeat.subtitle")}>
-          <Heatmap
-            matrix={d.sendHeatmap}
-            days={["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map(dy => t(`dashx.day.${dy}`))}
-            unitLabel={t("dashx.heat.unitSends")}
-            legendMin={t("dashx.heat.legendMin")}
-            legendMax={t("dashx.heat.legendMax")}
-          />
-        </Panel>
-        <Panel title={t("dashx.detail.seller.replyHeat.title")} subtitle={t("dashx.detail.seller.replyHeat.subtitle")}>
-          <Heatmap
-            matrix={d.replyHeatmap}
-            days={["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map(dy => t(`dashx.day.${dy}`))}
-            unitLabel={t("dashx.heat.unitReplies")}
-            legendMin={t("dashx.heat.legendMin")}
-            legendMax={t("dashx.heat.legendMax")}
-          />
-        </Panel>
-      </section>
-
-      {/* ─── ICP mix this seller works ─────────────────────────── */}
-      {d.icpMix.length > 0 && (
-        <section>
-          <SectionHeader icon={Target} title={t("dashx.detail.seller.icp.title")} subtitle={t("dashx.detail.seller.icp.subtitle")} />
-          <Panel>
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
-                  <Th align="left">{t("dashx.tbl.col.icp")}</Th>
-                  <Th align="right">{t("dashx.tbl.col.leads")}</Th>
-                  <Th align="right">{t("dashx.tbl.col.replied")}</Th>
-                  <Th align="right">{t("dashx.tbl.col.positive")}</Th>
-                  <Th align="right">{t("dashx.tbl.col.respPct")}</Th>
-                  <Th align="right">{t("dashx.tbl.col.convPct")}</Th>
-                </tr>
-              </thead>
-              <tbody>
-                {d.icpMix.map((i, idx) => (
-                  <tr key={i.id} className="border-t hover:bg-black/[0.02] transition-colors" style={{ borderColor: C.border }}>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <TopRankDot rank={idx} />
-                        {i.id !== "_unknown" ? (
-                          <Link href={`/leads/ticket/${i.id}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{i.name === "_unknown_icp" ? t("dashx.tbl.icp.unknown") : i.name}</Link>
-                        ) : (
-                          <span style={{ color: C.textMuted }}>{i.name === "_unknown_icp" ? t("dashx.tbl.icp.unknown") : i.name}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums" style={{ color: C.textBody }}>{i.leads.toLocaleString(dateLoc)}</td>
-                    <td className="px-3 py-2 text-right tabular-nums" style={{ color: C.textBody }}>{i.replied}</td>
-                    <td className="px-3 py-2 text-right tabular-nums font-semibold" style={{ color: i.positive > 0 ? C.green : C.textMuted }}>{i.positive}</td>
-                    <td className="px-3 py-2 text-right"><RateCell value={i.responseRate} color="#7C3AED" /></td>
-                    <td className="px-3 py-2 text-right"><RateCell value={i.conversionRate} color={C.green} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Panel>
-        </section>
-      )}
-
-      {/* ─── Channel mix this seller uses ──────────────────────── */}
-      {d.channelMix.length > 0 && (
-        <section>
-          <SectionHeader icon={Send} title={t("dashx.detail.seller.channels.title")} subtitle={t("dashx.detail.seller.channels.subtitle")} />
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {d.channelMix.map((ch, idx) => {
-              const meta = channelMeta[ch.channel] ?? { Icon: Send, color: C.textMuted };
-              const Icon = meta.Icon;
-              const isTop = idx === 0 && d.channelMix.length > 1;
+      {/* ═══ WINS REEL — last 5 positive replies as quote cards ═══
+          The "what people say back about this seller" surface. Premium —
+          gold accent left border, channel pill, lead name + company,
+          quote treatment for the body. Hidden when there's nothing to
+          showcase yet. */}
+      {d.topWins.length > 0 && (
+        <section
+          className="rounded-2xl border overflow-hidden"
+          style={{ borderColor: C.border, backgroundColor: C.card, boxShadow: "0 4px 18px rgba(0,0,0,0.04)" }}
+        >
+          <div className="px-5 py-3 border-b flex items-center gap-3" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${C.green} 5%, ${C.bg})` }}>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+              style={{
+                background: `linear-gradient(135deg, ${C.green}, color-mix(in srgb, ${C.green} 70%, white))`,
+                boxShadow: `0 3px 12px color-mix(in srgb, ${C.green} 30%, transparent)`,
+              }}>
+              <Quote size={14} style={{ color: "#fff" }} strokeWidth={2.2} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.green, letterSpacing: "0.14em" }}>Wins reel</p>
+              <p className="text-[14px] font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                {t("dashx.detail.seller.wins.title") || `What people say back to ${d.seller.name.split(" ")[0]}`}
+              </p>
+            </div>
+            <span className="text-xs font-bold tabular-nums px-2.5 py-1 rounded-full"
+              style={{ backgroundColor: `color-mix(in srgb, ${C.green} 14%, transparent)`, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 32%, transparent)` }}>
+              {d.topWins.length}
+            </span>
+          </div>
+          <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {d.topWins.slice(0, 4).map(w => {
+              const chMeta = channelMeta[w.channel] ?? channelMeta.linkedin;
+              const ChIcon = chMeta.Icon;
               return (
-                <div key={ch.channel} className="rounded-xl border p-3.5"
-                  style={{ borderColor: C.border, backgroundColor: C.card, borderLeft: `3px solid ${meta.color}` }}>
-                  <div className="flex items-center justify-between mb-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className="w-7 h-7 rounded-md flex items-center justify-center"
-                        style={{ backgroundColor: `color-mix(in srgb, ${meta.color} 14%, transparent)`, color: meta.color }}>
-                        <Icon size={13} />
-                      </span>
-                      <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{t(`dashx.ch.${ch.channel}`) || ch.channel}</span>
-                      {isTop && <span className="w-1.5 h-1.5 rounded-full" style={{ background: gold, boxShadow: `0 0 0 2px color-mix(in srgb, ${gold} 18%, transparent)` }} />}
-                    </div>
-                    <span className="text-[10px] tabular-nums font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
-                      style={{ backgroundColor: `color-mix(in srgb, ${meta.color} 12%, transparent)`, color: meta.color }}>
-                      {ch.responseRate}% {t("dashx.channels.respShort")}
+                <Link key={`${w.leadId}-${w.receivedAt}`} href={`/leads/${w.leadId}`}
+                  className="rounded-xl border p-4 transition-[transform,box-shadow,border-color] hover:-translate-y-0.5 hover:shadow-md group block"
+                  style={{ borderLeft: `3px solid ${C.green}`, borderColor: C.border, backgroundColor: C.bg }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[13px] font-bold group-hover:underline" style={{ color: C.textPrimary }}>{w.leadName}</span>
+                    {w.company && <span className="text-[11px]" style={{ color: C.textMuted }}>· {w.company}</span>}
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded ml-auto"
+                      style={{ backgroundColor: `color-mix(in srgb, ${chMeta.color} 12%, transparent)`, color: chMeta.color }}>
+                      <ChIcon size={9} />
+                      {t(`dashx.ch.${w.channel}`) || w.channel}
                     </span>
                   </div>
-                  <div className="grid grid-cols-4 gap-2 text-xs">
-                    <MicroStat label={t("dashx.channels.sent")} value={ch.sent} />
-                    <MicroStat label={t("dashx.channels.contacted")} value={ch.contacted} />
-                    <MicroStat label={t("dashx.channels.replied")} value={ch.replied} />
-                    <MicroStat label={t("dashx.channels.positive")} value={ch.positive} accent={C.green} />
-                  </div>
-                </div>
+                  <p className="text-[13px] leading-relaxed line-clamp-2" style={{ color: C.textBody }}>
+                    &ldquo;{w.replyText}&rdquo;
+                  </p>
+                </Link>
               );
             })}
           </div>
         </section>
       )}
 
-      {/* ─── Campaigns this seller owns ─────────────────────────── */}
-      <section>
-        <SectionHeader icon={Megaphone} title={t("dashx.detail.seller.camp.title")} subtitle={t("dashx.detail.seller.camp.subtitle")} />
-        <Panel>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
-                <Th align="left">{t("dashx.tbl.col.campaign")}</Th>
-                <Th align="left">{t("dashx.tbl.col.channels")}</Th>
-                <Th align="right">{t("dashx.tbl.col.leads")}</Th>
-                <Th align="right">{t("dashx.tbl.col.sent")}</Th>
-                <Th align="right">{t("dashx.tbl.col.replied")}</Th>
-                <Th align="right">{t("dashx.tbl.col.positive")}</Th>
-                <Th align="right">{t("dashx.tbl.col.convPct")}</Th>
-                <Th align="left">{t("dashx.tbl.col.status")}</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {d.campaignBreakdown.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}>{t("dashx.detail.seller.camp.empty")}</td></tr>
-              ) : d.campaignBreakdown.map((c, idx) => (
-                <tr key={c.name} className="border-t hover:bg-black/[0.02] transition-colors" style={{ borderColor: C.border }}>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <TopRankDot rank={idx} />
-                      <Link href={`/dashboard/campaign/${encodeURIComponent(c.name)}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{c.name}</Link>
-                    </div>
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex items-center gap-1">
-                      {c.channels.map(ch => {
-                        const M = channelMeta[ch]?.Icon ?? Send;
-                        return <M key={ch} size={12} style={{ color: channelMeta[ch]?.color ?? C.textMuted }} />;
-                      })}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums" style={{ color: C.textBody }}>{c.leads}</td>
-                  <td className="px-3 py-2 text-right tabular-nums" style={{ color: C.textBody }}>{c.sent}</td>
-                  <td className="px-3 py-2 text-right tabular-nums" style={{ color: C.textBody }}>{c.replied}</td>
-                  <td className="px-3 py-2 text-right tabular-nums font-semibold" style={{ color: c.positive > 0 ? C.green : C.textMuted }}>{c.positive}</td>
-                  <td className="px-3 py-2 text-right"><RateCell value={c.conversionRate} color={C.green} /></td>
-                  <td className="px-3 py-2"><StatusBadge status={c.status} t={t} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Panel>
+      {/* ═══ PIPELINE CARDS — 3 actionable surfaces ═══ */}
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <PipelineCard
+          icon={Target}
+          label={t("dashx.detail.seller.pipeline.icpsLabel") || "Active ICPs"}
+          value={d.icpMix.length}
+          hint={d.icpMix[0]?.name === "_unknown_icp" || !d.icpMix[0]?.name
+            ? (t("dashx.detail.seller.pipeline.icpsEmpty") || "No ICPs yet")
+            : `${t("dashx.detail.seller.pipeline.topLabel") || "Top"}: ${d.icpMix[0].name}`}
+          color={gold}
+          href={d.icpMix[0]?.id && d.icpMix[0].id !== "_unknown" ? `/leads/ticket/${d.icpMix[0].id}` : undefined}
+        />
+        <PipelineCard
+          icon={Megaphone}
+          label={t("dashx.detail.seller.pipeline.flowsLabel") || "Active flows"}
+          value={d.activeCampaigns}
+          hint={d.campaignBreakdown[0]?.name
+            ? `${t("dashx.detail.seller.pipeline.topLabel") || "Top"}: ${d.campaignBreakdown[0].name}`
+            : (t("dashx.detail.seller.pipeline.flowsEmpty") || "No active flows")}
+          color="#F59E0B"
+          href={d.campaignBreakdown[0]?.name ? `/dashboard/campaign/${encodeURIComponent(d.campaignBreakdown[0].name)}` : undefined}
+        />
+        <PipelineCard
+          icon={Clock}
+          label={t("dashx.detail.seller.pipeline.ttfrLabel") || "Median reply time"}
+          value={d.medianTTR === null ? "—" : formatMinutes(d.medianTTR)}
+          hint={d.medianTTR === null
+            ? (t("dashx.detail.seller.pipeline.ttfrEmpty") || "Need replies to compute")
+            : (t("dashx.detail.seller.pipeline.ttfrHint") || "from first send to first reply")}
+          color="#6B7280"
+        />
       </section>
+
+      {/* ═══ MORE DETAILS — collapsible drill-down ═══
+          Everything that used to be top-level (Heatmaps, MultiLineChart,
+          ICP table, channel mix, campaign table) moves here so the page
+          opens with the story and the drill-down is on-demand. Boss said
+          "menos gráficos" — they're still available, just behind a click. */}
+      <details className="rounded-2xl border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.card }}>
+        <summary className="px-5 py-3 cursor-pointer flex items-center gap-3 list-none hover:bg-black/[0.02] transition-colors">
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+            style={{
+              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`,
+              boxShadow: `0 3px 12px color-mix(in srgb, ${gold} 30%, transparent)`,
+            }}>
+            <Activity size={14} style={{ color: "#fff" }} strokeWidth={2.2} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: gold, letterSpacing: "0.14em" }}>Drill-down</p>
+            <p className="text-[14px] font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+              {t("dashx.detail.seller.more") || "Full breakdown (charts, ICPs, channels, campaigns)"}
+            </p>
+          </div>
+          <ChevronRight size={16} style={{ color: C.textMuted }} className="transition-transform" />
+        </summary>
+        <div className="p-5 space-y-6 border-t" style={{ borderColor: C.border }}>
+          {/* 30d trend chart */}
+          <div>
+            <SectionHeader icon={Activity} title={t("dashx.trend.title")} subtitle={t("dashx.detail.seller.trend.subtitle")} />
+            <Panel>
+              <MultiLineChart
+                todayLabel={t("dashx.trend.today")}
+                recentLabel={t("dashx.trend.daysAgo")}
+                series={[
+                  { name: t("dashx.trend.sent"),      color: C.seriesSent,     data: d.trend30d.sent },
+                  { name: t("dashx.trend.replies"),   color: C.seriesReplies,  data: d.trend30d.replies },
+                  { name: t("dashx.trend.positives"), color: C.seriesPositive, data: d.trend30d.positive },
+                ]}
+              />
+            </Panel>
+          </div>
+
+          {/* Heatmaps */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <Panel title={t("dashx.detail.seller.sendHeat.title")} subtitle={t("dashx.detail.seller.sendHeat.subtitle")}>
+              <Heatmap
+                matrix={d.sendHeatmap}
+                days={dayKeys.map(dy => t(`dashx.day.${dy}`))}
+                unitLabel={t("dashx.heat.unitSends")}
+                legendMin={t("dashx.heat.legendMin")}
+                legendMax={t("dashx.heat.legendMax")}
+              />
+            </Panel>
+            <Panel title={t("dashx.detail.seller.replyHeat.title")} subtitle={t("dashx.detail.seller.replyHeat.subtitle")}>
+              <Heatmap
+                matrix={d.replyHeatmap}
+                days={dayKeys.map(dy => t(`dashx.day.${dy}`))}
+                unitLabel={t("dashx.heat.unitReplies")}
+                legendMin={t("dashx.heat.legendMin")}
+                legendMax={t("dashx.heat.legendMax")}
+              />
+            </Panel>
+          </div>
+
+          {/* ICP mix */}
+          {d.icpMix.length > 0 && (
+            <div>
+              <SectionHeader icon={Target} title={t("dashx.detail.seller.icp.title")} subtitle={t("dashx.detail.seller.icp.subtitle")} />
+              <Panel>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
+                      <Th align="left">{t("dashx.tbl.col.icp")}</Th>
+                      <Th align="right">{t("dashx.tbl.col.leads")}</Th>
+                      <Th align="right">{t("dashx.tbl.col.replied")}</Th>
+                      <Th align="right">{t("dashx.tbl.col.positive")}</Th>
+                      <Th align="right">{t("dashx.tbl.col.respPct")}</Th>
+                      <Th align="right">{t("dashx.tbl.col.convPct")}</Th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {d.icpMix.map((i, idx) => (
+                      <tr key={i.id} className="border-t hover:bg-black/[0.02] transition-colors" style={{ borderColor: C.border }}>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <TopRankDot rank={idx} />
+                            {i.id !== "_unknown" ? (
+                              <Link href={`/leads/ticket/${i.id}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{i.name === "_unknown_icp" ? t("dashx.tbl.icp.unknown") : i.name}</Link>
+                            ) : (
+                              <span style={{ color: C.textMuted }}>{i.name === "_unknown_icp" ? t("dashx.tbl.icp.unknown") : i.name}</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums" style={{ color: C.textBody }}>{i.leads.toLocaleString(dateLoc)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums" style={{ color: C.textBody }}>{i.replied}</td>
+                        <td className="px-3 py-2 text-right tabular-nums font-semibold" style={{ color: i.positive > 0 ? C.green : C.textMuted }}>{i.positive}</td>
+                        <td className="px-3 py-2 text-right"><RateCell value={i.responseRate} color="#7C3AED" /></td>
+                        <td className="px-3 py-2 text-right"><RateCell value={i.conversionRate} color={C.green} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </Panel>
+            </div>
+          )}
+
+          {/* Channel mix */}
+          {d.channelMix.length > 0 && (
+            <div>
+              <SectionHeader icon={Send} title={t("dashx.detail.seller.channels.title")} subtitle={t("dashx.detail.seller.channels.subtitle")} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {d.channelMix.map((ch, idx) => {
+                  const meta = channelMeta[ch.channel] ?? { Icon: Send, color: C.textMuted };
+                  const Icon = meta.Icon;
+                  const isTop = idx === 0 && d.channelMix.length > 1;
+                  return (
+                    <div key={ch.channel} className="rounded-xl border p-3.5"
+                      style={{ borderColor: C.border, backgroundColor: C.card, borderLeft: `3px solid ${meta.color}` }}>
+                      <div className="flex items-center justify-between mb-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="w-7 h-7 rounded-md flex items-center justify-center"
+                            style={{ backgroundColor: `color-mix(in srgb, ${meta.color} 14%, transparent)`, color: meta.color }}>
+                            <Icon size={13} />
+                          </span>
+                          <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{t(`dashx.ch.${ch.channel}`) || ch.channel}</span>
+                          {isTop && <span className="w-1.5 h-1.5 rounded-full" style={{ background: gold, boxShadow: `0 0 0 2px color-mix(in srgb, ${gold} 18%, transparent)` }} />}
+                        </div>
+                        <span className="text-[10px] tabular-nums font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                          style={{ backgroundColor: `color-mix(in srgb, ${meta.color} 12%, transparent)`, color: meta.color }}>
+                          {ch.responseRate}% {t("dashx.channels.respShort")}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 text-xs">
+                        <MicroStat label={t("dashx.channels.sent")} value={ch.sent} />
+                        <MicroStat label={t("dashx.channels.contacted")} value={ch.contacted} />
+                        <MicroStat label={t("dashx.channels.replied")} value={ch.replied} />
+                        <MicroStat label={t("dashx.channels.positive")} value={ch.positive} accent={C.green} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Campaign breakdown */}
+          <div>
+            <SectionHeader icon={Megaphone} title={t("dashx.detail.seller.camp.title")} subtitle={t("dashx.detail.seller.camp.subtitle")} />
+            <Panel>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
+                    <Th align="left">{t("dashx.tbl.col.campaign")}</Th>
+                    <Th align="left">{t("dashx.tbl.col.channels")}</Th>
+                    <Th align="right">{t("dashx.tbl.col.leads")}</Th>
+                    <Th align="right">{t("dashx.tbl.col.sent")}</Th>
+                    <Th align="right">{t("dashx.tbl.col.replied")}</Th>
+                    <Th align="right">{t("dashx.tbl.col.positive")}</Th>
+                    <Th align="right">{t("dashx.tbl.col.convPct")}</Th>
+                    <Th align="left">{t("dashx.tbl.col.status")}</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.campaignBreakdown.length === 0 ? (
+                    <tr><td colSpan={8} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}>{t("dashx.detail.seller.camp.empty")}</td></tr>
+                  ) : d.campaignBreakdown.map((c, idx) => (
+                    <tr key={c.name} className="border-t hover:bg-black/[0.02] transition-colors" style={{ borderColor: C.border }}>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <TopRankDot rank={idx} />
+                          <Link href={`/dashboard/campaign/${encodeURIComponent(c.name)}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{c.name}</Link>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center gap-1">
+                          {c.channels.map(ch => {
+                            const M = channelMeta[ch]?.Icon ?? Send;
+                            return <M key={ch} size={12} style={{ color: channelMeta[ch]?.color ?? C.textMuted }} />;
+                          })}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums" style={{ color: C.textBody }}>{c.leads}</td>
+                      <td className="px-3 py-2 text-right tabular-nums" style={{ color: C.textBody }}>{c.sent}</td>
+                      <td className="px-3 py-2 text-right tabular-nums" style={{ color: C.textBody }}>{c.replied}</td>
+                      <td className="px-3 py-2 text-right tabular-nums font-semibold" style={{ color: c.positive > 0 ? C.green : C.textMuted }}>{c.positive}</td>
+                      <td className="px-3 py-2 text-right"><RateCell value={c.conversionRate} color={C.green} /></td>
+                      <td className="px-3 py-2"><StatusBadge status={c.status} t={t} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Panel>
+          </div>
+        </div>
+      </details>
 
       <SwlSignature caption={t("dashx.brand.captionDetail")} tagline={t("dashx.brand.tagline")} />
     </div>
@@ -661,6 +948,160 @@ function LiftIcon({ kind }: { kind: string }) {
   if (kind === "great" || kind === "good") return <TrendingUp size={14} />;
   if (kind === "bad" || kind === "soft") return <TrendingDown size={14} />;
   return <Minus size={14} />;
+}
+
+// Oversized KPI tile with sparkline — replaces the 6 uniform KpiCards
+// for the top 3 metrics. The number is the primary affordance; the
+// sparkline gives trajectory at a glance.
+function BigKpiTile({
+  label, value, sub, sparkData, color, icon: Icon,
+}: {
+  label: string;
+  value: string;
+  sub: string;
+  sparkData: number[];
+  color: string;
+  icon: React.ElementType;
+}) {
+  return (
+    <div
+      className="rounded-2xl border p-5 relative overflow-hidden"
+      style={{
+        backgroundColor: C.card,
+        borderColor: C.border,
+        borderTop: `3px solid ${color}`,
+        boxShadow: "0 4px 18px rgba(0,0,0,0.04)",
+      }}
+    >
+      <div
+        className="absolute -top-10 -right-10 w-32 h-32 rounded-full pointer-events-none opacity-50"
+        style={{ background: `radial-gradient(circle, color-mix(in srgb, ${color} 16%, transparent) 0%, transparent 70%)` }}
+      />
+      <div className="flex items-center justify-between mb-3 relative">
+        <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted, letterSpacing: "0.14em" }}>{label}</p>
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+          style={{
+            backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
+            border: `1px solid color-mix(in srgb, ${color} 22%, transparent)`,
+          }}
+        >
+          <Icon size={15} style={{ color }} />
+        </div>
+      </div>
+      <p
+        className="text-[32px] font-bold leading-none tabular-nums"
+        style={{
+          color,
+          fontFamily: "var(--font-outfit), system-ui, sans-serif",
+          letterSpacing: "-0.025em",
+        }}
+      >
+        {value}
+      </p>
+      <div className="flex items-end justify-between mt-3 gap-3">
+        <p className="text-[11px]" style={{ color: C.textMuted }}>{sub}</p>
+        <InlineSpark data={sparkData} color={color} width={80} height={20} />
+      </div>
+    </div>
+  );
+}
+
+// Voice & Cadence narrative card — three of these inside the V&C panel.
+// Each gives one number + one descriptive sentence + a tiny sparkline.
+// Replaces the two giant heatmaps that used to sit top-level.
+function CadenceCard({
+  icon: Icon, label, value, hint, sparkData, color,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  hint: string;
+  sparkData: number[];
+  color: string;
+}) {
+  return (
+    <div
+      className="rounded-xl border p-4 flex flex-col gap-2"
+      style={{ borderColor: C.border, backgroundColor: C.bg }}
+    >
+      <div className="flex items-center gap-2">
+        <Icon size={13} style={{ color }} />
+        <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: C.textMuted }}>{label}</p>
+      </div>
+      <p
+        className="text-[20px] font-bold leading-tight tabular-nums"
+        style={{
+          color: C.textPrimary,
+          fontFamily: "var(--font-outfit), system-ui, sans-serif",
+          letterSpacing: "-0.01em",
+        }}
+      >
+        {value}
+      </p>
+      <p className="text-[11px] leading-snug" style={{ color: C.textMuted }}>{hint}</p>
+      {sparkData.length > 0 && (
+        <div className="mt-1">
+          <InlineSpark data={sparkData} color={color} width={120} height={18} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Pipeline card — one of three actionable surfaces. Links to the drill
+// page when there's a target; renders as a static tile otherwise.
+function PipelineCard({
+  icon: Icon, label, value, hint, color, href,
+}: {
+  icon: React.ElementType;
+  label: string;
+  value: string | number;
+  hint: string;
+  color: string;
+  href?: string;
+}) {
+  const inner = (
+    <div
+      className="rounded-2xl border p-4 transition-[transform,box-shadow,border-color] group h-full"
+      style={{
+        backgroundColor: C.card,
+        borderColor: C.border,
+        borderLeft: `3px solid ${color}`,
+      }}
+    >
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+          style={{
+            backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
+            color,
+          }}
+        >
+          <Icon size={15} />
+        </div>
+        {href && <ChevronRight size={14} style={{ color: C.textDim }} className="transition-transform group-hover:translate-x-0.5" />}
+      </div>
+      <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: C.textMuted, letterSpacing: "0.12em" }}>{label}</p>
+      <p
+        className="text-[24px] font-bold leading-none tabular-nums mt-1"
+        style={{
+          color: C.textPrimary,
+          fontFamily: "var(--font-outfit), system-ui, sans-serif",
+          letterSpacing: "-0.02em",
+        }}
+      >
+        {value}
+      </p>
+      <p className="text-[11px] mt-1.5 line-clamp-1" style={{ color: C.textMuted }}>{hint}</p>
+    </div>
+  );
+  if (href) {
+    return (
+      <Link href={href} className="block hover:-translate-y-0.5 hover:shadow-md transition-[transform,box-shadow]">{inner}</Link>
+    );
+  }
+  return inner;
 }
 
 function formatMinutes(min: number): string {
