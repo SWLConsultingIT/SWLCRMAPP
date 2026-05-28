@@ -142,26 +142,28 @@ function scoreBadge(score: number | null, priority: boolean) {
   return                                        { label: "NURTURE", color: C.nurture, bg: C.nurtureBg };
 }
 
-function timeAgo(iso: string | null) {
+type Tr = (key: string, vars?: Record<string, string | number>) => string;
+
+function timeAgo(iso: string | null, t: Tr) {
   if (!iso) return null;
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1)  return "Just now";
-  if (m < 60) return `${m}m ago`;
+  if (m < 1)  return t("leadsPage.time.justNow");
+  if (m < 60) return t("leadsPage.time.minutesAgo", { n: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  if (h < 24) return t("leadsPage.time.hoursAgo", { n: h });
+  return t("leadsPage.time.daysAgo", { n: Math.floor(h / 24) });
 }
 
-const classColors: Record<string, { color: string; bg: string; label: string }> = {
-  positive:       { color: C.green,   bg: C.greenLight, label: "Positive" },
-  meeting_intent: { color: C.green,   bg: C.greenLight, label: "Meeting" },
-  negative:       { color: C.red,     bg: C.redLight,   label: "Negative" },
-  question:       { color: "#D97706", bg: "#FFFBEB",    label: "Question" },
+const classColors: Record<string, { color: string; bg: string; labelKey: string }> = {
+  positive:       { color: C.green,   bg: C.greenLight, labelKey: "leadsPage.classBadge.positive" },
+  meeting_intent: { color: C.green,   bg: C.greenLight, labelKey: "leadsPage.classBadge.meeting" },
+  negative:       { color: C.red,     bg: C.redLight,   labelKey: "leadsPage.classBadge.negative" },
+  question:       { color: "#D97706", bg: "#FFFBEB",    labelKey: "leadsPage.classBadge.question" },
 };
 
 // ─── Lost Lead Card (detailed report style) ──────────────────────────────────
-function LostLeadCard({ lead, selected, onToggle }: { lead: LostLead; selected: boolean; onToggle: (id: string) => void }) {
-  const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Unknown";
+function LostLeadCard({ lead, selected, onToggle, t }: { lead: LostLead; selected: boolean; onToggle: (id: string) => void; t: Tr }) {
+  const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || t("leadsPage.unknown");
   const badge = scoreBadge(lead.score, lead.is_priority);
   const progress = lead.steps_total > 0 ? Math.round((lead.steps_completed / lead.steps_total) * 100) : 0;
 
@@ -178,7 +180,7 @@ function LostLeadCard({ lead, selected, onToggle }: { lead: LostLead; selected: 
           className="flex items-center gap-1.5 text-[10px] font-medium transition-opacity opacity-0 group-hover/card:opacity-100"
           style={{ color: selected ? C.red : C.textDim, opacity: selected ? 1 : undefined }}>
           {selected ? <CheckSquare size={13} /> : <Square size={13} />}
-          {selected ? "Selected" : "Select"}
+          {selected ? t("leadsPage.card.selected") : t("leadsPage.card.select")}
         </button>
       </div>
       <Link href={`/leads/lost/${lead.id}`} className="block p-4 group">
@@ -201,11 +203,11 @@ function LostLeadCard({ lead, selected, onToggle }: { lead: LostLead; selected: 
           {/* Reason badge */}
           {lead.reason === "negative" ? (
             <span className="text-[10px] font-bold px-2.5 py-1 rounded-md shrink-0" style={{ backgroundColor: C.redLight, color: C.red }}>
-              Negative Reply
+              {t("leadsPage.card.negativeReply")}
             </span>
           ) : (
             <span className="text-[10px] font-bold px-2.5 py-1 rounded-md shrink-0" style={{ backgroundColor: C.surface, color: C.textMuted }}>
-              No Reply
+              {t("leadsPage.card.noReply")}
             </span>
           )}
         </div>
@@ -213,10 +215,10 @@ function LostLeadCard({ lead, selected, onToggle }: { lead: LostLead; selected: 
         {/* Reply text (if negative) */}
         {lead.reply_text && (
           <div className="rounded-lg px-3 py-2.5 mb-3 border" style={{ backgroundColor: C.redLight, borderColor: C.red + "20" }}>
-            <p className="text-[10px] font-semibold mb-0.5" style={{ color: C.red }}>Their response:</p>
+            <p className="text-[10px] font-semibold mb-0.5" style={{ color: C.red }}>{t("leadsPage.card.theirResponse")}</p>
             <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>&ldquo;{lead.reply_text}&rdquo;</p>
             {lead.reply_date && (
-              <p className="text-[9px] mt-1" style={{ color: C.textDim }}>{timeAgo(lead.reply_date)}</p>
+              <p className="text-[9px] mt-1" style={{ color: C.textDim }}>{timeAgo(lead.reply_date, t)}</p>
             )}
           </div>
         )}
@@ -225,25 +227,25 @@ function LostLeadCard({ lead, selected, onToggle }: { lead: LostLead; selected: 
         <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: C.bg, borderColor: C.border }}>
           <div className="flex items-center gap-4 text-[10px] flex-wrap" style={{ color: C.textMuted }}>
             {lead.campaign_name && (
-              <span><span className="font-semibold" style={{ color: C.textBody }}>Campaign:</span> {lead.campaign_name}</span>
+              <span><span className="font-semibold" style={{ color: C.textBody }}>{t("leadsPage.card.campaign")}</span> {lead.campaign_name}</span>
             )}
             {lead.profile_name && (
-              <span><span className="font-semibold" style={{ color: C.textBody }}>Profile:</span> {lead.profile_name}</span>
+              <span><span className="font-semibold" style={{ color: C.textBody }}>{t("leadsPage.card.profile")}</span> {lead.profile_name}</span>
             )}
           </div>
           <div className="flex items-center gap-4 mt-2 text-[10px]" style={{ color: C.textDim }}>
-            <span>Steps: <span className="font-bold" style={{ color: C.textBody }}>{lead.steps_completed}/{lead.steps_total}</span></span>
+            <span>{t("leadsPage.card.steps")} <span className="font-bold" style={{ color: C.textBody }}>{lead.steps_completed}/{lead.steps_total}</span></span>
             {lead.messages_sent > 0 && (
-              <span>Messages sent: <span className="font-bold" style={{ color: C.textBody }}>{lead.messages_sent}</span></span>
+              <span>{t("leadsPage.card.messagesSent")} <span className="font-bold" style={{ color: C.textBody }}>{lead.messages_sent}</span></span>
             )}
-            <span>Channels: <span className="font-bold" style={{ color: C.textBody }}>{lead.channels.join(", ") || "—"}</span></span>
+            <span>{t("leadsPage.card.channels")} <span className="font-bold" style={{ color: C.textBody }}>{lead.channels.join(", ") || "—"}</span></span>
           </div>
           {/* Progress bar */}
           <div className="flex items-center gap-2 mt-2">
             <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
               <div className="h-1.5 rounded-full" style={{ width: `${progress}%`, backgroundColor: C.textMuted }} />
             </div>
-            <span className="text-[9px] tabular-nums" style={{ color: C.textDim }}>{progress}% completed</span>
+            <span className="text-[9px] tabular-nums" style={{ color: C.textDim }}>{t("leadsPage.card.progressCompleted", { n: progress })}</span>
           </div>
         </div>
       </Link>
@@ -256,7 +258,7 @@ function LostLeadCard({ lead, selected, onToggle }: { lead: LostLead; selected: 
           style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}
         >
           <RefreshCw size={12} />
-          Renurture — Create New Campaign
+          {t("leadsPage.card.renurtureCta")}
         </Link>
       </div>
     </div>
@@ -268,8 +270,8 @@ function LostLeadCard({ lead, selected, onToggle }: { lead: LostLead; selected: 
 // vocabulary. Only differences are: kind-specific badge (days-to-convert +
 // transferred), green border / green quote tint, no select checkbox, no
 // renurture footer (won leads don't get re-nurtured).
-function WonLeadCard({ lead }: { lead: OpportunityLead }) {
-  const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Unknown";
+function WonLeadCard({ lead, t }: { lead: OpportunityLead; t: Tr }) {
+  const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || t("leadsPage.unknown");
   const badge = scoreBadge(lead.score, lead.is_priority);
   const progress = lead.total_steps > 0 ? Math.round((lead.steps_to_convert / lead.total_steps) * 100) : 0;
 
@@ -300,12 +302,12 @@ function WonLeadCard({ lead }: { lead: OpportunityLead }) {
           {lead.transferred ? (
             <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-md shrink-0"
               style={{ backgroundColor: C.greenLight, color: C.green }}>
-              <Trophy size={9} /> In CRM
+              <Trophy size={9} /> {t("leadsPage.card.inCrm")}
             </span>
           ) : (
             <span className="text-[10px] font-bold px-2.5 py-1 rounded-md shrink-0"
               style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}>
-              Pending Transfer
+              {t("leadsPage.card.pendingTransfer")}
             </span>
           )}
         </div>
@@ -313,10 +315,10 @@ function WonLeadCard({ lead }: { lead: OpportunityLead }) {
         {/* Win reply text */}
         {lead.win_text && (
           <div className="rounded-lg px-3 py-2.5 mb-3 border" style={{ backgroundColor: C.greenLight, borderColor: C.green + "30" }}>
-            <p className="text-[10px] font-semibold mb-0.5" style={{ color: C.green }}>Their response:</p>
+            <p className="text-[10px] font-semibold mb-0.5" style={{ color: C.green }}>{t("leadsPage.card.theirResponse")}</p>
             <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>&ldquo;{lead.win_text}&rdquo;</p>
             {lead.win_date && (
-              <p className="text-[9px] mt-1" style={{ color: C.textDim }}>{timeAgo(lead.win_date)}</p>
+              <p className="text-[9px] mt-1" style={{ color: C.textDim }}>{timeAgo(lead.win_date, t)}</p>
             )}
           </div>
         )}
@@ -325,20 +327,20 @@ function WonLeadCard({ lead }: { lead: OpportunityLead }) {
         <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: C.bg, borderColor: C.border }}>
           <div className="flex items-center gap-4 text-[10px] flex-wrap" style={{ color: C.textMuted }}>
             {lead.campaign_name && (
-              <span><span className="font-semibold" style={{ color: C.textBody }}>Campaign:</span> {lead.campaign_name}</span>
+              <span><span className="font-semibold" style={{ color: C.textBody }}>{t("leadsPage.card.campaign")}</span> {lead.campaign_name}</span>
             )}
             {lead.profile_name && (
-              <span><span className="font-semibold" style={{ color: C.textBody }}>Profile:</span> {lead.profile_name}</span>
+              <span><span className="font-semibold" style={{ color: C.textBody }}>{t("leadsPage.card.profile")}</span> {lead.profile_name}</span>
             )}
           </div>
           <div className="flex items-center gap-4 mt-2 text-[10px]" style={{ color: C.textDim }}>
             {lead.days_to_convert != null && (
-              <span>Days to convert: <span className="font-bold tabular-nums" style={{ color: gold }}>{lead.days_to_convert}</span></span>
+              <span>{t("leadsPage.card.daysToConvert")} <span className="font-bold tabular-nums" style={{ color: gold }}>{lead.days_to_convert}</span></span>
             )}
             {lead.total_steps > 0 && (
-              <span>Steps: <span className="font-bold" style={{ color: C.textBody }}>{lead.steps_to_convert}/{lead.total_steps}</span></span>
+              <span>{t("leadsPage.card.steps")} <span className="font-bold" style={{ color: C.textBody }}>{lead.steps_to_convert}/{lead.total_steps}</span></span>
             )}
-            <span>Channels: <span className="font-bold" style={{ color: C.textBody }}>{lead.channels.join(", ") || "—"}</span></span>
+            <span>{t("leadsPage.card.channels")} <span className="font-bold" style={{ color: C.textBody }}>{lead.channels.join(", ") || "—"}</span></span>
           </div>
           {/* Progress bar */}
           {lead.total_steps > 0 && (
@@ -346,7 +348,7 @@ function WonLeadCard({ lead }: { lead: OpportunityLead }) {
               <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
                 <div className="h-1.5 rounded-full" style={{ width: `${progress}%`, backgroundColor: C.green }} />
               </div>
-              <span className="text-[9px] tabular-nums" style={{ color: C.textDim }}>{progress}% completed</span>
+              <span className="text-[9px] tabular-nums" style={{ color: C.textDim }}>{t("leadsPage.card.progressCompleted", { n: progress })}</span>
             </div>
           )}
         </div>
@@ -357,6 +359,7 @@ function WonLeadCard({ lead }: { lead: OpportunityLead }) {
 
 // ─── Won View ────────────────────────────────────────────────────────────────
 export function WonView({ leads }: { leads: OpportunityLead[] }) {
+  const { t } = useLocale();
   const [search, setSearch] = useState("");
   const [profileFilter, setProfileFilter] = useState("all");
   const [transferFilter, setTransferFilter] = useState<"all" | "yes" | "no">("all");
@@ -380,9 +383,9 @@ export function WonView({ leads }: { leads: OpportunityLead[] }) {
     return (
       <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <Trophy size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-        <p className="text-sm font-medium" style={{ color: C.textBody }}>No opportunities yet</p>
+        <p className="text-sm font-medium" style={{ color: C.textBody }}>{t("leadsPage.won.empty.title")}</p>
         <p className="text-xs mt-1" style={{ color: C.textMuted }}>
-          Wins show up here when a lead replies positively or a call gets classified as Positive.
+          {t("leadsPage.won.empty.desc")}
         </p>
       </div>
     );
@@ -396,48 +399,48 @@ export function WonView({ leads }: { leads: OpportunityLead[] }) {
           style={{ borderColor: C.border, backgroundColor: C.card }}>
           <Search size={14} style={{ color: C.textDim }} />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search opportunities..." className="bg-transparent text-sm outline-none flex-1"
+            placeholder={t("leadsPage.won.search")} className="bg-transparent text-sm outline-none flex-1"
             style={{ color: C.textPrimary }} />
           {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
         </div>
         {profileNames.length > 1 && (
           <select value={profileFilter} onChange={e => setProfileFilter(e.target.value)}
             className="rounded-lg px-3 py-1.5 text-xs" style={selectStyle}>
-            <option value="all">All Profiles</option>
+            <option value="all">{t("leadsPage.won.filter.allProfiles")}</option>
             {profileNames.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
         )}
         <select value={transferFilter} onChange={e => setTransferFilter(e.target.value as "all" | "yes" | "no")}
           className="rounded-lg px-3 py-1.5 text-xs" style={selectStyle}>
-          <option value="all">All Status</option>
-          <option value="yes">Transferred</option>
-          <option value="no">Pending Transfer</option>
+          <option value="all">{t("leadsPage.won.filter.allStatus")}</option>
+          <option value="yes">{t("leadsPage.won.filter.transferred")}</option>
+          <option value="no">{t("leadsPage.won.filter.pendingTransfer")}</option>
         </select>
-        <span className="text-xs" style={{ color: C.textMuted }}>{filtered.length} results</span>
+        <span className="text-xs" style={{ color: C.textMuted }}>{t("leadsPage.results", { n: filtered.length })}</span>
       </div>
 
       {/* Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {filtered.map(l => <WonLeadCard key={l.id} lead={l} />)}
+        {filtered.map(l => <WonLeadCard key={l.id} lead={l} t={t} />)}
       </div>
     </div>
   );
 }
 
 // ─── Re-nurturing Lead Card ───────────────────────────────────────────────────
-function RenurturingLeadCard({ lead }: { lead: RenurturingLead }) {
-  const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Unknown";
+function RenurturingLeadCard({ lead, t }: { lead: RenurturingLead; t: Tr }) {
+  const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || t("leadsPage.unknown");
   const badge = scoreBadge(lead.score, lead.is_priority);
   const isPendingReview = lead.new_campaign_status === "pending_review";
   const newProgress = lead.new_campaign_total_steps && lead.new_campaign_step != null
     ? Math.round((lead.new_campaign_step / lead.new_campaign_total_steps) * 100)
     : 0;
 
-  const statusLabel = isPendingReview ? "Pending Approval"
-    : lead.new_campaign_status === "approved" || lead.new_campaign_status === "active" ? "Running"
-    : lead.new_campaign_status === "paused" ? "Paused"
-    : lead.new_campaign_status === "cancelled" ? "Cancelled"
-    : lead.new_campaign_status ?? "Active";
+  const statusLabel = isPendingReview ? t("leadsPage.renurtureStatus.pendingApproval")
+    : lead.new_campaign_status === "approved" || lead.new_campaign_status === "active" ? t("leadsPage.renurtureStatus.running")
+    : lead.new_campaign_status === "paused" ? t("leadsPage.renurtureStatus.paused")
+    : lead.new_campaign_status === "cancelled" ? t("leadsPage.renurtureStatus.cancelled")
+    : lead.new_campaign_status ?? t("leadsPage.renurtureStatus.active");
   const statusColor = isPendingReview ? "#D97706"
     : lead.new_campaign_status === "cancelled" ? C.red
     : lead.new_campaign_status === "paused" ? "#D97706" : C.green;
@@ -474,23 +477,23 @@ function RenurturingLeadCard({ lead }: { lead: RenurturingLead }) {
         {/* Previous reply */}
         {lead.reply_text && (
           <div className="rounded-lg px-3 py-2.5 mb-3 border" style={{ backgroundColor: C.redLight, borderColor: C.red + "20" }}>
-            <p className="text-[10px] font-semibold mb-0.5" style={{ color: C.red }}>Previous response:</p>
+            <p className="text-[10px] font-semibold mb-0.5" style={{ color: C.red }}>{t("leadsPage.card.previousResponse")}</p>
             <p className="text-xs leading-relaxed" style={{ color: C.textBody }}>&ldquo;{lead.reply_text}&rdquo;</p>
             {lead.reply_date && (
-              <p className="text-[9px] mt-1" style={{ color: C.textDim }}>{timeAgo(lead.reply_date)}</p>
+              <p className="text-[9px] mt-1" style={{ color: C.textDim }}>{timeAgo(lead.reply_date, t)}</p>
             )}
           </div>
         )}
 
         {/* New campaign info */}
         <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: C.greenLight + "80", borderColor: C.green + "30" }}>
-          <p className="text-[10px] font-semibold mb-1.5" style={{ color: C.green }}>New Campaign</p>
+          <p className="text-[10px] font-semibold mb-1.5" style={{ color: C.green }}>{t("leadsPage.card.newCampaign")}</p>
           <div className="flex items-center gap-3 text-[10px] flex-wrap mb-1" style={{ color: C.textMuted }}>
             {lead.new_campaign_name && (
               <span><span className="font-semibold" style={{ color: C.textBody }}>{lead.new_campaign_name}</span></span>
             )}
             {lead.profile_name && (
-              <span>Profile: <span className="font-semibold" style={{ color: C.textBody }}>{lead.profile_name}</span></span>
+              <span>{t("leadsPage.card.profile")} <span className="font-semibold" style={{ color: C.textBody }}>{lead.profile_name}</span></span>
             )}
           </div>
           {!isPendingReview && lead.new_campaign_step != null && lead.new_campaign_total_steps != null && (
@@ -499,12 +502,12 @@ function RenurturingLeadCard({ lead }: { lead: RenurturingLead }) {
                 <div className="h-1.5 rounded-full" style={{ width: `${newProgress}%`, backgroundColor: C.green }} />
               </div>
               <span className="text-[9px] tabular-nums" style={{ color: C.textDim }}>
-                {lead.new_campaign_step}/{lead.new_campaign_total_steps} steps
+                {t("leadsPage.card.stepsCount", { n: lead.new_campaign_step, total: lead.new_campaign_total_steps })}
               </span>
             </div>
           )}
           {isPendingReview && (
-            <p className="text-[10px]" style={{ color: "#D97706" }}>Awaiting admin approval before launch</p>
+            <p className="text-[10px]" style={{ color: "#D97706" }}>{t("leadsPage.card.awaitingApproval")}</p>
           )}
         </div>
       </Link>
@@ -514,6 +517,7 @@ function RenurturingLeadCard({ lead }: { lead: RenurturingLead }) {
 
 // ─── Re-nurturing View ────────────────────────────────────────────────────────
 export function RenurturingView({ leads }: { leads: RenurturingLead[] }) {
+  const { t } = useLocale();
   const [search, setSearch] = useState("");
 
   const filtered = leads.filter(l => {
@@ -526,8 +530,8 @@ export function RenurturingView({ leads }: { leads: RenurturingLead[] }) {
     return (
       <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <RefreshCw size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-        <p className="text-sm font-medium" style={{ color: C.textBody }}>No re-nurturing leads</p>
-        <p className="text-xs mt-1" style={{ color: C.textMuted }}>Leads you start a new campaign for will appear here.</p>
+        <p className="text-sm font-medium" style={{ color: C.textBody }}>{t("leadsPage.renurture.empty.title")}</p>
+        <p className="text-xs mt-1" style={{ color: C.textMuted }}>{t("leadsPage.renurture.empty.desc")}</p>
       </div>
     );
   }
@@ -539,13 +543,13 @@ export function RenurturingView({ leads }: { leads: RenurturingLead[] }) {
           style={{ borderColor: C.border, backgroundColor: C.card }}>
           <Search size={14} style={{ color: C.textDim }} />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search re-nurturing leads..." className="bg-transparent text-sm outline-none flex-1" style={{ color: C.textPrimary }} />
+            placeholder={t("leadsPage.renurture.search")} className="bg-transparent text-sm outline-none flex-1" style={{ color: C.textPrimary }} />
           {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
         </div>
-        <span className="text-xs" style={{ color: C.textMuted }}>{filtered.length} results</span>
+        <span className="text-xs" style={{ color: C.textMuted }}>{t("leadsPage.results", { n: filtered.length })}</span>
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {filtered.map(l => <RenurturingLeadCard key={l.id} lead={l} />)}
+        {filtered.map(l => <RenurturingLeadCard key={l.id} lead={l} t={t} />)}
       </div>
     </div>
   );
@@ -553,6 +557,7 @@ export function RenurturingView({ leads }: { leads: RenurturingLead[] }) {
 
 // ─── Lost Leads View ──────────────────────────────────────────────────────────
 export function LostLeadsView({ leads }: { leads: LostLead[] }) {
+  const { t } = useLocale();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -587,7 +592,7 @@ export function LostLeadsView({ leads }: { leads: LostLead[] }) {
   }
 
   async function deleteSelected() {
-    if (!window.confirm(`Delete ${selected.size} lead${selected.size > 1 ? "s" : ""} permanently? This cannot be undone.`)) return;
+    if (!window.confirm(t("leadsPage.lost.confirmDelete", { n: selected.size }))) return;
     setDeleting(true);
     const ids = [...selected];
     // Use API route with service key to bypass RLS (browser client blocked for
@@ -598,8 +603,8 @@ export function LostLeadsView({ leads }: { leads: LostLead[] }) {
       body: JSON.stringify({ leadIds: ids }),
     });
     if (!res.ok) {
-      const { error } = await res.json().catch(() => ({ error: "Delete failed" }));
-      window.alert(`Delete failed: ${error}`);
+      const { error } = await res.json().catch(() => ({ error: t("leadsPage.lost.deleteFailed") }));
+      window.alert(`${t("leadsPage.lost.deleteFailed")}: ${error}`);
     }
     setDeleting(false);
     setSelected(new Set());
@@ -608,7 +613,7 @@ export function LostLeadsView({ leads }: { leads: LostLead[] }) {
 
   async function recoverSelected() {
     const n = selected.size;
-    if (!window.confirm(`Recover ${n} lead${n > 1 ? "s" : ""}? Their finished campaigns will be archived (kept for history) and the lead becomes contactable again. You'll be able to add them to a new campaign.`)) return;
+    if (!window.confirm(t("leadsPage.lost.confirmRecover", { n }))) return;
     setRecovering(true);
     const ids = [...selected];
     const res = await fetch("/api/leads/recover", {
@@ -617,9 +622,9 @@ export function LostLeadsView({ leads }: { leads: LostLead[] }) {
       body: JSON.stringify({ leadIds: ids }),
     });
     if (!res.ok) {
-      const { error } = await res.json().catch(() => ({ error: "Recover failed" }));
+      const { error } = await res.json().catch(() => ({ error: t("leadsPage.lost.recoverFailed") }));
       setRecovering(false);
-      window.alert(`Recover failed: ${error}`);
+      window.alert(`${t("leadsPage.lost.recoverFailed")}: ${error}`);
       return;
     }
     setRecovering(false);
@@ -631,8 +636,8 @@ export function LostLeadsView({ leads }: { leads: LostLead[] }) {
     return (
       <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <CheckCircle size={28} className="mx-auto mb-3" style={{ color: C.green }} />
-        <p className="text-sm font-medium" style={{ color: C.textBody }}>No lost leads</p>
-        <p className="text-xs mt-1" style={{ color: C.textMuted }}>Leads that don't respond or reply negatively will appear here for future re-engagement.</p>
+        <p className="text-sm font-medium" style={{ color: C.textBody }}>{t("leadsPage.lost.empty.title")}</p>
+        <p className="text-xs mt-1" style={{ color: C.textMuted }}>{t("leadsPage.lost.empty.desc")}</p>
       </div>
     );
   }
@@ -645,14 +650,14 @@ export function LostLeadsView({ leads }: { leads: LostLead[] }) {
           style={{ borderColor: C.border, backgroundColor: C.card }}>
           <Search size={14} style={{ color: C.textDim }} />
           <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search lost leads..." className="bg-transparent text-sm outline-none flex-1" style={{ color: C.textPrimary }} />
+            placeholder={t("leadsPage.lost.search")} className="bg-transparent text-sm outline-none flex-1" style={{ color: C.textPrimary }} />
           {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
         </div>
         <div className="flex items-center gap-1 rounded-lg border p-0.5" style={{ borderColor: C.border, backgroundColor: C.bg }}>
           {[
-            { key: "all",      label: `All (${leads.length})` },
-            { key: "negative", label: `Negative (${negativeCount})` },
-            { key: "no_reply", label: `No Reply (${noReplyCount})` },
+            { key: "all",      label: t("leadsPage.lost.filter.all",      { n: leads.length }) },
+            { key: "negative", label: t("leadsPage.lost.filter.negative", { n: negativeCount }) },
+            { key: "no_reply", label: t("leadsPage.lost.filter.noReply",  { n: noReplyCount }) },
           ].map(f => (
             <button key={f.key} onClick={() => setFilter(f.key)}
               className="px-3 py-1 rounded-md text-[10px] font-semibold transition-colors"
@@ -665,13 +670,13 @@ export function LostLeadsView({ leads }: { leads: LostLead[] }) {
             </button>
           ))}
         </div>
-        <span className="text-xs" style={{ color: C.textMuted }}>{filtered.length} results</span>
+        <span className="text-xs" style={{ color: C.textMuted }}>{t("leadsPage.results", { n: filtered.length })}</span>
 
         {/* Select all + delete toolbar */}
         <button onClick={toggleAll} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-semibold transition-colors"
           style={{ borderColor: C.border, backgroundColor: C.card, color: allSelected ? C.textPrimary : C.textMuted }}>
           {allSelected ? <CheckSquare size={12} /> : <Square size={12} />}
-          {allSelected ? "Deselect all" : "Select all"}
+          {allSelected ? t("leadsPage.lost.deselectAll") : t("leadsPage.lost.selectAll")}
         </button>
 
         {selected.size > 0 && (
@@ -679,15 +684,19 @@ export function LostLeadsView({ leads }: { leads: LostLead[] }) {
             <button onClick={recoverSelected} disabled={recovering || deleting}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
               style={{ backgroundColor: gold, color: "#04070d", opacity: (recovering || deleting) ? 0.6 : 1 }}
-              title="Mark these leads as contactable again so you can add them to a new campaign">
+              title={t("leadsPage.lost.recoverTitle")}>
               <RefreshCw size={12} className={recovering ? "animate-spin" : ""} />
-              {recovering ? "Recovering…" : `Recover ${selected.size} lead${selected.size > 1 ? "s" : ""}`}
+              {recovering
+                ? t("leadsPage.lost.recovering")
+                : t(selected.size === 1 ? "leadsPage.lost.recoverN" : "leadsPage.lost.recoverNPlural", { n: selected.size })}
             </button>
             <button onClick={deleteSelected} disabled={deleting || recovering}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-[opacity,transform,box-shadow,background-color,border-color]"
               style={{ backgroundColor: C.red, color: "#fff", opacity: (deleting || recovering) ? 0.6 : 1 }}>
               <Trash2 size={12} />
-              {deleting ? "Deleting…" : `Delete ${selected.size} lead${selected.size > 1 ? "s" : ""}`}
+              {deleting
+                ? t("leadsPage.lost.deleting")
+                : t(selected.size === 1 ? "leadsPage.lost.deleteN" : "leadsPage.lost.deleteNPlural", { n: selected.size })}
             </button>
           </>
         )}
@@ -695,7 +704,7 @@ export function LostLeadsView({ leads }: { leads: LostLead[] }) {
 
       {/* Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {filtered.map(l => <LostLeadCard key={l.id} lead={l} selected={selected.has(l.id)} onToggle={toggleOne} />)}
+        {filtered.map(l => <LostLeadCard key={l.id} lead={l} selected={selected.has(l.id)} onToggle={toggleOne} t={t} />)}
       </div>
     </div>
   );
@@ -706,6 +715,7 @@ export function LostLeadsView({ leads }: { leads: LostLead[] }) {
 // distinct company_name. Each card links to /companies/[name] which has the
 // existing detail page (contacts, activity, intel).
 function CompaniesGrid({ companies }: { companies: CompanyInfo[] }) {
+  const { t } = useLocale();
   const [search, setSearch] = useState("");
 
   const filtered = !search ? companies : companies.filter(c =>
@@ -723,7 +733,7 @@ function CompaniesGrid({ companies }: { companies: CompanyInfo[] }) {
         <Search size={14} style={{ color: C.textDim }} />
         <input
           type="text" value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search company, industry, city…"
+          placeholder={t("leadsPage.companies.search")}
           className="bg-transparent text-sm outline-none flex-1"
           style={{ color: C.textPrimary }}
         />
@@ -734,19 +744,19 @@ function CompaniesGrid({ companies }: { companies: CompanyInfo[] }) {
         <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
           <Building2 size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
           <p className="text-sm font-medium" style={{ color: C.textBody }}>
-            {search ? "No companies match your search" : "No companies yet"}
+            {search ? t("leadsPage.companies.empty.match") : t("leadsPage.companies.empty.none")}
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(c => <CompanyCard key={c.name} company={c} />)}
+          {filtered.map(c => <CompanyCard key={c.name} company={c} t={t} />)}
         </div>
       )}
     </div>
   );
 }
 
-function CompanyCard({ company }: { company: CompanyInfo }) {
+function CompanyCard({ company, t }: { company: CompanyInfo; t: Tr }) {
   const initial = (company.name?.[0] ?? "?").toUpperCase();
   const location = [company.city, company.country].filter(Boolean).join(", ");
   const summary = company.shortDesc ?? company.description ?? company.tagline;
@@ -799,13 +809,13 @@ function CompanyCard({ company }: { company: CompanyInfo }) {
           <span className="flex items-center gap-1" style={{ color: C.textBody }}>
             <UsersIcon size={11} style={{ color: gold }} />
             <span className="font-semibold tabular-nums">{company.leadCount}</span>
-            <span style={{ color: C.textMuted }}>{company.leadCount === 1 ? "lead" : "leads"}</span>
+            <span style={{ color: C.textMuted }}>{company.leadCount === 1 ? t("leadsPage.companies.lead") : t("leadsPage.companies.leads")}</span>
           </span>
           {company.contactedCount > 0 && (
             <span className="flex items-center gap-1" style={{ color: C.textBody }}>
               <MessageCircle size={11} style={{ color: C.blue }} />
               <span className="font-semibold tabular-nums">{company.contactedCount}</span>
-              <span style={{ color: C.textMuted }}>contacted</span>
+              <span style={{ color: C.textMuted }}>{t("leadsPage.companies.contacted")}</span>
             </span>
           )}
         </div>
@@ -825,7 +835,7 @@ function CompanyCard({ company }: { company: CompanyInfo }) {
           {company.website && (
             <span className="text-[10px] font-medium inline-flex items-center gap-1 px-1.5 py-0.5 rounded"
               style={{ backgroundColor: C.cardHov, color: C.textMuted }}>
-              <Globe size={9} /> site
+              <Globe size={9} /> {t("leadsPage.companies.site")}
             </span>
           )}
         </div>
@@ -838,6 +848,7 @@ function CompanyCard({ company }: { company: CompanyInfo }) {
 const PAGE_SIZE = 25;
 
 function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
+  const { t } = useLocale();
   const router = useRouter();
   const toast = useToast();
   const [showCount, setShowCount] = useState(PAGE_SIZE);
@@ -964,10 +975,10 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
       });
       if (!res.ok) {
         const { error } = await res.json().catch(() => ({ error: "Update failed" }));
-        toast.show({ kind: "error", title: "Couldn't update status", description: error || "Try again." });
+        toast.show({ kind: "error", title: t("leadsPage.bulk.toast.statusFailed"), description: error || t("leadsPage.bulk.toast.statusFailedDesc") });
         return;
       }
-      toast.show({ kind: "success", title: `Status → ${status}` });
+      toast.show({ kind: "success", title: t("leadsPage.row.toast.statusUpdate", { status }) });
       router.refresh();
     } finally {
       setRowUpdating(null);
@@ -987,10 +998,10 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
       if (!res.ok) {
         // Endpoint may not exist yet — silent-fail with a friendly toast
         // instead of an exception. Tracked in pending tasks as a backend TODO.
-        toast.show({ kind: "warning", title: "Mark hot endpoint pending", description: "Will be wired in the next backend pass." });
+        toast.show({ kind: "warning", title: t("leadsPage.row.toast.hotPending"), description: t("leadsPage.row.toast.hotPendingDesc") });
         return;
       }
-      toast.show({ kind: "success", title: !current ? "Marked hot 🔥" : "Removed hot flag" });
+      toast.show({ kind: "success", title: !current ? t("leadsPage.row.toast.markedHot") : t("leadsPage.row.toast.removedHot") });
       router.refresh();
     } finally {
       setRowUpdating(null);
@@ -1006,7 +1017,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
   }
   async function bulkDelete() {
     if (selected.size === 0 || deleting) return;
-    if (!confirm(`Delete ${selected.size} lead${selected.size === 1 ? "" : "s"}? This will cascade-remove their campaigns, messages, replies and notes. This cannot be undone.`)) return;
+    if (!confirm(t("leadsPage.bulk.confirmDelete", { n: selected.size }))) return;
     setDeleting(true);
     try {
       const res = await fetch("/api/leads/bulk-delete", {
@@ -1016,10 +1027,10 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
       });
       if (!res.ok) {
         const { error } = await res.json().catch(() => ({ error: "Delete failed" }));
-        toast.show({ kind: "error", title: "Couldn't delete leads", description: error || "Try again in a moment." });
+        toast.show({ kind: "error", title: t("leadsPage.bulk.toast.deleteFailed"), description: error || t("leadsPage.bulk.toast.statusFailedDesc") });
         return;
       }
-      toast.show({ kind: "success", title: `Deleted ${selected.size} lead${selected.size === 1 ? "" : "s"}` });
+      toast.show({ kind: "success", title: t("leadsPage.bulk.toast.deleted", { n: selected.size }) });
       setSelected(new Set());
       router.refresh();
     } finally {
@@ -1065,16 +1076,16 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
       });
       if (!res.ok) {
         const { error } = await res.json().catch(() => ({ error: "Update failed" }));
-        toast.show({ kind: "error", title: "Couldn't update status", description: error || "Try again in a moment." });
+        toast.show({ kind: "error", title: t("leadsPage.bulk.toast.statusFailed"), description: error || t("leadsPage.bulk.toast.statusFailedDesc") });
         return;
       }
       const data = await res.json().catch(() => ({ updated: selectedIds.length })) as { updated?: number };
       const updatedCount = data.updated ?? selectedIds.length;
       toast.show({
         kind: "success",
-        title: `Updated ${updatedCount} lead${updatedCount === 1 ? "" : "s"} → ${status}`,
+        title: t("leadsPage.bulk.toast.statusUpdated", { n: updatedCount, status }),
         action: {
-          label: "Undo",
+          label: t("leadsPage.bulk.toast.undo"),
           onClick: async () => {
             // Group by prior status so we make at most 1 round-trip per
             // distinct status (in practice almost everyone shares the same
@@ -1093,7 +1104,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                 body: JSON.stringify({ ids, status: prevStatus }),
               }).catch(() => null);
             }
-            toast.show({ kind: "info", title: "Status change undone" });
+            toast.show({ kind: "info", title: t("leadsPage.bulk.toast.undone") });
             router.refresh();
           },
         },
@@ -1157,12 +1168,12 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
             </span>
             <div className="flex-1 min-w-0">
               <p className="text-[13px] font-bold leading-tight" style={{ color: "#fff", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-                {selected.size} {selected.size === 1 ? "lead selected" : "leads selected"}
+                {t(selected.size === 1 ? "leadsPage.bulk.leadSelected" : "leadsPage.bulk.leadsSelected", { n: selected.size })}
               </p>
               <p className="text-[11px] mt-0.5" style={{ color: "color-mix(in srgb, white 55%, transparent)" }}>
                 {someAlreadyInFlow
-                  ? `${selectedLeadObjs.filter(l => l.has_campaign).length} already in a flow — only status / delete available.`
-                  : "Push them into a new flow or attach to one already running."}
+                  ? t("leadsPage.bulk.someInFlow", { n: selectedLeadObjs.filter(l => l.has_campaign).length })
+                  : t("leadsPage.bulk.pushHint")}
               </p>
             </div>
 
@@ -1174,7 +1185,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                 <button onClick={() => setShowAddToFlow(true)} disabled={deleting}
                   className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
                   style={{ background: "rgba(255,255,255,0.08)", color: gold, border: `1px solid color-mix(in srgb, ${gold} 45%, transparent)` }}>
-                  <Megaphone size={13} /> Add to existing flow
+                  <Megaphone size={13} /> {t("leadsPage.bulk.addToExisting")}
                 </button>
                 <button onClick={createNewFlowFromSelection} disabled={deleting}
                   className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
@@ -1183,7 +1194,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                     color: "#1A1505",
                     boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent)`,
                   }}>
-                  <Send size={13} /> Create New Flow
+                  <Send size={13} /> {t("leadsPage.bulk.createNewFlow")}
                 </button>
               </>
             )}
@@ -1206,29 +1217,29 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                   color: "rgba(255,255,255,0.9)",
                 }}
               >
-                <option value="" disabled>Change status…</option>
-                <option value="new">New</option>
-                <option value="contacted">Contacted</option>
-                <option value="connected">Connected</option>
-                <option value="responded">Responded</option>
-                <option value="qualified">Qualified</option>
-                <option value="proposal_sent">Proposal</option>
-                <option value="closed_won">Won</option>
-                <option value="closed_lost">Lost</option>
-                <option value="nurturing">Nurturing</option>
+                <option value="" disabled>{t("leadsPage.bulk.changeStatusPlaceholder")}</option>
+                <option value="new">{t("leadsPage.status.new")}</option>
+                <option value="contacted">{t("leadsPage.status.contacted")}</option>
+                <option value="connected">{t("leadsPage.status.connected")}</option>
+                <option value="responded">{t("leadsPage.status.responded")}</option>
+                <option value="qualified">{t("leadsPage.status.qualified")}</option>
+                <option value="proposal_sent">{t("leadsPage.status.proposalSent")}</option>
+                <option value="closed_won">{t("leadsPage.status.won")}</option>
+                <option value="closed_lost">{t("leadsPage.status.lost")}</option>
+                <option value="nurturing">{t("leadsPage.status.nurturing")}</option>
               </select>
               <ChevronRight size={11} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" style={{ color: "rgba(255,255,255,0.6)" }} />
             </label>
             <button onClick={() => setSelected(new Set())} disabled={deleting}
               className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg transition-colors hover:bg-white/[0.06]"
               style={{ color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.18)" }}>
-              Clear
+              {t("leadsPage.bulk.clear")}
             </button>
             <button onClick={bulkDelete} disabled={deleting}
               className="text-[12px] font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
               style={{ background: "linear-gradient(135deg, #DC2626, #B91C1C)", color: "#fff", boxShadow: "0 4px 14px rgba(220,38,38,0.35)" }}>
               {deleting ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />}
-              {deleting ? "Working…" : `Delete ${selected.size}`}
+              {deleting ? t("leadsPage.bulk.working") : t("leadsPage.bulk.deleteN", { n: selected.size })}
             </button>
           </div>
         </div>
@@ -1248,29 +1259,29 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
           <thead>
             <tr style={{ backgroundColor: C.bg }}>
               <th className="px-3 py-2.5 w-8">
-                <button onClick={toggleAllFiltered} className="block" aria-label={`Select all ${filteredIds.length} filtered`} title={`Select all ${filteredIds.length} leads matching the current filters`}>
+                <button onClick={toggleAllFiltered} className="block" aria-label={t("leadsPage.table.selectAllAria", { n: filteredIds.length })} title={t("leadsPage.table.selectAllTitle", { n: filteredIds.length })}>
                   {allFilteredSelected ? <CheckSquare size={14} style={{ color: gold }} /> : <Square size={14} style={{ color: C.textDim }} />}
                 </button>
               </th>
-              <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Lead</th>
-              <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden md:table-cell" style={{ color: C.textMuted }}>Company</th>
-              <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden lg:table-cell" style={{ color: C.textMuted }}>Role</th>
-              <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>Score</th>
-              <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden sm:table-cell" style={{ color: C.textMuted }}>ICP</th>
-              <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Campaign</th>
-              <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Reply</th>
+              <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("leadsPage.table.head.lead")}</th>
+              <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden md:table-cell" style={{ color: C.textMuted }}>{t("leadsPage.table.head.company")}</th>
+              <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden lg:table-cell" style={{ color: C.textMuted }}>{t("leadsPage.table.head.role")}</th>
+              <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>{t("leadsPage.table.head.score")}</th>
+              <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider hidden sm:table-cell" style={{ color: C.textMuted }}>{t("leadsPage.table.head.icp")}</th>
+              <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("leadsPage.table.head.campaign")}</th>
+              <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{t("leadsPage.table.head.reply")}</th>
               <th className="px-4 py-2.5" />
             </tr>
           </thead>
           <tbody>
             {visible.length === 0 ? (
-              <tr><td colSpan={9} className="px-4 py-10 text-center text-sm" style={{ color: C.textDim }}>No leads match your filters</td></tr>
+              <tr><td colSpan={9} className="px-4 py-10 text-center text-sm" style={{ color: C.textDim }}>{t("leadsPage.table.empty")}</td></tr>
             ) : visible.map(lead => {
-              const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Unknown";
+              const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || t("leadsPage.unknown");
               const badge = scoreBadge(lead.score, lead.is_priority);
               const hasReply = (lead.reply_count ?? 0) > 0;
               const replyColor = lead.has_positive ? C.green : hasReply ? "#D97706" : C.textDim;
-              const replyLabel = lead.has_positive ? "Positive" : hasReply ? "Replied" : "—";
+              const replyLabel = lead.has_positive ? t("leadsPage.table.replyPositive") : hasReply ? t("leadsPage.table.replyReplied") : "—";
               const isSelected = selected.has(lead.id);
               const isUpdating = rowUpdating === lead.id;
               const menuOpen = openMenuId === lead.id;
@@ -1281,8 +1292,8 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                     <button
                       onClick={(e) => toggleOne(lead.id, e.shiftKey)}
                       className="block"
-                      aria-label="Select lead"
-                      title="Shift-click to select range"
+                      aria-label={t("leadsPage.table.selectLead")}
+                      title={t("leadsPage.table.shiftClick")}
                     >
                       {isSelected ? <CheckSquare size={14} style={{ color: gold }} /> : <Square size={14} style={{ color: C.textDim }} />}
                     </button>
@@ -1343,9 +1354,9 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                       // Edge case: has_campaign true but server didn't
                       // attach the id (older data). Show a non-link
                       // active badge so we don't dead-link the cell.
-                      <span className="text-[10px] font-semibold" style={{ color: C.green }}>Active</span>
+                      <span className="text-[10px] font-semibold" style={{ color: C.green }}>{t("leadsPage.table.activeBadge")}</span>
                     ) : (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>No Campaign</span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>{t("leadsPage.table.noCampaign")}</span>
                     )}
                   </td>
                   <td className="px-4 py-2.5">
@@ -1360,7 +1371,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                         {lead.phone && (
                           <a
                             href={`tel:${lead.phone}`}
-                            title={`Call ${lead.phone}`}
+                            title={t("leadsPage.table.callTitle", { phone: lead.phone })}
                             className="w-7 h-7 inline-flex items-center justify-center rounded-md transition-colors hover:bg-black/[0.05]"
                             style={{ color: "#F97316" }}
                             onClick={(e) => e.stopPropagation()}
@@ -1372,7 +1383,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                           type="button"
                           onClick={(e) => { e.stopPropagation(); quickTogglePriority(lead.id, lead.is_priority); }}
                           disabled={isUpdating}
-                          title={lead.is_priority ? "Remove hot flag" : "Mark as hot"}
+                          title={lead.is_priority ? t("leadsPage.table.removeHot") : t("leadsPage.table.markHot")}
                           className="w-7 h-7 inline-flex items-center justify-center rounded-md transition-colors hover:bg-black/[0.05] disabled:opacity-50"
                           style={{ color: lead.is_priority ? gold : C.textDim }}
                         >
@@ -1381,7 +1392,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                         <button
                           type="button"
                           onClick={(e) => { e.stopPropagation(); setOpenMenuId(menuOpen ? null : lead.id); }}
-                          title="More actions"
+                          title={t("leadsPage.table.moreActions")}
                           className="w-7 h-7 inline-flex items-center justify-center rounded-md transition-colors hover:bg-black/[0.05]"
                           style={{ color: C.textMuted }}
                         >
@@ -1389,7 +1400,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                         </button>
                       </div>
                       <Link href={`/leads/${lead.id}`} className="text-[10px] font-medium hover:underline ml-1" style={{ color: gold }}>
-                        View
+                        {t("leadsPage.table.view")}
                       </Link>
                     </div>
                     {menuOpen && (
@@ -1398,16 +1409,16 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                         style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}
                         onMouseLeave={() => setOpenMenuId(null)}
                       >
-                        <p className="px-3 py-1 text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>Change status</p>
+                        <p className="px-3 py-1 text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("leadsPage.table.changeStatus")}</p>
                         {[
-                          { v: "new", label: "New" },
-                          { v: "contacted", label: "Contacted" },
-                          { v: "connected", label: "Connected" },
-                          { v: "responded", label: "Responded" },
-                          { v: "qualified", label: "Qualified" },
-                          { v: "closed_won", label: "Won" },
-                          { v: "closed_lost", label: "Lost" },
-                          { v: "nurturing", label: "Nurturing" },
+                          { v: "new",         label: t("leadsPage.status.new") },
+                          { v: "contacted",   label: t("leadsPage.status.contacted") },
+                          { v: "connected",   label: t("leadsPage.status.connected") },
+                          { v: "responded",   label: t("leadsPage.status.responded") },
+                          { v: "qualified",   label: t("leadsPage.status.qualified") },
+                          { v: "closed_won",  label: t("leadsPage.status.won") },
+                          { v: "closed_lost", label: t("leadsPage.status.lost") },
+                          { v: "nurturing",   label: t("leadsPage.status.nurturing") },
                         ].map(opt => (
                           <button
                             key={opt.v}
@@ -1430,7 +1441,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
         {hasMore && (
           <div className="border-t px-4 py-2.5 text-center" style={{ borderColor: C.border, backgroundColor: C.bg }}>
             <button onClick={() => setShowCount(c => c + PAGE_SIZE)} className="text-xs font-medium hover:underline" style={{ color: gold }}>
-              Show more ({filtered.length - showCount} remaining)
+              {t("leadsPage.table.showMore", { n: filtered.length - showCount })}
             </button>
           </div>
         )}
@@ -1440,7 +1451,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
 }
 
 // ─── Profile Card (ICP ticket) ───────────────────────────────────────────────
-function ProfileCard({ group }: { group: ProfileGroup }) {
+function ProfileCard({ group, t }: { group: ProfileGroup; t: Tr }) {
   const totalLeads    = group.leads.length;
   const campaignNames = [...new Set(group.campaigns.map(c => c.name))];
   const replyRate     = group.contactedCount > 0 ? Math.round((group.totalReplies / group.contactedCount) * 100) : 0;
@@ -1459,7 +1470,7 @@ function ProfileCard({ group }: { group: ProfileGroup }) {
       <div className="px-4 pt-4 pb-3 flex-1">
         <div className="flex items-center gap-1.5 mb-2">
           <Target size={11} style={{ color: gold }} />
-          <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: gold }}>Lead Miner Profile</span>
+          <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: gold }}>{t("leadsPage.profile.leadMiner")}</span>
         </div>
 
         <h3 className="text-sm font-bold mb-0.5 group-hover:underline" style={{ color: C.textPrimary }}>
@@ -1474,9 +1485,9 @@ function ProfileCard({ group }: { group: ProfileGroup }) {
         {/* Lead funnel */}
         <div className="space-y-1.5 mb-3">
           {[
-            { label: "Contacted", value: contacted, color: C.blue },
-            { label: "Replied",   value: replied,   color: gold },
-            { label: "Positive",  value: positive,  color: C.green },
+            { label: t("leadsPage.profile.contacted"), value: contacted, color: C.blue },
+            { label: t("leadsPage.profile.replied"),   value: replied,   color: gold },
+            { label: t("leadsPage.profile.positive"),  value: positive,  color: C.green },
           ].map(row => (
             <div key={row.label} className="flex items-center gap-2">
               <span className="text-[10px] w-[70px] shrink-0" style={{ color: C.textMuted }}>{row.label}</span>
@@ -1489,10 +1500,10 @@ function ProfileCard({ group }: { group: ProfileGroup }) {
         </div>
 
         <div className="flex items-center gap-3 text-[10px]" style={{ color: C.textMuted }}>
-          <span><span className="font-bold" style={{ color: C.textBody }}>{totalLeads}</span> leads</span>
-          <span><span className="font-bold" style={{ color: C.blue }}>{replyRate}%</span> reply rate</span>
+          <span><span className="font-bold" style={{ color: C.textBody }}>{totalLeads}</span> {t("leadsPage.profile.leadsSuffix")}</span>
+          <span><span className="font-bold" style={{ color: C.blue }}>{replyRate}%</span> {t("leadsPage.profile.replyRate")}</span>
           {group.hotCount > 0 && (
-            <span className="font-bold" style={{ color: C.hot }}>🔥 {group.hotCount} hot</span>
+            <span className="font-bold" style={{ color: C.hot }}>🔥 {t("leadsPage.profile.hotCount", { n: group.hotCount })}</span>
           )}
         </div>
       </div>
@@ -1507,17 +1518,17 @@ function ProfileCard({ group }: { group: ProfileGroup }) {
               {classColors[group.lastReply.classification] && (
                 <span className="text-[8px] font-bold px-1 py-0.5 rounded"
                   style={{ backgroundColor: classColors[group.lastReply.classification].bg, color: classColors[group.lastReply.classification].color }}>
-                  {classColors[group.lastReply.classification].label}
+                  {t(classColors[group.lastReply.classification].labelKey)}
                 </span>
               )}
-              <span className="text-[9px] ml-auto shrink-0" style={{ color: C.textDim }}>{timeAgo(group.lastReply.receivedAt)}</span>
+              <span className="text-[9px] ml-auto shrink-0" style={{ color: C.textDim }}>{timeAgo(group.lastReply.receivedAt, t)}</span>
             </div>
             {group.lastReply.text && (
               <p className="text-[10px] line-clamp-1" style={{ color: C.textDim }}>&ldquo;{group.lastReply.text}&rdquo;</p>
             )}
           </div>
         ) : (
-          <span className="text-[10px]" style={{ color: C.textDim }}>No replies yet</span>
+          <span className="text-[10px]" style={{ color: C.textDim }}>{t("leadsPage.profile.noReplies")}</span>
         )}
         <ChevronRight size={13} style={{ color: C.textDim }} className="shrink-0 transition-transform group-hover:translate-x-0.5" />
       </div>
@@ -1538,6 +1549,7 @@ function CampaignsByIcpView({
   search: string;
   onSearchChange: (v: string) => void;
 }) {
+  const { t } = useLocale();
   const filtered = !search ? groups : groups.filter(g =>
     g.profileName.toLowerCase().includes(search.toLowerCase()) ||
     g.campaigns.some(c => c.name.toLowerCase().includes(search.toLowerCase())) ||
@@ -1551,7 +1563,7 @@ function CampaignsByIcpView({
           <Search size={14} style={{ color: C.textDim }} />
           <input
             type="text" value={search} onChange={e => onSearchChange(e.target.value)}
-            placeholder="Search ICP, flow, or lead…"
+            placeholder={t("leadsPage.campaignsByIcp.search")}
             className="bg-transparent text-sm outline-none w-64"
             style={{ color: C.textPrimary }}
           />
@@ -1563,13 +1575,13 @@ function CampaignsByIcpView({
         <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
           <Megaphone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
           <p className="text-sm font-medium" style={{ color: C.textBody }}>
-            {search ? "No flows match your search" : "No active flows yet"}
+            {search ? t("leadsPage.campaignsByIcp.empty.match") : t("leadsPage.campaignsByIcp.empty.none")}
           </p>
         </div>
       ) : (
         <div className="space-y-3">
           {filtered.map((g, i) => (
-            <IcpFlowsSection key={g.profileId} group={g} defaultOpen={i === 0} />
+            <IcpFlowsSection key={g.profileId} group={g} defaultOpen={i === 0} t={t} />
           ))}
         </div>
       )}
@@ -1577,7 +1589,7 @@ function CampaignsByIcpView({
   );
 }
 
-function IcpFlowsSection({ group, defaultOpen }: { group: ProfileGroup; defaultOpen: boolean }) {
+function IcpFlowsSection({ group, defaultOpen, t }: { group: ProfileGroup; defaultOpen: boolean; t: Tr }) {
   const [open, setOpen] = useState(defaultOpen);
   const replyRate = group.contactedCount > 0 ? Math.round((group.totalReplies / group.contactedCount) * 100) : 0;
 
@@ -1610,26 +1622,26 @@ function IcpFlowsSection({ group, defaultOpen }: { group: ProfileGroup; defaultO
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: gold }}>Lead Miner Profile</span>
+            <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: gold }}>{t("leadsPage.profile.leadMiner")}</span>
             <span className="text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-md" style={{ backgroundColor: C.surface, color: C.textMuted }}>
-              {flows.length} flow{flows.length === 1 ? "" : "s"}
+              {flows.length} {flows.length === 1 ? t("leadsPage.icpFlows.flow") : t("leadsPage.icpFlows.flows")}
             </span>
           </div>
           <h2 className="text-[16px] font-bold truncate" style={{ color: C.textPrimary }}>{group.profileName}</h2>
         </div>
         <div className="hidden md:flex items-center gap-5 shrink-0 mr-2">
           <div className="text-right">
-            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>Leads</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>{t("leadsPage.icpFlows.leads")}</p>
             <p className="text-base font-bold tabular-nums leading-none mt-0.5" style={{ color: C.textPrimary }}>{group.leads.length}</p>
           </div>
           <div className="text-right">
-            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>Replies</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>{t("leadsPage.icpFlows.replies")}</p>
             <p className="text-base font-bold tabular-nums leading-none mt-0.5" style={{ color: group.totalReplies > 0 ? C.blue : C.textPrimary }}>
               {group.totalReplies}<span className="ml-1 text-[10px]" style={{ color: C.textDim }}>({replyRate}%)</span>
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>Positive</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>{t("leadsPage.icpFlows.positive")}</p>
             <p className="text-base font-bold tabular-nums leading-none mt-0.5" style={{ color: group.positiveCount > 0 ? C.green : C.textPrimary }}>{group.positiveCount}</p>
           </div>
         </div>
@@ -1665,14 +1677,14 @@ function IcpFlowsSection({ group, defaultOpen }: { group: ProfileGroup; defaultO
                     color: isActive ? gold : C.textMuted,
                     border: `1px solid color-mix(in srgb, ${isActive ? gold : C.textDim} 22%, transparent)`,
                   }}>
-                  {isActive ? `${f.active} active` : "Idle"}
+                  {isActive ? t("leadsPage.icpFlows.active", { n: f.active }) : t("leadsPage.icpFlows.idle")}
                 </span>
                 <div className="text-right shrink-0">
-                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>Leads</p>
+                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("leadsPage.icpFlows.leads")}</p>
                   <p className="text-[13px] font-bold tabular-nums" style={{ color: C.textPrimary }}>{f.total}</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>Sent</p>
+                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("leadsPage.icpFlows.sent")}</p>
                   <p className="text-[13px] font-bold tabular-nums" style={{ color: C.textBody }}>{f.sent}</p>
                 </div>
                 <ChevronRight size={14} style={{ color: C.textDim }} className="transition-transform group-hover:translate-x-0.5" />
@@ -1697,6 +1709,7 @@ function AddToFlowModalLeads({
   onClose: () => void;
   onAdded: () => void;
 }) {
+  const { t } = useLocale();
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [campaigns, setCampaigns] = useState<Array<{
@@ -1739,10 +1752,10 @@ function AddToFlowModalLeads({
       });
       const json = await res.json();
       if (!res.ok) {
-        toast.show({ kind: "error", title: "Couldn't add leads", description: json.error ?? "Try again in a moment." });
+        toast.show({ kind: "error", title: t("leadsPage.addToFlow.toast.failed"), description: json.error ?? t("leadsPage.bulk.toast.statusFailedDesc") });
         return;
       }
-      toast.show({ kind: "success", title: `Added ${json.added ?? leadIds.length} lead${(json.added ?? leadIds.length) === 1 ? "" : "s"} to the flow` });
+      toast.show({ kind: "success", title: t("leadsPage.addToFlow.toast.added", { n: json.added ?? leadIds.length }) });
       onAdded();
     } finally {
       setBusy(false);
@@ -1758,9 +1771,9 @@ function AddToFlowModalLeads({
         onClick={e => e.stopPropagation()}>
         <div className="px-5 py-4 flex items-center justify-between border-b" style={{ borderColor: C.border }}>
           <div>
-            <h3 className="text-base font-bold" style={{ color: C.textPrimary }}>Add to existing flow</h3>
+            <h3 className="text-base font-bold" style={{ color: C.textPrimary }}>{t("leadsPage.addToFlow.title")}</h3>
             <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
-              {leadIds.length} {leadIds.length === 1 ? "lead" : "leads"} will be attached to the selected flow.
+              {t(leadIds.length === 1 ? "leadsPage.addToFlow.descLead" : "leadsPage.addToFlow.descLeads", { n: leadIds.length })}
             </p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-black/[0.04]">
@@ -1770,10 +1783,10 @@ function AddToFlowModalLeads({
 
         <div className="p-5 space-y-2 max-h-[50vh] overflow-y-auto">
           {loading ? (
-            <p className="text-sm py-6 text-center" style={{ color: C.textMuted }}>Loading flows…</p>
+            <p className="text-sm py-6 text-center" style={{ color: C.textMuted }}>{t("leadsPage.addToFlow.loading")}</p>
           ) : flows.length === 0 ? (
             <p className="text-sm py-6 text-center" style={{ color: C.textMuted }}>
-              No active flows yet. Use &ldquo;Create New Flow&rdquo; instead.
+              {t("leadsPage.addToFlow.emptyHint")}
             </p>
           ) : flows.map(f => {
             const picked = pickedId === f.id;
@@ -1792,7 +1805,9 @@ function AddToFlowModalLeads({
                   {picked && <CheckSquare size={13} style={{ color: gold }} />}
                 </div>
                 <p className="text-[11px]" style={{ color: C.textMuted }}>
-                  {f.total} leads · {f.channel}{steps > 0 ? ` · ${steps} steps` : ""}
+                  {steps > 0
+                    ? t("leadsPage.addToFlow.flowMetaSteps", { leads: f.total, channel: f.channel, steps })
+                    : t("leadsPage.addToFlow.flowMeta",      { leads: f.total, channel: f.channel })}
                 </p>
               </button>
             );
@@ -1803,13 +1818,15 @@ function AddToFlowModalLeads({
           <button onClick={onClose}
             className="text-xs font-semibold px-3 py-1.5 rounded-lg border"
             style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}>
-            Cancel
+            {t("leadsPage.addToFlow.cancel")}
           </button>
           <button onClick={submit}
             disabled={!pickedId || busy || flows.length === 0}
             className="text-xs font-bold px-3 py-1.5 rounded-lg transition-opacity disabled:opacity-50"
             style={{ backgroundColor: gold, color: "#1A1A2E" }}>
-            {busy ? "Adding…" : `Add ${leadIds.length} lead${leadIds.length === 1 ? "" : "s"}`}
+            {busy
+              ? t("leadsPage.addToFlow.adding")
+              : t(leadIds.length === 1 ? "leadsPage.addToFlow.addN" : "leadsPage.addToFlow.addNPlural", { n: leadIds.length })}
           </button>
         </div>
       </div>
