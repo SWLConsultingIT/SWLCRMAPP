@@ -56,7 +56,7 @@ export default function CampaignTabs({ readyCount, activeCount, children }: {
   // campaign were the same thing.
   const tabs = [
     { label: "Active Flows", icon: Megaphone, count: activeCount, color: gold },
-    { label: "New Flow", icon: PlusCircle, count: readyCount, color: C.blue },
+    { label: "Create New Flow", icon: PlusCircle, count: readyCount, color: C.blue },
     { label: "Templates", icon: FileText, count: 0, color: "#7C3AED" },
   ];
 

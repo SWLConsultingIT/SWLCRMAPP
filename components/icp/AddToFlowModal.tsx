@@ -185,7 +185,7 @@ export default function AddToFlowModal({
               </p>
               <p className="text-xs mt-1" style={{ color: C.textDim }}>
                 {(flows ?? []).length === 0
-                  ? "Create a new flow instead to start one for these leads."
+                  ? "Use Create New Flow instead to start one for these leads."
                   : "Try a different keyword or clear the search."}
               </p>
             </div>

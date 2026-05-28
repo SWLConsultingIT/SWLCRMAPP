@@ -98,7 +98,7 @@ export default function NewCampaignView({ groups, totalUncampaigned }: { groups:
       {/* ── Hero banner — 3-step guide ── */}
       <div className="rounded-xl border overflow-hidden mb-6" style={{ borderColor: C.border, background: `linear-gradient(135deg, #1A1A2E 0%, #2D2B55 100%)` }}>
         <div className="px-8 py-7">
-          <h2 className="text-lg font-bold mb-1" style={{ color: "#fff" }}>Create a New Flow</h2>
+          <h2 className="text-lg font-bold mb-1" style={{ color: "#fff" }}>Create New Flow</h2>
           <p className="text-sm mb-6" style={{ color: "rgba(255,255,255,0.6)" }}>Pick the leads, then walk through a 4-step flow builder — sequence, settings, messages, review.</p>
 
           <div className="flex items-center gap-4">

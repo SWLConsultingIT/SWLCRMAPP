@@ -363,7 +363,7 @@ export default function NewLeadCampaignWizard() {
         </div>
       )}
       <div className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>New Flow</p>
+        <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Create New Flow</p>
         <h1 className="text-2xl font-bold flex items-center gap-2.5" style={{ color: C.textPrimary }}>
           <Megaphone size={22} style={{ color: gold }} /> Flow for {leadName}
         </h1>

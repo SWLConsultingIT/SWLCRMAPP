@@ -525,7 +525,7 @@ function AddToExistingModal({
         <div className="p-5 space-y-2 max-h-[50vh] overflow-y-auto">
           {targets.length === 0 ? (
             <p className="text-sm py-6 text-center" style={{ color: C.textMuted }}>
-              No active flows in this ticket yet. Use &ldquo;Create new flow&rdquo; instead.
+              No active flows in this ticket yet. Use &ldquo;Create New Flow&rdquo; instead.
             </p>
           ) : targets.map(c => {
             const picked = pickedId === c.firstId;
@@ -855,7 +855,7 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
                 className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90"
                 style={{ backgroundColor: gold, color: "#1A1A2E" }}
               >
-                <Megaphone size={11} /> Create new flow
+                <Megaphone size={11} /> Create New Flow
               </button>
             </div>
           )}

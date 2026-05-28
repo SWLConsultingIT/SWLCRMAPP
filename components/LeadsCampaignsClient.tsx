@@ -1164,7 +1164,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                 <button onClick={createNewFlowFromSelection} disabled={deleting}
                   className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90 disabled:opacity-50"
                   style={{ backgroundColor: gold, color: "#1A1A2E" }}>
-                  <Megaphone size={11} /> Create new flow
+                  <Megaphone size={11} /> Create New Flow
                 </button>
 
                 <div className="h-5 w-px" style={{ backgroundColor: C.border }} />
@@ -1724,7 +1724,7 @@ function AddToFlowModalLeads({
             <p className="text-sm py-6 text-center" style={{ color: C.textMuted }}>Loading flows…</p>
           ) : flows.length === 0 ? (
             <p className="text-sm py-6 text-center" style={{ color: C.textMuted }}>
-              No active flows yet. Use &ldquo;Create new flow&rdquo; instead.
+              No active flows yet. Use &ldquo;Create New Flow&rdquo; instead.
             </p>
           ) : flows.map(f => {
             const picked = pickedId === f.id;

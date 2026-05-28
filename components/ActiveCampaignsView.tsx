@@ -529,7 +529,7 @@ export default function ActiveCampaignsView({ campaigns, icpMap }: { campaigns: 
           <BarChart3 size={22} style={{ color: gold }} />
         </div>
         <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>No active flows yet</p>
-        <p className="text-xs mt-1.5" style={{ color: C.textDim }}>Open the New Flow tab to launch your first one.</p>
+        <p className="text-xs mt-1.5" style={{ color: C.textDim }}>Open the Create New Flow tab to launch your first one.</p>
       </div>
     );
   }

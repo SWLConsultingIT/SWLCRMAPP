@@ -749,7 +749,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
                 color: "#1A1505",
                 boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent)`,
               }}>
-              <Send size={13} /> Create new flow
+              <Send size={13} /> Create New Flow
             </button>
           </div>
         </div>
