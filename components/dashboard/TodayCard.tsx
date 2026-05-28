@@ -17,7 +17,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   ChevronDown, ChevronRight, ArrowUpRight, Sparkles,
-  MessageSquare, Phone, ThumbsUp, UserPlus, AlertCircle,
+  MessageSquare, Phone, UserPlus, AlertCircle,
 } from "lucide-react";
 import { C, N, T } from "@/lib/design";
 
@@ -83,15 +83,14 @@ export default function TodayCard({
     stale: false,
   });
 
-  // Five buckets, ordered by urgency:
+  // Four buckets, ordered by urgency:
   //   1. Replies waiting — inbound, needs human triage now
-  //   2. Positives to follow up — convert before they cool
-  //   3. Today's calls — outbound queue
-  //   4. Stale leads — contacted >7d, no reply, momentum bleeding
-  //   5. Leads to assign — pipeline gap, no flow yet
-  // (Previous version hid 3/4/5 inside a separate strip; boss feedback
-  // 2026-05-28: the Today tab is the dedicated landing surface now, so
-  // we have the real estate to surface them all inline.)
+  //   2. Today's calls — outbound queue
+  //   3. Stale leads — contacted >7d, no reply, momentum bleeding
+  //   4. Leads to assign — pipeline gap, no flow yet
+  // Positives bucket was dropped 2026-05-28 (boss feedback): the
+  // Opportunities tab already surfaces them and the Today card was
+  // double-counting work the seller does elsewhere.
   const sections: Array<{
     key: TodaySectionKey;
     icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
@@ -100,7 +99,6 @@ export default function TodayCard({
     list: TodayLead[];
   }> = [
     { key: "replies",    icon: MessageSquare, accent: "#7C3AED", href: "/inbox",                 list: data.replies },
-    { key: "positives",  icon: ThumbsUp,      accent: "#10B981", href: "/opportunities",         list: data.positives },
     { key: "calls",      icon: Phone,         accent: "#EA580C", href: "/queue",                 list: data.calls },
     { key: "stale",      icon: AlertCircle,   accent: "#D97706", href: "/leads?filter=stale",    list: data.stale },
     { key: "unassigned", icon: UserPlus,      accent: "#0EA5E9", href: "/leads?filter=no-camp",  list: data.unassigned },
