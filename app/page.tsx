@@ -398,13 +398,49 @@ export default async function DashboardPage({
         data={data.todayLists}
       />
 
-      {/* ─── GENERAL OVERVIEW · 9 headline metrics arranged as boss asked
-          on 2026-05-27. Row 1 = portfolio state (totals + campaign cohorts).
-          Row 2 = outcomes (replies, wins, losses, rates). One titled
-          section so it reads as a single chapter, not 9 floating cards. */}
-      <section>
-        <SectionHeader icon={Activity} title={t("dashx.overview.title")} subtitle={t("dashx.overview.subtitle")} />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+      {/* ─── UNIFIED OVERVIEW · 3 bands inside a single chapter card so the
+          eye reads it as one block instead of two competing cards. Boss
+          follow-up 2026-05-28: General Overview + Pipeline Pulse were
+          adjacent and visually fighting; merged here.
+            Band A — Portfolio state (4 cards)
+            Band B — Outcomes & Rates (5 cards)
+            Band C — Channel Throughput (sub-card with navy header) */}
+      <section className="rounded-2xl border overflow-hidden relative"
+        style={{
+          borderColor: `color-mix(in srgb, ${gold} 18%, ${C.border})`,
+          backgroundColor: C.card,
+          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 14%, transparent), 0 6px 18px -10px ${N.ink}`,
+        }}>
+        <div className="relative px-4 py-2.5 flex items-center gap-2 overflow-hidden"
+          style={{
+            background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
+            borderBottom: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
+          }}>
+          <span aria-hidden className="absolute -top-10 -left-10 w-32 h-32 rounded-full pointer-events-none"
+            style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 20%, transparent) 0%, transparent 65%)` }} />
+          <span className="relative w-5 h-5 rounded-md flex items-center justify-center shrink-0"
+            style={{
+              background: `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 70%, white) 100%)`,
+              color: N.ink,
+              boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 32%, transparent)`,
+            }}>
+            <Activity size={11} />
+          </span>
+          <span className="relative text-[11px] font-bold uppercase tracking-[0.14em]"
+            style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+            {t("dashx.overview.title")}
+          </span>
+          <span className="relative text-[10.5px]" style={{ color: "color-mix(in srgb, white 50%, transparent)" }}>
+            · {t("dashx.overview.subtitle")}
+          </span>
+        </div>
+
+        {/* Band A — Portfolio */}
+        <div className="px-4 pt-4">
+          <p className="text-[9.5px] font-bold uppercase tracking-[0.16em] mb-2" style={{ color: C.textMuted }}>
+            {t("dashx.overview.bandPortfolio")}
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <MicroKpi
             label={t("dashx.kpi.totalLeads")}
             value={headline.totalLeads.toLocaleString(dateLoc)}
@@ -445,8 +481,15 @@ export default async function DashboardPage({
             noPriorLabel={t("dashx.kpi.noPrior")}
             href="/campaigns?status=paused"
           />
+          </div>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+
+        {/* Band B — Outcomes & Rates */}
+        <div className="px-4 pt-5">
+          <p className="text-[9.5px] font-bold uppercase tracking-[0.16em] mb-2" style={{ color: C.textMuted }}>
+            {t("dashx.overview.bandOutcomes")}
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           <MicroKpi
             label={t("dashx.kpi.totalReplies")}
             value={headline.repliedCount.toLocaleString(dateLoc)}
@@ -497,59 +540,22 @@ export default async function DashboardPage({
             noPriorLabel={t("dashx.kpi.noPrior")}
             href="/opportunities"
           />
+          </div>
         </div>
-      </section>
 
-      {/* ─── Pipeline Pulse — operational vitals strip. Reply/Win rate moved
-          to the Hero row; this strip now carries the velocity signals that
-          tell you HOW the engine is running (acceptance, TTFR, daily
-          volume, sequence depth). Navy-ink header + gold accent rail per
-          SWL polish brief 2026-05-27 round 3. */}
-      <section className="rounded-2xl border overflow-hidden relative"
-        style={{
-          borderColor: `color-mix(in srgb, ${gold} 18%, ${C.border})`,
-          backgroundColor: C.card,
-          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 14%, transparent), 0 6px 18px -10px ${N.ink}`,
-        }}>
-        <div
-          className="relative px-4 py-2.5 flex items-center gap-2 overflow-hidden"
-          style={{
-            background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
-            borderBottom: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
-          }}
-        >
-          <span
-            aria-hidden
-            className="absolute -top-10 -left-10 w-32 h-32 rounded-full pointer-events-none"
-            style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 20%, transparent) 0%, transparent 65%)` }}
-          />
-          <span
-            className="relative w-5 h-5 rounded-md flex items-center justify-center shrink-0"
-            style={{
-              background: `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 70%, white) 100%)`,
-              color: N.ink,
-              boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 32%, transparent)`,
-            }}
-          >
-            <Activity size={11} />
-          </span>
-          <span
-            className="relative text-[11px] font-bold uppercase tracking-[0.14em]"
-            style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
-          >
-            {t("dashx.pulse.title")}
-          </span>
-          <span className="relative text-[10.5px]" style={{ color: "color-mix(in srgb, white 50%, transparent)" }}>
-            · {t("dashx.pulse.subtitle")}
-          </span>
-        </div>
+        {/* Band C — Channel Throughput (was Pipeline Pulse) */}
+        <div className="px-4 pt-5 pb-4">
+          <p className="text-[9.5px] font-bold uppercase tracking-[0.16em] mb-2" style={{ color: C.textMuted }}>
+            {t("dashx.overview.bandThroughput")}
+          </p>
         {(() => {
           const liStats = data.channelBreakdown.find(c => c.channel === "linkedin") ?? { sent: 0, replied: 0 };
           const emailStats = data.channelBreakdown.find(c => c.channel === "email") ?? { sent: 0, replied: 0 };
           const callsMade = data.callsBreakdown.completed ?? 0;
           const callsPending = data.callsBreakdown.pending ?? 0;
           return (
-            <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x" style={{ borderColor: C.border }}>
+            <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x rounded-xl border overflow-hidden"
+              style={{ borderColor: C.border, backgroundColor: C.surface }}>
               {/* Left column — LinkedIn connection invitation flow (CR layer) */}
               <div className="divide-y" style={{ borderColor: C.border }}>
                 <PulseStat
@@ -621,6 +627,7 @@ export default async function DashboardPage({
             </div>
           );
         })()}
+        </div>
       </section>
 
       {/* ─── Funnel + Donut · 7/5 split (was 5/4/3 with an Insights col,

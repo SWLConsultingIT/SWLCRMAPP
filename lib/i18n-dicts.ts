@@ -309,7 +309,10 @@ export const en: Dict = {
   "dashx.kpi.totalRepliesHint": "Across every channel",
   // General Overview section (boss feedback 2026-05-27)
   "dashx.overview.title": "General Overview",
-  "dashx.overview.subtitle": "Portfolio state · outcomes · rates",
+  "dashx.overview.subtitle": "Portfolio · outcomes · channel throughput",
+  "dashx.overview.bandPortfolio": "Portfolio",
+  "dashx.overview.bandOutcomes": "Outcomes & rates",
+  "dashx.overview.bandThroughput": "Channel throughput",
   // "What to do today" card — narrative opener (boss feedback 2026-05-27)
   "dashx.today.title": "What to do today",
   "dashx.today.empty": "All caught up — nothing urgent right now.",
@@ -1124,7 +1127,10 @@ export const es: Dict = {
   "dashx.kpi.totalRepliesHint": "En todos los canales",
   // General Overview section (boss feedback 2026-05-27)
   "dashx.overview.title": "General Overview",
-  "dashx.overview.subtitle": "Estado del portfolio · outcomes · ratios",
+  "dashx.overview.subtitle": "Portfolio · outcomes · throughput por canal",
+  "dashx.overview.bandPortfolio": "Portfolio",
+  "dashx.overview.bandOutcomes": "Outcomes & ratios",
+  "dashx.overview.bandThroughput": "Throughput por canal",
   // "What to do today" card — narrative opener (boss feedback 2026-05-27)
   "dashx.today.title": "Qué hacer hoy",
   "dashx.today.empty": "Todo al día — nada urgente ahora mismo.",
