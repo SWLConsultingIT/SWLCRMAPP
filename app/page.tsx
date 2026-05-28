@@ -688,7 +688,7 @@ export default async function DashboardPage({
       {/* ─── Funnel + Donut · 7/5 split (was 5/4/3 with an Insights col,
           the Insights are now surfaced as the Highlight banner above). */}
       <section>
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
           <Panel title={t("dashx.funnel.title")} subtitle={t("dashx.funnel.subtitle")} className="lg:col-span-7" glow
             actionHref={withFilters("/?tab=campaigns", filters)} actionLabel={t("dashx.panel.openCampaigns")}
             insightEyebrow={t("dashx.insight.eyebrow")}
