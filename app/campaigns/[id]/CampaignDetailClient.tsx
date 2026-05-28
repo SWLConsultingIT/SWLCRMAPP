@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
 import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import Link from "next/link";
@@ -71,6 +72,7 @@ export default function CampaignDetailClient({
   const [saving, setSaving] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [addSelected, setAddSelected] = useState<Set<string>>(new Set());
+  const [addFilters, setAddFilters] = useState<LeadFilterState>(emptyLeadFilterState());
   const [adding, setAdding] = useState(false);
   const [callingId, setCallingId] = useState<string | null>(null);
   const [calledIds, setCalledIds] = useState<Set<string>>(new Set());
@@ -836,28 +838,70 @@ export default function CampaignDetailClient({
         <CampaignCallsTab leads={allCampaigns.map(c => c.leads).filter(Boolean)} />
       )}
 
-      {/* ═══ TAB 3: ADD LEADS ═══ */}
+      {/* ═══ TAB 3: ADD LEADS ═══
+          Hard rule (memory: feedback_one_icp_per_campaign.md): a campaign
+          can only ever contain leads from a single ICP — the campaign's
+          own. The picker filters to that ICP server-side via campaignIcpId
+          and renders ONLY those leads. No "Other Available Leads" panel,
+          no "Same Mining Ticket" framing — the only available leads ARE
+          same-ICP, so the UI just calls them "Leads".
+
+          Filterable by industry / company / role / score using the
+          shared LeadFilterBar so the seller can slice large cohorts. */}
       {tab === 3 && (() => {
-        const sameIcpLeads = campaignIcpId
+        // 1. Universe — only leads from the campaign's ICP.
+        const eligibleLeads: UnlinkedLead[] = campaignIcpId
           ? leadGroups.flatMap((g: LeadGroup) => g.leads.filter((l: UnlinkedLead) => (l as any).icp_profile_id === campaignIcpId))
-          : [];
-        const otherLeads = campaignIcpId
-          ? leadGroups.flatMap((g: LeadGroup) => g.leads.filter((l: UnlinkedLead) => (l as any).icp_profile_id !== campaignIcpId))
           : leadGroups.flatMap((g: LeadGroup) => g.leads);
-        const totalAvailable = leadGroups.reduce((s: number, g: LeadGroup) => s + g.leads.length, 0);
 
-        const sameIcpProfileName = (() => {
-          if (!campaignIcpId) return "Same Mining Ticket";
-          const found = leadGroups.find((g: LeadGroup) => g.leads.some((l: UnlinkedLead) => (l as any).icp_profile_id === campaignIcpId));
-          return found?.profileName ?? "Same Mining Ticket";
-        })();
+        // 2. Distinct filter options (role + industry) derived from
+        //    the eligible cohort. The bar shows whichever are present;
+        //    a single-value list still renders as a useful chip.
+        const roleOptions = Array.from(new Set(
+          eligibleLeads.map((l: UnlinkedLead) => l.primary_title_role).filter(Boolean) as string[],
+        )).sort();
+        const industryOptions = Array.from(new Set(
+          eligibleLeads.map((l: UnlinkedLead) => (l as any).industry as string | null).filter(Boolean) as string[],
+        )).sort();
 
-        const sameCompatCount = sameIcpLeads.filter((l: UnlinkedLead) => channels.every(ch => ch === "linkedin" ? l.allow_linkedin : ch === "email" ? l.allow_email : ch === "call" || ch === "whatsapp" ? l.allow_call : true)).length;
-        const otherCompatCount = otherLeads.filter((l: UnlinkedLead) => channels.every(ch => ch === "linkedin" ? l.allow_linkedin : ch === "email" ? l.allow_email : ch === "call" || ch === "whatsapp" ? l.allow_call : true)).length;
+        // 3. Channel compatibility — a lead is "ok" for this flow only
+        //    if it has every channel the sequence uses.
+        const isCompat = (l: UnlinkedLead) => channels.every(ch =>
+          ch === "linkedin" ? l.allow_linkedin
+          : ch === "email" ? l.allow_email
+          : ch === "call" || ch === "whatsapp" ? l.allow_call
+          : true);
 
-        function renderLeadRow(lead: UnlinkedLead, showTicketName?: string) {
+        // 4. Apply LeadFilterBar state. Search hits name + company
+        //    (matches how /leads picker works). Score filter uses the
+        //    same hot/warm/nurture bands the donut + scorecards use.
+        const filteredLeads = eligibleLeads.filter((l: UnlinkedLead) => {
+          if (addFilters.search.trim()) {
+            const q = addFilters.search.trim().toLowerCase();
+            const nm = `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.toLowerCase();
+            const co = (l.company_name ?? "").toLowerCase();
+            if (!nm.includes(q) && !co.includes(q)) return false;
+          }
+          if (addFilters.role.length > 0) {
+            if (!l.primary_title_role || !addFilters.role.includes(l.primary_title_role)) return false;
+          }
+          if (addFilters.industry.length > 0) {
+            const ind = (l as any).industry as string | null;
+            if (!ind || !addFilters.industry.includes(ind)) return false;
+          }
+          if (addFilters.score.length > 0) {
+            const s = l.lead_score ?? 0;
+            const band = s >= 80 ? "hot" : s >= 50 ? "warm" : "nurture";
+            if (!addFilters.score.includes(band)) return false;
+          }
+          return true;
+        });
+
+        const compatCount = filteredLeads.filter(isCompat).length;
+
+        function renderLeadRow(lead: UnlinkedLead) {
           const nm = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
-          const ok = channels.every(ch => ch === "linkedin" ? lead.allow_linkedin : ch === "email" ? lead.allow_email : ch === "call" ? lead.allow_call : true);
+          const ok = isCompat(lead);
           const isChecked = addSelected.has(lead.id);
           return (
             <div key={lead.id} className="flex items-center gap-4 px-5 py-2.5 cursor-pointer hover:bg-gray-50"
@@ -869,7 +913,6 @@ export default function CampaignDetailClient({
                   className="text-sm font-medium hover:underline" style={{ color: C.textPrimary }}>{nm}</Link>
                 <p className="text-xs" style={{ color: C.textMuted }}>
                   {lead.primary_title_role ?? ""}{lead.company_name ? ` · ${lead.company_name}` : ""}
-                  {showTicketName && <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] font-medium" style={{ backgroundColor: C.surface, color: C.textMuted }}>{showTicketName}</span>}
                 </p>
               </div>
               {lead.lead_score != null && (
@@ -887,13 +930,14 @@ export default function CampaignDetailClient({
 
         return (
           <div>
-            {/* Loading / selection bar */}
+            {/* In-flight indicator */}
             {adding && (
               <div className="rounded-lg border px-4 py-3 mb-4 flex items-center gap-2" style={{ borderColor: gold, backgroundColor: `color-mix(in srgb, ${gold} 3%, transparent)` }}>
                 <Loader2 size={14} className="animate-spin" style={{ color: gold }} />
                 <span className="text-sm font-medium" style={{ color: gold }}>Adding leads to campaign...</span>
               </div>
             )}
+            {/* Bulk-select action bar */}
             {addSelected.size > 0 && (
               <div className="flex items-center gap-2 mb-4 rounded-lg border px-4 py-3" style={{ borderColor: gold, backgroundColor: `color-mix(in srgb, ${gold} 2%, transparent)` }}>
                 <span className="text-xs font-bold" style={{ color: gold }}>{addSelected.size} selected</span>
@@ -905,83 +949,52 @@ export default function CampaignDetailClient({
               </div>
             )}
 
-            {totalAvailable === 0 ? (
+            {eligibleLeads.length === 0 ? (
               <div className="rounded-xl border py-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <p className="text-sm" style={{ color: C.textDim }}>All leads already have active campaigns</p>
+                <p className="text-sm" style={{ color: C.textDim }}>No more eligible leads for this ICP</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-5 items-start">
+              <>
+                <LeadFilterBar
+                  filters={addFilters}
+                  onChange={setAddFilters}
+                  resultCount={filteredLeads.length}
+                  totalCount={eligibleLeads.length}
+                  roleOptions={roleOptions}
+                  industryOptions={industryOptions}
+                  showCampaignFilter={false}
+                  showProfileFilter={false}
+                  showStatusPills={false}
+                />
 
-                {/* ── CARD 1: Same Mining Ticket ── */}
-                <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: `${C.green}40` }}>
-                  {/* Card header */}
-                  <div className="px-5 py-4 border-b" style={{ borderColor: `${C.green}20`, background: `linear-gradient(135deg, ${C.green}08 0%, ${C.green}04 100%)` }}>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <Target size={14} style={{ color: C.green }} />
-                        <span className="text-sm font-bold" style={{ color: C.green }}>Same Mining Ticket</span>
-                      </div>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${C.green}15`, color: C.green }}>{sameIcpLeads.length}</span>
-                    </div>
-                    <p className="text-xs truncate" style={{ color: C.textMuted }}>{sameIcpProfileName}</p>
-                    <div className="flex items-center justify-between mt-3">
-                      <span className="text-xs" style={{ color: C.textDim }}>{sameCompatCount} compatible with this flow</span>
-                      <button
-                        onClick={() => addLeadsToCampaign(sameIcpLeads.filter((l: UnlinkedLead) => channels.every(ch => ch === "linkedin" ? l.allow_linkedin : ch === "email" ? l.allow_email : ch === "call" || ch === "whatsapp" ? l.allow_call : true)).map((l: UnlinkedLead) => l.id))}
-                        disabled={adding || sameCompatCount === 0}
-                        className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-40 hover:opacity-80"
-                        style={{ backgroundColor: C.green, color: "#fff" }}>
-                        <UserPlus size={11} /> Add All ({sameCompatCount})
-                      </button>
-                    </div>
-                  </div>
-                  {/* Lead rows */}
-                  <div className="divide-y max-h-[420px] overflow-y-auto" style={{ borderColor: C.border }}>
-                    {sameIcpLeads.length === 0 ? (
-                      <div className="py-10 text-center">
-                        <p className="text-xs" style={{ color: C.textDim }}>No leads from this mining ticket</p>
-                      </div>
-                    ) : sameIcpLeads.map((l: UnlinkedLead) => renderLeadRow(l))}
-                  </div>
-                </div>
-
-                {/* ── CARD 2: Other Available Leads ── */}
                 <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
-                  {/* Card header */}
-                  <div className="px-5 py-4 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <Users size={14} style={{ color: C.textMuted }} />
-                        <span className="text-sm font-bold" style={{ color: C.textBody }}>Other Available Leads</span>
-                      </div>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: C.surface, color: C.textMuted }}>{otherLeads.length}</span>
+                  <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                    <div className="flex items-center gap-2">
+                      <Users size={14} style={{ color: gold }} />
+                      <span className="text-sm font-bold" style={{ color: C.textPrimary }}>
+                        {filteredLeads.length === eligibleLeads.length
+                          ? `${eligibleLeads.length} eligible leads`
+                          : `${filteredLeads.length} of ${eligibleLeads.length} leads`}
+                      </span>
+                      <span className="text-xs" style={{ color: C.textDim }}>· {compatCount} compatible with this flow</span>
                     </div>
-                    <p className="text-xs" style={{ color: C.textDim }}>From different mining tickets</p>
-                    <div className="flex items-center justify-between mt-3">
-                      <span className="text-xs" style={{ color: C.textDim }}>{otherCompatCount} compatible with this flow</span>
-                      <button
-                        onClick={() => addLeadsToCampaign(otherLeads.filter((l: UnlinkedLead) => channels.every(ch => ch === "linkedin" ? l.allow_linkedin : ch === "email" ? l.allow_email : ch === "call" || ch === "whatsapp" ? l.allow_call : true)).map((l: UnlinkedLead) => l.id))}
-                        disabled={adding || otherCompatCount === 0}
-                        className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-40 hover:opacity-80"
-                        style={{ backgroundColor: C.textBody, color: "#fff" }}>
-                        <UserPlus size={11} /> Add All ({otherCompatCount})
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => addLeadsToCampaign(filteredLeads.filter(isCompat).map(l => l.id))}
+                      disabled={adding || compatCount === 0}
+                      className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-40 hover:opacity-80"
+                      style={{ backgroundColor: C.green, color: "#fff" }}>
+                      <UserPlus size={11} /> Add all compatible ({compatCount})
+                    </button>
                   </div>
-                  {/* Lead rows with ticket name badge */}
-                  <div className="divide-y max-h-[420px] overflow-y-auto" style={{ borderColor: C.border }}>
-                    {otherLeads.length === 0 ? (
+                  <div className="divide-y max-h-[560px] overflow-y-auto" style={{ borderColor: C.border }}>
+                    {filteredLeads.length === 0 ? (
                       <div className="py-10 text-center">
-                        <p className="text-xs" style={{ color: C.textDim }}>No other leads available</p>
+                        <p className="text-xs" style={{ color: C.textDim }}>No leads match the current filters</p>
                       </div>
-                    ) : otherLeads.map((l: UnlinkedLead) => {
-                      const ticketName = leadGroups.find((g: LeadGroup) => g.leads.some((gl: UnlinkedLead) => gl.id === l.id))?.profileName;
-                      return renderLeadRow(l, ticketName);
-                    })}
+                    ) : filteredLeads.map(renderLeadRow)}
                   </div>
                 </div>
-
-              </div>
+              </>
             )}
           </div>
         );
