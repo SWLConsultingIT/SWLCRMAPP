@@ -360,11 +360,21 @@ async function getData() {
     const activeCamp = leadCamps.find((c: any) => c.status === "active" || c.status === "paused");
     const pendingReq = pendingRequestsByLead[lead.id];
 
-    if (activeCamp || pendingReq) {
+    // Bucket assignment — boss feedback 2026-05-28 (memory:
+    // feedback_no_reply_goes_to_renurture):
+    //   - reason === "no_reply"   → always Renurture (silent = candidate
+    //     to re-engage with new copy, not truly lost).
+    //   - reason === "negative"   → Lost if no active/pending follow-up,
+    //     Renurture if seller already started a new flow.
+    // The "new_campaign_*" fields are null for no_reply leads without an
+    // active follow-up yet; RenurturingLeadCard handles that case by
+    // showing a "Ready to re-engage" CTA instead of the progress block.
+    const goesToRenurture = baseData.reason === "no_reply" || !!activeCamp || !!pendingReq;
+    if (goesToRenurture) {
       renurturingLeads.push({
         ...baseData,
         new_campaign_name: activeCamp?.name ?? pendingReq?.name ?? null,
-        new_campaign_status: activeCamp?.status ?? pendingReq?.status ?? "pending_review",
+        new_campaign_status: activeCamp?.status ?? pendingReq?.status ?? (baseData.reason === "no_reply" ? "ready_to_reengage" : "pending_review"),
         new_campaign_step: activeCamp?.current_step ?? null,
         new_campaign_total_steps: activeCamp?.total_steps ?? null,
       });

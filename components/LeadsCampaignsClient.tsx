@@ -432,19 +432,27 @@ function RenurturingLeadCard({ lead, t }: { lead: RenurturingLead; t: Tr }) {
   const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || t("leadsPage.unknown");
   const badge = scoreBadge(lead.score, lead.is_priority);
   const isPendingReview = lead.new_campaign_status === "pending_review";
+  // Ready-to-reengage: a "no_reply" lead that landed in Renurture but
+  // doesn't have a new follow-up flow started yet. Server sets
+  // new_campaign_status === "ready_to_reengage" for this case (memory:
+  // feedback_no_reply_goes_to_renurture).
+  const isReadyToReengage = lead.new_campaign_status === "ready_to_reengage";
   const newProgress = lead.new_campaign_total_steps && lead.new_campaign_step != null
     ? Math.round((lead.new_campaign_step / lead.new_campaign_total_steps) * 100)
     : 0;
 
   const statusLabel = isPendingReview ? t("leadsPage.renurtureStatus.pendingApproval")
+    : isReadyToReengage ? t("leadsPage.renurtureStatus.readyToReengage")
     : lead.new_campaign_status === "approved" || lead.new_campaign_status === "active" ? t("leadsPage.renurtureStatus.running")
     : lead.new_campaign_status === "paused" ? t("leadsPage.renurtureStatus.paused")
     : lead.new_campaign_status === "cancelled" ? t("leadsPage.renurtureStatus.cancelled")
     : lead.new_campaign_status ?? t("leadsPage.renurtureStatus.active");
   const statusColor = isPendingReview ? "#D97706"
+    : isReadyToReengage ? gold
     : lead.new_campaign_status === "cancelled" ? C.red
     : lead.new_campaign_status === "paused" ? "#D97706" : C.green;
   const statusBg = isPendingReview ? "#FFFBEB"
+    : isReadyToReengage ? `color-mix(in srgb, ${gold} 14%, transparent)`
     : lead.new_campaign_status === "cancelled" ? C.redLight
     : lead.new_campaign_status === "paused" ? "#FFFBEB" : C.greenLight;
 
@@ -485,31 +493,51 @@ function RenurturingLeadCard({ lead, t }: { lead: RenurturingLead; t: Tr }) {
           </div>
         )}
 
-        {/* New campaign info */}
-        <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: C.greenLight + "80", borderColor: C.green + "30" }}>
-          <p className="text-[10px] font-semibold mb-1.5" style={{ color: C.green }}>{t("leadsPage.card.newCampaign")}</p>
-          <div className="flex items-center gap-3 text-[10px] flex-wrap mb-1" style={{ color: C.textMuted }}>
-            {lead.new_campaign_name && (
-              <span><span className="font-semibold" style={{ color: C.textBody }}>{lead.new_campaign_name}</span></span>
+        {/* Bottom block:
+            - Ready-to-reengage (no_reply, no flow yet): show a gold-tinted
+              CTA panel pointing the seller to start a new flow.
+            - Otherwise: the existing "New campaign" panel with progress. */}
+        {isReadyToReengage ? (
+          <div
+            className="rounded-lg px-3 py-2.5 border"
+            style={{
+              backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`,
+              borderColor: `color-mix(in srgb, ${gold} 30%, transparent)`,
+            }}
+          >
+            <p className="text-[10px] font-semibold mb-0.5" style={{ color: gold }}>
+              {t("leadsPage.card.readyToReengage")}
+            </p>
+            <p className="text-[10.5px]" style={{ color: C.textBody }}>
+              {t("leadsPage.card.readyToReengageHint")}
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-lg px-3 py-2.5 border" style={{ backgroundColor: C.greenLight + "80", borderColor: C.green + "30" }}>
+            <p className="text-[10px] font-semibold mb-1.5" style={{ color: C.green }}>{t("leadsPage.card.newCampaign")}</p>
+            <div className="flex items-center gap-3 text-[10px] flex-wrap mb-1" style={{ color: C.textMuted }}>
+              {lead.new_campaign_name && (
+                <span><span className="font-semibold" style={{ color: C.textBody }}>{lead.new_campaign_name}</span></span>
+              )}
+              {lead.profile_name && (
+                <span>{t("leadsPage.card.profile")} <span className="font-semibold" style={{ color: C.textBody }}>{lead.profile_name}</span></span>
+              )}
+            </div>
+            {!isPendingReview && lead.new_campaign_step != null && lead.new_campaign_total_steps != null && (
+              <div className="flex items-center gap-2 mt-1.5">
+                <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
+                  <div className="h-1.5 rounded-full" style={{ width: `${newProgress}%`, backgroundColor: C.green }} />
+                </div>
+                <span className="text-[9px] tabular-nums" style={{ color: C.textDim }}>
+                  {t("leadsPage.card.stepsCount", { n: lead.new_campaign_step, total: lead.new_campaign_total_steps })}
+                </span>
+              </div>
             )}
-            {lead.profile_name && (
-              <span>{t("leadsPage.card.profile")} <span className="font-semibold" style={{ color: C.textBody }}>{lead.profile_name}</span></span>
+            {isPendingReview && (
+              <p className="text-[10px]" style={{ color: "#D97706" }}>{t("leadsPage.card.awaitingApproval")}</p>
             )}
           </div>
-          {!isPendingReview && lead.new_campaign_step != null && lead.new_campaign_total_steps != null && (
-            <div className="flex items-center gap-2 mt-1.5">
-              <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: C.border }}>
-                <div className="h-1.5 rounded-full" style={{ width: `${newProgress}%`, backgroundColor: C.green }} />
-              </div>
-              <span className="text-[9px] tabular-nums" style={{ color: C.textDim }}>
-                {t("leadsPage.card.stepsCount", { n: lead.new_campaign_step, total: lead.new_campaign_total_steps })}
-              </span>
-            </div>
-          )}
-          {isPendingReview && (
-            <p className="text-[10px]" style={{ color: "#D97706" }}>{t("leadsPage.card.awaitingApproval")}</p>
-          )}
-        </div>
+        )}
       </Link>
     </div>
   );
@@ -862,7 +890,8 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
   // Modal for "Add to existing flow" bulk action. Fetches active flows on
   // open so the picker reflects the current state (a campaign created in
   // another tab shows up without a refresh).
-  const [showAddToFlow, setShowAddToFlow] = useState(false);
+  // showAddToFlow removed 2026-05-28 — AddToFlowModalLeads no longer
+  // surfaces from /leads (memory: feedback_campaigns_only_from_campaigns_page).
 
   const profileNames = [...new Set(leads.map(l => l.profile_name).filter(Boolean))] as string[];
   // Distinct role + industry values from the current lead set, sorted
@@ -1038,24 +1067,9 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
     }
   }
 
-  // "Create new flow" — feeds the wizard. If every selected lead shares an
-  // ICP we deep-link to /campaigns/new/[profileId] so the wizard skips the
-  // ICP picker; mixed-ICP selections fall back to /campaigns/new where the
-  // wizard prompts for a profile. The leads param is the same shape the
-  // Lead Miner ticket bulk-action uses.
-  function createNewFlowFromSelection() {
-    const ids = Array.from(selected);
-    if (ids.length === 0) return;
-    const selectedLeads = leads.filter(l => selected.has(l.id));
-    const profileNamesSet = new Set(selectedLeads.map(l => l.profile_name).filter(Boolean));
-    // We have `profile_name` on the lead row but not the id. /campaigns/new
-    // accepts the leads query param either way and resolves the profile
-    // from the first lead if all share one; safest path is the plain
-    // route + leads param.
-    const url = `/campaigns/new?leads=${ids.join(",")}`;
-    router.push(url);
-    void profileNamesSet; // reserved for future "deep-link when 1 ICP" optimisation
-  }
+  // createNewFlowFromSelection removed 2026-05-28 — see memory
+  // feedback_campaigns_only_from_campaigns_page.md. /leads no longer
+  // initiates flow creation; that lives only at /campaigns.
 
   async function bulkChangeStatus(status: string) {
     if (selected.size === 0 || deleting) return;
@@ -1144,9 +1158,6 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
         // reply come from" mess. Boss feedback 2026-05-28: "los leads
         // que tienen campaign no pueden tener el botón create flow y
         // add to existing".
-        const selectedLeadObjs = leads.filter(l => selected.has(l.id));
-        const someAlreadyInFlow = selectedLeadObjs.some(l => l.has_campaign === true);
-        const allWithoutFlow = selectedLeadObjs.length > 0 && !someAlreadyInFlow;
         return (
         // Floating bulk action bar — dark-gradient pop-up anchored to the
         // bottom-center of the viewport. Boss feedback 2026-05-28 r9:
@@ -1171,33 +1182,15 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                 {t(selected.size === 1 ? "leadsPage.bulk.leadSelected" : "leadsPage.bulk.leadsSelected", { n: selected.size })}
               </p>
               <p className="text-[11px] mt-0.5" style={{ color: "color-mix(in srgb, white 55%, transparent)" }}>
-                {someAlreadyInFlow
-                  ? t("leadsPage.bulk.someInFlow", { n: selectedLeadObjs.filter(l => l.has_campaign).length })
-                  : t("leadsPage.bulk.pushHint")}
+                {t("leadsPage.bulk.pushHint")}
               </p>
             </div>
 
-            {/* Flow buttons surface only when EVERY selected lead is
-                unassigned. Mixed selections see the explanation in the
-                subtitle above so they know why these buttons hide. */}
-            {allWithoutFlow && (
-              <>
-                <button onClick={() => setShowAddToFlow(true)} disabled={deleting}
-                  className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
-                  style={{ background: "rgba(255,255,255,0.08)", color: gold, border: `1px solid color-mix(in srgb, ${gold} 45%, transparent)` }}>
-                  <Megaphone size={13} /> {t("leadsPage.bulk.addToExisting")}
-                </button>
-                <button onClick={createNewFlowFromSelection} disabled={deleting}
-                  className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
-                  style={{
-                    background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 75%, white))`,
-                    color: "#1A1505",
-                    boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent)`,
-                  }}>
-                  <Send size={13} /> {t("leadsPage.bulk.createNewFlow")}
-                </button>
-              </>
-            )}
+            {/* Flow-creation buttons removed 2026-05-28 (boss feedback,
+                memory: feedback_campaigns_only_from_campaigns_page.md).
+                All flow creation now starts at /campaigns → Lead Miner
+                section "Create New Flow". /leads keeps bulk status +
+                bulk delete only. */}
 
             {/* Status / delete — secondary, sit on the right edge. Native
                 select inherits OS styling; we just paint it dark to match. */}
@@ -1245,14 +1238,6 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
         </div>
         );
       })()}
-
-      {showAddToFlow && (
-        <AddToFlowModalLeads
-          leadIds={Array.from(selected)}
-          onClose={() => setShowAddToFlow(false)}
-          onAdded={() => { setShowAddToFlow(false); setSelected(new Set()); router.refresh(); }}
-        />
-      )}
 
       <div className="rounded-xl border overflow-hidden card-shadow" style={{ backgroundColor: C.card, borderColor: C.border }}>
         <table className="w-full text-left">
