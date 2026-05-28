@@ -28,12 +28,11 @@ function PillGroup({ icon, label, options, selected, onToggle }: {
       <div className="flex items-center gap-0.5 rounded-lg p-0.5 border" style={{ backgroundColor: C.bg, borderColor: C.border }}>
         {options.map(opt => {
           const isActive = selected.includes(opt.key);
-          // Gold uniform for every active pill across the bar — boss
-          // feedback 2026-05-28 r7: "hagamoslo siempre que tenemos
-          // selección de botones". The per-option `color` stays available
-          // for cases where a non-gold accent makes sense, but the
-          // default is gold so the bar reads as one consistent surface.
-          const accent = goldDark;
+          // Per-option semantic color (Hot red, Warm amber, Positive
+          // green, etc). Reverted from gold-uniform 2026-05-28 r8 —
+          // Fran preferred keeping the color coding because it gives
+          // each pill recognisable meaning at a glance.
+          const accent = opt.color ?? goldDark;
           return (
             <button
               key={opt.key}
