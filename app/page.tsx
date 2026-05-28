@@ -1082,6 +1082,7 @@ export default async function DashboardPage({
               <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
                 <Th align="left">{t("dashx.tbl.col.icp")}</Th>
                 <Th align="right">{t("dashx.tbl.col.leads")}</Th>
+                <Th align="right">{t("dashx.tbl.col.flows")}</Th>
                 <Th align="left">{t("dashx.tbl.col.channels")}</Th>
                 <Th align="right"><span title={t("dashx.tbl.col.totalTouchesHint")}>{t("dashx.tbl.col.totalTouches")}</span></Th>
                 <Th align="right">{t("dashx.tbl.col.repliedFull")}</Th>
@@ -1094,7 +1095,7 @@ export default async function DashboardPage({
             </thead>
             <tbody>
               {data.icpPerformance.length === 0 ? (
-                <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="icps" t={t} /></td></tr>
+                <tr><td colSpan={11} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="icps" t={t} /></td></tr>
               ) : (() => {
                 // Scale rate bars against the table's own leader so the #1
                 // row hits full width; relative ranking reads at a glance.
@@ -1121,6 +1122,7 @@ export default async function DashboardPage({
                         </div>
                       </Td>
                       <NumCell value={icp.leads} />
+                      <NumCell value={icp.flows ?? 0} accent={(icp.flows ?? 0) > 0 ? gold : undefined} bold />
                       <td className="px-3 py-2">
                         <ChannelTouches
                           linkedinSent={icp.linkedinSent}

@@ -540,6 +540,7 @@ export const en: Dict = {
   "dashx.tbl.col.totalTouches": "Total touches",
   "dashx.tbl.col.totalTouchesHint": "Connections + LinkedIn msg + Emails + Calls",
   "dashx.tbl.col.channels": "Channels",
+  "dashx.tbl.col.flows": "Flows",
   // Channel-touch chip labels (used inside the inline ChannelTouches strip)
   "dashx.touch.linkedinSent": "LinkedIn connections sent",
   "dashx.touch.linkedinMsg": "LinkedIn messages",
@@ -1850,6 +1851,7 @@ export const es: Dict = {
   "dashx.tbl.col.totalTouches": "Total contactos",
   "dashx.tbl.col.totalTouchesHint": "Conexiones + Mensajes LinkedIn + Emails + Llamadas",
   "dashx.tbl.col.channels": "Canales",
+  "dashx.tbl.col.flows": "Flows",
   // Channel-touch chip labels
   "dashx.touch.linkedinSent": "Conexiones LinkedIn enviadas",
   "dashx.touch.linkedinMsg": "Mensajes LinkedIn",

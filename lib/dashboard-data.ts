@@ -799,6 +799,17 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     };
   }).sort((a, b) => b.conversionRate - a.conversionRate || b.leads - a.leads);
 
+  // Count flows per ICP — boss 2026-05-28: the ICP comparison table needs
+  // a "Flows" column next to Leads so the operator sees how many distinct
+  // sequences each Lead Miner Profile is running. campaignPerformance is
+  // already keyed by flow name with a dominant ICP attribution, so we just
+  // bucket-count.
+  const flowsByIcp = new Map<string, number>();
+  for (const c of campaignPerformance) {
+    const key = c.icp_profile_id ?? "_unknown";
+    flowsByIcp.set(key, (flowsByIcp.get(key) ?? 0) + 1);
+  }
+
   // ── Seller leaderboard ─────────────────────────────────────────────────
   // Boss feedback 2026-05-27: per-seller breakdown should expose the actual
   // channel volume (connections sent, LinkedIn messages, emails, calls) so
@@ -1378,7 +1389,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     // card on the Channels tab can keep showing Sent → Accepted → rate
     // (those stages disappeared from the funnel proper).
     linkedinConnections: { sent: linkedinSentCount, accepted: connectedLeads },
-    icpPerformance: icpPerformance.map(p => ({ ...p, spark: sparkByIcp.get(p.id) ?? new Array(14).fill(0) })),
+    icpPerformance: icpPerformance.map(p => ({ ...p, spark: sparkByIcp.get(p.id) ?? new Array(14).fill(0), flows: flowsByIcp.get(p.id) ?? 0 })),
     campaignPerformance: campaignPerformance.map(c => ({ ...c, spark: sparkByCampaign.get(c.name) ?? new Array(14).fill(0) })),
     sellerPerformance: sellerPerformance.map(s => ({ ...s, spark: sparkBySeller.get(s.id) ?? new Array(14).fill(0) })),
     trend30d,
