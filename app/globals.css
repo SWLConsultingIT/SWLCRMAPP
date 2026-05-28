@@ -261,48 +261,10 @@ select:focus-visible {
 }
 .pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
 
-/* ─── Today hero — comet sweep + breathing anchors.
-   Two anchor glows breathe in counter-phase; one bright comet
-   continuously traverses the hero edge-to-edge, fades, loops. The
-   shimmer line riding the top adds an extra "scan" feel. The whole
-   motion reads as one continuous current — not three random pulses. */
-@keyframes hero-glow-breathe {
-  0%, 100% { opacity: 0.55; transform: scale(1); }
-  50%      { opacity: 1;    transform: scale(1.1); }
-}
-@keyframes hero-glow-breathe-soft {
-  0%, 100% { opacity: 0.35; transform: scale(1); }
-  50%      { opacity: 0.7;  transform: scale(1.08); }
-}
-/* Comet sweep — a gold orb that traverses the hero from far-left to
-   far-right in a single direction, then re-enters from the left after
-   fading. Continuous motion (no back-and-forth) so the eye reads it
-   as a current flowing through the surface. */
-@keyframes hero-comet-sweep {
-  0%   { left: -15%; opacity: 0; }
-  10%  { opacity: 0.7; }
-  50%  { opacity: 1; }
-  90%  { opacity: 0.7; }
-  100% { left: 115%; opacity: 0; }
-}
-/* Thin top-edge scan line — sweeps L→R continuously, syncs roughly
-   with the comet for visual cohesion. */
-@keyframes hero-glow-shimmer {
-  0%   { transform: translateX(-100%); opacity: 0; }
-  10%  { opacity: 1; }
-  90%  { opacity: 1; }
-  100% { transform: translateX(100%); opacity: 0; }
-}
-.hero-glow-breathe         { animation: hero-glow-breathe         6s  ease-in-out infinite; }
-.hero-glow-breathe-soft    { animation: hero-glow-breathe-soft    7s  ease-in-out infinite 1s; }
-.hero-comet-sweep          { animation: hero-comet-sweep          7s  ease-in-out infinite; }
-.hero-glow-shimmer         { animation: hero-glow-shimmer         7s  linear         infinite; }
-@media (prefers-reduced-motion: reduce) {
-  .hero-glow-breathe,
-  .hero-glow-breathe-soft,
-  .hero-comet-sweep,
-  .hero-glow-shimmer { animation: none; }
-}
+/* Today hero motion now lives in the LogoLoader animations
+   (logo-loader-mark-glow + logo-loader-mark-shine) applied directly
+   to the SWL mark sitting in the hero. No ambient/comet animations
+   on the hero surface itself — keeps the focal point on the brand. */
 
 /* ─── Fade in ─── */
 @keyframes fadeIn {

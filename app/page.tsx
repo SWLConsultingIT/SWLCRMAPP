@@ -337,92 +337,89 @@ export default async function DashboardPage({
         className="relative rounded-2xl overflow-hidden px-6 sm:px-10 py-8 sm:py-10"
         style={{
           background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
-          border: `1px solid color-mix(in srgb, ${gold} 36%, ${N.hairline})`,
-          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 26%, transparent), 0 22px 50px -22px ${N.ink}`,
+          border: `1px solid color-mix(in srgb, ${gold} 30%, ${N.hairline})`,
+          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 22%, transparent), 0 22px 50px -22px ${N.ink}`,
         }}
       >
-        {/* Anchor glow — right corner, breathing pulse, pulled closer in
-            so most of the orb is visible (was -right-32, mostly hidden). */}
-        <span aria-hidden
-          className="absolute -top-24 right-0 w-[420px] h-[420px] rounded-full pointer-events-none hero-glow-breathe"
-          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 48%, transparent) 0%, transparent 60%)` }} />
-        {/* Counter anchor — bottom-left, softer, counter-phase */}
-        <span aria-hidden
-          className="absolute -bottom-24 left-0 w-[380px] h-[380px] rounded-full pointer-events-none hero-glow-breathe-soft"
-          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 30%, transparent) 0%, transparent 65%)` }} />
-        {/* Comet — bright gold orb that traverses the hero left→right
-            continuously, fades, loops. This is the "current" the user
-            actually feels moving across the surface. */}
-        <span aria-hidden
-          className="absolute top-1/2 -translate-y-1/2 w-[200px] h-[200px] rounded-full pointer-events-none hero-comet-sweep"
-          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 55%, transparent) 0%, transparent 60%)` }} />
-        {/* Top-edge scan line — gold sweep synced with the comet for
-            visual cohesion. */}
-        <span aria-hidden
-          className="absolute inset-x-0 top-0 h-[2px] pointer-events-none hero-glow-shimmer"
-          style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)` }} />
-
-        <div className="relative flex items-center gap-3 mb-4 flex-wrap">
-          {/* Inline SWL mark — same logo the sidebar uses, scaled small.
-              Anchors the hero as official SWL surface. */}
-          <span
-            className="inline-flex items-center justify-center w-10 h-10 rounded-lg shrink-0"
-            style={{
-              background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 28%, #14182a) 0%, #1a1f30 100%)`,
-              border: `1px solid color-mix(in srgb, ${gold} 44%, transparent)`,
-              boxShadow: `0 0 22px color-mix(in srgb, ${gold} 28%, transparent), inset 0 1px 0 color-mix(in srgb, ${gold} 26%, transparent)`,
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png"
-              alt="SWL Consulting"
-              className="h-4 w-auto object-contain"
-              style={{ filter: "brightness(0) invert(1)" }}
-            />
-          </span>
-          <div className="flex flex-col leading-tight">
-            <span
-              className="text-[14px] font-bold tracking-[-0.01em]"
-              style={{ color: "white", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
+        <div className="relative flex items-center justify-between gap-8 flex-wrap">
+          {/* Left — GrowthAI label + welcome copy. No small logo, no
+              eyebrow, no LIVE pill. The pulsing SWL mark on the right
+              carries all the "alive" signal. */}
+          <div className="min-w-0 flex-1">
+            <p
+              className="text-[12px] font-bold uppercase tracking-[0.22em] mb-3"
+              style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
             >
               GrowthAI
-            </span>
-            <span
-              className="text-[9.5px] font-bold uppercase tracking-[0.22em]"
-              style={{ color: gold }}
+            </p>
+            <h1
+              className="text-[30px] sm:text-[40px] font-bold tracking-[-0.025em] leading-[1.05]"
+              style={{
+                color: "white",
+                fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                textShadow: `0 2px 14px color-mix(in srgb, ${gold} 16%, transparent)`,
+              }}
             >
-              {t("dashx.hero.section")}
-            </span>
+              {t("dashx.today.heroTitle")}
+            </h1>
+            <p
+              className="text-[13.5px] mt-3 max-w-[680px]"
+              style={{ color: "color-mix(in srgb, white 68%, transparent)" }}
+            >
+              {t("dashx.today.heroDesc")}
+            </p>
           </div>
-          <span
-            className="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[0.18em] px-2 py-0.5 rounded-md ml-1"
-            style={{
-              color: "#10B981",
-              backgroundColor: "color-mix(in srgb, #10B981 14%, transparent)",
-              border: "1px solid color-mix(in srgb, #10B981 30%, transparent)",
-            }}
-          >
-            <span aria-hidden className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ backgroundColor: "#10B981" }} />
-            {t("dashx.todayHero.live")}
-          </span>
+
+          {/* Right — big SWL logomark that breathes + shines every 4.5s,
+              same animations the LogoLoader uses. Replaces all the
+              ambient-glow noise with a single focal point of motion. */}
+          {(() => {
+            const SWL_LOGO = "https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png";
+            // PNG is 280×136 native, the brand mark sits in the left 34%.
+            const size = 88; // visible height
+            const markCropRatio = 0.34;
+            const fullPngWidth = size * (280 / 136);
+            const markWidth = Math.round(fullPngWidth * markCropRatio);
+            return (
+              <div
+                className="logo-loader-mark-wrap shrink-0"
+                style={{ width: markWidth, height: size, position: "relative" }}
+                aria-hidden
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={SWL_LOGO}
+                  alt=""
+                  className="logo-loader-mark-img"
+                  style={{
+                    width: fullPngWidth,
+                    height: size,
+                    objectFit: "cover",
+                    objectPosition: "left center",
+                    // Invert the mark so it reads gold-on-dark; the
+                    // shine overlay sits on top in its native warm white.
+                    filter: `brightness(0) saturate(1) invert(78%) sepia(38%) saturate(580%) hue-rotate(2deg) brightness(95%) contrast(88%)`,
+                  }}
+                />
+                <span
+                  className="logo-loader-mark-shine"
+                  style={{
+                    width: markWidth,
+                    height: size,
+                    WebkitMaskImage: `url(${SWL_LOGO})`,
+                    maskImage: `url(${SWL_LOGO})`,
+                    WebkitMaskSize: `${fullPngWidth}px ${size}px`,
+                    maskSize: `${fullPngWidth}px ${size}px`,
+                    WebkitMaskRepeat: "no-repeat",
+                    maskRepeat: "no-repeat",
+                    WebkitMaskPosition: "left center",
+                    maskPosition: "left center",
+                  }}
+                />
+              </div>
+            );
+          })()}
         </div>
-        <h1
-          className="relative text-[30px] sm:text-[40px] font-bold tracking-[-0.025em] leading-[1.05]"
-          style={{
-            color: "white",
-            fontFamily: "var(--font-outfit), system-ui, sans-serif",
-            textShadow: `0 2px 14px color-mix(in srgb, ${gold} 16%, transparent)`,
-          }}
-        >
-          {t("dashx.today.heroTitle")}
-        </h1>
-        <p
-          className="relative text-[13.5px] mt-3 max-w-[680px]"
-          style={{ color: "color-mix(in srgb, white 68%, transparent)" }}
-        >
-          {t("dashx.today.heroDesc")}
-        </p>
       </header>
       ) : (
       <header
