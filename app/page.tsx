@@ -278,7 +278,7 @@ export default async function DashboardPage({
     vsPriorLabel: t("dashx.funnel.vsPriorShort"),
   };
 
-  const { headline, deltas, trend30d } = data;
+  const { headline, deltas, trend30d, trendPrior } = data;
 
   // Reply classification → donut data. Labels come from the locale dict so
   // the donut speaks the user's language; falls back to the raw class string
@@ -794,6 +794,11 @@ export default async function DashboardPage({
                 { name: t("dashx.trend.replies"),   color: C.seriesReplies,  data: trend30d.replies },
                 { name: t("dashx.trend.positives"), color: C.seriesPositive, data: trend30d.positive },
               ]}
+              priorSeries={trendPrior ? [
+                { name: t("dashx.trend.sent"),      color: C.seriesSent,     data: trendPrior.sent },
+                { name: t("dashx.trend.replies"),   color: C.seriesReplies,  data: trendPrior.replies },
+                { name: t("dashx.trend.positives"), color: C.seriesPositive, data: trendPrior.positive },
+              ] : undefined}
             />
           </Panel>
         </div>
