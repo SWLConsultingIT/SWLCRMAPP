@@ -318,82 +318,159 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         <span style={{ color: C.textBody }}>{campaign.name}</span>
       </div>
 
-      {/* ═══ CAMPAIGN HEADER ═══ */}
-      <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <div className="p-6 flex items-start justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Campaign</p>
-            <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>{campaign.name}</h1>
-            <div className="flex items-center gap-3 mt-2">
-              <div className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1" style={{ backgroundColor: st.bg }}>
-                <StIcon size={13} style={{ color: st.color }} />
-                <span className="text-xs font-semibold" style={{ color: st.color }}>{st.label}</span>
+      {/* ═══ CAMPAIGN HEADER — SWL dark + gold treatment ═══
+          Premium hero band that mirrors the dossier surface used on
+          /dashboard/seller/[id] and the now-deleted /overview header.
+          Boss feedback 2026-05-28 r12: "asi blanco es horrible". */}
+      <div
+        className="rounded-2xl border overflow-hidden mb-6 relative"
+        style={{
+          backgroundColor: "#0F0F14",
+          borderColor: "color-mix(in srgb, #c9a83a 18%, #1d1f29)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.22), 0 0 0 1px color-mix(in srgb, #c9a83a 14%, transparent)",
+        }}
+      >
+        {/* Gold gradient stripe at the top + soft radial corner glows */}
+        <div className="absolute inset-x-0 top-0 h-[2px] pointer-events-none" style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)`, opacity: 0.9 }} />
+        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 26%, transparent) 0%, transparent 65%)`, opacity: 0.55 }} />
+        <div className="absolute -bottom-32 -left-20 w-80 h-80 rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 14%, transparent) 0%, transparent 70%)`, opacity: 0.4 }} />
+
+        <div className="p-6 flex items-start justify-between gap-4 relative">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-px w-6" style={{ backgroundColor: gold }} />
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: gold, letterSpacing: "0.18em" }}>Campaign</p>
+            </div>
+            <h1
+              className="text-[28px] font-bold mb-4 leading-tight"
+              style={{
+                color: "#F5F2E8",
+                fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              {campaign.name}
+            </h1>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <div
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${st.color} 18%, transparent)`,
+                  border: `1px solid color-mix(in srgb, ${st.color} 38%, transparent)`,
+                  boxShadow: campaign.status === "active" ? `0 0 14px color-mix(in srgb, ${st.color} 30%, transparent)` : "none",
+                }}
+              >
+                {campaign.status === "active" && (
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: st.color }} />
+                )}
+                <StIcon size={12} style={{ color: st.color }} />
+                <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: st.color, letterSpacing: "0.08em" }}>{st.label}</span>
               </div>
               {channels.map(ch => {
                 const meta = channelMeta[ch];
                 if (!meta) return null;
                 const Icon = meta.icon;
                 return (
-                  <span key={ch} className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md"
-                    style={{ backgroundColor: `${meta.color}12`, color: meta.color }}>
+                  <span
+                    key={ch}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                    style={{
+                      backgroundColor: `color-mix(in srgb, ${meta.color} 16%, rgba(255,255,255,0.02))`,
+                      color: meta.color,
+                      border: `1px solid color-mix(in srgb, ${meta.color} 32%, transparent)`,
+                    }}
+                  >
                     <Icon size={11} /> {meta.label}
                   </span>
                 );
               })}
               {campaign.started_at && (
-                <span className="text-xs" style={{ color: C.textMuted }}>
-                  <Clock size={11} className="inline mr-1" />
+                <span className="text-[11px] inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+                  style={{ color: "color-mix(in srgb, #F5F2E8 62%, transparent)", border: "1px solid color-mix(in srgb, #F5F2E8 10%, transparent)", backgroundColor: "rgba(255,255,255,0.02)" }}>
+                  <Clock size={11} />
                   Started {new Date(campaign.started_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
                 </span>
               )}
             </div>
           </div>
           <Link href={`/campaigns/${id}/edit`}
-            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
-            style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}>
+            className="shrink-0 flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition-opacity hover:opacity-90"
+            style={{
+              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 75%, white))`,
+              color: "#1A1505",
+              boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent)`,
+            }}>
             <Settings size={12} /> Edit Flow
           </Link>
         </div>
 
-        <div className="border-t" style={{ borderColor: C.border }} />
+        <div className="border-t" style={{ borderColor: "color-mix(in srgb, #c9a83a 18%, #1d1f29)" }} />
 
-        {/* Summary stats. Last cell is a channel breakdown of where the
-            active+paused leads currently sit — it already encodes the
-            "Active" count by summing the pills, so the standalone Active
-            stat was redundant and was removed. */}
-        <div className="px-6 py-4 grid grid-cols-5 gap-4">
+        {/* Stats grid — five tiles each with a top-border KPI accent +
+            inset halo so the bar reads like premium gauges, not plain
+            text rows. Active In replaces the redundant "Active" stat. */}
+        <div className="px-2 py-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 relative">
           {[
-            { label: "Total Leads", value: totalLeadsInGroup, color: gold },
-            { label: "Paused", value: pausedInGroup, color: "#D97706" },
-            { label: "Completed", value: completedInGroup, color: C.textMuted },
-            { label: "Progress", value: `${pct}%`, color: gold },
+            { label: "Total Leads", value: totalLeadsInGroup,                                color: gold },
+            { label: "Paused",      value: pausedInGroup,                                    color: "#D97706" },
+            { label: "Completed",   value: completedInGroup,                                 color: "color-mix(in srgb, #F5F2E8 65%, transparent)" },
+            { label: "Progress",    value: `${pct}%`,                                        color: gold },
           ].map(s => (
-            <div key={s.label}>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{s.label}</p>
-              <p className="text-lg font-bold" style={{ color: s.color }}>{s.value}</p>
+            <div
+              key={s.label}
+              className="px-3 py-3 rounded-xl relative overflow-hidden"
+              style={{
+                backgroundColor: "rgba(255,255,255,0.025)",
+                borderTop: `2px solid color-mix(in srgb, ${s.color} 70%, transparent)`,
+                boxShadow: `0 0 18px color-mix(in srgb, ${s.color} 8%, transparent) inset`,
+              }}
+            >
+              <p
+                className="text-[9px] font-bold uppercase tracking-[0.14em] mb-1"
+                style={{ color: "color-mix(in srgb, #F5F2E8 55%, transparent)", letterSpacing: "0.14em" }}
+              >
+                {s.label}
+              </p>
+              <p
+                className="text-[22px] font-bold leading-none tabular-nums"
+                style={{
+                  color: s.color,
+                  fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {s.value}
+              </p>
             </div>
           ))}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Active In</p>
+          <div
+            className="px-3 py-3 rounded-xl relative overflow-hidden"
+            style={{
+              backgroundColor: "rgba(255,255,255,0.025)",
+              borderTop: `2px solid color-mix(in srgb, ${gold} 70%, transparent)`,
+              boxShadow: `0 0 18px color-mix(in srgb, ${gold} 8%, transparent) inset`,
+            }}
+          >
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em] mb-1.5" style={{ color: "color-mix(in srgb, #F5F2E8 55%, transparent)", letterSpacing: "0.14em" }}>Active In</p>
             {activeChannelEntries.length === 0 ? (
-              <p className="text-lg font-bold" style={{ color: C.textDim }}>—</p>
+              <p className="text-[16px] font-bold leading-none" style={{ color: "color-mix(in srgb, #F5F2E8 35%, transparent)", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>—</p>
             ) : (
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-1">
                 {activeChannelEntries.map(([ch, count]) => {
                   const meta = ({
-                    linkedin: { label: "LinkedIn", color: "#0A66C2" },
-                    email:    { label: "Email",    color: "#7C3AED" },
-                    call:     { label: "Call",     color: "#F97316" },
-                    whatsapp: { label: "WhatsApp", color: "#25D366" },
-                  } as Record<string, { label: string; color: string }>)[ch] ?? { label: ch, color: C.textMuted };
+                    linkedin: { label: "LinkedIn", color: "#5BA9FF" },
+                    email:    { label: "Email",    color: "#B093FF" },
+                    call:     { label: "Call",     color: "#FF9D5B" },
+                    whatsapp: { label: "WhatsApp", color: "#5BE89A" },
+                  } as Record<string, { label: string; color: string }>)[ch] ?? { label: ch, color: "color-mix(in srgb, #F5F2E8 70%, transparent)" };
                   return (
                     <span key={ch}
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold rounded-full px-2 py-0.5 border"
+                      className="inline-flex items-center gap-1 text-[10px] font-semibold rounded-full px-2 py-0.5 border"
                       title={`${count} lead${count === 1 ? "" : "s"} currently on a ${meta.label} step`}
                       style={{
-                        backgroundColor: `color-mix(in srgb, ${meta.color} 10%, transparent)`,
+                        backgroundColor: `color-mix(in srgb, ${meta.color} 16%, transparent)`,
                         color: meta.color,
-                        borderColor: `color-mix(in srgb, ${meta.color} 25%, transparent)`,
+                        borderColor: `color-mix(in srgb, ${meta.color} 38%, transparent)`,
                       }}>
                       <span className="font-bold tabular-nums">{count}</span> {meta.label}
                     </span>
