@@ -1205,22 +1205,6 @@ export default async function DashboardPage({
                 return t("dashx.step.insight", { step: worst.step + 1, rate: worst.replyRate ?? 0 });
               })()}
             >
-              {/* Per-chart filter chips — adjust scope without scrolling
-                  to the tab filter. Writes to global URL params (v1). */}
-              <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
-                <span>{t("dashx.filters.applied")}:</span>
-                <ChartFilterChips
-                  campaigns={filterOptions.campaigns}
-                  icps={filterOptions.icps}
-                  sellers={filterOptions.sellers}
-                  labels={{
-                    campaigns: t("dashx.filters.campaigns"),
-                    icps: t("dashx.filters.icps"),
-                    sellers: t("dashx.filters.sellers"),
-                    empty: t("dashx.filters.noOptions"),
-                  }}
-                />
-              </div>
               <StepPerformance steps={data.stepPerformance} locale={locale} />
             </Panel>
           );
@@ -1268,22 +1252,6 @@ export default async function DashboardPage({
           return t("dashx.channels.compInsight", { best: bestLabel, worst: worstLabel, gap });
         })()}
       >
-        {/* Per-chart filter chips — adjust scope without scrolling to the
-            tab filter. Writes to global URL params (v1). */}
-        <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
-          <span>{t("dashx.filters.applied")}:</span>
-          <ChartFilterChips
-            campaigns={filterOptions.campaigns}
-            icps={filterOptions.icps}
-            sellers={filterOptions.sellers}
-            labels={{
-              campaigns: t("dashx.filters.campaigns"),
-              icps: t("dashx.filters.icps"),
-              sellers: t("dashx.filters.sellers"),
-              empty: t("dashx.filters.noOptions"),
-            }}
-          />
-        </div>
         {/* Band 1 — channel cards (granular per-channel views) */}
         <p className="text-[9.5px] font-bold uppercase tracking-[0.16em] mb-2.5" style={{ color: C.textMuted }}>
           {t("dashx.channels.bandCards")}
