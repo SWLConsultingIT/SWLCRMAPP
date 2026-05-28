@@ -22,6 +22,7 @@ import FiltersBar from "@/components/dashboard/FiltersBar";
 import CampStatusChipsLive from "@/components/dashboard/CampStatusChipsLive";
 import TabFilterBar from "@/components/dashboard/TabFilterBar";
 import SellerRow from "@/components/dashboard/SellerRowExpand";
+import ChartFilterChips from "@/components/dashboard/ChartFilterChips";
 import { getSupabaseService } from "@/lib/supabase-service";
 import FreshnessChip from "@/components/dashboard/FreshnessChip";
 import DashboardKeyboardShortcuts from "@/components/dashboard/DashboardKeyboardShortcuts";
@@ -232,15 +233,14 @@ export default async function DashboardPage({
   const sp = await searchParams;
   const filters = parseFilters(sp);
   const bioId = scope.isScoped ? scope.companyBioId! : null;
-  // Filter options only feed the TabFilterBar that lives inside Campaigns /
-  // Channels / Sellers. Overview + ICPs don't need them, so we skip the
-  // 3 extra queries on those tabs.
-  const needsFilterOptions = filters.tab === "campaigns" || filters.tab === "channels" || filters.tab === "sellers";
+  // Always load filter options — they feed both the tab-level TabFilterBar
+  // AND the per-chart ChartFilterChips (Donut on Overview also needs them).
+  // 3 cheap queries, no point conditionally skipping.
   const [data, t, locale, filterOptions] = await Promise.all([
     getDashboardData(filters),
     getT(),
     getServerLocale(),
-    needsFilterOptions ? loadFilterOptions(bioId) : Promise.resolve({ campaigns: [], sellers: [], icps: [] }),
+    loadFilterOptions(bioId),
   ]);
   const tabFilterLabels = {
     campaigns: t("dashx.filters.campaigns"),
@@ -730,6 +730,22 @@ export default async function DashboardPage({
               const positivesPct = totalReplies > 0 ? Math.round((positives / totalReplies) * 100) : 0;
               return t("dashx.donut.insight", { positivesPct, positives, total: totalReplies });
             })()}>
+            {/* Per-chart filter chips — customize the donut without going
+                back to the tab filter (none on Overview tab currently). v1
+                writes to global URL params, future v2 = isolated params. */}
+            <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
+              <span>{t("dashx.filters.applied")}:</span>
+              <ChartFilterChips
+                icps={filterOptions.icps}
+                sellers={filterOptions.sellers}
+                labels={{
+                  campaigns: t("dashx.filters.campaigns"),
+                  icps: t("dashx.filters.icps"),
+                  sellers: t("dashx.filters.sellers"),
+                  empty: t("dashx.filters.noOptions"),
+                }}
+              />
+            </div>
             <Donut
               data={donutSlices}
               centerLabel={t("dashx.donut.centerReplies")}
@@ -1188,6 +1204,22 @@ export default async function DashboardPage({
                 return t("dashx.step.insight", { step: worst.step + 1, rate: worst.replyRate ?? 0 });
               })()}
             >
+              {/* Per-chart filter chips — adjust scope without scrolling
+                  to the tab filter. Writes to global URL params (v1). */}
+              <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
+                <span>{t("dashx.filters.applied")}:</span>
+                <ChartFilterChips
+                  campaigns={filterOptions.campaigns}
+                  icps={filterOptions.icps}
+                  sellers={filterOptions.sellers}
+                  labels={{
+                    campaigns: t("dashx.filters.campaigns"),
+                    icps: t("dashx.filters.icps"),
+                    sellers: t("dashx.filters.sellers"),
+                    empty: t("dashx.filters.noOptions"),
+                  }}
+                />
+              </div>
               <StepPerformance steps={data.stepPerformance} locale={locale} />
             </Panel>
           );
@@ -1235,6 +1267,22 @@ export default async function DashboardPage({
           return t("dashx.channels.compInsight", { best: bestLabel, worst: worstLabel, gap });
         })()}
       >
+        {/* Per-chart filter chips — adjust scope without scrolling to the
+            tab filter. Writes to global URL params (v1). */}
+        <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
+          <span>{t("dashx.filters.applied")}:</span>
+          <ChartFilterChips
+            campaigns={filterOptions.campaigns}
+            icps={filterOptions.icps}
+            sellers={filterOptions.sellers}
+            labels={{
+              campaigns: t("dashx.filters.campaigns"),
+              icps: t("dashx.filters.icps"),
+              sellers: t("dashx.filters.sellers"),
+              empty: t("dashx.filters.noOptions"),
+            }}
+          />
+        </div>
         {/* Band 1 — channel cards (granular per-channel views) */}
         <p className="text-[9.5px] font-bold uppercase tracking-[0.16em] mb-2.5" style={{ color: C.textMuted }}>
           {t("dashx.channels.bandCards")}
