@@ -33,7 +33,7 @@ type NavItem = {
 
 // Sidebar — user-confirmed layout (Option A):
 //   MAIN: Dashboard / Company Bio / Notifications (the 3 things touched daily)
-//   GROWTH ENGINE: Lead Miner / Outreach Flow / Leads & Campaigns
+//   GROWTH ENGINE: Lead Miner / Outreach Flow / Leads
 //      (creation tools + the list of what they produced; visually grouped so
 //      the seller's "I made it → here it is" flow lives in one place)
 //   OPERATIONS: Accounts / Admin (Opportunities folded into /leads → Results)

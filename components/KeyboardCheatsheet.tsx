@@ -23,7 +23,7 @@ const SECTIONS: Section[] = [
       { keys: ["G", "N"], label: "Go to Notifications" },
       { keys: ["G", "I"], label: "Go to Lead Miner (ICPs)" },
       { keys: ["G", "O"], label: "Go to Outreach Flow (Campaigns)" },
-      { keys: ["G", "L"], label: "Go to Leads & Campaigns" },
+      { keys: ["G", "L"], label: "Go to Leads" },
       { keys: ["G", "A"], label: "Go to Accounts" },
       { keys: ["G", "S"], label: "Go to Settings" },
     ],

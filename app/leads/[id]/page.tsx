@@ -354,7 +354,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   return (
     <div className="p-6 w-full fade-in">
 
-      <Breadcrumb crumbs={[{ label: "Leads & Campaigns", href: "/leads" }, { label: lead.company_name ?? "Contact" }, { label: contactName }]} />
+      <Breadcrumb crumbs={[{ label: "Leads", href: "/leads" }, { label: lead.company_name ?? "Contact" }, { label: contactName }]} />
       <RecentLeadTracker leadId={id} name={contactName} company={lead.company_name ?? null} />
 
       {/* ═══ CONTACT HEADER ═══ */}

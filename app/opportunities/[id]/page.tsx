@@ -287,7 +287,7 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
     <div className="p-6 w-full max-w-6xl mx-auto">
       <Breadcrumb
         crumbs={[
-          { label: "Leads & Campaigns", href: "/leads" },
+          { label: "Leads", href: "/leads" },
           { label: "Results — Won", href: "/leads" },
           { label: lead.fullName },
         ]}

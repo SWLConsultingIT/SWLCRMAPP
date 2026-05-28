@@ -542,7 +542,7 @@ export default async function LeadsCampaignsPage() {
       <PageHero
         icon={Users}
         section="Operations"
-        title="Leads & Campaigns"
+        title="Leads"
         description="Manage your full prospect pipeline and track outreach progress across all channels."
         accentColor={C.blue}
         status={{ label: "Active", active: true }}

@@ -202,29 +202,49 @@ export const getUserScope = cache(async function getUserScope(): Promise<UserSco
   // Multi-tenant switcher: if the user has explicitly switched to a tenant
   // (via TenantSwitcher → /api/auth/switch-tenant), honor that. We validate
   // the membership server-side here so a tampered cookie can't grant access
-  // to a tenant the user doesn't belong to.
+  // to a tenant the user doesn't belong to. Super admins skip the
+  // membership lookup — they're implicit members of every active bio.
   const cookieStore = await cookies();
   const activeCookie = cookieStore.get(ACTIVE_TENANT_COOKIE)?.value ?? null;
   if (activeCookie && activeCookie !== ownBioId) {
-    const { data: membership } = await svc
-      .from("user_company_memberships")
-      .select("company_bio_id, tier, company_bios(archived_at, is_demo)")
-      .eq("user_id", user.id)
-      .eq("company_bio_id", activeCookie)
-      .maybeSingle();
-    const memBio = (membership as { company_bios?: { archived_at?: string | null; is_demo?: boolean } | { archived_at?: string | null; is_demo?: boolean }[] } | null)?.company_bios;
-    const memBioRow = Array.isArray(memBio) ? memBio[0] : memBio;
-    if (membership && !memBioRow?.archived_at) {
-      const switchedTier = (membership.tier as Tier | undefined) ?? tier;
-      return {
-        userId: user.id,
-        role: switchedTier === "super_admin" ? "admin" : "client",
-        tier: switchedTier,
-        companyBioId: activeCookie,
-        isScoped: true,
-        isDemoMode: false,
-        demoBioId: null,
-      };
+    if (tier === "super_admin") {
+      const { data: bio } = await svc
+        .from("company_bios")
+        .select("id, archived_at")
+        .eq("id", activeCookie)
+        .maybeSingle();
+      if (bio?.id && !bio.archived_at) {
+        return {
+          userId: user.id,
+          role: "admin",
+          tier: "super_admin",
+          companyBioId: activeCookie,
+          isScoped: true,
+          isDemoMode: false,
+          demoBioId: null,
+        };
+      }
+    } else {
+      const { data: membership } = await svc
+        .from("user_company_memberships")
+        .select("company_bio_id, tier, company_bios(archived_at, is_demo)")
+        .eq("user_id", user.id)
+        .eq("company_bio_id", activeCookie)
+        .maybeSingle();
+      const memBio = (membership as { company_bios?: { archived_at?: string | null; is_demo?: boolean } | { archived_at?: string | null; is_demo?: boolean }[] } | null)?.company_bios;
+      const memBioRow = Array.isArray(memBio) ? memBio[0] : memBio;
+      if (membership && !memBioRow?.archived_at) {
+        const switchedTier = (membership.tier as Tier | undefined) ?? tier;
+        return {
+          userId: user.id,
+          role: switchedTier === "super_admin" ? "admin" : "client",
+          tier: switchedTier,
+          companyBioId: activeCookie,
+          isScoped: true,
+          isDemoMode: false,
+          demoBioId: null,
+        };
+      }
     }
   }
 

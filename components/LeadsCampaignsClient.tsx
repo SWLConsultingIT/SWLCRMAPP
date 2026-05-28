@@ -1536,167 +1536,6 @@ function ProfileCard({ group, t }: { group: ProfileGroup; t: Tr }) {
   );
 }
 
-// ─── Campaigns view (grouped by ICP / Lead Miner ticket, accordion style) ──
-// Mirrors the look of ActiveCampaignsView in /campaigns but works with the
-// lighter ProfileGroup shape that /leads already computes — so we don't
-// duplicate the campaign_messages aggregation server-side just to satisfy
-// the visual parity. Each section is one ICP (collapsible); the rows inside
-// are individual flow names with their status counts + reply rate.
-function CampaignsByIcpView({
-  groups, search, onSearchChange,
-}: {
-  groups: ProfileGroup[];
-  search: string;
-  onSearchChange: (v: string) => void;
-}) {
-  const { t } = useLocale();
-  const filtered = !search ? groups : groups.filter(g =>
-    g.profileName.toLowerCase().includes(search.toLowerCase()) ||
-    g.campaigns.some(c => c.name.toLowerCase().includes(search.toLowerCase())) ||
-    g.leads.some(l => `${l.first_name ?? ""} ${l.last_name ?? ""} ${l.company ?? ""}`.toLowerCase().includes(search.toLowerCase()))
-  );
-
-  return (
-    <div className="w-full">
-      <div className="flex items-center justify-end mb-4">
-        <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5" style={{ borderColor: C.border, backgroundColor: C.card }}>
-          <Search size={14} style={{ color: C.textDim }} />
-          <input
-            type="text" value={search} onChange={e => onSearchChange(e.target.value)}
-            placeholder={t("leadsPage.campaignsByIcp.search")}
-            className="bg-transparent text-sm outline-none w-64"
-            style={{ color: C.textPrimary }}
-          />
-          {search && <button onClick={() => onSearchChange("")}><X size={12} style={{ color: C.textDim }} /></button>}
-        </div>
-      </div>
-
-      {filtered.length === 0 ? (
-        <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <Megaphone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
-          <p className="text-sm font-medium" style={{ color: C.textBody }}>
-            {search ? t("leadsPage.campaignsByIcp.empty.match") : t("leadsPage.campaignsByIcp.empty.none")}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map((g, i) => (
-            <IcpFlowsSection key={g.profileId} group={g} defaultOpen={i === 0} t={t} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function IcpFlowsSection({ group, defaultOpen, t }: { group: ProfileGroup; defaultOpen: boolean; t: Tr }) {
-  const [open, setOpen] = useState(defaultOpen);
-  const replyRate = group.contactedCount > 0 ? Math.round((group.totalReplies / group.contactedCount) * 100) : 0;
-
-  // Roll up campaigns by name so multiple per-lead campaign rows with the
-  // same flow show as a single row inside the section.
-  const flowMap: Record<string, { name: string; status: string; channels: Set<string>; total: number; active: number; sent: number }> = {};
-  for (const c of group.campaigns) {
-    if (!flowMap[c.name]) flowMap[c.name] = { name: c.name, status: c.status, channels: new Set(), total: 0, active: 0, sent: 0 };
-    const f = flowMap[c.name];
-    f.channels.add(c.channel);
-    f.total++;
-    if (c.status === "active" || c.status === "paused") f.active++;
-    f.sent += c.messages_sent ?? 0;
-    if (c.status === "active") f.status = "active";
-  }
-  const flows = Object.values(flowMap).sort((a, b) => b.active - a.active);
-
-  return (
-    <section className="rounded-2xl border overflow-hidden"
-      style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
-      <button type="button" onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-black/[0.02]"
-        style={{ borderBottom: open ? `1px solid ${C.border}` : "none" }}>
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{
-            background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`,
-            boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 30%, transparent)`,
-          }}>
-          <Target size={16} style={{ color: "#fff" }} strokeWidth={2.2} />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: gold }}>{t("leadsPage.profile.leadMiner")}</span>
-            <span className="text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-md" style={{ backgroundColor: C.surface, color: C.textMuted }}>
-              {flows.length} {flows.length === 1 ? t("leadsPage.icpFlows.flow") : t("leadsPage.icpFlows.flows")}
-            </span>
-          </div>
-          <h2 className="text-[16px] font-bold truncate" style={{ color: C.textPrimary }}>{group.profileName}</h2>
-        </div>
-        <div className="hidden md:flex items-center gap-5 shrink-0 mr-2">
-          <div className="text-right">
-            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>{t("leadsPage.icpFlows.leads")}</p>
-            <p className="text-base font-bold tabular-nums leading-none mt-0.5" style={{ color: C.textPrimary }}>{group.leads.length}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>{t("leadsPage.icpFlows.replies")}</p>
-            <p className="text-base font-bold tabular-nums leading-none mt-0.5" style={{ color: group.totalReplies > 0 ? C.blue : C.textPrimary }}>
-              {group.totalReplies}<span className="ml-1 text-[10px]" style={{ color: C.textDim }}>({replyRate}%)</span>
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>{t("leadsPage.icpFlows.positive")}</p>
-            <p className="text-base font-bold tabular-nums leading-none mt-0.5" style={{ color: group.positiveCount > 0 ? C.green : C.textPrimary }}>{group.positiveCount}</p>
-          </div>
-        </div>
-        <ChevronRight size={18} style={{ color: C.textMuted, transform: open ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s ease" }} />
-      </button>
-
-      {open && (
-        <div className="p-4 space-y-2" style={{ backgroundColor: C.bg }}>
-          {flows.map(f => {
-            const isActive = f.active > 0;
-            return (
-              <Link key={f.name} href={`/leads/ticket/${group.profileId}`}
-                className="flex items-center gap-3 rounded-xl border px-4 py-3 transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:shadow-md group"
-                style={{ backgroundColor: C.card, borderColor: C.border }}>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {[...f.channels].map(ch => {
-                    const meta: Record<string, { color: string }> = {
-                      linkedin: { color: "#0A66C2" },
-                      email:    { color: "#7C3AED" },
-                      whatsapp: { color: "#25D366" },
-                      call:     { color: "#F97316" },
-                    };
-                    const m = meta[ch] ?? { color: C.textDim };
-                    return (
-                      <span key={ch} className="w-2 h-2 rounded-full" style={{ backgroundColor: m.color }} />
-                    );
-                  })}
-                </div>
-                <h3 className="flex-1 min-w-0 text-[13px] font-semibold truncate group-hover:underline" style={{ color: C.textPrimary }}>{f.name}</h3>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0"
-                  style={{
-                    backgroundColor: isActive ? `color-mix(in srgb, ${gold} 14%, transparent)` : C.cardHov,
-                    color: isActive ? gold : C.textMuted,
-                    border: `1px solid color-mix(in srgb, ${isActive ? gold : C.textDim} 22%, transparent)`,
-                  }}>
-                  {isActive ? t("leadsPage.icpFlows.active", { n: f.active }) : t("leadsPage.icpFlows.idle")}
-                </span>
-                <div className="text-right shrink-0">
-                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("leadsPage.icpFlows.leads")}</p>
-                  <p className="text-[13px] font-bold tabular-nums" style={{ color: C.textPrimary }}>{f.total}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("leadsPage.icpFlows.sent")}</p>
-                  <p className="text-[13px] font-bold tabular-nums" style={{ color: C.textBody }}>{f.sent}</p>
-                </div>
-                <ChevronRight size={14} style={{ color: C.textDim }} className="transition-transform group-hover:translate-x-0.5" />
-              </Link>
-            );
-          })}
-        </div>
-      )}
-    </section>
-  );
-}
-
 // ─── Main ──────────────────────────────────────────────────────────────────────
 // "Add to existing flow" modal scoped to the /leads bulk-action surface.
 // Fetches active + paused campaigns lazily on open via /api/campaigns
@@ -1836,35 +1675,26 @@ function AddToFlowModalLeads({
 
 export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLeads, renurturingLeads, wonLeads, companies, stats, totalLeadCount }: Props) {
   const { t } = useLocale();
-  // Boss feedback 2026-05-27 (Leads & Campaigns rework):
-  //   - Companies is now a top-level tab (was sub-toggle inside All Leads)
-  //   - Lead sub-tabs are FLAT (no "Results" wrapper): All / Without Campaign
-  //     / Won / Lost / Nurture
-  //   - Campaigns view groups flows by ICP/ticket so the manager scans by
-  //     Lead Miner profile, not by campaign name.
-  const [mainView, setMainView] = useState<"leads" | "companies" | "campaigns">("leads");
+  // Boss feedback 2026-05-27 (Leads rework):
+  //   - Companies is a top-level tab (was sub-toggle inside All Leads).
+  //   - Lead sub-tabs are FLAT (no "Results" wrapper): All / Without
+  //     Campaign / In flow.
+  // Campaigns tab removed 2026-05-28 — campaign management lives at
+  // `/campaigns` (Outreach Flow page) now; the in-page Campaigns view
+  // duplicated that surface and was unused.
+  const [mainView, setMainView] = useState<"leads" | "companies">("leads");
   // Status chips trimmed to the three pipeline-membership states only.
   // Won/Lost/Re-nurture live in /results; Hot/Replied/Positive are
   // facets in the filter bar (Score + Reply), not top-level navigation
   // (boss feedback 2026-05-28 round 2: "saca hot de ahi, ponelo abajo").
   type LeadSubTab = "all" | "without_campaign" | "with_campaign";
   const [leadSubTab, setLeadSubTab] = useState<LeadSubTab>("all");
-  const [search, setSearch] = useState("");
 
   // Leads without an active campaign — derived once. The legacy "All Leads"
   // view already exposes this via the saved-view chip "Without Campaign",
   // but elevating it to a first-class sub-tab matches how the boss thinks
   // about queue work ("who do I still need to schedule?").
   const leadsWithoutCampaign = allLeads.filter(l => !l.has_campaign);
-
-  const activeGroups = profileGroups.filter(g => (g.statusCounts.active ?? 0) + (g.statusCounts.paused ?? 0) > 0);
-
-  const filterGroups = (list: ProfileGroup[]) =>
-    !search ? list : list.filter(g =>
-      g.profileName.toLowerCase().includes(search.toLowerCase()) ||
-      g.campaigns.some(c => c.name.toLowerCase().includes(search.toLowerCase())) ||
-      g.leads.some(l => `${l.first_name} ${l.last_name} ${l.company}`.toLowerCase().includes(search.toLowerCase()))
-    );
 
   // Truncation banner — render only when the loaded set was capped (see
   // app/leads/page.tsx hard 500 limit). Hides itself otherwise.
@@ -1938,22 +1768,21 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
         ))}
       </div>
 
-      {/* ═══ Main view toggle: Leads / Companies / Campaigns ═══
-          Companies graduated from a People/Companies sub-toggle inside Leads
-          to a first-class top-level tab. The boss reads them as parallel
-          surfaces, not as a "view onto leads". */}
+      {/* ═══ Main view toggle: Leads / Companies ═══
+          Campaigns tab removed 2026-05-28 — campaign management lives
+          at `/campaigns` (Outreach Flow page); the in-page Campaigns
+          view duplicated that surface and was redundant. */}
       <div className="flex items-center gap-1.5 mb-5">
         {([
           { key: "leads" as const,     label: t("leadsPage.topTab.leads"),     icon: UsersIcon, count: allLeads.length },
           { key: "companies" as const, label: t("leadsPage.topTab.companies"), icon: Building2, count: companies.length },
-          { key: "campaigns" as const, label: t("leadsPage.topTab.campaigns"), icon: Megaphone, count: activeGroups.length },
         ]).map(v => {
           const isActive = mainView === v.key;
           const Icon = v.icon;
           return (
             <button
               key={v.key}
-              onClick={() => { setMainView(v.key); setSearch(""); }}
+              onClick={() => setMainView(v.key)}
               className="px-5 py-2.5 rounded-xl text-sm font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] duration-150 hover:opacity-95 inline-flex items-center gap-2"
               style={{
                 background: isActive ? `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))` : C.card,
@@ -2047,19 +1876,6 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
         <div>
           <CompaniesGrid companies={companies} />
         </div>
-      )}
-
-      {/* ═══ CAMPAIGNS VIEW — grouped by ICP / Lead Miner ticket ═══
-          Old layout was a 3-column grid of ProfileCard (one card per ICP).
-          The boss wanted the Lead Miner accordion look so each ICP is a
-          collapsible section listing its flows. CampaignsByIcpView wraps
-          that pattern using the data we already pass. */}
-      {mainView === "campaigns" && (
-        <CampaignsByIcpView
-          groups={activeGroups}
-          search={search}
-          onSearchChange={setSearch}
-        />
       )}
     </div>
   );
