@@ -9,7 +9,7 @@ import {
   Search, X, CheckCircle, Star, RefreshCw, Trash2, Square, CheckSquare,
   Phone, MoreHorizontal, Mail, Flame,
   Building2, Users as UsersIcon, MapPin, Globe, MessageCircle, ThumbsUp, Trophy,
-  Plus,
+  Plus, Sparkles, Send,
 } from "lucide-react";
 import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
 import { type OpportunityLead } from "@/components/OpportunitiesTable";
@@ -1127,54 +1127,73 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
         const someAlreadyInFlow = selectedLeadObjs.some(l => l.has_campaign === true);
         const allWithoutFlow = selectedLeadObjs.length > 0 && !someAlreadyInFlow;
         return (
-        <div className="mb-3 rounded-xl border flex items-center justify-between px-4 py-2.5 gap-3 flex-wrap"
-          style={{ backgroundColor: `color-mix(in srgb, ${gold} 9%, ${C.card})`, borderColor: `color-mix(in srgb, ${gold} 35%, ${C.border})` }}>
-          <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>
-            <span style={{ color: gold }}>{selected.size}</span> lead{selected.size === 1 ? "" : "s"} selected
-            {someAlreadyInFlow && (
-              <span className="ml-2 text-[11px] font-medium" style={{ color: C.textMuted }}>
-                · {selectedLeadObjs.filter(l => l.has_campaign).length} already in a flow
-              </span>
-            )}
-          </span>
-          <div className="flex items-center gap-2 flex-wrap">
+        // Floating bulk action bar — dark-gradient pop-up anchored to the
+        // bottom-center of the viewport. Boss feedback 2026-05-28 r9:
+        // wanted the same premium pop-up style the Lead Miner ticket and
+        // Outreach Flow ICP page already use, not an inline strip stuck
+        // between the filters and the table.
+        <div className="fixed left-1/2 -translate-x-1/2 z-50 pointer-events-none" style={{ bottom: 24 }}>
+          <div className="pointer-events-auto rounded-2xl border flex items-center gap-3 px-4 py-3 flex-wrap shadow-2xl"
+            style={{
+              background: "linear-gradient(135deg, #0B0F1A 0%, #111827 60%, #0B0F1A 100%)",
+              borderColor: `color-mix(in srgb, ${gold} 38%, transparent)`,
+              boxShadow: `0 24px 64px -12px rgba(11,15,26,0.6), 0 0 0 1px color-mix(in srgb, ${gold} 26%, transparent), 0 6px 22px -8px color-mix(in srgb, ${gold} 42%, transparent)`,
+              minWidth: 520,
+              maxWidth: "calc(100vw - 48px)",
+            }}>
+            <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#1A1505" }}>
+              <Sparkles size={15} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-bold leading-tight" style={{ color: "#fff", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                {selected.size} {selected.size === 1 ? "lead selected" : "leads selected"}
+              </p>
+              <p className="text-[11px] mt-0.5" style={{ color: "color-mix(in srgb, white 55%, transparent)" }}>
+                {someAlreadyInFlow
+                  ? `${selectedLeadObjs.filter(l => l.has_campaign).length} already in a flow — only status / delete available.`
+                  : "Push them into a new flow or attach to one already running."}
+              </p>
+            </div>
+
             {/* Flow buttons surface only when EVERY selected lead is
-                unassigned. If the user selected a mix, we hide them and
-                show the explanation in the count line above so they
-                understand why. */}
+                unassigned. Mixed selections see the explanation in the
+                subtitle above so they know why these buttons hide. */}
             {allWithoutFlow && (
               <>
                 <button onClick={() => setShowAddToFlow(true)} disabled={deleting}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-[background-color,opacity] hover:bg-black/[0.03] disabled:opacity-50"
-                  style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}>
-                  <Plus size={11} /> Add to existing flow
+                  className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
+                  style={{ background: "rgba(255,255,255,0.08)", color: gold, border: `1px solid color-mix(in srgb, ${gold} 45%, transparent)` }}>
+                  <Megaphone size={13} /> Add to existing flow
                 </button>
                 <button onClick={createNewFlowFromSelection} disabled={deleting}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90 disabled:opacity-50"
-                  style={{ backgroundColor: gold, color: "#1A1A2E" }}>
-                  <Megaphone size={11} /> Create New Flow
+                  className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
+                  style={{
+                    background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 75%, white))`,
+                    color: "#1A1505",
+                    boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent)`,
+                  }}>
+                  <Send size={13} /> Create New Flow
                 </button>
-
-                <div className="h-5 w-px" style={{ backgroundColor: C.border }} />
               </>
             )}
 
-            {/* Status change dropdown — uses native select so it inherits OS
-                styling on each platform; the wrapper styles it like a button. */}
+            {/* Status / delete — secondary, sit on the right edge. Native
+                select inherits OS styling; we just paint it dark to match. */}
             <label className="relative inline-flex items-center">
               <select
                 disabled={deleting}
                 onChange={e => {
                   const v = e.target.value;
-                  e.target.value = ""; // reset so re-picking the same status fires again
+                  e.target.value = "";
                   if (v) void bulkChangeStatus(v);
                 }}
                 defaultValue=""
-                className="appearance-none text-xs font-semibold px-3 py-1.5 pr-7 rounded-lg border cursor-pointer disabled:opacity-50"
+                className="appearance-none text-[12px] font-semibold px-3 py-1.5 pr-7 rounded-lg cursor-pointer disabled:opacity-50"
                 style={{
-                  backgroundColor: C.card,
-                  borderColor: C.border,
-                  color: C.textPrimary,
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.18)",
+                  color: "rgba(255,255,255,0.9)",
                 }}
               >
                 <option value="" disabled>Change status…</option>
@@ -1188,16 +1207,16 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                 <option value="closed_lost">Lost</option>
                 <option value="nurturing">Nurturing</option>
               </select>
-              <ChevronRight size={11} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" style={{ color: C.textMuted }} />
+              <ChevronRight size={11} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" style={{ color: "rgba(255,255,255,0.6)" }} />
             </label>
             <button onClick={() => setSelected(new Set())} disabled={deleting}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg transition-colors hover:bg-black/[0.04] disabled:opacity-50"
-              style={{ color: C.textMuted }}>
+              className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg transition-colors hover:bg-white/[0.06]"
+              style={{ color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.18)" }}>
               Clear
             </button>
             <button onClick={bulkDelete} disabled={deleting}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg transition-[opacity,transform,box-shadow,background-color,border-color] disabled:opacity-50"
-              style={{ backgroundColor: "#DC2626", color: "#fff" }}>
+              className="text-[12px] font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
+              style={{ background: "linear-gradient(135deg, #DC2626, #B91C1C)", color: "#fff", boxShadow: "0 4px 14px rgba(220,38,38,0.35)" }}>
               {deleting ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />}
               {deleting ? "Working…" : `Delete ${selected.size}`}
             </button>
