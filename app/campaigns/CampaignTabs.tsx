@@ -3,18 +3,22 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { C } from "@/lib/design";
-import { Megaphone, PlusCircle, FileText } from "lucide-react";
+import { Megaphone, FileText } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 
-// Map URL ?tab=<slug> to tab index. Keeps deep-links shareable (and lets the
-// Command Palette + the legacy /campaigns/new redirect open the New Flow
-// tab directly without an intermediate landing page).
-const TAB_SLUGS = ["active", "new", "templates"] as const;
+// Map URL ?tab=<slug> to tab index. Keeps deep-links shareable.
+// 2026-05-28 — dropped the "Create New Flow" tab. Flow creation now
+// starts from inside a Lead Miner section (button in the section
+// header) so the seller always picks an ICP first; the standalone
+// "new" tab had no ICP context and led to the wizard with all leads.
+const TAB_SLUGS = ["flows", "templates"] as const;
 type TabSlug = typeof TAB_SLUGS[number];
 
-export default function CampaignTabs({ readyCount, activeCount, children }: {
-  readyCount: number;
+export default function CampaignTabs({ activeCount, children }: {
+  /** Kept on the signature for API parity with older callers, but no
+   *  longer rendered as a tab count after the New Flow tab removal. */
+  readyCount?: number;
   activeCount: number;
   children: React.ReactNode[];
 }) {
@@ -47,17 +51,14 @@ export default function CampaignTabs({ readyCount, activeCount, children }: {
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   }
 
-  // Templates: third tab. Lives here (not in the sidebar) so new users don't
-  // see another nav item to learn — they discover templates naturally when
-  // they're already on /campaigns. See feature note 2026-05-14.
-  // Keep the labels in sync with the page header ("Outreach Flow™"). Naming
-  // drift between the hero ("Outreach Flow") and the tab ("Active Campaigns")
-  // was a recurring papercut — sellers ended up unsure whether a flow and a
-  // campaign were the same thing.
+  // Templates lives in /campaigns (not in the sidebar) so users discover it
+  // naturally when they're already on the page.
+  // Tab labels match the page header ("Outreach Flow™"). Naming drift
+  // between the hero and the tabs was a recurring papercut — sellers ended
+  // up unsure whether a flow and a campaign were the same thing.
   const tabs = [
-    { label: "Active Flows", icon: Megaphone, count: activeCount, color: gold },
-    { label: "Create New Flow", icon: PlusCircle, count: readyCount, color: C.blue },
-    { label: "Templates", icon: FileText, count: 0, color: "#7C3AED" },
+    { label: "Flows",     icon: Megaphone, count: activeCount, color: gold },
+    { label: "Templates", icon: FileText,  count: 0,           color: "#7C3AED" },
   ];
 
   return (

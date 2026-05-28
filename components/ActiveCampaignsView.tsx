@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { C } from "@/lib/design";
+import { C, N } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
-import { Share2, Mail, Phone, BarChart3, Clock, Target, ChevronDown, Users, ChevronRight, TrendingDown, ListOrdered } from "lucide-react";
+import { Share2, Mail, Phone, BarChart3, Clock, Target, ChevronDown, Users, ChevronRight, TrendingDown, ListOrdered, Plus, UserPlus } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -405,6 +405,22 @@ function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
                 <Clock size={11} /> {ago}
               </span>
             )}
+            {/* Add leads to this flow — links to the campaign detail's
+                Add Leads tab, which already filters to same-ICP leads
+                per the one-ICP-per-campaign law. e.stopPropagation()
+                keeps the click off the parent <Link>. */}
+            <Link
+              href={`/campaigns/${group.firstId}?tab=add-leads`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10.5px] font-semibold transition-opacity hover:opacity-85"
+              style={{
+                color: gold,
+                backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`,
+                border: `1px solid color-mix(in srgb, ${gold} 28%, transparent)`,
+              }}
+            >
+              <UserPlus size={10} /> {t("flows.addLeads")}
+            </Link>
           </div>
         </div>
 
@@ -609,74 +625,124 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
     <section className="rounded-2xl border overflow-hidden"
       style={{
         backgroundColor: C.card,
-        borderColor: C.border,
-        boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
+        borderColor: `color-mix(in srgb, ${gold} 24%, ${C.border})`,
+        boxShadow: "0 4px 18px rgba(0,0,0,0.07)",
       }}>
-      <button type="button" onClick={toggle} aria-expanded={open}
-        className="w-full flex items-center gap-4 px-6 py-4 text-left transition-colors hover:bg-black/[0.02]"
-        style={{ borderBottom: open ? `1px solid ${C.border}` : "none" }}>
-        {/* Decorative icon disc + ICP info */}
-        <div className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+      {/* Lead Miner section header — dark navy + gold text so the ICP
+          identity is unmistakable and visually distinct from the white
+          flow rows underneath. Boss feedback 2026-05-28: "se tiene que
+          distinguir bien, capaz la parte de lead miner la podes poner
+          negra con las letras de oro no?" — yes. */}
+      <div
+        className="relative flex items-center gap-4 px-6 py-4"
+        style={{
+          background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
+          borderBottom: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
+        }}
+      >
+        {/* Hairline gold accent on the top edge — editorial detail */}
+        <span aria-hidden className="absolute inset-x-0 top-0 h-px pointer-events-none"
+          style={{ background: `linear-gradient(90deg, transparent 0%, color-mix(in srgb, ${gold} 50%, transparent) 30%, color-mix(in srgb, ${gold} 50%, transparent) 70%, transparent 100%)` }} />
+
+        {/* Click target for collapsing — covers everything except the
+            Create-flow button on the right (which has its own action). */}
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded={open}
+          className="absolute inset-0 cursor-pointer"
+          aria-label={`Toggle ${section.name}`}
+        />
+
+        {/* Icon disc */}
+        <div className="relative w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
           style={{
             background: `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 70%, white) 100%)`,
-            boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 30%, transparent)`,
+            boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 32%, transparent)`,
           }}>
-          <Target size={18} style={{ color: "#fff" }} strokeWidth={2.2} />
+          <Target size={18} style={{ color: N.ink }} strokeWidth={2.4} />
         </div>
-        <div className="min-w-0 flex-1">
+
+        <div className="relative min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-0.5">
-            <p className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: gold, letterSpacing: "0.14em" }}>{t("flows.preTitle")}</p>
+            <p className="text-[9.5px] font-bold uppercase tracking-[0.22em]" style={{ color: gold }}>{t("flows.preTitle")}</p>
             <span className="text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-md"
-              style={{ backgroundColor: C.surface, color: C.textMuted }}>
+              style={{
+                backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`,
+                color: gold,
+                border: `1px solid color-mix(in srgb, ${gold} 28%, transparent)`,
+              }}>
               {section.groups.length} {section.groups.length === 1 ? t("flows.flows.single") : t("flows.flows.plural")}
             </span>
           </div>
-          <h2 className="text-[17px] font-bold leading-tight truncate"
-            style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
+          <h2 className="text-[18px] font-bold leading-tight truncate"
+            style={{
+              color: "white",
+              fontFamily: "var(--font-outfit), system-ui, sans-serif",
+              letterSpacing: "-0.015em",
+              textShadow: `0 1px 12px color-mix(in srgb, ${gold} 18%, transparent)`,
+            }}>
             {section.name}
           </h2>
           {section.description && (
-            <p className="text-[11px] truncate mt-0.5" style={{ color: C.textMuted }}>{section.description}</p>
+            <p className="text-[11px] truncate mt-0.5" style={{ color: "color-mix(in srgb, white 55%, transparent)" }}>{section.description}</p>
           )}
         </div>
 
-        {/* Rolled-up metrics — shown in the header so the manager can scan
-            ICP performance without expanding every section. */}
-        <div className="hidden md:flex items-center gap-5 shrink-0 mr-3">
+        {/* Rolled-up metrics — on the dark surface, white numbers with
+            gold/blue/green accents on the non-zero values. */}
+        <div className="relative hidden md:flex items-center gap-5 shrink-0 mr-3">
           <div className="text-right">
-            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>{t("flows.metric.leads")}</p>
-            <p className="text-base font-bold tabular-nums leading-none mt-0.5" style={{ color: C.textPrimary }}>
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: "color-mix(in srgb, white 50%, transparent)" }}>{t("flows.metric.leads")}</p>
+            <p className="text-base font-bold tabular-nums leading-none mt-0.5" style={{ color: "white" }}>
               {section.totalLeads}
               {section.totalActive > 0 && (
-                <span className="ml-1 text-[10px]" style={{ color: C.green }}>({t("flows.activeCount").replace("{n}", String(section.totalActive))})</span>
+                <span className="ml-1 text-[10px]" style={{ color: "#34D399" }}>({t("flows.activeCount").replace("{n}", String(section.totalActive))})</span>
               )}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>{t("flows.metric.replies")}</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: "color-mix(in srgb, white 50%, transparent)" }}>{t("flows.metric.replies")}</p>
             <p className="text-base font-bold tabular-nums leading-none mt-0.5"
-              style={{ color: section.totalReplies > 0 ? C.blue : C.textPrimary }}>
+              style={{ color: section.totalReplies > 0 ? "#5B9CFF" : "white" }}>
               {section.totalReplies}
-              <span className="ml-1 text-[10px]" style={{ color: C.textDim }}>({responseRate}%)</span>
+              <span className="ml-1 text-[10px]" style={{ color: "color-mix(in srgb, white 45%, transparent)" }}>({responseRate}%)</span>
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>{t("flows.metric.positive")}</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: "color-mix(in srgb, white 50%, transparent)" }}>{t("flows.metric.positive")}</p>
             <p className="text-base font-bold tabular-nums leading-none mt-0.5"
-              style={{ color: section.totalPositive > 0 ? C.green : C.textPrimary }}>
+              style={{ color: section.totalPositive > 0 ? "#34D399" : "white" }}>
               {section.totalPositive}
             </p>
           </div>
         </div>
 
+        {/* Create new outreach flow CTA — only meaningful when the section
+            has an ICP id; "Uncategorized" leads can't seed a new flow. */}
+        {section.id && (
+          <Link
+            href={`/campaigns/new/${section.id}/pick`}
+            onClick={(e) => e.stopPropagation()}
+            className="relative inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11.5px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90 mr-2"
+            style={{
+              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
+              color: N.ink,
+              boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 34%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 50%, white)`,
+            }}
+          >
+            <Plus size={12} strokeWidth={2.6} /> {t("flows.createNew")}
+          </Link>
+        )}
+
         <ChevronDown size={18}
-          className="shrink-0 transition-transform duration-200"
+          className="relative shrink-0 transition-transform duration-200 pointer-events-none"
           style={{
-            color: C.textMuted,
+            color: "color-mix(in srgb, white 60%, transparent)",
             transform: open ? "rotate(0deg)" : "rotate(-90deg)",
             opacity: hydrated ? 1 : 0,
           }} />
-      </button>
+      </div>
 
       {open && (
         <div className="p-5 space-y-3"

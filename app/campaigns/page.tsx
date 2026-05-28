@@ -6,7 +6,9 @@ import PageHero from "@/components/PageHero";
 import CampaignTabs from "./CampaignTabs";
 import TemplatesView from "./TemplatesView";
 import ActiveCampaignsView from "@/components/ActiveCampaignsView";
-import NewCampaignView from "@/components/NewCampaignView";
+// NewCampaignView import removed 2026-05-28 — Create New Flow tab dropped.
+// Flow creation now starts from a Lead Miner section header → lead picker
+// at /campaigns/new/[profileId]/pick.
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
 export const dynamic = "force-dynamic";
@@ -272,32 +274,20 @@ export default async function CampaignsPage() {
         ))}
       </div>
 
-      {/* Tabs */}
+      {/* Tabs — Flows / Templates. Create New Flow tab removed 2026-05-28
+          (boss feedback): flow creation now starts from inside a Lead Miner
+          section header so the seller always picks an ICP first; the
+          standalone tab led to the wizard with no ICP context. */}
       <CampaignTabs
-        readyCount={totalUncampaigned}
         activeCount={campaigns.filter((c: any) => c.status === "active" || c.status === "paused").length}
       >
-        {/* ═══ TAB 0: ACTIVE FLOWS (grouped by ICP) ═══ */}
+        {/* ═══ TAB 0: FLOWS (grouped by ICP) ═══ */}
         <ActiveCampaignsView
           campaigns={JSON.parse(JSON.stringify(campaigns.filter((c: any) => c.status === "active" || c.status === "paused")))}
           icpMap={JSON.parse(JSON.stringify(icpMap))}
         />
 
-        {/* ═══ TAB 1: NEW CAMPAIGN ═══ */}
-        <NewCampaignView
-          groups={Object.entries(uncampaignedGroups).map(([key, group]) => {
-            const profile = group.profile_id ? icpMap[group.profile_id] : null;
-            return {
-              profileId: group.profile_id,
-              profileName: profile?.profile_name ?? null,
-              profileDetail: profile ? [...(profile.target_industries ?? []), ...(profile.target_roles ?? [])].slice(0, 4).join(", ") : null,
-              leads: group.leads,
-            };
-          })}
-          totalUncampaigned={totalUncampaigned}
-        />
-
-        {/* ═══ TAB 2: TEMPLATES ═══ */}
+        {/* ═══ TAB 1: TEMPLATES ═══ */}
         <TemplatesView />
       </CampaignTabs>
     </div>

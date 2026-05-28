@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { C } from "@/lib/design";
 import Link from "next/link";
 import {
@@ -64,7 +64,22 @@ export default function CampaignDetailClient({
   messageTemplates: { channel: string; body: string; subject?: string }[];
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState(0);
+  const sp = useSearchParams();
+  // Deep-link to a specific tab via ?tab=<slug>. Used by the flow card's
+  // "Add leads to this flow" CTA (slug: add-leads) on the /campaigns page.
+  const initialTab = (() => {
+    const slug = sp.get("tab");
+    if (slug === "calls") return 2;
+    if (slug === "add-leads") return 3;
+    return 0;
+  })();
+  const [tab, setTab] = useState(initialTab);
+  useEffect(() => {
+    const slug = sp.get("tab");
+    const idx = slug === "calls" ? 2 : slug === "add-leads" ? 3 : null;
+    if (idx !== null && idx !== tab) setTab(idx);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sp]);
   const [acting, setActing] = useState<string | null>(null);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [expandedStep, setExpandedStep] = useState<number | null>(null);
