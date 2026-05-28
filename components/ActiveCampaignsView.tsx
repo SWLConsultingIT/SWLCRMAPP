@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
-import { Share2, Mail, Phone, BarChart3, Clock, Target, ChevronDown, Users, ChevronRight } from "lucide-react";
+import { Share2, Mail, Phone, BarChart3, Clock, Target, ChevronDown, Users, ChevronRight, TrendingDown, ListOrdered } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -412,15 +412,39 @@ function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
             2026-05-28: the seller has to read the whole flow head-to-toe.
             Left = funnel drop-off (where the cohort is dying); right =
             per-step status (what's firing right now in the sequence,
-            broken down by channel). Stacks on mobile. */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            broken down by channel). Stacks on mobile.
+            Each sub-card gets a left-edge accent rail + headed eyebrow
+            with icon + slight shadow so they're visually distinct from
+            each other (boss follow-up: "parece todo en uno"). */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* ── Funnel ─────────────────────────────────────────── */}
-          <div className="rounded-xl border p-4"
-            style={{ borderColor: C.border, backgroundColor: C.bg }}>
-            <p className="text-[9px] font-bold uppercase tracking-[0.14em] mb-3" style={{ color: C.textDim }}>
-              {t("flows.section.funnel")}
-            </p>
-            <div className="space-y-2">
+          <div
+            className="rounded-xl overflow-hidden"
+            style={{
+              border: `1px solid color-mix(in srgb, ${gold} 22%, ${C.border})`,
+              backgroundColor: C.card,
+              borderLeft: `3px solid ${gold}`,
+              boxShadow: `0 1px 3px rgba(0,0,0,0.04)`,
+            }}
+          >
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b"
+              style={{
+                borderColor: C.border,
+                backgroundColor: `color-mix(in srgb, ${gold} 5%, ${C.bg})`,
+              }}>
+              <span className="inline-flex items-center justify-center rounded-md shrink-0"
+                style={{
+                  width: 20, height: 20,
+                  backgroundColor: `color-mix(in srgb, ${gold} 18%, transparent)`,
+                  color: gold,
+                }}>
+                <TrendingDown size={11} />
+              </span>
+              <p className="text-[10.5px] font-bold uppercase tracking-[0.14em]" style={{ color: gold }}>
+                {t("flows.section.funnel")}
+              </p>
+            </div>
+            <div className="px-4 py-3 space-y-2">
               {group.funnel.map((stage) => (
                 <div key={stage.key} className="flex items-center gap-2.5">
                   <span className="text-[10.5px] font-semibold w-[88px] shrink-0 truncate" style={{ color: C.textBody }}>
@@ -451,17 +475,38 @@ function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
           </div>
 
           {/* ── Sequence steps ─────────────────────────────────── */}
-          <div className="rounded-xl border p-4"
-            style={{ borderColor: C.border, backgroundColor: C.bg }}>
-            <p className="text-[9px] font-bold uppercase tracking-[0.14em] mb-3" style={{ color: C.textDim }}>
-              {t("flows.section.sequence")}
-            </p>
+          <div
+            className="rounded-xl overflow-hidden"
+            style={{
+              border: `1px solid color-mix(in srgb, ${C.blue} 22%, ${C.border})`,
+              backgroundColor: C.card,
+              borderLeft: `3px solid ${C.blue}`,
+              boxShadow: `0 1px 3px rgba(0,0,0,0.04)`,
+            }}
+          >
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b"
+              style={{
+                borderColor: C.border,
+                backgroundColor: `color-mix(in srgb, ${C.blue} 5%, ${C.bg})`,
+              }}>
+              <span className="inline-flex items-center justify-center rounded-md shrink-0"
+                style={{
+                  width: 20, height: 20,
+                  backgroundColor: `color-mix(in srgb, ${C.blue} 18%, transparent)`,
+                  color: C.blue,
+                }}>
+                <ListOrdered size={11} />
+              </span>
+              <p className="text-[10.5px] font-bold uppercase tracking-[0.14em]" style={{ color: C.blue }}>
+                {t("flows.section.sequence")}
+              </p>
+            </div>
             {group.steps.length === 0 ? (
-              <p className="text-[11px] py-2" style={{ color: C.textDim }}>
+              <p className="text-[11px] px-4 py-4" style={{ color: C.textDim }}>
                 {t("flows.section.noSequence")}
               </p>
             ) : (
-              <div className="space-y-2">
+              <div className="px-4 py-3 space-y-2">
                 {group.steps.map((s) => {
                   const meta = channelMeta[s.channel] ?? channelMeta.email;
                   const Icon = meta.icon;
