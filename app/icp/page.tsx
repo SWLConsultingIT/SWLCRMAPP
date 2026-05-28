@@ -653,55 +653,6 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
                   })}
                 </div>
 
-                {/* Bulk action bar — only on Unassigned tab when ≥1 lead is
-                    selected. Two CTAs: Create New Flow / Add to Existing. */}
-                {leadsTab === "unassigned" && selectedIds.size > 0 && (
-                  <div className="border-t px-5 py-3 flex items-center gap-3 flex-wrap"
-                    style={{
-                      borderColor: `color-mix(in srgb, ${gold} 26%, ${C.border})`,
-                      background: `linear-gradient(90deg, color-mix(in srgb, ${gold} 12%, ${C.card}) 0%, color-mix(in srgb, ${gold} 4%, ${C.card}) 80%)`,
-                    }}>
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
-                        style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#1A1505" }}>
-                        <Sparkles size={13} />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-[12.5px] font-semibold leading-tight" style={{ color: C.textPrimary }}>
-                          {selectedIds.size} {selectedIds.size === 1 ? "lead selected" : "leads selected"}
-                        </p>
-                        <p className="text-[10.5px] mt-0.5" style={{ color: C.textMuted }}>
-                          Push them into a new flow or attach to one of your active flows.
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={clearSelection}
-                      className="text-[11px] font-medium px-2 py-1 rounded-md transition-colors hover:bg-black/[0.04]"
-                      style={{ color: C.textMuted, border: `1px solid ${C.border}` }}>
-                      Clear
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddModal(true)}
-                      className="text-[12px] font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-colors"
-                      style={{ background: C.card, color: gold, border: `1px solid color-mix(in srgb, ${gold} 45%, transparent)` }}>
-                      <Megaphone size={12} /> Add to existing flow
-                    </button>
-                    <button
-                      type="button"
-                      onClick={createNewFlowWithSelection}
-                      className="text-[12px] font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90"
-                      style={{
-                        background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 75%, white))`,
-                        color: "#1A1505",
-                        boxShadow: `0 4px 12px color-mix(in srgb, ${gold} 30%, transparent)`,
-                      }}>
-                      <Send size={12} /> Create new flow
-                    </button>
-                  </div>
-                )}
               </>
             );
           })()}
@@ -727,6 +678,61 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
           </div>
         )}
       </div>
+
+      {/* Floating bulk action bar — Outreach-Flow style. Anchored to the
+          viewport bottom-center when any unassigned lead is selected so
+          it's impossible to miss + always reachable while scrolling. */}
+      {leadsTab === "unassigned" && selectedIds.size > 0 && (
+        <div className="fixed left-1/2 -translate-x-1/2 z-50 pointer-events-none"
+          style={{ bottom: 24 }}>
+          <div className="pointer-events-auto rounded-2xl border flex items-center gap-3 px-4 py-3 flex-wrap shadow-2xl"
+            style={{
+              background: "linear-gradient(135deg, #0B0F1A 0%, #111827 60%, #0B0F1A 100%)",
+              borderColor: `color-mix(in srgb, ${gold} 38%, transparent)`,
+              boxShadow: `0 24px 64px -12px rgba(11,15,26,0.6), 0 0 0 1px color-mix(in srgb, ${gold} 26%, transparent), 0 6px 22px -8px color-mix(in srgb, ${gold} 42%, transparent)`,
+              minWidth: 480,
+              maxWidth: "calc(100vw - 48px)",
+            }}>
+            <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#1A1505" }}>
+              <Sparkles size={15} />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[13px] font-bold leading-tight" style={{ color: "#fff", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                {selectedIds.size} {selectedIds.size === 1 ? "lead selected" : "leads selected"}
+              </p>
+              <p className="text-[11px] mt-0.5" style={{ color: "color-mix(in srgb, white 55%, transparent)" }}>
+                Push them into a new flow or attach to one already running.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg transition-colors hover:bg-white/[0.06]"
+              style={{ color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.18)" }}>
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAddModal(true)}
+              className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90"
+              style={{ background: "rgba(255,255,255,0.08)", color: gold, border: `1px solid color-mix(in srgb, ${gold} 45%, transparent)` }}>
+              <Megaphone size={13} /> Add to existing flow
+            </button>
+            <button
+              type="button"
+              onClick={createNewFlowWithSelection}
+              className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90"
+              style={{
+                background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 75%, white))`,
+                color: "#1A1505",
+                boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent)`,
+              }}>
+              <Send size={13} /> Create new flow
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Add-to-existing-flow modal — opens from the bulk action bar */}
       {showAddModal && (
