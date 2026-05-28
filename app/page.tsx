@@ -543,10 +543,15 @@ export default async function DashboardPage({
       </Suspense>
 
       {/* ─── Filter bar — sits below tabs because filters scope the active
-          tab's content. Suspense boundary required for useSearchParams. */}
-      <Suspense fallback={<div className="h-10" />}>
-        <FiltersBar />
-      </Suspense>
+          tab's content. Suspense boundary required for useSearchParams.
+          Hidden on Today (boss 2026-05-28): the Today card is the
+          "what's on my plate right now" landing surface; a date window
+          would just hide work the seller still has to do. */}
+      {filters.tab !== "today" && (
+        <Suspense fallback={<div className="h-10" />}>
+          <FiltersBar />
+        </Suspense>
+      )}
 
       {/* ═══ CHAPTER 1 · TODAY ═══════════════════════════════════════════
           Boss feedback 2026-05-28: "What to do today" should be the landing
