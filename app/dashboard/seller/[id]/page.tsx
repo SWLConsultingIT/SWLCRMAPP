@@ -589,60 +589,9 @@ export default async function SellerDetailPage({
           gold accent left border, channel pill, lead name + company,
           quote treatment for the body. Hidden when there's nothing to
           showcase yet. */}
-      {d.topWins.length > 0 && (
-        <section
-          className="rounded-2xl border overflow-hidden"
-          style={{ borderColor: C.border, backgroundColor: C.card, boxShadow: "0 4px 18px rgba(0,0,0,0.04)" }}
-        >
-          <div className="px-5 py-3 border-b flex items-center gap-3" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${C.green} 5%, ${C.bg})` }}>
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-              style={{
-                background: `linear-gradient(135deg, ${C.green}, color-mix(in srgb, ${C.green} 70%, white))`,
-                boxShadow: `0 3px 12px color-mix(in srgb, ${C.green} 30%, transparent)`,
-              }}>
-              <Quote size={14} style={{ color: "#fff" }} strokeWidth={2.2} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.green, letterSpacing: "0.14em" }}>
-                {locale === "es" ? "Reel de wins" : "Wins reel"}
-              </p>
-              <p className="text-[14px] font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-                {locale === "es"
-                  ? `Lo que le contestan a ${d.seller.name.split(" ")[0]}`
-                  : `What people say back to ${d.seller.name.split(" ")[0]}`}
-              </p>
-            </div>
-            <span className="text-xs font-bold tabular-nums px-2.5 py-1 rounded-full"
-              style={{ backgroundColor: `color-mix(in srgb, ${C.green} 14%, transparent)`, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 32%, transparent)` }}>
-              {d.topWins.length}
-            </span>
-          </div>
-          <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
-            {d.topWins.slice(0, 4).map(w => {
-              const chMeta = channelMeta[w.channel] ?? channelMeta.linkedin;
-              const ChIcon = chMeta.Icon;
-              return (
-                <Link key={`${w.leadId}-${w.receivedAt}`} href={`/leads/${w.leadId}`}
-                  className="rounded-xl border p-4 transition-[transform,box-shadow,border-color] hover:-translate-y-0.5 hover:shadow-md group block"
-                  style={{ borderLeft: `3px solid ${C.green}`, borderColor: C.border, backgroundColor: C.bg }}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[13px] font-bold group-hover:underline" style={{ color: C.textPrimary }}>{w.leadName}</span>
-                    {w.company && <span className="text-[11px]" style={{ color: C.textMuted }}>· {w.company}</span>}
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded ml-auto"
-                      style={{ backgroundColor: `color-mix(in srgb, ${chMeta.color} 12%, transparent)`, color: chMeta.color }}>
-                      <ChIcon size={9} />
-                      {t(`dashx.ch.${w.channel}`) || w.channel}
-                    </span>
-                  </div>
-                  <p className="text-[13px] leading-relaxed line-clamp-2" style={{ color: C.textBody }}>
-                    &ldquo;{w.replyText}&rdquo;
-                  </p>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      )}
+      {/* Wins reel removed 2026-05-28 per user request — the KPI cards
+          above already carry the outcome signal; reading reply quotes
+          belongs in /inbox, not on the manager-facing seller detail. */}
 
       {/* ═══ PIPELINE CARDS — 3 actionable surfaces ═══ */}
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
