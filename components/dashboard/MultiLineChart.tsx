@@ -23,7 +23,7 @@ type Series = { name: string; color: string; data: number[] };
 export default function MultiLineChart({
   series,
   priorSeries,
-  height = 220,
+  height = 180,
   todayLabel = "Today",
   recentLabel = "d",
   priorLabel = "Prior period",
@@ -181,11 +181,14 @@ export default function MultiLineChart({
               backdropFilter: "blur(8px)",
               WebkitBackdropFilter: "blur(8px)",
               boxShadow: "0 6px 20px rgba(0,0,0,0.1)",
-              minWidth: 150,
+              minWidth: 180,
             }}
           >
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-0.5" style={{ color: C.textDim }}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-0.5 inline-flex items-center gap-1.5" style={{ color: C.textDim }}>
               {hoverIdx === n - 1 ? todayLabel : fmtDate(dateAtIdx(hoverIdx, n))}
+              <span className="text-[9px] font-medium opacity-70">
+                · {dateAtIdx(hoverIdx, n).toLocaleDateString(dateLocStr, { weekday: "short" })}
+              </span>
             </p>
             <p className="text-[9px] mb-1.5" style={{ color: C.textDim }}>
               {hoverIdx === n - 1 ? "" : `${n - 1 - hoverIdx}${recentLabel} ago`}
@@ -194,18 +197,47 @@ export default function MultiLineChart({
               {visible.map((s) => {
                 const v = s.data[hoverIdx] ?? 0;
                 const pv = priorVisible.find(p => p.name === s.name)?.data[hoverIdx];
+                // % delta vs prior period for this exact day-of-period.
+                const deltaPct = pv != null && pv > 0 ? Math.round(((v - pv) / pv) * 100) : null;
                 return (
                   <li key={s.name} className="flex items-center gap-2" style={{ opacity: isShown(s.name) ? 1 : 0.4 }}>
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
                     <span className="flex-1 truncate" style={{ color: C.textBody }}>{s.name}</span>
                     <span className="font-bold tabular-nums" style={{ color: s.color }}>{v}</span>
+                    {deltaPct !== null && (
+                      <span className="text-[9px] tabular-nums font-semibold"
+                        style={{ color: deltaPct > 0 ? "#059669" : deltaPct < 0 ? "#DC2626" : C.textDim }}>
+                        {deltaPct > 0 ? "+" : ""}{deltaPct}%
+                      </span>
+                    )}
                     {pv !== undefined && (
-                      <span className="text-[9.5px] tabular-nums" style={{ color: C.textDim }}>· prior {pv}</span>
+                      <span className="text-[9px] tabular-nums" style={{ color: C.textDim }}>· {pv}</span>
                     )}
                   </li>
                 );
               })}
             </ul>
+            {/* Footer — day's reply rate if both Sent and Replies are
+                shown. Quick "this day's batch performance" without doing
+                mental math (boss feedback 2026-05-28: hover needs more data). */}
+            {(() => {
+              const sentS = visible.find(s => s.data && /sent|envia/i.test(s.name));
+              const replS = visible.find(s => s.data && /repl|resp/i.test(s.name));
+              if (!sentS || !replS) return null;
+              const sentV = sentS.data[hoverIdx] ?? 0;
+              const replV = replS.data[hoverIdx] ?? 0;
+              if (sentV === 0) return null;
+              const pct = Math.round((replV / sentV) * 100);
+              return (
+                <div className="mt-2 pt-1.5 border-t flex items-center justify-between"
+                  style={{ borderColor: C.border }}>
+                  <span className="text-[9px] uppercase tracking-wider" style={{ color: C.textDim }}>Day reply rate</span>
+                  <span className="text-[11px] font-bold tabular-nums" style={{ color: pct >= 10 ? "#059669" : C.textBody }}>
+                    {pct}%
+                  </span>
+                </div>
+              );
+            })()}
           </div>
         )}
         {/* Reset zoom pill — top right, only when zoomed */}
