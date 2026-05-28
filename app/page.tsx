@@ -30,6 +30,7 @@ import SwlSignature from "@/components/dashboard/SwlSignature";
 import KpiCard from "@/components/dashboard/KpiCard";
 import Funnel from "@/components/dashboard/Funnel";
 import MultiLineChart from "@/components/dashboard/MultiLineChart";
+import ActivityStrip from "@/components/dashboard/ActivityStrip";
 import Donut from "@/components/dashboard/Donut";
 import Heatmap from "@/components/dashboard/Heatmap";
 import IcpChannelMatrix from "@/components/dashboard/IcpChannelMatrix";
@@ -780,23 +781,23 @@ export default async function DashboardPage({
               const dir = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
               return t(`dashx.trend.insight.${dir}`, { pct: Math.abs(delta) });
             })()}>
-            <MultiLineChart
+            <ActivityStrip
               locale={locale}
-              todayLabel={t("dashx.trend.today")}
-              recentLabel={t("dashx.trend.daysAgo")}
-              priorLabel={t("dashx.trend.priorPeriod")}
-              resetLabel={t("dashx.trend.resetZoom")}
-              totalLabel={t("dashx.trend.total")}
-              series={[
-                { name: t("dashx.trend.sent"),      color: C.seriesSent,     data: trend30d.sent },
-                { name: t("dashx.trend.replies"),   color: C.seriesReplies,  data: trend30d.replies },
-                { name: t("dashx.trend.positives"), color: C.seriesPositive, data: trend30d.positive },
-              ]}
-              priorSeries={[
-                { name: t("dashx.trend.sent"),      color: C.seriesSent,     data: data.trendPrior.sent },
-                { name: t("dashx.trend.replies"),   color: C.seriesReplies,  data: data.trendPrior.replies },
-                { name: t("dashx.trend.positives"), color: C.seriesPositive, data: data.trendPrior.positive },
-              ]}
+              current={{ sent: trend30d.sent, replies: trend30d.replies, positive: trend30d.positive }}
+              prior={{ sent: data.trendPrior.sent, replies: data.trendPrior.replies, positive: data.trendPrior.positive }}
+              labels={{
+                sent: t("dashx.trend.sent"),
+                replies: t("dashx.trend.replies"),
+                positives: t("dashx.trend.positives"),
+                vsPrior: t("dashx.kpi.vsPrior"),
+                noPrior: t("dashx.kpi.noPrior"),
+                windowLabel: t("dashx.activity.window"),
+              }}
+              hrefs={{
+                sent: withFilters("/?tab=campaigns", filters),
+                replies: "/inbox",
+                positives: "/opportunities",
+              }}
             />
           </Panel>
         </div>
