@@ -612,8 +612,24 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
             </div>
           </div>
 
-          {/* ═══ TAB 1: CONTACTS ═══ */}
-          <ContactCards contacts={allContacts as any} />
+          {/* ═══ TAB 1: CONTACTS ═══
+              Build a per-lead map of the most actionable campaign
+              (active > paused > any) so each contact card can name the
+              actual flow it sits in, link to it, and colour-code the
+              pill by status. */}
+          {(() => {
+            const byLead: Record<string, { id: string; name: string; channel: string | null; status: string | null }> = {};
+            for (const c of (allCampaigns ?? []) as any[]) {
+              if (!c.lead_id || !c.id) continue;
+              const existing = byLead[c.lead_id];
+              // Priority: active > paused > anything else
+              const rank = (s: string | null) => s === "active" ? 0 : s === "paused" ? 1 : 2;
+              if (!existing || rank(c.status) < rank(existing.status)) {
+                byLead[c.lead_id] = { id: c.id, name: c.name, channel: c.channel, status: c.status };
+              }
+            }
+            return <ContactCards contacts={allContacts as any} campaignByLead={byLead} />;
+          })()}
 
           {/* ═══ TAB 2: ACTIVITY ═══ */}
           <ActivityTimeline activities={activityItems as any} notes={teamNotes} />
