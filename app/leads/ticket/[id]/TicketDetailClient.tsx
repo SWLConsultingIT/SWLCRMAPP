@@ -799,8 +799,8 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
           <div className="flex items-center gap-1 mb-4 p-1 rounded-lg border max-w-fit"
             style={{ backgroundColor: C.card, borderColor: C.border }}>
             {([
-              { key: "unassigned" as const,    label: "Unassigned",    count: unassignedLeads.length,   color: "#92400E" },
-              { key: "with_campaign" as const, label: "With Campaign", count: withCampaignLeads.length, color: C.green },
+              { key: "unassigned" as const,    label: "Unassigned",    count: unassignedLeads.length,   color: gold },
+              { key: "with_campaign" as const, label: "With Campaign", count: withCampaignLeads.length, color: C.blue },
             ]).map(opt => {
               const isActive = leadsSub === opt.key;
               return (

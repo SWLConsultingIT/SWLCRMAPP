@@ -1128,29 +1128,48 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
         industryOptions={industryOptions}
       />
 
-      {selected.size > 0 && (
+      {selected.size > 0 && (() => {
+        // Flow actions only make sense for leads that are NOT already in a
+        // flow — adding a lead to a second flow at the same time would
+        // double-send and creates an awkward "which campaign did this
+        // reply come from" mess. Boss feedback 2026-05-28: "los leads
+        // que tienen campaign no pueden tener el botón create flow y
+        // add to existing".
+        const selectedLeadObjs = leads.filter(l => selected.has(l.id));
+        const someAlreadyInFlow = selectedLeadObjs.some(l => l.has_campaign === true);
+        const allWithoutFlow = selectedLeadObjs.length > 0 && !someAlreadyInFlow;
+        return (
         <div className="mb-3 rounded-xl border flex items-center justify-between px-4 py-2.5 gap-3 flex-wrap"
           style={{ backgroundColor: `color-mix(in srgb, ${gold} 9%, ${C.card})`, borderColor: `color-mix(in srgb, ${gold} 35%, ${C.border})` }}>
           <span className="text-xs font-semibold" style={{ color: C.textPrimary }}>
             <span style={{ color: gold }}>{selected.size}</span> lead{selected.size === 1 ? "" : "s"} selected
+            {someAlreadyInFlow && (
+              <span className="ml-2 text-[11px] font-medium" style={{ color: C.textMuted }}>
+                · {selectedLeadObjs.filter(l => l.has_campaign).length} already in a flow
+              </span>
+            )}
           </span>
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Primary bulk actions — turn the selection into a flow.
-                Boss feedback 2026-05-28: "al seleccionar los leads tenemos
-                que tener dos botones, add to existing campaign o create
-                new flow". */}
-            <button onClick={() => setShowAddToFlow(true)} disabled={deleting}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-[background-color,opacity] hover:bg-black/[0.03] disabled:opacity-50"
-              style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}>
-              <Plus size={11} /> Add to existing flow
-            </button>
-            <button onClick={createNewFlowFromSelection} disabled={deleting}
-              className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90 disabled:opacity-50"
-              style={{ backgroundColor: gold, color: "#1A1A2E" }}>
-              <Megaphone size={11} /> Create new flow
-            </button>
+            {/* Flow buttons surface only when EVERY selected lead is
+                unassigned. If the user selected a mix, we hide them and
+                show the explanation in the count line above so they
+                understand why. */}
+            {allWithoutFlow && (
+              <>
+                <button onClick={() => setShowAddToFlow(true)} disabled={deleting}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-[background-color,opacity] hover:bg-black/[0.03] disabled:opacity-50"
+                  style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}>
+                  <Plus size={11} /> Add to existing flow
+                </button>
+                <button onClick={createNewFlowFromSelection} disabled={deleting}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90 disabled:opacity-50"
+                  style={{ backgroundColor: gold, color: "#1A1A2E" }}>
+                  <Megaphone size={11} /> Create new flow
+                </button>
 
-            <div className="h-5 w-px" style={{ backgroundColor: C.border }} />
+                <div className="h-5 w-px" style={{ backgroundColor: C.border }} />
+              </>
+            )}
 
             {/* Status change dropdown — uses native select so it inherits OS
                 styling on each platform; the wrapper styles it like a button. */}
@@ -1196,7 +1215,8 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
             </button>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {showAddToFlow && (
         <AddToFlowModalLeads
