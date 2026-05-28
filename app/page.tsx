@@ -19,7 +19,6 @@ import { getDashboardData } from "@/lib/dashboard-data";
 import { getT, getServerLocale } from "@/lib/i18n-server";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
 import FiltersBar from "@/components/dashboard/FiltersBar";
-import CampStatusChipsLive from "@/components/dashboard/CampStatusChipsLive";
 import TabFilterBar from "@/components/dashboard/TabFilterBar";
 import SellerRow from "@/components/dashboard/SellerRowExpand";
 import ChartFilterChips from "@/components/dashboard/ChartFilterChips";
@@ -1202,33 +1201,11 @@ export default async function DashboardPage({
       />
 
       <section>
-        {/* Status tabs — default to "active" so historical clutter doesn't bury
-            campaigns currently running. URL-state via ?camp_status=... so the
-            selection survives reload + shareable links. */}
-        {(() => {
-          const counts = {
-            active: data.campaignPerformance.filter(c => c.status === "active").length,
-            paused: data.campaignPerformance.filter(c => c.status === "paused").length,
-            completed: data.campaignPerformance.filter(c => c.status === "completed").length,
-            all: data.campaignPerformance.length,
-          };
-          const tabs = [
-            { id: "active",    label: t("dashx.tbl.status.active"),    count: counts.active },
-            { id: "paused",    label: t("dashx.tbl.status.paused"),    count: counts.paused },
-            { id: "completed", label: t("dashx.tbl.status.completed"), count: counts.completed },
-            { id: "all",       label: t("dashx.filters.all"),          count: counts.all },
-          ];
-          // baseParams covers tab=campaigns + inherited from/to/etc; the
-          // client chip just appends its own camp_status.
-          const baseParams = new URLSearchParams();
-          baseParams.set("tab", "campaigns");
-          if (filters.from) baseParams.set("from", filters.from);
-          if (filters.to) baseParams.set("to", filters.to);
-          if (filters.campaignNames?.length) baseParams.set("campaigns", filters.campaignNames.join("|"));
-          if (filters.icpIds?.length) baseParams.set("icps", filters.icpIds.join("|"));
-          if (filters.sellerIds?.length) baseParams.set("sellers", filters.sellerIds.join("|"));
-          return <CampStatusChipsLive tabs={tabs} initial={filters.campStatus} baseParams={baseParams.toString()} />;
-        })()}
+        {/* Status chips removed 2026-05-28: the by-ICP accordion shows every
+            flow with its status badge inline, so the standalone Active /
+            Paused / Completed filter on top was duplicating the badge in the
+            row. Drilling into a specific flow's history still works via the
+            "Campaigns →" link inside the expanded step body. */}
         {(() => {
           const eligible = data.campaignPerformance.filter(c => c.leads >= 10);
           if (eligible.length < 2) return null;
@@ -1391,13 +1368,18 @@ export default async function DashboardPage({
                             <summary className="px-3 py-2.5 flex items-center gap-3 hover:bg-black/[0.02] transition-colors">
                               <div className="flex items-center gap-2 min-w-0 flex-1">
                                 {idx === 0 && <TopRankDot rank={idx} t={t} />}
-                                {/* Plain text — onClick to stopPropagation isn't
-                                    allowed from a Server Component, and the
-                                    navigation would happen anyway making the
-                                    toggle moot. Drill-down lives in the body. */}
-                                <span className="text-[13px] font-semibold truncate" style={{ color: C.textPrimary }}>
+                                {/* `<Link>` without onClick — the click both
+                                    navigates AND toggles details, but
+                                    navigation visually wins (page changes).
+                                    Can't stopPropagation from a Server
+                                    Component (RSC boundary). */}
+                                <Link
+                                  href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)}
+                                  className="text-[13px] font-semibold truncate hover:underline"
+                                  style={{ color: C.textPrimary }}
+                                >
                                   {c.name}
-                                </span>
+                                </Link>
                               </div>
                               <div className="hidden lg:block">
                                 <ChannelTouches
