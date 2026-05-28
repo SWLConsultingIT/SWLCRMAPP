@@ -595,6 +595,19 @@ export default async function DashboardPage({
       {filters.tab === "overview" && (
       <section className="space-y-8 pt-3">
 
+      {/* Per-tab filter bar — ICP / Campaign / Seller dropdowns scope every
+          number in the Unified Overview block. Boss feedback 2026-05-28:
+          the operator should be able to slice the headline numbers by
+          ICP or campaign without leaving the Overview tab. URL state is
+          shared with the other tabs so navigating between them preserves
+          the active scope. */}
+      <TabFilterBar
+        campaigns={filterOptions.campaigns}
+        icps={filterOptions.icps}
+        sellers={filterOptions.sellers}
+        labels={tabFilterLabels}
+      />
+
       {/* ─── UNIFIED OVERVIEW · 3 bands inside a single chapter card so the
           eye reads it as one block instead of two competing cards. Boss
           follow-up 2026-05-28: General Overview + Pipeline Pulse were
