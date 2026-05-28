@@ -268,27 +268,37 @@ export default function MultiLineChart({
           onPointerUp={onPointerUp}
           onPointerLeave={() => { setHoverIdx(null); if (drag) setDrag(null); }}
         >
-          {/* Minimal axes pass — boss 2026-05-28 wanted the chart to feel
-              like a "sparkline grande". Drop internal gridlines + Y tick
-              labels + interior X labels. Keep only:
-              - baseline at Y=0 (so the eye anchors)
-              - max-Y value as a small floating chip top-left
-              - start date + "Today" as edge X labels */}
-          <line x1={padding.l} x2={width - padding.r} y1={padding.t + innerH} y2={padding.t + innerH} stroke={C.border} strokeWidth={1} />
+          {/* Minimal axes pass — sparkline-feel. Y axis: baseline (0) +
+              a dashed top guide line at the max value, both with their
+              numeric label inline on the left. X axis: just first-day +
+              today as small, dim edge labels so they don't crowd the
+              hint text rendered outside the SVG below. */}
+          {/* Y axis — top guide (max) and baseline (0) */}
           {max > 0 && (
-            <text x={padding.l} y={padding.t + 9} textAnchor="start" fontSize={11} fontWeight={700} fill={C.textDim}
-              style={{ fontFeatureSettings: '"tnum"' }}>
-              max {max}
-            </text>
+            <>
+              <line x1={padding.l + 20} x2={width - padding.r} y1={padding.t} y2={padding.t}
+                stroke={C.border} strokeDasharray="3,4" opacity={0.55} />
+              <text x={padding.l} y={padding.t + 4} textAnchor="start" fontSize={10.5} fontWeight={700} fill={C.textMuted}
+                style={{ fontFeatureSettings: '"tnum"' }}>
+                {max}
+              </text>
+            </>
           )}
-          {/* X axis — only the first day + "Today" */}
+          <line x1={padding.l + 20} x2={width - padding.r} y1={padding.t + innerH} y2={padding.t + innerH}
+            stroke={C.border} strokeWidth={1} />
+          <text x={padding.l} y={padding.t + innerH + 3} textAnchor="start" fontSize={10.5} fontWeight={700} fill={C.textMuted}
+            style={{ fontFeatureSettings: '"tnum"' }}>
+            0
+          </text>
+          {/* X axis — small dim edge labels, well above the chart edge so
+              they don't visually crash into the legend/hint text below. */}
           {n > 1 && (
             <>
-              <text x={xFor(0)} y={height - 8} textAnchor="start" fontSize={11.5} fontWeight={700} fill={C.textBody}
+              <text x={xFor(0)} y={height - 4} textAnchor="start" fontSize={10} fontWeight={600} fill={C.textDim}
                 style={{ fontFeatureSettings: '"tnum"' }}>
                 {fmtDate(dateAtIdx(0, n))}
               </text>
-              <text x={xFor(n - 1)} y={height - 8} textAnchor="end" fontSize={11.5} fontWeight={700} fill={C.textBody}
+              <text x={xFor(n - 1)} y={height - 4} textAnchor="end" fontSize={10} fontWeight={600} fill={C.textDim}
                 style={{ fontFeatureSettings: '"tnum"' }}>
                 {todayLabel}
               </text>
@@ -385,13 +395,10 @@ export default function MultiLineChart({
             </g>
           )}
         </svg>
-        {/* Subtle instruction line under the chart on first paint — fades
-            once the user has interacted (zoom set or hidden series). */}
-        {!zoom && hidden.size === 0 && fullN > 7 && (
-          <p className="absolute bottom-1 right-3 text-[9.5px] font-medium" style={{ color: C.textDim }}>
-            ↔ {todayLabel === "Today" ? "drag to zoom" : "arrastrá para zoom"}
-          </p>
-        )}
+        {/* "drag to zoom" hint dropped 2026-05-28: collided with the
+            in-chart X axis labels and the legend below at the new 110px
+            compact size. The interaction still works; if we need to teach
+            it later we'll surface it on first hover instead. */}
       </div>
 
       {/* Legend — click chip to hide/show that series. Hover state mirrors
