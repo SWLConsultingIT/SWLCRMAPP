@@ -123,6 +123,7 @@ const EMPTY_DASHBOARD = {
   velocity: { perDay: 0, winRate: 0, medianTimeToReplyMin: null as number | null, acceptanceRate: 0, forecastMonthEnd: 0 },
   matrix: { icps: [] as Array<{ id: string; name: string; totalLeads: number }>, channels: [] as string[], cells: [] as Array<any>, mean: 0, stddev: 0 },
   stepPerformance: [] as Array<any>,
+  stepPerformanceByFlow: {} as Record<string, Array<any>>,
   velocityDecay: { points: [] as Array<any>, cutoffDay: null as number | null, finalPct: 0 },
   health: {} as Record<string, unknown>,
   heatmap: Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]),
@@ -485,10 +486,29 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     if (!g) { g = { sent: 0, replied: 0 }; stepAgg.set(n, g); }
     return g;
   };
+  // Boss 2026-05-28: an aggregate step curve doesn't tell the operator
+  // which flow's step 2 is leaking. We also build a per-flow step agg
+  // (keyed by flow NAME, which is how the dashboard groups campaigns)
+  // so each row in the new ICP accordion can expand to show its own
+  // step performance.
+  const campaignIdToFlowName = new Map<string, string>();
+  for (const c of campaigns) campaignIdToFlowName.set(c.id, c.name);
+  const stepAggByFlow = new Map<string, Map<number, StepAgg>>();
+  const ensureFlowStep = (flow: string, n: number): StepAgg => {
+    let m = stepAggByFlow.get(flow);
+    if (!m) { m = new Map(); stepAggByFlow.set(flow, m); }
+    let g = m.get(n);
+    if (!g) { g = { sent: 0, replied: 0 }; m.set(n, g); }
+    return g;
+  };
   for (const m of messages) {
     if (m.status !== "sent") continue;
     const step = m.step_number ?? 0;
     ensureStep(step).sent++;
+    if (m.campaign_id) {
+      const flow = campaignIdToFlowName.get(m.campaign_id);
+      if (flow) ensureFlowStep(flow, step).sent++;
+    }
   }
   // Index messages by campaign_id for fast last-sent lookup per reply.
   const sentByCampaign = new Map<string, MsgRow[]>();
@@ -512,17 +532,26 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       if (t <= replyT) attributedStep = m.step_number ?? 0;
       else break;
     }
-    if (attributedStep !== null) ensureStep(attributedStep).replied++;
+    if (attributedStep !== null) {
+      ensureStep(attributedStep).replied++;
+      const flow = campaignIdToFlowName.get(r.campaign_id);
+      if (flow) ensureFlowStep(flow, attributedStep).replied++;
+    }
   }
 
-  const stepPerformance = Array.from(stepAgg.entries())
+  const toStepPerf = (m: Map<number, StepAgg>) => Array.from(m.entries())
     .map(([step, g]) => ({
       step,
       sent: g.sent,
       replied: g.replied,
+      // Per-flow floor stays at 5 — under 5 sends the rate is noise.
       replyRate: g.sent >= 5 ? Math.round((g.replied / g.sent) * 100) : null,
     }))
     .sort((a, b) => a.step - b.step);
+
+  const stepPerformance = toStepPerf(stepAgg);
+  const stepPerformanceByFlow: Record<string, ReturnType<typeof toStepPerf>> = {};
+  for (const [flow, m] of stepAggByFlow) stepPerformanceByFlow[flow] = toStepPerf(m);
 
   // ── ICP × Channel matrix ─────────────────────────────────────────────
   //
@@ -675,6 +704,14 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   };
   const campAgg = new Map<string, CampAgg>();
   const negativeLeadSet = new Set(negativeReplies.map(r => r.lead_id).filter(Boolean) as string[]);
+  // Flow-name → most common ICP across the flow's leads. A wizard-created
+  // flow has every lead under the same ICP, so the mode is trivially the
+  // ICP. Manual edits can mix ICPs into one flow name; we still pick the
+  // dominant one for display rather than splitting the row.
+  const icpCountByFlow = new Map<string, Map<string, number>>();
+  // Flow-name → campaign_id set. Lets us aggregate the per-campaign_id
+  // step buckets back to the flow-name level the dashboard renders by.
+  const campaignIdsByFlow = new Map<string, Set<string>>();
   for (const c of campaigns) {
     let g = campAgg.get(c.name);
     if (!g) {
@@ -693,7 +730,16 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       if (repliedLeadIds.has(c.lead_id)) g.replied.add(c.lead_id);
       if (positiveLeadIds.has(c.lead_id)) g.positive.add(c.lead_id);
       if (negativeLeadSet.has(c.lead_id)) g.negative.add(c.lead_id);
+      const leadIcp = leadIcpMap.get(c.lead_id);
+      if (leadIcp && leadIcp !== "_unknown") {
+        let bucket = icpCountByFlow.get(c.name);
+        if (!bucket) { bucket = new Map(); icpCountByFlow.set(c.name, bucket); }
+        bucket.set(leadIcp, (bucket.get(leadIcp) ?? 0) + 1);
+      }
     }
+    let idSet = campaignIdsByFlow.get(c.name);
+    if (!idSet) { idSet = new Set(); campaignIdsByFlow.set(c.name, idSet); }
+    idSet.add(c.id);
     const ts = Array.isArray(c.sequence_steps) ? c.sequence_steps.length : 0;
     g.totalSteps = Math.max(g.totalSteps, ts);
     g.stepSum += c.current_step ?? 0;
@@ -714,10 +760,23 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       if (c.lead_id) g.contactedLeads.add(c.lead_id);
     }
   }
+  const profileNameById = new Map(allProfiles.map(p => [p.id, p.profile_name]));
   const campaignPerformance = Array.from(campAgg.values()).map(g => {
     let status = "completed";
     if (g.statuses.has("active")) status = "active";
     else if (g.statuses.has("paused")) status = "paused";
+    // Pick the dominant ICP for this flow. A flow rarely mixes ICPs;
+    // when it does (manual edits), the mode is the honest representation
+    // — we don't want to invent a "Mixed" bucket because it would split
+    // the row across the accordion sections.
+    let dominantIcp: string | null = null;
+    const icpBucket = icpCountByFlow.get(g.name);
+    if (icpBucket) {
+      let bestCount = 0;
+      for (const [icpId, count] of icpBucket) {
+        if (count > bestCount) { bestCount = count; dominantIcp = icpId; }
+      }
+    }
     return {
       name: g.name,
       channels: Array.from(g.channels),
@@ -735,6 +794,8 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       responseRate: g.leads.size > 0 ? Math.round((g.replied.size / g.leads.size) * 100) : 0,
       conversionRate: g.leads.size > 0 ? Math.round((g.positive.size / g.leads.size) * 100) : 0,
       status,
+      icp_profile_id: dominantIcp,
+      icp_profile_name: dominantIcp ? (profileNameById.get(dominantIcp) ?? null) : null,
     };
   }).sort((a, b) => b.conversionRate - a.conversionRate || b.leads - a.leads);
 
@@ -1477,6 +1538,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       stddev: matrixStddev,
     },
     stepPerformance,
+    stepPerformanceByFlow,
     velocityDecay,
     health: {
       /** % of campaigns that finished their sequence with 0 replies. null when <5 evaluated. */

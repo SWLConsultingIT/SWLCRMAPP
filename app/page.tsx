@@ -10,7 +10,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import {
   Users, Send, Trophy, Megaphone, Target,
-  AlertTriangle, ArrowRight, MessageSquare, ThumbsUp, Sparkles,
+  AlertTriangle, ArrowRight, ChevronRight, MessageSquare, ThumbsUp, Sparkles,
   Share2, Mail, Phone, Smartphone, FileDown, ChevronsRight, Activity,
 } from "lucide-react";
 import { C, N } from "@/lib/design";
@@ -1289,8 +1289,8 @@ export default async function DashboardPage({
           );
         })()}
         <Panel
-          title={t("dashx.tbl.camp.title")}
-          subtitle={withScope(t("dashx.tbl.camp.subtitle"))}
+          title={t("dashx.campsByIcp.title")}
+          subtitle={withScope(t("dashx.campsByIcp.subtitle"))}
           actionHref="/campaigns"
           actionLabel={t("dashx.panel.openCampaignsPage")}
           glow
@@ -1303,106 +1303,156 @@ export default async function DashboardPage({
             return t("dashx.camp.insight", { name: top.name, rate: top.conversionRate, stagnant });
           })()}
         >
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
-                <Th align="left">{t("dashx.tbl.col.campaign")}</Th>
-                <Th align="right">{t("dashx.tbl.col.leads")}</Th>
-                <Th align="right">{t("dashx.tbl.col.uncontacted")}</Th>
-                <Th align="left">{t("dashx.tbl.col.sentByChannel")}</Th>
-                <Th align="right">{t("dashx.tbl.col.replied")}</Th>
-                <Th align="right">{t("dashx.tbl.col.positive")}</Th>
-                <Th align="right">{t("dashx.tbl.col.convPct")}</Th>
-                <Th align="left">{t("dashx.tbl.col.status")}</Th>
-                <Th align="left">{t("dashx.tbl.col.trend14")}</Th>
-                <Th align="left" style={{ width: 24 }}></Th>
-              </tr>
-            </thead>
-            <tbody className="camp-rows">
-              {data.campaignPerformance.length === 0 ? (
-                <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="campaigns" t={t} /></td></tr>
-              ) : (() => {
-                // Rank/highlights stay computed against the FULL list because
-                // the active filter is now client-side (CSS visibility). #1
-                // by conversion stays #1 regardless of which chip is on.
-                const ranked = [...data.campaignPerformance].sort((a, b) => b.conversionRate - a.conversionRate);
-                const rankByName = new Map(ranked.map((c, idx) => [c.name, idx]));
-                const maxConv = Math.max(1, ...data.campaignPerformance.map(c => c.conversionRate));
-                return data.campaignPerformance.map((c: any) => {
-                  const idx = rankByName.get(c.name) ?? 0;
-                  return (
-                    <tr key={c.name} data-camp-status={c.status} className="border-t hover:bg-black/[0.02] transition-colors group" style={{ borderColor: C.border }}>
-                      <Td>
-                        <div className="flex items-center gap-2 relative">
-                          {idx === 0 && (
-                            <span aria-hidden className="absolute -left-3 top-0 bottom-0 w-[3px] rounded-full"
-                              style={{ background: `linear-gradient(180deg, ${gold} 0%, color-mix(in srgb, ${gold} 50%, transparent) 100%)` }} />
-                          )}
-                          <TopRankDot rank={idx} t={t} />
-                          <Link href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{c.name}</Link>
+          {/* Suppress native <details> marker — chevron is rendered manually. */}
+          <style>{`
+            .icp-acc summary { list-style: none; cursor: pointer; }
+            .icp-acc summary::-webkit-details-marker { display: none; }
+            .icp-acc details[open] > summary .acc-chevron { transform: rotate(90deg); }
+            .icp-acc .acc-chevron { transition: transform 0.18s ease; }
+          `}</style>
+          {data.campaignPerformance.length === 0 ? (
+            <div className="px-4 py-10 text-center text-xs" style={{ color: C.textMuted }}>
+              <EmptyTableState filtered={hasFilters} kindKey="campaigns" t={t} />
+            </div>
+          ) : (() => {
+            // Boss 2026-05-28: every flow rendered under its dominant ICP
+            // instead of a flat campaign table. Two-level accordion: outer
+            // is the ICP section (rolls up totals across its flows); inner
+            // is per-flow with step-performance shown inline when expanded.
+            const ranked = [...data.campaignPerformance].sort((a, b) => b.conversionRate - a.conversionRate);
+            const rankByName = new Map(ranked.map((c, idx) => [c.name, idx]));
+            const maxConv = Math.max(1, ...data.campaignPerformance.map(c => c.conversionRate));
+            type Flow = typeof data.campaignPerformance[number];
+            const byIcp = new Map<string, { icpId: string | null; icpName: string | null; flows: Flow[] }>();
+            for (const c of data.campaignPerformance) {
+              const key = c.icp_profile_id ?? "_none";
+              let g = byIcp.get(key);
+              if (!g) { g = { icpId: c.icp_profile_id, icpName: c.icp_profile_name, flows: [] }; byIcp.set(key, g); }
+              g.flows.push(c);
+            }
+            const sections = Array.from(byIcp.values())
+              .map(g => ({
+                ...g,
+                totalLeads:     g.flows.reduce((s, f) => s + f.leads, 0),
+                totalReplies:   g.flows.reduce((s, f) => s + f.replied, 0),
+                totalPositive:  g.flows.reduce((s, f) => s + f.positive, 0),
+                activeCount:    g.flows.filter(f => f.status === "active" || f.status === "paused").length,
+              }))
+              .sort((a, b) => b.totalPositive - a.totalPositive || b.totalLeads - a.totalLeads);
+            return (
+              <div className="icp-acc space-y-3">
+                {sections.map((sec, secIdx) => (
+                  <details key={sec.icpId ?? "_none"} open={secIdx === 0}
+                    className="rounded-2xl border overflow-hidden"
+                    style={{ borderColor: C.border, backgroundColor: C.card }}>
+                    <summary className="px-4 py-3 flex items-center gap-3 hover:bg-black/[0.02] transition-colors">
+                      <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                        style={{
+                          background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`,
+                          boxShadow: `0 3px 10px color-mix(in srgb, ${gold} 25%, transparent)`,
+                        }}>
+                        <Target size={14} style={{ color: "#fff" }} strokeWidth={2.2} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: gold }}>
+                          {t("dashx.campsByIcp.eyebrow")}
+                        </p>
+                        <p className="text-[15px] font-bold truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                          {sec.icpName ?? t("dashx.tbl.icp.unknown")}
+                          <span className="ml-2 text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-md align-middle"
+                            style={{ backgroundColor: C.surface, color: C.textMuted }}>
+                            {sec.flows.length} {sec.flows.length === 1 ? t("dashx.campsByIcp.flow") : t("dashx.campsByIcp.flows")}
+                          </span>
+                        </p>
+                      </div>
+                      <div className="hidden md:flex items-center gap-5 shrink-0 mr-2">
+                        <div className="text-right">
+                          <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>{t("dashx.campsByIcp.leadsCol")}</p>
+                          <p className="text-[15px] font-bold tabular-nums leading-none mt-0.5" style={{ color: C.textPrimary }}>{sec.totalLeads}</p>
                         </div>
-                      </Td>
-                      <NumCell value={c.leads} />
-                      <NumCell value={c.uncontactedLeads ?? 0} accent={(c.uncontactedLeads ?? 0) > 0 ? "#D97706" : undefined} />
-                      <td className="px-3 py-2">
-                        <ChannelTouches
-                          linkedinSent={c.sentLinkedin ?? 0}
-                          linkedinMsg={0}
-                          emailTouch={c.sentEmail ?? 0}
-                          callTouch={c.sentCall ?? 0}
-                          labels={{
-                            linkedinSent: t("dashx.touch.linkedinSent"),
-                            linkedinMsg: t("dashx.touch.linkedinMsg"),
-                            emailTouch: t("dashx.touch.emailTouch"),
-                            callTouch: t("dashx.touch.callTouch"),
-                          }}
-                        />
-                      </td>
-                      <NumCell value={c.replied} />
-                      <NumCell value={c.positive} accent={c.positive > 0 ? C.green : undefined} bold />
-                      <td className="px-3 py-2"><div className="flex justify-end"><RateBar value={c.conversionRate} max={maxConv} color={C.green} /></div></td>
-                      <td className="px-3 py-2"><StatusBadge status={c.status} t={t} /></td>
-                      <td className="px-3 py-2"><InlineSpark data={c.spark} color="#0A66C2" /></td>
-                      <td className="pr-3" style={{ color: C.textDim }}><Link href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)} className="inline-flex"><ArrowRight size={12} /></Link></td>
-                    </tr>
-                  );
-                });
-              })()}
-            </tbody>
-          </table>
+                        <div className="text-right">
+                          <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>{t("dashx.campsByIcp.repliesCol")}</p>
+                          <p className="text-[15px] font-bold tabular-nums leading-none mt-0.5" style={{ color: sec.totalReplies > 0 ? C.blue : C.textPrimary }}>{sec.totalReplies}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>{t("dashx.campsByIcp.positiveCol")}</p>
+                          <p className="text-[15px] font-bold tabular-nums leading-none mt-0.5" style={{ color: sec.totalPositive > 0 ? C.green : C.textPrimary }}>{sec.totalPositive}</p>
+                        </div>
+                      </div>
+                      <ChevronRight size={16} className="acc-chevron shrink-0" style={{ color: C.textMuted }} />
+                    </summary>
+                    <div className="p-3 space-y-2 border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                      {sec.flows.map((c: Flow) => {
+                        const idx = rankByName.get(c.name) ?? 0;
+                        const flowSteps = data.stepPerformanceByFlow?.[c.name] ?? [];
+                        return (
+                          <details key={c.name} data-camp-status={c.status} className="rounded-xl border overflow-hidden"
+                            style={{ borderColor: C.border, backgroundColor: C.card }}>
+                            <summary className="px-3 py-2.5 flex items-center gap-3 hover:bg-black/[0.02] transition-colors">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                {idx === 0 && <TopRankDot rank={idx} t={t} />}
+                                <Link href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)}
+                                  onClick={e => e.stopPropagation()}
+                                  className="text-[13px] font-semibold truncate hover:underline" style={{ color: C.textPrimary }}>
+                                  {c.name}
+                                </Link>
+                              </div>
+                              <div className="hidden lg:block">
+                                <ChannelTouches
+                                  linkedinSent={c.sentLinkedin ?? 0}
+                                  linkedinMsg={0}
+                                  emailTouch={c.sentEmail ?? 0}
+                                  callTouch={c.sentCall ?? 0}
+                                  labels={{
+                                    linkedinSent: t("dashx.touch.linkedinSent"),
+                                    linkedinMsg: t("dashx.touch.linkedinMsg"),
+                                    emailTouch: t("dashx.touch.emailTouch"),
+                                    callTouch: t("dashx.touch.callTouch"),
+                                  }}
+                                />
+                              </div>
+                              <div className="flex items-center gap-4 shrink-0 text-right">
+                                <div className="hidden sm:block">
+                                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("dashx.tbl.col.leads")}</p>
+                                  <p className="text-[12.5px] font-bold tabular-nums leading-tight" style={{ color: C.textPrimary }}>{c.leads}</p>
+                                </div>
+                                <div className="hidden sm:block">
+                                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("dashx.tbl.col.replied")}</p>
+                                  <p className="text-[12.5px] font-bold tabular-nums leading-tight" style={{ color: C.textPrimary }}>{c.replied}</p>
+                                </div>
+                                <div className="hidden sm:block">
+                                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("dashx.tbl.col.positive")}</p>
+                                  <p className="text-[12.5px] font-bold tabular-nums leading-tight" style={{ color: c.positive > 0 ? C.green : C.textPrimary }}>{c.positive}</p>
+                                </div>
+                                <div className="hidden md:flex justify-end" style={{ width: 56 }}>
+                                  <RateBar value={c.conversionRate} max={maxConv} color={C.green} />
+                                </div>
+                                <StatusBadge status={c.status} t={t} />
+                                <div className="hidden md:block" style={{ width: 56 }}>
+                                  <InlineSpark data={c.spark} color="#0A66C2" />
+                                </div>
+                                <ChevronRight size={14} className="acc-chevron" style={{ color: C.textMuted }} />
+                              </div>
+                            </summary>
+                            <div className="px-4 py-4 border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                              {flowSteps.length === 0 ? (
+                                <p className="text-[12px] text-center py-4" style={{ color: C.textMuted }}>
+                                  {t("dashx.step.empty")}
+                                </p>
+                              ) : (
+                                <StepPerformance steps={flowSteps} locale={locale} />
+                              )}
+                            </div>
+                          </details>
+                        );
+                      })}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            );
+          })()}
         </Panel>
-      </section>
-
-      {/* Step performance — sits inside CAMPAIGNS chapter because the
-          "which step is broken" question is per-sequence diagnostic.
-          Header explicitly states scope (boss: "no sé de qué campaña es"). */}
-      <section>
-        {(() => {
-          const campsSel = filters.campaignNames ?? [];
-          const stepCampaignScope = campsSel.length === 0
-            ? t("dashx.step.scopeAll")
-            : campsSel.length === 1
-              ? t("dashx.step.scopeOne", { name: campsSel[0] })
-              : t("dashx.step.scopeMany", { n: campsSel.length });
-          return (
-            <Panel
-              title={t("dashx.step.title")}
-              subtitle={`${t("dashx.step.subtitle")} · ${stepCampaignScope}`}
-              glow
-              insightEyebrow={t("dashx.insight.eyebrow")}
-              insightHint={t("dashx.insight.hint")}
-              insight={(() => {
-                const eligible = (data.stepPerformance as Array<{ step: number; replyRate: number | null }>)
-                  .filter(s => s.step > 0 && s.replyRate !== null);
-                if (eligible.length < 2) return null;
-                const worst = [...eligible].sort((a, b) => (a.replyRate ?? 0) - (b.replyRate ?? 0))[0];
-                return t("dashx.step.insight", { step: worst.step + 1, rate: worst.replyRate ?? 0 });
-              })()}
-            >
-              <StepPerformance steps={data.stepPerformance} locale={locale} />
-            </Panel>
-          );
-        })()}
       </section>
 
       </section>
