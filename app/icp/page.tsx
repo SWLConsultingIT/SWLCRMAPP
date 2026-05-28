@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import PageHero from "@/components/PageHero";
 import LogoLoader from "@/components/LogoLoader";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
@@ -9,8 +10,9 @@ import Link from "next/link";
 import {
   Target, Plus, X, CheckCircle, AlertCircle, Clock, Loader2, ArrowLeft,
   Pencil, Trash2, ChevronRight, Users, MapPin, Briefcase, Megaphone, ExternalLink,
-  Building2, Lightbulb, BookOpen,
+  Building2, Lightbulb, BookOpen, CheckSquare, Square, Sparkles, Send,
 } from "lucide-react";
+import AddToFlowModal from "@/components/icp/AddToFlowModal";
 
 const gold = C.gold;
 const goldLight = C.goldGlow;
@@ -309,6 +311,34 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
   const [loadingLeads, setLoadingLeads] = useState(true);
   const [leadsOpen, setLeadsOpen] = useState(false);
   const [leadsTab, setLeadsTab] = useState<"unassigned" | "with_campaign">("unassigned");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showAddModal, setShowAddModal] = useState(false);
+  const router = useRouter();
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+  function selectAllVisible(ids: string[]) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      const allSelected = ids.every(id => next.has(id));
+      if (allSelected) { for (const id of ids) next.delete(id); }
+      else             { for (const id of ids) next.add(id); }
+      return next;
+    });
+  }
+  function clearSelection() { setSelectedIds(new Set()); }
+  function createNewFlowWithSelection() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    // Same wizard the Lead Miner ticket detail uses — picks up ?leads=
+    // and pre-fills the lead selection inside the matching profile.
+    router.push(`/campaigns/new/${profile.id}?leads=${ids.join(",")}`);
+  }
 
   useEffect(() => {
     async function fetchLeads() {
@@ -464,17 +494,43 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
         </div>
       )}
 
-      {/* Leads linked to this ticket */}
+      {/* Leads linked to this ticket — SWL gold-accented accordion with
+          bulk-select on the Unassigned tab. Boss feedback 2026-05-28: ponelo
+          más lindo con colores de SWL + Create New Flow + Add to Existing. */}
       <div className="px-6 pb-5">
-        <div className="rounded-2xl border overflow-hidden" style={{ borderColor: C.border, boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
+        <div className="rounded-2xl border overflow-hidden relative"
+          style={{
+            borderColor: `color-mix(in srgb, ${gold} 22%, ${C.border})`,
+            boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 16%, transparent), 0 6px 18px -10px rgba(11,15,26,0.35)`,
+          }}>
           <button onClick={() => setLeadsOpen(!leadsOpen)}
-            className="w-full px-5 py-3 flex items-center gap-2 border-b text-left transition-colors hover:bg-gray-50"
-            style={{ borderColor: C.border, backgroundColor: C.bg }}>
-            <Users size={13} style={{ color: C.textMuted }} />
-            <span className="text-sm font-bold" style={{ color: C.textPrimary }}>Leads</span>
-            {!loadingLeads && <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: goldLight, color: gold }}>{leads.length}</span>}
+            className="w-full px-5 py-3.5 flex items-center gap-2.5 border-b text-left transition-colors relative overflow-hidden"
+            style={{
+              borderColor: `color-mix(in srgb, ${gold} 22%, ${C.border})`,
+              background: "linear-gradient(135deg, #0B0F1A 0%, #111827 60%, #0B0F1A 100%)",
+            }}>
+            <span aria-hidden className="absolute -top-12 -right-12 w-32 h-32 rounded-full pointer-events-none"
+              style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 18%, transparent) 0%, transparent 65%)` }} />
+            <span className="relative w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+              style={{
+                background: `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 70%, white) 100%)`,
+                color: "#1A1505",
+                boxShadow: `0 1px 6px color-mix(in srgb, ${gold} 32%, transparent)`,
+              }}>
+              <Users size={13} />
+            </span>
+            <span className="relative text-[13px] font-bold uppercase tracking-[0.14em]" style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+              Leads
+            </span>
+            {!loadingLeads && (
+              <span className="relative text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-full"
+                style={{ background: `color-mix(in srgb, ${gold} 16%, transparent)`, color: gold }}>
+                {leads.length}
+              </span>
+            )}
             <div className="flex-1" />
-            <ChevronRight size={14} style={{ color: C.textDim, transform: leadsOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
+            <ChevronRight className="relative" size={14}
+              style={{ color: gold, transform: leadsOpen ? "rotate(90deg)" : "none", transition: "transform 0.2s" }} />
           </button>
           {leadsOpen && loadingLeads && (
             <div className="px-5 py-6 text-center"><Loader2 size={16} className="animate-spin mx-auto" style={{ color: C.textDim }} /></div>
@@ -484,81 +540,171 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
               <p className="text-sm" style={{ color: C.textDim }}>No leads uploaded yet for this ticket.</p>
             </div>
           )}
-          {leadsOpen && !loadingLeads && leads.length > 0 && (
-            <>
-              {/* Sub-tabs — split unassigned vs with campaign so the seller
-                  can act on "leads still to flow" separately from "leads
-                  already in a flow". Boss feedback 2026-05-28. */}
-              <div className="flex items-center gap-1 px-4 py-2 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                <button
-                  type="button"
-                  onClick={() => setLeadsTab("unassigned")}
-                  className="text-xs font-semibold px-3 py-1 rounded-md inline-flex items-center gap-1.5 transition-colors"
-                  style={{
-                    backgroundColor: leadsTab === "unassigned" ? "color-mix(in srgb, #92400E 14%, transparent)" : "transparent",
-                    color: leadsTab === "unassigned" ? "#92400E" : C.textBody,
-                    border: leadsTab === "unassigned" ? "1px solid color-mix(in srgb, #92400E 35%, transparent)" : `1px solid ${C.border}`,
-                  }}>
-                  Unassigned
-                  <span className="text-[9.5px] tabular-nums px-1 rounded" style={{ background: leadsTab === "unassigned" ? "rgba(146,64,14,0.18)" : C.surface, color: leadsTab === "unassigned" ? "#92400E" : C.textDim }}>
-                    {unassigned.length}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLeadsTab("with_campaign")}
-                  className="text-xs font-semibold px-3 py-1 rounded-md inline-flex items-center gap-1.5 transition-colors"
-                  style={{
-                    backgroundColor: leadsTab === "with_campaign" ? "color-mix(in srgb, var(--brand-green, #16A34A) 14%, transparent)" : "transparent",
-                    color: leadsTab === "with_campaign" ? C.green : C.textBody,
-                    border: leadsTab === "with_campaign" ? `1px solid color-mix(in srgb, ${C.green} 35%, transparent)` : `1px solid ${C.border}`,
-                  }}>
-                  With Campaign
-                  <span className="text-[9.5px] tabular-nums px-1 rounded" style={{ background: leadsTab === "with_campaign" ? `color-mix(in srgb, ${C.green} 18%, transparent)` : C.surface, color: leadsTab === "with_campaign" ? C.green : C.textDim }}>
-                    {withCampaign.length}
-                  </span>
-                </button>
-              </div>
-              <div className="divide-y" style={{ borderColor: C.border }}>
-                {(leadsTab === "unassigned" ? unassigned : withCampaign).length === 0 ? (
-                  <div className="px-5 py-6 text-center text-sm" style={{ color: C.textDim }}>
-                    {leadsTab === "unassigned" ? "All leads in this ticket are already assigned to a flow." : "No leads in a campaign yet."}
-                  </div>
-                ) : (leadsTab === "unassigned" ? unassigned : withCampaign).map(lead => {
-                  const nm = `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || "Unknown";
-                  const camp = lead.campaign;
-                  return (
-                    <div key={lead.id} className="flex items-center gap-3 px-5 py-2.5 table-row-hover">
-                      <Link href={`/leads/${lead.id}`} className="flex-1 min-w-0 hover:underline">
-                        <p className="text-sm font-medium" style={{ color: C.textPrimary }}>{nm}</p>
-                        <p className="text-xs" style={{ color: C.textMuted }}>{lead.role ?? ""}{lead.company ? ` · ${lead.company}` : ""}</p>
-                      </Link>
-                      {lead.score != null && (
-                        <span className="text-xs font-bold px-2 py-0.5 rounded" style={{
-                          backgroundColor: lead.score >= 80 ? C.redLight : lead.score >= 50 ? C.orangeLight : C.accentLight,
-                          color: lead.score >= 80 ? C.red : lead.score >= 50 ? C.orange : C.accent,
-                        }}>{lead.score}</span>
-                      )}
-                      {camp ? (
-                        <Link href={`/campaigns/${camp.id}`}
-                          className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-md transition-opacity hover:opacity-80"
-                          style={{ backgroundColor: C.greenLight, color: C.green }}>
-                          <Megaphone size={10} /> {camp.status === "active" ? "Active Campaign" : camp.status === "paused" ? "Paused" : "Completed"}
-                          <ExternalLink size={9} />
-                        </Link>
-                      ) : (
-                        <Link href="/campaigns?tab=ready"
-                          className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md transition-opacity hover:opacity-80"
-                          style={{ backgroundColor: C.blueLight, color: C.blue }}>
-                          No Campaign <ChevronRight size={10} />
-                        </Link>
-                      )}
+          {leadsOpen && !loadingLeads && leads.length > 0 && (() => {
+            const visible = leadsTab === "unassigned" ? unassigned : withCampaign;
+            const visibleIds = visible.map(l => l.id);
+            const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selectedIds.has(id));
+            const selectedNamesForModal = visible
+              .filter(l => selectedIds.has(l.id))
+              .map(l => `${l.firstName ?? ""} ${l.lastName ?? ""}`.trim() || "Unknown");
+            return (
+              <>
+                {/* Sub-tabs — split unassigned vs with campaign so the seller
+                    can act on "leads still to flow" separately from "leads
+                    already in a flow". Boss feedback 2026-05-28. */}
+                <div className="flex items-center gap-1 px-4 py-2 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                  <button
+                    type="button"
+                    onClick={() => { setLeadsTab("unassigned"); clearSelection(); }}
+                    className="text-xs font-semibold px-3 py-1 rounded-md inline-flex items-center gap-1.5 transition-colors"
+                    style={{
+                      backgroundColor: leadsTab === "unassigned" ? "color-mix(in srgb, #92400E 14%, transparent)" : "transparent",
+                      color: leadsTab === "unassigned" ? "#92400E" : C.textBody,
+                      border: leadsTab === "unassigned" ? "1px solid color-mix(in srgb, #92400E 35%, transparent)" : `1px solid ${C.border}`,
+                    }}>
+                    Unassigned
+                    <span className="text-[9.5px] tabular-nums px-1 rounded" style={{ background: leadsTab === "unassigned" ? "rgba(146,64,14,0.18)" : C.surface, color: leadsTab === "unassigned" ? "#92400E" : C.textDim }}>
+                      {unassigned.length}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setLeadsTab("with_campaign"); clearSelection(); }}
+                    className="text-xs font-semibold px-3 py-1 rounded-md inline-flex items-center gap-1.5 transition-colors"
+                    style={{
+                      backgroundColor: leadsTab === "with_campaign" ? `color-mix(in srgb, ${C.green} 14%, transparent)` : "transparent",
+                      color: leadsTab === "with_campaign" ? C.green : C.textBody,
+                      border: leadsTab === "with_campaign" ? `1px solid color-mix(in srgb, ${C.green} 35%, transparent)` : `1px solid ${C.border}`,
+                    }}>
+                    With Campaign
+                    <span className="text-[9.5px] tabular-nums px-1 rounded" style={{ background: leadsTab === "with_campaign" ? `color-mix(in srgb, ${C.green} 18%, transparent)` : C.surface, color: leadsTab === "with_campaign" ? C.green : C.textDim }}>
+                      {withCampaign.length}
+                    </span>
+                  </button>
+                  <div className="flex-1" />
+                  {/* Select-all chip only on the Unassigned tab where bulk
+                      actions are meaningful (assigned leads can't be added
+                      to a flow they're already in). */}
+                  {leadsTab === "unassigned" && visible.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => selectAllVisible(visibleIds)}
+                      className="text-[10.5px] font-semibold px-2.5 py-1 rounded-md inline-flex items-center gap-1.5 transition-colors"
+                      style={{
+                        background: allVisibleSelected ? `color-mix(in srgb, ${gold} 14%, transparent)` : "transparent",
+                        color: allVisibleSelected ? gold : C.textMuted,
+                        border: `1px solid ${allVisibleSelected ? `color-mix(in srgb, ${gold} 40%, transparent)` : C.border}`,
+                      }}>
+                      {allVisibleSelected ? <CheckSquare size={11} /> : <Square size={11} />}
+                      {allVisibleSelected ? "Clear selection" : `Select all ${visible.length}`}
+                    </button>
+                  )}
+                </div>
+
+                <div className="divide-y" style={{ borderColor: C.border }}>
+                  {visible.length === 0 ? (
+                    <div className="px-5 py-6 text-center text-sm" style={{ color: C.textDim }}>
+                      {leadsTab === "unassigned" ? "All leads in this ticket are already assigned to a flow." : "No leads in a campaign yet."}
                     </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
+                  ) : visible.map(lead => {
+                    const nm = `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || "Unknown";
+                    const camp = lead.campaign;
+                    const isSelected = selectedIds.has(lead.id);
+                    const selectable = leadsTab === "unassigned";
+                    return (
+                      <div key={lead.id} className="flex items-center gap-3 px-5 py-2.5 transition-colors"
+                        style={{ backgroundColor: isSelected ? `color-mix(in srgb, ${gold} 6%, transparent)` : undefined }}>
+                        {selectable && (
+                          <button
+                            type="button"
+                            onClick={() => toggleSelect(lead.id)}
+                            className="shrink-0 rounded transition-colors hover:bg-black/[0.04] p-0.5"
+                            aria-label={isSelected ? "Deselect" : "Select"}>
+                            {isSelected
+                              ? <CheckSquare size={15} style={{ color: gold }} />
+                              : <Square size={15} style={{ color: C.textDim }} />}
+                          </button>
+                        )}
+                        <Link href={`/leads/${lead.id}`} className="flex-1 min-w-0 hover:underline">
+                          <p className="text-sm font-medium" style={{ color: C.textPrimary }}>{nm}</p>
+                          <p className="text-xs" style={{ color: C.textMuted }}>{lead.role ?? ""}{lead.company ? ` · ${lead.company}` : ""}</p>
+                        </Link>
+                        {lead.score != null && (
+                          <span className="text-xs font-bold px-2 py-0.5 rounded" style={{
+                            backgroundColor: lead.score >= 80 ? C.redLight : lead.score >= 50 ? C.orangeLight : C.accentLight,
+                            color: lead.score >= 80 ? C.red : lead.score >= 50 ? C.orange : C.accent,
+                          }}>{lead.score}</span>
+                        )}
+                        {camp ? (
+                          <Link href={`/campaigns/${camp.id}`}
+                            className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-md transition-opacity hover:opacity-80"
+                            style={{ backgroundColor: C.greenLight, color: C.green }}>
+                            <Megaphone size={10} /> {camp.status === "active" ? "Active" : camp.status === "paused" ? "Paused" : "Completed"}
+                            <ExternalLink size={9} />
+                          </Link>
+                        ) : (
+                          <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md"
+                            style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 28%, transparent)` }}>
+                            No Campaign
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Bulk action bar — only on Unassigned tab when ≥1 lead is
+                    selected. Two CTAs: Create New Flow / Add to Existing. */}
+                {leadsTab === "unassigned" && selectedIds.size > 0 && (
+                  <div className="border-t px-5 py-3 flex items-center gap-3 flex-wrap"
+                    style={{
+                      borderColor: `color-mix(in srgb, ${gold} 26%, ${C.border})`,
+                      background: `linear-gradient(90deg, color-mix(in srgb, ${gold} 12%, ${C.card}) 0%, color-mix(in srgb, ${gold} 4%, ${C.card}) 80%)`,
+                    }}>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+                        style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#1A1505" }}>
+                        <Sparkles size={13} />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-[12.5px] font-semibold leading-tight" style={{ color: C.textPrimary }}>
+                          {selectedIds.size} {selectedIds.size === 1 ? "lead selected" : "leads selected"}
+                        </p>
+                        <p className="text-[10.5px] mt-0.5" style={{ color: C.textMuted }}>
+                          Push them into a new flow or attach to one of your active flows.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={clearSelection}
+                      className="text-[11px] font-medium px-2 py-1 rounded-md transition-colors hover:bg-black/[0.04]"
+                      style={{ color: C.textMuted, border: `1px solid ${C.border}` }}>
+                      Clear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAddModal(true)}
+                      className="text-[12px] font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-colors"
+                      style={{ background: C.card, color: gold, border: `1px solid color-mix(in srgb, ${gold} 45%, transparent)` }}>
+                      <Megaphone size={12} /> Add to existing flow
+                    </button>
+                    <button
+                      type="button"
+                      onClick={createNewFlowWithSelection}
+                      className="text-[12px] font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90"
+                      style={{
+                        background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 75%, white))`,
+                        color: "#1A1505",
+                        boxShadow: `0 4px 12px color-mix(in srgb, ${gold} 30%, transparent)`,
+                      }}>
+                      <Send size={12} /> Create new flow
+                    </button>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       </div>
 
@@ -581,6 +727,34 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
           </div>
         )}
       </div>
+
+      {/* Add-to-existing-flow modal — opens from the bulk action bar */}
+      {showAddModal && (
+        <AddToFlowModal
+          leadIds={Array.from(selectedIds)}
+          leadNames={unassigned
+            .filter(l => selectedIds.has(l.id))
+            .map(l => `${l.firstName ?? ""} ${l.lastName ?? ""}`.trim() || "Unknown")}
+          onClose={() => setShowAddModal(false)}
+          onAdded={() => {
+            setShowAddModal(false);
+            clearSelection();
+            // Trigger re-fetch by calling the endpoint again. Easier: full
+            // refresh the leads via re-running the effect's logic.
+            (async () => {
+              try {
+                const res = await fetch(`/api/leads/by-icp/${profile.id}`);
+                if (res.ok) {
+                  const json = await res.json();
+                  setLeads(json.leads ?? []);
+                  setWithCampaign(json.withCampaign ?? []);
+                  setUnassigned(json.unassigned ?? []);
+                }
+              } catch {}
+            })();
+          }}
+        />
+      )}
     </div>
     </div>
   );
