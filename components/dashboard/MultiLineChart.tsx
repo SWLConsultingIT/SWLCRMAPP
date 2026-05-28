@@ -23,7 +23,7 @@ type Series = { name: string; color: string; data: number[] };
 export default function MultiLineChart({
   series,
   priorSeries,
-  height = 150,
+  height = 110,
   todayLabel = "Today",
   recentLabel = "d",
   priorLabel = "Prior period",
@@ -73,9 +73,10 @@ export default function MultiLineChart({
   const isShown = (name: string) => !hidden.has(name);
 
   const width = 760;
-  // Bigger axis labels (12.5px) need more breathing room on the bottom
-  // + left so they don't clip into the chart body.
-  const padding = { t: 18, r: 18, b: 42, l: 52 };
+  // Tight padding for the compact (110px) chart variant. Y labels are
+  // suppressed to just the max value floating top-left (see below) so
+  // we don't need the wide left gutter anymore.
+  const padding = { t: 14, r: 18, b: 28, l: 14 };
   const innerW = width - padding.l - padding.r;
   const innerH = height - padding.t - padding.b;
   const n = visible[0]?.data.length ?? 0;
@@ -267,40 +268,32 @@ export default function MultiLineChart({
           onPointerUp={onPointerUp}
           onPointerLeave={() => { setHoverIdx(null); if (drag) setDrag(null); }}
         >
-          {/* Y-axis baseline + bottom axis line */}
-          <line x1={padding.l} x2={padding.l} y1={padding.t} y2={padding.t + innerH} stroke={C.border} strokeWidth={1.4} />
-          <line x1={padding.l} x2={width - padding.r} y1={padding.t + innerH} y2={padding.t + innerH} stroke={C.textDim} strokeWidth={1.2} />
-
-          {/* Y gridlines + tick labels */}
-          {yTicks.map((tk, i) => (
-            <g key={i}>
-              {i > 0 && (
-                <line x1={padding.l} x2={width - padding.r} y1={tk.y} y2={tk.y} stroke={C.border} strokeDasharray="3,5" opacity={0.5} />
-              )}
-              <line x1={padding.l - 3} x2={padding.l} y1={tk.y} y2={tk.y} stroke={C.textDim} strokeWidth={1.2} />
-              <text x={padding.l - 6} y={tk.y + 3} textAnchor="end" fontSize={12.5} fontWeight={700} fill={C.textBody}
+          {/* Minimal axes pass — boss 2026-05-28 wanted the chart to feel
+              like a "sparkline grande". Drop internal gridlines + Y tick
+              labels + interior X labels. Keep only:
+              - baseline at Y=0 (so the eye anchors)
+              - max-Y value as a small floating chip top-left
+              - start date + "Today" as edge X labels */}
+          <line x1={padding.l} x2={width - padding.r} y1={padding.t + innerH} y2={padding.t + innerH} stroke={C.border} strokeWidth={1} />
+          {max > 0 && (
+            <text x={padding.l} y={padding.t + 9} textAnchor="start" fontSize={11} fontWeight={700} fill={C.textDim}
+              style={{ fontFeatureSettings: '"tnum"' }}>
+              max {max}
+            </text>
+          )}
+          {/* X axis — only the first day + "Today" */}
+          {n > 1 && (
+            <>
+              <text x={xFor(0)} y={height - 8} textAnchor="start" fontSize={11.5} fontWeight={700} fill={C.textBody}
                 style={{ fontFeatureSettings: '"tnum"' }}>
-                {tk.v}
+                {fmtDate(dateAtIdx(0, n))}
               </text>
-            </g>
-          ))}
-
-          {/* X axis tick marks + labels (~5 across the visible window) */}
-          {(() => {
-            const step = Math.max(1, Math.floor(n / 5));
-            const ticks: number[] = [];
-            for (let i = 0; i < n; i += step) ticks.push(i);
-            if (ticks[ticks.length - 1] !== n - 1) ticks.push(n - 1);
-            return ticks.map(i => (
-              <g key={i}>
-                <line x1={xFor(i)} x2={xFor(i)} y1={padding.t + innerH} y2={padding.t + innerH + 4} stroke={C.textDim} strokeWidth={1.2} />
-                <text x={xFor(i)} y={height - 10} textAnchor="middle" fontSize={12.5} fontWeight={700} fill={C.textBody}
-                  style={{ fontFeatureSettings: '"tnum"' }}>
-                  {i === n - 1 ? todayLabel : fmtDate(dateAtIdx(i, n))}
-                </text>
-              </g>
-            ));
-          })()}
+              <text x={xFor(n - 1)} y={height - 8} textAnchor="end" fontSize={11.5} fontWeight={700} fill={C.textBody}
+                style={{ fontFeatureSettings: '"tnum"' }}>
+                {todayLabel}
+              </text>
+            </>
+          )}
 
           {/* Ghost / prior-period series — dashed under the live ones */}
           {priorVisible.map((s) => {
