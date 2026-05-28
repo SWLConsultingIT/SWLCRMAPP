@@ -294,33 +294,44 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
 }) {
   const st = statusConfig[profile.status] ?? statusConfig.pending;
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [leads, setLeads] = useState<any[]>([]);
+  type LeadRow = {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    company: string | null;
+    role: string | null;
+    score: number | null;
+    campaign: { id: string; name: string; status: string; channel: string | null } | null;
+  };
+  const [leads, setLeads] = useState<LeadRow[]>([]);
+  const [withCampaign, setWithCampaign] = useState<LeadRow[]>([]);
+  const [unassigned, setUnassigned] = useState<LeadRow[]>([]);
   const [loadingLeads, setLoadingLeads] = useState(true);
   const [leadsOpen, setLeadsOpen] = useState(false);
+  const [leadsTab, setLeadsTab] = useState<"unassigned" | "with_campaign">("unassigned");
 
   useEffect(() => {
     async function fetchLeads() {
-      const supabase = getSupabaseBrowser();
-      const { data: profileLeads } = await supabase
-        .from("leads")
-        .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, status, lead_score")
-        .eq("icp_profile_id", profile.id)
-        .order("created_at", { ascending: false });
-
-      if (!profileLeads || profileLeads.length === 0) { setLeads([]); setLoadingLeads(false); return; }
-
-      const leadIds = profileLeads.map(l => l.id);
-      const { data: campaigns } = await supabase
-        .from("campaigns")
-        .select("id, lead_id, name, status")
-        .in("lead_id", leadIds)
-        .in("status", ["active", "paused", "completed"]);
-
-      const campByLead: Record<string, any> = {};
-      for (const c of campaigns ?? []) { campByLead[c.lead_id] = c; }
-
-      setLeads(profileLeads.map(l => ({ ...l, campaign: campByLead[l.id] ?? null })));
-      setLoadingLeads(false);
+      // Server-side endpoint that decrypts encrypted_payload + splits
+      // by campaign attachment. Replaces the prior direct supabase
+      // browser call that returned NULL names for encrypted tenants.
+      try {
+        const res = await fetch(`/api/leads/by-icp/${profile.id}`);
+        if (!res.ok) { setLeads([]); setLoadingLeads(false); return; }
+        const json = await res.json();
+        setLeads(json.leads ?? []);
+        setWithCampaign(json.withCampaign ?? []);
+        setUnassigned(json.unassigned ?? []);
+        // Default tab — show whichever side has items, prefer unassigned.
+        if ((json.unassigned ?? []).length === 0 && (json.withCampaign ?? []).length > 0) {
+          setLeadsTab("with_campaign");
+        }
+      } catch (e) {
+        console.error("[icp.fetchLeads] failed", e);
+        setLeads([]);
+      } finally {
+        setLoadingLeads(false);
+      }
     }
     fetchLeads();
   }, [profile.id]);
@@ -474,40 +485,79 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
             </div>
           )}
           {leadsOpen && !loadingLeads && leads.length > 0 && (
-            <div className="divide-y" style={{ borderColor: C.border }}>
-              {leads.map((lead: any) => {
-                const nm = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
-                const hasCampaign = !!lead.campaign;
-                return (
-                  <div key={lead.id} className="flex items-center gap-3 px-5 py-2.5 table-row-hover">
-                    <Link href={`/leads/${lead.id}`} className="flex-1 min-w-0 hover:underline">
-                      <p className="text-sm font-medium" style={{ color: C.textPrimary }}>{nm}</p>
-                      <p className="text-xs" style={{ color: C.textMuted }}>{lead.primary_title_role ?? ""}{lead.company_name ? ` · ${lead.company_name}` : ""}</p>
-                    </Link>
-                    {lead.lead_score != null && (
-                      <span className="text-xs font-bold px-2 py-0.5 rounded" style={{
-                        backgroundColor: lead.lead_score >= 80 ? C.redLight : lead.lead_score >= 50 ? C.orangeLight : C.accentLight,
-                        color: lead.lead_score >= 80 ? C.red : lead.lead_score >= 50 ? C.orange : C.accent,
-                      }}>{lead.lead_score}</span>
-                    )}
-                    {hasCampaign ? (
-                      <Link href={`/campaigns/${lead.campaign.id}`}
-                        className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-md transition-opacity hover:opacity-80"
-                        style={{ backgroundColor: C.greenLight, color: C.green }}>
-                        <Megaphone size={10} /> {lead.campaign.status === "active" ? "Active Campaign" : lead.campaign.status === "paused" ? "Paused" : "Completed"}
-                        <ExternalLink size={9} />
-                      </Link>
-                    ) : (
-                      <Link href="/campaigns?tab=ready"
-                        className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md transition-opacity hover:opacity-80"
-                        style={{ backgroundColor: C.blueLight, color: C.blue }}>
-                        No Campaign <ChevronRight size={10} />
-                      </Link>
-                    )}
+            <>
+              {/* Sub-tabs — split unassigned vs with campaign so the seller
+                  can act on "leads still to flow" separately from "leads
+                  already in a flow". Boss feedback 2026-05-28. */}
+              <div className="flex items-center gap-1 px-4 py-2 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                <button
+                  type="button"
+                  onClick={() => setLeadsTab("unassigned")}
+                  className="text-xs font-semibold px-3 py-1 rounded-md inline-flex items-center gap-1.5 transition-colors"
+                  style={{
+                    backgroundColor: leadsTab === "unassigned" ? "color-mix(in srgb, #92400E 14%, transparent)" : "transparent",
+                    color: leadsTab === "unassigned" ? "#92400E" : C.textBody,
+                    border: leadsTab === "unassigned" ? "1px solid color-mix(in srgb, #92400E 35%, transparent)" : `1px solid ${C.border}`,
+                  }}>
+                  Unassigned
+                  <span className="text-[9.5px] tabular-nums px-1 rounded" style={{ background: leadsTab === "unassigned" ? "rgba(146,64,14,0.18)" : C.surface, color: leadsTab === "unassigned" ? "#92400E" : C.textDim }}>
+                    {unassigned.length}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLeadsTab("with_campaign")}
+                  className="text-xs font-semibold px-3 py-1 rounded-md inline-flex items-center gap-1.5 transition-colors"
+                  style={{
+                    backgroundColor: leadsTab === "with_campaign" ? "color-mix(in srgb, var(--brand-green, #16A34A) 14%, transparent)" : "transparent",
+                    color: leadsTab === "with_campaign" ? C.green : C.textBody,
+                    border: leadsTab === "with_campaign" ? `1px solid color-mix(in srgb, ${C.green} 35%, transparent)` : `1px solid ${C.border}`,
+                  }}>
+                  With Campaign
+                  <span className="text-[9.5px] tabular-nums px-1 rounded" style={{ background: leadsTab === "with_campaign" ? `color-mix(in srgb, ${C.green} 18%, transparent)` : C.surface, color: leadsTab === "with_campaign" ? C.green : C.textDim }}>
+                    {withCampaign.length}
+                  </span>
+                </button>
+              </div>
+              <div className="divide-y" style={{ borderColor: C.border }}>
+                {(leadsTab === "unassigned" ? unassigned : withCampaign).length === 0 ? (
+                  <div className="px-5 py-6 text-center text-sm" style={{ color: C.textDim }}>
+                    {leadsTab === "unassigned" ? "All leads in this ticket are already assigned to a flow." : "No leads in a campaign yet."}
                   </div>
-                );
-              })}
-            </div>
+                ) : (leadsTab === "unassigned" ? unassigned : withCampaign).map(lead => {
+                  const nm = `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim() || "Unknown";
+                  const camp = lead.campaign;
+                  return (
+                    <div key={lead.id} className="flex items-center gap-3 px-5 py-2.5 table-row-hover">
+                      <Link href={`/leads/${lead.id}`} className="flex-1 min-w-0 hover:underline">
+                        <p className="text-sm font-medium" style={{ color: C.textPrimary }}>{nm}</p>
+                        <p className="text-xs" style={{ color: C.textMuted }}>{lead.role ?? ""}{lead.company ? ` · ${lead.company}` : ""}</p>
+                      </Link>
+                      {lead.score != null && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded" style={{
+                          backgroundColor: lead.score >= 80 ? C.redLight : lead.score >= 50 ? C.orangeLight : C.accentLight,
+                          color: lead.score >= 80 ? C.red : lead.score >= 50 ? C.orange : C.accent,
+                        }}>{lead.score}</span>
+                      )}
+                      {camp ? (
+                        <Link href={`/campaigns/${camp.id}`}
+                          className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-md transition-opacity hover:opacity-80"
+                          style={{ backgroundColor: C.greenLight, color: C.green }}>
+                          <Megaphone size={10} /> {camp.status === "active" ? "Active Campaign" : camp.status === "paused" ? "Paused" : "Completed"}
+                          <ExternalLink size={9} />
+                        </Link>
+                      ) : (
+                        <Link href="/campaigns?tab=ready"
+                          className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md transition-opacity hover:opacity-80"
+                          style={{ backgroundColor: C.blueLight, color: C.blue }}>
+                          No Campaign <ChevronRight size={10} />
+                        </Link>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
       </div>
