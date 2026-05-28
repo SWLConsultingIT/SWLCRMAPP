@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 import { Star, Phone, Mail, Share2, Plus, Megaphone, ExternalLink } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
@@ -31,30 +32,51 @@ type CampaignByLead = Record<string, {
   status: string | null;
 }>;
 
-const channelMeta: Record<string, { color: string; label: string }> = {
-  linkedin: { color: "#0A66C2", label: "LinkedIn" },
-  email:    { color: "#7C3AED", label: "Email" },
-  call:     { color: "#F97316", label: "Call" },
-  whatsapp: { color: "#25D366", label: "WhatsApp" },
+const channelColor: Record<string, string> = {
+  linkedin: "#0A66C2",
+  email:    "#7C3AED",
+  call:     "#F97316",
+  whatsapp: "#25D366",
 };
 
-const statusMeta: Record<string, { color: string; label: string }> = {
-  active:    { color: C.green,    label: "Active" },
-  paused:    { color: "#D97706",  label: "Paused" },
-  completed: { color: C.textMuted, label: "Completed" },
-  failed:    { color: C.red,      label: "Failed" },
+const statusColor: Record<string, string> = {
+  active:    C.green,
+  paused:    "#D97706",
+  completed: C.textMuted,
+  failed:    C.red,
 };
 
 export default function ContactCards({ contacts, campaignByLead = {} }: { contacts: Contact[]; campaignByLead?: CampaignByLead }) {
+  const { t, locale } = useLocale();
+  // i18n labels — channel + status names come from the dashx.* dictionary
+  // so this card stays in sync with the dashboard / leads pages and
+  // honours the Settings → Language toggle. Boss feedback 2026-05-28
+  // r14: i18n must work absolutely across the app.
+  const channelLabel = (ch: string | null | undefined) => {
+    if (!ch) return "";
+    return t(`dashx.ch.${ch}`) || ch;
+  };
+  const statusLabel = (s: string | null | undefined) => {
+    if (!s) return "";
+    return t(`dashx.tbl.status.${s}`) || s;
+  };
+  const flowFallback = locale === "es" ? "Flow" : "Flow";
+  const noFlowTitle = locale === "es" ? "Sin flow" : "No flow";
+  const noFlowSubtitle = locale === "es" ? "Aún no está en ninguna campaña" : "Not in any outreach yet";
+  const seniorityFallback = locale === "es" ? "—" : "—";
+  void seniorityFallback;
+  const noContactInfo = locale === "es" ? "Sin datos de contacto" : "No contact info";
+  const addContact = locale === "es" ? "Agregar contacto" : "Add Contact";
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {contacts.map((contact) => {
         const initials = `${(contact.primary_first_name ?? "?")[0]}${(contact.primary_last_name ?? "?")[0]}`.toUpperCase();
         const camp = campaignByLead[contact.id] ?? null;
-        const chMeta = camp?.channel ? channelMeta[camp.channel] : null;
-        const stMeta = camp?.status ? statusMeta[camp.status] : null;
-        const accent = chMeta?.color ?? gold;
-        const fullName = `${contact.primary_first_name ?? ""} ${contact.primary_last_name ?? ""}`.trim() || "Unknown";
+        const chColor = camp?.channel ? channelColor[camp.channel] : null;
+        const stColor = camp?.status ? statusColor[camp.status] : null;
+        const accent = chColor ?? gold;
+        const fullName = `${contact.primary_first_name ?? ""} ${contact.primary_last_name ?? ""}`.trim() || (locale === "es" ? "Sin nombre" : "Unknown");
 
         return (
           <Link key={contact.id} href={`/leads/${contact.id}`}
@@ -123,7 +145,7 @@ export default function ContactCards({ contacts, campaignByLead = {} }: { contac
                 </span>
               )}
               {!contact.primary_phone && !contact.primary_work_email && !contact.primary_linkedin_url && (
-                <span className="text-[10px]" style={{ color: C.textDim }}>No contact info</span>
+                <span className="text-[10px]" style={{ color: C.textDim }}>{noContactInfo}</span>
               )}
             </div>
 
@@ -135,29 +157,29 @@ export default function ContactCards({ contacts, campaignByLead = {} }: { contac
                 <Link href={`/campaigns/${camp.id}`}
                   onClick={(e) => e.stopPropagation()}
                   className="flex-1 min-w-0 inline-flex items-center gap-2 group/flow"
-                  title={`${camp.name}${stMeta ? ` · ${stMeta.label}` : ""}`}>
+                  title={`${camp.name}${camp.status ? ` · ${statusLabel(camp.status)}` : ""}`}>
                   <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
                     style={{ backgroundColor: `color-mix(in srgb, ${accent} 16%, transparent)`, color: accent }}>
                     <Megaphone size={11} />
                   </span>
                   <div className="flex-1 min-w-0">
                     <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim, letterSpacing: "0.1em" }}>
-                      {chMeta?.label ?? "Flow"}
+                      {channelLabel(camp.channel) || flowFallback}
                     </p>
                     <p className="text-[11.5px] font-semibold truncate group-hover/flow:underline" style={{ color: C.textPrimary }}>
                       {camp.name}
                     </p>
                   </div>
-                  {stMeta && (
+                  {stColor && camp.status && (
                     <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0"
                       style={{
-                        backgroundColor: `color-mix(in srgb, ${stMeta.color} 14%, transparent)`,
-                        color: stMeta.color,
-                        border: `1px solid color-mix(in srgb, ${stMeta.color} 28%, transparent)`,
+                        backgroundColor: `color-mix(in srgb, ${stColor} 14%, transparent)`,
+                        color: stColor,
+                        border: `1px solid color-mix(in srgb, ${stColor} 28%, transparent)`,
                         letterSpacing: "0.08em",
                       }}>
-                      {camp.status === "active" && <span className="inline-block w-1 h-1 rounded-full mr-1 align-middle animate-pulse" style={{ backgroundColor: stMeta.color }} />}
-                      {stMeta.label}
+                      {camp.status === "active" && <span className="inline-block w-1 h-1 rounded-full mr-1 align-middle animate-pulse" style={{ backgroundColor: stColor }} />}
+                      {statusLabel(camp.status)}
                     </span>
                   )}
                   <ExternalLink size={10} style={{ color: C.textDim }} className="shrink-0 opacity-0 group-hover/flow:opacity-100 transition-opacity" />
@@ -169,8 +191,8 @@ export default function ContactCards({ contacts, campaignByLead = {} }: { contac
                     <Megaphone size={11} />
                   </span>
                   <div className="flex-1">
-                    <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "#92400E", letterSpacing: "0.1em" }}>No flow</p>
-                    <p className="text-[11px]" style={{ color: C.textMuted }}>Not in any outreach yet</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "#92400E", letterSpacing: "0.1em" }}>{noFlowTitle}</p>
+                    <p className="text-[11px]" style={{ color: C.textMuted }}>{noFlowSubtitle}</p>
                   </div>
                 </div>
               )}
@@ -186,7 +208,7 @@ export default function ContactCards({ contacts, campaignByLead = {} }: { contac
           style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`, border: `1px dashed color-mix(in srgb, ${gold} 35%, transparent)` }}>
           <Plus size={20} style={{ color: gold }} />
         </div>
-        <span className="text-sm font-semibold" style={{ color: C.textMuted }}>Add Contact</span>
+        <span className="text-sm font-semibold" style={{ color: C.textMuted }}>{addContact}</span>
       </div>
     </div>
   );

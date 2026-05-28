@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 import { Search, X, SlidersHorizontal, Flame, Megaphone, MessageCircle, Target, ChevronDown, Briefcase, Building2 } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
@@ -111,6 +112,7 @@ export function LeadFilterBar({
   // Multi-select toggle helper. Each facet (score, campaign, results,
   // profile, role, industry) is a string[]. Click adds, click again
   // removes. Empty array = no filter applied.
+  const { t } = useLocale();
   const toggle = (key: Exclude<keyof LeadFilterState, "search">, v: string) => {
     const curr = filters[key];
     const next = curr.includes(v) ? curr.filter(x => x !== v) : [...curr, v];
@@ -160,7 +162,7 @@ export function LeadFilterBar({
             type="text"
             value={filters.search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name, company, email…"
+            placeholder={t("leadFilters.search")}
             className="bg-transparent text-[12px] outline-none flex-1 placeholder:font-normal placeholder:text-[12px]"
             style={{ color: C.textPrimary }}
           />
@@ -177,7 +179,7 @@ export function LeadFilterBar({
             className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md transition-colors hover:bg-red-50 inline-flex items-center gap-1"
             style={{ color: C.red, letterSpacing: "0.06em" }}
           >
-            <X size={11} /> Clear {activeCount > 1 ? `(${activeCount})` : ""}
+            <X size={11} /> {t("leadFilters.clear")} {activeCount > 1 ? `(${activeCount})` : ""}
           </button>
         )}
 
@@ -200,35 +202,35 @@ export function LeadFilterBar({
       >
         <PillGroup
           icon={<Flame size={11} />}
-          label="Score"
+          label={t("leadFilters.score")}
           selected={filters.score}
           onToggle={v => toggle("score", v)}
           options={[
-            { key: "hot", label: "Hot", color: C.hot },
-            { key: "warm", label: "Warm", color: C.warm },
-            { key: "nurture", label: "Nurture", color: C.nurture },
+            { key: "hot",     label: t("leadFilters.hot"),     color: C.hot },
+            { key: "warm",    label: t("leadFilters.warm"),    color: C.warm },
+            { key: "nurture", label: t("leadFilters.nurture"), color: C.nurture },
           ]}
         />
         {showCampaignFilter && (
           <PillGroup
             icon={<Megaphone size={11} />}
-            label="Campaign"
+            label={t("leadFilters.campaign")}
             selected={filters.campaign}
             onToggle={v => toggle("campaign", v)}
             options={[
-              { key: "yes", label: "Active", color: C.green },
-              { key: "no", label: "None", color: "#92400E" },
+              { key: "yes", label: t("leadFilters.active"), color: C.green },
+              { key: "no",  label: t("leadFilters.none"),   color: "#92400E" },
             ]}
           />
         )}
         <PillGroup
           icon={<MessageCircle size={11} />}
-          label="Results"
+          label={t("leadFilters.results")}
           selected={filters.results}
           onToggle={v => toggle("results", v)}
           options={[
-            { key: "positive", label: "Positive", color: C.green },
-            { key: "negative", label: "Negative", color: C.red },
+            { key: "positive", label: t("leadFilters.positive"), color: C.green },
+            { key: "negative", label: t("leadFilters.negative"), color: C.red },
           ]}
         />
       </div>
@@ -247,7 +249,7 @@ export function LeadFilterBar({
         {showProfileFilter && profileNames && profileNames.length > 0 && (
           <FacetDropdown
             icon={<Target size={11} />}
-            label="ICP"
+            label={t("leadFilters.icp")}
             selected={filters.profile}
             onToggle={v => toggle("profile", v)}
             onClear={() => onChange({ ...filters, profile: [] })}
@@ -257,7 +259,7 @@ export function LeadFilterBar({
         {industryOptions && industryOptions.length > 0 && (
           <FacetDropdown
             icon={<Building2 size={11} />}
-            label="Industry"
+            label={t("leadFilters.industry")}
             selected={filters.industry}
             onToggle={v => toggle("industry", v)}
             onClear={() => onChange({ ...filters, industry: [] })}
@@ -267,7 +269,7 @@ export function LeadFilterBar({
         {roleOptions && roleOptions.length > 0 && (
           <FacetDropdown
             icon={<Briefcase size={11} />}
-            label="Role"
+            label={t("leadFilters.role")}
             selected={filters.role}
             onToggle={v => toggle("role", v)}
             onClear={() => onChange({ ...filters, role: [] })}
@@ -295,6 +297,7 @@ function FacetDropdown({
   onClear: () => void;
   options: string[];
 }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -317,9 +320,11 @@ function FacetDropdown({
     : options;
 
   // Trigger label: "All Roles" when nothing selected, "Director" when
-  // one selected, "Director +2" when many.
+  // one selected, "Director +2" when many. Translated via the
+  // leadFilters.allOf template which keeps "All {label} ({n})"
+  // grammatically right in both EN and ES.
   const triggerText = !hasFilter
-    ? `All ${label.toLowerCase()}s (${options.length})`
+    ? t("leadFilters.allOf").replace("{label}", label.toLowerCase()).replace("{n}", String(options.length))
     : selected.length === 1
       ? selected[0]
       : `${selected[0]} +${selected.length - 1}`;
@@ -381,7 +386,7 @@ function FacetDropdown({
                 type="text"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder={`Search ${label.toLowerCase()}…`}
+                placeholder={t("leadFilters.searchPopup").replace("{label}", label.toLowerCase())}
                 className="bg-transparent text-[11px] outline-none flex-1"
                 style={{ color: C.textPrimary }}
               />
@@ -389,7 +394,7 @@ function FacetDropdown({
           )}
           <div className="max-h-64 overflow-y-auto py-1">
             {visibleOptions.length === 0 ? (
-              <p className="px-3 py-3 text-[11px] text-center" style={{ color: C.textMuted }}>No match</p>
+              <p className="px-3 py-3 text-[11px] text-center" style={{ color: C.textMuted }}>{t("leadFilters.noMatch")}</p>
             ) : visibleOptions.map(opt => {
               const isOn = selected.includes(opt);
               return (
@@ -419,11 +424,11 @@ function FacetDropdown({
           </div>
           {hasFilter && (
             <div className="px-3 py-2 border-t flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-              <span className="text-[10px] tabular-nums" style={{ color: C.textMuted }}>{selected.length} selected</span>
+              <span className="text-[10px] tabular-nums" style={{ color: C.textMuted }}>{t("leadFilters.selected").replace("{n}", String(selected.length))}</span>
               <button onClick={onClear}
                 className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md transition-colors hover:bg-red-50"
                 style={{ color: C.red, letterSpacing: "0.06em" }}>
-                Clear
+                {t("leadFilters.clear")}
               </button>
             </div>
           )}
