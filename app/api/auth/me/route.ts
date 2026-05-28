@@ -101,7 +101,9 @@ export async function GET() {
   // Multi-tenant switcher: honor ACTIVE_TENANT_COOKIE if it points at a bio
   // the user has membership in. Falls back to user_profiles.company_bio_id.
   // We validate server-side so a tampered cookie can't redirect the UI into
-  // a tenant the user doesn't belong to.
+  // a tenant the user doesn't belong to. Super admins skip the membership
+  // lookup — they're implicit members of every active bio.
+  const isSuperAdmin = tier === "super_admin";
   const cookieStoreActive = await cookies();
   const activeCookie = cookieStoreActive.get(ACTIVE_TENANT_COOKIE)?.value ?? null;
   let effectiveBioId: string | null = profile?.company_bio_id ?? null;
@@ -109,38 +111,69 @@ export async function GET() {
   let effectiveBioLogo: string | null = bio?.logo_url ?? null;
   let effectiveTier: string = tier;
   if (activeCookie && activeCookie !== effectiveBioId) {
-    const { data: m } = await svc
-      .from("user_company_memberships")
-      .select("tier, company_bios(id, company_name, logo_url, archived_at)")
-      .eq("user_id", user.id)
-      .eq("company_bio_id", activeCookie)
-      .maybeSingle();
-    type ActiveBio = { id: string; company_name: string | null; logo_url: string | null; archived_at: string | null };
-    const aBioRaw = (m as { company_bios?: ActiveBio | ActiveBio[] | null } | null)?.company_bios;
-    const aBio = Array.isArray(aBioRaw) ? aBioRaw[0] : aBioRaw;
-    if (aBio && !aBio.archived_at) {
-      effectiveBioId = aBio.id;
-      effectiveBioName = aBio.company_name;
-      effectiveBioLogo = aBio.logo_url;
-      effectiveTier = (m?.tier as string | undefined) ?? tier;
+    if (isSuperAdmin) {
+      const { data: aBio } = await svc
+        .from("company_bios")
+        .select("id, company_name, logo_url, archived_at")
+        .eq("id", activeCookie)
+        .maybeSingle();
+      if (aBio?.id && !aBio.archived_at) {
+        effectiveBioId = aBio.id;
+        effectiveBioName = aBio.company_name;
+        effectiveBioLogo = aBio.logo_url;
+        effectiveTier = "super_admin";
+      }
+    } else {
+      const { data: m } = await svc
+        .from("user_company_memberships")
+        .select("tier, company_bios(id, company_name, logo_url, archived_at)")
+        .eq("user_id", user.id)
+        .eq("company_bio_id", activeCookie)
+        .maybeSingle();
+      type ActiveBio = { id: string; company_name: string | null; logo_url: string | null; archived_at: string | null };
+      const aBioRaw = (m as { company_bios?: ActiveBio | ActiveBio[] | null } | null)?.company_bios;
+      const aBio = Array.isArray(aBioRaw) ? aBioRaw[0] : aBioRaw;
+      if (aBio && !aBio.archived_at) {
+        effectiveBioId = aBio.id;
+        effectiveBioName = aBio.company_name;
+        effectiveBioLogo = aBio.logo_url;
+        effectiveTier = (m?.tier as string | undefined) ?? tier;
+      }
     }
   }
 
   // Full membership list so the TenantSwitcher dropdown renders without a
-  // separate round-trip when /me is the first fetch on app boot.
-  const { data: memData } = await svc
-    .from("user_company_memberships")
-    .select("company_bio_id, tier, company_bios(id, company_name, logo_url, archived_at)")
-    .eq("user_id", user.id);
-  type MemBio = { id: string; company_name: string | null; logo_url: string | null; archived_at: string | null };
-  type MemRow = { company_bio_id: string; tier: string; company_bios: MemBio | MemBio[] | null };
-  const memberships = (memData ?? []).map((row: unknown) => {
-    const r = row as MemRow;
-    const bioRaw = r.company_bios;
-    const b = Array.isArray(bioRaw) ? bioRaw[0] : bioRaw;
-    if (!b || b.archived_at) return null;
-    return { companyBioId: r.company_bio_id, companyName: b.company_name, logoUrl: b.logo_url, tier: r.tier };
-  }).filter((m): m is NonNullable<typeof m> => m !== null);
+  // separate round-trip when /me is the first fetch on app boot. Super
+  // admins get the full bio list (implicit-member rule, 2026-05-28).
+  type MemEntry = { companyBioId: string; companyName: string | null; logoUrl: string | null; tier: string };
+  let memberships: MemEntry[];
+  if (isSuperAdmin) {
+    const { data: bios } = await svc
+      .from("company_bios")
+      .select("id, company_name, logo_url, archived_at")
+      .is("archived_at", null)
+      .order("company_name", { ascending: true });
+    memberships = (bios ?? []).map(b => ({
+      companyBioId: b.id,
+      companyName: b.company_name,
+      logoUrl: b.logo_url,
+      tier: "super_admin",
+    }));
+  } else {
+    const { data: memData } = await svc
+      .from("user_company_memberships")
+      .select("company_bio_id, tier, company_bios(id, company_name, logo_url, archived_at)")
+      .eq("user_id", user.id);
+    type MemBio = { id: string; company_name: string | null; logo_url: string | null; archived_at: string | null };
+    type MemRow = { company_bio_id: string; tier: string; company_bios: MemBio | MemBio[] | null };
+    memberships = (memData ?? []).map((row: unknown) => {
+      const r = row as MemRow;
+      const bioRaw = r.company_bios;
+      const b = Array.isArray(bioRaw) ? bioRaw[0] : bioRaw;
+      if (!b || b.archived_at) return null;
+      return { companyBioId: r.company_bio_id, companyName: b.company_name, logoUrl: b.logo_url, tier: r.tier };
+    }).filter((m): m is MemEntry => m !== null);
+  }
 
   return NextResponse.json({
     user: {
