@@ -286,6 +286,15 @@ function buildIcpSections(groups: CampaignGroup[], icpMap: Record<string, IcpPro
     if (!byIcp[key]) byIcp[key] = [];
     byIcp[key].push(g);
   }
+  // Every approved ICP shows up as a section — even if it has zero
+  // active/paused flows. Boss feedback 2026-05-28: "que pasa si no
+  // tenemos flows activos? que aparezcan los icps ahi" — so the seller
+  // can click "Create New Flow" from any ICP, not just ones with
+  // existing campaigns. The header still renders with metrics = 0 and
+  // an "empty" body when there are no groups.
+  for (const id of Object.keys(icpMap)) {
+    if (!byIcp[id]) byIcp[id] = [];
+  }
   const sections: IcpSection[] = Object.entries(byIcp).map(([id, gs]) => {
     const profile = id !== "__none" ? icpMap[id] : null;
     const name = profile?.profile_name ?? "Uncategorized";
@@ -304,11 +313,19 @@ function buildIcpSections(groups: CampaignGroup[], icpMap: Record<string, IcpPro
       groups: gs,
     };
   });
-  return sections.sort((a, b) => {
-    if (a.id === null && b.id !== null) return 1;
-    if (b.id === null && a.id !== null) return -1;
-    return b.totalLeads - a.totalLeads;
-  });
+  return sections
+    // Drop the "Uncategorized" bucket when it's empty — there's nothing
+    // to do with leads that have no ICP from this surface.
+    .filter(s => !(s.id === null && s.groups.length === 0))
+    .sort((a, b) => {
+      if (a.id === null && b.id !== null) return 1;
+      if (b.id === null && a.id !== null) return -1;
+      // ICPs with active flows first; empty ICPs at the bottom.
+      if ((a.groups.length === 0) !== (b.groups.length === 0)) {
+        return a.groups.length === 0 ? 1 : -1;
+      }
+      return b.totalLeads - a.totalLeads;
+    });
 }
 
 function MetricTile({ label, value, sub, accent, dim }: { label: string; value: string | number; sub?: string | null; accent: string; dim: boolean }) {
@@ -689,6 +706,25 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
           )}
         </div>
 
+        {/* Create New Flow CTA — sits between the title and the metrics
+            (boss feedback 2026-05-28: "antes de los datos, más a la
+            izquierda en el medio"). Bigger pill so it reads as the
+            primary action of the section. */}
+        {section.id && (
+          <Link
+            href={`/campaigns/new/${section.id}/pick`}
+            onClick={(e) => e.stopPropagation()}
+            className="relative inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-bold whitespace-nowrap transition-[opacity,transform] hover:opacity-90 hover:-translate-y-0.5 shrink-0"
+            style={{
+              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
+              color: N.ink,
+              boxShadow: `0 6px 20px color-mix(in srgb, ${gold} 38%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
+            }}
+          >
+            <Plus size={15} strokeWidth={2.8} /> {t("flows.createNew")}
+          </Link>
+        )}
+
         {/* Rolled-up metrics — on the dark surface, white numbers with
             gold/blue/green accents on the non-zero values. */}
         <div className="relative hidden md:flex items-center gap-5 shrink-0 mr-3">
@@ -717,23 +753,6 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
             </p>
           </div>
         </div>
-
-        {/* Create new outreach flow CTA — only meaningful when the section
-            has an ICP id; "Uncategorized" leads can't seed a new flow. */}
-        {section.id && (
-          <Link
-            href={`/campaigns/new/${section.id}/pick`}
-            onClick={(e) => e.stopPropagation()}
-            className="relative inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11.5px] font-semibold whitespace-nowrap transition-opacity hover:opacity-90 mr-2"
-            style={{
-              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
-              color: N.ink,
-              boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 34%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 50%, white)`,
-            }}
-          >
-            <Plus size={12} strokeWidth={2.6} /> {t("flows.createNew")}
-          </Link>
-        )}
 
         <ChevronDown size={18}
           className="relative shrink-0 transition-transform duration-200 pointer-events-none"

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Users, CheckSquare, Square } from "lucide-react";
+import { ArrowRight, Users, CheckSquare, Square, Building2, Globe, Briefcase, MapPin } from "lucide-react";
 import { C, N } from "@/lib/design";
 import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
 
@@ -80,13 +80,8 @@ export default function PickLeadsClient({
 
   function continueToWizard() {
     const ids = Array.from(selected);
-    if (ids.length === 0) {
-      // "Use all eligible" path — no ?leads param means the wizard treats
-      // every same-ICP lead as the cohort.
-      router.push(`/campaigns/new/${profileId}`);
-    } else {
-      router.push(`/campaigns/new/${profileId}?leads=${ids.join(",")}`);
-    }
+    if (ids.length === 0) return;
+    router.push(`/campaigns/new/${profileId}?leads=${ids.join(",")}`);
   }
 
   return (
@@ -122,13 +117,13 @@ export default function PickLeadsClient({
             <p className="text-[13px] mt-2 max-w-[640px]" style={{ color: "color-mix(in srgb, white 65%, transparent)" }}>
               {leads.length === 0
                 ? "No eligible leads for this ICP — every lead is already in an active or paused flow."
-                : "Pick the leads you want to enrol. Filter by industry, country, company, role or score. Continue without selecting any to use every eligible lead in this ICP."}
+                : "Pick the leads you want to enrol. Filter by industry, country, company, role or score, then select the leads you want and Continue will appear."}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <Link
               href="/campaigns"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-opacity hover:opacity-90"
+              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-opacity hover:opacity-90"
               style={{
                 color: "color-mix(in srgb, white 80%, transparent)",
                 border: `1px solid color-mix(in srgb, white 20%, transparent)`,
@@ -136,26 +131,6 @@ export default function PickLeadsClient({
             >
               Cancel
             </Link>
-            <button
-              type="button"
-              onClick={continueToWizard}
-              disabled={leads.length === 0}
-              className="inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13px] font-semibold transition-opacity hover:opacity-90 disabled:opacity-40 whitespace-nowrap"
-              style={{
-                background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
-                color: N.ink,
-                boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 34%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
-              }}
-            >
-              Continue
-              {selected.size > 0 && (
-                <span className="rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums"
-                  style={{ backgroundColor: N.ink, color: gold }}>
-                  {selected.size}
-                </span>
-              )}
-              <ArrowRight size={14} />
-            </button>
           </div>
         </div>
       </header>
@@ -176,79 +151,186 @@ export default function PickLeadsClient({
             showStatusPills={false}
           />
 
-          <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <div className="px-5 py-3 border-b flex items-center justify-between flex-wrap gap-3" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+          <div
+            className="rounded-2xl border overflow-hidden"
+            style={{
+              backgroundColor: C.card,
+              borderColor: `color-mix(in srgb, ${gold} 16%, ${C.border})`,
+              boxShadow: `0 1px 3px rgba(0,0,0,0.05), 0 0 0 1px color-mix(in srgb, ${gold} 6%, transparent)`,
+            }}
+          >
+            {/* List toolbar — select-all on the left, selection counter
+                on the right. Sits over a faint gold tint so the rows
+                underneath read as a distinct content surface. */}
+            <div
+              className="px-5 py-3.5 border-b flex items-center justify-between flex-wrap gap-3"
+              style={{
+                borderColor: `color-mix(in srgb, ${gold} 12%, ${C.border})`,
+                background: `linear-gradient(180deg, color-mix(in srgb, ${gold} 5%, ${C.bg}) 0%, ${C.bg} 100%)`,
+              }}
+            >
               <button
                 type="button"
                 onClick={toggleAllFiltered}
-                className="inline-flex items-center gap-2 text-[12px] font-semibold transition-opacity hover:opacity-80"
-                style={{ color: C.textBody }}
+                className="inline-flex items-center gap-2.5 text-[12.5px] font-semibold transition-opacity hover:opacity-80"
+                style={{ color: C.textPrimary }}
               >
-                {allFilteredSelected
-                  ? <CheckSquare size={14} style={{ color: gold }} />
-                  : <Square size={14} style={{ color: C.textDim }} />}
+                <span
+                  className="inline-flex items-center justify-center w-5 h-5 rounded-md"
+                  style={{
+                    backgroundColor: allFilteredSelected ? gold : "transparent",
+                    border: `1.5px solid ${allFilteredSelected ? gold : C.border}`,
+                  }}
+                >
+                  {allFilteredSelected && <CheckSquare size={11} style={{ color: N.ink }} strokeWidth={3} />}
+                </span>
                 {allFilteredSelected ? "Deselect all" : "Select all"}
-                <span className="text-[11px]" style={{ color: C.textMuted }}>
+                <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>
                   ({filtered.length === leads.length ? leads.length : `${filtered.length} of ${leads.length}`})
                 </span>
               </button>
-              <div className="flex items-center gap-2 text-[11.5px]" style={{ color: C.textMuted }}>
-                <Users size={12} />
-                <span>
-                  <span className="font-bold" style={{ color: gold }}>{selected.size}</span> selected
+              <div className="flex items-center gap-3 text-[12px]" style={{ color: C.textBody }}>
+                <span className="inline-flex items-center gap-1.5">
+                  <Users size={13} style={{ color: gold }} />
+                  <span>
+                    <span className="text-[15px] font-bold tabular-nums" style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{selected.size}</span>
+                    <span className="ml-1" style={{ color: C.textMuted }}>selected</span>
+                  </span>
                 </span>
                 {selected.size > 0 && (
-                  <button type="button" onClick={clearSelection} className="ml-2 text-[11px] underline" style={{ color: C.textDim }}>
-                    Clear
-                  </button>
+                  <>
+                    <span className="h-3.5 w-px" style={{ backgroundColor: C.border }} />
+                    <button
+                      type="button"
+                      onClick={clearSelection}
+                      className="text-[11.5px] font-medium hover:underline"
+                      style={{ color: C.textDim }}
+                    >
+                      Clear
+                    </button>
+                  </>
                 )}
               </div>
             </div>
+
             <div className="divide-y max-h-[640px] overflow-y-auto" style={{ borderColor: C.border }}>
               {filtered.length === 0 ? (
-                <p className="px-5 py-10 text-center text-[12.5px]" style={{ color: C.textDim }}>
-                  No leads match the current filters.
-                </p>
+                <div className="px-5 py-12 text-center">
+                  <p className="text-[13px] font-medium" style={{ color: C.textBody }}>
+                    No leads match the current filters.
+                  </p>
+                  <p className="text-[11.5px] mt-1" style={{ color: C.textDim }}>
+                    Clear a facet above to widen the cohort.
+                  </p>
+                </div>
               ) : filtered.map(l => {
                 const checked = selected.has(l.id);
                 const nm = `${l.first_name ?? ""} ${l.last_name ?? ""}`.trim() || "Unknown";
-                const sub = [l.role, l.company_name, l.country].filter(Boolean).join(" · ");
+                const initials = `${l.first_name?.[0] ?? ""}${l.last_name?.[0] ?? ""}`.toUpperCase() || "··";
+                const scoreBand: "hot" | "warm" | "nurture" = l.lead_score != null && l.lead_score >= 80
+                  ? "hot" : l.lead_score != null && l.lead_score >= 50 ? "warm" : "nurture";
+                const scoreMeta = {
+                  hot:     { color: "#DC2626", bg: "rgba(220,38,38,0.10)", border: "rgba(220,38,38,0.25)" },
+                  warm:    { color: "#D97706", bg: "rgba(217,119,6,0.10)", border: "rgba(217,119,6,0.25)" },
+                  nurture: { color: "#64748B", bg: "rgba(148,163,184,0.14)", border: "rgba(148,163,184,0.28)" },
+                }[scoreBand];
                 return (
                   <button
                     key={l.id}
                     type="button"
                     onClick={() => toggle(l.id)}
-                    className="w-full flex items-center gap-4 px-5 py-2.5 text-left transition-colors hover:bg-gray-50"
-                    style={{ backgroundColor: checked ? `color-mix(in srgb, ${gold} 4%, transparent)` : "transparent" }}
+                    className="w-full flex items-center gap-3.5 px-5 py-3 text-left transition-[background-color,box-shadow,border-color] hover:bg-gray-50 group"
+                    style={{
+                      backgroundColor: checked ? `color-mix(in srgb, ${gold} 5%, transparent)` : "transparent",
+                      boxShadow: checked
+                        ? `inset 3px 0 0 ${gold}, inset 0 -1px 0 color-mix(in srgb, ${gold} 12%, transparent)`
+                        : "inset 3px 0 0 transparent",
+                    }}
                   >
-                    {checked
-                      ? <CheckSquare size={14} style={{ color: gold }} />
-                      : <Square size={14} style={{ color: C.textDim }} />}
+                    {/* Checkbox — bigger, gold when checked */}
+                    <span
+                      className="inline-flex items-center justify-center w-5 h-5 rounded-md shrink-0 transition-colors"
+                      style={{
+                        backgroundColor: checked ? gold : "transparent",
+                        border: `1.5px solid ${checked ? gold : C.border}`,
+                      }}
+                    >
+                      {checked && <CheckSquare size={11} style={{ color: N.ink }} strokeWidth={3} />}
+                    </span>
+
+                    {/* Avatar with initials — soft gold tint to anchor the row */}
+                    <span
+                      className="inline-flex items-center justify-center w-9 h-9 rounded-xl text-[11.5px] font-bold uppercase shrink-0 tabular-nums"
+                      style={{
+                        background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 18%, transparent) 0%, color-mix(in srgb, ${gold} 8%, transparent) 100%)`,
+                        color: gold,
+                        border: `1px solid color-mix(in srgb, ${gold} 28%, transparent)`,
+                        fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                      }}
+                      aria-hidden
+                    >
+                      {initials}
+                    </span>
+
+                    {/* Identity + role + company */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-semibold" style={{ color: C.textPrimary }}>{nm}</p>
-                      {sub && (
-                        <p className="text-[11px] truncate" style={{ color: C.textMuted }}>{sub}</p>
+                      <p className="text-[13.5px] font-semibold leading-tight"
+                        style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                        {nm}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5 text-[11.5px] min-w-0" style={{ color: C.textMuted }}>
+                        {l.role && (
+                          <span className="inline-flex items-center gap-1 truncate" title={l.role}>
+                            <Briefcase size={10} style={{ color: C.textDim }} />
+                            <span className="truncate">{l.role}</span>
+                          </span>
+                        )}
+                        {l.role && l.company_name && (
+                          <span className="opacity-50" style={{ color: C.textDim }}>·</span>
+                        )}
+                        {l.company_name && (
+                          <span className="inline-flex items-center gap-1 truncate" title={l.company_name}>
+                            <Building2 size={10} style={{ color: C.textDim }} />
+                            <span className="truncate" style={{ color: C.textBody, fontWeight: 500 }}>{l.company_name}</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right-side chip cluster — country, industry, score */}
+                    <div className="hidden md:flex items-center gap-1.5 shrink-0">
+                      {l.country && (
+                        <span
+                          className="inline-flex items-center gap-1 text-[10.5px] font-medium px-1.5 py-0.5 rounded-md"
+                          style={{ backgroundColor: C.surface, color: C.textBody, border: `1px solid ${C.border}` }}
+                          title={l.country}
+                        >
+                          <MapPin size={9} style={{ color: C.textDim }} />
+                          {l.country}
+                        </span>
+                      )}
+                      {l.industry && (
+                        <span
+                          className="inline-flex items-center gap-1 text-[10.5px] font-medium px-1.5 py-0.5 rounded-md max-w-[170px] truncate"
+                          style={{ backgroundColor: C.surface, color: C.textBody, border: `1px solid ${C.border}` }}
+                          title={l.industry}
+                        >
+                          <Globe size={9} style={{ color: C.textDim }} />
+                          <span className="truncate">{l.industry}</span>
+                        </span>
                       )}
                     </div>
                     {l.lead_score != null && (
                       <span
-                        className="text-[10.5px] font-bold tabular-nums px-2 py-0.5 rounded-md shrink-0"
+                        className="text-[11px] font-bold tabular-nums px-2 py-0.5 rounded-md shrink-0"
                         style={{
-                          backgroundColor: l.lead_score >= 80 ? "rgba(220,38,38,0.10)"
-                            : l.lead_score >= 50 ? "rgba(217,119,6,0.10)"
-                            : "rgba(148,163,184,0.18)",
-                          color: l.lead_score >= 80 ? "#DC2626"
-                            : l.lead_score >= 50 ? "#D97706"
-                            : "#64748B",
+                          backgroundColor: scoreMeta.bg,
+                          color: scoreMeta.color,
+                          border: `1px solid ${scoreMeta.border}`,
+                          fontFamily: "var(--font-outfit), system-ui, sans-serif",
                         }}
                       >
                         {l.lead_score}
-                      </span>
-                    )}
-                    {l.industry && (
-                      <span className="hidden md:inline text-[10.5px] truncate shrink-0 max-w-[180px]"
-                        style={{ color: C.textDim }} title={l.industry}>
-                        {l.industry}
                       </span>
                     )}
                   </button>
@@ -257,6 +339,64 @@ export default function PickLeadsClient({
             </div>
           </div>
         </>
+      )}
+
+      {/* Floating selection bar — appears when at least one lead is
+          picked. Sits sticky at the bottom-center of the viewport so the
+          Continue affordance follows the seller's scroll. Boss feedback
+          2026-05-28: didn't want the Continue button to live at the top
+          when nothing was selected — it now only shows up when there's
+          something to confirm. Cancel stays at the top. */}
+      {selected.size > 0 && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-2xl px-3 py-2.5 pl-5"
+          style={{
+            background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
+            border: `1px solid color-mix(in srgb, ${gold} 36%, ${N.hairline})`,
+            boxShadow: `0 18px 48px -12px rgba(0,0,0,0.45), 0 0 0 1px color-mix(in srgb, ${gold} 14%, transparent)`,
+            animation: "pick-bar-rise 220ms cubic-bezier(0.16, 1, 0.3, 1)",
+          }}
+        >
+          {/* gold hairline on top */}
+          <span aria-hidden className="absolute inset-x-0 top-0 h-px rounded-t-2xl pointer-events-none"
+            style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)`, opacity: 0.55 }} />
+          <span className="inline-flex items-center gap-2 text-[13px]">
+            <Users size={14} style={{ color: gold }} />
+            <span style={{ color: "white", fontWeight: 600 }}>
+              <span className="text-[16px] tabular-nums" style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                {selected.size}
+              </span>
+              <span className="ml-1.5" style={{ color: "color-mix(in srgb, white 75%, transparent)" }}>
+                lead{selected.size === 1 ? "" : "s"} selected
+              </span>
+            </span>
+          </span>
+          <button
+            type="button"
+            onClick={clearSelection}
+            className="text-[11.5px] font-medium px-2 py-1 rounded-md transition-opacity hover:opacity-80"
+            style={{
+              color: "color-mix(in srgb, white 65%, transparent)",
+              border: `1px solid color-mix(in srgb, white 18%, transparent)`,
+            }}
+          >
+            Clear
+          </button>
+          <span className="h-6 w-px" style={{ backgroundColor: "color-mix(in srgb, white 14%, transparent)" }} />
+          <button
+            type="button"
+            onClick={continueToWizard}
+            className="inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-bold whitespace-nowrap transition-[opacity,transform] hover:opacity-90 hover:-translate-y-0.5"
+            style={{
+              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
+              color: N.ink,
+              boxShadow: `0 6px 18px color-mix(in srgb, ${gold} 38%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
+            }}
+          >
+            Continue <ArrowRight size={14} strokeWidth={2.8} />
+          </button>
+          <style>{`@keyframes pick-bar-rise { from { transform: translate(-50%, 18px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }`}</style>
+        </div>
       )}
     </div>
   );
