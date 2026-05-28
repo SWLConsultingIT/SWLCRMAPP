@@ -92,57 +92,68 @@ export async function POST(req: NextRequest) {
   // 2. Get the leads to create campaigns for
   let leadIds: string[] = [];
 
+  // Reused for both selection paths: drop any lead that already has an
+  // active/paused campaign OR received a sent message in the last 90 days.
+  // Returns the surviving IDs (preserving caller order) + the rejected set.
+  // De Vera Grill 2026-05-26 incident: 6 of 22 leads got two intros from
+  // April + May campaigns because the path that honored selectedLeadIds
+  // skipped this guard. Bulk-ICP already did it; this generalises it.
+  async function dropRecentlyTouched(ids: string[]): Promise<{ keep: string[]; rejected: string[] }> {
+    if (ids.length === 0) return { keep: [], rejected: [] };
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    const [activeRes, recentTouchRes] = await Promise.all([
+      supabase.from("campaigns").select("lead_id").in("lead_id", ids).in("status", ["active", "paused"]),
+      supabase.from("campaign_messages").select("lead_id").in("lead_id", ids).eq("status", "sent").gte("sent_at", ninetyDaysAgo),
+    ]);
+    const excluded = new Set<string>();
+    for (const c of activeRes.data ?? []) excluded.add((c as any).lead_id);
+    for (const m of recentTouchRes.data ?? []) excluded.add((m as any).lead_id);
+    return {
+      keep: ids.filter(id => !excluded.has(id)),
+      rejected: [...excluded],
+    };
+  }
+
+  let rejectedRecentlyTouched: string[] = [];
+
   if (request.lead_id) {
-    // Individual lead campaign
+    // Individual lead campaign — explicit single-lead approval, skip the
+    // 90d guard. Seller asked for THIS specific lead by name; treat as
+    // intent override.
     leadIds = [request.lead_id];
   } else if (selectedLeadIds.length > 0) {
-    // Partial selection from profile
-    leadIds = selectedLeadIds;
+    // Partial selection from profile. Apply the same 90d touch guard the
+    // bulk-ICP path uses so manually-selected leads can't re-engage someone
+    // who got an intro from a sibling campaign in the last quarter.
+    const { keep, rejected } = await dropRecentlyTouched(selectedLeadIds);
+    leadIds = keep;
+    rejectedRecentlyTouched = rejected;
   } else if (request.icp_profile_id) {
-    // Bulk campaign for all uncampaigned leads in this ICP profile
+    // Bulk campaign for all uncampaigned leads in this ICP profile.
     const { data: profileLeads } = await supabase
       .from("leads")
       .select("id")
       .eq("icp_profile_id", request.icp_profile_id);
 
     const allIds = (profileLeads ?? []).map(l => l.id);
-
-    // Exclude leads that:
-    //   (a) currently have an active/paused campaign, OR
-    //   (b) received ANY sent campaign message in the last 90 days
-    //       (including from completed campaigns) — prevents the "two intros
-    //       a month apart" problem Fran flagged on 2026-05-26 for De Vera
-    //       Grill (6 of 22 leads got intro-April + intro-May from two
-    //       different campaigns, second one re-engaged a lead that had
-    //       already declined). Sellers can still re-engage older cold leads
-    //       (≥ 90 days since last touch); that's intentional.
-    if (allIds.length > 0) {
-      const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
-      const [activeRes, recentTouchRes] = await Promise.all([
-        supabase
-          .from("campaigns")
-          .select("lead_id")
-          .in("lead_id", allIds)
-          .in("status", ["active", "paused"]),
-        supabase
-          .from("campaign_messages")
-          .select("lead_id")
-          .in("lead_id", allIds)
-          .eq("status", "sent")
-          .gte("sent_at", ninetyDaysAgo),
-      ]);
-
-      const excluded = new Set<string>();
-      for (const c of activeRes.data ?? []) excluded.add((c as any).lead_id);
-      for (const m of recentTouchRes.data ?? []) excluded.add((m as any).lead_id);
-      leadIds = allIds.filter(id => !excluded.has(id));
-    }
+    const { keep, rejected } = await dropRecentlyTouched(allIds);
+    leadIds = keep;
+    rejectedRecentlyTouched = rejected;
   }
 
   if (leadIds.length === 0) {
-    // Still approve the request but no campaigns to create
+    // Still approve the request but no campaigns to create. Surface the
+    // rejection reason so the admin can see whether the result was "no
+    // matching leads" or "every selected lead was recently touched".
     await supabase.from("campaign_requests").update({ status: "approved" }).eq("id", requestId);
-    return NextResponse.json({ approved: true, campaignsCreated: 0, message: "No eligible leads found" });
+    return NextResponse.json({
+      approved: true,
+      campaignsCreated: 0,
+      message: rejectedRecentlyTouched.length > 0
+        ? `All ${rejectedRecentlyTouched.length} leads were excluded — each has an active campaign or was contacted in the last 90 days.`
+        : "No eligible leads found",
+      rejectedRecentlyTouched,
+    });
   }
 
   // 3. Resolve seller assignment per lead.

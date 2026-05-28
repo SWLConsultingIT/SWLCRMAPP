@@ -205,6 +205,13 @@ function nameMatches(
   return slugUnique;
 }
 
+// Canonical placeholders + every alias we've seen leak through human-written
+// copy. The PE Spain incident (2026-05-27) shipped 8 emails with literal
+// `{{firstName}}` and `{{fund_name}}` because the dispatcher only knew the
+// snake_case set. Now we accept camelCase + domain-specific aliases so a
+// template author can write whatever feels natural and it still renders.
+// New aliases belong here, NOT in a separate sync workflow — this is the
+// last point that touches the body before send.
 function personalizeNote(template: string, lead: LeadRow, seller: SellerRow): string {
   const first = lead.primary_first_name ?? "there";
   const last = lead.primary_last_name ?? "";
@@ -213,15 +220,47 @@ function personalizeNote(template: string, lead: LeadRow, seller: SellerRow): st
   const role = lead.primary_title_role ?? "";
   const sellerName = seller.name ?? "";
   return (template ?? "")
+    // First name — snake, camel, and "name" alone (used in some templates).
     .replaceAll("{{first_name}}", first)
+    .replaceAll("{{firstName}}", first)
+    .replaceAll("{{name}}", first)
+    // Last name.
     .replaceAll("{{last_name}}", last)
+    .replaceAll("{{lastName}}", last)
+    // Full name.
     .replaceAll("{{full_name}}", full)
+    .replaceAll("{{fullName}}", full)
+    // Company — including PE-specific `fund_name` alias.
     .replaceAll("{{company_name}}", company)
+    .replaceAll("{{companyName}}", company)
     .replaceAll("{{company}}", company)
+    .replaceAll("{{fund_name}}", company)
+    .replaceAll("{{fundName}}", company)
+    .replaceAll("{{firm_name}}", company)
+    .replaceAll("{{firmName}}", company)
+    // Role / title.
     .replaceAll("{{role}}", role)
     .replaceAll("{{title}}", role)
+    .replaceAll("{{position}}", role)
+    // Seller — accept several aliases sellers wrote by hand.
     .replaceAll("{{seller_name}}", sellerName)
-    .replaceAll("{{seller_company}}", "");
+    .replaceAll("{{sellerName}}", sellerName)
+    .replaceAll("{{sender_name}}", sellerName)
+    .replaceAll("{{senderName}}", sellerName)
+    .replaceAll("{{my_name}}", sellerName)
+    .replaceAll("{{seller_company}}", "")
+    .replaceAll("{{sellerCompany}}", "");
+}
+
+// Defense-in-depth: after personalization, any remaining `{{…}}` is an
+// unsupported placeholder. We must NOT ship raw to the lead — that's how the
+// PE Spain `{{fund_name}}` incident happened. Returns the list of leftover
+// tokens (e.g. `["{{fund_name}}", "{{firstName}}"]`) so the caller can fail
+// the row with a useful error message.
+function findUnresolvedPlaceholders(rendered: string): string[] {
+  const matches = rendered.match(/\{\{\s*[^}\s]+\s*\}\}/g);
+  if (!matches) return [];
+  return [...new Set(matches)];
 }
 
 async function unipileGet(url: string): Promise<any> {
@@ -633,6 +672,21 @@ async function dispatchOneMessage(
 
   const rawTemplate = candidate.content ?? "";
   const personalized = personalizeNote(rawTemplate, lead as LeadRow, seller).trim();
+
+  // Belt-and-braces: if any `{{...}}` slipped through (typo, unknown alias,
+  // new placeholder no one taught the dispatcher), we MUST refuse to send.
+  // Mark the row failed with a clear error so it shows up in /queue or the
+  // failures audit and the seller can fix the template before re-running.
+  // Without this guard the 2026-05-27 PE Spain incident — 8 mails shipped
+  // with raw `{{firstName}}` and `{{fund_name}}` — repeats every time a
+  // template author types a placeholder we don't support.
+  const leftover = findUnresolvedPlaceholders(personalized);
+  if (leftover.length > 0) {
+    return await failMessage(
+      svc, candidate.id, candidate.lead_id,
+      `Unsupported placeholders in template — refusing to send: ${leftover.join(", ")}. Update the wizard copy to use a supported placeholder (see lib/placeholders.ts).`,
+    );
+  }
 
   // Per-step attachments. LinkedIn connection requests (step_number=0) can't
   // carry files — the invite note body is the only payload LinkedIn accepts,

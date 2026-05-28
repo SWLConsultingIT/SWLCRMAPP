@@ -6,8 +6,10 @@ import { useLocale } from "@/lib/i18n";
 import {
   Share2, Mail, Phone, MessageCircle, Sparkles, Loader2,
   ThumbsUp, ThumbsDown, Maximize2, Minimize2, Plus, ChevronUp, ChevronDown,
+  AlertTriangle, Tag,
 } from "lucide-react";
 import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
+import { PLACEHOLDER_GROUPS, unsupportedPlaceholdersIn } from "@/lib/placeholders";
 
 const gold = C.gold;
 
@@ -190,6 +192,94 @@ const inlinePlaceholdersByLocale: Record<"es" | "en", Record<string, string>> = 
 };
 
 // ── Main Component ──
+
+// Collapsible reference for the placeholders the dispatcher supports + a
+// live warning if any body contains a `{{…}}` we won't render. Click any
+// token to copy. Added after the PE Spain incident (2026-05-27) where two
+// camelCase placeholders shipped raw to 8 leads.
+function PlaceholdersHint({ bodies }: { bodies: string[] }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const allText = bodies.join("\n");
+  const bad = unsupportedPlaceholdersIn(allText);
+
+  function copy(token: string) {
+    try {
+      navigator.clipboard.writeText(token);
+      setCopied(token);
+      setTimeout(() => setCopied(c => (c === token ? null : c)), 1200);
+    } catch { /* ignore */ }
+  }
+
+  return (
+    <div className="rounded-xl border overflow-hidden"
+      style={{
+        backgroundColor: bad.length > 0 ? "color-mix(in srgb, #DC2626 5%, var(--c-card))" : C.card,
+        borderColor: bad.length > 0 ? "color-mix(in srgb, #DC2626 35%, var(--c-border))" : C.border,
+      }}>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className="w-full px-4 py-2.5 flex items-center gap-2.5 text-left transition-colors hover:bg-black/[0.02]">
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+          style={{
+            backgroundColor: bad.length > 0 ? "color-mix(in srgb, #DC2626 14%, transparent)" : `color-mix(in srgb, ${gold} 12%, transparent)`,
+            color: bad.length > 0 ? "#DC2626" : gold,
+          }}>
+          {bad.length > 0 ? <AlertTriangle size={13} /> : <Tag size={13} />}
+        </div>
+        <div className="flex-1 min-w-0">
+          {bad.length > 0 ? (
+            <>
+              <p className="text-[12px] font-bold" style={{ color: "#DC2626" }}>
+                Unsupported placeholders in your messages — fix before launch
+              </p>
+              <p className="text-[10px]" style={{ color: C.textMuted }}>
+                These tokens won&apos;t render and the dispatcher will refuse to send: <span className="font-mono">{bad.join(", ")}</span>
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-[12px] font-bold" style={{ color: C.textPrimary }}>
+                Supported placeholders {open ? "" : "(click to expand)"}
+              </p>
+              <p className="text-[10px]" style={{ color: C.textMuted }}>
+                Use any of these in the message body or subject — they&apos;ll be replaced per-lead at send time.
+              </p>
+            </>
+          )}
+        </div>
+        {open ? <ChevronUp size={14} style={{ color: C.textMuted }} /> : <ChevronDown size={14} style={{ color: C.textMuted }} />}
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-3"
+          style={{ borderTop: `1px solid ${C.border}` }}>
+          {PLACEHOLDER_GROUPS.map(g => (
+            <div key={g.label} className="rounded-lg p-2.5"
+              style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
+              <p className="text-[11px] font-bold" style={{ color: C.textPrimary }}>{g.label}</p>
+              <p className="text-[10px] mb-1.5" style={{ color: C.textMuted }}>{g.description}</p>
+              <div className="flex flex-wrap gap-1">
+                {g.tokens.map(tok => (
+                  <button key={tok} onClick={() => copy(tok)}
+                    className="text-[10px] font-mono px-1.5 py-0.5 rounded border transition-[background-color,color]"
+                    style={{
+                      borderColor: copied === tok ? gold : C.border,
+                      color: copied === tok ? gold : C.textBody,
+                      backgroundColor: copied === tok ? `color-mix(in srgb, ${gold} 10%, transparent)` : C.card,
+                    }}
+                    title="Click to copy">
+                    {copied === tok ? "Copied!" : tok}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ChannelMessageConfig({ sequence, channelMessages, onChange, leadId, icpProfileId, language, signals, onAttachmentsChange, onReorderStep }: Props) {
   const { locale, t } = useLocale();
@@ -512,6 +602,20 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           </div>
         )}
       </div>
+
+      {/* ═══ PLACEHOLDERS REFERENCE + VALIDATION ═══
+          Single source of truth for which `{{…}}` tokens render correctly.
+          Click to copy. Renders an inline warning under any step body that
+          contains an unsupported token so the author fixes it before the
+          dispatcher silently fails the message (PE Spain incident
+          2026-05-27). */}
+      <PlaceholdersHint
+        bodies={[
+          channelMessages.connectionRequest ?? "",
+          ...(channelMessages.steps ?? []).map(s => s?.body ?? ""),
+          ...(channelMessages.steps ?? []).map(s => s?.subject ?? ""),
+        ].filter(Boolean)}
+      />
 
       {/* ═══ LINKEDIN CONNECTION REQUEST (always shown if LinkedIn is in sequence) ═══ */}
       {sequence.some(s => s.channel === "linkedin") && (

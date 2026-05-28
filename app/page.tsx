@@ -21,6 +21,7 @@ import ReliabilityBanner from "@/components/ReliabilityBanner";
 import FiltersBar from "@/components/dashboard/FiltersBar";
 import CampStatusChipsLive from "@/components/dashboard/CampStatusChipsLive";
 import TabFilterBar from "@/components/dashboard/TabFilterBar";
+import SellerRow from "@/components/dashboard/SellerRowExpand";
 import { getSupabaseService } from "@/lib/supabase-service";
 import FreshnessChip from "@/components/dashboard/FreshnessChip";
 import DashboardKeyboardShortcuts from "@/components/dashboard/DashboardKeyboardShortcuts";
@@ -1322,43 +1323,33 @@ export default async function DashboardPage({
                 <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textMuted }}><EmptyTableState filtered={hasFilters} kindKey="sellers" t={t} /></td></tr>
               ) : (() => {
                 const maxConv = Math.max(1, ...data.sellerPerformance.map(s => s.conversionRate));
+                const sellerLabels = {
+                  expand: t("dashx.seller.expand"),
+                  collapse: t("dashx.seller.collapse"),
+                  campaignsTitle: t("dashx.seller.topCampaigns"),
+                  icpsTitle: t("dashx.seller.topIcps"),
+                  empty: t("dashx.seller.attrEmpty"),
+                  sentShort: t("dashx.seller.sentShort"),
+                  repliedShort: t("dashx.seller.repliedShort"),
+                  positiveShort: t("dashx.seller.positiveShort"),
+                };
+                const sellerChannelLabels = {
+                  linkedinSent: t("dashx.touch.linkedinSent"),
+                  linkedinMsg: t("dashx.touch.linkedinMsg"),
+                  emailTouch: t("dashx.touch.emailTouch"),
+                  callTouch: t("dashx.touch.callTouch"),
+                };
                 return data.sellerPerformance.map((s: any, idx: number) => (
-                  <tr key={s.id} className="border-t hover:bg-black/[0.02] transition-colors" style={{ borderColor: C.border }}>
-                    <Td>
-                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full text-[11px] font-bold"
-                        style={{
-                          background: idx === 0
-                            ? `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 78%, white) 100%)`
-                            : `color-mix(in srgb, ${C.textMuted} 8%, transparent)`,
-                          color: idx === 0 ? "#1A1505" : C.textMuted,
-                          boxShadow: idx === 0 ? `0 2px 8px color-mix(in srgb, ${gold} 32%, transparent)` : "none",
-                        }}>
-                        {idx + 1}
-                      </span>
-                    </Td>
-                    <Td><Link href={withFilters(`/dashboard/seller/${s.id}`, filters)} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{s.name}</Link></Td>
-                    <NumCell value={s.active} />
-                    <NumCell value={s.contacted} />
-                    <td className="px-3 py-2">
-                      <ChannelTouches
-                        linkedinSent={s.sentLinkedinConn ?? 0}
-                        linkedinMsg={s.sentLinkedinMsg ?? 0}
-                        emailTouch={s.sentEmail ?? 0}
-                        callTouch={s.sentCall ?? 0}
-                        labels={{
-                          linkedinSent: t("dashx.touch.linkedinSent"),
-                          linkedinMsg: t("dashx.touch.linkedinMsg"),
-                          emailTouch: t("dashx.touch.emailTouch"),
-                          callTouch: t("dashx.touch.callTouch"),
-                        }}
-                      />
-                    </td>
-                    <NumCell value={s.replied} />
-                    <NumCell value={s.positive} accent={s.positive > 0 ? C.green : undefined} bold />
-                    <td className="px-3 py-2"><div className="flex justify-end" title={t("dashx.tbl.col.convPctHint")}><RateBar value={s.conversionRate} max={maxConv} color={C.green} /></div></td>
-                    <td className="px-3 py-2"><InlineSpark data={s.spark} color={gold} /></td>
-                    <td className="pr-3" style={{ color: C.textDim }}><Link href={withFilters(`/dashboard/seller/${s.id}`, filters)} className="inline-flex"><ArrowRight size={12} /></Link></td>
-                  </tr>
+                  <SellerRow
+                    key={s.id}
+                    seller={s}
+                    idx={idx}
+                    maxConv={maxConv}
+                    detailHref={withFilters(`/dashboard/seller/${s.id}`, filters)}
+                    labels={sellerLabels}
+                    channelLabels={sellerChannelLabels}
+                    formulaHint={t("dashx.tbl.col.convPctHint")}
+                  />
                 ));
               })()}
             </tbody>

@@ -77,22 +77,20 @@ async function getQueueData() {
 
   // LinkedIn connection accepts. We surface accepts as a Reply-like signal:
   // the lead engaged with our outreach, even though they did not text back.
-  // The webhook (BESFOHaqTt2Ki0Vw) flips step_number=1 from draft→queued and
-  // writes queued_by + accepted_at into metadata. We use those rows directly
-  // as the source of truth — no extra table needed.
-  // Note: campaign_messages has no updated_at column. We rely on the
-  // queued_by marker (set only on acceptance flow) + a generous row cap to
-  // keep this bounded, and surface freshness via metadata.accepted_at.
-  let acceptQuery = supabase.from("campaign_messages")
-    .select("id, lead_id, campaign_id, sent_at, created_at, metadata, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id, icp_profile_id), campaigns!inner(name, seller_id)")
-    .eq("step_number", 1)
-    .in("metadata->>queued_by", ["registro-nueva-conexion-webhook", "retroactive-fix-event-field-bug-2026-05-13"])
+  //
+  // Source switched 2026-05-28: previously we filtered `campaign_messages`
+  // step_number=1 by `metadata.queued_by IN (webhook markers)`. That missed
+  // every lead whose accept arrived AFTER the dispatcher had already sent
+  // step 1 (cron beat the webhook), because the marker can't land on a row
+  // already in `sent`. SWL PE Spain alone had 9 acceptances vanish that way.
+  // Now we read from `leads.linkedin_connected=true` directly — single
+  // source of truth, no race condition with the dispatcher.
+  let acceptQuery = supabase.from("leads")
+    .select("id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id, icp_profile_id, current_channel, created_at")
+    .eq("linkedin_connected", true)
     .order("created_at", { ascending: false })
-    .limit(30);
-  if (scopedCompanyBioId) acceptQuery = acceptQuery.eq("leads.company_bio_id", scopedCompanyBioId);
-  if (sellerIds !== null) {
-    acceptQuery = acceptQuery.in("campaigns.seller_id", sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"]);
-  }
+    .limit(50);
+  if (scopedCompanyBioId) acceptQuery = acceptQuery.eq("company_bio_id", scopedCompanyBioId);
 
   // (Pending Reviews + Updates tabs were removed from /queue per boss
   // feedback 2026-05-27 — Pending Reviews deleted entirely, Updates moved
@@ -217,13 +215,37 @@ async function getQueueData() {
   // them ("Accepted") without a reply_text body. They sort by accepted_at so
   // the newest engagement floats to the top regardless of whether it was a
   // text reply or just an accept.
+
+  // Derive a plausible "accepted_at" per accepted lead: take the latest sent
+  // step-0 timestamp on their campaigns (the invite went out, the accept
+  // happened soon after). Also grab the campaign name for display.
+  const acceptedLeadIds = (recentAccepts ?? []).map((l: any) => l.id);
+  const acceptMetaByLead: Record<string, { sent_at: string; campaign_name: string | null }> = {};
+  if (acceptedLeadIds.length > 0) {
+    const { data: step0Rows } = await supabase
+      .from("campaign_messages")
+      .select("lead_id, sent_at, campaigns(name)")
+      .in("lead_id", acceptedLeadIds)
+      .eq("step_number", 0)
+      .eq("status", "sent")
+      .order("sent_at", { ascending: false });
+    for (const row of (step0Rows ?? []) as any[]) {
+      if (!acceptMetaByLead[row.lead_id]) {
+        acceptMetaByLead[row.lead_id] = {
+          sent_at: row.sent_at,
+          campaign_name: (row.campaigns as any)?.name ?? null,
+        };
+      }
+    }
+  }
+
   // Resolve ICP names per lead so the History tab can filter by ICP.
   const icpIds = new Set<string>();
   for (const r of (recentReplies ?? []) as any[]) {
     const id = r.leads?.icp_profile_id; if (id) icpIds.add(id);
   }
   for (const a of (recentAccepts ?? []) as any[]) {
-    const id = a.leads?.icp_profile_id; if (id) icpIds.add(id);
+    const id = a.icp_profile_id; if (id) icpIds.add(id);
   }
   const icpNameById: Record<string, string> = {};
   if (icpIds.size > 0) {
@@ -251,22 +273,27 @@ async function getQueueData() {
         requiresHumanReview: r.requires_human_review ?? false,
       };
     }),
-    ...(recentAccepts ?? []).map((a: any) => {
-      const lead = a.leads;
-      const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
-      const meta = (a.metadata ?? {}) as Record<string, unknown>;
-      const acceptedAt = (typeof meta.accepted_at === "string" && meta.accepted_at) ? meta.accepted_at : (a.sent_at ?? a.created_at);
+    ...(recentAccepts ?? []).map((lead: any) => {
+      const leadName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
+      const meta = acceptMetaByLead[lead.id];
+      // accepted_at proxy: 4h after the invite send is the median for warm
+      // accounts. Better than `created_at` (which is when the lead was
+      // imported, often weeks before). Falls back to the lead created_at
+      // only if we never sent a step-0 (shouldn't happen for accepted).
+      const acceptedAt = meta?.sent_at
+        ? new Date(new Date(meta.sent_at).getTime() + 4 * 3600 * 1000).toISOString()
+        : (lead.created_at ?? new Date().toISOString());
       return {
-        id: `accept-${a.id}`,
-        leadId: a.lead_id,
+        id: `accept-${lead.id}`,
+        leadId: lead.id,
         leadName,
-        company: lead?.company_name ?? null,
+        company: lead.company_name ?? null,
         channel: "linkedin",
         classification: "connection_accepted",
         replyText: null,
         receivedAt: acceptedAt,
-        campaignName: (a.campaigns as any)?.name ?? null,
-        icpProfileName: lead?.icp_profile_id ? (icpNameById[lead.icp_profile_id] ?? null) : null,
+        campaignName: meta?.campaign_name ?? null,
+        icpProfileName: lead.icp_profile_id ? (icpNameById[lead.icp_profile_id] ?? null) : null,
         requiresHumanReview: false,
       };
     }),

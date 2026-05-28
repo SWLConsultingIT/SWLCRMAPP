@@ -741,12 +741,16 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   // Boss feedback 2026-05-27: per-seller breakdown should expose the actual
   // channel volume (connections sent, LinkedIn messages, emails, calls) so
   // the operator can spot who's doing what — the prior version only showed
-  // the aggregated counts.
+  // the aggregated counts. Follow-up 2026-05-28: also "de qué campaña o
+  // ticket vienen esas métricas" → top-3 campaign + ICP attribution per
+  // seller is computed below so the row can expand to show provenance.
   type SellerAgg = {
     id: string; name: string;
     contacted: Set<string>; replied: Set<string>; positive: Set<string>;
     active: number; sent: number;
     sentLinkedinConn: number; sentLinkedinMsg: number; sentEmail: number; sentCall: number;
+    byCampaign: Map<string, { name: string; sent: number; replied: Set<string>; positive: Set<string> }>;
+    byIcp: Map<string, { id: string; name: string; sent: number; replied: Set<string>; positive: Set<string> }>;
   };
   const sellerAgg = new Map<string, SellerAgg>();
   for (const c of campaigns) {
@@ -759,6 +763,8 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
         contacted: new Set(), replied: new Set(), positive: new Set(),
         active: 0, sent: 0,
         sentLinkedinConn: 0, sentLinkedinMsg: 0, sentEmail: 0, sentCall: 0,
+        byCampaign: new Map(),
+        byIcp: new Map(),
       };
       sellerAgg.set(c.seller_id, g);
     }
@@ -768,6 +774,29 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       if (positiveLeadIds.has(c.lead_id)) g.positive.add(c.lead_id);
     }
     if (c.status === "active") g.active++;
+    // Per-campaign attribution
+    let camp = g.byCampaign.get(c.name);
+    if (!camp) { camp = { name: c.name, sent: 0, replied: new Set(), positive: new Set() }; g.byCampaign.set(c.name, camp); }
+    if (c.lead_id) {
+      if (repliedLeadIds.has(c.lead_id)) camp.replied.add(c.lead_id);
+      if (positiveLeadIds.has(c.lead_id)) camp.positive.add(c.lead_id);
+    }
+    // Per-ICP attribution (via the lead's icp_profile_id)
+    if (c.lead_id) {
+      const lead = leads.find(l => l.id === c.lead_id);
+      const icpId = lead?.icp_profile_id ?? "_unknown";
+      let icp = g.byIcp.get(icpId);
+      if (!icp) {
+        icp = {
+          id: icpId,
+          name: icpId === "_unknown" ? "—" : (profileMap.get(icpId) ?? icpId),
+          sent: 0, replied: new Set(), positive: new Set(),
+        };
+        g.byIcp.set(icpId, icp);
+      }
+      if (repliedLeadIds.has(c.lead_id)) icp.replied.add(c.lead_id);
+      if (positiveLeadIds.has(c.lead_id)) icp.positive.add(c.lead_id);
+    }
   }
   for (const m of messages) {
     if (!m.campaign_id) continue;
@@ -782,22 +811,43 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       else g.sentLinkedinMsg++;
     } else if (ch === "email") g.sentEmail++;
     else if (ch === "call") g.sentCall++;
+    // Send attribution to per-campaign + per-ICP aggregates
+    const camp = g.byCampaign.get(c.name);
+    if (camp) camp.sent++;
+    if (c.lead_id) {
+      const lead = leads.find(l => l.id === c.lead_id);
+      const icpId = lead?.icp_profile_id ?? "_unknown";
+      const icp = g.byIcp.get(icpId);
+      if (icp) icp.sent++;
+    }
   }
-  const sellerPerformance = Array.from(sellerAgg.values()).map(g => ({
-    id: g.id,
-    name: g.name,
-    contacted: g.contacted.size,
-    sent: g.sent,
-    replied: g.replied.size,
-    positive: g.positive.size,
-    active: g.active,
-    sentLinkedinConn: g.sentLinkedinConn,
-    sentLinkedinMsg: g.sentLinkedinMsg,
-    sentEmail: g.sentEmail,
-    sentCall: g.sentCall,
-    responseRate: g.contacted.size > 0 ? Math.round((g.replied.size / g.contacted.size) * 100) : 0,
-    conversionRate: g.contacted.size > 0 ? Math.round((g.positive.size / g.contacted.size) * 100) : 0,
-  })).sort((a, b) => b.positive - a.positive || b.sent - a.sent);
+  const sellerPerformance = Array.from(sellerAgg.values()).map(g => {
+    const topCampaigns = Array.from(g.byCampaign.values())
+      .map(c => ({ name: c.name, sent: c.sent, replied: c.replied.size, positive: c.positive.size }))
+      .sort((a, b) => b.positive - a.positive || b.sent - a.sent)
+      .slice(0, 3);
+    const topIcps = Array.from(g.byIcp.values())
+      .map(i => ({ id: i.id, name: i.name, sent: i.sent, replied: i.replied.size, positive: i.positive.size }))
+      .sort((a, b) => b.positive - a.positive || b.sent - a.sent)
+      .slice(0, 3);
+    return {
+      id: g.id,
+      name: g.name,
+      contacted: g.contacted.size,
+      sent: g.sent,
+      replied: g.replied.size,
+      positive: g.positive.size,
+      active: g.active,
+      sentLinkedinConn: g.sentLinkedinConn,
+      sentLinkedinMsg: g.sentLinkedinMsg,
+      sentEmail: g.sentEmail,
+      sentCall: g.sentCall,
+      responseRate: g.contacted.size > 0 ? Math.round((g.replied.size / g.contacted.size) * 100) : 0,
+      conversionRate: g.contacted.size > 0 ? Math.round((g.positive.size / g.contacted.size) * 100) : 0,
+      topCampaigns,
+      topIcps,
+    };
+  }).sort((a, b) => b.positive - a.positive || b.sent - a.sent);
 
   // Shared "now" anchor — used by the spark14d helpers below AND the 30-day
   // trend block further down. Hoisting it here also dodges the TDZ crash
