@@ -265,6 +265,11 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
   // reply line.
   const [thread, setThread] = useState<ThreadEntry[]>([]);
   const [threadLoading, setThreadLoading] = useState(false);
+  // Channel filter inside the thread. Default "all" preserves the cross-
+  // channel chronological view; clicking LinkedIn / Email / Call narrows to
+  // that channel only. Boss feedback 2026-05-28: "es raro que esté todo
+  // junto" when a lead got both a connection request and an email.
+  const [threadChannel, setThreadChannel] = useState<"all" | "linkedin" | "email" | "call">("all");
   const [stage, setStage] = useState<{
     status: string | null;
     currentStep: number | null;
@@ -357,6 +362,9 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
   // guards against out-of-order responses if the seller clicks quickly.
   useEffect(() => {
     if (!selected?.leadId) { setThread([]); setStage(null); return; }
+    // Reset the channel filter whenever the selected lead changes so a
+    // stale "Email only" view doesn't persist across leads.
+    setThreadChannel("all");
     let cancelled = false;
     setThreadLoading(true);
     setStage(null);
@@ -832,6 +840,41 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                 </Link>
               </div>
 
+              {/* Channel filter — only renders when more than one channel
+                  appears in the thread. Click narrows the chronological feed
+                  to that channel only. */}
+              {(() => {
+                const channelsInThread = new Set<string>();
+                for (const e of thread) if (e.channel) channelsInThread.add(e.channel);
+                if (channelsInThread.size <= 1) return null;
+                const tabs: Array<{ key: "all" | "linkedin" | "email" | "call"; label: string; count: number }> = [
+                  { key: "all",      label: "All",      count: thread.length },
+                  { key: "linkedin", label: "LinkedIn", count: thread.filter(e => e.channel === "linkedin").length },
+                  { key: "email",    label: "Email",    count: thread.filter(e => e.channel === "email").length },
+                  { key: "call",     label: "Calls",    count: thread.filter(e => e.channel === "call" || e.channel === "phone").length },
+                ].filter(t => t.key === "all" || t.count > 0);
+                return (
+                  <div className="px-5 py-2 flex items-center gap-1 border-b" style={{ borderColor: C.border, backgroundColor: C.card }}>
+                    {tabs.map(t => {
+                      const isActive = threadChannel === t.key;
+                      const accent = t.key === "linkedin" ? "#0A66C2" : t.key === "email" ? "#7C3AED" : t.key === "call" ? "#F97316" : gold;
+                      return (
+                        <button key={t.key} onClick={() => setThreadChannel(t.key)}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-[background-color,color]"
+                          style={{
+                            backgroundColor: isActive ? `color-mix(in srgb, ${accent} 14%, transparent)` : "transparent",
+                            color: isActive ? accent : C.textMuted,
+                            border: isActive ? `1px solid color-mix(in srgb, ${accent} 32%, transparent)` : "1px solid transparent",
+                          }}>
+                          {t.label}
+                          <span className="text-[9px] tabular-nums opacity-80">{t.count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
               {/* Thread — full conversation history. Outbound (our messages)
                   on the right in brand-tinted bubbles, inbound (lead) on the
                   left in neutral bubbles. Chronological top→bottom so the
@@ -865,13 +908,35 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                   </div>
                 ) : (
                   (() => {
+                    // Apply the channel filter first. "all" keeps everything;
+                    // any specific channel narrows the chronological feed to
+                    // just that one. We compute the visible list once so the
+                    // "no entries on this channel" fallback below has access.
+                    const visibleThread = threadChannel === "all"
+                      ? thread
+                      : thread.filter(e => threadChannel === "call"
+                          ? (e.channel === "call" || e.channel === "phone")
+                          : e.channel === threadChannel);
+                    if (visibleThread.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center text-center py-12">
+                          <p className="text-sm font-semibold" style={{ color: C.textBody }}>
+                            No hay mensajes de {channelLabel(threadChannel === "all" ? null : threadChannel)} en este hilo.
+                          </p>
+                          <button onClick={() => setThreadChannel("all")}
+                            className="text-[11px] mt-2 font-semibold hover:underline" style={{ color: gold }}>
+                            Ver todos los canales
+                          </button>
+                        </div>
+                      );
+                    }
                     // Group entries by day so we can drop a sticky "Hoy /
                     // Ayer / Domingo 24 may" separator between day boundaries.
                     // Same pattern LinkedIn/WhatsApp use — it makes scanning a
                     // long thread feel instant.
                     let lastDayKey: string | null = null;
                     const leadAvatar = avatarColor(selected.leadName);
-                    return thread.map((entry, idx) => {
+                    return visibleThread.map((entry, idx) => {
                       const isOut = entry.direction === "outbound";
                       const Icon = channelIcon(entry.channel);
                       const stepLabel = entry.stepNumber === 0
@@ -887,7 +952,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                       const showDayHeader = dayKey !== lastDayKey;
                       lastDayKey = dayKey;
                       const dayLabel = formatDayLabel(entry.at);
-                      const isLast = idx === thread.length - 1;
+                      const isLast = idx === visibleThread.length - 1;
                       const isEmail = entry.channel === "email";
                       return (
                         <div key={entry.id}>
