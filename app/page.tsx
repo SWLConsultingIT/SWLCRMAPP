@@ -341,25 +341,25 @@ export default async function DashboardPage({
           boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 26%, transparent), 0 22px 50px -22px ${N.ink}`,
         }}
       >
-        {/* Big breathing gold glow on the right — the dominant ambient layer */}
+        {/* Anchor glow — right corner, breathing pulse, pulled closer in
+            so most of the orb is visible (was -right-32, mostly hidden). */}
         <span aria-hidden
-          className="absolute -top-40 -right-32 w-[520px] h-[520px] rounded-full pointer-events-none hero-glow-breathe"
-          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 42%, transparent) 0%, transparent 60%)` }} />
-        {/* Counter-phase second glow on the left for depth */}
+          className="absolute -top-24 right-0 w-[420px] h-[420px] rounded-full pointer-events-none hero-glow-breathe"
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 48%, transparent) 0%, transparent 60%)` }} />
+        {/* Counter anchor — bottom-left, softer, counter-phase */}
         <span aria-hidden
-          className="absolute -bottom-40 -left-32 w-[480px] h-[480px] rounded-full pointer-events-none hero-glow-breathe-soft"
-          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 26%, transparent) 0%, transparent 65%)` }} />
-        {/* Slow drifting accent — a smaller gold orb crossing center */}
+          className="absolute -bottom-24 left-0 w-[380px] h-[380px] rounded-full pointer-events-none hero-glow-breathe-soft"
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 30%, transparent) 0%, transparent 65%)` }} />
+        {/* Comet — bright gold orb that traverses the hero left→right
+            continuously, fades, loops. This is the "current" the user
+            actually feels moving across the surface. */}
         <span aria-hidden
-          className="absolute top-1/2 -translate-y-1/2 w-[240px] h-[240px] rounded-full pointer-events-none hero-glow-drift"
-          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 32%, transparent) 0%, transparent 65%)` }} />
-        {/* Sweep — gold horizontal line that traverses the top edge */}
+          className="absolute top-1/2 -translate-y-1/2 w-[200px] h-[200px] rounded-full pointer-events-none hero-comet-sweep"
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 55%, transparent) 0%, transparent 60%)` }} />
+        {/* Top-edge scan line — gold sweep synced with the comet for
+            visual cohesion. */}
         <span aria-hidden
           className="absolute inset-x-0 top-0 h-[2px] pointer-events-none hero-glow-shimmer"
-          style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)` }} />
-        {/* Mirror sweep on the bottom edge, opposite phase */}
-        <span aria-hidden
-          className="absolute inset-x-0 bottom-0 h-[2px] pointer-events-none hero-glow-shimmer-reverse"
           style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)` }} />
 
         <div className="relative flex items-center gap-3 mb-4 flex-wrap">
