@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import {
   ArrowLeft, User, Send, MessageSquare, ThumbsUp, Megaphone, Clock, Activity,
   TrendingUp, TrendingDown, Minus, Share2, Mail, Phone, Smartphone, Target,
-  Sparkles, ChevronRight, Sun,
+  Sparkles, ChevronRight, Sun, Users,
 } from "lucide-react";
 import InlineSpark from "@/components/dashboard/InlineSpark";
 import { C } from "@/lib/design";
@@ -253,6 +253,59 @@ async function loadSellerDetail(sellerId: string, dateFrom: string | null, dateT
   ttrSamples.sort((a, b) => a - b);
   const medianTTR = ttrSamples.length > 0 ? ttrSamples[Math.floor(ttrSamples.length / 2)] : null;
 
+  // ─── Connect rate (LinkedIn proxy) ───────────────────────────────────
+  // "What % of his LinkedIn invites got accepted?". We don't track each
+  // accept directly here — we use current_step > 1 as a proxy because the
+  // dispatcher only advances the campaign past step 1 (the CR step) when
+  // the accept-webhook unparks it. False-negatives on brand-new sends
+  // (still parked) — but the curve is stable enough for a header KPI.
+  // Null when the seller has no LinkedIn campaigns at all.
+  const liCamps = camps.filter(c => (c.channel ?? "linkedin") === "linkedin");
+  const liPastCR = liCamps.filter(c => (c.current_step ?? 0) > 1).length;
+  const connectRate = liCamps.length > 0 ? Math.round((liPastCR / liCamps.length) * 100) : null;
+
+  // ─── 7-day momentum (sends last 7 vs prior 7) ─────────────────────────
+  // Computed off the already-built trendSent array (indices 0..29, where 29
+  // is today). "last 7" = 23..29, "prev 7" = 16..22.
+  const last7Sent = trendSent.slice(23).reduce((acc, v) => acc + v, 0);
+  const prev7Sent = trendSent.slice(16, 23).reduce((acc, v) => acc + v, 0);
+  const momentumPct = prev7Sent > 0
+    ? Math.round(((last7Sent - prev7Sent) / prev7Sent) * 100)
+    : (last7Sent > 0 ? 100 : null);
+
+  // ─── Conversion velocity (days from 1st contact → 1st positive) ──────
+  // Different from medianTTR (which is "any reply"). This one tracks how
+  // long until something *good* lands. Per-lead median in days.
+  const firstPositiveAt = new Map<string, number>();
+  for (const r of replies) {
+    if (!r.lead_id || !r.received_at || !POSITIVE_CLASS.has(r.classification ?? "")) continue;
+    const t = new Date(r.received_at).getTime();
+    const prev = firstPositiveAt.get(r.lead_id);
+    if (prev === undefined || t < prev) firstPositiveAt.set(r.lead_id, t);
+  }
+  const velocityDays: number[] = [];
+  for (const [leadId, mT] of firstMsgAt) {
+    const pT = firstPositiveAt.get(leadId);
+    if (pT && pT > mT) velocityDays.push((pT - mT) / 86_400_000);
+  }
+  velocityDays.sort((a, b) => a - b);
+  const medianVelocityDays = velocityDays.length > 0
+    ? Math.round(velocityDays[Math.floor(velocityDays.length / 2)])
+    : null;
+
+  // ─── Last active (days since the rep's most recent send) ─────────────
+  // Uses allMsgs (not period-filtered) so an aggressive period filter
+  // doesn't hide the "this rep ghosted" signal.
+  let lastSentMs: number | null = null;
+  for (const m of allMsgs) {
+    if (!m.sent_at) continue;
+    const t = new Date(m.sent_at).getTime();
+    if (lastSentMs === null || t > lastSentMs) lastSentMs = t;
+  }
+  const lastActiveDays = lastSentMs === null
+    ? null
+    : Math.floor((Date.now() - lastSentMs) / 86_400_000);
+
   // ─── Voice & Cadence narrative ──────────────────────────────────────────
   // Premium replacement for the two giant heatmaps. We surface 3 numbers
   // the manager actually uses: when the seller sends most (peak hour
@@ -293,6 +346,10 @@ async function loadSellerDetail(sellerId: string, dateFrom: string | null, dateT
     responseRate: contactedSet.size > 0 ? Math.round((repliedSet.size / contactedSet.size) * 100) : 0,
     conversionRate: contactedSet.size > 0 ? Math.round((positiveSet.size / contactedSet.size) * 100) : 0,
     medianTTR,
+    connectRate,
+    momentumPct,
+    medianVelocityDays,
+    lastActiveDays,
     icpMix,
     channelMix,
     campaignBreakdown,
@@ -554,35 +611,69 @@ export default async function SellerDetailPage({
         </div>
       </section>
 
-      {/* ═══ PIPELINE CARDS — 3 actionable surfaces ═══ */}
-      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <PipelineCard
-          icon={Target}
-          label={locale === "es" ? "ICPs activos" : "Active ICPs"}
-          value={d.icpMix.length}
-          hint={d.icpMix[0]?.name === "_unknown_icp" || !d.icpMix[0]?.name
-            ? (locale === "es" ? "Sin ICPs todavía" : "No ICPs yet")
-            : `${locale === "es" ? "Top" : "Top"}: ${d.icpMix[0].name}`}
-          color={gold}
-          href={d.icpMix[0]?.id && d.icpMix[0].id !== "_unknown" ? `/leads/ticket/${d.icpMix[0].id}` : undefined}
+      {/* ═══ KPI STRIP — 6 dense seller-level numbers ═══
+          Replaces the old 3 PipelineCards. Manager wanted less repetition
+          with the ICP/Flow sections below + more drill-level signal.
+          Order: outreach quality → activity health → outcome speed. */}
+      <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+        <MiniKpi
+          icon={Share2}
+          label={locale === "es" ? "Connect rate" : "Connect rate"}
+          value={d.connectRate === null ? "—" : `${d.connectRate}%`}
+          hint={d.connectRate === null
+            ? (locale === "es" ? "Sin invites en LinkedIn" : "No LinkedIn invites")
+            : (locale === "es" ? "Invites aceptadas en LinkedIn" : "LinkedIn invites accepted")}
+          color="#0A66C2"
         />
-        <PipelineCard
-          icon={Megaphone}
-          label={locale === "es" ? "Flows activos" : "Active flows"}
-          value={d.activeCampaigns}
-          hint={d.campaignBreakdown[0]?.name
-            ? `${locale === "es" ? "Top" : "Top"}: ${d.campaignBreakdown[0].name}`
-            : (locale === "es" ? "Sin flows activos" : "No active flows")}
-          color="#F59E0B"
-          href={d.campaignBreakdown[0]?.name ? `/dashboard/campaign/${encodeURIComponent(d.campaignBreakdown[0].name)}` : undefined}
+        <MiniKpi
+          icon={d.momentumPct === null ? Minus : d.momentumPct >= 0 ? TrendingUp : TrendingDown}
+          label={locale === "es" ? "Momentum 7d" : "7d momentum"}
+          value={d.momentumPct === null ? "—" : `${d.momentumPct > 0 ? "+" : ""}${d.momentumPct}%`}
+          hint={locale === "es" ? "Envíos vs 7 días previos" : "Sends vs prior 7 days"}
+          color={d.momentumPct === null ? C.textDim : d.momentumPct >= 0 ? C.green : C.red}
         />
-        <PipelineCard
+        <MiniKpi
+          icon={Sparkles}
+          label={locale === "es" ? "Velocidad a positivo" : "Conversion velocity"}
+          value={d.medianVelocityDays === null ? "—" : `${d.medianVelocityDays}d`}
+          hint={locale === "es" ? "Contacto → 1er positivo" : "Contact → 1st positive"}
+          color="#A855F7"
+        />
+        <MiniKpi
+          icon={Activity}
+          label={locale === "es" ? "Último envío" : "Last active"}
+          value={d.lastActiveDays === null
+            ? "—"
+            : d.lastActiveDays === 0
+              ? (locale === "es" ? "Hoy" : "Today")
+              : `${d.lastActiveDays}d`}
+          hint={locale === "es" ? "Desde su último envío" : "Days since last send"}
+          color={d.lastActiveDays === null
+            ? C.textDim
+            : d.lastActiveDays > 3
+              ? C.red
+              : d.lastActiveDays > 1
+                ? "#F59E0B"
+                : C.green}
+        />
+        <MiniKpi
+          icon={Users}
+          label={locale === "es" ? "vs Equipo" : "vs Team"}
+          value={lift === null ? "—" : `${lift > 0 ? "+" : ""}${lift}%`}
+          hint={locale === "es" ? "Response rate vs equipo" : "Response rate vs team"}
+          color={lift === null
+            ? C.textDim
+            : lift >= 5
+              ? C.green
+              : lift <= -5
+                ? C.red
+                : C.textMuted}
+        />
+        <MiniKpi
           icon={Clock}
-          label={locale === "es" ? "Tiempo medio a respuesta" : "Median reply time"}
+          label={locale === "es" ? "Tiempo a respuesta" : "Median TTR"}
           value={d.medianTTR === null ? "—" : formatMinutes(d.medianTTR)}
-          hint={d.medianTTR === null
-            ? (locale === "es" ? "Necesitamos respuestas para calcularlo" : "Need replies to compute")
-            : (locale === "es" ? "desde el primer envío hasta la primera respuesta" : "from first send to first reply")}
+          hint={locale === "es" ? "1er envío → 1ra respuesta" : "1st send → 1st reply"}
           color="#6B7280"
         />
       </section>
@@ -620,7 +711,7 @@ export default async function SellerDetailPage({
           <div className="p-5 space-y-3">
             {(() => {
               const maxLeads = Math.max(...d.icpMix.map(i => i.leads), 1);
-              return d.icpMix.slice(0, 6).map((i, idx) => {
+              return d.icpMix.map((i, idx) => {
                 const widthPct = Math.max(8, Math.round((i.leads / maxLeads) * 100));
                 const conv = i.conversionRate;
                 const barColor = conv >= 10 ? C.green : conv >= 3 ? gold : "#94A3B8";
@@ -997,40 +1088,40 @@ function CadenceCard({
 
 // Pipeline card — one of three actionable surfaces. Links to the drill
 // page when there's a target; renders as a static tile otherwise.
-function PipelineCard({
-  icon: Icon, label, value, hint, color, href,
+function MiniKpi({
+  icon: Icon, label, value, hint, color,
 }: {
   icon: React.ElementType;
   label: string;
-  value: string | number;
+  value: string;
   hint: string;
   color: string;
-  href?: string;
 }) {
-  const inner = (
+  return (
     <div
-      className="rounded-2xl border p-4 transition-[transform,box-shadow,border-color] group h-full"
+      className="rounded-xl border p-3 transition-[border-color,box-shadow] hover:shadow-sm"
       style={{
         backgroundColor: C.card,
         borderColor: C.border,
-        borderLeft: `3px solid ${color}`,
+        borderTop: `2px solid ${color}`,
       }}
     >
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-          style={{
-            backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
-            color,
-          }}
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <span
+          className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
+          style={{ backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`, color }}
         >
-          <Icon size={15} />
-        </div>
-        {href && <ChevronRight size={14} style={{ color: C.textDim }} className="transition-transform group-hover:translate-x-0.5" />}
+          <Icon size={12} strokeWidth={2.2} />
+        </span>
+        <p
+          className="text-[9.5px] font-bold uppercase tracking-[0.1em] truncate"
+          style={{ color: C.textMuted, letterSpacing: "0.1em" }}
+        >
+          {label}
+        </p>
       </div>
-      <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: C.textMuted, letterSpacing: "0.12em" }}>{label}</p>
       <p
-        className="text-[24px] font-bold leading-none tabular-nums mt-1"
+        className="text-[20px] font-bold leading-none tabular-nums"
         style={{
           color: C.textPrimary,
           fontFamily: "var(--font-outfit), system-ui, sans-serif",
@@ -1039,15 +1130,9 @@ function PipelineCard({
       >
         {value}
       </p>
-      <p className="text-[11px] mt-1.5 line-clamp-1" style={{ color: C.textMuted }}>{hint}</p>
+      <p className="text-[10px] mt-1 line-clamp-1" style={{ color: C.textDim }}>{hint}</p>
     </div>
   );
-  if (href) {
-    return (
-      <Link href={href} className="block hover:-translate-y-0.5 hover:shadow-md transition-[transform,box-shadow]">{inner}</Link>
-    );
-  }
-  return inner;
 }
 
 function formatMinutes(min: number): string {
