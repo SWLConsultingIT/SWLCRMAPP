@@ -8,7 +8,7 @@ import { redirect } from "next/navigation";
 import {
   ArrowLeft, User, Send, MessageSquare, ThumbsUp, Megaphone, Clock, Activity,
   TrendingUp, TrendingDown, Minus, Share2, Mail, Phone, Smartphone, Target,
-  Sparkles, ChevronRight, Quote, Sun,
+  Sparkles, ChevronRight, Sun,
 } from "lucide-react";
 import InlineSpark from "@/components/dashboard/InlineSpark";
 import { C } from "@/lib/design";
@@ -253,35 +253,6 @@ async function loadSellerDetail(sellerId: string, dateFrom: string | null, dateT
   ttrSamples.sort((a, b) => a - b);
   const medianTTR = ttrSamples.length > 0 ? ttrSamples[Math.floor(ttrSamples.length / 2)] : null;
 
-  // ─── Top wins — last positive replies with text, for the "Wins reel" ──
-  // Lead name + company come from the embedded `leads` join on the reply
-  // query (added 2026-05-28 r4 because the previous `leadById` from camps
-  // missed any reply whose campaign-row didn't survive the period filter).
-  // Already ordered desc by received_at from the query.
-  const replyLeadFor = (r: ReplyRow): ReplyLeadEmbed | null => {
-    const l = r.leads;
-    if (!l) return null;
-    if (Array.isArray(l)) return l[0] ?? null;
-    return l;
-  };
-  const topWins = (replies ?? [])
-    .filter(r => POSITIVE_CLASS.has(r.classification ?? "") && r.lead_id && r.reply_text)
-    .slice(0, 8)
-    .map(r => {
-      const lead = replyLeadFor(r);
-      const leadName = lead
-        ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Lead"
-        : "Lead";
-      return {
-        leadId: r.lead_id!,
-        leadName,
-        company: lead?.company_name ?? null,
-        replyText: r.reply_text,
-        channel: r.channel ?? "linkedin",
-        receivedAt: r.received_at,
-      };
-    });
-
   // ─── Voice & Cadence narrative ──────────────────────────────────────────
   // Premium replacement for the two giant heatmaps. We surface 3 numbers
   // the manager actually uses: when the seller sends most (peak hour
@@ -328,7 +299,6 @@ async function loadSellerDetail(sellerId: string, dateFrom: string | null, dateT
     trend30d: { sent: trendSent, replies: trendReplies, positive: trendPositive },
     sendHeatmap,
     replyHeatmap,
-    topWins,
     cadence: {
       peakSendHour,
       peakSendCount,
@@ -583,66 +553,6 @@ export default async function SellerDetailPage({
           />
         </div>
       </section>
-
-      {/* ═══ WINS REEL — last 5 positive replies as quote cards ═══
-          The "what people say back about this seller" surface. Premium —
-          gold accent left border, channel pill, lead name + company,
-          quote treatment for the body. Hidden when there's nothing to
-          showcase yet. */}
-      {d.topWins.length > 0 && (
-        <section
-          className="rounded-2xl border overflow-hidden"
-          style={{ borderColor: C.border, backgroundColor: C.card, boxShadow: "0 4px 18px rgba(0,0,0,0.04)" }}
-        >
-          <div className="px-5 py-3 border-b flex items-center gap-3" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${C.green} 5%, ${C.bg})` }}>
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
-              style={{
-                background: `linear-gradient(135deg, ${C.green}, color-mix(in srgb, ${C.green} 70%, white))`,
-                boxShadow: `0 3px 12px color-mix(in srgb, ${C.green} 30%, transparent)`,
-              }}>
-              <Quote size={14} style={{ color: "#fff" }} strokeWidth={2.2} />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.green, letterSpacing: "0.14em" }}>
-                {locale === "es" ? "Reel de wins" : "Wins reel"}
-              </p>
-              <p className="text-[14px] font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-                {locale === "es"
-                  ? `Lo que le contestan a ${d.seller.name.split(" ")[0]}`
-                  : `What people say back to ${d.seller.name.split(" ")[0]}`}
-              </p>
-            </div>
-            <span className="text-xs font-bold tabular-nums px-2.5 py-1 rounded-full"
-              style={{ backgroundColor: `color-mix(in srgb, ${C.green} 14%, transparent)`, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 32%, transparent)` }}>
-              {d.topWins.length}
-            </span>
-          </div>
-          <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
-            {d.topWins.slice(0, 4).map(w => {
-              const chMeta = channelMeta[w.channel] ?? channelMeta.linkedin;
-              const ChIcon = chMeta.Icon;
-              return (
-                <Link key={`${w.leadId}-${w.receivedAt}`} href={`/leads/${w.leadId}`}
-                  className="rounded-xl border p-4 transition-[transform,box-shadow,border-color] hover:-translate-y-0.5 hover:shadow-md group block"
-                  style={{ borderLeft: `3px solid ${C.green}`, borderColor: C.border, backgroundColor: C.bg }}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-[13px] font-bold group-hover:underline" style={{ color: C.textPrimary }}>{w.leadName}</span>
-                    {w.company && <span className="text-[11px]" style={{ color: C.textMuted }}>· {w.company}</span>}
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded ml-auto"
-                      style={{ backgroundColor: `color-mix(in srgb, ${chMeta.color} 12%, transparent)`, color: chMeta.color }}>
-                      <ChIcon size={9} />
-                      {t(`dashx.ch.${w.channel}`) || w.channel}
-                    </span>
-                  </div>
-                  <p className="text-[13px] leading-relaxed line-clamp-2" style={{ color: C.textBody }}>
-                    &ldquo;{w.replyText}&rdquo;
-                  </p>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
-      )}
 
       {/* ═══ PIPELINE CARDS — 3 actionable surfaces ═══ */}
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
