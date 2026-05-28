@@ -1148,10 +1148,15 @@ export default async function DashboardPage({
       {filters.tab === "campaigns" && (
       <section className="space-y-6 pt-3">
 
-      {/* Per-tab filter bar — ICP + Seller dropdowns scope the campaigns list
-          and the Performance-by-step that lives below. Campaign self-filter
-          would be circular, so it's omitted here. */}
+      {/* Per-tab filter bar — Campaign + ICP + Seller. Boss 2026-05-28:
+          the Performance-by-step table needs to scope to a specific flow
+          because the aggregate across every campaign doesn't tell you
+          which step in which flow is leaking. The data layer already
+          honours `campaigns` from the URL, so adding the dropdown here
+          is enough — both the campaigns list above and the step panel
+          below re-scope on every change. */}
       <TabFilterBar
+        campaigns={filterOptions.campaigns}
         icps={filterOptions.icps}
         sellers={filterOptions.sellers}
         labels={tabFilterLabels}
@@ -1500,91 +1505,6 @@ export default async function DashboardPage({
         icps={filterOptions.icps}
         labels={tabFilterLabels}
       />
-
-      {/* Per-seller KPI cards grid — boss 2026-05-28: "sumá cards por
-          seller tipo de KPIs, cuántos contactó, cuántos cerró, etc."
-          One card per seller, big tiles for the 4 outcome metrics. */}
-      {data.sellerPerformance.length > 0 && (() => {
-        type SellerKpi = {
-          id: string; name: string;
-          active: number; contacted: number; replied: number; positive: number;
-          conversionRate: number; responseRate: number;
-          sentLinkedinConn: number; sentLinkedinMsg: number; sentEmail: number; sentCall: number;
-          pendingCalls: number;
-        };
-        const sellers = data.sellerPerformance as unknown as SellerKpi[];
-        return (
-          <section>
-            <SectionHeader
-              icon={Users}
-              title={t("dashx.seller.kpiGridTitle")}
-              subtitle={t("dashx.seller.kpiGridSubtitle")}
-            />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {sellers.map((s, idx) => {
-                const totalSent = s.sentLinkedinConn + s.sentLinkedinMsg + s.sentEmail + s.sentCall;
-                const isLead = idx === 0;
-                return (
-                  <Link
-                    key={s.id}
-                    href={withFilters(`/dashboard/seller/${s.id}`, filters)}
-                    className="group rounded-2xl border overflow-hidden p-4 relative transition-[transform,box-shadow] hover:-translate-y-px hover:shadow-[0_14px_32px_-12px_color-mix(in_srgb,var(--brand,#c9a83a)_30%,transparent)]"
-                    style={{
-                      backgroundColor: C.card,
-                      borderColor: isLead ? `color-mix(in srgb, ${gold} 38%, ${C.border})` : C.border,
-                      borderTop: `3px solid ${isLead ? gold : "#7C3AED"}`,
-                      boxShadow: isLead ? `0 6px 20px color-mix(in srgb, ${gold} 14%, transparent)` : "0 1px 2px rgba(0,0,0,0.03)",
-                    }}>
-                    {isLead && (
-                      <span aria-hidden className="absolute -top-12 -right-12 w-32 h-32 rounded-full pointer-events-none"
-                        style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 14%, transparent) 0%, transparent 70%)` }} />
-                    )}
-                    <div className="relative flex items-center gap-2.5 mb-3">
-                      <span
-                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-[13px] font-bold tabular-nums"
-                        style={{
-                          background: isLead
-                            ? `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 78%, white) 100%)`
-                            : `color-mix(in srgb, #7C3AED 14%, transparent)`,
-                          color: isLead ? "#1A1505" : "#7C3AED",
-                          border: isLead ? "none" : `1px solid color-mix(in srgb, #7C3AED 22%, transparent)`,
-                          boxShadow: isLead ? `0 2px 8px color-mix(in srgb, ${gold} 32%, transparent)` : "none",
-                        }}>
-                        {idx + 1}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>
-                          {isLead ? t("dashx.seller.kpiCardEyebrowLead") : t("dashx.seller.kpiCardEyebrow")}
-                        </p>
-                        <p className="text-[15px] font-bold leading-tight truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-                          {s.name}
-                        </p>
-                      </div>
-                      <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded shrink-0"
-                        style={{ background: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}>
-                        {s.active} {t("dashx.seller.kpiCardActive")}
-                      </span>
-                    </div>
-                    <div className="relative grid grid-cols-2 gap-2">
-                      <SellerKpiTile label={t("dashx.seller.kpiCardContacted")} value={s.contacted} color={C.textBody} />
-                      <SellerKpiTile label={t("dashx.seller.kpiCardSent")} value={totalSent} color="#0284C7" />
-                      <SellerKpiTile label={t("dashx.seller.kpiCardReplies")} value={s.replied} sub={`${s.responseRate}% reply rate`} color="#7C3AED" />
-                      <SellerKpiTile label={t("dashx.seller.kpiCardWon")} value={s.positive} sub={`${s.conversionRate}% conv`} color={C.green} accent={s.positive > 0} />
-                    </div>
-                    {s.pendingCalls > 0 && (
-                      <p className="relative mt-3 text-[11px] inline-flex items-center gap-1.5"
-                        style={{ color: "#D97706" }}>
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#D97706" }} />
-                        {s.pendingCalls} {t("dashx.seller.kpiCardPending")}
-                      </p>
-                    )}
-                  </Link>
-                );
-              })}
-            </div>
-          </section>
-        );
-      })()}
 
       <section>
         {(() => {
@@ -2241,31 +2161,6 @@ function PulseStat({ label, value, unit, hint, tone }: {
         <span className="text-[11px]" style={{ color: C.textMuted }}>{unit}</span>
       </p>
       <p className="text-[10.5px] leading-snug mt-0.5" style={{ color: C.textDim }}>{hint}</p>
-    </div>
-  );
-}
-
-function SellerKpiTile({ label, value, color, sub, accent }: {
-  label: string;
-  value: number;
-  color: string;
-  sub?: string;
-  accent?: boolean;
-}) {
-  return (
-    <div className="rounded-lg border px-2.5 py-1.5"
-      style={{
-        background: accent ? `color-mix(in srgb, ${color} 8%, transparent)` : C.surface,
-        borderColor: accent ? `color-mix(in srgb, ${color} 25%, transparent)` : C.border,
-      }}>
-      <p className="text-[9.5px] font-bold uppercase tracking-wider truncate" style={{ color: C.textDim }}>{label}</p>
-      <p className="text-[20px] font-bold tabular-nums leading-tight tracking-[-0.01em]"
-        style={{ color, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-        {value.toLocaleString("en-US")}
-      </p>
-      {sub && (
-        <p className="text-[9.5px] mt-0.5 truncate" style={{ color: C.textDim }}>{sub}</p>
-      )}
     </div>
   );
 }
