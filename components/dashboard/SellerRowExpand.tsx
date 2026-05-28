@@ -27,6 +27,12 @@ export type SellerRowData = {
   sentLinkedinMsg: number;
   sentEmail: number;
   sentCall: number;
+  // Per-channel reply tracking (boss 2026-05-28)
+  contactedLinkedin: number; repliedLinkedin: number; replyRateLinkedin: number;
+  contactedEmail: number;    repliedEmail: number;    replyRateEmail: number;
+  contactedCall: number;     repliedCall: number;     replyRateCall: number;
+  connectionsSent: number; connectionsAccepted: number; acceptanceRate: number;
+  pendingCalls: number;
   spark: number[];
   topCampaigns: { name: string; sent: number; replied: number; positive: number }[];
   topIcps: { id: string; name: string; sent: number; replied: number; positive: number }[];
@@ -54,6 +60,12 @@ export default function SellerRow({
     sentShort: string;
     repliedShort: string;
     positiveShort: string;
+    contactedShort: string;
+    perChannelTitle: string;
+    connSent: string;
+    connAccepted: string;
+    pendingCallsLabel: string;
+    totalSentLabel: string;
   };
   channelLabels: {
     linkedinSent: string;
@@ -131,6 +143,47 @@ export default function SellerRow({
       {open && hasBreakdown && (
         <tr style={{ background: `color-mix(in srgb, ${gold} 4%, transparent)`, borderColor: C.border }} className="border-t">
           <td colSpan={10} className="px-4 py-3">
+            {/* Top row — connection funnel + pending calls strip. Boss
+                2026-05-28: needs to see acceptance rate + pending calls
+                per seller directly. */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+              <FunnelStat label={labels.connSent} value={seller.connectionsSent} />
+              <FunnelStat label={labels.connAccepted} value={`${seller.connectionsAccepted} (${seller.acceptanceRate}%)`} tone={seller.acceptanceRate >= 30 ? "success" : "neutral"} />
+              <FunnelStat label={labels.pendingCallsLabel} value={seller.pendingCalls} tone={seller.pendingCalls > 0 ? "warning" : "neutral"} />
+              <FunnelStat label={labels.totalSentLabel} value={seller.sentLinkedinConn + seller.sentLinkedinMsg + seller.sentEmail + seller.sentCall} />
+            </div>
+            {/* Per-channel reply rates grid */}
+            <div className="rounded-lg border p-3 mb-3" style={{ background: C.card, borderColor: C.border }}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.textMuted }}>
+                {labels.perChannelTitle}
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <ChannelRateCell
+                  channelLabel="LinkedIn"
+                  channelColor="#0A66C2"
+                  contacted={seller.contactedLinkedin}
+                  replied={seller.repliedLinkedin}
+                  rate={seller.replyRateLinkedin}
+                  labels={{ contacted: labels.contactedShort, replied: labels.repliedShort }}
+                />
+                <ChannelRateCell
+                  channelLabel="Email"
+                  channelColor="#059669"
+                  contacted={seller.contactedEmail}
+                  replied={seller.repliedEmail}
+                  rate={seller.replyRateEmail}
+                  labels={{ contacted: labels.contactedShort, replied: labels.repliedShort }}
+                />
+                <ChannelRateCell
+                  channelLabel="Call"
+                  channelColor="#EA580C"
+                  contacted={seller.contactedCall}
+                  replied={seller.repliedCall}
+                  rate={seller.replyRateCall}
+                  labels={{ contacted: labels.contactedShort, replied: labels.repliedShort }}
+                />
+              </div>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Block
                 title={labels.campaignsTitle}
@@ -250,6 +303,44 @@ function ChannelIcon({ kind }: { kind: string }) {
     <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <path d={path} />
     </svg>
+  );
+}
+
+function FunnelStat({ label, value, tone = "neutral" }: { label: string; value: string | number; tone?: "neutral" | "success" | "warning" }) {
+  const color = tone === "success" ? "#059669" : tone === "warning" ? "#D97706" : C.textPrimary;
+  return (
+    <div className="rounded-md border px-3 py-2" style={{ background: C.card, borderColor: C.border }}>
+      <p className="text-[9.5px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>{label}</p>
+      <p className="text-[16px] font-bold tabular-nums mt-0.5" style={{ color }}>{value}</p>
+    </div>
+  );
+}
+
+function ChannelRateCell({
+  channelLabel, channelColor, contacted, replied, rate, labels,
+}: {
+  channelLabel: string;
+  channelColor: string;
+  contacted: number;
+  replied: number;
+  rate: number;
+  labels: { contacted: string; replied: string };
+}) {
+  const widthPct = Math.max(4, Math.min(100, rate));
+  return (
+    <div className="rounded-md border p-2.5" style={{ borderColor: C.border, borderLeftWidth: 3, borderLeftColor: channelColor, background: `color-mix(in srgb, ${channelColor} 4%, transparent)` }}>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[11px] font-semibold" style={{ color: channelColor }}>{channelLabel}</span>
+        <span className="text-[14px] font-bold tabular-nums" style={{ color: channelColor }}>{rate}%</span>
+      </div>
+      <div className="h-1.5 rounded-full overflow-hidden mb-1.5" style={{ background: `color-mix(in srgb, ${channelColor} 14%, transparent)` }}>
+        <div className="h-full" style={{ width: `${widthPct}%`, background: channelColor }} />
+      </div>
+      <div className="flex items-center justify-between text-[10px] tabular-nums" style={{ color: C.textDim }}>
+        <span>{contacted} {labels.contacted}</span>
+        <span>{replied} {labels.replied}</span>
+      </div>
+    </div>
   );
 }
 

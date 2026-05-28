@@ -1394,6 +1394,12 @@ export default async function DashboardPage({
                   sentShort: t("dashx.seller.sentShort"),
                   repliedShort: t("dashx.seller.repliedShort"),
                   positiveShort: t("dashx.seller.positiveShort"),
+                  contactedShort: t("dashx.seller.contactedShort"),
+                  perChannelTitle: t("dashx.seller.perChannelTitle"),
+                  connSent: t("dashx.seller.connSent"),
+                  connAccepted: t("dashx.seller.connAccepted"),
+                  pendingCallsLabel: t("dashx.seller.pendingCallsLabel"),
+                  totalSentLabel: t("dashx.seller.totalSentLabel"),
                 };
                 const sellerChannelLabels = {
                   linkedinSent: t("dashx.touch.linkedinSent"),

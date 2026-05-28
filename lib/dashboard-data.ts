@@ -749,6 +749,16 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     contacted: Set<string>; replied: Set<string>; positive: Set<string>;
     active: number; sent: number;
     sentLinkedinConn: number; sentLinkedinMsg: number; sentEmail: number; sentCall: number;
+    /** Per-channel reply tracking — boss 2026-05-28: see reply rate per
+     * channel for each seller, not just aggregated. */
+    contactedLinkedin: Set<string>; repliedLinkedin: Set<string>;
+    contactedEmail: Set<string>;    repliedEmail: Set<string>;
+    contactedCall: Set<string>;     repliedCall: Set<string>;
+    /** Connection acceptance leg — accepted = leads who got past step 0
+     * after a CR. Uses linkedinSentLeadIds vs connectedLeadIds. */
+    connectionsSent: Set<string>; connectionsAccepted: Set<string>;
+    /** Pending calls = call-channel messages still queued for this seller. */
+    pendingCalls: number;
     byCampaign: Map<string, { name: string; sent: number; replied: Set<string>; positive: Set<string> }>;
     byIcp: Map<string, { id: string; name: string; sent: number; replied: Set<string>; positive: Set<string> }>;
   };
@@ -763,6 +773,11 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
         contacted: new Set(), replied: new Set(), positive: new Set(),
         active: 0, sent: 0,
         sentLinkedinConn: 0, sentLinkedinMsg: 0, sentEmail: 0, sentCall: 0,
+        contactedLinkedin: new Set(), repliedLinkedin: new Set(),
+        contactedEmail: new Set(),    repliedEmail: new Set(),
+        contactedCall: new Set(),     repliedCall: new Set(),
+        connectionsSent: new Set(), connectionsAccepted: new Set(),
+        pendingCalls: 0,
         byCampaign: new Map(),
         byIcp: new Map(),
       };
@@ -772,6 +787,21 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       g.contacted.add(c.lead_id);
       if (repliedLeadIds.has(c.lead_id)) g.replied.add(c.lead_id);
       if (positiveLeadIds.has(c.lead_id)) g.positive.add(c.lead_id);
+      // Per-channel contacted/replied — uses the campaign channel
+      const ch = c.channel ?? "linkedin";
+      if (ch === "linkedin") {
+        g.contactedLinkedin.add(c.lead_id);
+        if (repliedLeadIds.has(c.lead_id)) g.repliedLinkedin.add(c.lead_id);
+        // Connection invite leg — every linkedin campaign sent a CR.
+        if (linkedinSentLeadIds.has(c.lead_id)) g.connectionsSent.add(c.lead_id);
+        if (connectedLeadIds.has(c.lead_id)) g.connectionsAccepted.add(c.lead_id);
+      } else if (ch === "email") {
+        g.contactedEmail.add(c.lead_id);
+        if (repliedLeadIds.has(c.lead_id)) g.repliedEmail.add(c.lead_id);
+      } else if (ch === "call") {
+        g.contactedCall.add(c.lead_id);
+        if (repliedLeadIds.has(c.lead_id)) g.repliedCall.add(c.lead_id);
+      }
     }
     if (c.status === "active") g.active++;
     // Per-campaign attribution
@@ -821,6 +851,18 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       if (icp) icp.sent++;
     }
   }
+  // Pending calls per seller — call-channel campaign messages still
+  // queued/pending. Uses the same source as the Channels callsBreakdown
+  // so the numbers match across the dashboard.
+  for (const m of allMessages) {
+    if (m.status !== "queued" && m.status !== "pending") continue;
+    if (!m.campaign_id) continue;
+    const c = campaigns.find(x => x.id === m.campaign_id);
+    if (!c?.seller_id) continue;
+    if ((c.channel ?? "") !== "call") continue;
+    const g = sellerAgg.get(c.seller_id);
+    if (g) g.pendingCalls++;
+  }
   const sellerPerformance = Array.from(sellerAgg.values()).map(g => {
     const topCampaigns = Array.from(g.byCampaign.values())
       .map(c => ({ name: c.name, sent: c.sent, replied: c.replied.size, positive: c.positive.size }))
@@ -842,6 +884,22 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       sentLinkedinMsg: g.sentLinkedinMsg,
       sentEmail: g.sentEmail,
       sentCall: g.sentCall,
+      // Per-channel reply rates — boss 2026-05-28 wanted to see which
+      // channel works for each seller specifically.
+      replyRateLinkedin: g.contactedLinkedin.size > 0 ? Math.round((g.repliedLinkedin.size / g.contactedLinkedin.size) * 100) : 0,
+      replyRateEmail:    g.contactedEmail.size > 0    ? Math.round((g.repliedEmail.size    / g.contactedEmail.size) * 100)    : 0,
+      replyRateCall:     g.contactedCall.size > 0     ? Math.round((g.repliedCall.size     / g.contactedCall.size) * 100)     : 0,
+      contactedLinkedin: g.contactedLinkedin.size,
+      contactedEmail:    g.contactedEmail.size,
+      contactedCall:     g.contactedCall.size,
+      repliedLinkedin:   g.repliedLinkedin.size,
+      repliedEmail:      g.repliedEmail.size,
+      repliedCall:       g.repliedCall.size,
+      // Connection invite leg
+      connectionsSent: g.connectionsSent.size,
+      connectionsAccepted: g.connectionsAccepted.size,
+      acceptanceRate: g.connectionsSent.size > 0 ? Math.round((g.connectionsAccepted.size / g.connectionsSent.size) * 100) : 0,
+      pendingCalls: g.pendingCalls,
       responseRate: g.contacted.size > 0 ? Math.round((g.replied.size / g.contacted.size) * 100) : 0,
       conversionRate: g.contacted.size > 0 ? Math.round((g.positive.size / g.contacted.size) * 100) : 0,
       topCampaigns,
