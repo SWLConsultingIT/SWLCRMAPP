@@ -17,7 +17,7 @@
 // step-to-step. Plus a small "→" arrow between cards so the sequence
 // flow is still obvious.
 
-import { AlertTriangle, ChevronRight, TrendingDown, TrendingUp, Minus, Send, MessageSquare } from "lucide-react";
+import { AlertTriangle, TrendingDown, TrendingUp, Minus, Send, MessageSquare, ArrowDown } from "lucide-react";
 import { C } from "@/lib/design";
 import { t as tFn, type Locale } from "@/lib/i18n-server";
 
@@ -110,9 +110,9 @@ export default function StepPerformance({ steps, locale }: { steps: Step[]; loca
             : C.border;
 
           return (
-            <div key={s.step} className="flex items-stretch gap-2">
+            <div key={s.step}>
               <div
-                className="flex-1 rounded-xl border px-4 py-3 transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-[0_8px_24px_-10px_var(--step-glow)]"
+                className="rounded-xl border px-4 py-3 transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-[0_8px_24px_-10px_var(--step-glow)]"
                 style={{
                   background: cardBg,
                   borderColor: cardBorder,
@@ -190,12 +190,39 @@ export default function StepPerformance({ steps, locale }: { steps: Step[]; loca
                   </div>
                 </div>
               </div>
-              {/* Arrow connector to next step */}
-              {idx < steps.length - 1 && (
-                <div className="flex items-center shrink-0 w-4" aria-hidden>
-                  <ChevronRight size={14} style={{ color: C.textDim }} />
-                </div>
-              )}
+              {/* Drop-off row between steps — replaces the non-interactive
+                  chevron arrow that boss flagged as "boton sin destino".
+                  Shows the absolute volume lost going INTO the next step
+                  + the % drop, so the inter-step transition carries real
+                  signal instead of being a passive connector. */}
+              {idx < steps.length - 1 && (() => {
+                const next = steps[idx + 1];
+                if (next.step === 0) return null;
+                const lost = s.sent - next.sent;
+                if (lost <= 0 && s.sent === 0) return null;
+                const pctLost = s.sent > 0 ? Math.round((lost / s.sent) * 100) : 0;
+                const tone = pctLost >= 50 ? "warning" : pctLost >= 25 ? "neutral" : "ok";
+                const color = tone === "warning" ? C.red : tone === "ok" ? "#059669" : C.textMuted;
+                return (
+                  <div className="flex items-center gap-2 pl-4 py-1.5" aria-hidden>
+                    <span className="w-1 h-3 rounded-full" style={{ background: `color-mix(in srgb, ${color} 40%, transparent)` }} />
+                    <span className="inline-flex items-center gap-1 text-[10.5px] tabular-nums" style={{ color: C.textDim }}>
+                      <ArrowDown size={11} style={{ color }} />
+                      <span className="font-semibold" style={{ color }}>
+                        {lost > 0 ? `−${lost.toLocaleString("en-US")}` : `0`} {t("dashx.step.lostBetween")}
+                      </span>
+                      <span>·</span>
+                      <span style={{ color: C.textBody }}>
+                        {pctLost}% {t("dashx.step.dropoffPct")}
+                      </span>
+                      <span>·</span>
+                      <span style={{ color: C.textDim }}>
+                        {next.sent.toLocaleString("en-US")} {t("dashx.step.reachedNext")}
+                      </span>
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
           );
         })}
