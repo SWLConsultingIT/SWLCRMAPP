@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 import {
   ArrowLeft, Star, Clock, ChevronRight, ChevronDown, ChevronUp, Megaphone,
   PlayCircle, CheckCircle, PauseCircle, XCircle,
@@ -11,6 +12,8 @@ import {
   Square, CheckSquare, Plus, X,
 } from "lucide-react";
 import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
+
+type Tr = (key: string) => string;
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -78,31 +81,34 @@ type Props = {
   updates: TicketUpdate[];
 };
 
-const statusMeta: Record<string, { color: string; bg: string; icon: typeof PlayCircle; label: string }> = {
-  active:    { color: C.green,     bg: C.greenLight, icon: PlayCircle,  label: "Active" },
-  paused:    { color: "#D97706",   bg: "#FFFBEB",    icon: PauseCircle, label: "Paused" },
-  completed: { color: C.textMuted, bg: C.surface,    icon: CheckCircle, label: "Completed" },
-  failed:    { color: C.red,       bg: C.redLight,   icon: XCircle,     label: "Failed" },
+// Status meta — `label` field is now resolved via t() at render time.
+// `key` is the lookup token for ticket.status.* / ticket.flow.* depending
+// on context.
+const statusMeta: Record<string, { color: string; bg: string; icon: typeof PlayCircle; key: string }> = {
+  active:    { color: C.green,     bg: C.greenLight, icon: PlayCircle,  key: "active" },
+  paused:    { color: "#D97706",   bg: "#FFFBEB",    icon: PauseCircle, key: "paused" },
+  completed: { color: C.textMuted, bg: C.surface,    icon: CheckCircle, key: "completed" },
+  failed:    { color: C.red,       bg: C.redLight,   icon: XCircle,     key: "failed" },
 };
 
 function scoreBadge(score: number | null, priority: boolean) {
-  if (priority || (score && score >= 80)) return { label: "HOT",     color: C.hot,     bg: C.hotBg };
-  if (score && score >= 50)              return { label: "WARM",    color: C.warm,    bg: C.warmBg };
-  return                                        { label: "NURTURE", color: C.nurture, bg: C.nurtureBg };
+  if (priority || (score && score >= 80)) return { key: "hot",     color: C.hot,     bg: C.hotBg };
+  if (score && score >= 50)              return { key: "warm",    color: C.warm,    bg: C.warmBg };
+  return                                        { key: "nurture", color: C.nurture, bg: C.nurtureBg };
 }
 
-function timeAgo(iso: string | null) {
+function timeAgo(iso: string | null, t: Tr) {
   if (!iso) return null;
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1)  return "Just now";
-  if (m < 60) return `${m}m ago`;
+  if (m < 1)  return t("ticket.time.justNow");
+  if (m < 60) return t("ticket.time.minutesAgo").replace("{n}", String(m));
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
+  if (h < 24) return t("ticket.time.hoursAgo").replace("{n}", String(h));
+  return t("ticket.time.daysAgo").replace("{n}", String(Math.floor(h / 24)));
 }
 
 // ─── Campaign Card ────────────────────────────────────────────────────────────
-function CampaignCard({ camp }: { camp: CampaignGroup }) {
+function CampaignCard({ camp, t }: { camp: CampaignGroup; t: Tr }) {
   const active    = camp.statuses.active ?? 0;
   const paused    = camp.statuses.paused ?? 0;
   const completed = camp.statuses.completed ?? 0;
@@ -130,10 +136,10 @@ function CampaignCard({ camp }: { camp: CampaignGroup }) {
       <div className="px-4 pt-4 pb-3 flex-1">
         <div className="flex items-center gap-1.5 mb-2">
           <Megaphone size={11} style={{ color: gold }} />
-          <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: gold }}>Outreach Flow</span>
+          <span className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: gold }}>{t("ticket.flow.preTitle")}</span>
           <div className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-md" style={{ backgroundColor: st.bg }}>
             <StIcon size={10} style={{ color: st.color }} />
-            <span className="text-[10px] font-semibold" style={{ color: st.color }}>{st.label}</span>
+            <span className="text-[10px] font-semibold" style={{ color: st.color }}>{t(`ticket.status.${st.key}`)}</span>
           </div>
         </div>
 
@@ -143,9 +149,9 @@ function CampaignCard({ camp }: { camp: CampaignGroup }) {
 
         <div className="grid grid-cols-3 gap-2 mb-3">
           {[
-            { label: "Leads", value: camp.totalLeads, color: C.textBody },
-            { label: "Replies", value: camp.totalReplies, color: C.blue },
-            { label: "Positive", value: camp.positiveCount, color: C.green },
+            { label: t("ticket.metrics.leads"),         value: camp.totalLeads,     color: C.textBody },
+            { label: t("ticket.flow.replies"),          value: camp.totalReplies,   color: C.blue },
+            { label: t("ticket.table.replyPositive"),   value: camp.positiveCount,  color: C.green },
           ].map(s => (
             <div key={s.label} className="text-center rounded-lg py-1.5" style={{ backgroundColor: C.bg }}>
               <p className="text-base font-bold tabular-nums" style={{ color: s.color }}>{s.value}</p>
@@ -155,9 +161,9 @@ function CampaignCard({ camp }: { camp: CampaignGroup }) {
         </div>
 
         <div className="flex items-center gap-3 text-[10px]" style={{ color: C.textDim }}>
-          <span>{camp.totalSteps} steps</span>
-          {responseRate > 0 && <span style={{ color: C.blue }}>{responseRate}% response rate</span>}
-          {camp.lastActivity && <span><Clock size={9} className="inline mr-0.5" />{timeAgo(camp.lastActivity)}</span>}
+          <span>{t("ticket.flow.steps").replace("{n}", String(camp.totalSteps))}</span>
+          {responseRate > 0 && <span style={{ color: C.blue }}>{t("ticket.flow.responseRate").replace("{n}", String(responseRate))}</span>}
+          {camp.lastActivity && <span><Clock size={9} className="inline mr-0.5" />{timeAgo(camp.lastActivity, t)}</span>}
         </div>
       </div>
 
@@ -178,37 +184,37 @@ function CampaignCard({ camp }: { camp: CampaignGroup }) {
 // deprecated /queue Updates tab (boss feedback 2026-05-27) so the audit
 // trail lives next to the leads it affects, not in a generic notifications
 // feed nobody scrolled past tab 1.
-function UpdatesTab({ updates }: { updates: TicketUpdate[] }) {
+function UpdatesTab({ updates, t }: { updates: TicketUpdate[]; t: Tr }) {
   if (updates.length === 0) {
     return (
       <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <p className="text-sm" style={{ color: C.textDim }}>No campaign-request activity in the last 2 weeks.</p>
+        <p className="text-sm" style={{ color: C.textDim }}>{t("ticket.update.empty")}</p>
       </div>
     );
   }
-  const statusMeta: Record<TicketUpdate["status"], { color: string; bg: string; label: string }> = {
-    approved:       { color: C.green,    bg: C.greenLight, label: "Approved" },
-    rejected:       { color: C.red,      bg: C.redLight,   label: "Rejected" },
-    pending_review: { color: "#D97706",  bg: "#FFFBEB",    label: "Pending review" },
+  const updateStatusMeta: Record<TicketUpdate["status"], { color: string; bg: string; key: string }> = {
+    approved:       { color: C.green,    bg: C.greenLight, key: "approved" },
+    rejected:       { color: C.red,      bg: C.redLight,   key: "rejected" },
+    pending_review: { color: "#D97706",  bg: "#FFFBEB",    key: "pendingReview" },
   };
   return (
     <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
       {updates.map((u, i) => {
-        const st = statusMeta[u.status];
+        const st = updateStatusMeta[u.status];
         return (
           <div key={u.id} className="flex items-center gap-4 px-5 py-3"
             style={{ borderBottom: i < updates.length - 1 ? `1px solid ${C.border}` : "none" }}>
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md shrink-0"
               style={{ backgroundColor: st.bg, color: st.color }}>
-              {st.label}
+              {t(`ticket.update.status.${st.key}`)}
             </span>
             <span className="text-sm font-semibold flex-1 truncate" style={{ color: C.textBody }}>{u.name}</span>
             {u.targetLeadsCount != null && (
               <span className="text-[11px] tabular-nums shrink-0" style={{ color: C.textMuted }}>
-                {u.targetLeadsCount} lead{u.targetLeadsCount === 1 ? "" : "s"}
+                {u.targetLeadsCount} {u.targetLeadsCount === 1 ? t("ticket.update.lead") : t("ticket.update.leads")}
               </span>
             )}
-            <span className="text-[11px] shrink-0" style={{ color: C.textDim }}>{timeAgo(u.createdAt)}</span>
+            <span className="text-[11px] shrink-0" style={{ color: C.textDim }}>{timeAgo(u.createdAt, t)}</span>
           </div>
         );
       })}
@@ -217,7 +223,7 @@ function UpdatesTab({ updates }: { updates: TicketUpdate[] }) {
 }
 
 // ─── Outreach Flows Tab ───────────────────────────────────────────────────────
-function OutreachFlowsTab({ campaigns }: { campaigns: CampaignGroup[] }) {
+function OutreachFlowsTab({ campaigns, t }: { campaigns: CampaignGroup[]; t: Tr }) {
   const [pastOpen, setPastOpen] = useState(false);
 
   const activeCamps = campaigns.filter(c => (c.statuses.active ?? 0) > 0 || (c.statuses.paused ?? 0) > 0);
@@ -226,7 +232,7 @@ function OutreachFlowsTab({ campaigns }: { campaigns: CampaignGroup[] }) {
   if (campaigns.length === 0) {
     return (
       <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <p className="text-sm" style={{ color: C.textDim }}>No outreach flows for this profile yet</p>
+        <p className="text-sm" style={{ color: C.textDim }}>{t("ticket.flow.empty")}</p>
       </div>
     );
   }
@@ -236,13 +242,13 @@ function OutreachFlowsTab({ campaigns }: { campaigns: CampaignGroup[] }) {
       {/* Active / Paused flows */}
       {activeCamps.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {activeCamps.map(c => <CampaignCard key={c.firstId} camp={c} />)}
+          {activeCamps.map(c => <CampaignCard key={c.firstId} camp={c} t={t} />)}
         </div>
       )}
 
       {activeCamps.length === 0 && pastCamps.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {pastCamps.map(c => <CampaignCard key={c.firstId} camp={c} />)}
+          {pastCamps.map(c => <CampaignCard key={c.firstId} camp={c} t={t} />)}
         </div>
       )}
 
@@ -254,7 +260,7 @@ function OutreachFlowsTab({ campaigns }: { campaigns: CampaignGroup[] }) {
             className="flex items-center gap-2 mb-3 group"
           >
             <span className="text-xs font-bold uppercase tracking-wider" style={{ color: C.textMuted }}>
-              Past Flows ({pastCamps.length})
+              {t("ticket.flow.past").replace("{n}", String(pastCamps.length))}
             </span>
             {pastOpen
               ? <ChevronUp size={13} style={{ color: C.textDim }} />
@@ -277,14 +283,14 @@ function OutreachFlowsTab({ campaigns }: { campaigns: CampaignGroup[] }) {
                   >
                     <div className="flex items-center gap-1.5 shrink-0 px-2 py-0.5 rounded-md" style={{ backgroundColor: st.bg }}>
                       <StIcon size={10} style={{ color: st.color }} />
-                      <span className="text-[10px] font-semibold" style={{ color: st.color }}>{st.label}</span>
+                      <span className="text-[10px] font-semibold" style={{ color: st.color }}>{t(`ticket.status.${st.key}`)}</span>
                     </div>
                     <span className="text-sm font-semibold flex-1 truncate" style={{ color: C.textBody }}>{c.name}</span>
                     <div className="flex items-center gap-4 shrink-0 text-xs" style={{ color: C.textMuted }}>
-                      <span>{c.totalLeads} leads</span>
-                      <span>{c.totalReplies} replies</span>
-                      {responseRate > 0 && <span style={{ color: C.blue }}>{responseRate}% resp.</span>}
-                      {c.lastActivity && <span>{timeAgo(c.lastActivity)}</span>}
+                      <span>{c.totalLeads} {t("ticket.flow.leads")}</span>
+                      <span>{c.totalReplies} {t("ticket.flow.replies")}</span>
+                      {responseRate > 0 && <span style={{ color: C.blue }}>{responseRate}% {t("ticket.flow.respShort")}</span>}
+                      {c.lastActivity && <span>{timeAgo(c.lastActivity, t)}</span>}
                     </div>
                     <ChevronRight size={13} style={{ color: C.textDim }} className="shrink-0" />
                   </Link>
@@ -307,6 +313,7 @@ function LeadsTable({
   selected,
   onToggle,
   onSelectAllFiltered,
+  t,
 }: {
   leads: LeadInfo[];
   /** When true the table renders a leading checkbox column and rows can be
@@ -318,6 +325,7 @@ function LeadsTable({
   /** Receives the filtered (currently visible) lead IDs so a "select all"
    *  header checkbox can toggle the post-filter set, not the raw input. */
   onSelectAllFiltered?: (ids: string[], allSelected: boolean) => void;
+  t: Tr;
 }) {
   const [showCount, setShowCount] = useState(PAGE_SIZE);
   const [filters, setFilters] = useState<LeadFilterState>(emptyLeadFilterState());
@@ -365,7 +373,7 @@ function LeadsTable({
   if (leads.length === 0) {
     return (
       <div className="rounded-xl border py-16 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <p className="text-sm" style={{ color: C.textDim }}>No leads in this profile</p>
+        <p className="text-sm" style={{ color: C.textDim }}>{t("ticket.table.noLeads")}</p>
       </div>
     );
   }
@@ -390,7 +398,7 @@ function LeadsTable({
                   <button
                     onClick={() => onSelectAllFiltered?.(filteredIds, !!allFilteredSelected)}
                     className="flex items-center justify-center rounded p-0.5 transition-colors hover:bg-black/[0.04]"
-                    title={allFilteredSelected ? "Clear selection" : `Select all ${filteredIds.length}`}
+                    title={allFilteredSelected ? t("ticket.table.clearSelection") : t("ticket.table.selectAll").replace("{n}", String(filteredIds.length))}
                   >
                     {allFilteredSelected
                       ? <CheckSquare size={14} style={{ color: gold }} />
@@ -398,20 +406,28 @@ function LeadsTable({
                   </button>
                 </th>
               )}
-              {["Lead", "Company", "Role", "Score", "Campaign", "Reply", ""].map(h => (
-                <th key={h} className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{h}</th>
+              {[
+                t("ticket.table.lead"),
+                t("ticket.table.company"),
+                t("ticket.table.role"),
+                t("ticket.table.score"),
+                t("ticket.table.campaign"),
+                t("ticket.table.reply"),
+                "",
+              ].map((h, idx) => (
+                <th key={idx} className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {visible.length === 0 ? (
-              <tr><td colSpan={selectable ? 8 : 7} className="px-4 py-10 text-center text-sm" style={{ color: C.textDim }}>No leads match your filters</td></tr>
+              <tr><td colSpan={selectable ? 8 : 7} className="px-4 py-10 text-center text-sm" style={{ color: C.textDim }}>{t("ticket.table.noMatches")}</td></tr>
             ) : visible.map(lead => {
-              const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "Unknown";
+              const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || t("ticket.table.unknown");
               const badge = scoreBadge(lead.score, lead.is_priority);
               const hasReply = lead.reply_count > 0;
               const replyColor = lead.has_positive ? C.green : hasReply ? "#D97706" : C.textDim;
-              const replyLabel = lead.has_positive ? "Positive" : hasReply ? "Replied" : "—";
+              const replyLabel = lead.has_positive ? t("ticket.table.replyPositive") : hasReply ? t("ticket.table.replyReplied") : "—";
               const campSt = lead.campaign_status ? (statusMeta[lead.campaign_status] ?? null) : null;
               const isSelected = selectable && selected?.has(lead.id);
 
@@ -426,7 +442,7 @@ function LeadsTable({
                       <button
                         onClick={() => onToggle?.(lead.id)}
                         className="flex items-center justify-center rounded p-0.5 transition-colors hover:bg-black/[0.04]"
-                        aria-label={isSelected ? "Unselect lead" : "Select lead"}
+                        aria-label={isSelected ? t("ticket.table.unselectLead") : t("ticket.table.selectLead")}
                       >
                         {isSelected
                           ? <CheckSquare size={14} style={{ color: gold }} />
@@ -449,20 +465,20 @@ function LeadsTable({
                   <td className="px-4 py-3"><span className="text-xs truncate block max-w-[140px]" style={{ color: C.textMuted }}>{lead.company ?? "—"}</span></td>
                   <td className="px-4 py-3"><span className="text-xs truncate block max-w-[140px]" style={{ color: C.textMuted }}>{lead.role ?? "—"}</span></td>
                   <td className="px-4 py-3">
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded inline-block" style={{ backgroundColor: badge.bg, color: badge.color }}>{badge.label}</span>
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded inline-block" style={{ backgroundColor: badge.bg, color: badge.color }}>{t(`ticket.score.${badge.key}`)}</span>
                   </td>
                   <td className="px-4 py-3">
                     {lead.has_campaign && campSt ? (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: campSt.bg, color: campSt.color }}>{campSt.label}</span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: campSt.bg, color: campSt.color }}>{t(`ticket.status.${campSt.key}`)}</span>
                     ) : lead.has_campaign ? (
-                      <span className="text-[10px]" style={{ color: C.textMuted }}>{lead.campaign_name ?? "Yes"}</span>
+                      <span className="text-[10px]" style={{ color: C.textMuted }}>{lead.campaign_name ?? ""}</span>
                     ) : (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>No Campaign</span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>{t("ticket.table.noCampaign")}</span>
                     )}
                   </td>
                   <td className="px-4 py-3"><span className="text-[10px] font-semibold" style={{ color: replyColor }}>{replyLabel}</span></td>
                   <td className="px-4 py-3 text-right">
-                    <Link href={`/leads/${lead.id}`} className="text-[10px] font-medium hover:underline" style={{ color: gold }}>View</Link>
+                    <Link href={`/leads/${lead.id}`} className="text-[10px] font-medium hover:underline" style={{ color: gold }}>{t("ticket.table.view")}</Link>
                   </td>
                 </tr>
               );
@@ -472,7 +488,7 @@ function LeadsTable({
         {hasMore && (
           <div className="border-t px-4 py-2.5 text-center" style={{ borderColor: C.border, backgroundColor: C.bg }}>
             <button onClick={() => setShowCount(c => c + PAGE_SIZE)} className="text-xs font-medium hover:underline" style={{ color: gold }}>
-              Show more ({filtered.length - showCount} remaining)
+              {t("ticket.table.showMoreLink").replace("{n}", String(filtered.length - showCount))}
             </button>
           </div>
         )}
@@ -483,12 +499,13 @@ function LeadsTable({
 
 // ─── Add to existing campaign modal ─────────────────────────────────────────
 function AddToExistingModal({
-  campaigns, leadIds, onClose, onAdded,
+  campaigns, leadIds, onClose, onAdded, t,
 }: {
   campaigns: CampaignGroup[];
   leadIds: string[];
   onClose: () => void;
   onAdded: () => void;
+  t: Tr;
 }) {
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -511,7 +528,7 @@ function AddToExistingModal({
       });
       const json = await res.json();
       if (!res.ok) {
-        setError(json.error ?? "Failed to add leads");
+        setError(json.error ?? t("ticket.modal.addToExisting.failed"));
         return;
       }
       onAdded();
@@ -531,9 +548,9 @@ function AddToExistingModal({
         onClick={e => e.stopPropagation()}>
         <div className="px-5 py-4 flex items-center justify-between border-b" style={{ borderColor: C.border }}>
           <div>
-            <h3 className="text-base font-bold" style={{ color: C.textPrimary }}>Add to existing flow</h3>
+            <h3 className="text-base font-bold" style={{ color: C.textPrimary }}>{t("ticket.modal.addToExisting.title")}</h3>
             <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
-              {leadIds.length} {leadIds.length === 1 ? "lead" : "leads"} will be attached to the selected flow.
+              {(leadIds.length === 1 ? t("ticket.modal.addToExisting.subtitleOne") : t("ticket.modal.addToExisting.subtitleMany")).replace("{n}", String(leadIds.length))}
             </p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1 hover:bg-black/[0.04]">
@@ -544,7 +561,7 @@ function AddToExistingModal({
         <div className="p-5 space-y-2 max-h-[50vh] overflow-y-auto">
           {targets.length === 0 ? (
             <p className="text-sm py-6 text-center" style={{ color: C.textMuted }}>
-              No active flows in this ticket yet. Use &ldquo;Create New Flow&rdquo; instead.
+              {t("ticket.modal.addToExisting.empty")}
             </p>
           ) : targets.map(c => {
             const picked = pickedId === c.firstId;
@@ -562,7 +579,7 @@ function AddToExistingModal({
                   {picked && <CheckSquare size={13} style={{ color: gold }} />}
                 </div>
                 <p className="text-[11px]" style={{ color: C.textMuted }}>
-                  {c.totalLeads} leads · {c.channels.join(" + ")} · {c.totalSteps} steps
+                  {c.totalLeads} {t("ticket.flow.leads")} · {c.channels.join(" + ")} · {c.totalSteps} {t("ticket.modal.addToExisting.stepsLabel")}
                 </p>
               </button>
             );
@@ -577,13 +594,13 @@ function AddToExistingModal({
           <button onClick={onClose}
             className="text-xs font-semibold px-3 py-1.5 rounded-lg border"
             style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}>
-            Cancel
+            {t("ticket.modal.addToExisting.cancel")}
           </button>
           <button onClick={submit}
             disabled={!pickedId || busy || targets.length === 0}
             className="text-xs font-bold px-3 py-1.5 rounded-lg transition-opacity disabled:opacity-50"
             style={{ backgroundColor: gold, color: "#1A1A2E" }}>
-            {busy ? "Adding…" : `Add ${leadIds.length} lead${leadIds.length === 1 ? "" : "s"}`}
+            {busy ? t("ticket.modal.addToExisting.adding") : (leadIds.length === 1 ? t("ticket.modal.addToExisting.addOne") : t("ticket.modal.addToExisting.addMany")).replace("{n}", String(leadIds.length))}
           </button>
         </div>
       </div>
@@ -594,6 +611,7 @@ function AddToExistingModal({
 // ─── Main ──────────────────────────────────────────────────────────────────────
 export default function TicketDetailClient({ profileId, ticketName, campaigns, leads, metrics, updates }: Props) {
   const router = useRouter();
+  const { t } = useLocale();
   const [tab, setTab] = useState(0);
   // Inside the Leads tab the boss wants the seller to split leads by whether
   // they're already in a flow ("With Campaign") vs idle ("Unassigned"). The
@@ -642,8 +660,8 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
   // Updates tab removed 2026-05-28 per user request — the campaign-request
   // approvals feed lives in the Notifications page instead.
   const tabs = [
-    { label: "Leads",          count: totalLeads,     color: C.blue },
-    { label: "Outreach Flows", count: totalCamps,     color: gold },
+    { label: t("ticket.tab.leads"), count: totalLeads, color: C.blue },
+    { label: t("ticket.tab.flows"), count: totalCamps, color: gold },
   ];
 
   return (
@@ -651,7 +669,7 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs mb-5" style={{ color: C.textMuted }}>
         <Link href="/leads" className="hover:underline flex items-center gap-1">
-          <ArrowLeft size={12} /> Leads &amp; Campaigns
+          <ArrowLeft size={12} /> {t("ticket.breadcrumb.back")}
         </Link>
         <span>/</span>
         <span style={{ color: C.textBody }}>{ticketName}</span>
@@ -679,7 +697,7 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
           <div className="relative flex items-center gap-2 mb-2">
             <span className="inline-block w-1 h-1 rounded-full pulse-dot" style={{ background: gold }} />
             <p className="text-[10.5px] font-bold uppercase tracking-[0.18em]" style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-              Lead Miner Profile
+              {t("ticket.hero.preTitle")}
             </p>
           </div>
           <h1 className="relative text-[28px] font-bold leading-tight"
@@ -692,11 +710,11 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
             + icon tile so the eye finds the metric type before reading. */}
         <div className="grid grid-cols-2 sm:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: C.border }}>
           {[
-            { icon: UsersIcon, label: "Leads",        value: metrics.totalLeads,     color: gold },
-            { icon: UserPlus,  label: "Unassigned",   value: metrics.unassignedCount, color: metrics.unassignedCount > 0 ? "#92400E" : C.textMuted },
-            { icon: Megaphone, label: "Flows",        value: totalCamps,             color: "#7C3AED" },
-            { icon: Trophy,    label: "Won",          value: metrics.won,            color: C.green },
-            { icon: ThumbsDown,label: "Lost",         value: metrics.lost,           color: C.red },
+            { icon: UsersIcon, label: t("ticket.metrics.leads"),      value: metrics.totalLeads,      color: gold },
+            { icon: UserPlus,  label: t("ticket.metrics.unassigned"), value: metrics.unassignedCount, color: metrics.unassignedCount > 0 ? "#92400E" : C.textMuted },
+            { icon: Megaphone, label: t("ticket.metrics.flows"),      value: totalCamps,              color: "#7C3AED" },
+            { icon: Trophy,    label: t("ticket.metrics.won"),        value: metrics.won,             color: C.green },
+            { icon: ThumbsDown,label: t("ticket.metrics.lost"),       value: metrics.lost,            color: C.red },
           ].map(s => {
             const Icon = s.icon;
             return (
@@ -731,12 +749,12 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
             background: `linear-gradient(180deg, color-mix(in srgb, ${gold} 4%, transparent), transparent)`,
           }}>
           {[
-            { icon: Share2,        label: "LinkedIn Invites",  value: metrics.linkedinInvitesSent,   color: "#0A66C2" },
-            { icon: MessageSquare, label: "LinkedIn Messages", value: metrics.linkedinMessagesSent,  color: "#0A66C2" },
-            { icon: Mail,          label: "Emails Sent",       value: metrics.emailsSent,            color: "#059669" },
-            { icon: Phone,         label: "Calls Made",        value: metrics.callsMade,             color: "#EA580C" },
-            { icon: Percent,       label: "Reply Rate",        value: `${metrics.replyRate}%`,       color: metrics.replyRate >= 10 ? C.green : gold },
-            { icon: Percent,       label: "Win Rate",          value: `${metrics.winRate}%`,         color: metrics.winRate >= 20 ? C.green : gold },
+            { icon: Share2,        label: t("ticket.metrics.linkedinInvites"),  value: metrics.linkedinInvitesSent,   color: "#0A66C2" },
+            { icon: MessageSquare, label: t("ticket.metrics.linkedinMessages"), value: metrics.linkedinMessagesSent,  color: "#0A66C2" },
+            { icon: Mail,          label: t("ticket.metrics.emailsSent"),       value: metrics.emailsSent,            color: "#059669" },
+            { icon: Phone,         label: t("ticket.metrics.callsMade"),        value: metrics.callsMade,             color: "#EA580C" },
+            { icon: Percent,       label: t("ticket.metrics.replyRate"),        value: `${metrics.replyRate}%`,       color: metrics.replyRate >= 10 ? C.green : gold },
+            { icon: Percent,       label: t("ticket.metrics.winRate"),          value: `${metrics.winRate}%`,         color: metrics.winRate >= 20 ? C.green : gold },
           ].map(s => {
             const Icon = s.icon;
             return (
@@ -773,10 +791,10 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>
-              {metrics.unassignedCount} {metrics.unassignedCount === 1 ? "lead is" : "leads are"} in this ICP but not assigned to any flow
+              {(metrics.unassignedCount === 1 ? t("ticket.unassigned.titleOne") : t("ticket.unassigned.titleMany")).replace("{n}", String(metrics.unassignedCount))}
             </p>
             <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
-              These leads aren&apos;t receiving any outreach. Add them to an existing flow or create a new one.
+              {t("ticket.unassigned.subtitle")}
             </p>
           </div>
           <button
@@ -784,27 +802,27 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
             className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90"
             style={{ backgroundColor: "#92400E", color: "#fff" }}
           >
-            Review unassigned →
+            {t("ticket.unassigned.review")}
           </button>
         </div>
       )}
 
       {/* Tabs */}
       <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
-        {tabs.map((t, i) => {
+        {tabs.map((tab2, i) => {
           const isActive = tab === i;
           return (
-            <button key={t.label} onClick={() => setTab(i)}
+            <button key={tab2.label} onClick={() => setTab(i)}
               className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-[opacity,transform,box-shadow,background-color,border-color] relative"
-              style={{ color: isActive ? t.color : C.textMuted }}>
-              {t.label}
-              {t.count > 0 && (
+              style={{ color: isActive ? tab2.color : C.textMuted }}>
+              {tab2.label}
+              {tab2.count > 0 && (
                 <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: isActive ? `${t.color}15` : C.surface, color: isActive ? t.color : C.textDim }}>
-                  {t.count}
+                  style={{ backgroundColor: isActive ? `${tab2.color}15` : C.surface, color: isActive ? tab2.color : C.textDim }}>
+                  {tab2.count}
                 </span>
               )}
-              {isActive && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: t.color }} />}
+              {isActive && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: tab2.color }} />}
             </button>
           );
         })}
@@ -818,8 +836,8 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
           <div className="flex items-center gap-1 mb-4 p-1 rounded-lg border max-w-fit"
             style={{ backgroundColor: C.card, borderColor: C.border }}>
             {([
-              { key: "unassigned" as const,    label: "Unassigned",    count: unassignedLeads.length,   color: gold },
-              { key: "with_campaign" as const, label: "With Campaign", count: withCampaignLeads.length, color: C.blue },
+              { key: "unassigned" as const,    label: t("ticket.subtab.unassigned"),   count: unassignedLeads.length,   color: gold },
+              { key: "with_campaign" as const, label: t("ticket.subtab.withCampaign"), count: withCampaignLeads.length, color: C.blue },
             ]).map(opt => {
               const isActive = leadsSub === opt.key;
               return (
@@ -853,11 +871,11 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
                 borderColor: `color-mix(in srgb, ${gold} 35%, ${C.border})`,
               }}>
               <span className="text-xs font-bold" style={{ color: C.textPrimary }}>
-                {selected.size} selected
+                {t("ticket.bulk.selected").replace("{n}", String(selected.size))}
               </span>
               <button onClick={clearSelection}
                 className="text-[11px] font-semibold hover:underline" style={{ color: C.textMuted }}>
-                Clear
+                {t("ticket.bulk.clear")}
               </button>
               <div className="flex-1" />
               <button
@@ -865,16 +883,16 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
                 disabled={campaigns.filter(c => (c.statuses.active ?? 0) + (c.statuses.paused ?? 0) > 0).length === 0}
                 className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-[background-color,opacity] hover:bg-black/[0.03] disabled:opacity-40"
                 style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}
-                title={campaigns.filter(c => (c.statuses.active ?? 0) + (c.statuses.paused ?? 0) > 0).length === 0 ? "No active flow in this ticket yet" : ""}
+                title={campaigns.filter(c => (c.statuses.active ?? 0) + (c.statuses.paused ?? 0) > 0).length === 0 ? t("ticket.bulk.noActiveFlow") : ""}
               >
-                <Plus size={11} /> Add to existing flow
+                <Plus size={11} /> {t("ticket.bulk.addToExisting")}
               </button>
               <button
                 onClick={createNewFlow}
                 className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90"
                 style={{ backgroundColor: gold, color: "#1A1A2E" }}
               >
-                <Megaphone size={11} /> Create New Flow
+                <Megaphone size={11} /> {t("ticket.bulk.createNewFlow")}
               </button>
             </div>
           )}
@@ -886,14 +904,15 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
               selected={selected}
               onToggle={toggleOne}
               onSelectAllFiltered={toggleAllFiltered}
+              t={t}
             />
           )}
-          {leadsSub === "with_campaign" && <LeadsTable leads={withCampaignLeads} />}
+          {leadsSub === "with_campaign" && <LeadsTable leads={withCampaignLeads} t={t} />}
         </div>
       )}
 
       {/* Tab 1: Outreach Flows */}
-      {tab === 1 && <OutreachFlowsTab campaigns={campaigns} />}
+      {tab === 1 && <OutreachFlowsTab campaigns={campaigns} t={t} />}
 
       {showAddExisting && (
         <AddToExistingModal
@@ -901,6 +920,7 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
           leadIds={Array.from(selected)}
           onClose={() => setShowAddExisting(false)}
           onAdded={() => { setShowAddExisting(false); clearSelection(); router.refresh(); }}
+          t={t}
         />
       )}
     </div>
