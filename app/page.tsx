@@ -334,88 +334,122 @@ export default async function DashboardPage({
           alive; the analytical hero is wrong copy for the action list. */}
       {filters.tab === "today" ? (
       <header
-        className="relative rounded-2xl overflow-hidden px-6 sm:px-10 py-8 sm:py-10"
+        className="relative rounded-2xl overflow-hidden px-8 sm:px-14 py-10 sm:py-14"
         style={{
-          background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
-          border: `1px solid color-mix(in srgb, ${gold} 30%, ${N.hairline})`,
-          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 22%, transparent), 0 22px 50px -22px ${N.ink}`,
+          background: `radial-gradient(120% 100% at 100% 50%, color-mix(in srgb, ${gold} 9%, transparent) 0%, transparent 55%), linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
+          border: `1px solid color-mix(in srgb, ${gold} 24%, ${N.hairline})`,
+          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 28%, transparent) inset, 0 24px 60px -28px ${N.ink}, 0 0 0 1px color-mix(in srgb, ${gold} 8%, transparent)`,
         }}
       >
-        <div className="relative flex items-center justify-between gap-8 flex-wrap">
-          {/* Left — GrowthAI label + welcome copy. No small logo, no
-              eyebrow, no LIVE pill. The pulsing SWL mark on the right
-              carries all the "alive" signal. */}
-          <div className="min-w-0 flex-1">
-            <p
-              className="text-[12px] font-bold uppercase tracking-[0.22em] mb-3"
-              style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
-            >
-              GrowthAI
-            </p>
+        {/* Hairline gold accent across the very top edge — editorial detail */}
+        <span aria-hidden className="absolute inset-x-0 top-0 h-px pointer-events-none"
+          style={{ background: `linear-gradient(90deg, transparent 0%, color-mix(in srgb, ${gold} 56%, transparent) 25%, color-mix(in srgb, ${gold} 56%, transparent) 75%, transparent 100%)` }} />
+
+        <div className="relative flex items-center justify-between gap-10 flex-wrap">
+          {/* ── Left column — refined typographic stack ─────────── */}
+          <div className="min-w-0 flex-1 max-w-[640px]">
+            {/* Eyebrow: thin gold rule + GrowthAI wordmark — gives the
+                page a "signed-by-the-brand" editorial opening. */}
+            <div className="flex items-center gap-3 mb-6">
+              <span aria-hidden className="block h-px w-8"
+                style={{ background: `linear-gradient(90deg, ${gold} 0%, color-mix(in srgb, ${gold} 0%, transparent) 100%)` }} />
+              <span
+                className="text-[11.5px] font-bold uppercase"
+                style={{
+                  color: gold,
+                  letterSpacing: "0.32em",
+                  fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                }}
+              >
+                GrowthAI
+              </span>
+            </div>
+
             <h1
-              className="text-[30px] sm:text-[40px] font-bold tracking-[-0.025em] leading-[1.05]"
+              className="text-[34px] sm:text-[46px] font-semibold leading-[1.02]"
               style={{
                 color: "white",
                 fontFamily: "var(--font-outfit), system-ui, sans-serif",
-                textShadow: `0 2px 14px color-mix(in srgb, ${gold} 16%, transparent)`,
+                letterSpacing: "-0.03em",
+                textShadow: `0 2px 24px color-mix(in srgb, ${gold} 14%, transparent)`,
               }}
             >
               {t("dashx.today.heroTitle")}
             </h1>
             <p
-              className="text-[13.5px] mt-3 max-w-[680px]"
-              style={{ color: "color-mix(in srgb, white 68%, transparent)" }}
+              className="text-[14px] mt-4 max-w-[560px] leading-relaxed"
+              style={{
+                color: "color-mix(in srgb, white 64%, transparent)",
+                fontFamily: "var(--font-outfit), system-ui, sans-serif",
+              }}
             >
               {t("dashx.today.heroDesc")}
             </p>
           </div>
 
-          {/* Right — big SWL logomark that breathes + shines every 4.5s,
-              same animations the LogoLoader uses. Replaces all the
-              ambient-glow noise with a single focal point of motion. */}
+          {/* ── Right column — focal SWL mark with staged halo ──────
+              The gold radial halo behind the logo gives it depth + a
+              "seat" so it doesn't float against the navy. Logo itself
+              breathes + shines via the LogoLoader animations (4.5s). */}
           {(() => {
             const SWL_LOGO = "https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png";
-            // PNG is 280×136 native, the brand mark sits in the left 34%.
-            const size = 88; // visible height
-            const markCropRatio = 0.34;
-            const fullPngWidth = size * (280 / 136);
-            const markWidth = Math.round(fullPngWidth * markCropRatio);
+            const size = 104;
+            // FULL logo (mark + "SWL" lettering). The PNG native ratio
+            // is 280:136. We render the entire image (no crop) so the
+            // SWL wordmark is visible — on the dark navy hero bg the
+            // gold-inverted filter keeps both pieces legible.
+            const logoWidth = Math.round(size * (280 / 136));
             return (
-              <div
-                className="logo-loader-mark-wrap shrink-0"
-                style={{ width: markWidth, height: size, position: "relative" }}
-                aria-hidden
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={SWL_LOGO}
-                  alt=""
-                  className="logo-loader-mark-img"
+              <div className="relative shrink-0 flex items-center justify-center"
+                style={{ width: logoWidth + 80, height: size + 80 }}>
+                {/* Halo backdrop — two stacked radials for a deeper bloom */}
+                <span aria-hidden className="absolute inset-0 pointer-events-none"
                   style={{
-                    width: fullPngWidth,
-                    height: size,
-                    objectFit: "cover",
-                    objectPosition: "left center",
-                    // Invert the mark so it reads gold-on-dark; the
-                    // shine overlay sits on top in its native warm white.
-                    filter: `brightness(0) saturate(1) invert(78%) sepia(38%) saturate(580%) hue-rotate(2deg) brightness(95%) contrast(88%)`,
-                  }}
-                />
-                <span
-                  className="logo-loader-mark-shine"
+                    background: `radial-gradient(circle at center, color-mix(in srgb, ${gold} 26%, transparent) 0%, transparent 55%)`,
+                    filter: "blur(8px)",
+                  }} />
+                <span aria-hidden className="absolute inset-0 pointer-events-none"
                   style={{
-                    width: markWidth,
-                    height: size,
-                    WebkitMaskImage: `url(${SWL_LOGO})`,
-                    maskImage: `url(${SWL_LOGO})`,
-                    WebkitMaskSize: `${fullPngWidth}px ${size}px`,
-                    maskSize: `${fullPngWidth}px ${size}px`,
-                    WebkitMaskRepeat: "no-repeat",
-                    maskRepeat: "no-repeat",
-                    WebkitMaskPosition: "left center",
-                    maskPosition: "left center",
-                  }}
-                />
+                    background: `radial-gradient(circle at center, color-mix(in srgb, ${gold} 14%, transparent) 0%, transparent 70%)`,
+                  }} />
+                {/* The full logo — breathes + shines */}
+                <div
+                  className="logo-loader-mark-wrap relative"
+                  style={{ width: logoWidth, height: size }}
+                  aria-hidden
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={SWL_LOGO}
+                    alt=""
+                    className="logo-loader-mark-img"
+                    style={{
+                      width: logoWidth,
+                      height: size,
+                      objectFit: "contain",
+                      // Gold-invert: black silhouette → gold via hue-rotate.
+                      // Applies to both the mark and the SWL lettering.
+                      filter: `brightness(0) saturate(1) invert(78%) sepia(38%) saturate(580%) hue-rotate(2deg) brightness(95%) contrast(88%)`,
+                    }}
+                  />
+                  {/* Shine overlay — masked to the full logo shape so it
+                      sweeps across both the mark and the lettering. */}
+                  <span
+                    className="logo-loader-mark-shine"
+                    style={{
+                      width: logoWidth,
+                      height: size,
+                      WebkitMaskImage: `url(${SWL_LOGO})`,
+                      maskImage: `url(${SWL_LOGO})`,
+                      WebkitMaskSize: `${logoWidth}px ${size}px`,
+                      maskSize: `${logoWidth}px ${size}px`,
+                      WebkitMaskRepeat: "no-repeat",
+                      maskRepeat: "no-repeat",
+                      WebkitMaskPosition: "center",
+                      maskPosition: "center",
+                    }}
+                  />
+                </div>
               </div>
             );
           })()}
