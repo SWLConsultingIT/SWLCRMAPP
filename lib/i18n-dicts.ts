@@ -480,6 +480,7 @@ export const en: Dict = {
   "dashx.step.hoverLeads": "leads",
   "dashx.step.hoverYield": "Yield",
   "dashx.step.hoverYieldOf": "replies from",
+  "dashx.step.lostHere": "−{n} leads vs prev",
   // Trend + heatmap
   "dashx.trend.title": "30-day activity",
   "dashx.trend.subtitle": "Sent · replies · positives",
@@ -1332,6 +1333,7 @@ export const es: Dict = {
   "dashx.step.hoverLeads": "leads",
   "dashx.step.hoverYield": "Yield",
   "dashx.step.hoverYieldOf": "respuestas de",
+  "dashx.step.lostHere": "−{n} leads vs anterior",
   // Trend + heatmap
   "dashx.trend.title": "Actividad 30 días",
   "dashx.trend.subtitle": "Enviados · respuestas · positivas",
