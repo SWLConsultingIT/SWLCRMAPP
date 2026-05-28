@@ -94,17 +94,39 @@ export default function StepPerformance({ steps, locale }: { steps: Step[]; loca
             : isBest ? "color-mix(in srgb, " + gold + " 35%, transparent)"
             : "transparent";
 
+          // Total share of original volume — for the hover reveal so the
+          // operator sees "this step still touches 78% of the seed pool".
+          const firstStepSent = steps[0]?.sent ?? 0;
+          const sharePct = firstStepSent > 0 ? Math.round((s.sent / firstStepSent) * 100) : 0;
+          // Drop-off vs prev non-CR step in absolute leads — visible on hover
+          // because "we lost 23 leads at this step" reads stronger than -pp.
+          let dropOffLeads: number | null = null;
+          for (let j = idx - 1; j >= 0; j--) {
+            const prev = steps[j];
+            if (prev.step === 0) continue;
+            dropOffLeads = prev.sent - s.sent;
+            break;
+          }
+          // Glow color matches the row's tone (red drop / gold best / purple default).
+          const glowColor = isCR ? C.textMuted : isDrop ? C.red : isBest ? gold : "#7C3AED";
+
           return (
             <div
               key={s.step}
-              className="rounded-lg border px-3 py-2.5 grid grid-cols-12 items-center gap-3 transition-colors"
+              // Glow + lift on hover via a custom CSS variable + Tailwind
+              // hover utility. CSS-only so the component stays server-side
+              // (no useState needed for visual hover).
+              className="group rounded-lg border px-3 py-2.5 transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-[0_0_0_1.5px_var(--step-glow),0_10px_26px_-10px_var(--step-glow-soft)]"
               style={{
                 borderColor: isDrop || isBest ? rowAccent : C.border,
                 background: isDrop ? `color-mix(in srgb, ${C.red} 5%, ${C.card})`
                   : isBest ? `color-mix(in srgb, ${gold} 6%, ${C.card})`
                   : C.card,
+                ["--step-glow" as string]: `color-mix(in srgb, ${glowColor} 45%, transparent)`,
+                ["--step-glow-soft" as string]: `color-mix(in srgb, ${glowColor} 35%, transparent)`,
               }}
             >
+            <div className="grid grid-cols-12 items-center gap-3">
               {/* Left: step label + flag */}
               <div className="col-span-3 min-w-0 flex items-center gap-2">
                 <span
@@ -207,6 +229,39 @@ export default function StepPerformance({ steps, locale }: { steps: Step[]; loca
                   </span>
                 )}
               </div>
+            </div>
+
+            {/* Hover-reveal extra info strip — hidden by default, slides
+                open on hover. CSS-only (group-hover) so no client state. */}
+            <div className="grid grid-cols-3 gap-3 mt-0 pt-0 border-t border-transparent overflow-hidden text-[10.5px] tabular-nums max-h-0 opacity-0 transition-[max-height,opacity,margin,padding] duration-200 group-hover:max-h-16 group-hover:opacity-100 group-hover:mt-2 group-hover:pt-2"
+              style={{ borderColor: C.border }}>
+              <div>
+                <span className="block text-[9.5px] uppercase tracking-wider" style={{ color: C.textDim }}>
+                  {t("dashx.step.hoverShare")}
+                </span>
+                <span className="font-semibold" style={{ color: C.textBody }}>
+                  {sharePct}% {t("dashx.step.hoverShareOf")}
+                </span>
+              </div>
+              <div>
+                <span className="block text-[9.5px] uppercase tracking-wider" style={{ color: C.textDim }}>
+                  {t("dashx.step.hoverDropOff")}
+                </span>
+                <span className="font-semibold"
+                  style={{ color: dropOffLeads !== null && dropOffLeads > 0 ? C.red : C.textBody }}>
+                  {dropOffLeads === null ? "—" : dropOffLeads > 0 ? `−${dropOffLeads}` : "0"} {t("dashx.step.hoverLeads")}
+                </span>
+              </div>
+              <div>
+                <span className="block text-[9.5px] uppercase tracking-wider" style={{ color: C.textDim }}>
+                  {t("dashx.step.hoverYield")}
+                </span>
+                <span className="font-semibold"
+                  style={{ color: !insufficient && !isCR && s.replied > 0 ? "#059669" : C.textBody }}>
+                  {isCR ? "—" : insufficient ? "—" : `${s.replied} ${t("dashx.step.hoverYieldOf")} ${s.sent}`}
+                </span>
+              </div>
+            </div>
             </div>
           );
         })}
