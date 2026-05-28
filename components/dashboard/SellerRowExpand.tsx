@@ -108,7 +108,31 @@ export default function SellerRow({
                 {open ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
               </button>
             )}
-            <Link href={detailHref} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{seller.name}</Link>
+            <div className="flex flex-col gap-1 min-w-0">
+              <Link href={detailHref} className="font-medium hover:underline truncate" style={{ color: C.textPrimary }}>{seller.name}</Link>
+              {/* Inline per-channel reply rate chips — visible without
+                  needing to expand. Boss 2026-05-28: "sumá más contenido
+                  está vacío". Only shows channels with contacted > 0. */}
+              <div className="inline-flex items-center gap-1.5 text-[10px] tabular-nums" title={labels.perChannelTitle}>
+                <RateChip rate={seller.replyRateLinkedin} contacted={seller.contactedLinkedin} color="#0A66C2" label="LI" />
+                <RateChip rate={seller.replyRateEmail} contacted={seller.contactedEmail} color="#059669" label="Email" />
+                <RateChip rate={seller.replyRateCall} contacted={seller.contactedCall} color="#EA580C" label="Call" />
+                {seller.pendingCalls > 0 && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0 rounded text-[9.5px] font-semibold"
+                    style={{ background: `color-mix(in srgb, #D97706 14%, transparent)`, color: "#D97706" }}
+                    title={labels.pendingCallsLabel}>
+                    {seller.pendingCalls} pending
+                  </span>
+                )}
+                {seller.acceptanceRate > 0 && (
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0 rounded text-[9.5px] font-semibold"
+                    style={{ background: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}
+                    title={`${seller.connectionsAccepted}/${seller.connectionsSent} accepted`}>
+                    {seller.acceptanceRate}% accept
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </td>
         <td className="px-3 py-2 text-right tabular-nums" style={{ color: C.textBody }}>{seller.active}</td>
@@ -303,6 +327,24 @@ function ChannelIcon({ kind }: { kind: string }) {
     <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <path d={path} />
     </svg>
+  );
+}
+
+function RateChip({ rate, contacted, color, label }: { rate: number; contacted: number; color: string; label: string }) {
+  // Show "—" when no contacted leads on that channel — avoids fake-0%.
+  const hasData = contacted > 0;
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-1.5 py-0 rounded font-semibold"
+      style={{
+        background: hasData ? `color-mix(in srgb, ${color} 12%, transparent)` : "transparent",
+        color: hasData ? color : C.textDim,
+        border: hasData ? "none" : `1px dashed color-mix(in srgb, ${C.border} 65%, transparent)`,
+      }}
+    >
+      <span style={{ color: hasData ? color : C.textDim, fontSize: 9 }}>{label}</span>
+      <span style={{ color: hasData ? color : C.textDim }}>{hasData ? `${rate}%` : "—"}</span>
+    </span>
   );
 }
 
