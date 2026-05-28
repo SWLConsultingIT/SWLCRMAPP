@@ -83,6 +83,7 @@ export function LeadFilterBar({
   industryOptions,
   showCampaignFilter = true,
   showProfileFilter = true,
+  showStatusPills = true,
 }: {
   filters: LeadFilterState;
   onChange: (f: LeadFilterState) => void;
@@ -97,6 +98,11 @@ export function LeadFilterBar({
   industryOptions?: string[];
   showCampaignFilter?: boolean;
   showProfileFilter?: boolean;
+  /** Score / Campaign / Reply pill groups. On /leads they duplicate the
+   *  Status chip row above the table, so pass `false` there. On surfaces
+   *  without a status chip row (Lead Miner ticket) keep the default true
+   *  so the seller can still slice by score / reply / campaign. */
+  showStatusPills?: boolean;
 }) {
   const set = (key: keyof LeadFilterState, val: string) => onChange({ ...filters, [key]: val });
   // "Filter pills" used to be permanently visible — 3 pill groups + a profile
@@ -203,7 +209,11 @@ export function LeadFilterBar({
         </span>
       </div>
 
-      {/* Filter pills row */}
+      {/* Filter pills row — Score / Campaign / Reply duplicate the chip row
+          on /leads, so we let the parent hide them via `showStatusPills`.
+          Lead Miner ticket detail still renders this row (no chip row
+          upstream) so the seller can slice by score / reply / campaign. */}
+      {showStatusPills && (
       <div className="px-4 py-3 flex items-center gap-4 flex-wrap" style={{ backgroundColor: `color-mix(in srgb, ${C.bg} 50%, transparent)` }}>
         <PillGroup
           icon={<Flame size={11} />}
@@ -245,6 +255,7 @@ export function LeadFilterBar({
           ]}
         />
       </div>
+      )}
 
       {(showProfileFilter && profileNames && profileNames.length > 1)
         || (roleOptions && roleOptions.length > 1)

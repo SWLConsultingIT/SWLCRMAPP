@@ -62,7 +62,7 @@ type ProfileGroup = {
   lastReply: { text: string | null; classification: string; leadName: string; receivedAt: string } | null;
 };
 
-type LostLead = {
+export type LostLead = {
   id: string;
   first_name: string | null;
   last_name: string | null;
@@ -345,7 +345,7 @@ function WonLeadCard({ lead }: { lead: OpportunityLead }) {
 }
 
 // ─── Won View ────────────────────────────────────────────────────────────────
-function WonView({ leads }: { leads: OpportunityLead[] }) {
+export function WonView({ leads }: { leads: OpportunityLead[] }) {
   const [search, setSearch] = useState("");
   const [profileFilter, setProfileFilter] = useState("all");
   const [transferFilter, setTransferFilter] = useState<"all" | "yes" | "no">("all");
@@ -541,7 +541,7 @@ function RenurturingView({ leads }: { leads: RenurturingLead[] }) {
 }
 
 // ─── Lost Leads View ──────────────────────────────────────────────────────────
-function LostLeadsView({ leads }: { leads: LostLead[] }) {
+export function LostLeadsView({ leads }: { leads: LostLead[] }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -1102,6 +1102,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
         profileNames={profileNames}
         roleOptions={roleOptions}
         industryOptions={industryOptions}
+        showStatusPills={false}
       />
 
       {selected.size > 0 && (
@@ -1576,11 +1577,11 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
   //   - Campaigns view groups flows by ICP/ticket so the manager scans by
   //     Lead Miner profile, not by campaign name.
   const [mainView, setMainView] = useState<"leads" | "companies" | "campaigns">("leads");
-  // Status chips (consolidated 5 old sub-tabs + 6 saved-views into one row).
-  // Five of these (with_campaign / hot / replied / positive + the two pre-
-  // existing all + without_campaign) filter AllLeadsTable; won / lost /
-  // nurture swap to their card-grid renderers.
-  type LeadSubTab = "all" | "without_campaign" | "with_campaign" | "hot" | "replied" | "positive" | "won" | "lost" | "nurture";
+  // Status chips for in-flight pipeline states only. Won + Lost moved out
+  // to /results (boss feedback 2026-05-28: "los results están muy
+  // escondidos"). Nurture stays here because a re-engaged lead is still
+  // in process, not a closed outcome.
+  type LeadSubTab = "all" | "without_campaign" | "with_campaign" | "hot" | "replied" | "positive" | "nurture";
   const [leadSubTab, setLeadSubTab] = useState<LeadSubTab>("all");
   const [search, setSearch] = useState("");
 
@@ -1737,8 +1738,6 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
                 { key: "hot",              label: "Hot",                 count: allLeads.filter(l => l.is_priority || (l.score != null && l.score >= 80)).length,                                 color: C.hot },
                 { key: "replied",          label: "Replied",             count: allLeads.filter(l => (l.reply_count ?? 0) > 0).length,                                                            color: "#D97706" },
                 { key: "positive",         label: "Positive",            count: allLeads.filter(l => l.has_positive === true).length,                                                             color: C.green },
-                { key: "won",              label: "Won",                 count: wonLeads.length,                                                                                                  color: C.green },
-                { key: "lost",             label: "Lost",                count: lostLeads.length,                                                                                                 color: C.red },
                 { key: "nurture",          label: "Nurture",             count: renurturingLeads.length,                                                                                          color: gold },
               ];
               return chips.map(t => {
@@ -1781,8 +1780,6 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
           {leadSubTab === "hot"              && <AllLeadsTable leads={allLeads.filter(l => l.is_priority || (l.score != null && l.score >= 80))} />}
           {leadSubTab === "replied"          && <AllLeadsTable leads={allLeads.filter(l => (l.reply_count ?? 0) > 0)} />}
           {leadSubTab === "positive"         && <AllLeadsTable leads={allLeads.filter(l => l.has_positive === true)} />}
-          {leadSubTab === "won"              && <WonView leads={wonLeads} />}
-          {leadSubTab === "lost"             && <LostLeadsView leads={lostLeads} />}
           {leadSubTab === "nurture"          && <RenurturingView leads={renurturingLeads} />}
         </div>
       )}

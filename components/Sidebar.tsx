@@ -9,7 +9,7 @@ import TenantSwitcher from "@/components/TenantSwitcher";
 import {
   LayoutDashboard, Users, Megaphone,
   Building2, Target, Shield, ChevronDown, Bell, UserCircle, Settings, Inbox,
-  PanelLeftClose, PanelLeftOpen,
+  PanelLeftClose, PanelLeftOpen, Trophy,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { loadRecentLeads, type RecentLead } from "@/lib/recent-leads";
@@ -54,6 +54,7 @@ const sections: { labelKey: string; items: NavItem[] }[] = [
       { href: "/icp", labelKey: "", brandLabel: "Lead Miner™", icon: Target, tag: "AI" },
       { href: "/campaigns", labelKey: "", brandLabel: "Outreach Flow™", icon: Megaphone, tag: "AI" },
       { href: "/leads", labelKey: "nav.leads", icon: Users },
+      { href: "/results", labelKey: "nav.results", icon: Trophy },
     ],
   },
   {
