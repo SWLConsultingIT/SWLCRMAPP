@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
-import { Search, X, SlidersHorizontal, Flame, Megaphone, MessageCircle, Target, ChevronDown, Briefcase, Building2 } from "lucide-react";
+import { Search, X, SlidersHorizontal, Flame, Megaphone, MessageCircle, Target, ChevronDown, Briefcase, Building2, Building, Globe } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 const goldDark = "var(--brand-dark, #b79832)";
@@ -72,10 +72,15 @@ export type LeadFilterState = {
   role: string[];
   /** Company industry. Same shape as role. */
   industry: string[];
+  /** Company country. Same shape as role; matches the lead's
+   *  company_country field (hydrated from encrypted_payload). */
+  country: string[];
+  /** Company name. Multi-select; exact match against company_name. */
+  company: string[];
 };
 
 export function emptyLeadFilterState(): LeadFilterState {
-  return { search: "", score: [], campaign: [], results: [], profile: [], role: [], industry: [] };
+  return { search: "", score: [], campaign: [], results: [], profile: [], role: [], industry: [], country: [], company: [] };
 }
 
 export function LeadFilterBar({
@@ -86,6 +91,8 @@ export function LeadFilterBar({
   profileNames,
   roleOptions,
   industryOptions,
+  countryOptions,
+  companyOptions,
   showCampaignFilter = true,
   showProfileFilter = true,
   showStatusPills = true,
@@ -101,6 +108,12 @@ export function LeadFilterBar({
   roleOptions?: string[];
   /** Distinct industry values present in the current lead set. */
   industryOptions?: string[];
+  /** Distinct country values present in the current lead set. Pass null
+   *  or empty to hide the Country filter. */
+  countryOptions?: string[];
+  /** Distinct company values present in the current lead set. Pass null
+   *  or empty to hide the Company filter. */
+  companyOptions?: string[];
   showCampaignFilter?: boolean;
   showProfileFilter?: boolean;
   /** Score / Campaign / Reply pill groups. On /leads they duplicate the
@@ -127,6 +140,8 @@ export function LeadFilterBar({
     filters.profile.length +
     filters.role.length +
     filters.industry.length +
+    filters.country.length +
+    filters.company.length +
     (filters.search !== "" ? 1 : 0);
   const hasActiveFilter = activeCount > 0;
 
@@ -239,7 +254,7 @@ export function LeadFilterBar({
       {/* Row 2 — facet dropdowns. ICP / Industry / Role, each gets a
           third of the bar so the trigger pills are equal-width and the
           dropdown popups have somewhere to anchor without clipping. */}
-      {((showProfileFilter && profileNames && profileNames.length > 0) || (industryOptions && industryOptions.length > 0) || (roleOptions && roleOptions.length > 0)) && (
+      {((showProfileFilter && profileNames && profileNames.length > 0) || (industryOptions && industryOptions.length > 0) || (roleOptions && roleOptions.length > 0) || (countryOptions && countryOptions.length > 0) || (companyOptions && companyOptions.length > 0)) && (
       <div
         className="px-4 py-3 grid gap-x-6 gap-y-3"
         style={{
@@ -264,6 +279,26 @@ export function LeadFilterBar({
             onToggle={v => toggle("industry", v)}
             onClear={() => onChange({ ...filters, industry: [] })}
             options={industryOptions}
+          />
+        )}
+        {countryOptions && countryOptions.length > 0 && (
+          <FacetDropdown
+            icon={<Globe size={11} />}
+            label={t("leadFilters.country")}
+            selected={filters.country}
+            onToggle={v => toggle("country", v)}
+            onClear={() => onChange({ ...filters, country: [] })}
+            options={countryOptions}
+          />
+        )}
+        {companyOptions && companyOptions.length > 0 && (
+          <FacetDropdown
+            icon={<Building size={11} />}
+            label={t("leadFilters.company")}
+            selected={filters.company}
+            onToggle={v => toggle("company", v)}
+            onClear={() => onChange({ ...filters, company: [] })}
+            options={companyOptions}
           />
         )}
         {roleOptions && roleOptions.length > 0 && (

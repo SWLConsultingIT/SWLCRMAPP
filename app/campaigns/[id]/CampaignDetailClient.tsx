@@ -854,14 +854,23 @@ export default function CampaignDetailClient({
           ? leadGroups.flatMap((g: LeadGroup) => g.leads.filter((l: UnlinkedLead) => (l as any).icp_profile_id === campaignIcpId))
           : leadGroups.flatMap((g: LeadGroup) => g.leads);
 
-        // 2. Distinct filter options (role + industry) derived from
-        //    the eligible cohort. The bar shows whichever are present;
-        //    a single-value list still renders as a useful chip.
+        // 2. Distinct filter options (role + industry + country + company)
+        //    derived from the eligible cohort. The bar shows whichever
+        //    are present; a single-value list still renders as a useful
+        //    chip. Industry/country come from the encrypted_payload
+        //    columns hydrated server-side (company_industry /
+        //    company_country) — see lib/leads-crypto.ts.
         const roleOptions = Array.from(new Set(
           eligibleLeads.map((l: UnlinkedLead) => l.primary_title_role).filter(Boolean) as string[],
         )).sort();
         const industryOptions = Array.from(new Set(
-          eligibleLeads.map((l: UnlinkedLead) => (l as any).industry as string | null).filter(Boolean) as string[],
+          eligibleLeads.map((l: UnlinkedLead) => (l as any).company_industry as string | null).filter(Boolean) as string[],
+        )).sort();
+        const countryOptions = Array.from(new Set(
+          eligibleLeads.map((l: UnlinkedLead) => (l as any).company_country as string | null).filter(Boolean) as string[],
+        )).sort();
+        const companyOptions = Array.from(new Set(
+          eligibleLeads.map((l: UnlinkedLead) => l.company_name).filter(Boolean) as string[],
         )).sort();
 
         // 3. Channel compatibility — a lead is "ok" for this flow only
@@ -886,8 +895,15 @@ export default function CampaignDetailClient({
             if (!l.primary_title_role || !addFilters.role.includes(l.primary_title_role)) return false;
           }
           if (addFilters.industry.length > 0) {
-            const ind = (l as any).industry as string | null;
+            const ind = (l as any).company_industry as string | null;
             if (!ind || !addFilters.industry.includes(ind)) return false;
+          }
+          if (addFilters.country.length > 0) {
+            const cc = (l as any).company_country as string | null;
+            if (!cc || !addFilters.country.includes(cc)) return false;
+          }
+          if (addFilters.company.length > 0) {
+            if (!l.company_name || !addFilters.company.includes(l.company_name)) return false;
           }
           if (addFilters.score.length > 0) {
             const s = l.lead_score ?? 0;
@@ -962,6 +978,8 @@ export default function CampaignDetailClient({
                   totalCount={eligibleLeads.length}
                   roleOptions={roleOptions}
                   industryOptions={industryOptions}
+                  countryOptions={countryOptions}
+                  companyOptions={companyOptions}
                   showCampaignFilter={false}
                   showProfileFilter={false}
                   showStatusPills={false}
