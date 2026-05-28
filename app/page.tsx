@@ -1362,142 +1362,112 @@ export default async function DashboardPage({
                       </div>
                       <ChevronRight size={16} className="acc-chevron shrink-0" style={{ color: C.textMuted }} />
                     </summary>
-                    <div className="p-3 space-y-2 border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                      {/* Within-ICP comparison panel (boss 2026-05-28 r3):
-                          two stacked cards explain WHY the top flow is top
-                          (won / contacted / steps / conv%) and how far the
-                          lagging one is behind. Only shown when at least
-                          one flow has any conversion. */}
+                    <div className="p-4 space-y-3 border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                      {/* Dedicated head-to-head comparison section (boss
+                          2026-05-28 r4): scorecard-style podium where each
+                          flow takes a tall card with rank medal + 4 big
+                          stat tiles (Contacted/Won/Lost/Steps) + conv% bar
+                          + status. The cards ARE the flow rows now — no
+                          separate compact strip; clicking expands the
+                          step performance below. */}
+                      <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-1" style={{ color: C.textMuted }}>
+                        {t("dashx.campsByIcp.compSectionTitle")}
+                      </p>
                       {(() => {
-                        const sortedByConv = [...sec.flows].sort((a, b) => b.conversionRate - a.conversionRate);
-                        const top = sortedByConv[0];
-                        const bot = sortedByConv[sortedByConv.length - 1];
-                        if (!top || top.conversionRate === 0) return null;
-                        const topContacted = Math.max(0, top.leads - (top.uncontactedLeads ?? 0));
-                        const botContacted = Math.max(0, bot.leads - (bot.uncontactedLeads ?? 0));
-                        const showLag = sec.flows.length >= 2 && top !== bot;
-                        return (
-                          <div className="rounded-xl border p-3 mb-2 grid gap-3 md:grid-cols-2"
-                            style={{
-                              background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 7%, transparent), transparent 70%)`,
-                              borderColor: `color-mix(in srgb, ${gold} 22%, ${C.border})`,
-                            }}>
-                            {/* BEST card */}
-                            <div className="min-w-0">
-                              <p className="text-[9px] font-bold uppercase tracking-[0.14em] flex items-center gap-1" style={{ color: gold }}>
-                                <Trophy size={10} /> {t("dashx.campsByIcp.compBestLabel")}
-                              </p>
-                              <p className="text-[13px] font-bold truncate mt-0.5" style={{ color: C.textPrimary }}>
-                                {top.name}
-                              </p>
-                              <p className="text-[11px] mt-0.5 tabular-nums" style={{ color: C.textBody }}>
-                                {t("dashx.campsByIcp.compMetaLine", {
-                                  won: top.positive,
-                                  contacted: topContacted,
-                                  steps: top.totalSteps,
-                                  rate: top.conversionRate,
-                                })}
-                              </p>
-                            </div>
-                            {/* LAGGING card */}
-                            {showLag && (
-                              <div className="min-w-0 md:border-l md:pl-3" style={{ borderColor: `color-mix(in srgb, ${C.red} 20%, ${C.border})` }}>
-                                <p className="text-[9px] font-bold uppercase tracking-[0.14em] flex items-center gap-1" style={{ color: C.red }}>
-                                  <AlertTriangle size={10} /> {t("dashx.campsByIcp.compLaggingLabel")}
-                                  <span className="ml-1 text-[9px] font-semibold tabular-nums px-1.5 py-0.5 rounded" style={{ background: `color-mix(in srgb, ${C.red} 12%, transparent)` }}>
-                                    {t("dashx.campsByIcp.compGap", { gap: top.conversionRate - bot.conversionRate })}
-                                  </span>
-                                </p>
-                                <p className="text-[13px] font-bold truncate mt-0.5" style={{ color: C.textPrimary }}>
-                                  {bot.name}
-                                </p>
-                                <p className="text-[11px] mt-0.5 tabular-nums" style={{ color: C.textBody }}>
-                                  {t("dashx.campsByIcp.compMetaLine", {
-                                    won: bot.positive,
-                                    contacted: botContacted,
-                                    steps: bot.totalSteps,
-                                    rate: bot.conversionRate,
-                                  })}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-                      {(() => {
-                        // Per-section max so the RateBars in this ICP block
-                        // compare against each other, not against the
-                        // global max. Otherwise a fast-mover in another ICP
-                        // squishes every bar in here to look identical.
-                        const sectionMaxConv = Math.max(1, ...sec.flows.map(f => f.conversionRate));
-                        return sec.flows.map((c: Flow) => {
-                        const idx = rankByName.get(c.name) ?? 0;
-                        const flowSteps = data.stepPerformanceByFlow?.[c.name] ?? [];
-                        return (
+                        const sortedFlows = [...sec.flows].sort((a, b) => b.conversionRate - a.conversionRate || b.positive - a.positive);
+                        const sectionMaxConv = Math.max(1, ...sortedFlows.map(f => f.conversionRate));
+                        // Top is whoever has the highest conv% AND at least
+                        // one contact. A flow with 0 contacts isn't "best"
+                        // — it's dormant, no signal.
+                        const topName = sortedFlows.find(f => (f.leads - (f.uncontactedLeads ?? 0)) > 0 && f.conversionRate > 0)?.name ?? null;
+                        return sortedFlows.map((c: Flow, sortIdx) => {
+                          const flowSteps = data.stepPerformanceByFlow?.[c.name] ?? [];
+                          const contacted = Math.max(0, c.leads - (c.uncontactedLeads ?? 0));
+                          const isTop = c.name === topName;
+                          const isDormant = contacted === 0;
+                          // Medal color: gold #1 (the real top), silver #2,
+                          // bronze #3, neutral border for the rest. Dormant
+                          // flows (no contacts) skip the medal so they don't
+                          // pretend to be ranked.
+                          const medalColor = isDormant ? C.textDim
+                            : sortIdx === 0 && isTop ? "#D4AF37"
+                            : sortIdx === 1 ? "#9CA3AF"
+                            : sortIdx === 2 ? "#A0522D"
+                            : C.textDim;
+                          const accentBorder = isTop ? gold : C.border;
+                          return (
                           <details key={c.name} data-camp-status={c.status} className="rounded-xl border overflow-hidden"
-                            style={{ borderColor: C.border, backgroundColor: C.card }}>
-                            <summary className="px-3 py-2.5 flex items-center gap-3 hover:bg-black/[0.02] transition-colors">
-                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                {idx === 0 && <TopRankDot rank={idx} t={t} />}
-                                {/* `<Link>` without onClick — the click both
-                                    navigates AND toggles details, but
-                                    navigation visually wins (page changes).
-                                    Can't stopPropagation from a Server
-                                    Component (RSC boundary). */}
-                                <Link
-                                  href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)}
-                                  className="text-[13px] font-semibold truncate hover:underline"
-                                  style={{ color: C.textPrimary }}
-                                >
-                                  {c.name}
-                                </Link>
-                              </div>
-                              <div className="hidden lg:block">
-                                <ChannelTouches
-                                  linkedinSent={c.sentLinkedin ?? 0}
-                                  linkedinMsg={0}
-                                  emailTouch={c.sentEmail ?? 0}
-                                  callTouch={c.sentCall ?? 0}
-                                  labels={{
-                                    linkedinSent: t("dashx.touch.linkedinSent"),
-                                    linkedinMsg: t("dashx.touch.linkedinMsg"),
-                                    emailTouch: t("dashx.touch.emailTouch"),
-                                    callTouch: t("dashx.touch.callTouch"),
-                                  }}
-                                />
-                              </div>
-                              <div className="flex items-center gap-4 shrink-0 text-right">
-                                {/* Row metrics — boss 2026-05-28 r3: prior
-                                    Leads/Replies/Positive trio didn't answer
-                                    "which campaign won most" at a glance.
-                                    Switched to Contacted / Won / Lost /
-                                    Steps so the per-flow comparison reads
-                                    as: of N contacted, X won, Y lost,
-                                    across S designed steps. */}
-                                <div className="hidden sm:block">
-                                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("dashx.campsByIcp.colContacted")}</p>
-                                  <p className="text-[12.5px] font-bold tabular-nums leading-tight" style={{ color: C.textPrimary }}>{Math.max(0, c.leads - (c.uncontactedLeads ?? 0))}</p>
-                                </div>
-                                <div className="hidden sm:block">
-                                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("dashx.campsByIcp.colWon")}</p>
-                                  <p className="text-[12.5px] font-bold tabular-nums leading-tight" style={{ color: c.positive > 0 ? C.green : C.textPrimary }}>{c.positive}</p>
-                                </div>
-                                <div className="hidden sm:block">
-                                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("dashx.campsByIcp.colLost")}</p>
-                                  <p className="text-[12.5px] font-bold tabular-nums leading-tight" style={{ color: c.negative > 0 ? C.red : C.textPrimary }}>{c.negative ?? 0}</p>
-                                </div>
-                                <div className="hidden sm:block">
-                                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("dashx.campsByIcp.colSteps")}</p>
-                                  <p className="text-[12.5px] font-bold tabular-nums leading-tight" style={{ color: C.textPrimary }}>{c.totalSteps || "—"}</p>
-                                </div>
-                                <div className="hidden md:flex justify-end" style={{ width: 56 }}>
-                                  <RateBar value={c.conversionRate} max={sectionMaxConv} color={C.green} />
+                            style={{
+                              borderColor: accentBorder,
+                              backgroundColor: C.card,
+                              borderTopWidth: 3,
+                              borderTopColor: isTop ? gold : medalColor === C.textDim ? C.border : medalColor,
+                              boxShadow: isTop ? `0 4px 14px color-mix(in srgb, ${gold} 18%, transparent)` : "0 1px 2px rgba(0,0,0,0.03)",
+                            }}>
+                            <summary className="px-4 py-3 cursor-pointer hover:bg-black/[0.02] transition-colors">
+                              {/* Header row: rank medal + flow name + status + chevron */}
+                              <div className="flex items-center gap-3 mb-3">
+                                <span className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 text-[12px] font-bold tabular-nums"
+                                  style={{
+                                    background: isDormant ? C.surface : `color-mix(in srgb, ${medalColor} 18%, transparent)`,
+                                    color: medalColor,
+                                    border: `1px solid color-mix(in srgb, ${medalColor} 35%, transparent)`,
+                                  }}>
+                                  {isDormant ? "—" : `#${sortIdx + 1}`}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <Link
+                                    href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)}
+                                    className="text-[14px] font-bold truncate hover:underline block"
+                                    style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
+                                  >
+                                    {c.name}
+                                  </Link>
+                                  {isTop && (
+                                    <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.12em] mt-0.5" style={{ color: gold }}>
+                                      <Trophy size={9} /> {t("dashx.campsByIcp.medalBest")}
+                                    </span>
+                                  )}
+                                  {isDormant && (
+                                    <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.12em] mt-0.5" style={{ color: C.textDim }}>
+                                      {t("dashx.campsByIcp.medalDormant")}
+                                    </span>
+                                  )}
                                 </div>
                                 <StatusBadge status={c.status} t={t} />
-                                <div className="hidden md:block" style={{ width: 56 }}>
-                                  <InlineSpark data={c.spark} color="#0A66C2" />
+                                <ChevronRight size={16} className="acc-chevron shrink-0" style={{ color: C.textMuted }} />
+                              </div>
+                              {/* 4 big stat tiles — Contacted / Won / Lost / Steps */}
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                                <ScoreTile label={t("dashx.campsByIcp.colContacted")} value={contacted} color="#0284C7" />
+                                <ScoreTile label={t("dashx.campsByIcp.colWon")} value={c.positive} color={C.green} accent={c.positive > 0} />
+                                <ScoreTile label={t("dashx.campsByIcp.colLost")} value={c.negative ?? 0} color={C.red} accent={(c.negative ?? 0) > 0} />
+                                <ScoreTile label={t("dashx.campsByIcp.colSteps")} value={c.totalSteps || "—"} color="#7C3AED" />
+                              </div>
+                              {/* Conv% — full-width bar with the rate as a
+                                  big right-aligned label. Bar scaled to the
+                                  section's top conv so #1 hits 100%. */}
+                              <div className="flex items-center gap-3">
+                                <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ backgroundColor: C.border }}>
+                                  <div className="h-full rounded-full" style={{
+                                    width: `${Math.min(100, Math.round((c.conversionRate / sectionMaxConv) * 100))}%`,
+                                    background: c.conversionRate > 0
+                                      ? `linear-gradient(90deg, ${C.green}, color-mix(in srgb, ${C.green} 60%, white))`
+                                      : C.border,
+                                  }} />
                                 </div>
-                                <ChevronRight size={14} className="acc-chevron" style={{ color: C.textMuted }} />
+                                <div className="shrink-0 text-right">
+                                  <p className="text-[22px] font-bold tabular-nums leading-none" style={{
+                                    color: c.conversionRate > 0 ? C.green : C.textDim,
+                                    fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                                    letterSpacing: "-0.02em",
+                                  }}>
+                                    {c.conversionRate}%
+                                  </p>
+                                  <p className="text-[9px] font-bold uppercase tracking-[0.12em] mt-0.5" style={{ color: C.textDim }}>
+                                    {t("dashx.campsByIcp.colConv")}
+                                  </p>
+                                </div>
                               </div>
                             </summary>
                             <div className="px-4 py-4 border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
@@ -2177,6 +2147,30 @@ function Td({ children, style }: { children: React.ReactNode; style?: React.CSSP
 function NumCell({ value, bold, accent }: { value: number; bold?: boolean; accent?: string }) {
   return <td className="px-3 py-2 text-right tabular-nums" style={{ color: accent ?? (bold ? C.textPrimary : C.textBody), fontWeight: bold ? 600 : 400 }}>{value.toLocaleString("es-AR")}</td>;
 }
+
+/** ScoreTile — used inside the Campaigns "head-to-head" comparison cards.
+ * Big tabular number + small uppercase label, colored when `accent` is on. */
+function ScoreTile({ label, value, color, accent }: {
+  label: string;
+  value: number | string;
+  color: string;
+  accent?: boolean;
+}) {
+  return (
+    <div className="rounded-lg border px-3 py-2"
+      style={{
+        background: accent ? `color-mix(in srgb, ${color} 8%, transparent)` : C.surface,
+        borderColor: accent ? `color-mix(in srgb, ${color} 28%, ${C.border})` : C.border,
+      }}>
+      <p className="text-[9px] font-bold uppercase tracking-wider truncate" style={{ color: C.textDim }}>{label}</p>
+      <p className="text-[22px] font-bold tabular-nums leading-tight tracking-[-0.02em]"
+        style={{ color, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
 function StatusBadge({ status, t }: { status: string; t: (k: string) => string }) {
   const map: Record<string, { color: string; key: string }> = {
     active:    { color: C.green,   key: "dashx.tbl.status.active" },
