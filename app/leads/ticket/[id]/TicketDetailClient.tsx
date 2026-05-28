@@ -113,7 +113,7 @@ function CampaignCard({ camp }: { camp: CampaignGroup }) {
 
   return (
     <Link
-      href={`/campaigns/${camp.firstId}/overview`}
+      href={`/campaigns/${camp.firstId}`}
       className="rounded-xl border overflow-hidden flex flex-col transition-shadow hover:shadow-md group/card"
       style={{
         backgroundColor: C.card,
@@ -271,7 +271,7 @@ function OutreachFlowsTab({ campaigns }: { campaigns: CampaignGroup[] }) {
                 return (
                   <Link
                     key={c.firstId}
-                    href={`/campaigns/${c.firstId}/overview`}
+                    href={`/campaigns/${c.firstId}`}
                     className="flex items-center gap-4 px-5 py-3 hover:bg-black/[0.015] transition-colors"
                     style={{ borderBottom: i < pastCamps.length - 1 ? `1px solid ${C.border}` : "none" }}
                   >

@@ -1329,7 +1329,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                   <td className="px-4 py-2.5">
                     {lead.campaign_id && lead.campaign_name ? (
                       <Link
-                        href={`/campaigns/${lead.campaign_id}/overview`}
+                        href={`/campaigns/${lead.campaign_id}`}
                         onClick={(e) => e.stopPropagation()}
                         title={`${lead.campaign_name}${lead.campaign_status ? ` · ${lead.campaign_status}` : ""}`}
                         className="text-[11px] font-medium hover:underline inline-flex items-center gap-1 max-w-[200px]"

@@ -357,12 +357,12 @@ export default function Sidebar() {
               )}
 
               {(railOnly || !isCollapsed || hideHeader) && section.items.map(({ href, labelKey, brandLabel, icon: Icon, tag, badgeKey }) => {
-                const isOverviewPage = pathname.includes("/overview");
-                const active = href === "/leads"
-                  ? (pathname.startsWith("/leads") || (pathname.startsWith("/campaigns/") && isOverviewPage))
-                  : href === "/campaigns"
-                    ? (pathname.startsWith("/campaigns") && !isOverviewPage)
-                    : pathname === href || (href !== "/" && pathname.startsWith(href));
+                // Active state: straightforward prefix match. The /overview
+                // detour was removed 2026-05-28 r11 — that page was
+                // redundant with /campaigns/[id] (the editable detail), so
+                // there's no longer a campaign-route variant that should
+                // light up /leads in the sidebar.
+                const active = pathname === href || (href !== "/" && pathname.startsWith(href));
                 const badge = badgeKey ? badges[badgeKey] : 0;
                 const itemLabel = brandLabel ?? t(labelKey);
 
