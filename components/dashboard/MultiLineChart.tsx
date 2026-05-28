@@ -23,7 +23,7 @@ type Series = { name: string; color: string; data: number[] };
 export default function MultiLineChart({
   series,
   priorSeries,
-  height = 180,
+  height = 150,
   todayLabel = "Today",
   recentLabel = "d",
   priorLabel = "Prior period",
@@ -73,7 +73,9 @@ export default function MultiLineChart({
   const isShown = (name: string) => !hidden.has(name);
 
   const width = 760;
-  const padding = { t: 18, r: 18, b: 36, l: 44 };
+  // Bigger axis labels (12.5px) need more breathing room on the bottom
+  // + left so they don't clip into the chart body.
+  const padding = { t: 18, r: 18, b: 42, l: 52 };
   const innerW = width - padding.l - padding.r;
   const innerH = height - padding.t - padding.b;
   const n = visible[0]?.data.length ?? 0;
@@ -276,7 +278,7 @@ export default function MultiLineChart({
                 <line x1={padding.l} x2={width - padding.r} y1={tk.y} y2={tk.y} stroke={C.border} strokeDasharray="3,5" opacity={0.5} />
               )}
               <line x1={padding.l - 3} x2={padding.l} y1={tk.y} y2={tk.y} stroke={C.textDim} strokeWidth={1.2} />
-              <text x={padding.l - 6} y={tk.y + 3} textAnchor="end" fontSize={10.5} fontWeight={600} fill={C.textMuted}
+              <text x={padding.l - 6} y={tk.y + 3} textAnchor="end" fontSize={12.5} fontWeight={700} fill={C.textBody}
                 style={{ fontFeatureSettings: '"tnum"' }}>
                 {tk.v}
               </text>
@@ -292,7 +294,7 @@ export default function MultiLineChart({
             return ticks.map(i => (
               <g key={i}>
                 <line x1={xFor(i)} x2={xFor(i)} y1={padding.t + innerH} y2={padding.t + innerH + 4} stroke={C.textDim} strokeWidth={1.2} />
-                <text x={xFor(i)} y={height - 10} textAnchor="middle" fontSize={10.5} fontWeight={600} fill={C.textMuted}
+                <text x={xFor(i)} y={height - 10} textAnchor="middle" fontSize={12.5} fontWeight={700} fill={C.textBody}
                   style={{ fontFeatureSettings: '"tnum"' }}>
                   {i === n - 1 ? todayLabel : fmtDate(dateAtIdx(i, n))}
                 </text>
@@ -335,7 +337,7 @@ export default function MultiLineChart({
                   </linearGradient>
                 </defs>
                 <path d={fillPath} fill={`url(#${gradId})`} />
-                <path d={linePath} fill="none" stroke={s.color} strokeWidth={sIdx === 0 ? 2.4 : 2}
+                <path d={linePath} fill="none" stroke={s.color} strokeWidth={sIdx === 0 ? 3 : 2.5}
                   strokeLinecap="round" strokeLinejoin="round" />
               </g>
             );

@@ -78,9 +78,13 @@ export const C = {
   // (cool, neutral), gold = engagement/replies (warm, SWL-signature),
   // green = positive outcome. Navy was too close to the panel header
   // and made the volume line invisible against the dark theme.
-  seriesSent:     "#38BDF8",   // sky 400 — volume baseline
-  seriesReplies:  "#c9a83a",   // SWL gold — engagement
-  seriesPositive: "#10B981",   // green — outcome
+  // Boss feedback 2026-05-28: chart pastels were too light against the
+  // white card body. Darkened all 3 series (kept the hue, dropped the
+  // lightness one notch) so the lines read confidently on the smaller
+  // chart canvas.
+  seriesSent:     "#0284C7",   // sky 600 — volume baseline (was sky 400)
+  seriesReplies:  "#A8862E",   // SWL dark gold — engagement (was SWL gold)
+  seriesPositive: "#047857",   // emerald 700 — outcome (was emerald 500)
 
   // ── Legacy aliases (for components not yet migrated) ──
   cyan:           "#0A66C2",
