@@ -1391,11 +1391,13 @@ export default async function DashboardPage({
                             <summary className="px-3 py-2.5 flex items-center gap-3 hover:bg-black/[0.02] transition-colors">
                               <div className="flex items-center gap-2 min-w-0 flex-1">
                                 {idx === 0 && <TopRankDot rank={idx} t={t} />}
-                                <Link href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)}
-                                  onClick={e => e.stopPropagation()}
-                                  className="text-[13px] font-semibold truncate hover:underline" style={{ color: C.textPrimary }}>
+                                {/* Plain text — onClick to stopPropagation isn't
+                                    allowed from a Server Component, and the
+                                    navigation would happen anyway making the
+                                    toggle moot. Drill-down lives in the body. */}
+                                <span className="text-[13px] font-semibold truncate" style={{ color: C.textPrimary }}>
                                   {c.name}
-                                </Link>
+                                </span>
                               </div>
                               <div className="hidden lg:block">
                                 <ChannelTouches
@@ -1442,6 +1444,13 @@ export default async function DashboardPage({
                               ) : (
                                 <StepPerformance steps={flowSteps} locale={locale} />
                               )}
+                              <div className="mt-3 flex justify-end">
+                                <Link href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)}
+                                  className="inline-flex items-center gap-1 text-[11px] font-semibold hover:underline"
+                                  style={{ color: gold }}>
+                                  {t("dashx.panel.openCampaigns")} <ArrowRight size={11} />
+                                </Link>
+                              </div>
                             </div>
                           </details>
                         );
