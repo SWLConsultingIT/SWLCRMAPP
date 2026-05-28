@@ -325,10 +325,153 @@ export default async function DashboardPage({
         <DashboardKeyboardShortcuts />
       </Suspense>
 
-      {/* ─── Welcome hero — same black-and-gold surface as the tabs nav,
-          TodayCard header and Panel headers. Boss-feedback round 4 #2
-          plus the consistency note: every hero in the dashboard rides
-          the navy-ink gradient with gold accents; no white islands. */}
+      {/* ─── Welcome hero — context-aware.
+          Today tab: SWL pro welcome hero with live pulse + animated glow.
+          Other tabs: original "Sales Engine / Your pipeline in depth"
+          analytical hero (the data tabs need the analytical framing).
+          Boss feedback 2026-05-28: the landing screen must read pro and
+          alive; the analytical hero is wrong copy for the action list. */}
+      {filters.tab === "today" ? (
+      <header
+        className="relative rounded-2xl overflow-hidden px-5 sm:px-8 py-6 sm:py-8"
+        style={{
+          background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
+          border: `1px solid color-mix(in srgb, ${gold} 32%, ${N.hairline})`,
+          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 22%, transparent), 0 18px 40px -18px ${N.ink}`,
+        }}
+      >
+        {/* Breathing radial glows */}
+        <span aria-hidden
+          className="absolute -top-32 -right-24 w-[420px] h-[420px] rounded-full pointer-events-none hero-glow-breathe"
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 28%, transparent) 0%, transparent 60%)` }} />
+        <span aria-hidden
+          className="absolute -bottom-32 -left-20 w-[360px] h-[360px] rounded-full pointer-events-none hero-glow-breathe-soft"
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 16%, transparent) 0%, transparent 65%)` }} />
+        {/* Top shimmer line — gold sweep that fades in/out */}
+        <span aria-hidden
+          className="absolute inset-x-0 top-0 h-[1.5px] pointer-events-none hero-glow-shimmer"
+          style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)` }} />
+
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-3 mb-3 flex-wrap">
+              {/* Inline SWL mark — same logo the sidebar uses, scaled small.
+                  Anchors the hero as official SWL surface. */}
+              <span
+                className="inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
+                style={{
+                  background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 24%, #14182a) 0%, #1a1f30 100%)`,
+                  border: `1px solid color-mix(in srgb, ${gold} 38%, transparent)`,
+                  boxShadow: `0 0 18px color-mix(in srgb, ${gold} 22%, transparent), inset 0 1px 0 color-mix(in srgb, ${gold} 22%, transparent)`,
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png"
+                  alt="SWL Consulting"
+                  className="h-4 w-auto object-contain"
+                  style={{ filter: "brightness(0) invert(1)" }}
+                />
+              </span>
+              <div className="flex flex-col leading-tight">
+                <span
+                  className="text-[13px] font-bold tracking-[-0.01em]"
+                  style={{ color: "white", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
+                >
+                  GrowthAI
+                </span>
+                <span
+                  className="text-[9.5px] font-bold uppercase tracking-[0.22em]"
+                  style={{ color: gold }}
+                >
+                  {t("dashx.hero.section")}
+                </span>
+              </div>
+              <span
+                className="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[0.18em] px-2 py-0.5 rounded-md ml-1"
+                style={{
+                  color: "#10B981",
+                  backgroundColor: "color-mix(in srgb, #10B981 14%, transparent)",
+                  border: "1px solid color-mix(in srgb, #10B981 30%, transparent)",
+                }}
+              >
+                <span aria-hidden className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ backgroundColor: "#10B981" }} />
+                {t("dashx.todayHero.live")}
+              </span>
+            </div>
+            <h1
+              className="text-[28px] sm:text-[36px] font-bold tracking-[-0.025em] leading-[1.05]"
+              style={{
+                color: "white",
+                fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                textShadow: `0 2px 14px color-mix(in srgb, ${gold} 14%, transparent)`,
+              }}
+            >
+              {t("dashx.today.heroTitle")}
+            </h1>
+            <p
+              className="text-[13px] mt-2 max-w-[640px]"
+              style={{ color: "color-mix(in srgb, white 65%, transparent)" }}
+            >
+              {t("dashx.today.heroDesc")}
+            </p>
+
+            {/* Live pulse strip — today's throughput from the trailing-30d
+                array (index 29 = today's bucket). All three numbers live
+                update on next render; no extra query needed. */}
+            <div
+              className="flex items-center gap-4 sm:gap-6 mt-5 flex-wrap"
+              style={{ borderTop: `1px solid color-mix(in srgb, ${gold} 14%, transparent)`, paddingTop: 16 }}
+            >
+              <HeroPulseStat
+                icon={Send}
+                value={data.trend30d.sent[29] ?? 0}
+                label={t("dashx.todayHero.sendsToday")}
+                color="#5B9CFF"
+              />
+              <span className="text-[16px]" style={{ color: "color-mix(in srgb, white 14%, transparent)" }}>·</span>
+              <HeroPulseStat
+                icon={MessageSquare}
+                value={data.trend30d.replies[29] ?? 0}
+                label={t("dashx.todayHero.repliesToday")}
+                color="#A78BFA"
+              />
+              <span className="text-[16px]" style={{ color: "color-mix(in srgb, white 14%, transparent)" }}>·</span>
+              <HeroPulseStat
+                icon={ThumbsUp}
+                value={data.trend30d.positive[29] ?? 0}
+                label={t("dashx.todayHero.positivesToday")}
+                color="#34D399"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10.5px] font-bold uppercase tracking-[0.14em]"
+              style={{
+                backgroundColor: `color-mix(in srgb, ${gold} 18%, transparent)`,
+                color: gold,
+                border: `1px solid color-mix(in srgb, ${gold} 38%, transparent)`,
+              }}
+            >
+              {periodLabel}
+            </span>
+            <FreshnessChip renderedAt={renderedAt} />
+            <Link
+              href="/reports"
+              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-opacity hover:opacity-90 whitespace-nowrap"
+              style={{
+                background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
+                color: N.ink,
+                boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 34%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
+              }}
+            >
+              <FileDown size={13} /> {t("dashx.hero.download")}
+            </Link>
+          </div>
+        </div>
+      </header>
+      ) : (
       <header
         className="relative rounded-2xl overflow-hidden px-5 sm:px-7 py-5 sm:py-6"
         style={{
@@ -398,6 +541,7 @@ export default async function DashboardPage({
           </div>
         </div>
       </header>
+      )}
 
       {/* ─── Tab bar — sticky URL-driven nav. Actions moved to the welcome
           hero above, so this row is purely navigation. */}
@@ -422,50 +566,11 @@ export default async function DashboardPage({
 
       {/* ═══ CHAPTER 1 · TODAY ═══════════════════════════════════════════
           Boss feedback 2026-05-28: "What to do today" should be the landing
-          screen, not buried under metrics. Same TodayCard the Overview tab
-          used to show, now paired with a welcome-style hero so the page
-          reads like a daily morning checklist on first login. */}
+          screen, not buried under metrics. The welcome hero now lives at
+          the page top (context-aware on filters.tab); this section is
+          just the action list. */}
       {filters.tab === "today" && (
       <section className="space-y-5 pt-3">
-
-      {/* Welcome hero — softer than the top "Sales Engine" hero, more
-          personal. Same navy+gold language so it doesn't feel like a
-          different surface. */}
-      <header
-        className="relative rounded-2xl overflow-hidden px-5 sm:px-7 py-6 sm:py-7"
-        style={{
-          background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
-          border: `1px solid color-mix(in srgb, ${gold} 22%, ${N.hairline})`,
-          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 16%, transparent), 0 14px 32px -18px ${N.ink}`,
-        }}
-      >
-        <span aria-hidden className="absolute -top-20 -right-16 w-72 h-72 rounded-full pointer-events-none"
-          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 18%, transparent) 0%, transparent 65%)` }} />
-        <span aria-hidden className="absolute -bottom-24 -left-20 w-72 h-72 rounded-full pointer-events-none"
-          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 8%, transparent) 0%, transparent 65%)` }} />
-        <div className="relative">
-          <p className="text-[10.5px] font-bold uppercase tracking-[0.24em]" style={{ color: gold }}>
-            {t("dashx.today.heroEyebrow")}
-          </p>
-          <h1
-            className="text-[26px] sm:text-[30px] font-bold tracking-[-0.022em] leading-[1.1] mt-2"
-            style={{
-              color: "white",
-              fontFamily: "var(--font-outfit), system-ui, sans-serif",
-              textShadow: `0 2px 14px color-mix(in srgb, ${gold} 12%, transparent)`,
-            }}
-          >
-            {t("dashx.today.heroTitle")}
-          </h1>
-          <p
-            className="text-[13px] mt-2 max-w-[640px]"
-            style={{ color: "color-mix(in srgb, white 65%, transparent)" }}
-          >
-            {t("dashx.today.heroDesc")}
-          </p>
-        </div>
-      </header>
-
       <TodayCard
         locale={locale === "es" ? "es" : "en"}
         labels={{
@@ -2067,6 +2172,43 @@ function EmptyTableState({ filtered, kindKey, t }: { filtered: boolean; kindKey:
     );
   }
   return <span style={{ color: C.textMuted }}>{t("dashx.tbl.empty.unfiltered", { kind })}</span>;
+}
+
+/** Live throughput stat used inside the Today welcome hero. White-on-navy
+ * so it reads on the dark gradient; tiny colored icon + bold number +
+ * lowercase label. Visually quiet on purpose — the strip is supposed to
+ * feel alive, not shout. */
+function HeroPulseStat({
+  icon: Icon, value, label, color,
+}: {
+  icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>;
+  value: number;
+  label: string;
+  color: string;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+        style={{
+          backgroundColor: `color-mix(in srgb, ${color} 18%, transparent)`,
+          color,
+          border: `1px solid color-mix(in srgb, ${color} 32%, transparent)`,
+        }}
+      >
+        <Icon size={13} />
+      </span>
+      <span
+        className="text-[22px] font-bold tabular-nums leading-none tracking-[-0.02em]"
+        style={{ color: "white", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
+      >
+        {value}
+      </span>
+      <span className="text-[11px]" style={{ color: "color-mix(in srgb, white 55%, transparent)" }}>
+        {label}
+      </span>
+    </div>
+  );
 }
 
 /** Compact stat tile used inside the "Salud del motor" strip. Same density
