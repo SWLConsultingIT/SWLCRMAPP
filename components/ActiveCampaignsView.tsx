@@ -72,6 +72,27 @@ type CampaignGroup = {
   // sequence_steps). Same value across every campaign in the group
   // since the steps are flow-level, not lead-level.
   totalSteps: number;
+  // Funnel snapshot — top→bottom story of where the cohort drops off.
+  // Stages with count 0 (except "leads") are filtered out so an email-
+  // only flow doesn't show "Connections sent: 0".
+  funnel: Array<{
+    key: "leads" | "connSent" | "accepted" | "msgsSent" | "replied" | "positive";
+    count: number;
+    pctOfTop: number;          // bar width — proportion of total leads
+    pctFromPrior: number | null; // drop-off rate from the previous stage
+    color: string;
+  }>;
+  // Per-step breakdown — one entry per scripted step in the sequence.
+  // sent = leads whose current_step has moved past this step (i.e. step
+  // i was fired); pending = leads currently waiting on this step;
+  // scheduled = leads not yet reached this step.
+  steps: Array<{
+    idx: number;
+    channel: string;
+    sent: number;
+    pending: number;
+    scheduled: number;
+  }>;
 };
 
 type IcpSection = {
@@ -176,6 +197,49 @@ function groupCampaigns(campaigns: Campaign[]): CampaignGroup[] {
       return n > m ? n : m;
     }, 0);
 
+    // Funnel — head-to-toe drop-off story. Drop stages whose count is 0
+    // (except "leads", which is always the top stage). pctOfTop drives
+    // the bar width; pctFromPrior is the conversion-from-prior-stage %
+    // that we render between rows.
+    const msgsSentTotal = liDmsSent + emailsSent + callsMade;
+    const funnelStagesRaw: Array<{ key: CampaignGroup["funnel"][number]["key"]; count: number; color: string }> = [
+      { key: "leads",    count: camps.length,    color: "var(--brand, #c9a83a)" },
+      { key: "connSent", count: liInvitesSent,   color: "#0A66C2" },
+      { key: "accepted", count: acceptedCount,   color: "#10B981" },
+      { key: "msgsSent", count: msgsSentTotal,   color: "#7C3AED" },
+      { key: "replied",  count: totalReplies,    color: C.blue },
+      { key: "positive", count: totalPositive,   color: C.green },
+    ];
+    const topCount = camps.length || 1;
+    const funnel: CampaignGroup["funnel"] = [];
+    let priorCount: number | null = null;
+    for (const s of funnelStagesRaw) {
+      if (s.key !== "leads" && s.count === 0 && priorCount === 0) continue; // skip blank tails
+      if (s.key !== "leads" && s.count === 0 && priorCount === null) continue;
+      funnel.push({
+        key: s.key,
+        count: s.count,
+        pctOfTop: Math.round((s.count / topCount) * 100),
+        pctFromPrior: priorCount === null ? null
+          : priorCount === 0 ? null
+          : Math.round((s.count / priorCount) * 100),
+        color: s.color,
+      });
+      priorCount = s.count;
+    }
+
+    // Per-step breakdown — read the sequence from any campaign in the
+    // group (they share the same flow). For each step idx, count how
+    // many campaigns are past / at / before it.
+    const sampleSequence = camps.find(c => Array.isArray(c.sequence_steps))?.sequence_steps ?? [];
+    const steps: CampaignGroup["steps"] = (sampleSequence as any[]).map((s, idx) => {
+      const channel = typeof s === "string" ? s : (s?.channel ?? "email");
+      const sent = camps.filter(c => (c.current_step ?? 0) > idx).length;
+      const pending = camps.filter(c => (c.current_step ?? 0) === idx).length;
+      const scheduled = Math.max(0, camps.length - sent - pending);
+      return { idx, channel, sent, pending, scheduled };
+    });
+
     const groupStatus = active > 0 ? "active" : paused > 0 ? "paused" : completed > 0 ? "completed" : "failed";
 
     const icpCounts: Record<string, number> = {};
@@ -209,6 +273,8 @@ function groupCampaigns(campaigns: Campaign[]): CampaignGroup[] {
       acceptedCount,
       inviteCohort,
       totalSteps,
+      funnel,
+      steps,
     };
   }).sort((a, b) => b.active - a.active || b.totalLeads - a.totalLeads);
 }
@@ -342,63 +408,103 @@ function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
           </div>
         </div>
 
-        {/* Funnel-status KPI grid — boss feedback 2026-05-28: replaces
-            the 3-stat tiles + progress block + chip strip. Six raw
-            counts so the operator reads the whole flow status in one
-            scan: how many leads, how many invites fired, how many
-            accepted, how many messages sent (DMs+emails), how many
-            replied, and how many steps in the sequence. */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <MetricTile
-            label={t("flows.metric.leads")}
-            value={group.totalLeads}
-            sub={group.active > 0
-              ? `${t("flows.activeCount").replace("{n}", String(group.active))}${group.completed > 0 ? ` · ${t("flows.doneCount").replace("{n}", String(group.completed))}` : ""}`
-              : group.completed > 0
-                ? t("flows.doneCount").replace("{n}", String(group.completed))
-                : null}
-            accent={gold} dim={true}
-          />
-          <MetricTile
-            label={t("flows.kpi.connectionsSent")}
-            value={group.liInvitesSent}
-            sub={group.inviteCohort > 0 ? `${group.inviteCohort} leads` : null}
-            accent="#0A66C2" dim={group.liInvitesSent === 0}
-          />
-          <MetricTile
-            label={t("flows.kpi.accepted")}
-            value={group.acceptedCount}
-            sub={group.acceptRate !== null
-              ? `${group.acceptRate}% ${t("flows.metric.acceptanceRate").toLowerCase()}`
-              : null}
-            accent={C.green} dim={group.acceptedCount === 0}
-          />
-          <MetricTile
-            label={t("flows.kpi.messagesSent")}
-            value={group.liDmsSent + group.emailsSent + group.callsMade}
-            sub={(() => {
-              const parts: string[] = [];
-              if (group.liDmsSent > 0)  parts.push(`${group.liDmsSent} LI`);
-              if (group.emailsSent > 0) parts.push(`${group.emailsSent} email`);
-              if (group.callsMade > 0)  parts.push(`${group.callsMade} call`);
-              return parts.length > 0 ? parts.join(" · ") : null;
-            })()}
-            accent="#7C3AED" dim={(group.liDmsSent + group.emailsSent + group.callsMade) === 0}
-          />
-          <MetricTile
-            label={t("flows.metric.replies")}
-            value={group.totalReplies}
-            sub={group.totalReplies > 0
-              ? `${responseRate}% ${t("flows.kpi.responseRateShort")}`
-              : null}
-            accent={C.blue} dim={group.totalReplies === 0}
-          />
-          <MetricTile
-            label={t("flows.kpi.steps")}
-            value={group.totalSteps}
-            sub={group.totalSteps > 0 ? `${group.avgProgress}% ${t("flows.kpi.avgProgress")}` : null}
-            accent={C.textPrimary} dim={true}
-          />
+        {/* Status section — funnel + sequence side-by-side. Boss feedback
+            2026-05-28: the seller has to read the whole flow head-to-toe.
+            Left = funnel drop-off (where the cohort is dying); right =
+            per-step status (what's firing right now in the sequence,
+            broken down by channel). Stacks on mobile. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {/* ── Funnel ─────────────────────────────────────────── */}
+          <div className="rounded-xl border p-4"
+            style={{ borderColor: C.border, backgroundColor: C.bg }}>
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em] mb-3" style={{ color: C.textDim }}>
+              {t("flows.section.funnel")}
+            </p>
+            <div className="space-y-2">
+              {group.funnel.map((stage) => (
+                <div key={stage.key} className="flex items-center gap-2.5">
+                  <span className="text-[10.5px] font-semibold w-[88px] shrink-0 truncate" style={{ color: C.textBody }}>
+                    {t(`flows.funnel.${stage.key}`)}
+                  </span>
+                  <div className="flex-1 h-3 rounded-full relative overflow-hidden"
+                    style={{ backgroundColor: `color-mix(in srgb, ${stage.color} 8%, transparent)` }}>
+                    <div className="h-3 rounded-full transition-[width] duration-300"
+                      style={{
+                        width: `${Math.max(stage.pctOfTop, stage.count > 0 ? 4 : 0)}%`,
+                        background: `linear-gradient(90deg, ${stage.color}, color-mix(in srgb, ${stage.color} 65%, white))`,
+                      }} />
+                  </div>
+                  <span className="text-[12px] font-bold tabular-nums w-6 text-right shrink-0"
+                    style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                    {stage.count}
+                  </span>
+                  <span className="text-[10px] tabular-nums w-10 text-right shrink-0"
+                    style={{ color: stage.pctFromPrior === null ? "transparent"
+                      : stage.pctFromPrior >= 50 ? C.green
+                      : stage.pctFromPrior >= 20 ? C.textDim
+                      : C.red }}>
+                    {stage.pctFromPrior !== null ? `${stage.pctFromPrior}%` : "·"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Sequence steps ─────────────────────────────────── */}
+          <div className="rounded-xl border p-4"
+            style={{ borderColor: C.border, backgroundColor: C.bg }}>
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em] mb-3" style={{ color: C.textDim }}>
+              {t("flows.section.sequence")}
+            </p>
+            {group.steps.length === 0 ? (
+              <p className="text-[11px] py-2" style={{ color: C.textDim }}>
+                {t("flows.section.noSequence")}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {group.steps.map((s) => {
+                  const meta = channelMeta[s.channel] ?? channelMeta.email;
+                  const Icon = meta.icon;
+                  const isCR = s.idx === 0 && s.channel === "linkedin";
+                  const stepLabel = isCR
+                    ? t("flows.step.cr")
+                    : meta.label;
+                  return (
+                    <div key={s.idx} className="flex items-center gap-2.5">
+                      <span className="text-[10px] font-bold tabular-nums w-4 text-center shrink-0"
+                        style={{ color: C.textDim }}>{s.idx + 1}</span>
+                      <span className="inline-flex items-center justify-center rounded-md shrink-0"
+                        style={{
+                          width: 22, height: 22,
+                          backgroundColor: `color-mix(in srgb, ${meta.color} 12%, transparent)`,
+                          color: meta.color,
+                        }}>
+                        <Icon size={11} />
+                      </span>
+                      <span className="text-[12px] font-semibold truncate flex-1"
+                        style={{ color: C.textPrimary }}>
+                        {stepLabel}
+                      </span>
+                      <span className="flex items-center gap-1.5 text-[10.5px] tabular-nums shrink-0"
+                        style={{ color: C.textMuted }}>
+                        <span className="font-bold" style={{ color: s.sent > 0 ? C.green : C.textDim }}>
+                          {s.sent}
+                        </span>
+                        <span style={{ color: C.textDim }}>{t("flows.step.sent")}</span>
+                        {s.pending > 0 && (
+                          <>
+                            <span style={{ color: C.textDim }}>·</span>
+                            <span className="font-bold" style={{ color: gold }}>{s.pending}</span>
+                            <span style={{ color: C.textDim }}>{t("flows.step.pending")}</span>
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
       </div>
