@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
+import { useLocale } from "@/lib/i18n";
 
 type InboxReply = {
   id: string;
@@ -97,14 +98,17 @@ type ThreadEntry = {
   delivered?: boolean;
 };
 
-function channelLabel(ch: string | null): string {
+// Channel label resolver — uses the inbox.channel.* dictionary so the
+// label honours the Settings → Language toggle. Caller passes their
+// translator via the `t` function.
+function channelLabel(ch: string | null, t: (k: string) => string): string {
   if (!ch) return "—";
-  if (ch === "linkedin") return "LinkedIn";
-  if (ch === "email") return "Email";
-  if (ch === "call" || ch === "phone") return "Call";
-  if (ch === "whatsapp") return "WhatsApp";
-  if (ch === "sms") return "SMS";
-  if (ch === "telegram") return "Telegram";
+  if (ch === "linkedin") return t("inbox.channel.linkedin");
+  if (ch === "email") return t("inbox.channel.email");
+  if (ch === "call" || ch === "phone") return t("inbox.channel.call");
+  if (ch === "whatsapp") return t("inbox.channel.whatsapp");
+  if (ch === "sms") return t("inbox.channel.sms");
+  if (ch === "telegram") return t("inbox.channel.telegram");
   return ch;
 }
 
@@ -233,6 +237,7 @@ function FilterPill({
 export default function InboxView({ replies }: { replies: InboxReply[] }) {
   const router = useRouter();
   const toast = useToast();
+  const { t, locale } = useLocale();
   const [tab, setTab] = useState<Tab>("pending");
   const [search, setSearch] = useState("");
   // Filters added on 2026-05-27 per boss feedback — sellers needed to slice
@@ -253,10 +258,10 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
     return 0;
   }, [dateRange]);
   const DATE_LABEL: Record<DateRange, string> = {
-    today: "Today",
-    "7d":  "Last 7 days",
-    "30d": "Last 30 days",
-    all:   "All time",
+    today: locale === "es" ? "Hoy" : "Today",
+    "7d":  t("inbox.date.last7"),
+    "30d": t("inbox.date.last30"),
+    all:   t("inbox.date.allTime"),
   };
   const [selectedId, setSelectedId] = useState<string | null>(replies[0]?.id ?? null);
   const [working, setWorking] = useState(false);
@@ -479,7 +484,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                 marginBottom: -1,
               }}
             >
-              {TAB_LABELS[k]}
+              {k === "pending" ? t("inbox.tab.pending") : t("inbox.tab.all")}
               {n > 0 && (
                 <span
                   className="text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full"
@@ -512,7 +517,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                 type="text"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Search lead, company, message…"
+                placeholder={t("inbox.search.placeholder")}
                 className="w-full pl-7 pr-3 py-1.5 rounded-lg border text-xs focus:outline-none"
                 style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
               />
@@ -521,7 +526,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
               <FilterPill
                 icon={<Calendar size={11} />}
                 accent="var(--brand, #c9a83a)"
-                placeholder="Last 30 days"
+                placeholder={t("inbox.date.last30")}
                 /* For the date filter the "default" is 30d, not "all". So we
                    treat any value other than 30d as an active state so the
                    pill looks tinted when the user has narrowed/widened it. */
@@ -533,7 +538,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                 <FilterPill
                   icon={<Megaphone size={11} />}
                   accent="var(--brand, #c9a83a)"
-                  placeholder="All campaigns"
+                  placeholder={t("inbox.filter.allCampaigns")}
                   value={campaignFilter}
                   options={campaignOptions.map(n => ({ value: n, label: n }))}
                   onChange={setCampaignFilter}
@@ -544,7 +549,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                 <FilterPill
                   icon={<Target size={11} />}
                   accent="var(--brand, #c9a83a)"
-                  placeholder="All ICPs"
+                  placeholder={t("inbox.filter.allIcps")}
                   value={icpFilter}
                   options={icpOptions.map(n => ({ value: n, label: n }))}
                   onChange={setIcpFilter}
@@ -555,9 +560,9 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                 <FilterPill
                   icon={<Radio size={11} />}
                   accent={channelColor(channelFilter !== "all" ? channelFilter : null)}
-                  placeholder="All channels"
+                  placeholder={t("inbox.filter.allChannels")}
                   value={channelFilter}
-                  options={channelOptions.map(c => ({ value: c, label: channelLabel(c) }))}
+                  options={channelOptions.map(c => ({ value: c, label: channelLabel(c, t) }))}
                   onChange={setChannelFilter}
                 />
               )}
@@ -566,7 +571,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                   onClick={() => { setCampaignFilter("all"); setIcpFilter("all"); setChannelFilter("all"); setDateRange("30d"); }}
                   className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-full hover:opacity-80 transition-opacity"
                   style={{ color: C.textMuted, backgroundColor: C.surface }}
-                  title="Clear all filters"
+                  title={t("inbox.filter.clearAll")}
                 >
                   <XIcon size={10} /> Clear
                 </button>
@@ -580,7 +585,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                 <div className="w-10 h-10 mx-auto mb-3 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)` }}>
                   <CheckCircle2 size={18} style={{ color: C.green }} />
                 </div>
-                <p className="text-sm font-semibold mb-1" style={{ color: C.textBody }}>Inbox zero</p>
+                <p className="text-sm font-semibold mb-1" style={{ color: C.textBody }}>{t("inbox.empty.zero")}</p>
                 <p className="text-[11px] max-w-[220px] mx-auto" style={{ color: C.textMuted }}>
                   Nothing matches this filter right now. Switch tabs or wait for new replies.
                 </p>
@@ -644,7 +649,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                                   to match the row's left rail + icon. */}
                               <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color: chColor, backgroundColor: `color-mix(in srgb, ${chColor} 14%, transparent)` }}>
                                 <Icon size={9} />
-                                {channelLabel(r.channel)}
+                                {channelLabel(r.channel, t)}
                               </span>
                               {badge && (
                                 <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color: badge.color, backgroundColor: badge.bg }}>
@@ -674,7 +679,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                           type="button"
                           disabled={working}
                           onClick={(e) => { e.stopPropagation(); void quickClassify(r.id, "positive"); }}
-                          title="Mark Positive (and reviewed)"
+                          title={t("inbox.action.markPositive")}
                           className="w-6 h-6 inline-flex items-center justify-center rounded-md transition-opacity hover:opacity-85 disabled:opacity-40"
                           style={{ backgroundColor: `color-mix(in srgb, ${C.green} 18%, transparent)`, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 32%, transparent)` }}
                         >
@@ -684,7 +689,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                           type="button"
                           disabled={working}
                           onClick={(e) => { e.stopPropagation(); void quickClassify(r.id, "negative"); }}
-                          title="Mark Negative (and reviewed)"
+                          title={t("inbox.action.markNegative")}
                           className="w-6 h-6 inline-flex items-center justify-center rounded-md transition-opacity hover:opacity-85 disabled:opacity-40"
                           style={{ backgroundColor: `color-mix(in srgb, ${C.red} 14%, transparent)`, color: C.red, border: `1px solid color-mix(in srgb, ${C.red} 30%, transparent)` }}
                         >
@@ -694,7 +699,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                           type="button"
                           disabled={working}
                           onClick={(e) => { e.stopPropagation(); void quickClassify(r.id, "follow_up"); }}
-                          title="Mark as Follow-up (and reviewed)"
+                          title={t("inbox.action.markFollowUp")}
                           className="w-6 h-6 inline-flex items-center justify-center rounded-md transition-opacity hover:opacity-85 disabled:opacity-40"
                           style={{ backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#D97706", border: "1px solid color-mix(in srgb, #D97706 30%, transparent)" }}
                         >
@@ -719,7 +724,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
             <button
               type="button"
               onClick={toggleListCollapsed}
-              title="Mostrar lista"
+              title={t("inbox.action.showList")}
               className="absolute top-3 left-3 z-10 w-8 h-8 rounded-lg flex items-center justify-center transition-opacity hover:opacity-85 border shadow-sm"
               style={{ borderColor: C.border, backgroundColor: C.card, color: C.textMuted }}
             >
@@ -736,7 +741,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                     <button
                       type="button"
                       onClick={toggleListCollapsed}
-                      title="Ocultar lista"
+                      title={t("inbox.action.hideList")}
                       className="hidden md:flex w-8 h-8 rounded-lg items-center justify-center shrink-0 transition-opacity hover:opacity-85 border"
                       style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textMuted }}
                     >
@@ -776,7 +781,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
                       style={{ backgroundColor: `color-mix(in srgb, ${channelColor(selected.channel)} 14%, transparent)`, color: channelColor(selected.channel) }}>
                       {(() => { const Ic = channelIcon(selected.channel); return <Ic size={9} />; })()}
-                      {channelLabel(selected.channel)}
+                      {channelLabel(selected.channel, t)}
                     </span>
                   </div>
                   {/* Campaign stage strip — quick "where in the flow" so the
@@ -847,27 +852,29 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                 const channelsInThread = new Set<string>();
                 for (const e of thread) if (e.channel) channelsInThread.add(e.channel);
                 if (channelsInThread.size <= 1) return null;
-                const tabs: Array<{ key: "all" | "linkedin" | "email" | "call"; label: string; count: number }> = [
-                  { key: "all",      label: "All",      count: thread.length },
-                  { key: "linkedin", label: "LinkedIn", count: thread.filter(e => e.channel === "linkedin").length },
-                  { key: "email",    label: "Email",    count: thread.filter(e => e.channel === "email").length },
-                  { key: "call",     label: "Calls",    count: thread.filter(e => e.channel === "call" || e.channel === "phone").length },
-                ].filter(t => t.key === "all" || t.count > 0);
+                type ThreadTabKey = "all" | "linkedin" | "email" | "call";
+                const allTabs: Array<{ key: ThreadTabKey; label: string; count: number }> = [
+                  { key: "all",      label: t("inbox.thread.all"),       count: thread.length },
+                  { key: "linkedin", label: t("inbox.channel.linkedin"), count: thread.filter(e => e.channel === "linkedin").length },
+                  { key: "email",    label: t("inbox.channel.email"),    count: thread.filter(e => e.channel === "email").length },
+                  { key: "call",     label: t("inbox.thread.calls"),     count: thread.filter(e => e.channel === "call" || e.channel === "phone").length },
+                ];
+                const tabs = allTabs.filter(tab => tab.key === "all" || tab.count > 0);
                 return (
                   <div className="px-5 py-2 flex items-center gap-1 border-b" style={{ borderColor: C.border, backgroundColor: C.card }}>
-                    {tabs.map(t => {
-                      const isActive = threadChannel === t.key;
-                      const accent = t.key === "linkedin" ? "#0A66C2" : t.key === "email" ? "#7C3AED" : t.key === "call" ? "#F97316" : gold;
+                    {tabs.map(tab2 => {
+                      const isActive = threadChannel === tab2.key;
+                      const accent = tab2.key === "linkedin" ? "#0A66C2" : tab2.key === "email" ? "#7C3AED" : tab2.key === "call" ? "#F97316" : "var(--brand, #c9a83a)";
                       return (
-                        <button key={t.key} onClick={() => setThreadChannel(t.key)}
+                        <button key={tab2.key} onClick={() => setThreadChannel(tab2.key)}
                           className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-[background-color,color]"
                           style={{
                             backgroundColor: isActive ? `color-mix(in srgb, ${accent} 14%, transparent)` : "transparent",
                             color: isActive ? accent : C.textMuted,
                             border: isActive ? `1px solid color-mix(in srgb, ${accent} 32%, transparent)` : "1px solid transparent",
                           }}>
-                          {t.label}
-                          <span className="text-[9px] tabular-nums opacity-80">{t.count}</span>
+                          {tab2.label}
+                          <span className="text-[9px] tabular-nums opacity-80">{tab2.count}</span>
                         </button>
                       );
                     })}
@@ -921,11 +928,13 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                       return (
                         <div className="flex flex-col items-center justify-center text-center py-12">
                           <p className="text-sm font-semibold" style={{ color: C.textBody }}>
-                            No hay mensajes de {channelLabel(threadChannel === "all" ? null : threadChannel)} en este hilo.
+                            {locale === "es"
+                              ? `No hay mensajes de ${channelLabel(threadChannel === "all" ? null : threadChannel, t)} en este hilo.`
+                              : `No ${channelLabel(threadChannel === "all" ? null : threadChannel, t)} messages in this thread.`}
                           </p>
                           <button onClick={() => setThreadChannel("all")}
-                            className="text-[11px] mt-2 font-semibold hover:underline" style={{ color: gold }}>
-                            Ver todos los canales
+                            className="text-[11px] mt-2 font-semibold hover:underline" style={{ color: "var(--brand, #c9a83a)" }}>
+                            {locale === "es" ? "Ver todos los canales" : "View all channels"}
                           </button>
                         </div>
                       );
@@ -1065,7 +1074,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                                       <span>Visto{entry.seenAt ? ` ${formatTimeOnly(entry.seenAt)}` : ""}</span>
                                     </span>
                                   ) : (
-                                    <span className="inline-flex items-center gap-1" title="Entregado">
+                                    <span className="inline-flex items-center gap-1" title={t("inbox.delivered")}>
                                       <span className="font-bold tracking-tighter">✓✓</span>
                                       <span>Entregado</span>
                                     </span>
@@ -1166,7 +1175,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                                         <span>Visto{entry.seenAt ? ` ${formatTimeOnly(entry.seenAt)}` : ""}</span>
                                       </span>
                                     ) : (
-                                      <span className="inline-flex items-center gap-1" title="Entregado">
+                                      <span className="inline-flex items-center gap-1" title={t("inbox.delivered")}>
                                         <span className="font-bold tracking-tighter">✓✓</span>
                                         <span>Entregado</span>
                                       </span>
@@ -1204,7 +1213,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                   disabled={working || selected.reviewStatus === "approved"}
                   className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-85"
                   style={{ backgroundColor: `color-mix(in srgb, ${C.green} 16%, transparent)`, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 32%, transparent)` }}
-                  title="Mark this reply as reviewed (A)"
+                  title={t("inbox.action.markReviewed")}
                 >
                   <Check size={12} /> Mark reviewed
                 </button>
@@ -1213,7 +1222,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                   disabled={working || selected.reviewStatus === "rejected"}
                   className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-85"
                   style={{ backgroundColor: `color-mix(in srgb, ${C.red} 14%, transparent)`, color: C.red, border: `1px solid color-mix(in srgb, ${C.red} 30%, transparent)` }}
-                  title="Reject (closes the review without acting)"
+                  title={t("inbox.action.reject")}
                 >
                   <XIcon size={12} /> Reject
                 </button>
@@ -1223,7 +1232,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                     disabled={working}
                     className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors hover:bg-black/[0.04]"
                     style={{ color: C.textMuted, border: `1px solid ${C.border}` }}
-                    title="Send back to the inbox as pending"
+                    title={t("inbox.action.sendBack")}
                   >
                     Re-open
                   </button>
