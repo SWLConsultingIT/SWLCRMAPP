@@ -1,5 +1,6 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { C } from "@/lib/design";
+import { getT } from "@/lib/i18n-server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
@@ -141,7 +142,7 @@ async function getUnlinkedLeadsByProfile(companyBioId: string | null) {
 export default async function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await getSupabaseServer();
   const { id } = await params;
-  const campaign = await getCampaign(id);
+  const [campaign, t] = await Promise.all([getCampaign(id), getT()]);
   if (!campaign) notFound();
 
   // Tenant scope for the "Add Leads" tab — campaign → seller → company_bio.
@@ -339,7 +340,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-2">
               <div className="h-px w-6" style={{ backgroundColor: gold }} />
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: gold, letterSpacing: "0.18em" }}>Campaign</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: gold, letterSpacing: "0.18em" }}>{t("campaignDetail.preTitle")}</p>
             </div>
             <h1
               className="text-[28px] font-bold mb-4 leading-tight"
@@ -388,7 +389,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
                 <span className="text-[11px] inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full"
                   style={{ color: "color-mix(in srgb, #F5F2E8 62%, transparent)", border: "1px solid color-mix(in srgb, #F5F2E8 10%, transparent)", backgroundColor: "rgba(255,255,255,0.02)" }}>
                   <Clock size={11} />
-                  Started {new Date(campaign.started_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+                  {t("campaignDetail.started").replace("{date}", new Date(campaign.started_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }))}
                 </span>
               )}
             </div>
@@ -400,7 +401,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
               color: "#1A1505",
               boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent)`,
             }}>
-            <Settings size={12} /> Edit Flow
+            <Settings size={12} /> {t("campaignDetail.editFlow")}
           </Link>
         </div>
 
@@ -411,10 +412,10 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             text rows. Active In replaces the redundant "Active" stat. */}
         <div className="px-2 py-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 relative">
           {[
-            { label: "Total Leads", value: totalLeadsInGroup,                                color: gold },
-            { label: "Paused",      value: pausedInGroup,                                    color: "#D97706" },
-            { label: "Completed",   value: completedInGroup,                                 color: "color-mix(in srgb, #F5F2E8 65%, transparent)" },
-            { label: "Progress",    value: `${pct}%`,                                        color: gold },
+            { label: t("campaignDetail.metric.totalLeads"), value: totalLeadsInGroup,                                color: gold },
+            { label: t("campaignDetail.metric.paused"),     value: pausedInGroup,                                    color: "#D97706" },
+            { label: t("campaignDetail.metric.completed"),  value: completedInGroup,                                 color: "color-mix(in srgb, #F5F2E8 65%, transparent)" },
+            { label: t("campaignDetail.metric.progress"),   value: `${pct}%`,                                        color: gold },
           ].map(s => (
             <div
               key={s.label}
@@ -451,7 +452,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
               boxShadow: `0 0 18px color-mix(in srgb, ${gold} 8%, transparent) inset`,
             }}
           >
-            <p className="text-[9px] font-bold uppercase tracking-[0.14em] mb-1.5" style={{ color: "color-mix(in srgb, #F5F2E8 55%, transparent)", letterSpacing: "0.14em" }}>Active In</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em] mb-1.5" style={{ color: "color-mix(in srgb, #F5F2E8 55%, transparent)", letterSpacing: "0.14em" }}>{t("campaignDetail.metric.activeIn")}</p>
             {activeChannelEntries.length === 0 ? (
               <p className="text-[16px] font-bold leading-none" style={{ color: "color-mix(in srgb, #F5F2E8 35%, transparent)", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>—</p>
             ) : (

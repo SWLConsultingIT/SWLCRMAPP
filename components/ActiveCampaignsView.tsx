@@ -3,9 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 import { Share2, Mail, Phone, BarChart3, Clock, Target, ChevronDown, Users, ChevronRight } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
+
+type Tr = (key: string) => string;
 
 type Campaign = {
   id: string;
@@ -59,6 +62,12 @@ type CampaignGroup = {
   callsMade: number;
   wonCount: number;
   lostCount: number;
+  // LinkedIn accept rate — null when the group has no LinkedIn invites
+  // (e.g. an email-only flow). acceptedCount / inviteCohort fills the
+  // denominator gap for the tooltip.
+  acceptRate: number | null;
+  acceptedCount: number;
+  inviteCohort: number;
 };
 
 type IcpSection = {
@@ -83,11 +92,12 @@ const channelMeta: Record<string, { icon: React.ElementType; color: string; labe
 // (where every visible card is active) reads as the brand surface itself.
 // Other statuses keep their semantic palette so paused/completed/failed
 // cards still pop out against the sea of gold.
-const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
-  active:    { label: "Active",    color: "var(--brand, #c9a83a)", bg: "color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)" },
-  paused:    { label: "Paused",    color: "#D97706",  bg: "#FFFBEB" },
-  completed: { label: "Completed", color: C.textMuted, bg: C.surface },
-  failed:    { label: "Failed",    color: C.red,      bg: C.redLight },
+// Status meta — `label` resolved at render via t(`flows.status.${key}`).
+const statusConfig: Record<string, { key: string; color: string; bg: string }> = {
+  active:    { key: "active",    color: "var(--brand, #c9a83a)", bg: "color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)" },
+  paused:    { key: "paused",    color: "#D97706",  bg: "#FFFBEB" },
+  completed: { key: "completed", color: C.textMuted, bg: C.surface },
+  failed:    { key: "failed",    color: C.red,      bg: C.redLight },
 };
 
 function timeAgo(iso: string | null) {
@@ -147,6 +157,14 @@ function groupCampaigns(campaigns: Campaign[]): CampaignGroup[] {
     }).length;
     const lostCount = camps.filter(c => (c.leads as any)?.status === "closed_lost").length;
 
+    // Accept rate proxy — a LinkedIn campaign whose current_step > 1 means
+    // the dispatcher unparked past the CR step (only possible once the
+    // accept-webhook fired). Cohort = LinkedIn rows that fired a CR at all.
+    const liCamps = camps.filter(c => c.channel === "linkedin" && ((c as any).linkedin_invites_sent ?? 0) > 0);
+    const acceptedCount = liCamps.filter(c => (c.current_step ?? 0) > 1).length;
+    const inviteCohort = liCamps.length;
+    const acceptRate = inviteCohort > 0 ? Math.round((acceptedCount / inviteCohort) * 100) : null;
+
     const groupStatus = active > 0 ? "active" : paused > 0 ? "paused" : completed > 0 ? "completed" : "failed";
 
     const icpCounts: Record<string, number> = {};
@@ -176,6 +194,9 @@ function groupCampaigns(campaigns: Campaign[]): CampaignGroup[] {
       callsMade,
       wonCount,
       lostCount,
+      acceptRate,
+      acceptedCount,
+      inviteCohort,
     };
   }).sort((a, b) => b.active - a.active || b.totalLeads - a.totalLeads);
 }
@@ -231,7 +252,7 @@ function MetricTile({ label, value, sub, accent, dim }: { label: string; value: 
   );
 }
 
-function FlowRow({ group }: { group: CampaignGroup }) {
+function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
   const st = statusConfig[group.status] ?? statusConfig.active;
   const responseRate = group.totalLeads > 0 ? Math.round((group.totalReplies / group.totalLeads) * 100) : 0;
   const positiveRate = group.totalLeads > 0 ? Math.round((group.totalPositive / group.totalLeads) * 100) : 0;
@@ -291,7 +312,7 @@ function FlowRow({ group }: { group: CampaignGroup }) {
                 color: st.color,
                 border: `1px solid color-mix(in srgb, ${st.color} 22%, transparent)`,
               }}>
-              {st.label}
+              {t(`flows.status.${st.key}`)}
             </span>
           </div>
           <div className="flex items-center gap-3 text-[11px] shrink-0" style={{ color: C.textMuted }}>
@@ -313,14 +334,18 @@ function FlowRow({ group }: { group: CampaignGroup }) {
             seller can scan KPIs left-to-right without scrolling. Progress
             bar sits on the right and stretches to fill remaining space. */}
         <div className="flex items-stretch gap-3 flex-wrap">
-          <MetricTile label="Leads" value={group.totalLeads}
-            sub={group.active > 0 ? `${group.active} active${group.completed > 0 ? ` · ${group.completed} done` : ""}` : group.completed > 0 ? `${group.completed} done` : null}
+          <MetricTile label={t("flows.metric.leads")} value={group.totalLeads}
+            sub={group.active > 0
+              ? `${t("flows.activeCount").replace("{n}", String(group.active))}${group.completed > 0 ? ` · ${t("flows.doneCount").replace("{n}", String(group.completed))}` : ""}`
+              : group.completed > 0
+                ? t("flows.doneCount").replace("{n}", String(group.completed))
+                : null}
             accent={gold} dim={true} />
-          <MetricTile label="Replies" value={group.totalReplies}
-            sub={`${responseRate}% response rate`}
+          <MetricTile label={t("flows.metric.replies")} value={group.totalReplies}
+            sub={t("flows.metric.responseRate").replace("{n}", String(responseRate))}
             accent={C.blue} dim={group.totalReplies === 0} />
-          <MetricTile label="Positive" value={group.totalPositive}
-            sub={`${positiveRate}% positive rate`}
+          <MetricTile label={t("flows.metric.positive")} value={group.totalPositive}
+            sub={t("flows.metric.positiveRate").replace("{n}", String(positiveRate))}
             accent={C.green} dim={group.totalPositive === 0} />
 
           {/* Progress block — fills remaining horizontal space. Big, friendly,
@@ -328,7 +353,7 @@ function FlowRow({ group }: { group: CampaignGroup }) {
           <div className="rounded-xl border px-4 py-3 flex-[2] min-w-[220px]"
             style={{ borderColor: C.border, backgroundColor: C.bg }}>
             <div className="flex items-center justify-between">
-              <p className="text-[9px] font-bold uppercase tracking-[0.12em]" style={{ color: C.textDim }}>Sequence Progress</p>
+              <p className="text-[9px] font-bold uppercase tracking-[0.12em]" style={{ color: C.textDim }}>{t("flows.metric.sequenceProgress")}</p>
               <p className="text-[12px] font-bold tabular-nums" style={{ color: C.textPrimary }}>{group.avgProgress}%</p>
             </div>
             <div className="mt-2.5 h-2 rounded-full" style={{ backgroundColor: C.border }}>
@@ -339,7 +364,7 @@ function FlowRow({ group }: { group: CampaignGroup }) {
                 }} />
             </div>
             <p className="text-[10px] mt-1.5" style={{ color: C.textDim }}>
-              Average across all leads in this flow
+              {t("flows.metric.averageAcross")}
             </p>
           </div>
         </div>
@@ -352,23 +377,39 @@ function FlowRow({ group }: { group: CampaignGroup }) {
         {(group.liInvitesSent + group.liDmsSent + group.emailsSent + group.callsMade + group.wonCount + group.lostCount) > 0 && (
           <div className="flex items-center gap-1.5 flex-wrap mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
             {group.liInvitesSent > 0 && (
-              <MetricChip icon={<Share2 size={10} />} label="LI Invites" value={group.liInvitesSent} color="#0A66C2" />
+              <MetricChip icon={<Share2 size={10} />} label={t("flows.chip.invites")} value={group.liInvitesSent} color="#0A66C2" />
+            )}
+            {group.acceptRate !== null && (
+              <span
+                className="inline-flex items-center gap-1 text-[10.5px] font-bold tabular-nums px-1.5 py-0.5 rounded-md"
+                title={t("flows.metric.acceptanceHint")
+                  .replace("{n}", String(group.acceptRate))
+                  .replace("{accepted}", String(group.acceptedCount))
+                  .replace("{total}", String(group.inviteCohort))}
+                style={{
+                  color: group.acceptRate >= 50 ? C.green : group.acceptRate >= 20 ? gold : C.textMuted,
+                  backgroundColor: `color-mix(in srgb, ${group.acceptRate >= 50 ? C.green : group.acceptRate >= 20 ? gold : C.textMuted} 10%, transparent)`,
+                  border: `1px solid color-mix(in srgb, ${group.acceptRate >= 50 ? C.green : group.acceptRate >= 20 ? gold : C.textMuted} 26%, transparent)`,
+                }}
+              >
+                {group.acceptRate}% {t("flows.metric.acceptanceRate").toLowerCase()}
+              </span>
             )}
             {group.liDmsSent > 0 && (
-              <MetricChip icon={<Share2 size={10} />} label="LI Messages" value={group.liDmsSent} color="#0A66C2" />
+              <MetricChip icon={<Share2 size={10} />} label={t("flows.chip.dms")} value={group.liDmsSent} color="#0A66C2" />
             )}
             {group.emailsSent > 0 && (
-              <MetricChip icon={<Mail size={10} />} label="Emails" value={group.emailsSent} color="#7C3AED" />
+              <MetricChip icon={<Mail size={10} />} label={t("flows.chip.emails")} value={group.emailsSent} color="#7C3AED" />
             )}
             {group.callsMade > 0 && (
-              <MetricChip icon={<Phone size={10} />} label="Calls" value={group.callsMade} color="#F97316" />
+              <MetricChip icon={<Phone size={10} />} label={t("flows.chip.calls")} value={group.callsMade} color="#F97316" />
             )}
             <div className="flex-1" />
             {group.wonCount > 0 && (
-              <MetricChip label="Won" value={group.wonCount} color={C.green} solid />
+              <MetricChip label={t("flows.chip.won")} value={group.wonCount} color={C.green} solid />
             )}
             {group.lostCount > 0 && (
-              <MetricChip label="Lost" value={group.lostCount} color={C.red} solid />
+              <MetricChip label={t("flows.chip.lost")} value={group.lostCount} color={C.red} solid />
             )}
           </div>
         )}
@@ -403,7 +444,7 @@ function MetricChip({ icon, label, value, color, solid }: {
   );
 }
 
-function IcpSectionBlock({ section, defaultOpen }: { section: IcpSection; defaultOpen: boolean }) {
+function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; defaultOpen: boolean; t: Tr }) {
   const [open, setOpen] = useState(defaultOpen);
   const [hydrated, setHydrated] = useState(false);
   const storageKey = `flows.icp.${section.id ?? "uncategorized"}.collapsed`;
@@ -445,10 +486,10 @@ function IcpSectionBlock({ section, defaultOpen }: { section: IcpSection; defaul
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-0.5">
-            <p className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: gold, letterSpacing: "0.14em" }}>Lead Miner Profile</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: gold, letterSpacing: "0.14em" }}>{t("flows.preTitle")}</p>
             <span className="text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded-md"
               style={{ backgroundColor: C.surface, color: C.textMuted }}>
-              {section.groups.length} flow{section.groups.length === 1 ? "" : "s"}
+              {section.groups.length} {section.groups.length === 1 ? t("flows.flows.single") : t("flows.flows.plural")}
             </span>
           </div>
           <h2 className="text-[17px] font-bold leading-tight truncate"
@@ -464,16 +505,16 @@ function IcpSectionBlock({ section, defaultOpen }: { section: IcpSection; defaul
             ICP performance without expanding every section. */}
         <div className="hidden md:flex items-center gap-5 shrink-0 mr-3">
           <div className="text-right">
-            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>Leads</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>{t("flows.metric.leads")}</p>
             <p className="text-base font-bold tabular-nums leading-none mt-0.5" style={{ color: C.textPrimary }}>
               {section.totalLeads}
               {section.totalActive > 0 && (
-                <span className="ml-1 text-[10px]" style={{ color: C.green }}>({section.totalActive} active)</span>
+                <span className="ml-1 text-[10px]" style={{ color: C.green }}>({t("flows.activeCount").replace("{n}", String(section.totalActive))})</span>
               )}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>Replies</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>{t("flows.metric.replies")}</p>
             <p className="text-base font-bold tabular-nums leading-none mt-0.5"
               style={{ color: section.totalReplies > 0 ? C.blue : C.textPrimary }}>
               {section.totalReplies}
@@ -481,7 +522,7 @@ function IcpSectionBlock({ section, defaultOpen }: { section: IcpSection; defaul
             </p>
           </div>
           <div className="text-right">
-            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>Positive</p>
+            <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: C.textDim }}>{t("flows.metric.positive")}</p>
             <p className="text-base font-bold tabular-nums leading-none mt-0.5"
               style={{ color: section.totalPositive > 0 ? C.green : C.textPrimary }}>
               {section.totalPositive}
@@ -506,7 +547,7 @@ function IcpSectionBlock({ section, defaultOpen }: { section: IcpSection; defaul
             // section background and lost their "row" affordance.
             background: `linear-gradient(180deg, color-mix(in srgb, var(--c-bg, ${C.bg}) 95%, transparent) 0%, color-mix(in srgb, var(--c-bg, ${C.bg}) 85%, transparent) 100%)`,
           }}>
-          {section.groups.map(g => <FlowRow key={g.name} group={g} />)}
+          {section.groups.map(g => <FlowRow key={g.name} group={g} t={t} />)}
         </div>
       )}
     </section>
@@ -514,6 +555,7 @@ function IcpSectionBlock({ section, defaultOpen }: { section: IcpSection; defaul
 }
 
 export default function ActiveCampaignsView({ campaigns, icpMap }: { campaigns: Campaign[]; icpMap: Record<string, IcpProfile> }) {
+  const { t } = useLocale();
   const groups = groupCampaigns(campaigns);
   const sections = buildIcpSections(groups, icpMap);
 
@@ -528,8 +570,8 @@ export default function ActiveCampaignsView({ campaigns, icpMap }: { campaigns: 
           }}>
           <BarChart3 size={22} style={{ color: gold }} />
         </div>
-        <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>No active flows yet</p>
-        <p className="text-xs mt-1.5" style={{ color: C.textDim }}>Open the Create New Flow tab to launch your first one.</p>
+        <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t("flows.empty.title")}</p>
+        <p className="text-xs mt-1.5" style={{ color: C.textDim }}>{t("flows.empty.hint")}</p>
       </div>
     );
   }
@@ -537,7 +579,7 @@ export default function ActiveCampaignsView({ campaigns, icpMap }: { campaigns: 
   return (
     <div className="space-y-4">
       {sections.map((section, i) => (
-        <IcpSectionBlock key={section.id ?? "uncategorized"} section={section} defaultOpen={i === 0} />
+        <IcpSectionBlock key={section.id ?? "uncategorized"} section={section} defaultOpen={i === 0} t={t} />
       ))}
     </div>
   );

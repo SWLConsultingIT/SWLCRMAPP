@@ -10,6 +10,7 @@ import { C } from "@/lib/design";
 import { Trophy } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import ResultsClient from "./ResultsClient";
+import { getT } from "@/lib/i18n-server";
 
 // Tenant-scoped + auth-gated → never static. Skip the optimization attempt.
 export const dynamic = "force-dynamic";
@@ -204,21 +205,24 @@ async function getData() {
 }
 
 export default async function ResultsPage() {
-  const { wonLeads, lostLeads, renurturingLeads } = await getData();
+  const [{ wonLeads, lostLeads, renurturingLeads }, t] = await Promise.all([
+    getData(),
+    getT(),
+  ]);
 
   return (
     <div className="p-4 sm:p-6 w-full">
       <PageHero
         icon={Trophy}
-        section="Growth Engine"
-        title="Results"
-        description="Outcomes from the pipeline — wins this period, leads that didn't close, and leads being re-nurtured for a second pass."
+        section={t("results.hero.preTitle")}
+        title={t("results.hero.title")}
+        description={t("results.hero.description")}
         accentColor={C.green}
         status={{ label: "Live", active: true }}
         stats={[
-          { label: "Won",        value: wonLeads.length,         tone: wonLeads.length > 0 ? "positive" : "neutral" },
-          { label: "Lost",       value: lostLeads.length,        tone: lostLeads.length > 0 ? "warning" : "neutral" },
-          { label: "Re-nurture", value: renurturingLeads.length, tone: renurturingLeads.length > 0 ? "positive" : "neutral" },
+          { label: t("results.tab.won"),       value: wonLeads.length,         tone: wonLeads.length > 0 ? "positive" : "neutral" },
+          { label: t("results.tab.lost"),      value: lostLeads.length,        tone: lostLeads.length > 0 ? "warning" : "neutral" },
+          { label: t("results.tab.renurture"), value: renurturingLeads.length, tone: renurturingLeads.length > 0 ? "positive" : "neutral" },
         ]}
       />
       <ResultsClient
