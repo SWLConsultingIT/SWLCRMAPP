@@ -9,7 +9,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
 import {
-  Users, Send, Trophy, Megaphone, Target, Layers, TrendingUp,
+  Users, Send, Trophy, Megaphone, Target,
   AlertTriangle, ArrowRight, ChevronRight, MessageSquare, ThumbsUp, Sparkles,
   Share2, Mail, Phone, Smartphone, FileDown, ChevronsRight, Activity,
 } from "lucide-react";
@@ -26,7 +26,6 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import FreshnessChip from "@/components/dashboard/FreshnessChip";
 import DashboardKeyboardShortcuts from "@/components/dashboard/DashboardKeyboardShortcuts";
 import SwlSignature from "@/components/dashboard/SwlSignature";
-import KpiCard from "@/components/dashboard/KpiCard";
 import Funnel from "@/components/dashboard/Funnel";
 import MultiLineChart from "@/components/dashboard/MultiLineChart";
 import ActivityStrip from "@/components/dashboard/ActivityStrip";
@@ -1202,54 +1201,6 @@ export default async function DashboardPage({
         labels={tabFilterLabels}
       />
 
-      {/* Campaigns KPI strip — boss 2026-05-28: the tab felt thin against
-          the rest of the dashboard. Four headline tiles ground the chapter:
-          how many flows are running, total leads inside them, avg sequence
-          length, and overall conversion. All derived from the same scoped
-          campaignPerformance the accordion below reads. */}
-      {(() => {
-        const camps = data.campaignPerformance;
-        const activeFlows = camps.filter(c => c.status === "active" || c.status === "paused").length;
-        const totalLeads = camps.reduce((s, c) => s + c.leads, 0);
-        const totalPositive = camps.reduce((s, c) => s + c.positive, 0);
-        const avgConv = totalLeads > 0 ? Math.round((totalPositive / totalLeads) * 100) : 0;
-        const seqLengths = camps.map(c => c.totalSteps).filter(n => n > 0);
-        const avgSteps = seqLengths.length > 0
-          ? Math.round((seqLengths.reduce((s, n) => s + n, 0) / seqLengths.length) * 10) / 10
-          : 0;
-        return (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <KpiCard
-              label={t("dashx.campsKpi.activeFlows")}
-              value={activeFlows}
-              icon={Megaphone}
-              accent={gold}
-              hint={t("dashx.campsKpi.activeFlowsHint")}
-            />
-            <KpiCard
-              label={t("dashx.campsKpi.leadsInFlows")}
-              value={totalLeads.toLocaleString(dateLoc)}
-              icon={Users}
-              accent="#0284C7"
-              hint={t("dashx.campsKpi.leadsInFlowsHint")}
-            />
-            <KpiCard
-              label={t("dashx.campsKpi.avgSequence")}
-              value={avgSteps > 0 ? `${avgSteps} ${t("dashx.campsKpi.stepsUnit")}` : "—"}
-              icon={Layers}
-              accent="#7C3AED"
-              hint={t("dashx.campsKpi.avgSequenceHint")}
-            />
-            <KpiCard
-              label={t("dashx.campsKpi.avgConversion")}
-              value={`${avgConv}%`}
-              icon={TrendingUp}
-              accent={C.green}
-              hint={t("dashx.campsKpi.avgConversionHint")}
-            />
-          </div>
-        );
-      })()}
 
       <section>
         {/* Status chips removed 2026-05-28: the by-ICP accordion shows every
@@ -1412,44 +1363,64 @@ export default async function DashboardPage({
                       <ChevronRight size={16} className="acc-chevron shrink-0" style={{ color: C.textMuted }} />
                     </summary>
                     <div className="p-3 space-y-2 border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                      {/* Within-ICP comparison strip (boss 2026-05-28):
-                          surface the best vs worst flow in this section so
-                          the boss can see at a glance which sequence is
-                          winning inside Industrial Energy vs which is
-                          lagging — even before scanning the rows. Only
-                          shown when ≥2 flows have any conversion data. */}
+                      {/* Within-ICP comparison panel (boss 2026-05-28 r3):
+                          two stacked cards explain WHY the top flow is top
+                          (won / contacted / steps / conv%) and how far the
+                          lagging one is behind. Only shown when at least
+                          one flow has any conversion. */}
                       {(() => {
                         const sortedByConv = [...sec.flows].sort((a, b) => b.conversionRate - a.conversionRate);
                         const top = sortedByConv[0];
                         const bot = sortedByConv[sortedByConv.length - 1];
                         if (!top || top.conversionRate === 0) return null;
-                        if (sec.flows.length < 2 || top === bot) {
-                          return (
-                            <div className="rounded-lg px-3 py-2 mb-1 text-[11px]"
-                              style={{
-                                background: `color-mix(in srgb, ${gold} 6%, transparent)`,
-                                border: `1px solid color-mix(in srgb, ${gold} 18%, transparent)`,
-                                color: C.textBody,
-                              }}>
-                              <span className="text-[9px] font-bold uppercase tracking-[0.12em] mr-2" style={{ color: gold }}>
-                                {t("dashx.campsByIcp.compEyebrow")}
-                              </span>
-                              {t("dashx.campsByIcp.compTopOnly", { top: top.name, topRate: top.conversionRate })}
-                            </div>
-                          );
-                        }
-                        const gap = top.conversionRate - bot.conversionRate;
+                        const topContacted = Math.max(0, top.leads - (top.uncontactedLeads ?? 0));
+                        const botContacted = Math.max(0, bot.leads - (bot.uncontactedLeads ?? 0));
+                        const showLag = sec.flows.length >= 2 && top !== bot;
                         return (
-                          <div className="rounded-lg px-3 py-2 mb-1 text-[11px]"
+                          <div className="rounded-xl border p-3 mb-2 grid gap-3 md:grid-cols-2"
                             style={{
-                              background: `color-mix(in srgb, ${gold} 6%, transparent)`,
-                              border: `1px solid color-mix(in srgb, ${gold} 18%, transparent)`,
-                              color: C.textBody,
+                              background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 7%, transparent), transparent 70%)`,
+                              borderColor: `color-mix(in srgb, ${gold} 22%, ${C.border})`,
                             }}>
-                            <span className="text-[9px] font-bold uppercase tracking-[0.12em] mr-2" style={{ color: gold }}>
-                              {t("dashx.campsByIcp.compEyebrow")}
-                            </span>
-                            {t("dashx.campsByIcp.compTopLag", { top: top.name, topRate: top.conversionRate, bot: bot.name, botRate: bot.conversionRate, gap })}
+                            {/* BEST card */}
+                            <div className="min-w-0">
+                              <p className="text-[9px] font-bold uppercase tracking-[0.14em] flex items-center gap-1" style={{ color: gold }}>
+                                <Trophy size={10} /> {t("dashx.campsByIcp.compBestLabel")}
+                              </p>
+                              <p className="text-[13px] font-bold truncate mt-0.5" style={{ color: C.textPrimary }}>
+                                {top.name}
+                              </p>
+                              <p className="text-[11px] mt-0.5 tabular-nums" style={{ color: C.textBody }}>
+                                {t("dashx.campsByIcp.compMetaLine", {
+                                  won: top.positive,
+                                  contacted: topContacted,
+                                  steps: top.totalSteps,
+                                  rate: top.conversionRate,
+                                })}
+                              </p>
+                            </div>
+                            {/* LAGGING card */}
+                            {showLag && (
+                              <div className="min-w-0 md:border-l md:pl-3" style={{ borderColor: `color-mix(in srgb, ${C.red} 20%, ${C.border})` }}>
+                                <p className="text-[9px] font-bold uppercase tracking-[0.14em] flex items-center gap-1" style={{ color: C.red }}>
+                                  <AlertTriangle size={10} /> {t("dashx.campsByIcp.compLaggingLabel")}
+                                  <span className="ml-1 text-[9px] font-semibold tabular-nums px-1.5 py-0.5 rounded" style={{ background: `color-mix(in srgb, ${C.red} 12%, transparent)` }}>
+                                    {t("dashx.campsByIcp.compGap", { gap: top.conversionRate - bot.conversionRate })}
+                                  </span>
+                                </p>
+                                <p className="text-[13px] font-bold truncate mt-0.5" style={{ color: C.textPrimary }}>
+                                  {bot.name}
+                                </p>
+                                <p className="text-[11px] mt-0.5 tabular-nums" style={{ color: C.textBody }}>
+                                  {t("dashx.campsByIcp.compMetaLine", {
+                                    won: bot.positive,
+                                    contacted: botContacted,
+                                    steps: bot.totalSteps,
+                                    rate: bot.conversionRate,
+                                  })}
+                                </p>
+                              </div>
+                            )}
                           </div>
                         );
                       })()}
@@ -1496,17 +1467,28 @@ export default async function DashboardPage({
                                 />
                               </div>
                               <div className="flex items-center gap-4 shrink-0 text-right">
+                                {/* Row metrics — boss 2026-05-28 r3: prior
+                                    Leads/Replies/Positive trio didn't answer
+                                    "which campaign won most" at a glance.
+                                    Switched to Contacted / Won / Lost /
+                                    Steps so the per-flow comparison reads
+                                    as: of N contacted, X won, Y lost,
+                                    across S designed steps. */}
                                 <div className="hidden sm:block">
-                                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("dashx.tbl.col.leads")}</p>
-                                  <p className="text-[12.5px] font-bold tabular-nums leading-tight" style={{ color: C.textPrimary }}>{c.leads}</p>
+                                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("dashx.campsByIcp.colContacted")}</p>
+                                  <p className="text-[12.5px] font-bold tabular-nums leading-tight" style={{ color: C.textPrimary }}>{Math.max(0, c.leads - (c.uncontactedLeads ?? 0))}</p>
                                 </div>
                                 <div className="hidden sm:block">
-                                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("dashx.tbl.col.replied")}</p>
-                                  <p className="text-[12.5px] font-bold tabular-nums leading-tight" style={{ color: C.textPrimary }}>{c.replied}</p>
-                                </div>
-                                <div className="hidden sm:block">
-                                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("dashx.tbl.col.positive")}</p>
+                                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("dashx.campsByIcp.colWon")}</p>
                                   <p className="text-[12.5px] font-bold tabular-nums leading-tight" style={{ color: c.positive > 0 ? C.green : C.textPrimary }}>{c.positive}</p>
+                                </div>
+                                <div className="hidden sm:block">
+                                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("dashx.campsByIcp.colLost")}</p>
+                                  <p className="text-[12.5px] font-bold tabular-nums leading-tight" style={{ color: c.negative > 0 ? C.red : C.textPrimary }}>{c.negative ?? 0}</p>
+                                </div>
+                                <div className="hidden sm:block">
+                                  <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("dashx.campsByIcp.colSteps")}</p>
+                                  <p className="text-[12.5px] font-bold tabular-nums leading-tight" style={{ color: C.textPrimary }}>{c.totalSteps || "—"}</p>
                                 </div>
                                 <div className="hidden md:flex justify-end" style={{ width: 56 }}>
                                   <RateBar value={c.conversionRate} max={sectionMaxConv} color={C.green} />
