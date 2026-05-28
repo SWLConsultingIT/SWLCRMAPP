@@ -47,14 +47,26 @@ export default function ChannelCard({
 
   return (
     <div
-      className="relative rounded-2xl border overflow-hidden p-4 sm:p-5 transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-md flex flex-col"
+      // Hover lift + channel-color glow ring + 3px top accent rail in
+      // channel color. Boss 2026-05-28 round B: "hace más lindo
+      // performance by channel".
+      className="group/card relative rounded-2xl border overflow-hidden p-4 sm:p-5 transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-[0_14px_32px_-12px_var(--card-glow)] flex flex-col"
       style={{
         backgroundColor: C.card,
         borderColor: isTop ? `color-mix(in srgb, ${gold} 38%, ${C.border})` : C.border,
         boxShadow: isTop ? `0 6px 20px color-mix(in srgb, ${gold} 14%, transparent)` : "0 1px 2px rgba(0,0,0,0.03)",
-        minHeight: 168,
+        borderTop: `3px solid ${meta.color}`,
+        minHeight: 178,
+        ["--card-glow" as string]: `color-mix(in srgb, ${meta.color} 38%, transparent)`,
       }}
     >
+      {/* Soft radial halo in the channel color — only visible on hover so
+          at rest the card stays calm, on hover it lights up its identity. */}
+      <span
+        aria-hidden
+        className="absolute -top-12 -right-12 w-40 h-40 rounded-full pointer-events-none opacity-0 group-hover/card:opacity-100 transition-opacity duration-200"
+        style={{ background: `radial-gradient(circle, color-mix(in srgb, ${meta.color} 12%, transparent) 0%, transparent 70%)` }}
+      />
       {/* Top performer ribbon — gold gradient corner flag. Subtle but clear:
           the eye finds the winning channel before reading any number. */}
       {isTop && (
@@ -72,40 +84,46 @@ export default function ChannelCard({
       )}
 
       {/* Channel ID row */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5 relative">
         <span
-          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-          style={{ backgroundColor: `color-mix(in srgb, ${meta.color} 14%, transparent)`, color: meta.color }}
+          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+          style={{
+            backgroundColor: `color-mix(in srgb, ${meta.color} 14%, transparent)`,
+            color: meta.color,
+            border: `1px solid color-mix(in srgb, ${meta.color} 22%, transparent)`,
+          }}
         >
-          <Icon size={15} />
+          <Icon size={18} />
         </span>
         <div className="flex-1 min-w-0">
           <p className={`${T.label} truncate`} style={{ color: C.textMuted }}>
             {t("dashx.channels.channelLabel")}
           </p>
-          <p className="text-[14px] font-bold leading-none mt-0.5 truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+          <p className="text-[15px] font-bold leading-none mt-0.5 truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
             {channelLabel}
           </p>
         </div>
       </div>
 
       {/* Reply rate hero number */}
-      <div className="mt-3 flex items-baseline gap-2 flex-1">
+      <div className="mt-4 flex items-baseline gap-2 flex-1 relative">
         <span
-          className="text-[36px] font-bold tabular-nums leading-none tracking-[-0.02em]"
+          className="text-[40px] font-bold tabular-nums leading-none tracking-[-0.02em]"
           style={{ color: meta.color, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
         >
           {row.responseRate}
-          <span className="text-[18px] ml-0.5" style={{ color: C.textMuted }}>%</span>
+          <span className="text-[20px] ml-0.5" style={{ color: C.textMuted }}>%</span>
         </span>
         <span className="text-[10.5px] uppercase tracking-[0.14em] font-semibold" style={{ color: C.textDim }}>
           {t("dashx.channels.respShort")}
         </span>
       </div>
 
-      {/* Volume strip — 3 micro-stats in a single row */}
-      <div className="mt-3 pt-3 grid grid-cols-3 gap-2" style={{ borderTop: `1px dashed ${C.border}` }}>
+      {/* Volume strip — 4 micro-stats now (added contacted so the
+          denominator of the reply rate is visible alongside it). */}
+      <div className="mt-3 pt-3 grid grid-cols-4 gap-2 relative" style={{ borderTop: `1px dashed ${C.border}` }}>
         <Mini label={t("dashx.channels.sent")} value={row.sent} />
+        <Mini label={t("dashx.channels.contacted")} value={row.contacted} />
         <Mini label={t("dashx.channels.replied")} value={row.replied} />
         <Mini label={t("dashx.channels.positive")} value={row.positive} accent={row.positive > 0 ? C.green : undefined} />
       </div>
