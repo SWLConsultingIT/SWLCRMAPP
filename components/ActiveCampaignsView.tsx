@@ -68,6 +68,10 @@ type CampaignGroup = {
   acceptRate: number | null;
   acceptedCount: number;
   inviteCohort: number;
+  // Sequence step count — total scripted steps in the flow (from
+  // sequence_steps). Same value across every campaign in the group
+  // since the steps are flow-level, not lead-level.
+  totalSteps: number;
 };
 
 type IcpSection = {
@@ -164,6 +168,13 @@ function groupCampaigns(campaigns: Campaign[]): CampaignGroup[] {
     const acceptedCount = liCamps.filter(c => (c.current_step ?? 0) > 1).length;
     const inviteCohort = liCamps.length;
     const acceptRate = inviteCohort > 0 ? Math.round((acceptedCount / inviteCohort) * 100) : null;
+    // Step count — pick the max sequence length across the group; each
+    // campaign-row in a flow shares the same sequence so this is just a
+    // resilient read against a possibly-null `sequence_steps`.
+    const totalSteps = camps.reduce((m, c) => {
+      const n = Array.isArray(c.sequence_steps) ? c.sequence_steps.length : (c.total_steps ?? 0);
+      return n > m ? n : m;
+    }, 0);
 
     const groupStatus = active > 0 ? "active" : paused > 0 ? "paused" : completed > 0 ? "completed" : "failed";
 
@@ -197,6 +208,7 @@ function groupCampaigns(campaigns: Campaign[]): CampaignGroup[] {
       acceptRate,
       acceptedCount,
       inviteCohort,
+      totalSteps,
     };
   }).sort((a, b) => b.active - a.active || b.totalLeads - a.totalLeads);
 }
@@ -330,89 +342,65 @@ function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
           </div>
         </div>
 
-        {/* Metric tiles + progress — laid out as a horizontal strip so the
-            seller can scan KPIs left-to-right without scrolling. Progress
-            bar sits on the right and stretches to fill remaining space. */}
-        <div className="flex items-stretch gap-3 flex-wrap">
-          <MetricTile label={t("flows.metric.leads")} value={group.totalLeads}
+        {/* Funnel-status KPI grid — boss feedback 2026-05-28: replaces
+            the 3-stat tiles + progress block + chip strip. Six raw
+            counts so the operator reads the whole flow status in one
+            scan: how many leads, how many invites fired, how many
+            accepted, how many messages sent (DMs+emails), how many
+            replied, and how many steps in the sequence. */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <MetricTile
+            label={t("flows.metric.leads")}
+            value={group.totalLeads}
             sub={group.active > 0
               ? `${t("flows.activeCount").replace("{n}", String(group.active))}${group.completed > 0 ? ` · ${t("flows.doneCount").replace("{n}", String(group.completed))}` : ""}`
               : group.completed > 0
                 ? t("flows.doneCount").replace("{n}", String(group.completed))
                 : null}
-            accent={gold} dim={true} />
-          <MetricTile label={t("flows.metric.replies")} value={group.totalReplies}
-            sub={t("flows.metric.responseRate").replace("{n}", String(responseRate))}
-            accent={C.blue} dim={group.totalReplies === 0} />
-          <MetricTile label={t("flows.metric.positive")} value={group.totalPositive}
-            sub={t("flows.metric.positiveRate").replace("{n}", String(positiveRate))}
-            accent={C.green} dim={group.totalPositive === 0} />
-
-          {/* Progress block — fills remaining horizontal space. Big, friendly,
-              tells the seller "how far through the sequence am I on average". */}
-          <div className="rounded-xl border px-4 py-3 flex-[2] min-w-[220px]"
-            style={{ borderColor: C.border, backgroundColor: C.bg }}>
-            <div className="flex items-center justify-between">
-              <p className="text-[9px] font-bold uppercase tracking-[0.12em]" style={{ color: C.textDim }}>{t("flows.metric.sequenceProgress")}</p>
-              <p className="text-[12px] font-bold tabular-nums" style={{ color: C.textPrimary }}>{group.avgProgress}%</p>
-            </div>
-            <div className="mt-2.5 h-2 rounded-full" style={{ backgroundColor: C.border }}>
-              <div className="h-2 rounded-full transition-[width] duration-300"
-                style={{
-                  width: `${group.avgProgress}%`,
-                  background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 65%, white))`,
-                }} />
-            </div>
-            <p className="text-[10px] mt-1.5" style={{ color: C.textDim }}>
-              {t("flows.metric.averageAcross")}
-            </p>
-          </div>
+            accent={gold} dim={true}
+          />
+          <MetricTile
+            label={t("flows.kpi.connectionsSent")}
+            value={group.liInvitesSent}
+            sub={group.inviteCohort > 0 ? `${group.inviteCohort} leads` : null}
+            accent="#0A66C2" dim={group.liInvitesSent === 0}
+          />
+          <MetricTile
+            label={t("flows.kpi.accepted")}
+            value={group.acceptedCount}
+            sub={group.acceptRate !== null
+              ? `${group.acceptRate}% ${t("flows.metric.acceptanceRate").toLowerCase()}`
+              : null}
+            accent={C.green} dim={group.acceptedCount === 0}
+          />
+          <MetricTile
+            label={t("flows.kpi.messagesSent")}
+            value={group.liDmsSent + group.emailsSent + group.callsMade}
+            sub={(() => {
+              const parts: string[] = [];
+              if (group.liDmsSent > 0)  parts.push(`${group.liDmsSent} LI`);
+              if (group.emailsSent > 0) parts.push(`${group.emailsSent} email`);
+              if (group.callsMade > 0)  parts.push(`${group.callsMade} call`);
+              return parts.length > 0 ? parts.join(" · ") : null;
+            })()}
+            accent="#7C3AED" dim={(group.liDmsSent + group.emailsSent + group.callsMade) === 0}
+          />
+          <MetricTile
+            label={t("flows.metric.replies")}
+            value={group.totalReplies}
+            sub={group.totalReplies > 0
+              ? `${responseRate}% ${t("flows.kpi.responseRateShort")}`
+              : null}
+            accent={C.blue} dim={group.totalReplies === 0}
+          />
+          <MetricTile
+            label={t("flows.kpi.steps")}
+            value={group.totalSteps}
+            sub={group.totalSteps > 0 ? `${group.avgProgress}% ${t("flows.kpi.avgProgress")}` : null}
+            accent={C.textPrimary} dim={true}
+          />
         </div>
 
-        {/* Channel breakdown strip — small inline chips for what's actually
-            been fired per channel + the win/lost counts. Boss asked for
-            these on 2026-05-27 so the card explains "where the work went"
-            without needing to open the campaign. Only renders chips that
-            have a non-zero value to keep the row tidy. */}
-        {(group.liInvitesSent + group.liDmsSent + group.emailsSent + group.callsMade + group.wonCount + group.lostCount) > 0 && (
-          <div className="flex items-center gap-1.5 flex-wrap mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
-            {group.liInvitesSent > 0 && (
-              <MetricChip icon={<Share2 size={10} />} label={t("flows.chip.invites")} value={group.liInvitesSent} color="#0A66C2" />
-            )}
-            {group.acceptRate !== null && (
-              <span
-                className="inline-flex items-center gap-1 text-[10.5px] font-bold tabular-nums px-1.5 py-0.5 rounded-md"
-                title={t("flows.metric.acceptanceHint")
-                  .replace("{n}", String(group.acceptRate))
-                  .replace("{accepted}", String(group.acceptedCount))
-                  .replace("{total}", String(group.inviteCohort))}
-                style={{
-                  color: group.acceptRate >= 50 ? C.green : group.acceptRate >= 20 ? gold : C.textMuted,
-                  backgroundColor: `color-mix(in srgb, ${group.acceptRate >= 50 ? C.green : group.acceptRate >= 20 ? gold : C.textMuted} 10%, transparent)`,
-                  border: `1px solid color-mix(in srgb, ${group.acceptRate >= 50 ? C.green : group.acceptRate >= 20 ? gold : C.textMuted} 26%, transparent)`,
-                }}
-              >
-                {group.acceptRate}% {t("flows.metric.acceptanceRate").toLowerCase()}
-              </span>
-            )}
-            {group.liDmsSent > 0 && (
-              <MetricChip icon={<Share2 size={10} />} label={t("flows.chip.dms")} value={group.liDmsSent} color="#0A66C2" />
-            )}
-            {group.emailsSent > 0 && (
-              <MetricChip icon={<Mail size={10} />} label={t("flows.chip.emails")} value={group.emailsSent} color="#7C3AED" />
-            )}
-            {group.callsMade > 0 && (
-              <MetricChip icon={<Phone size={10} />} label={t("flows.chip.calls")} value={group.callsMade} color="#F97316" />
-            )}
-            <div className="flex-1" />
-            {group.wonCount > 0 && (
-              <MetricChip label={t("flows.chip.won")} value={group.wonCount} color={C.green} solid />
-            )}
-            {group.lostCount > 0 && (
-              <MetricChip label={t("flows.chip.lost")} value={group.lostCount} color={C.red} solid />
-            )}
-          </div>
-        )}
       </div>
     </Link>
   );
