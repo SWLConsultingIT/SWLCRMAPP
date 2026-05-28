@@ -529,62 +529,72 @@ export default async function DashboardPage({
           </div>
         </div>
 
-        {/* Band B — Outcomes & Rates */}
+        {/* Band B — Outcomes (counts) + Rates (percentages) split into
+            two columns so the eye reads them as different metric types.
+            Boss feedback 2026-05-28 round B option C. */}
         <div className="px-4 pt-5">
           <p className="text-[9.5px] font-bold uppercase tracking-[0.16em] mb-2" style={{ color: C.textMuted }}>
             {t("dashx.overview.bandOutcomes")}
           </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          <MicroKpi
-            label={t("dashx.kpi.totalReplies")}
-            value={headline.repliedCount.toLocaleString(dateLoc)}
-            icon={MessageSquare}
-            accent="#7C3AED"
-            hint={t("dashx.kpi.totalRepliesHint")}
-            vsPriorLabel={t("dashx.kpi.vsPrior")}
-            noPriorLabel={t("dashx.kpi.noPrior")}
-            href="/inbox"
-          />
-          <MicroKpi
-            label={t("dashx.kpi.won")}
-            value={headline.wonCount.toLocaleString(dateLoc)}
-            icon={Trophy}
-            accent={C.green}
-            hint={t("dashx.kpi.wonHint", { n: headline.positiveCount })}
-            vsPriorLabel={t("dashx.kpi.vsPrior")}
-            noPriorLabel={t("dashx.kpi.noPrior")}
-            href="/opportunities"
-          />
-          <MicroKpi
-            label={t("dashx.kpi.lost")}
-            value={headline.negativeCount.toLocaleString(dateLoc)}
-            icon={AlertTriangle}
-            accent="#DC2626"
-            hint={t("dashx.kpi.lostHint")}
-            vsPriorLabel={t("dashx.kpi.vsPrior")}
-            noPriorLabel={t("dashx.kpi.noPrior")}
-            href="/leads/lost"
-          />
-          <MicroKpi
-            label={t("dashx.pulse.replyRate")}
-            value={`${headline.responseRate}%`}
-            icon={MessageSquare}
-            accent="#7C3AED"
-            hint={t("dashx.pulse.replyRateHint", { n: headline.repliedCount.toLocaleString(dateLoc), c: headline.contactedLeads.toLocaleString(dateLoc) })}
-            vsPriorLabel={t("dashx.kpi.vsPrior")}
-            noPriorLabel={t("dashx.kpi.noPrior")}
-            href="/inbox"
-          />
-          <MicroKpi
-            label={t("dashx.pulse.winRate")}
-            value={`${data.velocity.winRate}%`}
-            icon={ThumbsUp}
-            accent={gold}
-            hint={t("dashx.pulse.winRateHint", { n: headline.wonCount.toLocaleString(dateLoc), c: headline.contactedLeads.toLocaleString(dateLoc) })}
-            vsPriorLabel={t("dashx.kpi.vsPrior")}
-            noPriorLabel={t("dashx.kpi.noPrior")}
-            href="/opportunities"
-          />
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-3">
+            {/* Counts column — 3 cards stacked left */}
+            <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <MicroKpi
+                label={t("dashx.kpi.totalReplies")}
+                value={headline.repliedCount.toLocaleString(dateLoc)}
+                icon={MessageSquare}
+                accent="#7C3AED"
+                hint={t("dashx.kpi.totalRepliesHint")}
+                vsPriorLabel={t("dashx.kpi.vsPrior")}
+                noPriorLabel={t("dashx.kpi.noPrior")}
+                href="/inbox"
+              />
+              <MicroKpi
+                label={t("dashx.kpi.won")}
+                value={headline.wonCount.toLocaleString(dateLoc)}
+                icon={Trophy}
+                accent={C.green}
+                hint={t("dashx.kpi.wonHint", { n: headline.positiveCount })}
+                vsPriorLabel={t("dashx.kpi.vsPrior")}
+                noPriorLabel={t("dashx.kpi.noPrior")}
+                href="/opportunities"
+              />
+              <MicroKpi
+                label={t("dashx.kpi.lost")}
+                value={headline.negativeCount.toLocaleString(dateLoc)}
+                icon={AlertTriangle}
+                accent="#DC2626"
+                hint={t("dashx.kpi.lostHint")}
+                vsPriorLabel={t("dashx.kpi.vsPrior")}
+                noPriorLabel={t("dashx.kpi.noPrior")}
+                href="/leads/lost"
+              />
+            </div>
+            {/* Rates column — 2 cards on a subtly different background so
+                the eye reads "these are ratios, not counts". */}
+            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-xl"
+              style={{ background: `color-mix(in srgb, ${gold} 5%, transparent)`, padding: 6 }}>
+              <MicroKpi
+                label={t("dashx.pulse.replyRate")}
+                value={`${headline.responseRate}%`}
+                icon={MessageSquare}
+                accent="#7C3AED"
+                hint={t("dashx.pulse.replyRateHint", { n: headline.repliedCount.toLocaleString(dateLoc), c: headline.contactedLeads.toLocaleString(dateLoc) })}
+                vsPriorLabel={t("dashx.kpi.vsPrior")}
+                noPriorLabel={t("dashx.kpi.noPrior")}
+                href="/inbox"
+              />
+              <MicroKpi
+                label={t("dashx.pulse.winRate")}
+                value={`${data.velocity.winRate}%`}
+                icon={ThumbsUp}
+                accent={gold}
+                hint={t("dashx.pulse.winRateHint", { n: headline.wonCount.toLocaleString(dateLoc), c: headline.contactedLeads.toLocaleString(dateLoc) })}
+                vsPriorLabel={t("dashx.kpi.vsPrior")}
+                noPriorLabel={t("dashx.kpi.noPrior")}
+                href="/opportunities"
+              />
+            </div>
           </div>
         </div>
 

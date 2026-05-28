@@ -35,31 +35,36 @@ export default function MicroKpi({
   const accentColor = accent ?? C.gold;
   const Body = (
     <div
-      className="relative rounded-xl border overflow-hidden px-4 py-3.5 flex items-center gap-3 transition-[transform,box-shadow] hover:-translate-y-[1px] hover:shadow-md"
+      // Boss feedback 2026-05-28 round B: cards needed more visual
+      // hierarchy. Icon tile larger (44×44), padding bumped, accent rail
+      // thicker on the left, number much bigger so the eye lands on it
+      // before the label.
+      className="relative rounded-xl border overflow-hidden px-4 py-4 flex items-center gap-3.5 transition-[transform,box-shadow] hover:-translate-y-[1px] hover:shadow-md"
       style={{
         backgroundColor: C.card,
         borderColor: C.border,
-        borderLeft: `3px solid ${accentColor}`,
+        borderLeft: `4px solid ${accentColor}`,
       }}
     >
       {Icon && (
         <span
-          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
           style={{
-            backgroundColor: `color-mix(in srgb, ${accentColor} 12%, transparent)`,
+            backgroundColor: `color-mix(in srgb, ${accentColor} 14%, transparent)`,
             color: accentColor,
+            border: `1px solid color-mix(in srgb, ${accentColor} 22%, transparent)`,
           }}
         >
-          <Icon size={14} />
+          <Icon size={18} />
         </span>
       )}
       <div className="flex-1 min-w-0">
         <p className={`${T.label} truncate`} style={{ color: C.textMuted }}>
           {label}
         </p>
-        <div className="mt-0.5 flex items-baseline gap-2">
+        <div className="mt-1 flex items-baseline gap-2">
           <span
-            className="text-[22px] font-bold tabular-nums leading-none tracking-[-0.02em]"
+            className="text-[28px] font-bold tabular-nums leading-none tracking-[-0.02em]"
             style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
           >
             {value}
