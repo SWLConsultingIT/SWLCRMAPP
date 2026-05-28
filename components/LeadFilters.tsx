@@ -178,91 +178,91 @@ export function LeadFilterBar({
         </span>
       </div>
 
-      {/* Score / Campaign / Results pills — always visible (no expand
-          toggle). Score/Campaign/Results are mutually-exclusive in the
-          old design, now multi-select: click a pill to add, click again
-          to remove. Results renamed from "Reply" with cleaner buckets:
-          just Positive vs Negative — boss feedback 2026-05-28 r5. */}
-      {showStatusPills && (
-      <div className="px-4 py-3 flex items-center gap-4 flex-wrap" style={{ backgroundColor: `color-mix(in srgb, ${C.bg} 50%, transparent)` }}>
-        <PillGroup
-          icon={<Flame size={11} />}
-          label="Score"
-          selected={filters.score}
-          onToggle={v => toggle("score", v)}
-          options={[
-            { key: "hot", label: "Hot", color: C.hot },
-            { key: "warm", label: "Warm", color: C.warm },
-            { key: "nurture", label: "Nurture", color: C.nurture },
-          ]}
-        />
+      {/* All filters on one grid row, distributed evenly across the bar
+          width so nothing piles up on the right side. Each cell holds one
+          facet group; cells wrap to a new row on narrow viewports. Boss
+          feedback 2026-05-28 r6: "los filtros están amontonados a la
+          derecha". */}
+      {(showStatusPills || (showProfileFilter && profileNames && profileNames.length > 0) || (industryOptions && industryOptions.length > 0) || (roleOptions && roleOptions.length > 0)) && (
+      <div
+        className="px-4 py-3 grid gap-x-6 gap-y-3"
+        style={{
+          backgroundColor: `color-mix(in srgb, ${C.bg} 50%, transparent)`,
+          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+        }}
+      >
+        {showStatusPills && (
+          <>
+            <PillGroup
+              icon={<Flame size={11} />}
+              label="Score"
+              selected={filters.score}
+              onToggle={v => toggle("score", v)}
+              options={[
+                { key: "hot", label: "Hot", color: C.hot },
+                { key: "warm", label: "Warm", color: C.warm },
+                { key: "nurture", label: "Nurture", color: C.nurture },
+              ]}
+            />
 
-        {showCampaignFilter && (
-          <PillGroup
-            icon={<Megaphone size={11} />}
-            label="Campaign"
-            selected={filters.campaign}
-            onToggle={v => toggle("campaign", v)}
-            options={[
-              { key: "yes", label: "Active", color: C.green },
-              { key: "no", label: "None", color: "#92400E" },
-            ]}
-          />
+            {showCampaignFilter && (
+              <PillGroup
+                icon={<Megaphone size={11} />}
+                label="Campaign"
+                selected={filters.campaign}
+                onToggle={v => toggle("campaign", v)}
+                options={[
+                  { key: "yes", label: "Active", color: C.green },
+                  { key: "no", label: "None", color: "#92400E" },
+                ]}
+              />
+            )}
+
+            <PillGroup
+              icon={<MessageCircle size={11} />}
+              label="Results"
+              selected={filters.results}
+              onToggle={v => toggle("results", v)}
+              options={[
+                { key: "positive", label: "Positive", color: C.green },
+                { key: "negative", label: "Negative", color: C.red },
+              ]}
+            />
+          </>
         )}
 
-        <PillGroup
-          icon={<MessageCircle size={11} />}
-          label="Results"
-          selected={filters.results}
-          onToggle={v => toggle("results", v)}
-          options={[
-            { key: "positive", label: "Positive", color: C.green },
-            { key: "negative", label: "Negative", color: C.red },
-          ]}
-        />
+        {showProfileFilter && profileNames && profileNames.length > 0 && (
+          <FacetDropdown
+            icon={<Target size={11} />}
+            label="ICP"
+            selected={filters.profile}
+            onToggle={v => toggle("profile", v)}
+            onClear={() => onChange({ ...filters, profile: [] })}
+            options={profileNames}
+          />
+        )}
+        {industryOptions && industryOptions.length > 0 && (
+          <FacetDropdown
+            icon={<Building2 size={11} />}
+            label="Industry"
+            selected={filters.industry}
+            onToggle={v => toggle("industry", v)}
+            onClear={() => onChange({ ...filters, industry: [] })}
+            options={industryOptions}
+          />
+        )}
+        {roleOptions && roleOptions.length > 0 && (
+          <FacetDropdown
+            icon={<Briefcase size={11} />}
+            label="Role"
+            selected={filters.role}
+            onToggle={v => toggle("role", v)}
+            onClear={() => onChange({ ...filters, role: [] })}
+            options={roleOptions}
+          />
+        )}
       </div>
       )}
-
-      {/* Facet dropdowns — multi-select popups. Order: ICP, Industry,
-          Role (Industry promoted ahead of Role per boss feedback). All
-          three are popup-checkbox now regardless of count so the
-          interaction is uniform. */}
-      {(showProfileFilter && profileNames && profileNames.length > 0)
-        || (industryOptions && industryOptions.length > 0)
-        || (roleOptions && roleOptions.length > 0) ? (
-        <div className="px-4 py-2.5 border-t flex items-center gap-4 flex-wrap" style={{ borderColor: C.border, backgroundColor: C.card }}>
-          {showProfileFilter && profileNames && profileNames.length > 0 && (
-            <FacetDropdown
-              icon={<Target size={11} />}
-              label="ICP"
-              selected={filters.profile}
-              onToggle={v => toggle("profile", v)}
-              onClear={() => onChange({ ...filters, profile: [] })}
-              options={profileNames}
-            />
-          )}
-          {industryOptions && industryOptions.length > 0 && (
-            <FacetDropdown
-              icon={<Building2 size={11} />}
-              label="Industry"
-              selected={filters.industry}
-              onToggle={v => toggle("industry", v)}
-              onClear={() => onChange({ ...filters, industry: [] })}
-              options={industryOptions}
-            />
-          )}
-          {roleOptions && roleOptions.length > 0 && (
-            <FacetDropdown
-              icon={<Briefcase size={11} />}
-              label="Role"
-              selected={filters.role}
-              onToggle={v => toggle("role", v)}
-              onClear={() => onChange({ ...filters, role: [] })}
-              options={roleOptions}
-            />
-          )}
-        </div>
-      ) : null}
     </div>
   );
 }

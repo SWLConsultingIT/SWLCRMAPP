@@ -1920,8 +1920,8 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
                 color: string;
               }> = [
                 { key: "all",              label: "All",          count: allLeads.length,                                color: gold },
-                { key: "without_campaign", label: "Without flow", count: leadsWithoutCampaign.length,                    color: "#92400E" },
-                { key: "with_campaign",    label: "In a flow",    count: allLeads.filter(l => l.has_campaign).length,    color: C.blue },
+                { key: "without_campaign", label: "Without flow", count: leadsWithoutCampaign.length,                    color: gold },
+                { key: "with_campaign",    label: "In a flow",    count: allLeads.filter(l => l.has_campaign).length,    color: gold },
               ];
               return chips.map(t => {
                 const isActive = leadSubTab === t.key;
