@@ -14,6 +14,7 @@ import {
 import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
 import { type OpportunityLead } from "@/components/OpportunitiesTable";
 import { useToast } from "@/lib/toast";
+import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -1817,6 +1818,7 @@ function AddToFlowModalLeads({
 }
 
 export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLeads, renurturingLeads, wonLeads, companies, stats, totalLeadCount }: Props) {
+  const { t } = useLocale();
   // Boss feedback 2026-05-27 (Leads & Campaigns rework):
   //   - Companies is now a top-level tab (was sub-toggle inside All Leads)
   //   - Lead sub-tabs are FLAT (no "Results" wrapper): All / Without Campaign
@@ -1895,10 +1897,10 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
         }}
       >
         {[
-          { label: "Total Leads",      value: stats.totalLeads,         color: C.textBody },
-          { label: "Active Flows",     value: stats.activeCampaigns,    color: gold },
-          { label: "Response Rate",    value: `${stats.responseRate}%`, color: C.blue },
-          { label: "Positive Replies", value: stats.positiveReplies,    color: C.green },
+          { label: t("leadsPage.stats.totalLeads"),       value: stats.totalLeads,         color: C.textBody },
+          { label: t("leadsPage.stats.activeFlows"),      value: stats.activeCampaigns,    color: gold },
+          { label: t("leadsPage.stats.responseRate"),     value: `${stats.responseRate}%`, color: C.blue },
+          { label: t("leadsPage.stats.positiveReplies"), value: stats.positiveReplies,    color: C.green },
         ].map((s, i, arr) => (
           <div key={s.label} className="flex items-center gap-3">
             <div className="flex items-baseline gap-1.5">
@@ -1925,9 +1927,9 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
           surfaces, not as a "view onto leads". */}
       <div className="flex items-center gap-1.5 mb-5">
         {([
-          { key: "leads" as const,     label: "Leads",     icon: UsersIcon, count: allLeads.length },
-          { key: "companies" as const, label: "Companies", icon: Building2, count: companies.length },
-          { key: "campaigns" as const, label: "Campaigns", icon: Megaphone, count: activeGroups.length },
+          { key: "leads" as const,     label: t("leadsPage.topTab.leads"),     icon: UsersIcon, count: allLeads.length },
+          { key: "companies" as const, label: t("leadsPage.topTab.companies"), icon: Building2, count: companies.length },
+          { key: "campaigns" as const, label: t("leadsPage.topTab.campaigns"), icon: Megaphone, count: activeGroups.length },
         ]).map(v => {
           const isActive = mainView === v.key;
           const Icon = v.icon;
@@ -1979,32 +1981,32 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
                 count: number;
                 color: string;
               }> = [
-                { key: "all",              label: "All",          count: allLeads.length,                                color: gold },
-                { key: "without_campaign", label: "Without flow", count: leadsWithoutCampaign.length,                    color: gold },
-                { key: "with_campaign",    label: "In a flow",    count: allLeads.filter(l => l.has_campaign).length,    color: gold },
+                { key: "all",              label: t("leadsPage.chip.all"),         count: allLeads.length,                                color: gold },
+                { key: "without_campaign", label: t("leadsPage.chip.withoutFlow"), count: leadsWithoutCampaign.length,                    color: gold },
+                { key: "with_campaign",    label: t("leadsPage.chip.inFlow"),      count: allLeads.filter(l => l.has_campaign).length,    color: gold },
               ];
-              return chips.map(t => {
-                const isActive = leadSubTab === t.key;
+              return chips.map(chip => {
+                const isActive = leadSubTab === chip.key;
                 return (
                   <button
-                    key={t.key}
-                    onClick={() => setLeadSubTab(t.key)}
+                    key={chip.key}
+                    onClick={() => setLeadSubTab(chip.key)}
                     className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-[opacity,background-color]"
                     style={{
-                      backgroundColor: isActive ? `color-mix(in srgb, ${t.color} 14%, transparent)` : C.card,
-                      borderColor:     isActive ? `color-mix(in srgb, ${t.color} 45%, transparent)` : C.border,
-                      color:           isActive ? t.color : C.textBody,
+                      backgroundColor: isActive ? `color-mix(in srgb, ${chip.color} 14%, transparent)` : C.card,
+                      borderColor:     isActive ? `color-mix(in srgb, ${chip.color} 45%, transparent)` : C.border,
+                      color:           isActive ? chip.color : C.textBody,
                     }}
                   >
-                    {t.label}
+                    {chip.label}
                     <span
                       className="text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full"
                       style={{
-                        backgroundColor: isActive ? t.color : C.surface,
+                        backgroundColor: isActive ? chip.color : C.surface,
                         color:           isActive ? "#fff"  : C.textDim,
                       }}
                     >
-                      {t.count}
+                      {chip.count}
                     </span>
                   </button>
                 );
