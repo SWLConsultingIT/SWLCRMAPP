@@ -581,6 +581,7 @@ export const en: Dict = {
   "dashx.funnel.fromPrev": "of previous",
   "dashx.funnel.priorLabel": "Prior period",
   "dashx.funnel.vsPriorShort": "vs prior",
+  "dashx.funnel.legendTitle": "What each stage counts",
   // Concentration / Pareto
   "dashx.pareto.title": "Concentration of positives",
   "dashx.pareto.subtitle": "Where the wins are clustered · mono-segment risk indicator",
@@ -1397,6 +1398,7 @@ export const es: Dict = {
   "dashx.funnel.fromPrev": "del anterior",
   "dashx.funnel.priorLabel": "Período anterior",
   "dashx.funnel.vsPriorShort": "vs anterior",
+  "dashx.funnel.legendTitle": "Qué cuenta cada stage",
   // Concentration / Pareto
   "dashx.pareto.title": "Concentración de positivas",
   "dashx.pareto.subtitle": "Dónde se aglutinan los wins · indicador de riesgo de mono-segmento",

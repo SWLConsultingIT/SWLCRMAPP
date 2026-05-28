@@ -648,16 +648,20 @@ export default async function DashboardPage({
               const replyPct = accepted > 0 ? Math.round((replied / accepted) * 100) : 0;
               return t("dashx.funnel.insight", { acceptPct, replyPct, won });
             })()}>
-            <Funnel {...funnel18n} stages={data.funnel.map(s => {
-              const key = stageKey(s.stage);
-              const defKey = `dashx.funnel.def.${key}`;
-              const def = t(defKey);
-              return {
-                ...s,
-                stage: t(`dashx.funnel.stage.${key}`) || s.stage,
-                definition: def !== defKey ? def : undefined,
-              };
-            })} />
+            <Funnel
+              {...funnel18n}
+              legendTitle={t("dashx.funnel.legendTitle")}
+              stages={data.funnel.map(s => {
+                const key = stageKey(s.stage);
+                const defKey = `dashx.funnel.def.${key}`;
+                const def = t(defKey);
+                return {
+                  ...s,
+                  stage: t(`dashx.funnel.stage.${key}`) || s.stage,
+                  definition: def !== defKey ? def : undefined,
+                };
+              })}
+            />
           </Panel>
           <Panel title={t("dashx.donut.title")} subtitle={t("dashx.donut.subtitle")} className="lg:col-span-5" glow
             actionHref="/inbox" actionLabel={t("dashx.panel.openInbox")}

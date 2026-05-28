@@ -34,11 +34,17 @@ export default function Funnel({
   fromPrevLabel = "of previous",
   priorLabel = "Prior period",
   vsPriorLabel = "vs prior",
+  legendTitle,
 }: {
   stages: Stage[];
   fromPrevLabel?: string;
   priorLabel?: string;
   vsPriorLabel?: string;
+  /** When set, renders a permanent legend strip under the funnel with one
+   * line per stage. Boss feedback 2026-05-28: "sigue sin entenderse qué
+   * es cada métrica" — tooltips alone weren't enough, the definitions
+   * need to be visible without hover. */
+  legendTitle?: string;
 }) {
   const top = stages[0]?.count ?? 0;
   // Choose the visual scale from max(current, prior) so the ghost bar can
@@ -146,6 +152,29 @@ export default function Funnel({
             border: `1px dashed ${C.border}`,
           }} />
           <span>{priorLabel}</span>
+        </div>
+      )}
+      {/* Permanent definitions strip — boss feedback 2026-05-28: tooltips
+          alone weren't enough, every stage gets its definition visible. */}
+      {legendTitle && stages.some(s => s.definition) && (
+        <div className="mt-4 pt-3 border-t" style={{ borderColor: C.border }}>
+          <p className="text-[9.5px] font-bold uppercase tracking-[0.16em] mb-2" style={{ color: C.textMuted }}>
+            {legendTitle}
+          </p>
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-1.5">
+            {stages.filter(s => s.definition).map(s => {
+              const color = colorMap[s.color] ?? colorMap.neutral;
+              return (
+                <li key={s.stage} className="flex items-start gap-2 text-[10.5px] leading-snug">
+                  <span aria-hidden className="w-1.5 h-1.5 rounded-full shrink-0 mt-1.5" style={{ background: color }} />
+                  <span style={{ color: C.textBody }}>
+                    <span className="font-semibold">{s.stage}:</span>{" "}
+                    <span style={{ color: C.textDim }}>{s.definition}</span>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
     </div>
