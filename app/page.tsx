@@ -336,19 +336,42 @@ export default async function DashboardPage({
       <header
         className="relative rounded-2xl overflow-hidden px-8 sm:px-14 py-10 sm:py-14"
         style={{
-          background: `radial-gradient(120% 100% at 100% 50%, color-mix(in srgb, ${gold} 9%, transparent) 0%, transparent 55%), linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
-          border: `1px solid color-mix(in srgb, ${gold} 24%, ${N.hairline})`,
-          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 28%, transparent) inset, 0 24px 60px -28px ${N.ink}, 0 0 0 1px color-mix(in srgb, ${gold} 8%, transparent)`,
+          background: `
+            radial-gradient(50% 80% at 92% 50%, color-mix(in srgb, ${gold} 22%, transparent) 0%, transparent 60%),
+            radial-gradient(35% 60% at 8% 20%, color-mix(in srgb, ${gold} 11%, transparent) 0%, transparent 65%),
+            radial-gradient(60% 40% at 50% 110%, color-mix(in srgb, ${gold} 8%, transparent) 0%, transparent 70%),
+            linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)
+          `,
+          border: `1px solid color-mix(in srgb, ${gold} 28%, ${N.hairline})`,
+          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 32%, transparent) inset, 0 0 60px -10px color-mix(in srgb, ${gold} 18%, transparent) inset, 0 24px 60px -28px ${N.ink}, 0 0 0 1px color-mix(in srgb, ${gold} 8%, transparent)`,
         }}
       >
         {/* Hairline gold accent across the very top edge — editorial detail */}
         <span aria-hidden className="absolute inset-x-0 top-0 h-px pointer-events-none"
           style={{ background: `linear-gradient(90deg, transparent 0%, color-mix(in srgb, ${gold} 56%, transparent) 25%, color-mix(in srgb, ${gold} 56%, transparent) 75%, transparent 100%)` }} />
+        {/* Static atmospheric glow — large soft bloom behind where the
+            SWL lockup sits. Same anchor as the radial in the bg but
+            blurred for depth. Gives the right half of the card real
+            "presence" without animating. */}
+        <span aria-hidden className="absolute top-1/2 right-0 -translate-y-1/2 w-[640px] h-[440px] pointer-events-none"
+          style={{
+            background: `radial-gradient(circle at 70% 50%, color-mix(in srgb, ${gold} 28%, transparent) 0%, transparent 60%)`,
+            filter: "blur(40px)",
+          }} />
+        {/* Counter wash on the left for warmth where the wordmark sits */}
+        <span aria-hidden className="absolute top-0 left-0 w-[360px] h-[260px] pointer-events-none"
+          style={{
+            background: `radial-gradient(circle at 30% 30%, color-mix(in srgb, ${gold} 14%, transparent) 0%, transparent 65%)`,
+            filter: "blur(30px)",
+          }} />
 
-        <div className="relative flex items-center justify-between gap-10 flex-wrap">
+        <div className="relative flex items-center justify-between gap-12 sm:gap-16 flex-wrap">
           {/* ── Left column — GrowthAI wordmark (white + gold "AI"),
-              SALES ENGINE eyebrow under it, welcome copy. */}
-          <div className="min-w-0 flex-1 max-w-[640px]">
+              SALES ENGINE eyebrow under it, welcome copy. Capped to
+              560px so the SWL lockup doesn't get exiled to the far
+              right edge; the negative space between columns is now
+              filled by the gold ambient bloom baked into the bg. */}
+          <div className="min-w-0 flex-1 max-w-[560px]">
             <div className="mb-7">
               <p
                 className="text-[28px] sm:text-[32px] font-bold leading-none"
