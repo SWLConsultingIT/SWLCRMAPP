@@ -83,11 +83,28 @@ async function getProfileData(profileId: string) {
     repliesByLead[r.lead_id].push(r);
   }
 
-  const msgsByCamp: Record<string, { sent: number; total: number }> = {};
+  // Per-campaign message throughput broken down by channel + step. The card
+  // preview needs to render "12 LI invites · 5 LI msgs · 3 emails" chips
+  // without making a second query at render time.
+  const msgsByCamp: Record<string, { sent: number; total: number; liInv: number; liMsg: number; em: number }> = {};
   for (const m of messages ?? []) {
-    if (!msgsByCamp[m.campaign_id]) msgsByCamp[m.campaign_id] = { sent: 0, total: 0 };
+    if (!msgsByCamp[m.campaign_id]) msgsByCamp[m.campaign_id] = { sent: 0, total: 0, liInv: 0, liMsg: 0, em: 0 };
     msgsByCamp[m.campaign_id].total++;
-    if (m.sent_at) msgsByCamp[m.campaign_id].sent++;
+    if (!m.sent_at) continue;
+    msgsByCamp[m.campaign_id].sent++;
+    if (m.channel === "linkedin") {
+      if (m.step_number === 0) msgsByCamp[m.campaign_id].liInv++;
+      else msgsByCamp[m.campaign_id].liMsg++;
+    } else if (m.channel === "email") {
+      msgsByCamp[m.campaign_id].em++;
+    }
+  }
+  // Per-campaign accept proxy — a LinkedIn campaign whose current_step > 1
+  // means the dispatcher unparked past the CR step (only possible after the
+  // accept webhook fired). Same heuristic the seller-detail KPI uses.
+  const acceptedCampIds = new Set<string>();
+  for (const c of campaigns ?? []) {
+    if (c.channel === "linkedin" && (c.current_step ?? 0) > 1) acceptedCampIds.add(c.id);
   }
 
   // Detect re-nurturing leads: leads that have a completed/failed campaign AND an active/paused one
@@ -118,6 +135,15 @@ async function getProfileData(profileId: string) {
         lastActivity: null as string | null,
         progressSum: 0,
         is_renurturing: false,
+        // Per-channel throughput chips
+        liInvitesSent: 0,
+        liMessagesSent: 0,
+        emailsSent: 0,
+        // Accept proxy — denominator is LinkedIn rows that actually fired a CR
+        liInvitesTotal: 0,
+        liInvitesAccepted: 0,
+        // Sellers (unique names) currently working any row in this group
+        sellers: new Set<string>(),
       };
     }
     const g = campGroups[key];
@@ -127,8 +153,19 @@ async function getProfileData(profileId: string) {
     if (c.lead_id && renurturingLeadIds.has(c.lead_id) && (c.status === "active" || c.status === "paused")) {
       g.is_renurturing = true;
     }
-    const msgs = msgsByCamp[c.id] ?? { sent: 0, total: 0 };
+    const msgs = msgsByCamp[c.id] ?? { sent: 0, total: 0, liInv: 0, liMsg: 0, em: 0 };
     g.totalMsgsSent += msgs.sent;
+    g.liInvitesSent  += msgs.liInv;
+    g.liMessagesSent += msgs.liMsg;
+    g.emailsSent     += msgs.em;
+    if (c.channel === "linkedin" && msgs.liInv > 0) {
+      g.liInvitesTotal++;
+      if (acceptedCampIds.has(c.id)) g.liInvitesAccepted++;
+    }
+    // sellers(name) join — supabase can return either an object or a single-
+    // element array depending on FK shape; handle both.
+    const sellerNameRaw = Array.isArray(c.sellers) ? c.sellers[0]?.name : (c.sellers as any)?.name;
+    if (sellerNameRaw) g.sellers.add(sellerNameRaw as string);
     const leadReplies = c.lead_id ? (repliesByLead[c.lead_id] ?? []) : [];
     g.totalReplies += leadReplies.length;
     if (leadReplies.some((r: any) => r.classification === "positive" || r.classification === "meeting_intent")) g.positiveCount++;
@@ -150,6 +187,15 @@ async function getProfileData(profileId: string) {
     lastActivity: g.lastActivity,
     avgProgress: g.totalLeads > 0 ? Math.round((g.progressSum / g.totalLeads) * 100) : 0,
     is_renurturing: g.is_renurturing ?? false,
+    liInvitesSent: g.liInvitesSent,
+    liMessagesSent: g.liMessagesSent,
+    emailsSent: g.emailsSent,
+    acceptRate: g.liInvitesTotal > 0
+      ? Math.round((g.liInvitesAccepted / g.liInvitesTotal) * 100)
+      : null,
+    acceptedCount: g.liInvitesAccepted,
+    inviteCohort: g.liInvitesTotal,
+    sellers: Array.from(g.sellers) as string[],
   }));
 
   // Build lead → campaign lookup

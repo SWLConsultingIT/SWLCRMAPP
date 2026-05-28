@@ -49,6 +49,13 @@ type CampaignGroup = {
   lastActivity: string | null;
   avgProgress: number;
   is_renurturing: boolean;
+  liInvitesSent: number;
+  liMessagesSent: number;
+  emailsSent: number;
+  acceptRate: number | null;
+  acceptedCount: number;
+  inviteCohort: number;
+  sellers: string[];
 };
 
 type TicketMetrics = {
@@ -108,7 +115,7 @@ function timeAgo(iso: string | null, t: Tr) {
 }
 
 // ─── Campaign Card ────────────────────────────────────────────────────────────
-function CampaignCard({ camp, t }: { camp: CampaignGroup; t: Tr }) {
+function CampaignCard({ camp, t, locale }: { camp: CampaignGroup; t: Tr; locale: "en" | "es" }) {
   const active    = camp.statuses.active ?? 0;
   const paused    = camp.statuses.paused ?? 0;
   const completed = camp.statuses.completed ?? 0;
@@ -116,6 +123,18 @@ function CampaignCard({ camp, t }: { camp: CampaignGroup; t: Tr }) {
   const st = statusMeta[groupStatus] ?? statusMeta.active;
   const StIcon = st.icon;
   const responseRate = camp.totalLeads > 0 ? Math.round((camp.totalReplies / camp.totalLeads) * 100) : 0;
+
+  // Channel throughput chips — only the ones with actual activity.
+  const throughputChips: { icon: typeof Share2; label: string; value: number; color: string }[] = [];
+  if (camp.liInvitesSent > 0)  throughputChips.push({ icon: UserPlus, label: locale === "es" ? "LI Invites" : "LI Invites",   value: camp.liInvitesSent,  color: "#0A66C2" });
+  if (camp.liMessagesSent > 0) throughputChips.push({ icon: Share2,   label: locale === "es" ? "LI Msgs"   : "LI Msgs",       value: camp.liMessagesSent, color: "#0A66C2" });
+  if (camp.emailsSent > 0)     throughputChips.push({ icon: Mail,     label: locale === "es" ? "Emails"    : "Emails",        value: camp.emailsSent,     color: "#059669" });
+
+  const sellerLine = camp.sellers.length === 0
+    ? null
+    : camp.sellers.length === 1
+      ? camp.sellers[0]
+      : (locale === "es" ? `${camp.sellers[0]} +${camp.sellers.length - 1}` : `${camp.sellers[0]} +${camp.sellers.length - 1}`);
 
   return (
     <Link
@@ -143,9 +162,29 @@ function CampaignCard({ camp, t }: { camp: CampaignGroup; t: Tr }) {
           </div>
         </div>
 
-        <h3 className="text-sm font-bold mb-2 group-hover/card:underline" style={{ color: C.textPrimary }}>
+        <h3 className="text-sm font-bold mb-1.5 group-hover/card:underline" style={{ color: C.textPrimary }}>
           {camp.name}
         </h3>
+
+        {/* Seller + last activity line — was missing before. Boss wanted
+            the rep responsible visible on every flow card so coverage
+            ownership is clear without opening the campaign. */}
+        {(sellerLine || camp.lastActivity) && (
+          <div className="flex items-center gap-3 text-[10.5px] mb-2.5" style={{ color: C.textMuted }}>
+            {sellerLine && (
+              <span className="inline-flex items-center gap-1 truncate" title={camp.sellers.join(", ")}>
+                <UsersIcon size={11} style={{ color: C.textDim }} />
+                <span className="truncate">{sellerLine}</span>
+              </span>
+            )}
+            {camp.lastActivity && (
+              <span className="inline-flex items-center gap-1 shrink-0">
+                <Clock size={10} style={{ color: C.textDim }} />
+                {timeAgo(camp.lastActivity, t)}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-3 gap-2 mb-3">
           {[
@@ -160,10 +199,43 @@ function CampaignCard({ camp, t }: { camp: CampaignGroup; t: Tr }) {
           ))}
         </div>
 
+        {/* Channel throughput chips — only render channels with activity */}
+        {throughputChips.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+            {throughputChips.map(ch => {
+              const ChIcon = ch.icon;
+              return (
+                <span
+                  key={ch.label}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold"
+                  style={{
+                    backgroundColor: `color-mix(in srgb, ${ch.color} 10%, transparent)`,
+                    color: ch.color,
+                  }}
+                >
+                  <ChIcon size={10} />
+                  <span className="tabular-nums">{ch.value}</span>
+                  <span style={{ color: `color-mix(in srgb, ${ch.color} 80%, ${C.textMuted})` }}>{ch.label}</span>
+                </span>
+              );
+            })}
+          </div>
+        )}
+
         <div className="flex items-center gap-3 text-[10px]" style={{ color: C.textDim }}>
           <span>{t("ticket.flow.steps").replace("{n}", String(camp.totalSteps))}</span>
+          {camp.acceptRate !== null && (
+            <span
+              className="font-semibold"
+              style={{ color: camp.acceptRate >= 50 ? C.green : camp.acceptRate >= 20 ? gold : C.textMuted }}
+              title={locale === "es"
+                ? `${camp.acceptedCount} de ${camp.inviteCohort} invites aceptadas`
+                : `${camp.acceptedCount} of ${camp.inviteCohort} invites accepted`}
+            >
+              {locale === "es" ? `${camp.acceptRate}% accept` : `${camp.acceptRate}% accept`}
+            </span>
+          )}
           {responseRate > 0 && <span style={{ color: C.blue }}>{t("ticket.flow.responseRate").replace("{n}", String(responseRate))}</span>}
-          {camp.lastActivity && <span><Clock size={9} className="inline mr-0.5" />{timeAgo(camp.lastActivity, t)}</span>}
         </div>
       </div>
 
@@ -223,7 +295,7 @@ function UpdatesTab({ updates, t }: { updates: TicketUpdate[]; t: Tr }) {
 }
 
 // ─── Outreach Flows Tab ───────────────────────────────────────────────────────
-function OutreachFlowsTab({ campaigns, t }: { campaigns: CampaignGroup[]; t: Tr }) {
+function OutreachFlowsTab({ campaigns, t, locale }: { campaigns: CampaignGroup[]; t: Tr; locale: "en" | "es" }) {
   const [pastOpen, setPastOpen] = useState(false);
 
   const activeCamps = campaigns.filter(c => (c.statuses.active ?? 0) > 0 || (c.statuses.paused ?? 0) > 0);
@@ -242,13 +314,13 @@ function OutreachFlowsTab({ campaigns, t }: { campaigns: CampaignGroup[]; t: Tr 
       {/* Active / Paused flows */}
       {activeCamps.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {activeCamps.map(c => <CampaignCard key={c.firstId} camp={c} t={t} />)}
+          {activeCamps.map(c => <CampaignCard key={c.firstId} camp={c} t={t} locale={locale} />)}
         </div>
       )}
 
       {activeCamps.length === 0 && pastCamps.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {pastCamps.map(c => <CampaignCard key={c.firstId} camp={c} t={t} />)}
+          {pastCamps.map(c => <CampaignCard key={c.firstId} camp={c} t={t} locale={locale} />)}
         </div>
       )}
 
@@ -611,7 +683,7 @@ function AddToExistingModal({
 // ─── Main ──────────────────────────────────────────────────────────────────────
 export default function TicketDetailClient({ profileId, ticketName, campaigns, leads, metrics, updates }: Props) {
   const router = useRouter();
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [tab, setTab] = useState(0);
   // Inside the Leads tab the boss wants the seller to split leads by whether
   // they're already in a flow ("With Campaign") vs idle ("Unassigned"). The
@@ -912,7 +984,7 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
       )}
 
       {/* Tab 1: Outreach Flows */}
-      {tab === 1 && <OutreachFlowsTab campaigns={campaigns} t={t} />}
+      {tab === 1 && <OutreachFlowsTab campaigns={campaigns} t={t} locale={locale} />}
 
       {showAddExisting && (
         <AddToExistingModal
