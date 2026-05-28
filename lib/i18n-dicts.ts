@@ -578,6 +578,14 @@ export const en: Dict = {
   "dashx.filters.clear": "Clear filters",
   "dashx.filters.noOptions": "No options available.",
   "dashx.filters.applied": "Filters",
+  // Scope label — echoed in chart subtitles when tab filters are applied
+  "dashx.scope.scopedTo": "Scoped to",
+  "dashx.scope.campaign": "Campaign",
+  "dashx.scope.campaignsPlural": "campaigns",
+  "dashx.scope.icp": "ICP",
+  "dashx.scope.icpsPlural": "ICPs",
+  "dashx.scope.seller": "Seller",
+  "dashx.scope.sellersPlural": "sellers",
   // KpiCard delta labels
   "dashx.kpi.vsPrior": "vs prior",
   "dashx.kpi.noPrior": "No comparable",
@@ -1407,6 +1415,14 @@ export const es: Dict = {
   "dashx.filters.clear": "Limpiar filtros",
   "dashx.filters.noOptions": "Sin opciones disponibles.",
   "dashx.filters.applied": "Filtros",
+  // Scope label
+  "dashx.scope.scopedTo": "Scope",
+  "dashx.scope.campaign": "Campaña",
+  "dashx.scope.campaignsPlural": "campañas",
+  "dashx.scope.icp": "ICP",
+  "dashx.scope.icpsPlural": "ICPs",
+  "dashx.scope.seller": "Seller",
+  "dashx.scope.sellersPlural": "sellers",
   // KpiCard delta labels
   "dashx.kpi.vsPrior": "vs anterior",
   "dashx.kpi.noPrior": "Sin comparable",

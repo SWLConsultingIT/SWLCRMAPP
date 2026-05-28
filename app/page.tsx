@@ -126,6 +126,33 @@ function stageKey(label: string): string {
   return label;
 }
 
+/** Returns a "Scoped to: X" label echoing the active tab filters, or null
+ * if no filter is applied. Lets each chart's header advertise what's
+ * filtering it without having to look back at the filter bar (boss
+ * feedback 2026-05-28). */
+function buildScopeLabel(
+  filters: { campaignNames: string[]; icpIds: string[]; sellerIds: string[] },
+  options: { campaigns: { id: string; label: string }[]; icps: { id: string; label: string }[]; sellers: { id: string; label: string }[] },
+  labels: { scopedTo: string; campaign: string; campaignsPlural: string; icp: string; icpsPlural: string; seller: string; sellersPlural: string }
+): string | null {
+  const parts: string[] = [];
+  const camps = filters.campaignNames ?? [];
+  const icps = filters.icpIds ?? [];
+  const sellers = filters.sellerIds ?? [];
+  if (camps.length === 1) parts.push(`${labels.campaign}: ${camps[0]}`);
+  else if (camps.length > 1) parts.push(`${camps.length} ${labels.campaignsPlural}`);
+  if (icps.length === 1) {
+    const name = options.icps.find(o => o.id === icps[0])?.label ?? icps[0];
+    parts.push(`${labels.icp}: ${name}`);
+  } else if (icps.length > 1) parts.push(`${icps.length} ${labels.icpsPlural}`);
+  if (sellers.length === 1) {
+    const name = options.sellers.find(o => o.id === sellers[0])?.label ?? sellers[0];
+    parts.push(`${labels.seller}: ${name}`);
+  } else if (sellers.length > 1) parts.push(`${sellers.length} ${labels.sellersPlural}`);
+  if (parts.length === 0) return null;
+  return `${labels.scopedTo}: ${parts.join(" · ")}`;
+}
+
 // Never cached — without this, clicking the period chips changes the URL
 // but Next.js serves the cached server response and the page shows stale
 // numbers. Memory: feedback_dashboard_no_cache — reliability surfaces and
@@ -223,6 +250,23 @@ export default async function DashboardPage({
     empty: t("dashx.filters.noOptions"),
     applied: t("dashx.filters.applied"),
   };
+  // Tab-level scope echo — set when ANY filter is active so each chart
+  // header can append "· Scoped to: X" to its subtitle (boss 2026-05-28:
+  // wants per-chart filter visibility without per-chart dropdowns).
+  const scopeLabel = buildScopeLabel(
+    { campaignNames: filters.campaignNames, icpIds: filters.icpIds, sellerIds: filters.sellerIds },
+    filterOptions,
+    {
+      scopedTo: t("dashx.scope.scopedTo"),
+      campaign: t("dashx.scope.campaign"),
+      campaignsPlural: t("dashx.scope.campaignsPlural"),
+      icp: t("dashx.scope.icp"),
+      icpsPlural: t("dashx.scope.icpsPlural"),
+      seller: t("dashx.scope.seller"),
+      sellersPlural: t("dashx.scope.sellersPlural"),
+    }
+  );
+  const withScope = (subtitle: string) => scopeLabel ? `${subtitle} · ${scopeLabel}` : subtitle;
   const dateLoc = locale === "es" ? "es-AR" : "en-US";
   // Locale-bound bundles spread onto every KpiCard / Funnel so we don't
   // forget to pass them and have hardcoded Spanish leak through.
@@ -1025,7 +1069,7 @@ export default async function DashboardPage({
         })()}
         <Panel
           title={t("dashx.tbl.camp.title")}
-          subtitle={t("dashx.tbl.camp.subtitle")}
+          subtitle={withScope(t("dashx.tbl.camp.subtitle"))}
           actionHref="/campaigns"
           actionLabel={t("dashx.panel.openCampaignsPage")}
           glow
@@ -1114,7 +1158,7 @@ export default async function DashboardPage({
       <section>
         {(() => {
           const campsSel = filters.campaignNames ?? [];
-          const scopeLabel = campsSel.length === 0
+          const stepCampaignScope = campsSel.length === 0
             ? t("dashx.step.scopeAll")
             : campsSel.length === 1
               ? t("dashx.step.scopeOne", { name: campsSel[0] })
@@ -1122,7 +1166,7 @@ export default async function DashboardPage({
           return (
             <Panel
               title={t("dashx.step.title")}
-              subtitle={`${t("dashx.step.subtitle")} · ${scopeLabel}`}
+              subtitle={`${t("dashx.step.subtitle")} · ${stepCampaignScope}`}
               glow
               insightEyebrow={t("dashx.insight.eyebrow")}
               insightHint={t("dashx.insight.hint")}
@@ -1159,7 +1203,7 @@ export default async function DashboardPage({
       />
 
       <section>
-        <SectionHeader icon={Send} title={t("dashx.channels.title")} subtitle={t("dashx.channels.subtitle")} />
+        <SectionHeader icon={Send} title={t("dashx.channels.title")} subtitle={withScope(t("dashx.channels.subtitle"))} />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* LinkedIn Connections (invite leg) — boss-feedback 2026-05-27.
               Pulls sent + accepted counts from the funnel stages so it
@@ -1236,7 +1280,7 @@ export default async function DashboardPage({
       <section>
         <Panel
           title={t("dashx.channels.compTitle")}
-          subtitle={t("dashx.channels.compSubtitle")}
+          subtitle={withScope(t("dashx.channels.compSubtitle"))}
           glow
           insightEyebrow={t("dashx.insight.eyebrow")}
           insight={(() => {
@@ -1289,7 +1333,7 @@ export default async function DashboardPage({
         })()}
         <Panel
           title={t("dashx.tbl.seller.title")}
-          subtitle={t("dashx.tbl.seller.subtitle")}
+          subtitle={withScope(t("dashx.tbl.seller.subtitle"))}
           actionHref="/admin"
           actionLabel={t("dashx.panel.openTeam")}
           glow
