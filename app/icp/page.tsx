@@ -427,38 +427,38 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
       {/* Overview — category cards with icons */}
       <div className="px-6 py-5 grid grid-cols-2 gap-3">
         {profile.target_industries?.length > 0 && (
-          <OverviewCard icon={Building2} label="Industries" accent={C.blue} bg={C.blueLight}>
+          <OverviewCard icon={Building2} label="Industries" accent={C.blue}>
             <div className="flex flex-wrap gap-1.5">
               {profile.target_industries.map(i => (
                 <span key={i} className="text-[11px] font-medium px-2 py-0.5 rounded-md"
-                  style={{ backgroundColor: C.blueLight, color: C.blue, border: `1px solid color-mix(in srgb, ${C.blue} 15%, transparent)` }}>{i}</span>
+                  style={{ backgroundColor: `color-mix(in srgb, ${C.blue} 14%, transparent)`, color: C.blue, border: `1px solid color-mix(in srgb, ${C.blue} 22%, transparent)` }}>{i}</span>
               ))}
             </div>
           </OverviewCard>
         )}
         {profile.target_roles?.length > 0 && (
-          <OverviewCard icon={Briefcase} label="Target Roles" accent={C.accent} bg={C.accentLight}>
+          <OverviewCard icon={Briefcase} label="Target Roles" accent={C.accent}>
             <div className="flex flex-wrap gap-1.5">
               {profile.target_roles.map(r => (
                 <span key={r} className="text-[11px] font-medium px-2 py-0.5 rounded-md"
-                  style={{ backgroundColor: C.accentLight, color: C.accent, border: `1px solid color-mix(in srgb, ${C.accent} 15%, transparent)` }}>{r}</span>
+                  style={{ backgroundColor: `color-mix(in srgb, ${C.accent} 14%, transparent)`, color: C.accent, border: `1px solid color-mix(in srgb, ${C.accent} 22%, transparent)` }}>{r}</span>
               ))}
             </div>
           </OverviewCard>
         )}
         {profile.company_size && (
-          <OverviewCard icon={Users} label="Company Size" accent={"#7C3AED"} bg={"#F5F3FF"}>
+          <OverviewCard icon={Users} label="Company Size" accent={"#7C3AED"}>
             <p className="text-[12px] leading-relaxed" style={{ color: C.textBody }}>
               {profile.company_size}
             </p>
           </OverviewCard>
         )}
         {profile.geography?.length > 0 && (
-          <OverviewCard icon={MapPin} label="Geography" accent={C.orange} bg={C.orangeLight}>
+          <OverviewCard icon={MapPin} label="Geography" accent={C.orange}>
             <div className="flex flex-wrap gap-1.5">
               {profile.geography.map(g => (
                 <span key={g} className="text-[11px] font-medium px-2 py-0.5 rounded-md"
-                  style={{ backgroundColor: C.orangeLight, color: C.orange, border: `1px solid color-mix(in srgb, ${C.orange} 15%, transparent)` }}>{g}</span>
+                  style={{ backgroundColor: `color-mix(in srgb, ${C.orange} 14%, transparent)`, color: C.orange, border: `1px solid color-mix(in srgb, ${C.orange} 22%, transparent)` }}>{g}</span>
               ))}
             </div>
           </OverviewCard>
@@ -469,14 +469,14 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
       {(profile.pain_points || profile.solutions_offered) && (
         <div className="px-6 pb-5 grid grid-cols-2 gap-4">
           {profile.pain_points && (
-            <AccentBlock icon={AlertCircle} title="Pain Points" accent={C.red} bg={C.redLight}>
+            <AccentBlock icon={AlertCircle} title="Pain Points" accent={C.red}>
               <p className="text-[13px] leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>
                 {profile.pain_points}
               </p>
             </AccentBlock>
           )}
           {profile.solutions_offered && (
-            <AccentBlock icon={Lightbulb} title="Solutions Offered" accent={C.green} bg={C.greenLight}>
+            <AccentBlock icon={Lightbulb} title="Solutions Offered" accent={C.green}>
               <p className="text-[13px] leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>
                 {profile.solutions_offered}
               </p>
@@ -488,7 +488,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
       {/* Classification Rubric (Notes) — parsed + tier badges highlighted */}
       {profile.notes && (
         <div className="px-6 pb-5">
-          <AccentBlock icon={BookOpen} title="Classification Rubric" accent={"#7C3AED"} bg={"#F5F3FF"}>
+          <AccentBlock icon={BookOpen} title="Classification Rubric" accent={"#7C3AED"}>
             <NotesRenderer text={profile.notes} />
           </AccentBlock>
         </div>
@@ -552,32 +552,42 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
                 {/* Sub-tabs — split unassigned vs with campaign so the seller
                     can act on "leads still to flow" separately from "leads
                     already in a flow". Boss feedback 2026-05-28. */}
-                <div className="flex items-center gap-1 px-4 py-2 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                <div className="flex items-center gap-1.5 px-4 py-2.5 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                  {/* Unassigned now uses SWL gold (was brown). Consistent
+                      with the brand + a clearer "act on me" signal. */}
                   <button
                     type="button"
                     onClick={() => { setLeadsTab("unassigned"); clearSelection(); }}
-                    className="text-xs font-semibold px-3 py-1 rounded-md inline-flex items-center gap-1.5 transition-colors"
+                    className="text-xs font-semibold px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 transition-colors"
                     style={{
-                      backgroundColor: leadsTab === "unassigned" ? "color-mix(in srgb, #92400E 14%, transparent)" : "transparent",
-                      color: leadsTab === "unassigned" ? "#92400E" : C.textBody,
-                      border: leadsTab === "unassigned" ? "1px solid color-mix(in srgb, #92400E 35%, transparent)" : `1px solid ${C.border}`,
+                      backgroundColor: leadsTab === "unassigned" ? `color-mix(in srgb, ${gold} 16%, transparent)` : "transparent",
+                      color: leadsTab === "unassigned" ? gold : C.textBody,
+                      border: leadsTab === "unassigned" ? `1px solid color-mix(in srgb, ${gold} 45%, transparent)` : `1px solid ${C.border}`,
                     }}>
                     Unassigned
-                    <span className="text-[9.5px] tabular-nums px-1 rounded" style={{ background: leadsTab === "unassigned" ? "rgba(146,64,14,0.18)" : C.surface, color: leadsTab === "unassigned" ? "#92400E" : C.textDim }}>
+                    <span className="text-[10px] font-bold tabular-nums px-1.5 py-0 rounded"
+                      style={{
+                        background: leadsTab === "unassigned" ? gold : C.surface,
+                        color: leadsTab === "unassigned" ? "#1A1505" : C.textDim,
+                      }}>
                       {unassigned.length}
                     </span>
                   </button>
                   <button
                     type="button"
                     onClick={() => { setLeadsTab("with_campaign"); clearSelection(); }}
-                    className="text-xs font-semibold px-3 py-1 rounded-md inline-flex items-center gap-1.5 transition-colors"
+                    className="text-xs font-semibold px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 transition-colors"
                     style={{
                       backgroundColor: leadsTab === "with_campaign" ? `color-mix(in srgb, ${C.green} 14%, transparent)` : "transparent",
                       color: leadsTab === "with_campaign" ? C.green : C.textBody,
                       border: leadsTab === "with_campaign" ? `1px solid color-mix(in srgb, ${C.green} 35%, transparent)` : `1px solid ${C.border}`,
                     }}>
                     With Campaign
-                    <span className="text-[9.5px] tabular-nums px-1 rounded" style={{ background: leadsTab === "with_campaign" ? `color-mix(in srgb, ${C.green} 18%, transparent)` : C.surface, color: leadsTab === "with_campaign" ? C.green : C.textDim }}>
+                    <span className="text-[10px] font-bold tabular-nums px-1.5 py-0 rounded"
+                      style={{
+                        background: leadsTab === "with_campaign" ? C.green : C.surface,
+                        color: leadsTab === "with_campaign" ? "#fff" : C.textDim,
+                      }}>
                       {withCampaign.length}
                     </span>
                   </button>
@@ -589,14 +599,14 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
                     <button
                       type="button"
                       onClick={() => selectAllVisible(visibleIds)}
-                      className="text-[10.5px] font-semibold px-2.5 py-1 rounded-md inline-flex items-center gap-1.5 transition-colors"
+                      className="text-[11px] font-semibold px-2.5 py-1.5 rounded-md inline-flex items-center gap-1.5 transition-colors"
                       style={{
                         background: allVisibleSelected ? `color-mix(in srgb, ${gold} 14%, transparent)` : "transparent",
                         color: allVisibleSelected ? gold : C.textMuted,
-                        border: `1px solid ${allVisibleSelected ? `color-mix(in srgb, ${gold} 40%, transparent)` : C.border}`,
+                        border: `1px solid ${allVisibleSelected ? `color-mix(in srgb, ${gold} 45%, transparent)` : C.border}`,
                       }}>
-                      {allVisibleSelected ? <CheckSquare size={11} /> : <Square size={11} />}
-                      {allVisibleSelected ? "Clear selection" : `Select all ${visible.length}`}
+                      {allVisibleSelected ? <CheckSquare size={12} /> : <Square size={12} />}
+                      {allVisibleSelected ? "Clear" : `Select all ${visible.length}`}
                     </button>
                   )}
                 </div>
@@ -611,42 +621,53 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
                     const camp = lead.campaign;
                     const isSelected = selectedIds.has(lead.id);
                     const selectable = leadsTab === "unassigned";
+                    // Clicking anywhere on the row toggles selection in
+                    // the Unassigned tab — way faster than aiming for
+                    // the tiny checkbox. The lead-detail link still
+                    // works on the name area (stopPropagation).
+                    const rowOnClick = selectable ? () => toggleSelect(lead.id) : undefined;
                     return (
-                      <div key={lead.id} className="flex items-center gap-3 px-5 py-2.5 transition-colors"
-                        style={{ backgroundColor: isSelected ? `color-mix(in srgb, ${gold} 6%, transparent)` : undefined }}>
+                      <div key={lead.id}
+                        className="flex items-center gap-3 px-5 py-3 transition-colors cursor-pointer hover:bg-black/[0.02]"
+                        style={{ backgroundColor: isSelected ? `color-mix(in srgb, ${gold} 7%, transparent)` : undefined, cursor: selectable ? "pointer" : "default" }}
+                        onClick={rowOnClick}>
                         {selectable && (
-                          <button
-                            type="button"
-                            onClick={() => toggleSelect(lead.id)}
-                            className="shrink-0 rounded transition-colors hover:bg-black/[0.04] p-0.5"
-                            aria-label={isSelected ? "Deselect" : "Select"}>
+                          <span
+                            className="shrink-0 rounded p-0.5"
+                            aria-label={isSelected ? "Selected" : "Not selected"}>
                             {isSelected
-                              ? <CheckSquare size={15} style={{ color: gold }} />
-                              : <Square size={15} style={{ color: C.textDim }} />}
-                          </button>
+                              ? <CheckSquare size={16} style={{ color: gold }} />
+                              : <Square size={16} style={{ color: C.textDim }} />}
+                          </span>
                         )}
-                        <Link href={`/leads/${lead.id}`} className="flex-1 min-w-0 hover:underline">
-                          <p className="text-sm font-medium" style={{ color: C.textPrimary }}>{nm}</p>
-                          <p className="text-xs" style={{ color: C.textMuted }}>{lead.role ?? ""}{lead.company ? ` · ${lead.company}` : ""}</p>
+                        <Link
+                          href={`/leads/${lead.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex-1 min-w-0 hover:underline">
+                          <p className="text-[13.5px] font-semibold" style={{ color: C.textPrimary }}>{nm}</p>
+                          <p className="text-[11.5px] mt-0.5" style={{ color: C.textMuted }}>{lead.role ?? ""}{lead.company ? ` · ${lead.company}` : ""}</p>
                         </Link>
                         {lead.score != null && (
-                          <span className="text-xs font-bold px-2 py-0.5 rounded" style={{
-                            backgroundColor: lead.score >= 80 ? C.redLight : lead.score >= 50 ? C.orangeLight : C.accentLight,
-                            color: lead.score >= 80 ? C.red : lead.score >= 50 ? C.orange : C.accent,
-                          }}>{lead.score}</span>
+                          <span className="text-[11px] font-bold tabular-nums px-2 py-0.5 rounded shrink-0"
+                            style={{
+                              backgroundColor: lead.score >= 80 ? C.redLight : lead.score >= 50 ? C.orangeLight : C.accentLight,
+                              color: lead.score >= 80 ? C.red : lead.score >= 50 ? C.orange : C.accent,
+                            }}>
+                            {lead.score}
+                          </span>
                         )}
-                        {camp ? (
+                        {/* On the With-Campaign tab keep the campaign pill
+                            (informative). On Unassigned we leave it clean
+                            — the tab itself + the floating action bar
+                            already carry the action. */}
+                        {camp && (
                           <Link href={`/campaigns/${camp.id}`}
-                            className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-md transition-opacity hover:opacity-80"
-                            style={{ backgroundColor: C.greenLight, color: C.green }}>
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-md transition-opacity hover:opacity-80 shrink-0"
+                            style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)`, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 28%, transparent)` }}>
                             <Megaphone size={10} /> {camp.status === "active" ? "Active" : camp.status === "paused" ? "Paused" : "Completed"}
                             <ExternalLink size={9} />
                           </Link>
-                        ) : (
-                          <span className="flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-md"
-                            style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 28%, transparent)` }}>
-                            No Campaign
-                          </span>
                         )}
                       </div>
                     );
@@ -1072,14 +1093,21 @@ export default function LeadGenPage() {
 // ─── ProfileDetail helpers ──────────────────────────────────────────────────
 
 function OverviewCard({
-  icon: Icon, label, accent, bg, children,
+  icon: Icon, label, accent, children,
 }: {
-  icon: typeof Target; label: string; accent: string; bg: string; children: React.ReactNode;
+  icon: typeof Target; label: string; accent: string; bg?: string; children: React.ReactNode;
 }) {
+  // Theme-aware accent tint via color-mix so the icon-tile + section
+  // header read well on both light and dark surfaces (boss 2026-05-28:
+  // hardcoded light hex backgrounds looked horrible in dark mode).
   return (
     <div className="rounded-lg border p-3.5" style={{ backgroundColor: C.card, borderColor: C.border }}>
       <div className="flex items-center gap-2 mb-2">
-        <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style={{ backgroundColor: bg }}>
+        <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
+          style={{
+            backgroundColor: `color-mix(in srgb, ${accent} 14%, transparent)`,
+            border: `1px solid color-mix(in srgb, ${accent} 22%, transparent)`,
+          }}>
           <Icon size={12} style={{ color: accent }} />
         </div>
         <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textMuted }}>{label}</p>
@@ -1090,14 +1118,17 @@ function OverviewCard({
 }
 
 function AccentBlock({
-  icon: Icon, title, accent, bg, children,
+  icon: Icon, title, accent, children,
 }: {
-  icon: typeof Target; title: string; accent: string; bg: string; children: React.ReactNode;
+  icon: typeof Target; title: string; accent: string; bg?: string; children: React.ReactNode;
 }) {
   return (
     <div className="rounded-lg border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderLeft: `3px solid ${accent}` }}>
       <div className="px-4 py-2.5 flex items-center gap-2 border-b"
-        style={{ borderColor: C.border, background: `linear-gradient(90deg, ${bg}, transparent)` }}>
+        style={{
+          borderColor: C.border,
+          background: `linear-gradient(90deg, color-mix(in srgb, ${accent} 14%, transparent), transparent)`,
+        }}>
         <Icon size={13} style={{ color: accent }} />
         <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: accent }}>{title}</p>
       </div>

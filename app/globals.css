@@ -67,17 +67,25 @@
   --c-sidebarSection:     #5C6780;
 
   --c-bg:       #0B0F1A;
-  --c-surface:  #11172A;
-  --c-card:     #141B2E;
-  --c-cardHov:  #1A2238;
-  --c-border:   #1F2842;
-  --c-border2:  #2B3556;
+  --c-surface:  #161D34;
+  --c-card:     #161E33;
+  --c-cardHov:  #1C2540;
+  /* Borders bumped 2026-05-28 — the prior #1F2842 was so close to the
+     card surface that cards visually bled into each other. The new
+     values give every card a perceptible edge against the page bg. */
+  --c-border:   #2B3559;
+  --c-border2:  #3A476B;
 
-  --c-textPrimary: #F1F5F9;
-  --c-textBody:    #C4CCDB;
-  --c-textMuted:   #8892A8;
-  --c-textDim:     #5C6780;
-  --c-textOnDark:  #E2E8F0;
+  /* Dark-mode text ramp — bumped 2026-05-28. The original values
+     (textMuted #8892A8, textDim #5C6780) sat too close to the card
+     surface #141B2E and made hints + secondary labels unreadable. Each
+     step is now ~one shade brighter so KPI hints, captions and table
+     subtext pass WCAG AA contrast against the card background. */
+  --c-textPrimary: #F4F7FB;
+  --c-textBody:    #D4DAE8;
+  --c-textMuted:   #A3ADC2;
+  --c-textDim:     #7E8AA5;
+  --c-textOnDark:  #E8ECF5;
 
   --c-shadow:   0 1px 3px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.6);
   --c-shadowMd: 0 4px 20px rgba(0,0,0,0.6), 0 2px 6px rgba(0,0,0,0.5);
