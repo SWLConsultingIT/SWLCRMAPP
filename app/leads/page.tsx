@@ -35,13 +35,14 @@ async function getData() {
   let leadsQ = supabase
     .from("leads")
     .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at, source, encrypted_payload, company_bio_id, transferred_to_odoo_at")
-    .order("created_at", { ascending: false })
-    // Hard cap to bound memory + payload size on a tenant with thousands of
-    // leads. Raised from 500 → 2000 on 2026-05-28 (boss feedback: "si
-    // tengo 1000 leads quiero que estén todas"). 2000 leaves headroom
-    // for Pathway (627 currently) and any other client growing past 500
-    // without forcing pagination yet.
-    .limit(2000);
+    .order("created_at", { ascending: false });
+  // No cap (2026-05-28 r6). The client-side filters need every lead in
+  // memory to work — paginating would break multi-select facet behaviour
+  // ("Select all 627" must mean 627). PostgREST applies a default 1000-row
+  // limit; we bypass it explicitly so larger tenants still get everyone.
+  // If a tenant ever crosses ~10k leads the right next step is moving the
+  // facets to the server, not re-capping here.
+  leadsQ = leadsQ.range(0, 99999);
   // Companion count() to compute the true tenant-wide total. Head-only request
   // (no rows downloaded) so this is essentially free vs the data fetch above.
   // We use it client-side to surface a "Showing 500 of N" banner when the cap
@@ -250,6 +251,14 @@ async function getData() {
     const leadCamps = campsByLead[lead.id] ?? [];
     const hasCampaign = leadCamps.length > 0;
 
+    // Pick the most-actionable campaign for the row (active > paused >
+    // any). Used by the Campaign column in the table — clicking it
+    // should land on the relevant campaign, not on the first arbitrary
+    // one. ICP id stays so the ICP column links to the ticket.
+    const activeCamp = leadCamps.find((c: any) => c.status === "active")
+      ?? leadCamps.find((c: any) => c.status === "paused")
+      ?? leadCamps[0]
+      ?? null;
     const leadData = {
       id: lead.id,
       first_name: lead.primary_first_name,
@@ -267,7 +276,11 @@ async function getData() {
       reply_count: leadReplies.length,
       has_positive: leadReplies.some((r: any) => r.classification === "positive" || r.classification === "meeting_intent"),
       has_campaign: hasCampaign,
+      profile_id: pid ?? null,
       profile_name: pid ? (icpMap[pid]?.profile_name ?? null) : null,
+      campaign_id: activeCamp?.id ?? null,
+      campaign_name: activeCamp?.name ?? null,
+      campaign_status: activeCamp?.status ?? null,
       created_at: lead.created_at,
     };
 

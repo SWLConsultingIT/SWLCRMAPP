@@ -33,7 +33,16 @@ type LeadInfo = {
   reply_count?: number;
   has_positive?: boolean;
   has_campaign?: boolean;
+  /** ICP / Lead Miner profile id — used by the ICP column link in the
+   *  table. Null when the lead has no ICP assigned. */
+  profile_id?: string | null;
   profile_name?: string | null;
+  /** Most-actionable campaign on this lead (active > paused > any).
+   *  Powers the clickable Campaign column. Null when the lead is not
+   *  in any flow. */
+  campaign_id?: string | null;
+  campaign_name?: string | null;
+  campaign_status?: string | null;
   created_at?: string;
 };
 
@@ -1296,11 +1305,43 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                   <td className="px-4 py-2.5 text-center">
                     <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: badge.bg, color: badge.color }}>{badge.label}</span>
                   </td>
+                  {/* ICP and Campaign cells are clickable now (boss
+                      feedback 2026-05-28 r10) — full name with a tooltip
+                      for overflow, link to the ICP ticket / campaign
+                      overview. stopPropagation so they don't trigger the
+                      row's lead-detail link. */}
                   <td className="px-4 py-2.5 hidden sm:table-cell">
-                    <span className="text-[10px] truncate block max-w-[120px]" style={{ color: C.textDim }}>{lead.profile_name ?? "—"}</span>
+                    {lead.profile_id && lead.profile_name ? (
+                      <Link
+                        href={`/leads/ticket/${lead.profile_id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        title={lead.profile_name}
+                        className="text-[11px] font-medium hover:underline inline-flex items-center gap-1 max-w-[180px]"
+                        style={{ color: gold }}
+                      >
+                        <Target size={9} className="shrink-0" />
+                        <span className="truncate">{lead.profile_name}</span>
+                      </Link>
+                    ) : (
+                      <span className="text-[10px]" style={{ color: C.textDim }}>—</span>
+                    )}
                   </td>
                   <td className="px-4 py-2.5">
-                    {lead.has_campaign ? (
+                    {lead.campaign_id && lead.campaign_name ? (
+                      <Link
+                        href={`/campaigns/${lead.campaign_id}/overview`}
+                        onClick={(e) => e.stopPropagation()}
+                        title={`${lead.campaign_name}${lead.campaign_status ? ` · ${lead.campaign_status}` : ""}`}
+                        className="text-[11px] font-medium hover:underline inline-flex items-center gap-1 max-w-[200px]"
+                        style={{ color: lead.campaign_status === "active" ? C.green : lead.campaign_status === "paused" ? "#D97706" : C.textBody }}
+                      >
+                        <Megaphone size={9} className="shrink-0" />
+                        <span className="truncate">{lead.campaign_name}</span>
+                      </Link>
+                    ) : lead.has_campaign ? (
+                      // Edge case: has_campaign true but server didn't
+                      // attach the id (older data). Show a non-link
+                      // active badge so we don't dead-link the cell.
                       <span className="text-[10px] font-semibold" style={{ color: C.green }}>Active</span>
                     ) : (
                       <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>No Campaign</span>
