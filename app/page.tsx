@@ -398,37 +398,30 @@ export default async function DashboardPage({
             </p>
           </div>
 
-          {/* ── Right column — SWL logo on a champagne stage ───────
-              The PNG already carries a beautiful 3D gold gradient
-              (highlights + shadows on the parallelogram mark, gradient
-              on the SWL lettering). Showing it un-filtered on a soft
-              cream/champagne "stage" lets that gradient breathe instead
-              of flattening it into a single-tone silhouette. The stage
-              has a gold glow shadow that ties it to the hero gradient.
-              Logo keeps the LogoLoader breath + shine. */}
+          {/* ── Right column — exact LogoLoader lockup, no card ─────
+              Mirrors the splash screen lockup so the hero shows the
+              same identity the user sees on every page transition.
+              Mark (gold parallelograms, cropped from the PNG) +
+              typographic "SWL" wordmark, both share the same 4.5s
+              cycle (logo-loader-mark-glow + logo-loader-mark-shine +
+              logo-loader-wordmark-shimmer). The dark-mode rule in
+              globals.css already gives the mark a hotter glow on the
+              navy hero bg. */}
           {(() => {
             const SWL_LOGO = "https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png";
-            const size = 132;
-            const logoWidth = Math.round(size * (280 / 136));
+            const size = 96;
+            // Same crop math the LogoLoader uses — only the gold mark
+            // portion of the PNG, the white "SWL" letters get hidden
+            // because the gold typographic wordmark next to it carries
+            // the lettering instead.
+            const markCropRatio = 0.34;
+            const fullPngWidth = size * (280 / 136);
+            const markWidth = Math.round(fullPngWidth * markCropRatio);
             return (
-              <div
-                className="relative shrink-0 rounded-2xl flex items-center justify-center px-8 py-7"
-                style={{
-                  background: `linear-gradient(135deg, #f6efd9 0%, #ece2c2 100%)`,
-                  boxShadow: `0 0 0 1px color-mix(in srgb, ${gold} 30%, transparent), 0 0 28px color-mix(in srgb, ${gold} 22%, transparent), 0 18px 44px -16px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.7)`,
-                }}
-              >
-                {/* Soft inner highlight — gives the stage a vellum / silk feel */}
-                <span aria-hidden className="absolute inset-0 rounded-2xl pointer-events-none"
-                  style={{
-                    background: `radial-gradient(ellipse 80% 60% at 30% 20%, rgba(255,255,255,0.55) 0%, transparent 60%)`,
-                  }} />
-                {/* The SWL logo — native PNG, full gradient preserved.
-                    Inherits the LogoLoader breath + shine (4.5s cycle). */}
+              <div className="logo-loader-stage shrink-0" aria-hidden>
                 <div
-                  className="logo-loader-mark-wrap relative"
-                  style={{ width: logoWidth, height: size }}
-                  aria-hidden
+                  className="logo-loader-mark-wrap"
+                  style={{ width: markWidth, height: size }}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -436,27 +429,38 @@ export default async function DashboardPage({
                     alt=""
                     className="logo-loader-mark-img"
                     style={{
-                      width: logoWidth,
+                      width: fullPngWidth,
                       height: size,
-                      objectFit: "contain",
+                      objectFit: "cover",
+                      objectPosition: "left center",
                     }}
                   />
                   <span
                     className="logo-loader-mark-shine"
                     style={{
-                      width: logoWidth,
+                      width: markWidth,
                       height: size,
                       WebkitMaskImage: `url(${SWL_LOGO})`,
                       maskImage: `url(${SWL_LOGO})`,
-                      WebkitMaskSize: `${logoWidth}px ${size}px`,
-                      maskSize: `${logoWidth}px ${size}px`,
+                      WebkitMaskSize: `${fullPngWidth}px ${size}px`,
+                      maskSize: `${fullPngWidth}px ${size}px`,
                       WebkitMaskRepeat: "no-repeat",
                       maskRepeat: "no-repeat",
-                      WebkitMaskPosition: "center",
-                      maskPosition: "center",
+                      WebkitMaskPosition: "left center",
+                      maskPosition: "left center",
                     }}
                   />
                 </div>
+                <span
+                  className="logo-loader-wordmark"
+                  style={{
+                    fontSize: Math.round(size * 0.85),
+                    lineHeight: 1,
+                    fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                  }}
+                >
+                  SWL
+                </span>
               </div>
             );
           })()}
