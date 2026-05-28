@@ -181,62 +181,146 @@ export default async function CampaignOverviewPage({ params }: { params: Promise
         <span style={{ color: C.textBody }}>{campaign.name}</span>
       </div>
 
-      {/* ═══ HEADER ═══ */}
-      <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <div className="p-6">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Campaign Overview</p>
-          <h1 className="text-2xl font-bold mb-3" style={{ color: C.textPrimary }}>{campaign.name}</h1>
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1" style={{ backgroundColor: st.bg }}>
-              <StIcon size={13} style={{ color: st.color }} />
-              <span className="text-xs font-semibold" style={{ color: st.color }}>{st.label}</span>
+      {/* ═══ HEADER — SWL premium treatment ═══
+          Dark hero band with gold gradient stripe across the top, soft
+          gold radial in the corner for depth. Same surface language the
+          filter bar uses on /leads so /campaigns/[id] reads as a sibling
+          operator surface, not a generic detail page. */}
+      <div
+        className="rounded-2xl border overflow-hidden mb-6 relative"
+        style={{
+          backgroundColor: "#0F0F14",
+          borderColor: "color-mix(in srgb, #c9a83a 18%, #1d1f29)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.22), 0 0 0 1px color-mix(in srgb, #c9a83a 14%, transparent)",
+        }}
+      >
+        {/* Gold gradient strip across the top */}
+        <div className="absolute inset-x-0 top-0 h-[2px] pointer-events-none" style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)`, opacity: 0.9 }} />
+        {/* Soft gold radial corner */}
+        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 26%, transparent) 0%, transparent 65%)`, opacity: 0.55 }} />
+        <div className="absolute -bottom-32 -left-20 w-80 h-80 rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 14%, transparent) 0%, transparent 70%)`, opacity: 0.4 }} />
+
+        <div className="p-6 relative">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="h-px w-6" style={{ backgroundColor: gold }} />
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: gold, letterSpacing: "0.18em" }}>Outreach Flow</p>
+          </div>
+          <h1
+            className="text-[28px] font-bold mb-4 leading-tight"
+            style={{
+              color: "#F5F2E8",
+              fontFamily: "var(--font-outfit), system-ui, sans-serif",
+              letterSpacing: "-0.02em",
+            }}
+          >
+            {campaign.name}
+          </h1>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5"
+              style={{
+                backgroundColor: `color-mix(in srgb, ${st.color} 18%, transparent)`,
+                border: `1px solid color-mix(in srgb, ${st.color} 38%, transparent)`,
+                boxShadow: campaign.status === "active" ? `0 0 14px color-mix(in srgb, ${st.color} 30%, transparent)` : "none",
+              }}
+            >
+              {campaign.status === "active" && (
+                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: st.color }} />
+              )}
+              <StIcon size={12} style={{ color: st.color }} />
+              <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: st.color, letterSpacing: "0.08em" }}>{st.label}</span>
             </div>
             {channels.map(ch => {
               const meta = channelMeta[ch];
               if (!meta) return null;
               const Icon = meta.icon;
               return (
-                <span key={ch} className="flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-md"
-                  style={{ backgroundColor: `${meta.color}12`, color: meta.color }}>
+                <span
+                  key={ch}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                  style={{
+                    backgroundColor: `color-mix(in srgb, ${meta.color} 16%, rgba(255,255,255,0.02))`,
+                    color: meta.color,
+                    border: `1px solid color-mix(in srgb, ${meta.color} 32%, transparent)`,
+                  }}
+                >
                   <Icon size={11} /> {meta.label}
                 </span>
               );
             })}
             {(campaign.sellers as any)?.name && (
-              <span className="text-xs" style={{ color: C.textMuted }}>Seller: <strong style={{ color: C.textBody }}>{(campaign.sellers as any).name}</strong></span>
+              <span className="text-[11px] inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+                style={{ color: "color-mix(in srgb, #F5F2E8 78%, transparent)", border: "1px solid color-mix(in srgb, #F5F2E8 14%, transparent)", backgroundColor: "rgba(255,255,255,0.03)" }}>
+                <Users size={11} /> {(campaign.sellers as any).name}
+              </span>
             )}
             {campaign.started_at && (
-              <span className="text-xs" style={{ color: C.textMuted }}>
-                <Clock size={11} className="inline mr-1" />
+              <span className="text-[11px] inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+                style={{ color: "color-mix(in srgb, #F5F2E8 62%, transparent)", border: "1px solid color-mix(in srgb, #F5F2E8 10%, transparent)", backgroundColor: "rgba(255,255,255,0.02)" }}>
+                <Clock size={11} />
                 Started {new Date(campaign.started_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
               </span>
             )}
           </div>
         </div>
 
-        <div className="border-t" style={{ borderColor: C.border }} />
+        <div className="border-t" style={{ borderColor: "color-mix(in srgb, #c9a83a 18%, #1d1f29)" }} />
 
-        <div className="px-6 py-4 grid grid-cols-4 gap-4 lg:grid-cols-8">
+        {/* Stats grid — 8 tiles. Each carries a top-border accent in its KPI
+            color + a tiny halo glow so they read like premium gauges, not
+            plain text. Numbers use Outfit with tight letter-spacing. */}
+        <div className="px-2 py-2 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 relative">
           {[
-            { label: "Total Leads", value: totalLeadsInGroup, color: gold },
-            { label: "Active", value: activeInGroup, color: C.green },
-            { label: "Completed", value: completedInGroup, color: C.textMuted },
-            { label: "Replies", value: totalReplies, color: C.blue },
-            { label: "Positive", value: positiveLeads, color: C.green },
-            { label: "Response Rate", value: `${responseRate}%`, color: C.blue },
-            { label: "Avg Steps", value: avgStepsToConvert ?? "—", color: gold },
-            { label: "Avg Days", value: avgDaysToConvert ? `${avgDaysToConvert}d` : "—", color: gold },
+            { label: "Total Leads",    value: totalLeadsInGroup,                              color: gold },
+            { label: "Active",         value: activeInGroup,                                  color: C.green },
+            { label: "Completed",      value: completedInGroup,                               color: "color-mix(in srgb, #F5F2E8 65%, transparent)" },
+            { label: "Replies",        value: totalReplies,                                   color: C.blue },
+            { label: "Positive",       value: positiveLeads,                                  color: C.green },
+            { label: "Response Rate",  value: `${responseRate}%`,                             color: C.blue },
+            { label: "Avg Steps",      value: avgStepsToConvert ?? "—",                       color: gold },
+            { label: "Avg Days",       value: avgDaysToConvert ? `${avgDaysToConvert}d` : "—", color: gold },
           ].map(s => (
-            <div key={s.label}>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{s.label}</p>
-              <p className="text-lg font-bold" style={{ color: s.color }}>{s.value}</p>
+            <div
+              key={s.label}
+              className="px-3 py-3 rounded-xl relative overflow-hidden"
+              style={{
+                backgroundColor: "rgba(255,255,255,0.025)",
+                borderTop: `2px solid color-mix(in srgb, ${s.color} 70%, transparent)`,
+                boxShadow: `0 0 18px color-mix(in srgb, ${s.color} 8%, transparent) inset`,
+              }}
+            >
+              <p
+                className="text-[9px] font-bold uppercase tracking-[0.14em] mb-1"
+                style={{ color: "color-mix(in srgb, #F5F2E8 55%, transparent)", letterSpacing: "0.14em" }}
+              >
+                {s.label}
+              </p>
+              <p
+                className="text-[22px] font-bold leading-none tabular-nums"
+                style={{
+                  color: s.color,
+                  fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                {s.value}
+              </p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* ═══ FUNNEL + SEQUENCE (side by side) ═══ */}
-      <div className="rounded-xl border overflow-hidden mb-6" style={{ borderColor: C.border }}>
+      {/* ═══ FUNNEL + SEQUENCE (side by side) ═══
+          Card gets the gold-tinted border + premium shadow so it doesn't
+          read as a plain bordered box next to the dark hero. */}
+      <div
+        className="rounded-2xl border overflow-hidden mb-6 relative"
+        style={{
+          borderColor: `color-mix(in srgb, ${gold} 22%, ${C.border})`,
+          boxShadow: `0 6px 24px rgba(0,0,0,0.06), 0 0 0 1px color-mix(in srgb, ${gold} 10%, transparent)`,
+        }}
+      >
+        <div className="absolute inset-x-0 top-0 h-[2px] pointer-events-none" style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)`, opacity: 0.55 }} />
         <div className="grid grid-cols-2" style={{ minHeight: "220px" }}>
 
           {/* LEFT: Funnel */}
@@ -330,26 +414,60 @@ export default async function CampaignOverviewPage({ params }: { params: Promise
         </div>
       </div>
 
-      {/* ═══ MESSAGES (collapsible) ═══ */}
-      <div className="mb-6">
-        <SequenceAccordion
-          sequence={sequence}
-          messages={JSON.parse(JSON.stringify(messages))}
-          messageTemplates={messageTemplates}
-          connectionNote={connectionNote}
-          dayPerStep={dayPerStep}
-          currentStep={currentStep}
-        />
+      {/* ═══ MESSAGES (collapsible) ═══
+          Section gets a gold-disc header to match Replies / Auto-Reply /
+          Leads. The accordion itself stays inside SequenceAccordion. */}
+      <div className="rounded-2xl border overflow-hidden mb-6"
+        style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 18px rgba(0,0,0,0.04)" }}>
+        <div className="px-5 py-3 border-b flex items-center gap-3" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${gold} 5%, ${C.bg})` }}>
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+            style={{
+              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`,
+              boxShadow: `0 3px 12px color-mix(in srgb, ${gold} 30%, transparent)`,
+            }}>
+            <MessageSquare size={14} style={{ color: "#fff" }} strokeWidth={2.2} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: gold, letterSpacing: "0.14em" }}>Sequence</p>
+            <p className="text-[14px] font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>Messages per step</p>
+          </div>
+        </div>
+        <div className="p-2">
+          <SequenceAccordion
+            sequence={sequence}
+            messages={JSON.parse(JSON.stringify(messages))}
+            messageTemplates={messageTemplates}
+            connectionNote={connectionNote}
+            dayPerStep={dayPerStep}
+            currentStep={currentStep}
+          />
+        </div>
       </div>
 
       {/* ═══ REPLIES RECEIVED ═══ */}
       {replies.length > 0 && (
-        <div className="rounded-xl border overflow-hidden mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-              <MessageSquare size={12} className="inline mr-1.5" />Replies Received
-            </p>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${C.blue}15`, color: C.blue }}>{replies.length}</span>
+        <div className="rounded-2xl border overflow-hidden mb-6"
+          style={{
+            backgroundColor: C.card,
+            borderColor: C.border,
+            boxShadow: "0 4px 18px rgba(0,0,0,0.04)",
+          }}>
+          <div className="px-5 py-3 border-b flex items-center gap-3" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${C.blue} 4%, ${C.bg})` }}>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+              style={{
+                background: `linear-gradient(135deg, ${C.blue}, color-mix(in srgb, ${C.blue} 70%, white))`,
+                boxShadow: `0 3px 12px color-mix(in srgb, ${C.blue} 25%, transparent)`,
+              }}>
+              <MessageSquare size={14} style={{ color: "#fff" }} strokeWidth={2.2} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: C.blue, letterSpacing: "0.14em" }}>Conversations</p>
+              <p className="text-[14px] font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>Replies Received</p>
+            </div>
+            <span className="text-xs font-bold tabular-nums px-2.5 py-1 rounded-full"
+              style={{ backgroundColor: `color-mix(in srgb, ${C.blue} 14%, transparent)`, color: C.blue, border: `1px solid color-mix(in srgb, ${C.blue} 28%, transparent)` }}>
+              {replies.length}
+            </span>
           </div>
           <div className="divide-y" style={{ borderColor: C.border }}>
             {replies.map((r: any, idx: number) => {
@@ -392,9 +510,22 @@ export default async function CampaignOverviewPage({ params }: { params: Promise
 
       {/* ═══ AUTO-REPLY TEMPLATES ═══ */}
       {(autoReplies.positive || autoReplies.negative || autoReplies.question) && (
-        <div className="rounded-xl border p-5 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Auto-Reply Templates</p>
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <div className="rounded-2xl border overflow-hidden mb-6"
+          style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 18px rgba(0,0,0,0.04)" }}>
+          <div className="px-5 py-3 border-b flex items-center gap-3" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${gold} 5%, ${C.bg})` }}>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+              style={{
+                background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`,
+                boxShadow: `0 3px 12px color-mix(in srgb, ${gold} 30%, transparent)`,
+              }}>
+              <CheckCircle2 size={14} style={{ color: "#fff" }} strokeWidth={2.2} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: gold, letterSpacing: "0.14em" }}>AI Auto-replies</p>
+              <p className="text-[14px] font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>Templates per classification</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3 p-5">
             {autoReplies.positive && (
               <div className="rounded-lg border p-3" style={{ borderColor: `${C.green}30`, backgroundColor: `${C.green}04` }}>
                 <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.green }}>Positive Reply</p>
@@ -418,12 +549,24 @@ export default async function CampaignOverviewPage({ params }: { params: Promise
       )}
 
       {/* ═══ LEADS IN CAMPAIGN ═══ */}
-      <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <div className="px-5 py-3 border-b flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>
-            <Users size={12} className="inline mr-1.5" />Leads in Campaign
-          </p>
-          <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold }}>{totalLeadsInGroup}</span>
+      <div className="rounded-2xl border overflow-hidden"
+        style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 18px rgba(0,0,0,0.04)" }}>
+        <div className="px-5 py-3 border-b flex items-center gap-3" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${gold} 5%, ${C.bg})` }}>
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0"
+            style={{
+              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`,
+              boxShadow: `0 3px 12px color-mix(in srgb, ${gold} 30%, transparent)`,
+            }}>
+            <Users size={14} style={{ color: "#fff" }} strokeWidth={2.2} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: gold, letterSpacing: "0.14em" }}>Pipeline</p>
+            <p className="text-[14px] font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>Leads in this Flow</p>
+          </div>
+          <span className="text-xs font-bold tabular-nums px-2.5 py-1 rounded-full"
+            style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 32%, transparent)` }}>
+            {totalLeadsInGroup}
+          </span>
         </div>
         <table className="w-full text-left">
           <thead>
