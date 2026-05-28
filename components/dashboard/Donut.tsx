@@ -27,8 +27,8 @@ const gold = "var(--brand, #c9a83a)";
 
 export default function Donut({
   data,
-  size = 188,
-  thickness = 26,
+  size = 240,
+  thickness = 32,
   centerLabel = "replies",
   emptyLabel = "No replies in the period",
   vsPriorLabel = "vs prior",
