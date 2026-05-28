@@ -70,14 +70,36 @@ export default function Funnel({
             <div className="w-28 shrink-0 text-right">
               <p
                 className="text-xs font-semibold inline-flex items-center justify-end gap-1"
-                style={{ color: C.textBody, cursor: s.definition ? "help" : undefined }}
-                title={s.definition}
+                style={{ color: C.textBody }}
               >
                 {s.stage}
                 {s.definition && (
-                  <span aria-hidden className="text-[9px] font-bold rounded-full w-3 h-3 inline-flex items-center justify-center"
-                    style={{ background: C.surface, color: C.textDim, border: `1px solid ${C.border}` }}>
-                    ?
+                  // Custom hover popover instead of native title="" so the
+                  // full definition renders with proper width + wrapping +
+                  // brand styling (boss 2026-05-28: native tooltip was tiny
+                  // and truncated — "no tira info").
+                  <span className="group/tip relative inline-flex">
+                    <span
+                      tabIndex={0}
+                      role="img"
+                      aria-label={s.definition}
+                      className="text-[9px] font-bold rounded-full w-3.5 h-3.5 inline-flex items-center justify-center cursor-help transition-colors hover:bg-black/[0.06] focus:outline-none focus:ring-2 focus:ring-amber-300"
+                      style={{ background: C.surface, color: C.textDim, border: `1px solid ${C.border}` }}
+                    >
+                      ?
+                    </span>
+                    <span
+                      role="tooltip"
+                      className="pointer-events-none absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 w-64 rounded-md border px-3 py-2 text-[11px] font-medium leading-snug shadow-lg opacity-0 transition-opacity duration-100 group-hover/tip:opacity-100 group-focus-within/tip:opacity-100"
+                      style={{
+                        background: "#0B0F1A",
+                        color: "#E5E7EB",
+                        borderColor: `color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)`,
+                        boxShadow: "0 10px 28px -10px rgba(0,0,0,0.4)",
+                      }}
+                    >
+                      {s.definition}
+                    </span>
                   </span>
                 )}
               </p>

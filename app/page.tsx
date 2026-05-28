@@ -1567,18 +1567,35 @@ function Panel({
               >
                 {title}
                 {titleHint && (
-                  <span
-                    role="img"
-                    aria-label="info"
-                    title={titleHint}
-                    className="text-[9px] font-bold rounded-full w-3.5 h-3.5 inline-flex items-center justify-center cursor-help"
-                    style={{
-                      background: "color-mix(in srgb, var(--brand, #c9a83a) 22%, transparent)",
-                      color: gold,
-                      border: `1px solid color-mix(in srgb, ${gold} 40%, transparent)`,
-                    }}
-                  >
-                    ?
+                  // Custom hover popover — replaces native title="" so the
+                  // full hint renders properly styled with brand colors
+                  // and full text wrapping (boss 2026-05-28).
+                  <span className="group/tip relative inline-flex">
+                    <span
+                      role="img"
+                      aria-label={titleHint}
+                      tabIndex={0}
+                      className="text-[9px] font-bold rounded-full w-3.5 h-3.5 inline-flex items-center justify-center cursor-help focus:outline-none focus:ring-2 focus:ring-amber-300"
+                      style={{
+                        background: "color-mix(in srgb, var(--brand, #c9a83a) 22%, transparent)",
+                        color: gold,
+                        border: `1px solid color-mix(in srgb, ${gold} 40%, transparent)`,
+                      }}
+                    >
+                      ?
+                    </span>
+                    <span
+                      role="tooltip"
+                      className="pointer-events-none absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 w-72 rounded-md border px-3 py-2 text-[11px] font-medium leading-snug shadow-lg opacity-0 transition-opacity duration-100 group-hover/tip:opacity-100 group-focus-within/tip:opacity-100"
+                      style={{
+                        background: "rgba(11, 15, 26, 0.98)",
+                        color: "#E5E7EB",
+                        borderColor: `color-mix(in srgb, ${gold} 35%, transparent)`,
+                        boxShadow: "0 12px 32px -10px rgba(0,0,0,0.5)",
+                      }}
+                    >
+                      {titleHint}
+                    </span>
                   </span>
                 )}
               </p>
@@ -1628,18 +1645,32 @@ function Panel({
               <p className="text-[9.5px] font-bold uppercase tracking-[0.18em] inline-flex items-center gap-1.5" style={{ color: gold }}>
                 {insightEyebrow}
                 {insightHint && (
-                  <span
-                    role="img"
-                    aria-label="info"
-                    title={insightHint}
-                    className="text-[8.5px] font-bold rounded-full w-3 h-3 inline-flex items-center justify-center cursor-help"
-                    style={{
-                      background: "color-mix(in srgb, var(--brand, #c9a83a) 22%, transparent)",
-                      color: gold,
-                      border: `1px solid color-mix(in srgb, ${gold} 40%, transparent)`,
-                    }}
-                  >
-                    ?
+                  <span className="group/tip relative inline-flex">
+                    <span
+                      role="img"
+                      aria-label={insightHint}
+                      tabIndex={0}
+                      className="text-[8.5px] font-bold rounded-full w-3 h-3 inline-flex items-center justify-center cursor-help focus:outline-none focus:ring-2 focus:ring-amber-300"
+                      style={{
+                        background: "color-mix(in srgb, var(--brand, #c9a83a) 22%, transparent)",
+                        color: gold,
+                        border: `1px solid color-mix(in srgb, ${gold} 40%, transparent)`,
+                      }}
+                    >
+                      ?
+                    </span>
+                    <span
+                      role="tooltip"
+                      className="pointer-events-none absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 w-72 rounded-md border px-3 py-2 text-[11px] font-medium normal-case tracking-normal leading-snug shadow-lg opacity-0 transition-opacity duration-100 group-hover/tip:opacity-100 group-focus-within/tip:opacity-100"
+                      style={{
+                        background: "rgba(11, 15, 26, 0.98)",
+                        color: "#E5E7EB",
+                        borderColor: `color-mix(in srgb, ${gold} 35%, transparent)`,
+                        boxShadow: "0 12px 32px -10px rgba(0,0,0,0.5)",
+                      }}
+                    >
+                      {insightHint}
+                    </span>
                   </span>
                 )}
               </p>
