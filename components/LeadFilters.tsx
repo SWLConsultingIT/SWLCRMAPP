@@ -28,7 +28,12 @@ function PillGroup({ icon, label, options, selected, onToggle }: {
       <div className="flex items-center gap-0.5 rounded-lg p-0.5 border" style={{ backgroundColor: C.bg, borderColor: C.border }}>
         {options.map(opt => {
           const isActive = selected.includes(opt.key);
-          const accent = opt.color ?? goldDark;
+          // Gold uniform for every active pill across the bar — boss
+          // feedback 2026-05-28 r7: "hagamoslo siempre que tenemos
+          // selección de botones". The per-option `color` stays available
+          // for cases where a non-gold accent makes sense, but the
+          // default is gold so the bar reads as one consistent surface.
+          const accent = goldDark;
           return (
             <button
               key={opt.key}
@@ -126,15 +131,19 @@ export function LeadFilterBar({
 
   return (
     <div
-      className="rounded-2xl border mb-4 overflow-hidden relative"
+      className="rounded-2xl border mb-4 relative"
       style={{
         backgroundColor: C.card,
         borderColor: C.border,
         boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
       }}
     >
-      {/* Subtle gold accent line — same signature as the lead detail card */}
-      <div className="absolute inset-x-0 top-0 h-[2px] pointer-events-none" style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)`, opacity: 0.4 }} />
+      {/* Subtle gold accent line — same signature as the lead detail card.
+          Outer wrapper has overflow:visible (was hidden) so the FacetDropdown
+          popups can escape the bar — boss feedback 2026-05-28 r7:
+          "siguen sin verse los filtros desplegables". The accent stripe
+          stays clipped by rounding the inner span instead. */}
+      <div className="absolute inset-x-0 top-0 h-[2px] pointer-events-none rounded-t-2xl overflow-hidden" style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)`, opacity: 0.4 }} />
 
       {/* Search row + result count + Clear. The old "Filters" toggle was
           removed 2026-05-28 r5: pills + facets are always visible now
@@ -178,59 +187,64 @@ export function LeadFilterBar({
         </span>
       </div>
 
-      {/* All filters on one grid row, distributed evenly across the bar
-          width so nothing piles up on the right side. Each cell holds one
-          facet group; cells wrap to a new row on narrow viewports. Boss
-          feedback 2026-05-28 r6: "los filtros están amontonados a la
-          derecha". */}
-      {(showStatusPills || (showProfileFilter && profileNames && profileNames.length > 0) || (industryOptions && industryOptions.length > 0) || (roleOptions && roleOptions.length > 0)) && (
+      {/* Row 1 — quick filters (pills). 3 pill groups distributed in a
+          fixed 3-column grid so each gets equal space and they stop
+          piling on the right side. Multi-select inside each group. */}
+      {showStatusPills && (
+      <div
+        className="px-4 py-3 grid gap-x-6 gap-y-3 border-b"
+        style={{
+          backgroundColor: `color-mix(in srgb, ${C.bg} 50%, transparent)`,
+          borderColor: C.border,
+          gridTemplateColumns: showCampaignFilter ? "repeat(3, minmax(0, 1fr))" : "repeat(2, minmax(0, 1fr))",
+        }}
+      >
+        <PillGroup
+          icon={<Flame size={11} />}
+          label="Score"
+          selected={filters.score}
+          onToggle={v => toggle("score", v)}
+          options={[
+            { key: "hot", label: "Hot", color: C.hot },
+            { key: "warm", label: "Warm", color: C.warm },
+            { key: "nurture", label: "Nurture", color: C.nurture },
+          ]}
+        />
+        {showCampaignFilter && (
+          <PillGroup
+            icon={<Megaphone size={11} />}
+            label="Campaign"
+            selected={filters.campaign}
+            onToggle={v => toggle("campaign", v)}
+            options={[
+              { key: "yes", label: "Active", color: C.green },
+              { key: "no", label: "None", color: "#92400E" },
+            ]}
+          />
+        )}
+        <PillGroup
+          icon={<MessageCircle size={11} />}
+          label="Results"
+          selected={filters.results}
+          onToggle={v => toggle("results", v)}
+          options={[
+            { key: "positive", label: "Positive", color: C.green },
+            { key: "negative", label: "Negative", color: C.red },
+          ]}
+        />
+      </div>
+      )}
+
+      {/* Row 2 — facet dropdowns. ICP / Industry / Role, each gets a
+          third of the bar so the trigger pills are equal-width and the
+          dropdown popups have somewhere to anchor without clipping. */}
+      {((showProfileFilter && profileNames && profileNames.length > 0) || (industryOptions && industryOptions.length > 0) || (roleOptions && roleOptions.length > 0)) && (
       <div
         className="px-4 py-3 grid gap-x-6 gap-y-3"
         style={{
-          backgroundColor: `color-mix(in srgb, ${C.bg} 50%, transparent)`,
-          gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
         }}
       >
-        {showStatusPills && (
-          <>
-            <PillGroup
-              icon={<Flame size={11} />}
-              label="Score"
-              selected={filters.score}
-              onToggle={v => toggle("score", v)}
-              options={[
-                { key: "hot", label: "Hot", color: C.hot },
-                { key: "warm", label: "Warm", color: C.warm },
-                { key: "nurture", label: "Nurture", color: C.nurture },
-              ]}
-            />
-
-            {showCampaignFilter && (
-              <PillGroup
-                icon={<Megaphone size={11} />}
-                label="Campaign"
-                selected={filters.campaign}
-                onToggle={v => toggle("campaign", v)}
-                options={[
-                  { key: "yes", label: "Active", color: C.green },
-                  { key: "no", label: "None", color: "#92400E" },
-                ]}
-              />
-            )}
-
-            <PillGroup
-              icon={<MessageCircle size={11} />}
-              label="Results"
-              selected={filters.results}
-              onToggle={v => toggle("results", v)}
-              options={[
-                { key: "positive", label: "Positive", color: C.green },
-                { key: "negative", label: "Negative", color: C.red },
-              ]}
-            />
-          </>
-        )}
-
         {showProfileFilter && profileNames && profileNames.length > 0 && (
           <FacetDropdown
             icon={<Target size={11} />}
