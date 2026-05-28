@@ -1,6 +1,7 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import { C } from "@/lib/design";
+import { getT } from "@/lib/i18n-server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
@@ -83,7 +84,10 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
   const { name } = await params;
   const companyName = decodeURIComponent(name);
 
-  const allContacts = await getCompanyLeads(companyName);
+  const [allContacts, t] = await Promise.all([
+    getCompanyLeads(companyName),
+    getT(),
+  ]);
   if (!allContacts.length) notFound();
   // Use the highest-scoring lead as the source of company-level fields.
   const lead = allContacts[0] as Record<string, any>;
@@ -230,7 +234,7 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
         {/* Metrics row */}
         <div className="px-6 py-4 grid grid-cols-4 gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>ICP Score</p>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("companies.hero.icpScore")}</p>
             <div className="flex items-center gap-2">
               <div className="w-1 h-8 rounded-full" style={{ backgroundColor: score.color }} />
               <span className="text-xs font-bold px-2 py-1 rounded"
@@ -243,19 +247,23 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
             </div>
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Employees</p>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("companies.hero.employees")}</p>
             <p className="text-xl font-bold" style={{ color: C.textPrimary }}>{lead.employees ? `${lead.employees}+` : "—"}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Annual Revenue</p>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("companies.hero.annualRevenue")}</p>
             <p className="text-xl font-bold" style={{ color: C.textPrimary }}>{formatRevenue(Number(lead.annual_revenue)) ?? "—"}</p>
           </div>
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>Current Activity</p>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: C.textMuted }}>{t("companies.hero.currentActivity")}</p>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: stats.campaigns > 0 ? C.green : C.textDim }} />
               <p className="text-lg font-bold" style={{ color: C.textPrimary }}>
-                {stats.campaigns > 0 ? `${stats.campaigns} Active Campaign${stats.campaigns > 1 ? "s" : ""}` : "No campaigns"}
+                {stats.campaigns === 0
+                  ? t("companies.hero.noCampaigns")
+                  : stats.campaigns === 1
+                    ? t("companies.hero.activeCampaign")
+                    : t("companies.hero.activeCampaigns").replace("{n}", String(stats.campaigns))}
               </p>
             </div>
           </div>
@@ -265,27 +273,27 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
         <div className="mx-6 mb-4 px-5 py-3 rounded-lg flex items-center gap-8" style={{ backgroundColor: goldLight, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 20%, transparent)` }}>
           <div className="flex items-center gap-2">
             <span className="text-xl font-bold" style={{ color: C.textPrimary }}>{stats.messages}</span>
-            <span className="text-sm" style={{ color: C.textMuted }}>Messages Sent</span>
+            <span className="text-sm" style={{ color: C.textMuted }}>{t("companies.hero.messagesSent")}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xl font-bold" style={{ color: C.textPrimary }}>{stats.replies}</span>
-            <span className="text-sm" style={{ color: C.textMuted }}>Replies</span>
+            <span className="text-sm" style={{ color: C.textMuted }}>{t("companies.hero.replies")}</span>
           </div>
           {stats.replies > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-xl font-bold" style={{ color: C.green }}>
                 {positiveReplies} ({stats.replies > 0 ? Math.round((positiveReplies / stats.replies) * 100) : 0}%)
               </span>
-              <span className="text-sm" style={{ color: C.textMuted }}>Positive Sentiment</span>
+              <span className="text-sm" style={{ color: C.textMuted }}>{t("companies.hero.positiveSentiment")}</span>
             </div>
           )}
         </div>
 
         {/* Tabs */}
         <CompanyTabs tabs={[
-          { label: "Overview" },
-          { label: "Contacts", count: allContacts.length },
-          { label: "Activity" },
+          { label: t("companies.tab.overview") },
+          { label: t("companies.tab.contacts"), count: allContacts.length },
+          { label: t("companies.tab.activity") },
         ]}>
 
           {/* ═══ TAB 0: OVERVIEW ═══ */}

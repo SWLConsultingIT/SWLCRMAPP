@@ -162,7 +162,7 @@ function buildScopeLabel(
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const DASHBOARD_TABS = ["overview", "icps", "campaigns", "channels", "sellers"] as const;
+const DASHBOARD_TABS = ["today", "overview", "icps", "campaigns", "channels", "sellers"] as const;
 type DashboardTab = (typeof DASHBOARD_TABS)[number];
 
 function parseFilters(sp: Record<string, string | string[] | undefined>) {
@@ -177,7 +177,7 @@ function parseFilters(sp: Record<string, string | string[] | undefined>) {
   const rawTab = get("tab");
   const tab: DashboardTab = (DASHBOARD_TABS as readonly string[]).includes(rawTab ?? "")
     ? (rawTab as DashboardTab)
-    : "overview";
+    : "today";
   return {
     from: get("from"),
     to: get("to"),
@@ -187,7 +187,9 @@ function parseFilters(sp: Record<string, string | string[] | undefined>) {
     /** Tab selection for the campaign leaderboard. Default = "active" so
      * historical clutter doesn't bury the campaigns currently running. */
     campStatus: (get("camp_status") as "active" | "paused" | "completed" | "all" | null) ?? "active",
-    /** Active dashboard tab — drives which chapter renders. Default overview. */
+    /** Active dashboard tab — drives which chapter renders. Default = today
+     * (boss feedback 2026-05-28: the action list should be the landing
+     * screen, not the metrics). */
     tab,
   };
 }
@@ -402,11 +404,12 @@ export default async function DashboardPage({
       <Suspense fallback={<div className="h-12" />}>
         <ChapterNav
           items={[
-            { id: "overview",  number: 1, label: t("dashx.chapter.overview") },
-            { id: "icps",      number: 2, label: t("dashx.chapter.icps") },
-            { id: "campaigns", number: 3, label: t("dashx.chapter.campaigns") },
-            { id: "channels",  number: 4, label: t("dashx.chapter.channels") },
-            { id: "sellers",   number: 5, label: t("dashx.chapter.sellers") },
+            { id: "today",     number: 1, label: t("dashx.chapter.today") },
+            { id: "overview",  number: 2, label: t("dashx.chapter.overview") },
+            { id: "icps",      number: 3, label: t("dashx.chapter.icps") },
+            { id: "campaigns", number: 4, label: t("dashx.chapter.campaigns") },
+            { id: "channels",  number: 5, label: t("dashx.chapter.channels") },
+            { id: "sellers",   number: 6, label: t("dashx.chapter.sellers") },
           ]}
         />
       </Suspense>
@@ -417,16 +420,52 @@ export default async function DashboardPage({
         <FiltersBar />
       </Suspense>
 
-      {/* ═══ CHAPTER 1 · OVERVIEW ═══════════════════════════════════════════ */}
-      {filters.tab === "overview" && (
-      <section className="space-y-8 pt-3">
+      {/* ═══ CHAPTER 1 · TODAY ═══════════════════════════════════════════
+          Boss feedback 2026-05-28: "What to do today" should be the landing
+          screen, not buried under metrics. Same TodayCard the Overview tab
+          used to show, now paired with a welcome-style hero so the page
+          reads like a daily morning checklist on first login. */}
+      {filters.tab === "today" && (
+      <section className="space-y-5 pt-3">
 
-      {/* ─── ACT 1 · "What to do today" — narrative opener. Boss feedback
-          2026-05-27: the dashboard must tell a story, not lead with vanity
-          metrics. This card surfaces actionable items first (replies to
-          review, leads to assign, etc) with deep links into the surface
-          where the work happens. Items with value=0 are hidden so the card
-          only shows what truly needs attention. */}
+      {/* Welcome hero — softer than the top "Sales Engine" hero, more
+          personal. Same navy+gold language so it doesn't feel like a
+          different surface. */}
+      <header
+        className="relative rounded-2xl overflow-hidden px-5 sm:px-7 py-6 sm:py-7"
+        style={{
+          background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
+          border: `1px solid color-mix(in srgb, ${gold} 22%, ${N.hairline})`,
+          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 16%, transparent), 0 14px 32px -18px ${N.ink}`,
+        }}
+      >
+        <span aria-hidden className="absolute -top-20 -right-16 w-72 h-72 rounded-full pointer-events-none"
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 18%, transparent) 0%, transparent 65%)` }} />
+        <span aria-hidden className="absolute -bottom-24 -left-20 w-72 h-72 rounded-full pointer-events-none"
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 8%, transparent) 0%, transparent 65%)` }} />
+        <div className="relative">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.24em]" style={{ color: gold }}>
+            {t("dashx.today.heroEyebrow")}
+          </p>
+          <h1
+            className="text-[26px] sm:text-[30px] font-bold tracking-[-0.022em] leading-[1.1] mt-2"
+            style={{
+              color: "white",
+              fontFamily: "var(--font-outfit), system-ui, sans-serif",
+              textShadow: `0 2px 14px color-mix(in srgb, ${gold} 12%, transparent)`,
+            }}
+          >
+            {t("dashx.today.heroTitle")}
+          </h1>
+          <p
+            className="text-[13px] mt-2 max-w-[640px]"
+            style={{ color: "color-mix(in srgb, white 65%, transparent)" }}
+          >
+            {t("dashx.today.heroDesc")}
+          </p>
+        </div>
+      </header>
+
       <TodayCard
         locale={locale === "es" ? "es" : "en"}
         labels={{
@@ -443,6 +482,12 @@ export default async function DashboardPage({
         }}
         data={data.todayLists}
       />
+      </section>
+      )}
+
+      {/* ═══ CHAPTER 2 · OVERVIEW ═══════════════════════════════════════════ */}
+      {filters.tab === "overview" && (
+      <section className="space-y-8 pt-3">
 
       {/* ─── UNIFIED OVERVIEW · 3 bands inside a single chapter card so the
           eye reads it as one block instead of two competing cards. Boss
