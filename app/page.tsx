@@ -1212,8 +1212,33 @@ export default async function DashboardPage({
         labels={tabFilterLabels}
       />
 
-      <section>
-        <SectionHeader icon={Send} title={t("dashx.channels.title")} subtitle={withScope(t("dashx.channels.subtitle"))} />
+      {/* Unified Channels Panel — wraps the 4 channel cards + comparison
+          bar in ONE container so the chapter reads as a single chapter
+          instead of 3 sections (cards / comparison / heatmap). Boss
+          feedback 2026-05-28: "es medio parecido todo, dame propuestas
+          para reorganizar". Mix of options A + B. */}
+      <Panel
+        title={t("dashx.channels.title")}
+        subtitle={withScope(t("dashx.channels.unifiedSubtitle"))}
+        glow
+        insightEyebrow={t("dashx.insight.eyebrow")}
+        insightHint={t("dashx.insight.hint")}
+        insight={(() => {
+          const eligible = data.channelBreakdown.filter(c => c.contacted >= 5);
+          if (eligible.length < 2) return null;
+          const sorted = [...eligible].sort((a, b) => b.responseRate - a.responseRate);
+          const best = sorted[0]; const worst = sorted[sorted.length - 1];
+          const gap = best.responseRate - worst.responseRate;
+          if (gap < 5) return null;
+          const bestLabel = t(`dashx.ch.${best.channel}`) === `dashx.ch.${best.channel}` ? best.channel : t(`dashx.ch.${best.channel}`);
+          const worstLabel = t(`dashx.ch.${worst.channel}`) === `dashx.ch.${worst.channel}` ? worst.channel : t(`dashx.ch.${worst.channel}`);
+          return t("dashx.channels.compInsight", { best: bestLabel, worst: worstLabel, gap });
+        })()}
+      >
+        {/* Band 1 — channel cards (granular per-channel views) */}
+        <p className="text-[9.5px] font-bold uppercase tracking-[0.16em] mb-2.5" style={{ color: C.textMuted }}>
+          {t("dashx.channels.bandCards")}
+        </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {/* LinkedIn Connections (invite leg) — boss-feedback 2026-05-27.
               Pulls sent + accepted counts from the funnel stages so it
@@ -1280,34 +1305,17 @@ export default async function DashboardPage({
             });
           })()}
         </div>
-      </section>
 
-      {/* ─── Channel comparison bar chart — VISUAL ranking of channels by
-          reply rate. Replaces the prior 30d trend + heatmap that lived
-          here (those weren't channel-specific so they moved up to Overview).
-          Bars are sorted by reply rate desc; length-encoded against the
-          top performer so the leader hits full width. */}
-      <section>
-        <Panel
-          title={t("dashx.channels.compTitle")}
-          subtitle={withScope(t("dashx.channels.compSubtitle"))}
-          glow
-          insightEyebrow={t("dashx.insight.eyebrow")}
-          insight={(() => {
-            const eligible = data.channelBreakdown.filter(c => c.contacted >= 5);
-            if (eligible.length < 2) return null;
-            const sorted = [...eligible].sort((a, b) => b.responseRate - a.responseRate);
-            const best = sorted[0]; const worst = sorted[sorted.length - 1];
-            const gap = best.responseRate - worst.responseRate;
-            if (gap < 5) return null;
-            const bestLabel = t(`dashx.ch.${best.channel}`) === `dashx.ch.${best.channel}` ? best.channel : t(`dashx.ch.${best.channel}`);
-            const worstLabel = t(`dashx.ch.${worst.channel}`) === `dashx.ch.${worst.channel}` ? worst.channel : t(`dashx.ch.${worst.channel}`);
-            return t("dashx.channels.compInsight", { best: bestLabel, worst: worstLabel, gap });
-          })()}
-        >
-          <ChannelComparison channels={data.channelBreakdown} t={t} emptyLabel={t("dashx.channels.empty")} />
-        </Panel>
-      </section>
+        {/* Band 2 — head-to-head bar comparison (reply rate ranking) */}
+        {data.channelBreakdown.length > 1 && (
+          <div className="mt-6 pt-4 border-t" style={{ borderColor: C.border }}>
+            <p className="text-[9.5px] font-bold uppercase tracking-[0.16em] mb-2.5" style={{ color: C.textMuted }}>
+              {t("dashx.channels.bandComparison")}
+            </p>
+            <ChannelComparison channels={data.channelBreakdown} t={t} emptyLabel={t("dashx.channels.empty")} />
+          </div>
+        )}
+      </Panel>
 
       </section>
       )}

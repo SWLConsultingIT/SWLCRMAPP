@@ -485,6 +485,9 @@ export const en: Dict = {
   // Channel breakdown
   "dashx.channels.title": "Performance by channel",
   "dashx.channels.subtitle": "Volume and conversion per outreach channel",
+  "dashx.channels.unifiedSubtitle": "Per-channel cards + head-to-head reply rate ranking",
+  "dashx.channels.bandCards": "Per channel",
+  "dashx.channels.bandComparison": "Head-to-head · reply rate ranking",
   "dashx.channels.empty": "No channel activity yet.",
   "dashx.channels.compTitle": "Channel comparison",
   "dashx.channels.compSubtitle": "Reply rate per channel · sorted by performance",
@@ -1322,6 +1325,9 @@ export const es: Dict = {
   // Channel breakdown
   "dashx.channels.title": "Performance por canal",
   "dashx.channels.subtitle": "Volumen y conversión por canal de outreach",
+  "dashx.channels.unifiedSubtitle": "Cards por canal + ranking head-to-head de reply rate",
+  "dashx.channels.bandCards": "Por canal",
+  "dashx.channels.bandComparison": "Head-to-head · ranking por reply rate",
   "dashx.channels.empty": "Sin actividad por canal todavía.",
   "dashx.channels.compTitle": "Comparativa de canales",
   "dashx.channels.compSubtitle": "Reply rate por canal · ordenado por performance",
