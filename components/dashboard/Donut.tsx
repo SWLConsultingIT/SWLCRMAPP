@@ -32,6 +32,7 @@ export default function Donut({
   centerLabel = "replies",
   emptyLabel = "No replies in the period",
   vsPriorLabel = "vs prior",
+  classifierNote,
 }: {
   data: Slice[];
   size?: number;
@@ -40,6 +41,10 @@ export default function Donut({
   emptyLabel?: string;
   /** Locale label used for the delta chip tooltip. */
   vsPriorLabel?: string;
+  /** When set, renders a permanent caption under the legend explaining
+   * how the classification works (boss feedback 2026-05-28: "meeting
+   * intent cómo se hace?"). Hidden tooltips weren't enough. */
+  classifierNote?: string;
 }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const total = data.reduce((acc, s) => acc + s.value, 0);
@@ -153,7 +158,7 @@ export default function Donut({
       {/* Right column — clickable legend with delta chips. Each row links
           into /inbox?classification=<key> so the donut becomes a drill-in
           (boss feedback round 5 #2). */}
-      <div className="flex-1 min-w-0 flex flex-col justify-center">
+      <div className="flex-1 min-w-0 flex flex-col justify-center gap-2">
         {data.length === 0 ? (
           <p className="text-[12px] text-center sm:text-left" style={{ color: C.textDim }}>{emptyLabel}</p>
         ) : (
@@ -219,6 +224,12 @@ export default function Donut({
               );
             })}
           </ul>
+        )}
+        {/* Classifier footnote — visible, no hover. */}
+        {classifierNote && data.length > 0 && (
+          <p className="text-[10px] leading-snug mt-1 px-2" style={{ color: C.textDim }}>
+            {classifierNote}
+          </p>
         )}
       </div>
     </div>

@@ -680,6 +680,7 @@ export default async function DashboardPage({
               centerLabel={t("dashx.donut.centerReplies")}
               emptyLabel={t("dashx.donut.empty")}
               vsPriorLabel={t("dashx.kpi.vsPrior")}
+              classifierNote={t("dashx.donut.classifierNote")}
             />
           </Panel>
         </div>
