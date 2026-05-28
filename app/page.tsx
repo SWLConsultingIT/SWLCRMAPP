@@ -346,23 +346,34 @@ export default async function DashboardPage({
           style={{ background: `linear-gradient(90deg, transparent 0%, color-mix(in srgb, ${gold} 56%, transparent) 25%, color-mix(in srgb, ${gold} 56%, transparent) 75%, transparent 100%)` }} />
 
         <div className="relative flex items-center justify-between gap-10 flex-wrap">
-          {/* ── Left column — refined typographic stack ─────────── */}
+          {/* ── Left column — GrowthAI wordmark (white + gold "AI"),
+              SALES ENGINE eyebrow under it, welcome copy. */}
           <div className="min-w-0 flex-1 max-w-[640px]">
-            {/* Eyebrow: thin gold rule + GrowthAI wordmark — gives the
-                page a "signed-by-the-brand" editorial opening. */}
-            <div className="flex items-center gap-3 mb-6">
-              <span aria-hidden className="block h-px w-8"
-                style={{ background: `linear-gradient(90deg, ${gold} 0%, color-mix(in srgb, ${gold} 0%, transparent) 100%)` }} />
-              <span
-                className="text-[11.5px] font-bold uppercase"
+            <div className="mb-7">
+              <p
+                className="text-[28px] sm:text-[32px] font-bold leading-none"
                 style={{
-                  color: gold,
-                  letterSpacing: "0.32em",
+                  color: "white",
                   fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                  letterSpacing: "-0.02em",
                 }}
               >
-                GrowthAI
-              </span>
+                Growth<span style={{ color: gold }}>AI</span>
+              </p>
+              <div className="flex items-center gap-2.5 mt-2.5">
+                <span aria-hidden className="block h-px w-6"
+                  style={{ background: `linear-gradient(90deg, ${gold} 0%, transparent 100%)` }} />
+                <span
+                  className="text-[10.5px] font-bold uppercase"
+                  style={{
+                    color: gold,
+                    letterSpacing: "0.32em",
+                    fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                  }}
+                >
+                  {t("dashx.hero.section")}
+                </span>
+              </div>
             </div>
 
             <h1
@@ -387,32 +398,67 @@ export default async function DashboardPage({
             </p>
           </div>
 
-          {/* ── Right column — focal SWL mark with staged halo ──────
-              The gold radial halo behind the logo gives it depth + a
-              "seat" so it doesn't float against the navy. Logo itself
-              breathes + shines via the LogoLoader animations (4.5s). */}
+          {/* ── Right column — cockpit HUD viewfinder ────────────────
+              SWL logo sits inside a sci-fi targeting frame:
+                · Outer halo radial, breathing in sync with the logo
+                · Inner tight halo for depth
+                · 4 static gold L-brackets at the corners ("targeting")
+                · A thin gold scan-bar below the logo that pulses
+                · The logo itself breathes + shines (LogoLoader anims)
+              Static brackets set the "this is HUD" tone; the halo +
+              scan-bar + logo carry the heartbeat. */}
           {(() => {
             const SWL_LOGO = "https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png";
-            const size = 104;
-            // FULL logo (mark + "SWL" lettering). The PNG native ratio
-            // is 280:136. We render the entire image (no crop) so the
-            // SWL wordmark is visible — on the dark navy hero bg the
-            // gold-inverted filter keeps both pieces legible.
+            const size = 112;
             const logoWidth = Math.round(size * (280 / 136));
+            const framePad = 36;
+            const frameW = logoWidth + framePad * 2;
+            const frameH = size + framePad * 2;
+            const bracketLen = 22;
+            const bracketWeight = 2;
+            const bracketInset = 4;
+            const bracketColor = `color-mix(in srgb, ${gold} 78%, transparent)`;
+            const bracketGlow = `0 0 12px color-mix(in srgb, ${gold} 38%, transparent)`;
             return (
               <div className="relative shrink-0 flex items-center justify-center"
-                style={{ width: logoWidth + 80, height: size + 80 }}>
-                {/* Halo backdrop — two stacked radials for a deeper bloom */}
-                <span aria-hidden className="absolute inset-0 pointer-events-none"
+                style={{ width: frameW, height: frameH }}>
+                {/* Outer halo — large breathing bloom in sync with the logo */}
+                <span aria-hidden className="absolute inset-0 pointer-events-none hero-hud-halo"
                   style={{
-                    background: `radial-gradient(circle at center, color-mix(in srgb, ${gold} 26%, transparent) 0%, transparent 55%)`,
-                    filter: "blur(8px)",
+                    background: `radial-gradient(ellipse 72% 68% at center, color-mix(in srgb, ${gold} 36%, transparent) 0%, color-mix(in srgb, ${gold} 10%, transparent) 45%, transparent 75%)`,
+                    filter: "blur(12px)",
+                    transformOrigin: "center",
                   }} />
-                <span aria-hidden className="absolute inset-0 pointer-events-none"
+                {/* Inner halo — tighter, sharper */}
+                <span aria-hidden className="absolute inset-6 pointer-events-none"
                   style={{
-                    background: `radial-gradient(circle at center, color-mix(in srgb, ${gold} 14%, transparent) 0%, transparent 70%)`,
+                    background: `radial-gradient(circle at center, color-mix(in srgb, ${gold} 26%, transparent) 0%, transparent 60%)`,
                   }} />
-                {/* The full logo — breathes + shines */}
+
+                {/* Corner brackets — 4 static gold L-shapes */}
+                {[
+                  { top: bracketInset, left: bracketInset, borderTop: `${bracketWeight}px solid ${bracketColor}`, borderLeft: `${bracketWeight}px solid ${bracketColor}`, borderTopLeftRadius: 4 },
+                  { top: bracketInset, right: bracketInset, borderTop: `${bracketWeight}px solid ${bracketColor}`, borderRight: `${bracketWeight}px solid ${bracketColor}`, borderTopRightRadius: 4 },
+                  { bottom: bracketInset, left: bracketInset, borderBottom: `${bracketWeight}px solid ${bracketColor}`, borderLeft: `${bracketWeight}px solid ${bracketColor}`, borderBottomLeftRadius: 4 },
+                  { bottom: bracketInset, right: bracketInset, borderBottom: `${bracketWeight}px solid ${bracketColor}`, borderRight: `${bracketWeight}px solid ${bracketColor}`, borderBottomRightRadius: 4 },
+                ].map((s, i) => (
+                  <span key={i} aria-hidden className="absolute pointer-events-none"
+                    style={{ width: bracketLen, height: bracketLen, boxShadow: bracketGlow, ...s }} />
+                ))}
+
+                {/* Scan-bar — thin gold line below the logo, pulses */}
+                <span aria-hidden className="absolute pointer-events-none hero-hud-scan"
+                  style={{
+                    left: framePad + 14,
+                    right: framePad + 14,
+                    bottom: framePad - 14,
+                    height: 1.5,
+                    background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)`,
+                    boxShadow: `0 0 10px color-mix(in srgb, ${gold} 65%, transparent)`,
+                  }} />
+
+                {/* The SWL logo — full PNG (mark + "SWL"), gold-inverted.
+                    Inherits the LogoLoader breath + shine (4.5s cycle). */}
                 <div
                   className="logo-loader-mark-wrap relative"
                   style={{ width: logoWidth, height: size }}
@@ -427,13 +473,9 @@ export default async function DashboardPage({
                       width: logoWidth,
                       height: size,
                       objectFit: "contain",
-                      // Gold-invert: black silhouette → gold via hue-rotate.
-                      // Applies to both the mark and the SWL lettering.
-                      filter: `brightness(0) saturate(1) invert(78%) sepia(38%) saturate(580%) hue-rotate(2deg) brightness(95%) contrast(88%)`,
+                      filter: `brightness(0) saturate(1) invert(78%) sepia(38%) saturate(580%) hue-rotate(2deg) brightness(98%) contrast(92%)`,
                     }}
                   />
-                  {/* Shine overlay — masked to the full logo shape so it
-                      sweeps across both the mark and the lettering. */}
                   <span
                     className="logo-loader-mark-shine"
                     style={{

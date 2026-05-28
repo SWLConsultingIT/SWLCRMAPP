@@ -261,10 +261,25 @@ select:focus-visible {
 }
 .pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
 
-/* Today hero motion now lives in the LogoLoader animations
-   (logo-loader-mark-glow + logo-loader-mark-shine) applied directly
-   to the SWL mark sitting in the hero. No ambient/comet animations
-   on the hero surface itself — keeps the focal point on the brand. */
+/* ─── Today hero — cockpit HUD treatment.
+   Logo sits inside a "viewfinder" with static corner brackets. The
+   only animated piece on the frame is a thin horizontal scan-bar
+   that pulses softly under the logo — reads like a heartbeat /
+   status indicator, not a flicker. Logo itself uses the LogoLoader
+   breath + shine animations (4.5s) as the focal motion. */
+@keyframes hero-hud-scan {
+  0%, 100% { opacity: 0.25; transform: scaleX(0.85); }
+  50%      { opacity: 1;    transform: scaleX(1); }
+}
+@keyframes hero-hud-halo {
+  0%, 100% { opacity: 0.7; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.06); }
+}
+.hero-hud-scan { animation: hero-hud-scan 2.8s ease-in-out infinite; }
+.hero-hud-halo { animation: hero-hud-halo 5s   ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .hero-hud-scan, .hero-hud-halo { animation: none; }
+}
 
 /* ─── Fade in ─── */
 @keyframes fadeIn {
