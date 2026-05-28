@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { C } from "@/lib/design";
 import { Search, X, SlidersHorizontal, Flame, Megaphone, MessageCircle, Target, ChevronDown, Briefcase, Building2 } from "lucide-react";
 
@@ -9,56 +9,39 @@ const goldDark = "var(--brand-dark, #b79832)";
 
 type FilterOption = { key: string; label: string; color?: string; count?: number };
 
-function PillGroup({ icon, label, options, value, onChange, wrap = false, dark = false }: {
+// Multi-select pill group. `selected` is the array of active keys; empty
+// array = "no filter applied". Click a pill to toggle it in or out — no
+// "All" pill anymore, because "everything off" already means "all".
+function PillGroup({ icon, label, options, selected, onToggle }: {
   icon: ReactNode;
   label: string;
   options: FilterOption[];
-  value: string;
-  onChange: (v: string) => void;
-  /** Allow the pill row to wrap to multiple lines when content overflows.
-   *  Used by the Profile filter where ICP names can be long ("Pathway
-   *  Invoice Finance — Construction"). */
-  wrap?: boolean;
-  /** Use the dark-on-dark color palette (LeadFilterBar premium look). */
-  dark?: boolean;
+  selected: string[];
+  onToggle: (key: string) => void;
 }) {
-  const labelColor    = dark ? "color-mix(in srgb, #F5F2E8 70%, transparent)" : C.textMuted;
-  const labelIcon     = dark ? "color-mix(in srgb, #F5F2E8 55%, transparent)" : C.textDim;
-  const groupBg       = dark ? "rgba(255,255,255,0.04)" : C.bg;
-  const groupBorder   = dark ? "color-mix(in srgb, #c9a83a 16%, #1d1f29)" : C.border;
-  const inactiveColor = dark ? "color-mix(in srgb, #F5F2E8 75%, transparent)" : C.textMuted;
   return (
-    <div className={wrap ? "flex items-start gap-2 flex-wrap min-w-0" : "flex items-center gap-2"}>
-      <div className="flex items-center gap-1.5 shrink-0 pt-1">
-        <span style={{ color: labelIcon }}>{icon}</span>
-        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: labelColor, letterSpacing: "0.08em" }}>{label}</span>
+    <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 shrink-0">
+        <span style={{ color: C.textDim }}>{icon}</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textMuted, letterSpacing: "0.08em" }}>{label}</span>
       </div>
-      <div className={`${wrap ? "flex flex-wrap" : "flex items-center"} gap-0.5 rounded-lg p-0.5 border`} style={{ backgroundColor: groupBg, borderColor: groupBorder }}>
+      <div className="flex items-center gap-0.5 rounded-lg p-0.5 border" style={{ backgroundColor: C.bg, borderColor: C.border }}>
         {options.map(opt => {
-          const isActive = value === opt.key;
+          const isActive = selected.includes(opt.key);
           const accent = opt.color ?? goldDark;
           return (
             <button
               key={opt.key}
-              onClick={() => onChange(opt.key)}
+              onClick={() => onToggle(opt.key)}
               className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 hover:scale-[1.02]"
               style={{
-                backgroundColor: isActive
-                  ? (dark ? `color-mix(in srgb, ${accent} 22%, transparent)` : `color-mix(in srgb, ${accent} 14%, ${C.card})`)
-                  : "transparent",
-                color: isActive ? accent : inactiveColor,
-                border: isActive
-                  ? `1px solid color-mix(in srgb, ${accent} ${dark ? 50 : 35}%, transparent)`
-                  : "1px solid transparent",
-                boxShadow: isActive
-                  ? `0 1px 0 color-mix(in srgb, ${accent} 18%, transparent), 0 0 0 2px color-mix(in srgb, ${accent} 8%, transparent)`
-                  : "none",
+                backgroundColor: isActive ? `color-mix(in srgb, ${accent} 14%, ${C.card})` : "transparent",
+                color: isActive ? accent : C.textMuted,
+                border: isActive ? `1px solid color-mix(in srgb, ${accent} 35%, transparent)` : "1px solid transparent",
+                boxShadow: isActive ? `0 1px 0 color-mix(in srgb, ${accent} 18%, transparent), 0 0 0 2px color-mix(in srgb, ${accent} 8%, transparent)` : "none",
               }}
             >
               {opt.label}
-              {opt.count !== undefined && isActive && opt.key !== "all" && (
-                <span className="ml-1 text-[9px] font-bold px-1 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${accent} 18%, transparent)`, color: accent }}>{opt.count}</span>
-              )}
             </button>
           );
         })}
@@ -69,16 +52,26 @@ function PillGroup({ icon, label, options, value, onChange, wrap = false, dark =
 
 export type LeadFilterState = {
   search: string;
-  score: string;
-  campaign: string;
-  reply: string;
-  profile: string;
-  /** Job role / title. "all" or a string that must match (case-insensitive
-   *  contains) against the lead's primary_title_role. */
-  role: string;
-  /** Company industry. Same shape as role — "all" or a contains-match. */
-  industry: string;
+  /** Multi-select. Empty array means "no filter" (= show everything).
+   *  Each filter is OR within itself, AND across filters. Boss feedback
+   *  2026-05-28 r5: "se tiene que poder seleccionar varias opciones en
+   *  cada filtro". */
+  score: string[];
+  campaign: string[];
+  /** Renamed from "reply" → "results" 2026-05-28 r5. Now stores positive
+   *  / negative as discrete values (see PILL_OPTS below). */
+  results: string[];
+  profile: string[];
+  /** Job role / title. Each entry is a case-insensitive exact match
+   *  against the lead's primary_title_role. */
+  role: string[];
+  /** Company industry. Same shape as role. */
+  industry: string[];
 };
+
+export function emptyLeadFilterState(): LeadFilterState {
+  return { search: "", score: [], campaign: [], results: [], profile: [], role: [], industry: [] };
+}
 
 export function LeadFilterBar({
   filters,
@@ -111,41 +104,26 @@ export function LeadFilterBar({
    *  so the seller can still slice by score / reply / campaign. */
   showStatusPills?: boolean;
 }) {
-  const set = (key: keyof LeadFilterState, val: string) => onChange({ ...filters, [key]: val });
-  // "Filter pills" used to be permanently visible — 3 pill groups + a profile
-  // row with 11 long ICP names. Way too much visual noise on first paint when
-  // most sellers just need search + the saved-view chips above. Hidden by
-  // default now, expand via the "Filters" toggle.
-  const hasFacetFilter =
-    filters.score !== "all" ||
-    filters.campaign !== "all" ||
-    filters.reply !== "all" ||
-    filters.profile !== "all" ||
-    filters.role !== "all" ||
-    filters.industry !== "all";
-  const [expanded, setExpanded] = useState(hasFacetFilter);
-  // Re-open the panel whenever a programmatic filter is applied (e.g. clicking
-  // a saved view from the parent), so the user can see at a glance which
-  // facets the view configured.
-  useEffect(() => {
-    if (hasFacetFilter) setExpanded(true);
-  }, [hasFacetFilter]);
+  // Multi-select toggle helper. Each facet (score, campaign, results,
+  // profile, role, industry) is a string[]. Click adds, click again
+  // removes. Empty array = no filter applied.
+  const toggle = (key: Exclude<keyof LeadFilterState, "search">, v: string) => {
+    const curr = filters[key];
+    const next = curr.includes(v) ? curr.filter(x => x !== v) : [...curr, v];
+    onChange({ ...filters, [key]: next });
+  };
+  const setSearch = (v: string) => onChange({ ...filters, search: v });
 
   const activeCount =
-    (filters.score !== "all" ? 1 : 0) +
-    (filters.campaign !== "all" ? 1 : 0) +
-    (filters.reply !== "all" ? 1 : 0) +
-    (filters.profile !== "all" ? 1 : 0) +
-    (filters.role !== "all" ? 1 : 0) +
-    (filters.industry !== "all" ? 1 : 0) +
+    filters.score.length +
+    filters.campaign.length +
+    filters.results.length +
+    filters.profile.length +
+    filters.role.length +
+    filters.industry.length +
     (filters.search !== "" ? 1 : 0);
   const hasActiveFilter = activeCount > 0;
 
-  // Reverted to the original light look 2026-05-28 (round 3) — the dark+
-  // gold pass was too heavy and read as a separate page surface. We keep
-  // a subtle gold gradient strip across the top as the only "premium"
-  // hint; the rest stays on the calm light card surface that matches the
-  // surrounding page.
   return (
     <div
       className="rounded-2xl border mb-4 overflow-hidden relative"
@@ -158,7 +136,9 @@ export function LeadFilterBar({
       {/* Subtle gold accent line — same signature as the lead detail card */}
       <div className="absolute inset-x-0 top-0 h-[2px] pointer-events-none" style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)`, opacity: 0.4 }} />
 
-      {/* Search row */}
+      {/* Search row + result count + Clear. The old "Filters" toggle was
+          removed 2026-05-28 r5: pills + facets are always visible now
+          ("el botón Filters arriba a la derecha no sirve de nada"). */}
       <div className="px-4 py-3 flex items-center gap-3 border-b" style={{ borderColor: C.border }}>
         <div
           className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 flex-1 transition-shadow focus-within:shadow-sm"
@@ -171,55 +151,25 @@ export function LeadFilterBar({
           <input
             type="text"
             value={filters.search}
-            onChange={e => set("search", e.target.value)}
+            onChange={e => setSearch(e.target.value)}
             placeholder="Search by name, company, email…"
             className="bg-transparent text-[12px] outline-none flex-1 placeholder:font-normal placeholder:text-[12px]"
             style={{ color: C.textPrimary }}
           />
           {filters.search && (
-            <button onClick={() => set("search", "")} className="rounded p-0.5 hover:bg-black/5 transition-colors">
+            <button onClick={() => setSearch("")} className="rounded p-0.5 hover:bg-black/5 transition-colors">
               <X size={11} style={{ color: C.textDim }} />
             </button>
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setExpanded(v => !v)}
-          aria-expanded={expanded}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border transition-colors hover:bg-black/[0.03]"
-          style={{
-            borderColor: hasActiveFilter ? `color-mix(in srgb, ${goldDark} 30%, ${C.border})` : C.border,
-            backgroundColor: hasActiveFilter ? `color-mix(in srgb, ${goldDark} 8%, transparent)` : "transparent",
-          }}
-          title={expanded ? "Hide filters" : "Show filters"}
-        >
-          <SlidersHorizontal size={12} style={{ color: hasActiveFilter ? goldDark : C.textDim }} />
-          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: hasActiveFilter ? goldDark : C.textDim, letterSpacing: "0.08em" }}>
-            Filters
-          </span>
-          {activeCount > 0 && (
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: goldDark, color: "white", lineHeight: 1 }}>
-              {activeCount}
-            </span>
-          )}
-          <ChevronDown
-            size={11}
-            style={{
-              color: hasActiveFilter ? goldDark : C.textDim,
-              transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
-              transition: "transform 0.15s ease",
-            }}
-          />
-        </button>
-
         {hasActiveFilter && (
           <button
-            onClick={() => onChange({ search: "", score: "all", campaign: "all", reply: "all", profile: "all", role: "all", industry: "all" })}
-            className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md transition-colors hover:bg-red-50"
+            onClick={() => onChange(emptyLeadFilterState())}
+            className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md transition-colors hover:bg-red-50 inline-flex items-center gap-1"
             style={{ color: C.red, letterSpacing: "0.06em" }}
           >
-            Clear
+            <X size={11} /> Clear {activeCount > 1 ? `(${activeCount})` : ""}
           </button>
         )}
 
@@ -228,19 +178,19 @@ export function LeadFilterBar({
         </span>
       </div>
 
-      {/* Filter pills row — Score / Campaign / Reply duplicate the chip row
-          on /leads, so we let the parent hide them via `showStatusPills`.
-          Lead Miner ticket detail still renders this row (no chip row
-          upstream) so the seller can slice by score / reply / campaign. */}
+      {/* Score / Campaign / Results pills — always visible (no expand
+          toggle). Score/Campaign/Results are mutually-exclusive in the
+          old design, now multi-select: click a pill to add, click again
+          to remove. Results renamed from "Reply" with cleaner buckets:
+          just Positive vs Negative — boss feedback 2026-05-28 r5. */}
       {showStatusPills && (
       <div className="px-4 py-3 flex items-center gap-4 flex-wrap" style={{ backgroundColor: `color-mix(in srgb, ${C.bg} 50%, transparent)` }}>
         <PillGroup
           icon={<Flame size={11} />}
           label="Score"
-          value={filters.score}
-          onChange={v => set("score", v)}
+          selected={filters.score}
+          onToggle={v => toggle("score", v)}
           options={[
-            { key: "all", label: "All" },
             { key: "hot", label: "Hot", color: C.hot },
             { key: "warm", label: "Warm", color: C.warm },
             { key: "nurture", label: "Nurture", color: C.nurture },
@@ -251,10 +201,9 @@ export function LeadFilterBar({
           <PillGroup
             icon={<Megaphone size={11} />}
             label="Campaign"
-            value={filters.campaign}
-            onChange={v => set("campaign", v)}
+            selected={filters.campaign}
+            onToggle={v => toggle("campaign", v)}
             options={[
-              { key: "all", label: "All" },
               { key: "yes", label: "Active", color: C.green },
               { key: "no", label: "None", color: "#92400E" },
             ]}
@@ -263,54 +212,53 @@ export function LeadFilterBar({
 
         <PillGroup
           icon={<MessageCircle size={11} />}
-          label="Reply"
-          value={filters.reply}
-          onChange={v => set("reply", v)}
+          label="Results"
+          selected={filters.results}
+          onToggle={v => toggle("results", v)}
           options={[
-            { key: "all", label: "All" },
             { key: "positive", label: "Positive", color: C.green },
-            { key: "replied", label: "Replied", color: "#D97706" },
-            { key: "none", label: "No Reply" },
+            { key: "negative", label: "Negative", color: C.red },
           ]}
         />
       </div>
       )}
 
-      {(showProfileFilter && profileNames && profileNames.length > 1)
-        || (roleOptions && roleOptions.length > 1)
-        || (industryOptions && industryOptions.length > 1) ? (
+      {/* Facet dropdowns — multi-select popups. Order: ICP, Industry,
+          Role (Industry promoted ahead of Role per boss feedback). All
+          three are popup-checkbox now regardless of count so the
+          interaction is uniform. */}
+      {(showProfileFilter && profileNames && profileNames.length > 0)
+        || (industryOptions && industryOptions.length > 0)
+        || (roleOptions && roleOptions.length > 0) ? (
         <div className="px-4 py-2.5 border-t flex items-center gap-4 flex-wrap" style={{ borderColor: C.border, backgroundColor: C.card }}>
-          {showProfileFilter && profileNames && profileNames.length > 1 && (
+          {showProfileFilter && profileNames && profileNames.length > 0 && (
             <FacetDropdown
               icon={<Target size={11} />}
               label="ICP"
-              value={filters.profile}
-              onChange={v => set("profile", v)}
+              selected={filters.profile}
+              onToggle={v => toggle("profile", v)}
+              onClear={() => onChange({ ...filters, profile: [] })}
               options={profileNames}
-              allLabel={`All ICPs (${profileNames.length})`}
-              dropdownThreshold={5}
             />
           )}
-          {roleOptions && roleOptions.length > 1 && (
-            <FacetDropdown
-              icon={<Briefcase size={11} />}
-              label="Role"
-              value={filters.role}
-              onChange={v => set("role", v)}
-              options={roleOptions}
-              allLabel={`All roles (${roleOptions.length})`}
-              dropdownThreshold={5}
-            />
-          )}
-          {industryOptions && industryOptions.length > 1 && (
+          {industryOptions && industryOptions.length > 0 && (
             <FacetDropdown
               icon={<Building2 size={11} />}
               label="Industry"
-              value={filters.industry}
-              onChange={v => set("industry", v)}
+              selected={filters.industry}
+              onToggle={v => toggle("industry", v)}
+              onClear={() => onChange({ ...filters, industry: [] })}
               options={industryOptions}
-              allLabel={`All industries (${industryOptions.length})`}
-              dropdownThreshold={5}
+            />
+          )}
+          {roleOptions && roleOptions.length > 0 && (
+            <FacetDropdown
+              icon={<Briefcase size={11} />}
+              label="Role"
+              selected={filters.role}
+              onToggle={v => toggle("role", v)}
+              onClear={() => onChange({ ...filters, role: [] })}
+              options={roleOptions}
             />
           )}
         </div>
@@ -319,75 +267,155 @@ export function LeadFilterBar({
   );
 }
 
-// Shared facet picker — pills when ≤ threshold, dropdown when more. Used by
-// ICP, Role, Industry. Behaviour copies the pre-existing ICP filter so the
-// whole row stays visually consistent.
+// Multi-select facet picker — pops a checkbox list below the trigger.
+// Click outside to close. Used by ICP / Industry / Role uniformly so
+// the seller learns one interaction. Boss feedback 2026-05-28 r5:
+// "industry tiene que ser deplegable" + "se tiene que poder seleccionar
+// varias opciones en cada filtro".
 function FacetDropdown({
-  icon, label, value, onChange, options, allLabel, dropdownThreshold = 5, dark = false,
+  icon, label, selected, onToggle, onClear, options,
 }: {
   icon: ReactNode;
   label: string;
-  value: string;
-  onChange: (v: string) => void;
+  selected: string[];
+  onToggle: (key: string) => void;
+  onClear: () => void;
   options: string[];
-  allLabel: string;
-  dropdownThreshold?: number;
-  dark?: boolean;
 }) {
-  const labelColor    = dark ? "color-mix(in srgb, #F5F2E8 70%, transparent)" : C.textMuted;
-  const labelIcon     = dark ? "color-mix(in srgb, #F5F2E8 55%, transparent)" : C.textDim;
-  const bgIdle        = dark ? "rgba(255,255,255,0.04)" : C.bg;
-  const bgActive      = dark ? `color-mix(in srgb, ${gold} 14%, rgba(255,255,255,0.04))` : `color-mix(in srgb, ${goldDark} 8%, ${C.bg})`;
-  const borderIdle    = dark ? "color-mix(in srgb, #c9a83a 16%, #1d1f29)" : C.border;
-  const borderActive  = dark ? `color-mix(in srgb, ${gold} 48%, #1d1f29)` : `color-mix(in srgb, ${goldDark} 32%, ${C.border})`;
-  const idleText      = dark ? "color-mix(in srgb, #F5F2E8 85%, transparent)" : C.textBody;
-  if (options.length > dropdownThreshold) {
-    return (
-      <div className="flex items-center gap-2">
-        <span style={{ color: labelIcon }}>{icon}</span>
-        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: labelColor, letterSpacing: "0.08em" }}>{label}</span>
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  // Close on outside-click. We attach mousedown (not click) so clicks
+  // inside the popup don't fight the toggle.
+  useEffect(() => {
+    if (!open) return;
+    function handle(e: MouseEvent) {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [open]);
+
+  const hasFilter = selected.length > 0;
+  const visibleOptions = query
+    ? options.filter(o => o.toLowerCase().includes(query.toLowerCase()))
+    : options;
+
+  // Trigger label: "All Roles" when nothing selected, "Director" when
+  // one selected, "Director +2" when many.
+  const triggerText = !hasFilter
+    ? `All ${label.toLowerCase()}s (${options.length})`
+    : selected.length === 1
+      ? selected[0]
+      : `${selected[0]} +${selected.length - 1}`;
+
+  return (
+    <div ref={wrapRef} className="relative flex items-center gap-2">
+      <span style={{ color: C.textDim }}>{icon}</span>
+      <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textMuted, letterSpacing: "0.08em" }}>{label}</span>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 rounded-lg border pl-2.5 pr-1.5 py-1 transition-[border-color,background-color]"
+        style={{
+          backgroundColor: hasFilter ? `color-mix(in srgb, ${goldDark} 8%, ${C.bg})` : C.bg,
+          borderColor: hasFilter ? `color-mix(in srgb, ${goldDark} 32%, ${C.border})` : C.border,
+        }}
+      >
+        <span
+          className="text-[11px] font-semibold truncate"
+          style={{ color: hasFilter ? goldDark : C.textBody, maxWidth: 200 }}
+          title={hasFilter ? selected.join(", ") : undefined}
+        >
+          {triggerText}
+        </span>
+        {hasFilter && (
+          <span className="text-[9px] font-bold tabular-nums px-1.5 py-0.5 rounded-full"
+            style={{ backgroundColor: goldDark, color: "white", lineHeight: 1 }}>
+            {selected.length}
+          </span>
+        )}
+        <ChevronDown size={11} style={{ color: hasFilter ? goldDark : C.textDim, transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.15s ease" }} />
+      </button>
+      {hasFilter && (
+        <button
+          onClick={onClear}
+          className="rounded p-0.5 hover:bg-black/[0.05] transition-colors"
+          title={`Clear ${label} filter`}
+        >
+          <X size={11} style={{ color: C.textDim }} />
+        </button>
+      )}
+
+      {open && (
         <div
-          className="flex items-center gap-1.5 rounded-lg border pl-2.5 pr-1.5 py-1"
+          className="absolute top-full left-0 mt-1.5 z-30 rounded-xl border shadow-lg overflow-hidden"
           style={{
-            backgroundColor: value !== "all" ? bgActive : bgIdle,
-            borderColor: value !== "all" ? borderActive : borderIdle,
+            backgroundColor: C.card,
+            borderColor: C.border,
+            width: 280,
+            boxShadow: "0 12px 32px rgba(0,0,0,0.12)",
           }}
         >
-          <select
-            value={value}
-            onChange={e => onChange(e.target.value)}
-            className="bg-transparent text-[11px] font-semibold outline-none appearance-none pr-1"
-            style={{ color: value !== "all" ? gold : idleText, maxWidth: 220 }}
-          >
-            <option value="all">{allLabel}</option>
-            {options.map(n => <option key={n} value={n}>{n}</option>)}
-          </select>
-          <ChevronDown size={11} style={{ color: value !== "all" ? gold : labelIcon }} />
+          {/* Search inside the popup — meaningful only when we have
+              more than ~8 options. Stays cheap to render either way. */}
+          {options.length > 6 && (
+            <div className="px-3 py-2 border-b flex items-center gap-2" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+              <Search size={11} style={{ color: C.textDim }} />
+              <input
+                type="text"
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder={`Search ${label.toLowerCase()}…`}
+                className="bg-transparent text-[11px] outline-none flex-1"
+                style={{ color: C.textPrimary }}
+              />
+            </div>
+          )}
+          <div className="max-h-64 overflow-y-auto py-1">
+            {visibleOptions.length === 0 ? (
+              <p className="px-3 py-3 text-[11px] text-center" style={{ color: C.textMuted }}>No match</p>
+            ) : visibleOptions.map(opt => {
+              const isOn = selected.includes(opt);
+              return (
+                <button
+                  key={opt}
+                  onClick={() => onToggle(opt)}
+                  className="w-full text-left px-3 py-1.5 text-[12px] flex items-center gap-2 hover:bg-black/[0.03] transition-colors"
+                  style={{ color: isOn ? goldDark : C.textBody }}
+                >
+                  <span
+                    className="w-3.5 h-3.5 rounded-sm border flex items-center justify-center shrink-0"
+                    style={{
+                      borderColor: isOn ? goldDark : C.border,
+                      backgroundColor: isOn ? goldDark : "transparent",
+                    }}
+                  >
+                    {isOn && (
+                      <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                        <path d="M1 4.5L3.5 7L8 1.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="truncate" style={{ fontWeight: isOn ? 600 : 500 }}>{opt}</span>
+                </button>
+              );
+            })}
+          </div>
+          {hasFilter && (
+            <div className="px-3 py-2 border-t flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+              <span className="text-[10px] tabular-nums" style={{ color: C.textMuted }}>{selected.length} selected</span>
+              <button onClick={onClear}
+                className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md transition-colors hover:bg-red-50"
+                style={{ color: C.red, letterSpacing: "0.06em" }}>
+                Clear
+              </button>
+            </div>
+          )}
         </div>
-        {value !== "all" && (
-          <button
-            onClick={() => onChange("all")}
-            className="rounded p-0.5 hover:bg-white/[0.04] transition-colors"
-            title={`Clear ${label} filter`}
-          >
-            <X size={11} style={{ color: labelIcon }} />
-          </button>
-        )}
-      </div>
-    );
-  }
-  return (
-    <PillGroup
-      dark={dark}
-      icon={icon}
-      label={label}
-      value={value}
-      onChange={onChange}
-      wrap
-      options={[
-        { key: "all", label: "All" },
-        ...options.map(n => ({ key: n, label: n })),
-      ]}
-    />
+      )}
+    </div>
   );
 }

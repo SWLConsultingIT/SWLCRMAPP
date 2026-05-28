@@ -10,7 +10,7 @@ import {
   Users as UsersIcon, UserPlus, Share2, Mail, Phone, Trophy, ThumbsDown, MessageSquare, Percent,
   Square, CheckSquare, Plus, X,
 } from "lucide-react";
-import { LeadFilterBar, type LeadFilterState } from "@/components/LeadFilters";
+import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -320,21 +320,40 @@ function LeadsTable({
   onSelectAllFiltered?: (ids: string[], allSelected: boolean) => void;
 }) {
   const [showCount, setShowCount] = useState(PAGE_SIZE);
-  const [filters, setFilters] = useState<LeadFilterState>({ search: "", score: "all", campaign: "all", reply: "all", profile: "all", role: "all", industry: "all" });
+  const [filters, setFilters] = useState<LeadFilterState>(emptyLeadFilterState());
 
+  // Same multi-select filter pipeline that AllLeadsTable uses on /leads.
+  // Each facet is a string[]; empty array = no filter; non-empty = OR
+  // within the facet, AND across facets.
   const filtered = leads.filter(l => {
     if (filters.search) {
       const q = filters.search.toLowerCase();
       if (!`${l.first_name} ${l.last_name} ${l.company} ${l.email}`.toLowerCase().includes(q)) return false;
     }
-    if (filters.score === "hot" && !(l.is_priority || (l.score && l.score >= 80))) return false;
-    if (filters.score === "warm" && !(l.score && l.score >= 50 && l.score < 80 && !l.is_priority)) return false;
-    if (filters.score === "nurture" && !(!l.score || l.score < 50) && !l.is_priority) return false;
-    if (filters.campaign === "yes" && !l.has_campaign) return false;
-    if (filters.campaign === "no" && l.has_campaign) return false;
-    if (filters.reply === "replied" && !(l.reply_count > 0)) return false;
-    if (filters.reply === "positive" && !l.has_positive) return false;
-    if (filters.reply === "none" && l.reply_count > 0) return false;
+    if (filters.score.length > 0) {
+      const isHot     = l.is_priority || (l.score != null && l.score >= 80);
+      const isWarm    = !isHot && l.score != null && l.score >= 50;
+      const isNurture = !isHot && (l.score == null || l.score < 50);
+      const ok =
+        (filters.score.includes("hot") && isHot) ||
+        (filters.score.includes("warm") && isWarm) ||
+        (filters.score.includes("nurture") && isNurture);
+      if (!ok) return false;
+    }
+    if (filters.campaign.length > 0) {
+      const ok =
+        (filters.campaign.includes("yes") && l.has_campaign) ||
+        (filters.campaign.includes("no") && !l.has_campaign);
+      if (!ok) return false;
+    }
+    if (filters.results.length > 0) {
+      const isPositive = !!l.has_positive;
+      const isNegative = !isPositive && (l.reply_count ?? 0) > 0;
+      const ok =
+        (filters.results.includes("positive") && isPositive) ||
+        (filters.results.includes("negative") && isNegative);
+      if (!ok) return false;
+    }
     return true;
   });
 

@@ -11,7 +11,7 @@ import {
   Building2, Users as UsersIcon, MapPin, Globe, MessageCircle, ThumbsUp, Trophy,
   Plus,
 } from "lucide-react";
-import { LeadFilterBar, type LeadFilterState } from "@/components/LeadFilters";
+import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
 import { type OpportunityLead } from "@/components/OpportunitiesTable";
 import { useToast } from "@/lib/toast";
 
@@ -827,25 +827,11 @@ function CompanyCard({ company }: { company: CompanyInfo }) {
 // ─── All Leads Table with Filters ─────────────────────────────────────────────
 const PAGE_SIZE = 25;
 
-// Saved views — Linear-style preset filter tabs. Each "view" is a named
-// LeadFilterState that becomes a one-click tab above the main filter bar.
-// Stored statically here (no DB yet) because the set is small and changing
-// across releases anyway; a future iteration can persist per-user.
-const SAVED_VIEWS: { id: string; label: string; filters: Partial<LeadFilterState>; predicate?: (l: LeadInfo) => boolean }[] = [
-  { id: "all",        label: "All",                filters: {} },
-  { id: "hot",        label: "Hot only",           filters: { score: "hot" } },
-  { id: "positives",  label: "Positive replies",   filters: { reply: "positive" } },
-  { id: "replied",    label: "Replied",            filters: { reply: "replied" } },
-  { id: "noresponse", label: "No response yet",    filters: { reply: "none", campaign: "yes" } },
-  { id: "uncampaigned", label: "Not in a flow",    filters: { campaign: "no" } },
-];
-
 function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
   const router = useRouter();
   const toast = useToast();
   const [showCount, setShowCount] = useState(PAGE_SIZE);
-  const [filters, setFilters] = useState<LeadFilterState>({ search: "", score: "all", campaign: "all", reply: "all", profile: "all", role: "all", industry: "all" });
-  const [activeView, setActiveView] = useState<string>("all");
+  const [filters, setFilters] = useState<LeadFilterState>(emptyLeadFilterState());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [lastSelectedId, setLastSelectedId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -865,59 +851,64 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
   const roleOptions = [...new Set(leads.map(l => (l.role ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   const industryOptions = [...new Set(leads.map(l => (l.industry ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
-  function applyView(viewId: string) {
-    const v = SAVED_VIEWS.find(x => x.id === viewId);
-    if (!v) return;
-    // Reset to neutral state and overlay the view's partial filter.
-    setFilters({ search: filters.search, score: "all", campaign: "all", reply: "all", profile: "all", role: "all", industry: "all", ...v.filters });
-    setActiveView(viewId);
-    setShowCount(PAGE_SIZE);
-    setSelected(new Set());
-  }
-
-  // Pre-compute per-view counts (ignoring search) so the chips show their
-  // populated counts up-front and the user can see at a glance where the
-  // pipeline pressure is.
-  const viewCounts = SAVED_VIEWS.map(v => {
-    const f = { search: "", score: "all", campaign: "all", reply: "all", profile: "all", role: "all", industry: "all", ...v.filters } as LeadFilterState;
-    const count = leads.filter(l => {
-      if (f.score === "hot" && !(l.is_priority || (l.score && l.score >= 80))) return false;
-      if (f.score === "warm" && !(l.score && l.score >= 50 && l.score < 80 && !l.is_priority)) return false;
-      if (f.score === "nurture" && !(!l.score || l.score < 50) && !l.is_priority) return false;
-      if (f.reply === "replied" && !(l.reply_count && l.reply_count > 0)) return false;
-      if (f.reply === "positive" && !l.has_positive) return false;
-      if (f.reply === "none" && (l.reply_count ?? 0) > 0) return false;
-      if (f.campaign === "yes" && !l.has_campaign) return false;
-      if (f.campaign === "no" && l.has_campaign) return false;
-      return true;
-    }).length;
-    return { ...v, count };
-  });
-
+  // Filter pipeline — multi-select. Each facet is an array; empty array
+  // means "no filter applied" for that axis. Within a facet we OR
+  // (lead matches if any selected value matches); across facets we AND
+  // (every facet must let the lead through). Boss feedback 2026-05-28 r5.
   const filtered = leads.filter(l => {
     if (filters.search) {
       const q = filters.search.toLowerCase();
       if (!`${l.first_name} ${l.last_name} ${l.company} ${l.email}`.toLowerCase().includes(q)) return false;
     }
-    if (filters.score === "hot" && !(l.is_priority || (l.score && l.score >= 80))) return false;
-    if (filters.score === "warm" && !(l.score && l.score >= 50 && l.score < 80 && !l.is_priority)) return false;
-    if (filters.score === "nurture" && !(!l.score || l.score < 50) && !l.is_priority) return false;
-    if (filters.reply === "replied" && !(l.reply_count && l.reply_count > 0)) return false;
-    if (filters.reply === "positive" && !l.has_positive) return false;
-    if (filters.reply === "none" && (l.reply_count ?? 0) > 0) return false;
-    if (filters.campaign === "yes" && !l.has_campaign) return false;
-    if (filters.campaign === "no" && l.has_campaign) return false;
-    if (filters.profile !== "all" && l.profile_name !== filters.profile) return false;
-    if (filters.role !== "all" && (l.role ?? "").trim() !== filters.role) return false;
-    if (filters.industry !== "all" && (l.industry ?? "").trim() !== filters.industry) return false;
+    if (filters.score.length > 0) {
+      const isHot     = l.is_priority || (l.score != null && l.score >= 80);
+      const isWarm    = !isHot && l.score != null && l.score >= 50;
+      const isNurture = !isHot && (l.score == null || l.score < 50);
+      const scoreOk =
+        (filters.score.includes("hot") && isHot) ||
+        (filters.score.includes("warm") && isWarm) ||
+        (filters.score.includes("nurture") && isNurture);
+      if (!scoreOk) return false;
+    }
+    if (filters.results.length > 0) {
+      // Positive = lead has at least one positive/meeting_intent reply.
+      // Negative = lead has at least one negative reply OR a finished
+      // campaign with no positive. (Mirrors how /results buckets Lost.)
+      const isPositive = !!l.has_positive;
+      // We only have a boolean has_positive on the lead row; a "negative"
+      // signal lives in lead_replies which isn't shipped here. Until we
+      // ship reply classifications on the lead row, treat "negative" as
+      // "replied but not positive" — same proxy /leads has used for the
+      // No-Response chip.
+      const isNegative = !isPositive && (l.reply_count ?? 0) > 0;
+      const resOk =
+        (filters.results.includes("positive") && isPositive) ||
+        (filters.results.includes("negative") && isNegative);
+      if (!resOk) return false;
+    }
+    if (filters.campaign.length > 0) {
+      const campOk =
+        (filters.campaign.includes("yes") && l.has_campaign) ||
+        (filters.campaign.includes("no") && !l.has_campaign);
+      if (!campOk) return false;
+    }
+    if (filters.profile.length > 0 && !filters.profile.includes(l.profile_name ?? "")) return false;
+    if (filters.role.length > 0 && !filters.role.includes((l.role ?? "").trim())) return false;
+    if (filters.industry.length > 0 && !filters.industry.includes((l.industry ?? "").trim())) return false;
     return true;
   });
 
   const visible = filtered.slice(0, showCount);
   const hasMore = showCount < filtered.length;
 
+  // Header checkbox semantics — boss feedback 2026-05-28 r5: "si pongo
+  // filtros las que están en el filtro pero todo ahora solo agarra las
+  // que se ven". So the header checkbox selects every lead in the
+  // current filtered set, not only the showCount slice. visibleIds
+  // stays around for shift-click range select (line by line).
   const visibleIds = visible.map(v => v.id);
-  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every(id => selected.has(id));
+  const filteredIds = filtered.map(v => v.id);
+  const allFilteredSelected = filteredIds.length > 0 && filteredIds.every(id => selected.has(id));
 
   function toggleOne(id: string, shiftKey = false) {
     // Shift-click range select — Gmail/Linear pattern. Selects every visible
@@ -995,11 +986,11 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
       setRowUpdating(null);
     }
   }
-  function toggleAllVisible() {
+  function toggleAllFiltered() {
     setSelected(prev => {
       const next = new Set(prev);
-      if (allVisibleSelected) visibleIds.forEach(id => next.delete(id));
-      else visibleIds.forEach(id => next.add(id));
+      if (allFilteredSelected) filteredIds.forEach(id => next.delete(id));
+      else filteredIds.forEach(id => next.add(id));
       return next;
     });
   }
@@ -1117,9 +1108,6 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
         onChange={f => {
           setFilters(f);
           setShowCount(PAGE_SIZE);
-          // Touching the manual filter bar drops the user out of any preset
-          // view so the chip highlight doesn't lie about the active state.
-          setActiveView("custom");
         }}
         resultCount={filtered.length}
         totalCount={leads.length}
@@ -1231,8 +1219,8 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
           <thead>
             <tr style={{ backgroundColor: C.bg }}>
               <th className="px-3 py-2.5 w-8">
-                <button onClick={toggleAllVisible} className="block" aria-label="Select all visible">
-                  {allVisibleSelected ? <CheckSquare size={14} style={{ color: gold }} /> : <Square size={14} style={{ color: C.textDim }} />}
+                <button onClick={toggleAllFiltered} className="block" aria-label={`Select all ${filteredIds.length} filtered`} title={`Select all ${filteredIds.length} leads matching the current filters`}>
+                  {allFilteredSelected ? <CheckSquare size={14} style={{ color: gold }} /> : <Square size={14} style={{ color: C.textDim }} />}
                 </button>
               </th>
               <th className="px-4 py-2.5 text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Lead</th>

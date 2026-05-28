@@ -37,10 +37,11 @@ async function getData() {
     .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at, source, encrypted_payload, company_bio_id, transferred_to_odoo_at")
     .order("created_at", { ascending: false })
     // Hard cap to bound memory + payload size on a tenant with thousands of
-    // leads. The full list is virtualized client-side and most users never
-    // scroll past the first few screens — 500 covers >99% of real use.
-    // If we need pagination beyond this we'll add cursor params here.
-    .limit(500);
+    // leads. Raised from 500 → 2000 on 2026-05-28 (boss feedback: "si
+    // tengo 1000 leads quiero que estén todas"). 2000 leaves headroom
+    // for Pathway (627 currently) and any other client growing past 500
+    // without forcing pagination yet.
+    .limit(2000);
   // Companion count() to compute the true tenant-wide total. Head-only request
   // (no rows downloaded) so this is essentially free vs the data fetch above.
   // We use it client-side to surface a "Showing 500 of N" banner when the cap
