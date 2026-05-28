@@ -285,12 +285,13 @@ export default async function DashboardPage({
   // Reply classification → donut data. Labels come from the locale dict so
   // the donut speaks the user's language; falls back to the raw class string
   // when the key is missing (resilient to AI-side schema drift).
-  // Always-visible classifications — per boss feedback (2026-05-27),
-  // "Positives" must show up in the legend even when the count is 0, so
-  // the operator immediately sees that the period had zero positives
-  // instead of a missing slot. Other classes still get hidden when 0
-  // because rendering every neutral category would clutter the legend.
-  const ALWAYS_SHOW_REPLY_CLASSES = new Set(["positive", "meeting_intent"]);
+  // Always-visible classifications — per boss feedback (2026-05-28 fix),
+  // "Positive" + "Negative" must show up in the legend even when the count
+  // is 0, because they're the two outcome poles the operator scans for
+  // (win/lose). Meeting intent is a sub-flavor of positive — it shows up
+  // only when there's actual data. Original 2026-05-27 version had this
+  // backwards (showed meeting_intent always, hid negative).
+  const ALWAYS_SHOW_REPLY_CLASSES = new Set(["positive", "negative"]);
   const donutSlices = Object.entries(data.replyClassCounts)
     .filter(([k, v]) => v > 0 || ALWAYS_SHOW_REPLY_CLASSES.has(k))
     .map(([k, v]) => ({
@@ -333,143 +334,95 @@ export default async function DashboardPage({
           alive; the analytical hero is wrong copy for the action list. */}
       {filters.tab === "today" ? (
       <header
-        className="relative rounded-2xl overflow-hidden px-5 sm:px-8 py-6 sm:py-8"
+        className="relative rounded-2xl overflow-hidden px-6 sm:px-10 py-8 sm:py-10"
         style={{
           background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
-          border: `1px solid color-mix(in srgb, ${gold} 32%, ${N.hairline})`,
-          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 22%, transparent), 0 18px 40px -18px ${N.ink}`,
+          border: `1px solid color-mix(in srgb, ${gold} 36%, ${N.hairline})`,
+          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 26%, transparent), 0 22px 50px -22px ${N.ink}`,
         }}
       >
-        {/* Breathing radial glows */}
+        {/* Big breathing gold glow on the right — the dominant ambient layer */}
         <span aria-hidden
-          className="absolute -top-32 -right-24 w-[420px] h-[420px] rounded-full pointer-events-none hero-glow-breathe"
-          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 28%, transparent) 0%, transparent 60%)` }} />
+          className="absolute -top-40 -right-32 w-[520px] h-[520px] rounded-full pointer-events-none hero-glow-breathe"
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 42%, transparent) 0%, transparent 60%)` }} />
+        {/* Counter-phase second glow on the left for depth */}
         <span aria-hidden
-          className="absolute -bottom-32 -left-20 w-[360px] h-[360px] rounded-full pointer-events-none hero-glow-breathe-soft"
-          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 16%, transparent) 0%, transparent 65%)` }} />
-        {/* Top shimmer line — gold sweep that fades in/out */}
+          className="absolute -bottom-40 -left-32 w-[480px] h-[480px] rounded-full pointer-events-none hero-glow-breathe-soft"
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 26%, transparent) 0%, transparent 65%)` }} />
+        {/* Slow drifting accent — a smaller gold orb crossing center */}
         <span aria-hidden
-          className="absolute inset-x-0 top-0 h-[1.5px] pointer-events-none hero-glow-shimmer"
+          className="absolute top-1/2 -translate-y-1/2 w-[240px] h-[240px] rounded-full pointer-events-none hero-glow-drift"
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 32%, transparent) 0%, transparent 65%)` }} />
+        {/* Sweep — gold horizontal line that traverses the top edge */}
+        <span aria-hidden
+          className="absolute inset-x-0 top-0 h-[2px] pointer-events-none hero-glow-shimmer"
+          style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)` }} />
+        {/* Mirror sweep on the bottom edge, opposite phase */}
+        <span aria-hidden
+          className="absolute inset-x-0 bottom-0 h-[2px] pointer-events-none hero-glow-shimmer-reverse"
           style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)` }} />
 
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-3 mb-3 flex-wrap">
-              {/* Inline SWL mark — same logo the sidebar uses, scaled small.
-                  Anchors the hero as official SWL surface. */}
-              <span
-                className="inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0"
-                style={{
-                  background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 24%, #14182a) 0%, #1a1f30 100%)`,
-                  border: `1px solid color-mix(in srgb, ${gold} 38%, transparent)`,
-                  boxShadow: `0 0 18px color-mix(in srgb, ${gold} 22%, transparent), inset 0 1px 0 color-mix(in srgb, ${gold} 22%, transparent)`,
-                }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png"
-                  alt="SWL Consulting"
-                  className="h-4 w-auto object-contain"
-                  style={{ filter: "brightness(0) invert(1)" }}
-                />
-              </span>
-              <div className="flex flex-col leading-tight">
-                <span
-                  className="text-[13px] font-bold tracking-[-0.01em]"
-                  style={{ color: "white", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
-                >
-                  GrowthAI
-                </span>
-                <span
-                  className="text-[9.5px] font-bold uppercase tracking-[0.22em]"
-                  style={{ color: gold }}
-                >
-                  {t("dashx.hero.section")}
-                </span>
-              </div>
-              <span
-                className="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[0.18em] px-2 py-0.5 rounded-md ml-1"
-                style={{
-                  color: "#10B981",
-                  backgroundColor: "color-mix(in srgb, #10B981 14%, transparent)",
-                  border: "1px solid color-mix(in srgb, #10B981 30%, transparent)",
-                }}
-              >
-                <span aria-hidden className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ backgroundColor: "#10B981" }} />
-                {t("dashx.todayHero.live")}
-              </span>
-            </div>
-            <h1
-              className="text-[28px] sm:text-[36px] font-bold tracking-[-0.025em] leading-[1.05]"
-              style={{
-                color: "white",
-                fontFamily: "var(--font-outfit), system-ui, sans-serif",
-                textShadow: `0 2px 14px color-mix(in srgb, ${gold} 14%, transparent)`,
-              }}
-            >
-              {t("dashx.today.heroTitle")}
-            </h1>
-            <p
-              className="text-[13px] mt-2 max-w-[640px]"
-              style={{ color: "color-mix(in srgb, white 65%, transparent)" }}
-            >
-              {t("dashx.today.heroDesc")}
-            </p>
-
-            {/* Live pulse strip — today's throughput from the trailing-30d
-                array (index 29 = today's bucket). All three numbers live
-                update on next render; no extra query needed. */}
-            <div
-              className="flex items-center gap-4 sm:gap-6 mt-5 flex-wrap"
-              style={{ borderTop: `1px solid color-mix(in srgb, ${gold} 14%, transparent)`, paddingTop: 16 }}
-            >
-              <HeroPulseStat
-                icon={Send}
-                value={data.trend30d.sent[29] ?? 0}
-                label={t("dashx.todayHero.sendsToday")}
-                color="#5B9CFF"
-              />
-              <span className="text-[16px]" style={{ color: "color-mix(in srgb, white 14%, transparent)" }}>·</span>
-              <HeroPulseStat
-                icon={MessageSquare}
-                value={data.trend30d.replies[29] ?? 0}
-                label={t("dashx.todayHero.repliesToday")}
-                color="#A78BFA"
-              />
-              <span className="text-[16px]" style={{ color: "color-mix(in srgb, white 14%, transparent)" }}>·</span>
-              <HeroPulseStat
-                icon={ThumbsUp}
-                value={data.trend30d.positive[29] ?? 0}
-                label={t("dashx.todayHero.positivesToday")}
-                color="#34D399"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex items-center gap-3 mb-4 flex-wrap">
+          {/* Inline SWL mark — same logo the sidebar uses, scaled small.
+              Anchors the hero as official SWL surface. */}
+          <span
+            className="inline-flex items-center justify-center w-10 h-10 rounded-lg shrink-0"
+            style={{
+              background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 28%, #14182a) 0%, #1a1f30 100%)`,
+              border: `1px solid color-mix(in srgb, ${gold} 44%, transparent)`,
+              boxShadow: `0 0 22px color-mix(in srgb, ${gold} 28%, transparent), inset 0 1px 0 color-mix(in srgb, ${gold} 26%, transparent)`,
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png"
+              alt="SWL Consulting"
+              className="h-4 w-auto object-contain"
+              style={{ filter: "brightness(0) invert(1)" }}
+            />
+          </span>
+          <div className="flex flex-col leading-tight">
             <span
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10.5px] font-bold uppercase tracking-[0.14em]"
-              style={{
-                backgroundColor: `color-mix(in srgb, ${gold} 18%, transparent)`,
-                color: gold,
-                border: `1px solid color-mix(in srgb, ${gold} 38%, transparent)`,
-              }}
+              className="text-[14px] font-bold tracking-[-0.01em]"
+              style={{ color: "white", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
             >
-              {periodLabel}
+              GrowthAI
             </span>
-            <FreshnessChip renderedAt={renderedAt} />
-            <Link
-              href="/reports"
-              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-opacity hover:opacity-90 whitespace-nowrap"
-              style={{
-                background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
-                color: N.ink,
-                boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 34%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
-              }}
+            <span
+              className="text-[9.5px] font-bold uppercase tracking-[0.22em]"
+              style={{ color: gold }}
             >
-              <FileDown size={13} /> {t("dashx.hero.download")}
-            </Link>
+              {t("dashx.hero.section")}
+            </span>
           </div>
+          <span
+            className="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-[0.18em] px-2 py-0.5 rounded-md ml-1"
+            style={{
+              color: "#10B981",
+              backgroundColor: "color-mix(in srgb, #10B981 14%, transparent)",
+              border: "1px solid color-mix(in srgb, #10B981 30%, transparent)",
+            }}
+          >
+            <span aria-hidden className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ backgroundColor: "#10B981" }} />
+            {t("dashx.todayHero.live")}
+          </span>
         </div>
+        <h1
+          className="relative text-[30px] sm:text-[40px] font-bold tracking-[-0.025em] leading-[1.05]"
+          style={{
+            color: "white",
+            fontFamily: "var(--font-outfit), system-ui, sans-serif",
+            textShadow: `0 2px 14px color-mix(in srgb, ${gold} 16%, transparent)`,
+          }}
+        >
+          {t("dashx.today.heroTitle")}
+        </h1>
+        <p
+          className="relative text-[13.5px] mt-3 max-w-[680px]"
+          style={{ color: "color-mix(in srgb, white 68%, transparent)" }}
+        >
+          {t("dashx.today.heroDesc")}
+        </p>
       </header>
       ) : (
       <header
@@ -595,19 +548,6 @@ export default async function DashboardPage({
       {filters.tab === "overview" && (
       <section className="space-y-8 pt-3">
 
-      {/* Per-tab filter bar — ICP / Campaign / Seller dropdowns scope every
-          number in the Unified Overview block. Boss feedback 2026-05-28:
-          the operator should be able to slice the headline numbers by
-          ICP or campaign without leaving the Overview tab. URL state is
-          shared with the other tabs so navigating between them preserves
-          the active scope. */}
-      <TabFilterBar
-        campaigns={filterOptions.campaigns}
-        icps={filterOptions.icps}
-        sellers={filterOptions.sellers}
-        labels={tabFilterLabels}
-      />
-
       {/* ─── UNIFIED OVERVIEW · 3 bands inside a single chapter card so the
           eye reads it as one block instead of two competing cards. Boss
           follow-up 2026-05-28: General Overview + Pipeline Pulse were
@@ -643,6 +583,20 @@ export default async function DashboardPage({
           <span className="relative text-[10.5px]" style={{ color: "color-mix(in srgb, white 50%, transparent)" }}>
             · {t("dashx.overview.subtitle")}
           </span>
+        </div>
+
+        {/* Per-tab filter bar — sits INSIDE the General Overview card so its
+            scope is visually unambiguous: only the numbers inside this card
+            respond. Boss feedback 2026-05-28: filters outside felt detached
+            from the surface they were filtering. URL state is still shared
+            with other tabs, so navigating preserves the active scope. */}
+        <div className="px-4 pt-3">
+          <TabFilterBar
+            campaigns={filterOptions.campaigns}
+            icps={filterOptions.icps}
+            sellers={filterOptions.sellers}
+            labels={tabFilterLabels}
+          />
         </div>
 
         {/* Band A — Portfolio */}

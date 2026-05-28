@@ -76,7 +76,7 @@ export default function MultiLineChart({
   // Padding tuned for the compact 110px variant — left gutter sized so
   // the Y tick labels (now restored 2026-05-28 per "agrandá el eje y")
   // fit comfortably without clipping into the lines.
-  const padding = { t: 14, r: 18, b: 28, l: 36 };
+  const padding = { t: 14, r: 18, b: 28, l: 28 };
   const innerW = width - padding.l - padding.r;
   const innerH = height - padding.t - padding.b;
   const n = visible[0]?.data.length ?? 0;
@@ -308,16 +308,22 @@ export default function MultiLineChart({
           onPointerUp={onPointerUp}
           onPointerLeave={() => { setHoverIdx(null); if (drag) setDrag(null); }}
         >
-          {/* Y axis — integer ticks 0..max (small ranges) or 4 evenly
-              spaced ticks otherwise. Bigger font (12.5px) per user
-              feedback "agrandá el eje y". Each tick gets a faint dashed
-              guide so the eye anchors to the scale, not just the lines. */}
+          {/* Y axis — tick density depends on the value range.
+                max≤4: integer ticks 0..max (so a 0–3 chart shows 4 ticks)
+                max>4: 3 ticks (0 / mid / max) so the labels don't crowd
+              the compact 110px viewBox once the SVG gets scaled to a
+              wide container (≈2× on a typical desktop layout, which
+              previously turned 5 ticks into a chunky vertical stack).
+              Labels are font-weight 500 (was 700) so they sit quietly
+              against the chart instead of competing with the lines.
+              User feedback 2026-05-28: "el 30 day activity se acomoda
+              mal". */}
           {(() => {
             const ticks: { v: number; y: number }[] = [];
             if (max <= 4) {
               for (let i = 0; i <= max; i++) ticks.push({ v: i, y: yFor(i) });
             } else {
-              for (const p of [0, 0.25, 0.5, 0.75, 1]) {
+              for (const p of [0, 0.5, 1]) {
                 const v = Math.round(max * p);
                 ticks.push({ v, y: yFor(v) });
               }
@@ -328,7 +334,7 @@ export default function MultiLineChart({
                   <line x1={padding.l} x2={width - padding.r} y1={tk.y} y2={tk.y}
                     stroke={C.border} strokeDasharray="3,5" opacity={0.45} />
                 )}
-                <text x={padding.l - 6} y={tk.y + 4} textAnchor="end" fontSize={12.5} fontWeight={700} fill={C.textBody}
+                <text x={padding.l - 6} y={tk.y + 3.5} textAnchor="end" fontSize={10} fontWeight={500} fill={C.textMuted}
                   style={{ fontFeatureSettings: '"tnum"' }}>
                   {tk.v}
                 </text>

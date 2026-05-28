@@ -277,13 +277,31 @@ select:focus-visible {
   50%  { opacity: 1; }
   100% { opacity: 0; transform: translateX(30%); }
 }
-.hero-glow-breathe         { animation: hero-glow-breathe        9s  ease-in-out infinite; }
-.hero-glow-breathe-soft    { animation: hero-glow-breathe-soft   11s ease-in-out infinite 1.5s; }
-.hero-glow-shimmer         { animation: hero-glow-shimmer        7s  ease-in-out infinite; }
+/* Reverse phase — bottom edge sweeps right-to-left while top sweeps L→R */
+@keyframes hero-glow-shimmer-reverse {
+  0%   { opacity: 0; transform: translateX(30%); }
+  50%  { opacity: 1; }
+  100% { opacity: 0; transform: translateX(-30%); }
+}
+/* Slow drift — a centered orb that crosses the header horizontally,
+   giving the impression of light moving through. Uses left%/translateX
+   together so the animation interpolates the center across the viewport. */
+@keyframes hero-glow-drift {
+  0%   { left: 0%;   transform: translateX(-50%) translateY(-50%); opacity: 0.5; }
+  50%  { left: 100%; transform: translateX(-50%) translateY(-50%); opacity: 0.85; }
+  100% { left: 0%;   transform: translateX(-50%) translateY(-50%); opacity: 0.5; }
+}
+.hero-glow-breathe         { animation: hero-glow-breathe         8s  ease-in-out infinite; }
+.hero-glow-breathe-soft    { animation: hero-glow-breathe-soft    10s ease-in-out infinite 1.5s; }
+.hero-glow-shimmer         { animation: hero-glow-shimmer         5s  ease-in-out infinite; }
+.hero-glow-shimmer-reverse { animation: hero-glow-shimmer-reverse 5s  ease-in-out infinite 2.5s; }
+.hero-glow-drift           { animation: hero-glow-drift           14s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) {
   .hero-glow-breathe,
   .hero-glow-breathe-soft,
-  .hero-glow-shimmer { animation: none; }
+  .hero-glow-shimmer,
+  .hero-glow-shimmer-reverse,
+  .hero-glow-drift { animation: none; }
 }
 
 /* ─── Fade in ─── */
