@@ -1082,47 +1082,12 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
 
   return (
     <div>
-      {/* Saved views — quick-access preset filter tabs. Click switches to that
-          view; counts update from the un-searched lead pool so the user can
-          see where to look without typing. Label above hints at the chip
-          purpose so first-time users notice them. */}
-      <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-1.5" style={{ color: C.textMuted }}>
-        Quick filters
-      </p>
-      <div className="flex items-center gap-1.5 mb-3 flex-wrap">
-        {viewCounts.map(v => {
-          const isActive = activeView === v.id;
-          return (
-            <button
-              key={v.id}
-              type="button"
-              onClick={() => applyView(v.id)}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-[opacity,background-color]"
-              style={{
-                backgroundColor: isActive
-                  ? `color-mix(in srgb, ${gold} 16%, transparent)`
-                  : C.card,
-                borderColor: isActive
-                  ? `color-mix(in srgb, ${gold} 50%, transparent)`
-                  : C.border,
-                color: isActive ? gold : C.textBody,
-              }}
-            >
-              {v.label}
-              <span
-                className="text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full"
-                style={{
-                  backgroundColor: isActive ? gold : C.surface,
-                  color: isActive ? "#04070d" : C.textDim,
-                }}
-              >
-                {v.count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
+      {/* Saved-view chip row removed 2026-05-28: the new Status chip group
+          at the LeadsCampaignsClient level already covers Hot / Replied /
+          Positive / Without flow / In a flow. Keeping a second chip row
+          here would just duplicate navigation. The advanced filters (ICP,
+          Role, Industry, Search, Score, Reply, Campaign) live inside the
+          plegable filter bar below. */}
       <LeadFilterBar
         filters={filters}
         onChange={f => {
@@ -1611,7 +1576,11 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
   //   - Campaigns view groups flows by ICP/ticket so the manager scans by
   //     Lead Miner profile, not by campaign name.
   const [mainView, setMainView] = useState<"leads" | "companies" | "campaigns">("leads");
-  type LeadSubTab = "all" | "without_campaign" | "won" | "lost" | "nurture";
+  // Status chips (consolidated 5 old sub-tabs + 6 saved-views into one row).
+  // Five of these (with_campaign / hot / replied / positive + the two pre-
+  // existing all + without_campaign) filter AllLeadsTable; won / lost /
+  // nurture swap to their card-grid renderers.
+  type LeadSubTab = "all" | "without_campaign" | "with_campaign" | "hot" | "replied" | "positive" | "won" | "lost" | "nurture";
   const [leadSubTab, setLeadSubTab] = useState<LeadSubTab>("all");
   const [search, setSearch] = useState("");
 
@@ -1664,36 +1633,40 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
         </div>
       )}
 
-      {/* Stat bar */}
+      {/* Stat strip — compacted 2026-05-28. PageHero already renders these
+          four metrics in its prominent stats row; this client-side bar
+          stays as a secondary "always-visible" reminder for sellers who
+          scroll past the hero, but the chrome is much smaller (single row,
+          half the vertical space) so it doesn't compete with the chips
+          below. */}
       <div
-        className="flex items-center gap-6 mb-6 px-6 py-4 rounded-2xl border flex-wrap"
+        className="flex items-center gap-4 mb-4 px-4 py-2 rounded-xl border flex-wrap"
         style={{
           backgroundColor: C.card,
           borderColor: C.border,
-          boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
         }}
       >
         {[
-          { label: "Total Leads",      value: stats.totalLeads,        color: C.textBody },
-          { label: "Active Flows", value: stats.activeCampaigns,   color: gold },
+          { label: "Total Leads",      value: stats.totalLeads,         color: C.textBody },
+          { label: "Active Flows",     value: stats.activeCampaigns,    color: gold },
           { label: "Response Rate",    value: `${stats.responseRate}%`, color: C.blue },
-          { label: "Positive Replies", value: stats.positiveReplies,   color: C.green },
+          { label: "Positive Replies", value: stats.positiveReplies,    color: C.green },
         ].map((s, i, arr) => (
-          <div key={s.label} className="flex items-center gap-4">
-            <div>
+          <div key={s.label} className="flex items-center gap-3">
+            <div className="flex items-baseline gap-1.5">
               <span
-                className="text-2xl font-bold tabular-nums"
+                className="text-base font-bold tabular-nums"
                 style={{
                   color: s.color,
                   fontFamily: "var(--font-outfit), system-ui, sans-serif",
-                  letterSpacing: "-0.02em",
+                  letterSpacing: "-0.01em",
                 }}
               >
                 {s.value}
               </span>
-              <span className="text-[11px] ml-2 font-semibold uppercase tracking-[0.08em]" style={{ color: C.textMuted }}>{s.label}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.06em]" style={{ color: C.textMuted }}>{s.label}</span>
             </div>
-            {i < arr.length - 1 && <div className="h-6 w-px" style={{ backgroundColor: C.border }} />}
+            {i < arr.length - 1 && <div className="h-4 w-px" style={{ backgroundColor: C.border }} />}
           </div>
         ))}
       </div>
@@ -1738,53 +1711,79 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
         })}
       </div>
 
-      {/* ═══ LEADS VIEW (flat sub-tabs: All / Without Campaign / Won / Lost / Nurture) ═══
-          No more "Results" wrapper. The 5 sub-tabs sit at the same level so
-          the manager doesn't have to two-click to reach Won/Lost. */}
+      {/* ═══ LEADS VIEW — single Status chip group consolidates the old
+          5 sub-tabs + the 6 saved-views into one navigation row above the
+          table. Each chip either filters the AllLeadsTable (Hot, Replied,
+          Positive, In flow, Without flow) or swaps to a specialized card
+          renderer (Won, Lost, Nurture). The filter bar below is plegable
+          for advanced facets (ICP, Role, Industry, Search). Boss feedback
+          2026-05-28: "muchos filtros y secciones — organizarlo mejor". */}
       {mainView === "leads" && (
         <div>
-          <div className="flex items-center gap-1 border-b mb-6 overflow-x-auto" style={{ borderColor: C.border }}>
-            {([
-              { key: "all" as const,              label: "All Leads",         count: allLeads.length,             color: gold },
-              { key: "without_campaign" as const, label: "Without Campaign",  count: leadsWithoutCampaign.length, color: "#92400E" },
-              { key: "won" as const,              label: "Won",               count: wonLeads.length,             color: C.green },
-              { key: "lost" as const,             label: "Lost",              count: lostLeads.length,            color: C.red },
-              { key: "nurture" as const,          label: "Nurture",           count: renurturingLeads.length,     color: gold },
-            ]).map(t => {
-              const isActive = leadSubTab === t.key;
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => setLeadSubTab(t.key)}
-                  className="flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-[color,background-color] duration-150 relative whitespace-nowrap"
-                  style={{
-                    color: isActive ? t.color : C.textMuted,
-                    backgroundColor: isActive ? `color-mix(in srgb, ${t.color} 6%, transparent)` : "transparent",
-                  }}
-                >
-                  {t.label}
-                  {t.count > 0 && (
+          {/* Status chips — primary navigation inside Leads. Brand-tinted
+              for the active chip; the count comes from the un-searched
+              lead pool so it stays meaningful when filters change. */}
+          <div className="flex items-center gap-1.5 mb-4 flex-wrap">
+            {(() => {
+              const chips: Array<{
+                key: typeof leadSubTab;
+                label: string;
+                count: number;
+                color: string;
+              }> = [
+                { key: "all",              label: "All",                 count: allLeads.length,                                                                                                  color: gold },
+                { key: "without_campaign", label: "Without flow",        count: leadsWithoutCampaign.length,                                                                                      color: "#92400E" },
+                { key: "with_campaign",    label: "In a flow",           count: allLeads.filter(l => l.has_campaign).length,                                                                      color: C.blue },
+                { key: "hot",              label: "Hot",                 count: allLeads.filter(l => l.is_priority || (l.score != null && l.score >= 80)).length,                                 color: C.hot },
+                { key: "replied",          label: "Replied",             count: allLeads.filter(l => (l.reply_count ?? 0) > 0).length,                                                            color: "#D97706" },
+                { key: "positive",         label: "Positive",            count: allLeads.filter(l => l.has_positive === true).length,                                                             color: C.green },
+                { key: "won",              label: "Won",                 count: wonLeads.length,                                                                                                  color: C.green },
+                { key: "lost",             label: "Lost",                count: lostLeads.length,                                                                                                 color: C.red },
+                { key: "nurture",          label: "Nurture",             count: renurturingLeads.length,                                                                                          color: gold },
+              ];
+              return chips.map(t => {
+                const isActive = leadSubTab === t.key;
+                return (
+                  <button
+                    key={t.key}
+                    onClick={() => setLeadSubTab(t.key)}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-[opacity,background-color]"
+                    style={{
+                      backgroundColor: isActive ? `color-mix(in srgb, ${t.color} 14%, transparent)` : C.card,
+                      borderColor:     isActive ? `color-mix(in srgb, ${t.color} 45%, transparent)` : C.border,
+                      color:           isActive ? t.color : C.textBody,
+                    }}
+                  >
+                    {t.label}
                     <span
-                      className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+                      className="text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full"
                       style={{
-                        backgroundColor: isActive ? `color-mix(in srgb, ${t.color} 15%, transparent)` : C.cardHov,
-                        color: isActive ? t.color : C.textDim,
+                        backgroundColor: isActive ? t.color : C.surface,
+                        color:           isActive ? "#fff"  : C.textDim,
                       }}
                     >
                       {t.count}
                     </span>
-                  )}
-                  {isActive && <div className="absolute bottom-0 left-0 right-0 h-[2px]" style={{ backgroundColor: t.color }} />}
-                </button>
-              );
-            })}
+                  </button>
+                );
+              });
+            })()}
           </div>
 
-          {leadSubTab === "all" && <AllLeadsTable leads={allLeads} />}
+          {/* Render — the table-backed chips share AllLeadsTable so the
+              filter bar + bulk actions + per-row menu carry over for free.
+              Won / Lost / Nurture keep their card-grid renderers since
+              they encode outcome-specific UX (winning reply quote, recover
+              button, re-nurture badge). */}
+          {leadSubTab === "all"              && <AllLeadsTable leads={allLeads} />}
           {leadSubTab === "without_campaign" && <AllLeadsTable leads={leadsWithoutCampaign} />}
-          {leadSubTab === "won" && <WonView leads={wonLeads} />}
-          {leadSubTab === "lost" && <LostLeadsView leads={lostLeads} />}
-          {leadSubTab === "nurture" && <RenurturingView leads={renurturingLeads} />}
+          {leadSubTab === "with_campaign"    && <AllLeadsTable leads={allLeads.filter(l => l.has_campaign)} />}
+          {leadSubTab === "hot"              && <AllLeadsTable leads={allLeads.filter(l => l.is_priority || (l.score != null && l.score >= 80))} />}
+          {leadSubTab === "replied"          && <AllLeadsTable leads={allLeads.filter(l => (l.reply_count ?? 0) > 0)} />}
+          {leadSubTab === "positive"         && <AllLeadsTable leads={allLeads.filter(l => l.has_positive === true)} />}
+          {leadSubTab === "won"              && <WonView leads={wonLeads} />}
+          {leadSubTab === "lost"             && <LostLeadsView leads={lostLeads} />}
+          {leadSubTab === "nurture"          && <RenurturingView leads={renurturingLeads} />}
         </div>
       )}
 
