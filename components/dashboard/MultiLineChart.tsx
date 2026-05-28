@@ -73,10 +73,10 @@ export default function MultiLineChart({
   const isShown = (name: string) => !hidden.has(name);
 
   const width = 760;
-  // Tight padding for the compact (110px) chart variant. Y labels are
-  // suppressed to just the max value floating top-left (see below) so
-  // we don't need the wide left gutter anymore.
-  const padding = { t: 14, r: 18, b: 28, l: 14 };
+  // Padding tuned for the compact 110px variant — left gutter sized so
+  // the Y tick labels (now restored 2026-05-28 per "agrandá el eje y")
+  // fit comfortably without clipping into the lines.
+  const padding = { t: 14, r: 18, b: 28, l: 36 };
   const innerW = width - padding.l - padding.r;
   const innerH = height - padding.t - padding.b;
   const n = visible[0]?.data.length ?? 0;
@@ -268,28 +268,35 @@ export default function MultiLineChart({
           onPointerUp={onPointerUp}
           onPointerLeave={() => { setHoverIdx(null); if (drag) setDrag(null); }}
         >
-          {/* Minimal axes pass — sparkline-feel. Y axis: baseline (0) +
-              a dashed top guide line at the max value, both with their
-              numeric label inline on the left. X axis: just first-day +
-              today as small, dim edge labels so they don't crowd the
-              hint text rendered outside the SVG below. */}
-          {/* Y axis — top guide (max) and baseline (0) */}
-          {max > 0 && (
-            <>
-              <line x1={padding.l + 20} x2={width - padding.r} y1={padding.t} y2={padding.t}
-                stroke={C.border} strokeDasharray="3,4" opacity={0.55} />
-              <text x={padding.l} y={padding.t + 4} textAnchor="start" fontSize={10.5} fontWeight={700} fill={C.textMuted}
-                style={{ fontFeatureSettings: '"tnum"' }}>
-                {max}
-              </text>
-            </>
-          )}
-          <line x1={padding.l + 20} x2={width - padding.r} y1={padding.t + innerH} y2={padding.t + innerH}
+          {/* Y axis — integer ticks 0..max (small ranges) or 4 evenly
+              spaced ticks otherwise. Bigger font (12.5px) per user
+              feedback "agrandá el eje y". Each tick gets a faint dashed
+              guide so the eye anchors to the scale, not just the lines. */}
+          {(() => {
+            const ticks: { v: number; y: number }[] = [];
+            if (max <= 4) {
+              for (let i = 0; i <= max; i++) ticks.push({ v: i, y: yFor(i) });
+            } else {
+              for (const p of [0, 0.25, 0.5, 0.75, 1]) {
+                const v = Math.round(max * p);
+                ticks.push({ v, y: yFor(v) });
+              }
+            }
+            return ticks.map((tk, i) => (
+              <g key={i}>
+                {i > 0 && (
+                  <line x1={padding.l} x2={width - padding.r} y1={tk.y} y2={tk.y}
+                    stroke={C.border} strokeDasharray="3,5" opacity={0.45} />
+                )}
+                <text x={padding.l - 6} y={tk.y + 4} textAnchor="end" fontSize={12.5} fontWeight={700} fill={C.textBody}
+                  style={{ fontFeatureSettings: '"tnum"' }}>
+                  {tk.v}
+                </text>
+              </g>
+            ));
+          })()}
+          <line x1={padding.l} x2={width - padding.r} y1={padding.t + innerH} y2={padding.t + innerH}
             stroke={C.border} strokeWidth={1} />
-          <text x={padding.l} y={padding.t + innerH + 3} textAnchor="start" fontSize={10.5} fontWeight={700} fill={C.textMuted}
-            style={{ fontFeatureSettings: '"tnum"' }}>
-            0
-          </text>
           {/* X axis — small dim edge labels, well above the chart edge so
               they don't visually crash into the legend/hint text below. */}
           {n > 1 && (
