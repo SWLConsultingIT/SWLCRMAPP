@@ -146,9 +146,13 @@ async function getData() {
     return 0;
   });
 
-  // Lost = completed/failed campaign or explicit negative reply, no positive,
-  // AND no currently-active campaign on the lead (re-nurturing isn't "lost").
+  // Lost vs Re-nurture: both start from the "completed/failed campaign OR
+  // negative reply, no positive" pool. The split is whether the lead is
+  // currently in a NEW campaign (re-nurture) or sitting cold (lost). Same
+  // logic /leads used pre-2026-05-28 — moved here so /results is the home
+  // for outcomes and Nurture leaves the in-flight chip row.
   const lostLeads: any[] = [];
+  const renurturingLeads: any[] = [];
   for (const lead of (allLeads ?? []) as Array<Record<string, any>>) {
     const leadCamps = campsByLead[lead.id] ?? [];
     const leadReplies = repliesByLead[lead.id] ?? [];
@@ -157,15 +161,13 @@ async function getData() {
     const hasCompletedCampaign = leadCamps.some((c: any) => c.status === "completed" || c.status === "failed");
     const hasNegativeReply = leadReplies.some((r: any) => r.classification === "negative");
     if (!hasCompletedCampaign && !hasNegativeReply) continue;
-    const hasActiveCamp = leadCamps.some((c: any) => c.status === "active" || c.status === "paused");
-    if (hasActiveCamp) continue;
     const negReply = leadReplies.find((r: any) => r.classification === "negative");
     const pastCamps = leadCamps.filter((c: any) => c.status === "completed" || c.status === "failed");
     const channels = [...new Set(pastCamps.map((c: any) => c.channel))];
     const totalStepsDone = pastCamps.reduce((s: number, c: any) => s + (c.current_step ?? 0), 0);
     const totalStepsMax = pastCamps.reduce((s: number, c: any) => s + (Array.isArray(c.sequence_steps) ? c.sequence_steps.length : 0), 0);
     const mainCamp = pastCamps[0] ?? leadCamps[0];
-    lostLeads.push({
+    const baseData = {
       id: lead.id,
       first_name: lead.primary_first_name,
       last_name: lead.primary_last_name,
@@ -183,14 +185,26 @@ async function getData() {
       steps_completed: totalStepsDone,
       steps_total: totalStepsMax,
       messages_sent: 0,
-    });
+    };
+    const activeCamp = leadCamps.find((c: any) => c.status === "active" || c.status === "paused");
+    if (activeCamp) {
+      renurturingLeads.push({
+        ...baseData,
+        new_campaign_name: activeCamp.name ?? null,
+        new_campaign_status: activeCamp.status,
+        new_campaign_step: activeCamp.current_step ?? null,
+        new_campaign_total_steps: Array.isArray(activeCamp.sequence_steps) ? activeCamp.sequence_steps.length : null,
+      });
+    } else {
+      lostLeads.push(baseData);
+    }
   }
 
-  return { wonLeads, lostLeads };
+  return { wonLeads, lostLeads, renurturingLeads };
 }
 
 export default async function ResultsPage() {
-  const { wonLeads, lostLeads } = await getData();
+  const { wonLeads, lostLeads, renurturingLeads } = await getData();
 
   return (
     <div className="p-4 sm:p-6 w-full">
@@ -198,17 +212,19 @@ export default async function ResultsPage() {
         icon={Trophy}
         section="Growth Engine"
         title="Results"
-        description="Outcomes from the pipeline — wins this period and the leads that didn't close."
+        description="Outcomes from the pipeline — wins this period, leads that didn't close, and leads being re-nurtured for a second pass."
         accentColor={C.green}
         status={{ label: "Live", active: true }}
         stats={[
-          { label: "Won", value: wonLeads.length, tone: wonLeads.length > 0 ? "positive" : "neutral" },
-          { label: "Lost", value: lostLeads.length, tone: lostLeads.length > 0 ? "warning" : "neutral" },
+          { label: "Won",        value: wonLeads.length,         tone: wonLeads.length > 0 ? "positive" : "neutral" },
+          { label: "Lost",       value: lostLeads.length,        tone: lostLeads.length > 0 ? "warning" : "neutral" },
+          { label: "Re-nurture", value: renurturingLeads.length, tone: renurturingLeads.length > 0 ? "positive" : "neutral" },
         ]}
       />
       <ResultsClient
         wonLeads={JSON.parse(JSON.stringify(wonLeads))}
         lostLeads={JSON.parse(JSON.stringify(lostLeads))}
+        renurturingLeads={JSON.parse(JSON.stringify(renurturingLeads))}
       />
     </div>
   );

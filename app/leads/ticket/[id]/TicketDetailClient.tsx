@@ -620,10 +620,11 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
     router.push(`/campaigns/new/${profileId}?leads=${ids.join(",")}`);
   }
 
+  // Updates tab removed 2026-05-28 per user request — the campaign-request
+  // approvals feed lives in the Notifications page instead.
   const tabs = [
     { label: "Leads",          count: totalLeads,     color: C.blue },
     { label: "Outreach Flows", count: totalCamps,     color: gold },
-    { label: "Updates",        count: updates.length, color: C.green },
   ];
 
   return (
@@ -637,53 +638,100 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
         <span style={{ color: C.textBody }}>{ticketName}</span>
       </div>
 
-      {/* Header */}
-      <div className="rounded-xl border mb-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <div className="p-6 pb-4">
-          <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: gold }}>Lead Miner Profile</p>
-          <h1 className="text-2xl font-bold" style={{ color: C.textPrimary }}>{ticketName}</h1>
+      {/* Header — SWL brand identity: navy-ink top with gold typography +
+          gold accent rail. Two stat rows underneath read as primary
+          outcome metrics (Row 1) and channel activity (Row 2). */}
+      <div className="rounded-2xl border overflow-hidden mb-4 relative"
+        style={{
+          backgroundColor: C.card,
+          borderColor: `color-mix(in srgb, ${gold} 22%, ${C.border})`,
+          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 18%, transparent), 0 12px 32px -16px rgba(11,15,26,0.45)`,
+        }}>
+        {/* Navy hero band with gold halo */}
+        <div className="relative overflow-hidden px-7 py-6"
+          style={{
+            background: "linear-gradient(135deg, #0B0F1A 0%, #111827 60%, #0B0F1A 100%)",
+            borderBottom: `1px solid color-mix(in srgb, ${gold} 28%, transparent)`,
+          }}>
+          <span aria-hidden className="absolute -top-20 -right-20 w-72 h-72 rounded-full pointer-events-none"
+            style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 18%, transparent) 0%, transparent 60%)` }} />
+          <span aria-hidden className="absolute -bottom-32 -left-12 w-72 h-72 rounded-full pointer-events-none"
+            style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 8%, transparent) 0%, transparent 70%)` }} />
+          <div className="relative flex items-center gap-2 mb-2">
+            <span className="inline-block w-1 h-1 rounded-full pulse-dot" style={{ background: gold }} />
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.18em]" style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+              Lead Miner Profile
+            </p>
+          </div>
+          <h1 className="relative text-[28px] font-bold leading-tight"
+            style={{ color: "#fff", fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}>
+            {ticketName}
+          </h1>
         </div>
 
-        {/* Header stats — two rows: pipeline state (top) + channel activity (bottom).
-            Boss feedback 2026-05-27: surface per-channel counts + win/loss
-            metrics so the ticket reads at a glance without expanding any
-            campaign card. */}
-        <div className="border-t grid grid-cols-5 divide-x" style={{ borderColor: C.border }}>
+        {/* Row 1 — primary outcomes. Each tile gets a colored left rail
+            + icon tile so the eye finds the metric type before reading. */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x" style={{ borderColor: C.border }}>
           {[
-            { icon: UsersIcon, label: "Leads",        value: metrics.totalLeads,     color: C.textBody },
+            { icon: UsersIcon, label: "Leads",        value: metrics.totalLeads,     color: gold },
             { icon: UserPlus,  label: "Unassigned",   value: metrics.unassignedCount, color: metrics.unassignedCount > 0 ? "#92400E" : C.textMuted },
-            { icon: Megaphone, label: "Flows",        value: totalCamps,             color: gold },
+            { icon: Megaphone, label: "Flows",        value: totalCamps,             color: "#7C3AED" },
             { icon: Trophy,    label: "Won",          value: metrics.won,            color: C.green },
             { icon: ThumbsDown,label: "Lost",         value: metrics.lost,           color: C.red },
           ].map(s => {
             const Icon = s.icon;
             return (
-              <div key={s.label} className="px-5 py-3 flex items-center gap-3">
-                <Icon size={14} style={{ color: s.color }} />
+              <div key={s.label} className="px-5 py-4 flex items-center gap-3"
+                style={{ borderLeft: `3px solid color-mix(in srgb, ${s.color} 55%, transparent)`, borderColor: C.border }}>
+                <span className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                  style={{
+                    background: `color-mix(in srgb, ${s.color} 14%, transparent)`,
+                    color: s.color,
+                    border: `1px solid color-mix(in srgb, ${s.color} 22%, transparent)`,
+                  }}>
+                  <Icon size={16} />
+                </span>
                 <div>
-                  <p className="text-xl font-bold tabular-nums leading-tight" style={{ color: s.color }}>{s.value}</p>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{s.label}</p>
+                  <p className="text-[24px] font-bold tabular-nums leading-none tracking-[-0.02em]"
+                    style={{ color: s.color, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                    {s.value}
+                  </p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] mt-1" style={{ color: C.textMuted }}>{s.label}</p>
                 </div>
               </div>
             );
           })}
         </div>
-        <div className="border-t grid grid-cols-6 divide-x" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+
+        {/* Row 2 — channel activity. Tinted gold-on-card background so it
+            visually reads as a "secondary band" inside the same hero card. */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 divide-y sm:divide-y-0 sm:divide-x"
+          style={{
+            borderTop: `1px solid color-mix(in srgb, ${gold} 18%, ${C.border})`,
+            borderColor: C.border,
+            background: `linear-gradient(180deg, color-mix(in srgb, ${gold} 4%, transparent), transparent)`,
+          }}>
           {[
             { icon: Share2,        label: "LinkedIn Invites",  value: metrics.linkedinInvitesSent,   color: "#0A66C2" },
             { icon: MessageSquare, label: "LinkedIn Messages", value: metrics.linkedinMessagesSent,  color: "#0A66C2" },
-            { icon: Mail,          label: "Emails Sent",       value: metrics.emailsSent,            color: "#7C3AED" },
-            { icon: Phone,         label: "Calls Made",        value: metrics.callsMade,             color: "#F97316" },
-            { icon: Percent,       label: "Reply Rate",        value: `${metrics.replyRate}%`,       color: metrics.replyRate >= 10 ? C.green : C.textBody },
-            { icon: Percent,       label: "Win Rate",          value: `${metrics.winRate}%`,         color: metrics.winRate >= 20 ? C.green : C.textBody },
+            { icon: Mail,          label: "Emails Sent",       value: metrics.emailsSent,            color: "#059669" },
+            { icon: Phone,         label: "Calls Made",        value: metrics.callsMade,             color: "#EA580C" },
+            { icon: Percent,       label: "Reply Rate",        value: `${metrics.replyRate}%`,       color: metrics.replyRate >= 10 ? C.green : gold },
+            { icon: Percent,       label: "Win Rate",          value: `${metrics.winRate}%`,         color: metrics.winRate >= 20 ? C.green : gold },
           ].map(s => {
             const Icon = s.icon;
             return (
-              <div key={s.label} className="px-4 py-2.5 flex items-center gap-2.5">
-                <Icon size={12} style={{ color: s.color }} />
+              <div key={s.label} className="px-4 py-3 flex items-center gap-2.5">
+                <span className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+                  style={{ background: `color-mix(in srgb, ${s.color} 14%, transparent)`, color: s.color }}>
+                  <Icon size={12} />
+                </span>
                 <div className="min-w-0">
-                  <p className="text-sm font-bold tabular-nums leading-tight" style={{ color: s.color }}>{s.value}</p>
-                  <p className="text-[9px] font-semibold uppercase tracking-wider truncate" style={{ color: C.textMuted }}>{s.label}</p>
+                  <p className="text-[16px] font-bold tabular-nums leading-tight tracking-[-0.01em]"
+                    style={{ color: s.color, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                    {s.value}
+                  </p>
+                  <p className="text-[9.5px] font-bold uppercase tracking-[0.12em] truncate" style={{ color: C.textMuted }}>{s.label}</p>
                 </div>
               </div>
             );
@@ -827,9 +875,6 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
 
       {/* Tab 1: Outreach Flows */}
       {tab === 1 && <OutreachFlowsTab campaigns={campaigns} />}
-
-      {/* Tab 2: Updates — campaign-request activity scoped to this ICP. */}
-      {tab === 2 && <UpdatesTab updates={updates} />}
 
       {showAddExisting && (
         <AddToExistingModal

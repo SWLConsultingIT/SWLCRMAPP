@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { C } from "@/lib/design";
-import { Trophy, X } from "lucide-react";
-import { WonView, LostLeadsView, type LostLead } from "@/components/LeadsCampaignsClient";
+import { Trophy, X, RefreshCw } from "lucide-react";
+import { WonView, LostLeadsView, RenurturingView, type LostLead, type RenurturingLead } from "@/components/LeadsCampaignsClient";
 import type { OpportunityLead } from "@/components/OpportunitiesTable";
 
 const gold = "var(--brand, #c9a83a)";
@@ -11,19 +11,24 @@ const gold = "var(--brand, #c9a83a)";
 type Props = {
   wonLeads: OpportunityLead[];
   lostLeads: LostLead[];
+  renurturingLeads: RenurturingLead[];
 };
 
-// Two-tab Results page: Won and Lost are the only terminal outcomes the
-// pipeline produces. Nurture stays in /leads as an in-flight chip (a
-// re-engaged lead is still mid-pipeline). View components are reused
-// verbatim from LeadsCampaignsClient so this page can't drift in card
-// shape, status colors, or recover-action UX.
-export default function ResultsClient({ wonLeads, lostLeads }: Props) {
-  const [tab, setTab] = useState<"won" | "lost">(wonLeads.length > 0 ? "won" : "lost");
+// Three-tab Results page: Won and Lost are the terminal outcomes, Re-
+// nurture sits in between (a lead the pipeline lost but is being given
+// a second chance in a fresh campaign). Boss feedback 2026-05-28 (r2):
+// "nurture sacalo y ponelo en results, otra view de re-nurture". View
+// components are reused verbatim from LeadsCampaignsClient so this page
+// can't drift in card shape, status colors, or recover-action UX.
+export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads }: Props) {
+  const [tab, setTab] = useState<"won" | "lost" | "renurture">(
+    wonLeads.length > 0 ? "won" : lostLeads.length > 0 ? "lost" : "renurture",
+  );
 
   const tabs = [
-    { key: "won"  as const, label: "Won",  count: wonLeads.length,  color: C.green, icon: Trophy },
-    { key: "lost" as const, label: "Lost", count: lostLeads.length, color: C.red,   icon: X },
+    { key: "won"       as const, label: "Won",        count: wonLeads.length,         color: C.green, icon: Trophy },
+    { key: "lost"      as const, label: "Lost",       count: lostLeads.length,        color: C.red,   icon: X },
+    { key: "renurture" as const, label: "Re-nurture", count: renurturingLeads.length, color: gold,    icon: RefreshCw },
   ];
 
   return (
@@ -61,8 +66,9 @@ export default function ResultsClient({ wonLeads, lostLeads }: Props) {
         })}
       </div>
 
-      {tab === "won"  && <WonView leads={wonLeads} />}
-      {tab === "lost" && <LostLeadsView leads={lostLeads} />}
+      {tab === "won"       && <WonView leads={wonLeads} />}
+      {tab === "lost"      && <LostLeadsView leads={lostLeads} />}
+      {tab === "renurture" && <RenurturingView leads={renurturingLeads} />}
     </div>
   );
 }

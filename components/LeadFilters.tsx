@@ -9,7 +9,7 @@ const goldDark = "var(--brand-dark, #b79832)";
 
 type FilterOption = { key: string; label: string; color?: string; count?: number };
 
-function PillGroup({ icon, label, options, value, onChange, wrap = false }: {
+function PillGroup({ icon, label, options, value, onChange, wrap = false, dark = false }: {
   icon: ReactNode;
   label: string;
   options: FilterOption[];
@@ -19,14 +19,21 @@ function PillGroup({ icon, label, options, value, onChange, wrap = false }: {
    *  Used by the Profile filter where ICP names can be long ("Pathway
    *  Invoice Finance — Construction"). */
   wrap?: boolean;
+  /** Use the dark-on-dark color palette (LeadFilterBar premium look). */
+  dark?: boolean;
 }) {
+  const labelColor    = dark ? "color-mix(in srgb, #F5F2E8 70%, transparent)" : C.textMuted;
+  const labelIcon     = dark ? "color-mix(in srgb, #F5F2E8 55%, transparent)" : C.textDim;
+  const groupBg       = dark ? "rgba(255,255,255,0.04)" : C.bg;
+  const groupBorder   = dark ? "color-mix(in srgb, #c9a83a 16%, #1d1f29)" : C.border;
+  const inactiveColor = dark ? "color-mix(in srgb, #F5F2E8 75%, transparent)" : C.textMuted;
   return (
     <div className={wrap ? "flex items-start gap-2 flex-wrap min-w-0" : "flex items-center gap-2"}>
       <div className="flex items-center gap-1.5 shrink-0 pt-1">
-        <span style={{ color: C.textDim }}>{icon}</span>
-        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textMuted, letterSpacing: "0.08em" }}>{label}</span>
+        <span style={{ color: labelIcon }}>{icon}</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: labelColor, letterSpacing: "0.08em" }}>{label}</span>
       </div>
-      <div className={`${wrap ? "flex flex-wrap" : "flex items-center"} gap-0.5 rounded-lg p-0.5 border`} style={{ backgroundColor: C.bg, borderColor: C.border }}>
+      <div className={`${wrap ? "flex flex-wrap" : "flex items-center"} gap-0.5 rounded-lg p-0.5 border`} style={{ backgroundColor: groupBg, borderColor: groupBorder }}>
         {options.map(opt => {
           const isActive = value === opt.key;
           const accent = opt.color ?? goldDark;
@@ -37,11 +44,11 @@ function PillGroup({ icon, label, options, value, onChange, wrap = false }: {
               className="px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all duration-150 hover:scale-[1.02]"
               style={{
                 backgroundColor: isActive
-                  ? `color-mix(in srgb, ${accent} 14%, ${C.card})`
+                  ? (dark ? `color-mix(in srgb, ${accent} 22%, transparent)` : `color-mix(in srgb, ${accent} 14%, ${C.card})`)
                   : "transparent",
-                color: isActive ? accent : C.textMuted,
+                color: isActive ? accent : inactiveColor,
                 border: isActive
-                  ? `1px solid color-mix(in srgb, ${accent} 35%, transparent)`
+                  ? `1px solid color-mix(in srgb, ${accent} ${dark ? 50 : 35}%, transparent)`
                   : "1px solid transparent",
                 boxShadow: isActive
                   ? `0 1px 0 color-mix(in srgb, ${accent} 18%, transparent), 0 0 0 2px color-mix(in srgb, ${accent} 8%, transparent)`
@@ -134,32 +141,53 @@ export function LeadFilterBar({
     (filters.search !== "" ? 1 : 0);
   const hasActiveFilter = activeCount > 0;
 
+  // Premium dark+gold treatment for the filter surface (boss feedback
+  // 2026-05-28: "negro con toques dorados, que sea lindo"). Always dark
+  // regardless of theme so the bar feels like a deliberate operator
+  // surface, distinct from the surrounding light cards. Background uses
+  // a near-black with a faint gold radial gradient on the top edge.
+  const darkBg = "#0F0F14";
+  const darkBgElevated = "#171821";
+  const darkBorder = "color-mix(in srgb, #c9a83a 16%, #1d1f29)";
+  const darkBorderHover = "color-mix(in srgb, #c9a83a 32%, #1d1f29)";
+  const lightOnDark = "#F5F2E8";
+  const dimOnDark = "color-mix(in srgb, #F5F2E8 55%, transparent)";
   return (
-    <div className="rounded-2xl border mb-4 overflow-hidden relative" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
-      {/* Subtle gold accent line — same signature as the lead detail card */}
-      <div className="absolute inset-x-0 top-0 h-[2px] pointer-events-none" style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)`, opacity: 0.4 }} />
+    <div
+      className="rounded-2xl border mb-4 overflow-hidden relative"
+      style={{
+        backgroundColor: darkBg,
+        borderColor: darkBorder,
+        boxShadow: "0 4px 18px rgba(0,0,0,0.18), 0 0 0 1px color-mix(in srgb, #c9a83a 12%, transparent)",
+      }}
+    >
+      {/* Gold gradient strip across the top */}
+      <div className="absolute inset-x-0 top-0 h-[2px] pointer-events-none" style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 50%, transparent 100%)`, opacity: 0.85 }} />
+      {/* Soft gold radial in the corner for the "premium" depth */}
+      <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full pointer-events-none" style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 22%, transparent) 0%, transparent 70%)`, opacity: 0.5 }} />
 
       {/* Search row */}
-      <div className="px-4 py-3 flex items-center gap-3 border-b" style={{ borderColor: C.border }}>
+      <div className="px-4 py-3 flex items-center gap-3 border-b relative" style={{ borderColor: darkBorder }}>
         <div
-          className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5 flex-1 transition-shadow focus-within:shadow-sm"
+          className="flex items-center gap-2 rounded-lg border px-3 py-2 flex-1 transition-[border-color,box-shadow]"
           style={{
-            borderColor: filters.search ? `color-mix(in srgb, ${goldDark} 35%, ${C.border})` : C.border,
-            backgroundColor: C.bg,
+            borderColor: filters.search ? `color-mix(in srgb, ${gold} 55%, ${darkBorder})` : darkBorder,
+            backgroundColor: darkBgElevated,
+            boxShadow: filters.search ? `0 0 0 3px color-mix(in srgb, ${gold} 12%, transparent)` : "none",
           }}
         >
-          <Search size={12} style={{ color: filters.search ? goldDark : C.textDim }} />
+          <Search size={13} style={{ color: filters.search ? gold : dimOnDark }} />
           <input
             type="text"
             value={filters.search}
             onChange={e => set("search", e.target.value)}
             placeholder="Search by name, company, email…"
             className="bg-transparent text-[12px] outline-none flex-1 placeholder:font-normal placeholder:text-[12px]"
-            style={{ color: C.textPrimary }}
+            style={{ color: lightOnDark, ["::placeholder" as any]: { color: dimOnDark } }}
           />
           {filters.search && (
-            <button onClick={() => set("search", "")} className="rounded p-0.5 hover:bg-black/5 transition-colors">
-              <X size={11} style={{ color: C.textDim }} />
+            <button onClick={() => set("search", "")} className="rounded p-0.5 hover:bg-white/5 transition-colors">
+              <X size={11} style={{ color: dimOnDark }} />
             </button>
           )}
         </div>
@@ -168,26 +196,26 @@ export function LeadFilterBar({
           type="button"
           onClick={() => setExpanded(v => !v)}
           aria-expanded={expanded}
-          className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border transition-colors hover:bg-black/[0.03]"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-md border transition-[border-color,background-color]"
           style={{
-            borderColor: hasActiveFilter ? `color-mix(in srgb, ${goldDark} 30%, ${C.border})` : C.border,
-            backgroundColor: hasActiveFilter ? `color-mix(in srgb, ${goldDark} 8%, transparent)` : "transparent",
+            borderColor: hasActiveFilter ? darkBorderHover : darkBorder,
+            backgroundColor: hasActiveFilter ? `color-mix(in srgb, ${gold} 12%, ${darkBgElevated})` : darkBgElevated,
           }}
           title={expanded ? "Hide filters" : "Show filters"}
         >
-          <SlidersHorizontal size={12} style={{ color: hasActiveFilter ? goldDark : C.textDim }} />
-          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: hasActiveFilter ? goldDark : C.textDim, letterSpacing: "0.08em" }}>
+          <SlidersHorizontal size={12} style={{ color: hasActiveFilter ? gold : dimOnDark }} />
+          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: hasActiveFilter ? gold : dimOnDark, letterSpacing: "0.08em" }}>
             Filters
           </span>
           {activeCount > 0 && (
-            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: goldDark, color: "white", lineHeight: 1 }}>
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: gold, color: "#0F0F14", lineHeight: 1 }}>
               {activeCount}
             </span>
           )}
           <ChevronDown
             size={11}
             style={{
-              color: hasActiveFilter ? goldDark : C.textDim,
+              color: hasActiveFilter ? gold : dimOnDark,
               transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
               transition: "transform 0.15s ease",
             }}
@@ -197,14 +225,14 @@ export function LeadFilterBar({
         {hasActiveFilter && (
           <button
             onClick={() => onChange({ search: "", score: "all", campaign: "all", reply: "all", profile: "all", role: "all", industry: "all" })}
-            className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md transition-colors hover:bg-red-50"
-            style={{ color: C.red, letterSpacing: "0.06em" }}
+            className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md transition-colors hover:bg-white/[0.04]"
+            style={{ color: gold, letterSpacing: "0.06em" }}
           >
             Clear
           </button>
         )}
 
-        <span className="text-[11px] font-bold tabular-nums px-2.5 py-1 rounded-md" style={{ backgroundColor: C.bg, color: C.textBody, border: `1px solid ${C.border}` }}>
+        <span className="text-[11px] font-bold tabular-nums px-2.5 py-1 rounded-md" style={{ backgroundColor: darkBgElevated, color: gold, border: `1px solid ${darkBorder}` }}>
           {resultCount === totalCount ? `${totalCount}` : `${resultCount} / ${totalCount}`}
         </span>
       </div>
@@ -214,8 +242,9 @@ export function LeadFilterBar({
           Lead Miner ticket detail still renders this row (no chip row
           upstream) so the seller can slice by score / reply / campaign. */}
       {showStatusPills && (
-      <div className="px-4 py-3 flex items-center gap-4 flex-wrap" style={{ backgroundColor: `color-mix(in srgb, ${C.bg} 50%, transparent)` }}>
+      <div className="px-4 py-3 flex items-center gap-4 flex-wrap relative" style={{ backgroundColor: "rgba(255,255,255,0.02)", borderTop: `1px solid ${darkBorder}` }}>
         <PillGroup
+          dark
           icon={<Flame size={11} />}
           label="Score"
           value={filters.score}
@@ -230,6 +259,7 @@ export function LeadFilterBar({
 
         {showCampaignFilter && (
           <PillGroup
+            dark
             icon={<Megaphone size={11} />}
             label="Campaign"
             value={filters.campaign}
@@ -243,6 +273,7 @@ export function LeadFilterBar({
         )}
 
         <PillGroup
+          dark
           icon={<MessageCircle size={11} />}
           label="Reply"
           value={filters.reply}
@@ -260,9 +291,10 @@ export function LeadFilterBar({
       {(showProfileFilter && profileNames && profileNames.length > 1)
         || (roleOptions && roleOptions.length > 1)
         || (industryOptions && industryOptions.length > 1) ? (
-        <div className="px-4 py-2.5 border-t flex items-center gap-4 flex-wrap" style={{ borderColor: C.border, backgroundColor: C.card }}>
+        <div className="px-4 py-3 border-t flex items-center gap-4 flex-wrap relative" style={{ borderColor: darkBorder, backgroundColor: "rgba(255,255,255,0.02)" }}>
           {showProfileFilter && profileNames && profileNames.length > 1 && (
             <FacetDropdown
+              dark
               icon={<Target size={11} />}
               label="ICP"
               value={filters.profile}
@@ -274,6 +306,7 @@ export function LeadFilterBar({
           )}
           {roleOptions && roleOptions.length > 1 && (
             <FacetDropdown
+              dark
               icon={<Briefcase size={11} />}
               label="Role"
               value={filters.role}
@@ -285,6 +318,7 @@ export function LeadFilterBar({
           )}
           {industryOptions && industryOptions.length > 1 && (
             <FacetDropdown
+              dark
               icon={<Building2 size={11} />}
               label="Industry"
               value={filters.industry}
@@ -304,7 +338,7 @@ export function LeadFilterBar({
 // ICP, Role, Industry. Behaviour copies the pre-existing ICP filter so the
 // whole row stays visually consistent.
 function FacetDropdown({
-  icon, label, value, onChange, options, allLabel, dropdownThreshold = 5,
+  icon, label, value, onChange, options, allLabel, dropdownThreshold = 5, dark = false,
 }: {
   icon: ReactNode;
   label: string;
@@ -313,37 +347,45 @@ function FacetDropdown({
   options: string[];
   allLabel: string;
   dropdownThreshold?: number;
+  dark?: boolean;
 }) {
+  const labelColor    = dark ? "color-mix(in srgb, #F5F2E8 70%, transparent)" : C.textMuted;
+  const labelIcon     = dark ? "color-mix(in srgb, #F5F2E8 55%, transparent)" : C.textDim;
+  const bgIdle        = dark ? "rgba(255,255,255,0.04)" : C.bg;
+  const bgActive      = dark ? `color-mix(in srgb, ${gold} 14%, rgba(255,255,255,0.04))` : `color-mix(in srgb, ${goldDark} 8%, ${C.bg})`;
+  const borderIdle    = dark ? "color-mix(in srgb, #c9a83a 16%, #1d1f29)" : C.border;
+  const borderActive  = dark ? `color-mix(in srgb, ${gold} 48%, #1d1f29)` : `color-mix(in srgb, ${goldDark} 32%, ${C.border})`;
+  const idleText      = dark ? "color-mix(in srgb, #F5F2E8 85%, transparent)" : C.textBody;
   if (options.length > dropdownThreshold) {
     return (
       <div className="flex items-center gap-2">
-        <span style={{ color: C.textDim }}>{icon}</span>
-        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textMuted, letterSpacing: "0.08em" }}>{label}</span>
+        <span style={{ color: labelIcon }}>{icon}</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: labelColor, letterSpacing: "0.08em" }}>{label}</span>
         <div
           className="flex items-center gap-1.5 rounded-lg border pl-2.5 pr-1.5 py-1"
           style={{
-            backgroundColor: value !== "all" ? `color-mix(in srgb, ${goldDark} 8%, ${C.bg})` : C.bg,
-            borderColor: value !== "all" ? `color-mix(in srgb, ${goldDark} 32%, ${C.border})` : C.border,
+            backgroundColor: value !== "all" ? bgActive : bgIdle,
+            borderColor: value !== "all" ? borderActive : borderIdle,
           }}
         >
           <select
             value={value}
             onChange={e => onChange(e.target.value)}
             className="bg-transparent text-[11px] font-semibold outline-none appearance-none pr-1"
-            style={{ color: value !== "all" ? goldDark : C.textBody, maxWidth: 220 }}
+            style={{ color: value !== "all" ? gold : idleText, maxWidth: 220 }}
           >
             <option value="all">{allLabel}</option>
             {options.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
-          <ChevronDown size={11} style={{ color: value !== "all" ? goldDark : C.textDim }} />
+          <ChevronDown size={11} style={{ color: value !== "all" ? gold : labelIcon }} />
         </div>
         {value !== "all" && (
           <button
             onClick={() => onChange("all")}
-            className="rounded p-0.5 hover:bg-black/5 transition-colors"
+            className="rounded p-0.5 hover:bg-white/[0.04] transition-colors"
             title={`Clear ${label} filter`}
           >
-            <X size={11} style={{ color: C.textDim }} />
+            <X size={11} style={{ color: labelIcon }} />
           </button>
         )}
       </div>
@@ -351,6 +393,7 @@ function FacetDropdown({
   }
   return (
     <PillGroup
+      dark={dark}
       icon={icon}
       label={label}
       value={value}

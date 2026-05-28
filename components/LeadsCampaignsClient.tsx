@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
@@ -9,6 +9,7 @@ import {
   Search, X, CheckCircle, Star, RefreshCw, Trash2, Square, CheckSquare,
   Phone, MoreHorizontal, Mail, Flame,
   Building2, Users as UsersIcon, MapPin, Globe, MessageCircle, ThumbsUp, Trophy,
+  Plus,
 } from "lucide-react";
 import { LeadFilterBar, type LeadFilterState } from "@/components/LeadFilters";
 import { type OpportunityLead } from "@/components/OpportunitiesTable";
@@ -82,7 +83,7 @@ export type LostLead = {
   messages_sent: number;
 };
 
-type RenurturingLead = LostLead & {
+export type RenurturingLead = LostLead & {
   new_campaign_name: string | null;
   new_campaign_status: string;
   new_campaign_step: number | null;
@@ -502,7 +503,7 @@ function RenurturingLeadCard({ lead }: { lead: RenurturingLead }) {
 }
 
 // ─── Re-nurturing View ────────────────────────────────────────────────────────
-function RenurturingView({ leads }: { leads: RenurturingLead[] }) {
+export function RenurturingView({ leads }: { leads: RenurturingLead[] }) {
   const [search, setSearch] = useState("");
 
   const filtered = leads.filter(l => {
@@ -851,6 +852,10 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
   // Inline per-row actions menu state. Only one row's menu is open at a time.
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [rowUpdating, setRowUpdating] = useState<string | null>(null);
+  // Modal for "Add to existing flow" bulk action. Fetches active flows on
+  // open so the picker reflects the current state (a campaign created in
+  // another tab shows up without a refresh).
+  const [showAddToFlow, setShowAddToFlow] = useState(false);
 
   const profileNames = [...new Set(leads.map(l => l.profile_name).filter(Boolean))] as string[];
   // Distinct role + industry values from the current lead set, sorted
@@ -1021,6 +1026,25 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
     }
   }
 
+  // "Create new flow" — feeds the wizard. If every selected lead shares an
+  // ICP we deep-link to /campaigns/new/[profileId] so the wizard skips the
+  // ICP picker; mixed-ICP selections fall back to /campaigns/new where the
+  // wizard prompts for a profile. The leads param is the same shape the
+  // Lead Miner ticket bulk-action uses.
+  function createNewFlowFromSelection() {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    const selectedLeads = leads.filter(l => selected.has(l.id));
+    const profileNamesSet = new Set(selectedLeads.map(l => l.profile_name).filter(Boolean));
+    // We have `profile_name` on the lead row but not the id. /campaigns/new
+    // accepts the leads query param either way and resolves the profile
+    // from the first lead if all share one; safest path is the plain
+    // route + leads param.
+    const url = `/campaigns/new?leads=${ids.join(",")}`;
+    router.push(url);
+    void profileNamesSet; // reserved for future "deep-link when 1 ICP" optimisation
+  }
+
   async function bulkChangeStatus(status: string) {
     if (selected.size === 0 || deleting) return;
     // Snapshot prior status for each selected lead so an Undo can restore
@@ -1102,7 +1126,6 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
         profileNames={profileNames}
         roleOptions={roleOptions}
         industryOptions={industryOptions}
-        showStatusPills={false}
       />
 
       {selected.size > 0 && (
@@ -1112,6 +1135,23 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
             <span style={{ color: gold }}>{selected.size}</span> lead{selected.size === 1 ? "" : "s"} selected
           </span>
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Primary bulk actions — turn the selection into a flow.
+                Boss feedback 2026-05-28: "al seleccionar los leads tenemos
+                que tener dos botones, add to existing campaign o create
+                new flow". */}
+            <button onClick={() => setShowAddToFlow(true)} disabled={deleting}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-[background-color,opacity] hover:bg-black/[0.03] disabled:opacity-50"
+              style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}>
+              <Plus size={11} /> Add to existing flow
+            </button>
+            <button onClick={createNewFlowFromSelection} disabled={deleting}
+              className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90 disabled:opacity-50"
+              style={{ backgroundColor: gold, color: "#1A1A2E" }}>
+              <Megaphone size={11} /> Create new flow
+            </button>
+
+            <div className="h-5 w-px" style={{ backgroundColor: C.border }} />
+
             {/* Status change dropdown — uses native select so it inherits OS
                 styling on each platform; the wrapper styles it like a button. */}
             <label className="relative inline-flex items-center">
@@ -1156,6 +1196,14 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
             </button>
           </div>
         </div>
+      )}
+
+      {showAddToFlow && (
+        <AddToFlowModalLeads
+          leadIds={Array.from(selected)}
+          onClose={() => setShowAddToFlow(false)}
+          onAdded={() => { setShowAddToFlow(false); setSelected(new Set()); router.refresh(); }}
+        />
       )}
 
       <div className="rounded-xl border overflow-hidden card-shadow" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -1569,6 +1617,137 @@ function IcpFlowsSection({ group, defaultOpen }: { group: ProfileGroup; defaultO
 }
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
+// "Add to existing flow" modal scoped to the /leads bulk-action surface.
+// Fetches active + paused campaigns lazily on open via /api/campaigns
+// (no extra prop drilling) and posts to /api/campaigns/[id]/add-leads —
+// the same endpoint the Lead Miner ticket bulk-action uses.
+function AddToFlowModalLeads({
+  leadIds, onClose, onAdded,
+}: {
+  leadIds: string[];
+  onClose: () => void;
+  onAdded: () => void;
+}) {
+  const toast = useToast();
+  const [loading, setLoading] = useState(true);
+  const [campaigns, setCampaigns] = useState<Array<{
+    id: string; name: string; status: string; channel: string;
+    sequence_steps: any[] | null; lead_count: number;
+  }>>([]);
+  const [pickedId, setPickedId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // Lazy-load on mount.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/campaigns/active-list", { cache: "no-store" })
+      .then(r => r.ok ? r.json() : { campaigns: [] })
+      .then(data => { if (!cancelled) setCampaigns(Array.isArray(data.campaigns) ? data.campaigns : []); })
+      .catch(() => { /* ignore — empty list */ })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Dedupe by flow name (a flow can have many campaign rows, one per
+  // lead). Pick the most populous to attach against — the API resolves
+  // tenant scope from any of the rows.
+  const flowsByName: Record<string, { id: string; name: string; channel: string; sequence_steps: any[] | null; total: number; active: number }> = {};
+  for (const c of campaigns) {
+    if (!flowsByName[c.name]) flowsByName[c.name] = { id: c.id, name: c.name, channel: c.channel, sequence_steps: c.sequence_steps, total: 0, active: 0 };
+    flowsByName[c.name].total++;
+    if (c.status === "active" || c.status === "paused") flowsByName[c.name].active++;
+  }
+  const flows = Object.values(flowsByName).filter(f => f.active > 0).sort((a, b) => b.active - a.active);
+
+  async function submit() {
+    if (!pickedId || busy) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/campaigns/${pickedId}/add-leads`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ leadIds }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.show({ kind: "error", title: "Couldn't add leads", description: json.error ?? "Try again in a moment." });
+        return;
+      }
+      toast.show({ kind: "success", title: `Added ${json.added ?? leadIds.length} lead${(json.added ?? leadIds.length) === 1 ? "" : "s"} to the flow` });
+      onAdded();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+      onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl border overflow-hidden"
+        style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 24px 64px rgba(0,0,0,0.18)" }}
+        onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 flex items-center justify-between border-b" style={{ borderColor: C.border }}>
+          <div>
+            <h3 className="text-base font-bold" style={{ color: C.textPrimary }}>Add to existing flow</h3>
+            <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
+              {leadIds.length} {leadIds.length === 1 ? "lead" : "leads"} will be attached to the selected flow.
+            </p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1 hover:bg-black/[0.04]">
+            <X size={14} style={{ color: C.textDim }} />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-2 max-h-[50vh] overflow-y-auto">
+          {loading ? (
+            <p className="text-sm py-6 text-center" style={{ color: C.textMuted }}>Loading flows…</p>
+          ) : flows.length === 0 ? (
+            <p className="text-sm py-6 text-center" style={{ color: C.textMuted }}>
+              No active flows yet. Use &ldquo;Create new flow&rdquo; instead.
+            </p>
+          ) : flows.map(f => {
+            const picked = pickedId === f.id;
+            const steps = Array.isArray(f.sequence_steps) ? f.sequence_steps.length : 0;
+            return (
+              <button key={f.id}
+                onClick={() => setPickedId(f.id)}
+                className="w-full text-left rounded-xl border px-4 py-3 transition-[border-color,background-color]"
+                style={{
+                  borderColor: picked ? gold : C.border,
+                  backgroundColor: picked ? `color-mix(in srgb, ${gold} 8%, transparent)` : C.bg,
+                }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <Megaphone size={11} style={{ color: gold }} />
+                  <span className="text-[13px] font-semibold flex-1 truncate" style={{ color: C.textPrimary }}>{f.name}</span>
+                  {picked && <CheckSquare size={13} style={{ color: gold }} />}
+                </div>
+                <p className="text-[11px]" style={{ color: C.textMuted }}>
+                  {f.total} leads · {f.channel}{steps > 0 ? ` · ${steps} steps` : ""}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="px-5 py-3 border-t flex items-center justify-end gap-2" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+          <button onClick={onClose}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border"
+            style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}>
+            Cancel
+          </button>
+          <button onClick={submit}
+            disabled={!pickedId || busy || flows.length === 0}
+            className="text-xs font-bold px-3 py-1.5 rounded-lg transition-opacity disabled:opacity-50"
+            style={{ backgroundColor: gold, color: "#1A1A2E" }}>
+            {busy ? "Adding…" : `Add ${leadIds.length} lead${leadIds.length === 1 ? "" : "s"}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLeads, renurturingLeads, wonLeads, companies, stats, totalLeadCount }: Props) {
   // Boss feedback 2026-05-27 (Leads & Campaigns rework):
   //   - Companies is now a top-level tab (was sub-toggle inside All Leads)
@@ -1577,11 +1756,11 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
   //   - Campaigns view groups flows by ICP/ticket so the manager scans by
   //     Lead Miner profile, not by campaign name.
   const [mainView, setMainView] = useState<"leads" | "companies" | "campaigns">("leads");
-  // Status chips for in-flight pipeline states only. Won + Lost moved out
-  // to /results (boss feedback 2026-05-28: "los results están muy
-  // escondidos"). Nurture stays here because a re-engaged lead is still
-  // in process, not a closed outcome.
-  type LeadSubTab = "all" | "without_campaign" | "with_campaign" | "hot" | "replied" | "positive" | "nurture";
+  // Status chips trimmed to the three pipeline-membership states only.
+  // Won/Lost/Re-nurture live in /results; Hot/Replied/Positive are
+  // facets in the filter bar (Score + Reply), not top-level navigation
+  // (boss feedback 2026-05-28 round 2: "saca hot de ahi, ponelo abajo").
+  type LeadSubTab = "all" | "without_campaign" | "with_campaign";
   const [leadSubTab, setLeadSubTab] = useState<LeadSubTab>("all");
   const [search, setSearch] = useState("");
 
@@ -1732,13 +1911,9 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
                 count: number;
                 color: string;
               }> = [
-                { key: "all",              label: "All",                 count: allLeads.length,                                                                                                  color: gold },
-                { key: "without_campaign", label: "Without flow",        count: leadsWithoutCampaign.length,                                                                                      color: "#92400E" },
-                { key: "with_campaign",    label: "In a flow",           count: allLeads.filter(l => l.has_campaign).length,                                                                      color: C.blue },
-                { key: "hot",              label: "Hot",                 count: allLeads.filter(l => l.is_priority || (l.score != null && l.score >= 80)).length,                                 color: C.hot },
-                { key: "replied",          label: "Replied",             count: allLeads.filter(l => (l.reply_count ?? 0) > 0).length,                                                            color: "#D97706" },
-                { key: "positive",         label: "Positive",            count: allLeads.filter(l => l.has_positive === true).length,                                                             color: C.green },
-                { key: "nurture",          label: "Nurture",             count: renurturingLeads.length,                                                                                          color: gold },
+                { key: "all",              label: "All",          count: allLeads.length,                                color: gold },
+                { key: "without_campaign", label: "Without flow", count: leadsWithoutCampaign.length,                    color: "#92400E" },
+                { key: "with_campaign",    label: "In a flow",    count: allLeads.filter(l => l.has_campaign).length,    color: C.blue },
               ];
               return chips.map(t => {
                 const isActive = leadSubTab === t.key;
@@ -1777,10 +1952,6 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
           {leadSubTab === "all"              && <AllLeadsTable leads={allLeads} />}
           {leadSubTab === "without_campaign" && <AllLeadsTable leads={leadsWithoutCampaign} />}
           {leadSubTab === "with_campaign"    && <AllLeadsTable leads={allLeads.filter(l => l.has_campaign)} />}
-          {leadSubTab === "hot"              && <AllLeadsTable leads={allLeads.filter(l => l.is_priority || (l.score != null && l.score >= 80))} />}
-          {leadSubTab === "replied"          && <AllLeadsTable leads={allLeads.filter(l => (l.reply_count ?? 0) > 0)} />}
-          {leadSubTab === "positive"         && <AllLeadsTable leads={allLeads.filter(l => l.has_positive === true)} />}
-          {leadSubTab === "nurture"          && <RenurturingView leads={renurturingLeads} />}
         </div>
       )}
 
