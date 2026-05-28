@@ -9,7 +9,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
 import {
-  Users, Send, Trophy, Megaphone, Target,
+  Users, Send, Trophy, Megaphone, Target, Layers, TrendingUp,
   AlertTriangle, ArrowRight, ChevronRight, MessageSquare, ThumbsUp, Sparkles,
   Share2, Mail, Phone, Smartphone, FileDown, ChevronsRight, Activity,
 } from "lucide-react";
@@ -1200,6 +1200,55 @@ export default async function DashboardPage({
         labels={tabFilterLabels}
       />
 
+      {/* Campaigns KPI strip — boss 2026-05-28: the tab felt thin against
+          the rest of the dashboard. Four headline tiles ground the chapter:
+          how many flows are running, total leads inside them, avg sequence
+          length, and overall conversion. All derived from the same scoped
+          campaignPerformance the accordion below reads. */}
+      {(() => {
+        const camps = data.campaignPerformance;
+        const activeFlows = camps.filter(c => c.status === "active" || c.status === "paused").length;
+        const totalLeads = camps.reduce((s, c) => s + c.leads, 0);
+        const totalPositive = camps.reduce((s, c) => s + c.positive, 0);
+        const avgConv = totalLeads > 0 ? Math.round((totalPositive / totalLeads) * 100) : 0;
+        const seqLengths = camps.map(c => c.totalSteps).filter(n => n > 0);
+        const avgSteps = seqLengths.length > 0
+          ? Math.round((seqLengths.reduce((s, n) => s + n, 0) / seqLengths.length) * 10) / 10
+          : 0;
+        return (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <KpiCard
+              label={t("dashx.campsKpi.activeFlows")}
+              value={activeFlows}
+              icon={Megaphone}
+              accent={gold}
+              hint={t("dashx.campsKpi.activeFlowsHint")}
+            />
+            <KpiCard
+              label={t("dashx.campsKpi.leadsInFlows")}
+              value={totalLeads.toLocaleString(dateLoc)}
+              icon={Users}
+              accent="#0284C7"
+              hint={t("dashx.campsKpi.leadsInFlowsHint")}
+            />
+            <KpiCard
+              label={t("dashx.campsKpi.avgSequence")}
+              value={avgSteps > 0 ? `${avgSteps} ${t("dashx.campsKpi.stepsUnit")}` : "—"}
+              icon={Layers}
+              accent="#7C3AED"
+              hint={t("dashx.campsKpi.avgSequenceHint")}
+            />
+            <KpiCard
+              label={t("dashx.campsKpi.avgConversion")}
+              value={`${avgConv}%`}
+              icon={TrendingUp}
+              accent={C.green}
+              hint={t("dashx.campsKpi.avgConversionHint")}
+            />
+          </div>
+        );
+      })()}
+
       <section>
         {/* Status chips removed 2026-05-28: the by-ICP accordion shows every
             flow with its status badge inline, so the standalone Active /
@@ -1298,7 +1347,9 @@ export default async function DashboardPage({
             // is per-flow with step-performance shown inline when expanded.
             const ranked = [...data.campaignPerformance].sort((a, b) => b.conversionRate - a.conversionRate);
             const rankByName = new Map(ranked.map((c, idx) => [c.name, idx]));
-            const maxConv = Math.max(1, ...data.campaignPerformance.map(c => c.conversionRate));
+            // RateBar `max` is computed per-section now (boss 2026-05-28 r2):
+            // each ICP block compares its own flows against each other, not
+            // against a global max that would squash bars in the same ICP.
             type Flow = typeof data.campaignPerformance[number];
             const byIcp = new Map<string, { icpId: string | null; icpName: string | null; flows: Flow[] }>();
             for (const c of data.campaignPerformance) {
@@ -1359,7 +1410,54 @@ export default async function DashboardPage({
                       <ChevronRight size={16} className="acc-chevron shrink-0" style={{ color: C.textMuted }} />
                     </summary>
                     <div className="p-3 space-y-2 border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-                      {sec.flows.map((c: Flow) => {
+                      {/* Within-ICP comparison strip (boss 2026-05-28):
+                          surface the best vs worst flow in this section so
+                          the boss can see at a glance which sequence is
+                          winning inside Industrial Energy vs which is
+                          lagging — even before scanning the rows. Only
+                          shown when ≥2 flows have any conversion data. */}
+                      {(() => {
+                        const sortedByConv = [...sec.flows].sort((a, b) => b.conversionRate - a.conversionRate);
+                        const top = sortedByConv[0];
+                        const bot = sortedByConv[sortedByConv.length - 1];
+                        if (!top || top.conversionRate === 0) return null;
+                        if (sec.flows.length < 2 || top === bot) {
+                          return (
+                            <div className="rounded-lg px-3 py-2 mb-1 text-[11px]"
+                              style={{
+                                background: `color-mix(in srgb, ${gold} 6%, transparent)`,
+                                border: `1px solid color-mix(in srgb, ${gold} 18%, transparent)`,
+                                color: C.textBody,
+                              }}>
+                              <span className="text-[9px] font-bold uppercase tracking-[0.12em] mr-2" style={{ color: gold }}>
+                                {t("dashx.campsByIcp.compEyebrow")}
+                              </span>
+                              {t("dashx.campsByIcp.compTopOnly", { top: top.name, topRate: top.conversionRate })}
+                            </div>
+                          );
+                        }
+                        const gap = top.conversionRate - bot.conversionRate;
+                        return (
+                          <div className="rounded-lg px-3 py-2 mb-1 text-[11px]"
+                            style={{
+                              background: `color-mix(in srgb, ${gold} 6%, transparent)`,
+                              border: `1px solid color-mix(in srgb, ${gold} 18%, transparent)`,
+                              color: C.textBody,
+                            }}>
+                            <span className="text-[9px] font-bold uppercase tracking-[0.12em] mr-2" style={{ color: gold }}>
+                              {t("dashx.campsByIcp.compEyebrow")}
+                            </span>
+                            {t("dashx.campsByIcp.compTopLag", { top: top.name, topRate: top.conversionRate, bot: bot.name, botRate: bot.conversionRate, gap })}
+                          </div>
+                        );
+                      })()}
+                      {(() => {
+                        // Per-section max so the RateBars in this ICP block
+                        // compare against each other, not against the
+                        // global max. Otherwise a fast-mover in another ICP
+                        // squishes every bar in here to look identical.
+                        const sectionMaxConv = Math.max(1, ...sec.flows.map(f => f.conversionRate));
+                        return sec.flows.map((c: Flow) => {
                         const idx = rankByName.get(c.name) ?? 0;
                         const flowSteps = data.stepPerformanceByFlow?.[c.name] ?? [];
                         return (
@@ -1409,7 +1507,7 @@ export default async function DashboardPage({
                                   <p className="text-[12.5px] font-bold tabular-nums leading-tight" style={{ color: c.positive > 0 ? C.green : C.textPrimary }}>{c.positive}</p>
                                 </div>
                                 <div className="hidden md:flex justify-end" style={{ width: 56 }}>
-                                  <RateBar value={c.conversionRate} max={maxConv} color={C.green} />
+                                  <RateBar value={c.conversionRate} max={sectionMaxConv} color={C.green} />
                                 </div>
                                 <StatusBadge status={c.status} t={t} />
                                 <div className="hidden md:block" style={{ width: 56 }}>
@@ -1436,7 +1534,8 @@ export default async function DashboardPage({
                             </div>
                           </details>
                         );
-                      })}
+                      });
+                      })()}
                     </div>
                   </details>
                 ))}
