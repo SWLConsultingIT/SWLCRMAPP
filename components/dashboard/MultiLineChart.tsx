@@ -13,7 +13,7 @@
 //     hover dot halo, glass-tooltip pinned top-left so it doesn't fight
 //     the reset pill on the right.
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { C } from "@/lib/design";
 
 const gold = "var(--brand, #c9a83a)";
@@ -160,6 +160,46 @@ export default function MultiLineChart({
     setZoom({ a: a + ai, b: a + bi });
     setHoverIdx(null);
   }
+  // Wheel-zoom on the X axis — Figma/Maps-style. Scrolling up zooms IN
+  // around the cursor (visible range shrinks), scrolling down zooms OUT.
+  // Default behavior (auto-scale Y) is preserved; this just controls the
+  // visible date range. User feedback 2026-05-28: "tipo zoom in y out con
+  // el mouse?".
+  //
+  // Attached as a native non-passive listener — React's synthetic onWheel
+  // is passive by default in modern versions, which makes preventDefault()
+  // a no-op (page would scroll under the chart on every wheel tick).
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const handler = (e: WheelEvent) => {
+      if (fullN < 4) return;
+      e.preventDefault();
+      const rect = svg.getBoundingClientRect();
+      const px = ((e.clientX - rect.left) / rect.width) * width;
+      if (px < padding.l || px > width - padding.r) return;
+      const localIdx = Math.max(0, Math.min(n - 1, Math.round((px - padding.l) / Math.max(stepX, 0.0001))));
+      const cursorIdx = a + localIdx; // absolute index in fullN
+      const currentSpan = b - a;
+      // Wheel delta: positive = scroll down = zoom out. Negative = up = in.
+      const zoomFactor = e.deltaY > 0 ? 1.25 : 0.8;
+      let newSpan = Math.round(currentSpan * zoomFactor);
+      // Clamp: min 3 days visible, max = full data length (= reset).
+      newSpan = Math.max(3, Math.min(fullN, newSpan));
+      if (newSpan === fullN) { setZoom(null); return; }
+      // Anchor the cursor position so it stays under the same data index.
+      const cursorRatio = (cursorIdx - a) / Math.max(currentSpan, 1);
+      let na = Math.round(cursorIdx - cursorRatio * newSpan);
+      let nb = na + newSpan;
+      // Clamp to bounds.
+      if (na < 0) { nb -= na; na = 0; }
+      if (nb > fullN - 1) { na -= nb - (fullN - 1); nb = fullN - 1; }
+      na = Math.max(0, na);
+      setZoom({ a: na, b: nb });
+    };
+    svg.addEventListener("wheel", handler, { passive: false });
+    return () => svg.removeEventListener("wheel", handler);
+  }, [fullN, a, b, n, stepX, width, padding.l, padding.r]);
 
   // Brush rectangle (during drag)
   const brushRect = drag && Math.abs(drag.endPx - drag.startPx) >= 4 ? {
