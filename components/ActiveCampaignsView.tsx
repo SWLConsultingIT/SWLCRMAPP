@@ -463,40 +463,20 @@ function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
         {/* Status section — funnel + sequence side-by-side. Boss feedback
             2026-05-28: the seller has to read the whole flow head-to-toe.
             Left = funnel drop-off (where the cohort is dying); right =
-            per-step status (what's firing right now in the sequence,
-            broken down by channel). Stacks on mobile.
-            Each sub-card gets a left-edge accent rail + headed eyebrow
-            with icon + slight shadow so they're visually distinct from
-            each other (boss follow-up: "parece todo en uno"). */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* ── Funnel ─────────────────────────────────────────── */}
-          <div
-            className="rounded-xl overflow-hidden"
-            style={{
-              border: `1px solid color-mix(in srgb, ${gold} 22%, ${C.border})`,
-              backgroundColor: C.card,
-              borderLeft: `3px solid ${gold}`,
-              boxShadow: `0 1px 3px rgba(0,0,0,0.04)`,
-            }}
-          >
-            <div className="flex items-center gap-2 px-4 py-2.5 border-b"
-              style={{
-                borderColor: C.border,
-                backgroundColor: `color-mix(in srgb, ${gold} 5%, ${C.bg})`,
-              }}>
-              <span className="inline-flex items-center justify-center rounded-md shrink-0"
-                style={{
-                  width: 20, height: 20,
-                  backgroundColor: `color-mix(in srgb, ${gold} 18%, transparent)`,
-                  color: gold,
-                }}>
-                <TrendingDown size={11} />
-              </span>
-              <p className="text-[10.5px] font-bold uppercase tracking-[0.14em]" style={{ color: gold }}>
-                {t("flows.section.funnel")}
-              </p>
-            </div>
-            <div className="px-4 py-3 space-y-2">
+            per-step status (what's firing right now in the sequence).
+            Flattened 2026-05-29: dropped the sub-card chrome (borders,
+            shadows, accent rails, header bands) — now just two columns
+            sharing the parent flow card surface, with inline eyebrows
+            and a vertical divider between them. Was reading as three
+            nested cards before. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-0">
+          {/* ── Funnel column ───────────────────────────────────── */}
+          <div className="lg:pr-6">
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] mb-2.5 flex items-center gap-1.5" style={{ color: gold }}>
+              <TrendingDown size={11} />
+              {t("flows.section.funnel")}
+            </p>
+            <div className="space-y-2">
               {group.funnel.map((stage) => (
                 <div key={stage.key} className="flex items-center gap-2.5">
                   <span className="text-[10.5px] font-semibold w-[88px] shrink-0 truncate" style={{ color: C.textBody }}>
@@ -526,39 +506,21 @@ function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
             </div>
           </div>
 
-          {/* ── Sequence steps ─────────────────────────────────── */}
+          {/* ── Sequence column ─────────────────────────────────── */}
           <div
-            className="rounded-xl overflow-hidden"
-            style={{
-              border: `1px solid color-mix(in srgb, ${C.blue} 22%, ${C.border})`,
-              backgroundColor: C.card,
-              borderLeft: `3px solid ${C.blue}`,
-              boxShadow: `0 1px 3px rgba(0,0,0,0.04)`,
-            }}
+            className="lg:pl-6 lg:border-l"
+            style={{ borderColor: C.border }}
           >
-            <div className="flex items-center gap-2 px-4 py-2.5 border-b"
-              style={{
-                borderColor: C.border,
-                backgroundColor: `color-mix(in srgb, ${C.blue} 5%, ${C.bg})`,
-              }}>
-              <span className="inline-flex items-center justify-center rounded-md shrink-0"
-                style={{
-                  width: 20, height: 20,
-                  backgroundColor: `color-mix(in srgb, ${C.blue} 18%, transparent)`,
-                  color: C.blue,
-                }}>
-                <ListOrdered size={11} />
-              </span>
-              <p className="text-[10.5px] font-bold uppercase tracking-[0.14em]" style={{ color: C.blue }}>
-                {t("flows.section.sequence")}
-              </p>
-            </div>
+            <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] mb-2.5 flex items-center gap-1.5" style={{ color: C.blue }}>
+              <ListOrdered size={11} />
+              {t("flows.section.sequence")}
+            </p>
             {group.steps.length === 0 ? (
-              <p className="text-[11px] px-4 py-4" style={{ color: C.textDim }}>
+              <p className="text-[11px]" style={{ color: C.textDim }}>
                 {t("flows.section.noSequence")}
               </p>
             ) : (
-              <div className="px-4 py-3 space-y-2">
+              <div className="space-y-2">
                 {group.steps.map((s) => {
                   const meta = channelMeta[s.channel] ?? channelMeta.email;
                   const Icon = meta.icon;
@@ -715,22 +677,17 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
   const responseRate = section.totalLeads > 0 ? Math.round((section.totalReplies / section.totalLeads) * 100) : 0;
 
   return (
-    <section className="rounded-2xl border overflow-hidden"
-      style={{
-        backgroundColor: C.card,
-        borderColor: `color-mix(in srgb, ${gold} 24%, ${C.border})`,
-        boxShadow: "0 4px 18px rgba(0,0,0,0.07)",
-      }}>
+    <section className="space-y-3">
       {/* Lead Miner section header — dark navy + gold text so the ICP
-          identity is unmistakable and visually distinct from the white
-          flow rows underneath. Boss feedback 2026-05-28: "se tiene que
-          distinguir bien, capaz la parte de lead miner la podes poner
-          negra con las letras de oro no?" — yes. */}
+          identity is unmistakable. Stands alone (no outer card wrapper)
+          with a gold left rail anchoring it as a heading instead of yet
+          another nested card. Body rows sit on the page bg underneath.
+          Boss feedback 2026-05-28 / 2026-05-29. */}
       <div
-        className="relative flex items-center gap-4 px-6 py-4"
+        className="relative flex items-center gap-4 px-6 py-4 rounded-xl"
         style={{
           background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
-          borderBottom: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
+          borderLeft: `3px solid ${gold}`,
         }}
       >
         {/* Hairline gold accent on the top edge — editorial detail */}
@@ -840,10 +797,7 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
       </div>
 
       {open && (
-        <div className="p-5 space-y-3"
-          style={{
-            background: `linear-gradient(180deg, color-mix(in srgb, var(--c-bg, ${C.bg}) 95%, transparent) 0%, color-mix(in srgb, var(--c-bg, ${C.bg}) 85%, transparent) 100%)`,
-          }}>
+        <div className="space-y-3">
           {/* Within-ICP leaderboard ribbon (boss 2026-05-29): compact
               podium ranking the section's flows by conversion (positives /
               leads × 100). Top 3 with medal icons; dormant flows (0
