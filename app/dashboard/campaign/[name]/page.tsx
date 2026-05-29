@@ -1,13 +1,14 @@
 // Campaign drill-down — deep analytical view of one campaign name (the wizard
 // groups campaigns by name across leads). Surfaces the sequence timeline,
-// per-step performance, reply classification + timing, sellers running the
-// campaign, and the lead-level engagement state.
+// per-step performance, funnel, sellers running the campaign, lead-level
+// engagement (expandable rows), and the messages sent per step with the
+// replies they generated.
 
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   ArrowLeft, ArrowRight, Megaphone, Send, MessageSquare, ThumbsUp, Users, Share2, Mail,
-  Phone, Smartphone, Trophy, Calendar, Clock, Activity, AlertTriangle, Sparkles,
+  Phone, Smartphone, Trophy, Calendar, Clock, Activity, AlertTriangle, Sparkles, TrendingDown,
 } from "lucide-react";
 import { C, N } from "@/lib/design";
 import { getUserScope } from "@/lib/scope";
@@ -15,11 +16,10 @@ import { getSupabaseServer } from "@/lib/supabase-server";
 import { getT, getServerLocale } from "@/lib/i18n-server";
 import PageHero from "@/components/PageHero";
 import KpiCard from "@/components/dashboard/KpiCard";
-import MultiLineChart from "@/components/dashboard/MultiLineChart";
-import Donut from "@/components/dashboard/Donut";
-import Heatmap from "@/components/dashboard/Heatmap";
 import StepPerformance from "@/components/dashboard/StepPerformance";
 import SwlSignature from "@/components/dashboard/SwlSignature";
+import LeadEngagementTable, { type LeadEngagementRow } from "@/components/dashboard/LeadEngagementTable";
+import MessagesByStep, { type MessageStepGroup } from "@/components/dashboard/MessagesByStep";
 
 const gold = "var(--brand, #c9a83a)";
 const POSITIVE_CLASS = new Set(["positive", "meeting_intent"]);
@@ -48,8 +48,8 @@ type CampRow = {
   paused_until: string | null;
   leads: { id: string; primary_first_name: string | null; primary_last_name: string | null; primary_title_role: string | null; company_name: string | null; status: string | null; icp_profile_id: string | null; company_bio_id: string } | { id: string; primary_first_name: string | null; primary_last_name: string | null; primary_title_role: string | null; company_name: string | null; status: string | null; icp_profile_id: string | null; company_bio_id: string }[];
 };
-type ReplyRow = { id: string; lead_id: string | null; campaign_id: string | null; classification: string | null; channel: string | null; received_at: string | null };
-type MsgRow = { id: string; campaign_id: string | null; step_number: number | null; status: string | null; sent_at: string | null; channel: string | null };
+type ReplyRow = { id: string; lead_id: string | null; campaign_id: string | null; classification: string | null; channel: string | null; received_at: string | null; reply_text: string | null };
+type MsgRow = { id: string; campaign_id: string | null; step_number: number | null; status: string | null; sent_at: string | null; channel: string | null; content: string | null; metadata: Record<string, unknown> | null };
 
 async function loadCampaignDetail(name: string, dateFrom: string | null, dateTo: string | null) {
   const supabase = await getSupabaseServer();
@@ -83,8 +83,8 @@ async function loadCampaignDetail(name: string, dateFrom: string | null, dateTo:
   const icpIds = Array.from(new Set(camps.map(c => leadFor(c)?.icp_profile_id).filter(Boolean) as string[]));
 
   const [{ data: msgsRaw }, { data: repliesRaw }, { data: sellersRaw }, { data: icpsRaw }] = await Promise.all([
-    supabase.from("campaign_messages").select("id, campaign_id, step_number, status, sent_at, channel").in("campaign_id", campIds),
-    supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, channel, received_at").in("campaign_id", campIds),
+    supabase.from("campaign_messages").select("id, campaign_id, step_number, status, sent_at, channel, content, metadata").in("campaign_id", campIds),
+    supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, channel, received_at, reply_text").in("campaign_id", campIds),
     sellerIds.length > 0
       ? supabase.from("sellers").select("id, name").in("id", sellerIds)
       : Promise.resolve({ data: [] }),
@@ -158,11 +158,9 @@ async function loadCampaignDetail(name: string, dateFrom: string | null, dateTo:
     replyRate: g.sent >= 5 ? Math.round((g.replied / g.sent) * 100) : null,
   })).sort((a, b) => a.step - b.step);
 
-  // ─── 30d trend + classification + heatmap ────────────────────────
+  // ─── Sparkline trends for KPI cards (trailing 30d, unfiltered) ───
   const today = new Date(); today.setHours(23, 59, 59, 999);
   const dayBucket = (iso: string) => Math.floor((today.getTime() - new Date(iso).getTime()) / 86_400_000);
-  // Trend is "trailing 30 days" by convention — uses unfiltered data so
-  // the chart context survives any user-applied period filter.
   const trendSent = new Array(30).fill(0) as number[];
   const trendReplies = new Array(30).fill(0) as number[];
   const trendPositive = new Array(30).fill(0) as number[];
@@ -180,17 +178,114 @@ async function loadCampaignDetail(name: string, dateFrom: string | null, dateTo:
       if (POSITIVE_CLASS.has(r.classification ?? "")) trendPositive[idx]++;
     }
   }
-  // Period-scoped classification + heatmap.
-  const classCounts: Record<string, number> = {};
-  const heatmap = Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]);
-  for (const r of replies) {
-    const cls = r.classification ?? "unclassified";
-    classCounts[cls] = (classCounts[cls] ?? 0) + 1;
-    if (r.received_at) {
-      const d = new Date(r.received_at);
-      heatmap[d.getDay()][d.getHours()]++;
-    }
+
+  // ─── Funnel (same 6-stage shape as ActiveCampaignsView.FlowRow) ──
+  // leads → connSent (LI invites at step 0) → accepted (LI camps that
+  // progressed past step 1) → msgsSent (LI DMs + emails + calls) →
+  // replied → positive. Stages with count 0 are still kept so the funnel
+  // shape stays consistent across campaigns (caller filters if needed).
+  const liCamps = camps.filter(c => c.channel === "linkedin");
+  const liInvitesSent = sentMsgs.filter(m => m.channel === "linkedin" && (m.step_number ?? 0) === 0).length;
+  const liDmsSent = sentMsgs.filter(m => m.channel === "linkedin" && (m.step_number ?? 0) > 0).length;
+  const emailsSent = sentMsgs.filter(m => m.channel === "email").length;
+  const callsMade = sentMsgs.filter(m => m.channel === "call").length;
+  const acceptedCount = liCamps.filter(c => (c.current_step ?? 0) > 1).length;
+  const msgsSentTotal = liDmsSent + emailsSent + callsMade;
+  const funnelStagesRaw: Array<{ key: "leads" | "connSent" | "accepted" | "msgsSent" | "replied" | "positive"; count: number; color: string }> = [
+    { key: "leads",    count: totalLeads,    color: "#6B7280" },
+    { key: "connSent", count: liInvitesSent, color: "#0A66C2" },
+    { key: "accepted", count: acceptedCount, color: "#10B981" },
+    { key: "msgsSent", count: msgsSentTotal, color: "#7C3AED" },
+    { key: "replied",  count: repliedCount,  color: C.blue },
+    { key: "positive", count: positiveCount, color: C.green },
+  ];
+  const topCount = Math.max(1, ...funnelStagesRaw.map(s => s.count));
+  const funnel = funnelStagesRaw.map((s, i) => {
+    const prev = i > 0 ? funnelStagesRaw[i - 1] : null;
+    return {
+      key: s.key,
+      count: s.count,
+      color: s.color,
+      pctOfTop: Math.round((s.count / topCount) * 100),
+      pctFromPrior: prev && prev.count > 0 ? Math.round((s.count / prev.count) * 100) : null,
+    };
+  });
+
+  // ─── Messages by step (template example + replies that came in) ──
+  // For each step, pick the most recent sent message as the "example"
+  // and surface its rendered content. Collect the replies attributed
+  // to that step (using the same sentByCamp walk we already did for
+  // step-perf). Bounded to 8 recent replies per step so the page
+  // doesn't balloon on saturated cohorts.
+  const RENDERED_KEY = "rendered_content";
+  type StepExample = { messageId: string; channel: string; rendered: string; template: string; sentAt: string | null };
+  const stepExamples = new Map<number, StepExample>();
+  for (const m of sentMsgs) {
+    const step = m.step_number ?? 0;
+    const existing = stepExamples.get(step);
+    const mT = m.sent_at ? new Date(m.sent_at).getTime() : 0;
+    const eT = existing?.sentAt ? new Date(existing.sentAt).getTime() : 0;
+    if (existing && mT <= eT) continue;
+    const meta = m.metadata as Record<string, unknown> | null;
+    const rendered = (meta && typeof meta[RENDERED_KEY] === "string" ? (meta[RENDERED_KEY] as string) : null) ?? m.content ?? "";
+    stepExamples.set(step, {
+      messageId: m.id,
+      channel: m.channel ?? "—",
+      rendered,
+      template: m.content ?? "",
+      sentAt: m.sent_at,
+    });
   }
+  const leadById = new Map<string, ReturnType<typeof leadFor>>();
+  for (const c of camps) {
+    if (c.lead_id) leadById.set(c.lead_id, leadFor(c));
+  }
+  type StepReply = { replyId: string; leadId: string | null; leadName: string; classification: string; receivedAt: string | null; text: string };
+  const stepReplies = new Map<number, StepReply[]>();
+  // Re-walk replies to attribute each one to a step (mirrors stepAgg).
+  for (const r of replies) {
+    if (!r.campaign_id || !r.received_at) continue;
+    const list = sentByCamp.get(r.campaign_id);
+    if (!list) continue;
+    const rT = new Date(r.received_at).getTime();
+    let step: number | null = null;
+    for (const m of list) {
+      if (!m.sent_at) continue;
+      if (new Date(m.sent_at).getTime() <= rT) step = m.step_number ?? 0;
+      else break;
+    }
+    if (step === null) continue;
+    const l = r.lead_id ? leadById.get(r.lead_id) : null;
+    const leadName = l ? `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || "—" : "—";
+    const arr = stepReplies.get(step) ?? [];
+    arr.push({
+      replyId: r.id,
+      leadId: r.lead_id,
+      leadName,
+      classification: r.classification ?? "unclassified",
+      receivedAt: r.received_at,
+      text: r.reply_text ?? "",
+    });
+    stepReplies.set(step, arr);
+  }
+  const messagesByStep: MessageStepGroup[] = Array.from(stepExamples.keys())
+    .sort((a, b) => a - b)
+    .map(step => {
+      const ex = stepExamples.get(step)!;
+      const replies = (stepReplies.get(step) ?? [])
+        .sort((a, b) => (b.receivedAt ? new Date(b.receivedAt).getTime() : 0) - (a.receivedAt ? new Date(a.receivedAt).getTime() : 0))
+        .slice(0, 8);
+      const agg = stepAgg.get(step);
+      return {
+        step,
+        channel: ex.channel,
+        sent: agg?.sent ?? 0,
+        replied: agg?.replied ?? 0,
+        replyRate: agg && agg.sent >= 5 ? Math.round((agg.replied / agg.sent) * 100) : null,
+        example: { rendered: ex.rendered, template: ex.template, sentAt: ex.sentAt },
+        replies,
+      };
+    });
 
   // ─── Time-to-first-reply ─────────────────────────────────────────
   const firstMsgAt = new Map<string, number>();
@@ -257,25 +352,79 @@ async function loadCampaignDetail(name: string, dateFrom: string | null, dateTo:
   })).sort((a, b) => b.positive - a.positive);
 
   // ─── Lead-level engagement ──────────────────────────────────────
-  const leadDetail = camps.map(c => {
+  // Build per-lead activity (sent msgs + replies) so each row carries the
+  // full timeline + computed last_channel / last_activity / steps received.
+  const msgsByLead = new Map<string, MsgRow[]>();
+  for (const c of camps) {
+    if (!c.lead_id) continue;
+    const list = sentByCamp.get(c.id) ?? [];
+    const existing = msgsByLead.get(c.lead_id) ?? [];
+    msgsByLead.set(c.lead_id, [...existing, ...list]);
+  }
+  const repliesByLead = new Map<string, ReplyRow[]>();
+  for (const r of replies) {
+    if (!r.lead_id) continue;
+    const arr = repliesByLead.get(r.lead_id) ?? [];
+    arr.push(r);
+    repliesByLead.set(r.lead_id, arr);
+  }
+
+  const resultOf = (leadId: string | null, campStatus: string | null, leadStatus: string | null) => {
+    if (!leadId) return "open" as const;
+    if (positiveLeadIds.has(leadId) || leadStatus === "closed_won") return "won" as const;
+    if (negativeLeadIds.has(leadId) || leadStatus === "closed_lost" || campStatus === "closed_lost") return "lost" as const;
+    if (repliedLeadIds.has(leadId)) return "replied" as const;
+    return "open" as const;
+  };
+
+  const leadDetail: LeadEngagementRow[] = camps.map(c => {
     const l = leadFor(c);
+    const leadId = c.lead_id;
+    const lMsgs = leadId ? (msgsByLead.get(leadId) ?? []) : [];
+    const lReplies = leadId ? (repliesByLead.get(leadId) ?? []) : [];
+    const lastMsg = lMsgs.reduce<MsgRow | null>((acc, m) => {
+      if (!m.sent_at) return acc;
+      if (!acc || (acc.sent_at && new Date(m.sent_at).getTime() > new Date(acc.sent_at).getTime())) return m;
+      return acc;
+    }, null);
+    const lastReply = lReplies.reduce<ReplyRow | null>((acc, r) => {
+      if (!r.received_at) return acc;
+      if (!acc || (acc.received_at && new Date(r.received_at).getTime() > new Date(acc.received_at).getTime())) return r;
+      return acc;
+    }, null);
+    const lastMsgT = lastMsg?.sent_at ? new Date(lastMsg.sent_at).getTime() : 0;
+    const lastReplyT = lastReply?.received_at ? new Date(lastReply.received_at).getTime() : 0;
+    const lastActivity = Math.max(lastMsgT, lastReplyT) || null;
+    const lastChannel = lastReplyT >= lastMsgT && lastReply ? (lastReply.channel ?? null) : (lastMsg?.channel ?? null);
+    const primaryReply = lReplies
+      .filter(r => POSITIVE_CLASS.has(r.classification ?? ""))
+      .concat(lReplies.filter(r => NEGATIVE_CLASS.has(r.classification ?? "")))
+      .concat(lReplies)[0] ?? null;
     return {
       campaignId: c.id,
-      leadId: c.lead_id,
+      leadId,
       name: `${l?.primary_first_name ?? ""} ${l?.primary_last_name ?? ""}`.trim() || "—",
       title: l?.primary_title_role ?? null,
       company: l?.company_name ?? null,
       step: c.current_step ?? 0,
-      status: c.status ?? "",
-      replied: c.lead_id ? repliedLeadIds.has(c.lead_id) : false,
-      positive: c.lead_id ? positiveLeadIds.has(c.lead_id) : false,
-      negative: c.lead_id ? negativeLeadIds.has(c.lead_id) : false,
+      stepsReceived: lMsgs.length,
+      campaignStatus: c.status ?? "",
+      leadStatus: l?.status ?? null,
+      lastChannel,
+      lastActivity: lastActivity ? new Date(lastActivity).toISOString() : null,
+      classification: primaryReply?.classification ?? null,
+      replyText: primaryReply?.reply_text ?? null,
+      replyChannel: primaryReply?.channel ?? null,
       seller: c.seller_id ? (sellerMap.get(c.seller_id) ?? null) : null,
+      result: resultOf(leadId, c.status ?? null, l?.status ?? null),
+      timeline: [
+        ...lMsgs.map(m => ({ kind: "sent" as const, channel: m.channel ?? "—", step: m.step_number ?? 0, at: m.sent_at, body: (m.metadata as Record<string, unknown> | null)?.[RENDERED_KEY] as string | undefined ?? m.content ?? "" })),
+        ...lReplies.map(r => ({ kind: "reply" as const, channel: r.channel ?? "—", classification: r.classification ?? "unclassified", at: r.received_at, body: r.reply_text ?? "" })),
+      ].sort((a, b) => (a.at && b.at ? new Date(a.at).getTime() - new Date(b.at).getTime() : 0)),
     };
   }).sort((a, b) => {
-    const aw = (a.positive ? 4 : 0) + (a.replied ? 2 : 0) - (a.negative ? 1 : 0);
-    const bw = (b.positive ? 4 : 0) + (b.replied ? 2 : 0) - (b.negative ? 1 : 0);
-    return bw - aw || b.step - a.step;
+    const score = (r: LeadEngagementRow) => (r.result === "won" ? 4 : r.result === "replied" ? 2 : r.result === "lost" ? 1 : 0);
+    return score(b) - score(a) || b.stepsReceived - a.stepsReceived;
   });
 
   return {
@@ -294,9 +443,9 @@ async function loadCampaignDetail(name: string, dateFrom: string | null, dateTo:
     sequenceSteps,
     stepPerformance,
     trend30d: { sent: trendSent, replies: trendReplies, positive: trendPositive },
-    classCounts,
-    heatmap,
-    leadDetail: leadDetail.slice(0, 18),
+    funnel,
+    messagesByStep,
+    leadDetail,
     startedAt: camps[0].started_at ?? camps[0].created_at,
     completedAt: camps.find(c => c.status === "completed")?.completed_at ?? null,
   };
@@ -339,20 +488,6 @@ export default async function CampaignDetailPage({
       </div>
     );
   }
-
-  const classColors: Record<string, string> = {
-    positive: "#16A34A", meeting_intent: "#059669", negative: "#DC2626", not_now: "#F59E0B",
-    unsubscribe: "#9CA3AF", needs_info: "#7C3AED", question: "#0A66C2", nurturing: "#6B7280",
-    spam: "#374151", auto_reply: "#94A3B8", unclassified: "#9CA3AF",
-  };
-  const donutSlices = Object.entries(d.classCounts)
-    .filter(([, v]) => v > 0)
-    .map(([k, v]) => ({
-      label: t(`dashx.reply.${k}`) === `dashx.reply.${k}` ? k : t(`dashx.reply.${k}`),
-      value: v,
-      color: classColors[k] ?? "#9CA3AF",
-    }))
-    .sort((a, b) => b.value - a.value);
 
   const aggStatus = d.statusMix.active ? "active" : d.statusMix.paused ? "paused" : "completed";
   const aggStatusLabel = aggStatus === "active" ? t("dashx.tbl.status.active") : aggStatus === "paused" ? t("dashx.tbl.status.paused") : t("dashx.tbl.status.completed");
@@ -433,7 +568,7 @@ export default async function CampaignDetailPage({
 
       {/* ─── Sequence timeline ────────────────────────────────────── */}
       {d.sequenceSteps.length > 0 && (
-        <section>
+        <section id="sequence" className="scroll-mt-20">
           <SectionHeader icon={Activity} title={t("dashx.detail.campaign.seq.title")} subtitle={t("dashx.detail.campaign.seq.subtitle")} />
           <Panel>
             <SequenceTimeline steps={d.sequenceSteps} t={t} />
@@ -441,8 +576,16 @@ export default async function CampaignDetailPage({
         </section>
       )}
 
+      {/* ─── Funnel ─────────────────────────────────────────────── */}
+      <section id="funnel" className="scroll-mt-20">
+        <SectionHeader icon={TrendingDown} title={t("dashx.detail.campaign.funnel.title") === "dashx.detail.campaign.funnel.title" ? "Funnel" : t("dashx.detail.campaign.funnel.title")} subtitle={t("dashx.detail.campaign.funnel.subtitle") === "dashx.detail.campaign.funnel.subtitle" ? "Where the cohort drops off, stage by stage" : t("dashx.detail.campaign.funnel.subtitle")} />
+        <Panel>
+          <Funnel stages={d.funnel} t={t} />
+        </Panel>
+      </section>
+
       {/* ─── Step performance ───────────────────────────────────── */}
-      <section>
+      <section id="steps" className="scroll-mt-20">
         <SectionHeader icon={Send} title={t("dashx.detail.campaign.step.title")} subtitle={t("dashx.detail.campaign.step.subtitle")} />
         <Panel
           glow
@@ -454,86 +597,27 @@ export default async function CampaignDetailPage({
             return t("dashx.step.insight", { step: worst.step + 1, rate: worst.replyRate });
           })()}
         >
-          <StepPerformance steps={d.stepPerformance} locale={locale} />
+          <StepPerformance steps={d.stepPerformance} locale={locale} idForStep={(step) => `step-${step}`} />
         </Panel>
       </section>
 
-      {/* ─── 30d trend + classification donut ───────────────────── */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-        <Panel
-          title={t("dashx.trend.title")}
-          subtitle={t("dashx.detail.campaign.trend.subtitle")}
-          className="lg:col-span-7"
-          glow
-          insightEyebrow={t("dashx.insight.eyebrow")}
-          insight={(() => {
-            const peak = d.trend30d.replies.reduce((acc, v, i) => v > acc.v ? { i, v } : acc, { i: -1, v: 0 });
-            if (peak.v === 0) return null;
-            const daysAgo = 29 - peak.i;
-            return t("dashx.detail.campaign.trend.insight", { replies: peak.v, daysAgo });
-          })()}
-        >
-          <MultiLineChart
-            todayLabel={t("dashx.trend.today")}
-            recentLabel={t("dashx.trend.daysAgo")}
-            series={[
-              { name: t("dashx.trend.sent"),      color: C.seriesSent,     data: d.trend30d.sent },
-              { name: t("dashx.trend.replies"),   color: C.seriesReplies,  data: d.trend30d.replies },
-              { name: t("dashx.trend.positives"), color: C.seriesPositive, data: d.trend30d.positive },
-            ]}
+      {/* ─── Messages by step ───────────────────────────────────── */}
+      {d.messagesByStep.length > 0 && (
+        <section id="messages" className="scroll-mt-20">
+          <SectionHeader
+            icon={MessageSquare}
+            title={t("dashx.detail.campaign.msgs.title") === "dashx.detail.campaign.msgs.title" ? "Messages by step" : t("dashx.detail.campaign.msgs.title")}
+            subtitle={t("dashx.detail.campaign.msgs.subtitle") === "dashx.detail.campaign.msgs.subtitle" ? "Latest sent body + replies it generated" : t("dashx.detail.campaign.msgs.subtitle")}
           />
-        </Panel>
-        <Panel
-          title={t("dashx.detail.campaign.donut.title")}
-          subtitle={t("dashx.detail.campaign.donut.subtitle")}
-          className="lg:col-span-5"
-          glow
-          insightEyebrow={t("dashx.insight.eyebrow")}
-          insight={(() => {
-            if (donutSlices.length === 0) return null;
-            const total = donutSlices.reduce((a, s) => a + s.value, 0);
-            const top = donutSlices[0];
-            const share = total > 0 ? Math.round((top.value / total) * 100) : 0;
-            return t("dashx.detail.campaign.donut.insight", { label: top.label, share });
-          })()}
-        >
-          {donutSlices.length > 0
-            ? <Donut data={donutSlices} centerLabel={t("dashx.donut.centerReplies")} emptyLabel={t("dashx.donut.empty")} />
-            : <div className="py-10 text-center text-[12px]" style={{ color: C.textMuted }}>{t("dashx.detail.campaign.donut.empty")}</div>}
-        </Panel>
-      </section>
-
-      {/* ─── Heatmap: when replies arrive ───────────────────────── */}
-      <section>
-        <SectionHeader icon={Clock} title={t("dashx.detail.campaign.heat.title")} subtitle={t("dashx.detail.campaign.heat.subtitle")} />
-        <Panel
-          insightEyebrow={t("dashx.insight.eyebrow")}
-          insight={(() => {
-            let best = { day: -1, hour: -1, v: 0 };
-            for (let dy = 0; dy < 7; dy++) {
-              for (let h = 0; h < 24; h++) {
-                const v = d.heatmap[dy]?.[h] ?? 0;
-                if (v > best.v) best = { day: dy, hour: h, v };
-              }
-            }
-            if (best.v === 0) return null;
-            const dayKey = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"][best.day];
-            return t("dashx.detail.campaign.heat.insight", { day: t(`dashx.day.${dayKey}`), hour: `${best.hour}:00`, replies: best.v });
-          })()}
-        >
-          <Heatmap
-            matrix={d.heatmap}
-            days={["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map(dy => t(`dashx.day.${dy}`))}
-            unitLabel={t("dashx.heat.unitReplies")}
-            legendMin={t("dashx.heat.legendMin")}
-            legendMax={t("dashx.heat.legendMax")}
-          />
-        </Panel>
-      </section>
+          <Panel>
+            <MessagesByStep groups={d.messagesByStep} locale={locale} />
+          </Panel>
+        </section>
+      )}
 
       {/* ─── Sellers running this campaign ─────────────────────── */}
       {d.sellers.length > 0 && (
-        <section>
+        <section id="sellers" className="scroll-mt-20">
           <SectionHeader icon={Users} title={t("dashx.detail.campaign.sellers.title")} subtitle={t("dashx.detail.campaign.sellers.subtitle")} />
           <Panel>
             <table className="w-full text-sm">
@@ -570,40 +654,10 @@ export default async function CampaignDetailPage({
       )}
 
       {/* ─── Lead-level engagement ─────────────────────────────── */}
-      <section>
+      <section id="leads" className="scroll-mt-20">
         <SectionHeader icon={Users} title={t("dashx.detail.campaign.leads.title")} subtitle={t("dashx.detail.campaign.leads.subtitle")} />
         <Panel>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
-                <Th align="left">{t("dashx.detail.icp.leads.col.lead")}</Th>
-                <Th align="left">{t("dashx.detail.icp.leads.col.company")}</Th>
-                <Th align="left">{t("dashx.tbl.col.seller")}</Th>
-                <Th align="right">{t("dashx.detail.campaign.leads.col.step")}</Th>
-                <Th align="left">{t("dashx.detail.icp.leads.col.engagement")}</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {d.leadDetail.map(l => (
-                <tr key={l.campaignId} className="border-t hover:bg-black/[0.02] transition-colors" style={{ borderColor: C.border }}>
-                  <td className="px-3 py-2">
-                    {l.leadId ? <Link href={`/leads/${l.leadId}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{l.name}</Link>
-                              : <span style={{ color: C.textMuted }}>{l.name}</span>}
-                    {l.title && <p className="text-[10.5px] mt-0.5" style={{ color: C.textDim }}>{l.title}</p>}
-                  </td>
-                  <td className="px-3 py-2" style={{ color: C.textMuted }}>{l.company ?? "—"}</td>
-                  <td className="px-3 py-2" style={{ color: C.textMuted }}>{l.seller ?? "—"}</td>
-                  <td className="px-3 py-2 text-right tabular-nums" style={{ color: C.textBody }}>{l.step}</td>
-                  <td className="px-3 py-2">
-                    {l.positive ? <Pill color={C.green}>{t("dashx.reply.positive")}</Pill> :
-                     l.negative ? <Pill color={C.red}>{t("dashx.reply.negative")}</Pill> :
-                     l.replied  ? <Pill color="#7C3AED">{t("dashx.detail.icp.leads.replied")}</Pill> :
-                     <Pill color={C.textMuted}>{t("dashx.detail.campaign.leads.inflow")}</Pill>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <LeadEngagementTable rows={d.leadDetail} locale={locale} />
         </Panel>
       </section>
 
@@ -792,12 +846,57 @@ function TopRankDot({ rank }: { rank: number }) {
   return <span className="inline-block w-1.5 h-1.5 rounded-full shrink-0" style={{ background: gold, boxShadow: `0 0 0 2px color-mix(in srgb, ${gold} 18%, transparent)` }} />;
 }
 
-function Pill({ color, children }: { color: string; children: React.ReactNode }) {
+function Funnel({
+  stages,
+  t,
+}: {
+  stages: { key: string; count: number; color: string; pctOfTop: number; pctFromPrior: number | null }[];
+  t: (k: string, vars?: Record<string, string | number>) => string;
+}) {
+  // Same visual shape as ActiveCampaignsView.FlowRow funnel, but the labels
+  // come from the campaign-detail dictionary fallback (flows.* keys are
+  // /campaigns-scoped). For each stage we show the count, the bar relative
+  // to the top stage, and the conversion from the prior stage.
+  const labelFor = (key: string) => {
+    const localized = t(`flows.funnel.${key}`);
+    if (localized !== `flows.funnel.${key}`) return localized;
+    return key === "leads" ? "Leads"
+      : key === "connSent" ? "Invites sent"
+      : key === "accepted" ? "Accepted"
+      : key === "msgsSent" ? "Messages sent"
+      : key === "replied" ? "Replied"
+      : key === "positive" ? "Positive"
+      : key;
+  };
   return (
-    <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded"
-      style={{ backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)`, color }}>
-      {children}
-    </span>
+    <div className="space-y-2.5">
+      {stages.map((stage) => (
+        <div key={stage.key} className="flex items-center gap-2.5">
+          <span className="text-[10.5px] font-semibold w-[120px] shrink-0 truncate" style={{ color: C.textBody }}>
+            {labelFor(stage.key)}
+          </span>
+          <div className="flex-1 h-3 rounded-full relative overflow-hidden"
+            style={{ backgroundColor: `color-mix(in srgb, ${stage.color} 8%, transparent)` }}>
+            <div className="h-3 rounded-full transition-[width] duration-300"
+              style={{
+                width: `${Math.max(stage.pctOfTop, stage.count > 0 ? 4 : 0)}%`,
+                background: `linear-gradient(90deg, ${stage.color}, color-mix(in srgb, ${stage.color} 65%, white))`,
+              }} />
+          </div>
+          <span className="text-[13px] font-bold tabular-nums w-10 text-right shrink-0"
+            style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+            {stage.count}
+          </span>
+          <span className="text-[10px] tabular-nums w-12 text-right shrink-0"
+            style={{ color: stage.pctFromPrior === null ? "transparent"
+              : stage.pctFromPrior >= 50 ? C.green
+              : stage.pctFromPrior >= 20 ? C.textDim
+              : C.red }}>
+            {stage.pctFromPrior !== null ? `${stage.pctFromPrior}%` : "·"}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 

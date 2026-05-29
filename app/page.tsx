@@ -34,6 +34,7 @@ import Heatmap from "@/components/dashboard/Heatmap";
 import IcpChannelMatrix from "@/components/dashboard/IcpChannelMatrix";
 import InlineSpark from "@/components/dashboard/InlineSpark";
 import StepPerformance from "@/components/dashboard/StepPerformance";
+import ScoreTile from "@/components/dashboard/ScoreTile";
 import ChapterNav from "@/components/dashboard/ChapterNav";
 import ChannelComparison from "@/components/dashboard/ChannelComparison";
 import MicroKpi from "@/components/dashboard/MicroKpi";
@@ -1437,13 +1438,23 @@ export default async function DashboardPage({
                                 <StatusBadge status={c.status} t={t} />
                                 <ChevronRight size={16} className="acc-chevron shrink-0" style={{ color: C.textMuted }} />
                               </div>
-                              {/* 4 big stat tiles — Contacted / Won / Lost / Steps */}
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                                <ScoreTile label={t("dashx.campsByIcp.colContacted")} value={contacted} color="#0284C7" />
-                                <ScoreTile label={t("dashx.campsByIcp.colWon")} value={c.positive} color={C.green} accent={c.positive > 0} />
-                                <ScoreTile label={t("dashx.campsByIcp.colLost")} value={c.negative ?? 0} color={C.red} accent={(c.negative ?? 0) > 0} />
-                                <ScoreTile label={t("dashx.campsByIcp.colSteps")} value={c.totalSteps || "—"} color="#7C3AED" />
-                              </div>
+                              {/* 4 big stat tiles — Contacted / Won / Lost / Steps.
+                                  Each one deep-links into the matching section
+                                  of the campaign detail. The Link inside the
+                                  <summary> stops propagation so the click
+                                  navigates instead of toggling the accordion. */}
+                              {(() => {
+                                const detailBase = withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters);
+                                const detailHref = (anchor: string) => `${detailBase}#${anchor}`;
+                                return (
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                                    <ScoreTile label={t("dashx.campsByIcp.colContacted")} value={contacted} color="#0284C7" href={detailHref("funnel")} />
+                                    <ScoreTile label={t("dashx.campsByIcp.colWon")} value={c.positive} color={C.green} accent={c.positive > 0} href={detailHref("leads")} />
+                                    <ScoreTile label={t("dashx.campsByIcp.colLost")} value={c.negative ?? 0} color={C.red} accent={(c.negative ?? 0) > 0} href={detailHref("leads")} />
+                                    <ScoreTile label={t("dashx.campsByIcp.colSteps")} value={c.totalSteps || "—"} color="#7C3AED" href={detailHref("sequence")} />
+                                  </div>
+                                );
+                              })()}
                               {/* Conv% — full-width bar with the rate as a
                                   big right-aligned label. Bar scaled to the
                                   section's top conv so #1 hits 100%. */}
@@ -1476,7 +1487,11 @@ export default async function DashboardPage({
                                   {t("dashx.step.empty")}
                                 </p>
                               ) : (
-                                <StepPerformance steps={flowSteps} locale={locale} />
+                                <StepPerformance
+                                  steps={flowSteps}
+                                  locale={locale}
+                                  hrefFor={(step) => `${withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)}#step-${step}`}
+                                />
                               )}
                               <div className="mt-3 flex justify-end">
                                 <Link href={withFilters(`/dashboard/campaign/${encodeURIComponent(c.name)}`, filters)}
@@ -2257,28 +2272,10 @@ function NumCell({ value, bold, accent }: { value: number; bold?: boolean; accen
   return <td className="px-3 py-2 text-right tabular-nums" style={{ color: accent ?? (bold ? C.textPrimary : C.textBody), fontWeight: bold ? 600 : 400 }}>{value.toLocaleString("es-AR")}</td>;
 }
 
-/** ScoreTile — used inside the Campaigns "head-to-head" comparison cards.
- * Big tabular number + small uppercase label, colored when `accent` is on. */
-function ScoreTile({ label, value, color, accent }: {
-  label: string;
-  value: number | string;
-  color: string;
-  accent?: boolean;
-}) {
-  return (
-    <div className="rounded-lg border px-3 py-2"
-      style={{
-        background: accent ? `color-mix(in srgb, ${color} 8%, transparent)` : C.surface,
-        borderColor: accent ? `color-mix(in srgb, ${color} 28%, ${C.border})` : C.border,
-      }}>
-      <p className="text-[9px] font-bold uppercase tracking-wider truncate" style={{ color: C.textDim }}>{label}</p>
-      <p className="text-[22px] font-bold tabular-nums leading-tight tracking-[-0.02em]"
-        style={{ color, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-        {value}
-      </p>
-    </div>
-  );
-}
+// ScoreTile lives in `components/dashboard/ScoreTile.tsx` so it can carry
+// the onClick stopPropagation needed when the tile is wrapped in a Link
+// inside the <details>/<summary> head-to-head card — Server Components
+// (this file) cannot pass event handlers across the RSC boundary.
 
 /** DeltaChip — used by the Sellers tab "Team averages" comparison rows.
  * Renders label + current value + signed delta vs the team baseline with

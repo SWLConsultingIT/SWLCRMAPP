@@ -17,6 +17,7 @@
 // step-to-step. Plus a small "→" arrow between cards so the sequence
 // flow is still obvious.
 
+import Link from "next/link";
 import { AlertTriangle, TrendingDown, TrendingUp, Minus, Send, MessageSquare, ArrowDown } from "lucide-react";
 import { C } from "@/lib/design";
 import { t as tFn, type Locale } from "@/lib/i18n-server";
@@ -30,7 +31,22 @@ type Step = {
 
 const gold = "var(--brand, #c9a83a)";
 
-export default function StepPerformance({ steps, locale }: { steps: Step[]; locale: Locale }) {
+export default function StepPerformance({
+  steps,
+  locale,
+  hrefFor,
+  idForStep,
+}: {
+  steps: Step[];
+  locale: Locale;
+  /** When provided, each step card is wrapped in a Link to this URL. Used
+   *  from the home-dashboard Campaigns tab to deep-link straight into the
+   *  matching step section of the campaign detail. */
+  hrefFor?: (step: number) => string | undefined | null;
+  /** When provided, each step card gets this id so anchors can scroll to it.
+   *  Used on the campaign detail page (#step-N from the home dashboard). */
+  idForStep?: (step: number) => string | undefined | null;
+}) {
   const t = (k: string, vars?: Record<string, string | number>) => tFn(locale, k, vars);
 
   if (steps.length === 0) {
@@ -109,87 +125,101 @@ export default function StepPerformance({ steps, locale }: { steps: Step[]; loca
             : isBest ? `color-mix(in srgb, ${gold} 35%, transparent)`
             : C.border;
 
-          return (
-            <div key={s.step}>
-              <div
-                className="rounded-xl border px-4 py-3 transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-[0_8px_24px_-10px_var(--step-glow)]"
+          const href = hrefFor?.(s.step) ?? null;
+          const anchorId = idForStep?.(s.step) ?? undefined;
+          const cardClass = "rounded-xl border px-4 py-3 transition-[box-shadow,transform] hover:-translate-y-px hover:shadow-[0_8px_24px_-10px_var(--step-glow)]"
+            + (href ? " block" : "");
+          const cardStyle: React.CSSProperties = {
+            background: cardBg,
+            borderColor: cardBorder,
+            borderLeft: `4px solid ${stepColor}`,
+            ["--step-glow" as string]: `color-mix(in srgb, ${stepColor} 55%, transparent)`,
+            textDecoration: "none",
+            color: "inherit",
+          };
+          const cardInner = (
+            <div className="flex items-center gap-3">
+              {/* Step badge */}
+              <span
+                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 text-[13px] font-bold tabular-nums"
                 style={{
-                  background: cardBg,
-                  borderColor: cardBorder,
-                  borderLeft: `4px solid ${stepColor}`,
-                  ["--step-glow" as string]: `color-mix(in srgb, ${stepColor} 55%, transparent)`,
+                  background: `color-mix(in srgb, ${stepColor} 14%, transparent)`,
+                  color: stepColor,
+                  border: `1px solid color-mix(in srgb, ${stepColor} 28%, transparent)`,
                 }}
               >
-                <div className="flex items-center gap-3">
-                  {/* Step badge */}
-                  <span
-                    className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 text-[13px] font-bold tabular-nums"
-                    style={{
-                      background: `color-mix(in srgb, ${stepColor} 14%, transparent)`,
-                      color: stepColor,
-                      border: `1px solid color-mix(in srgb, ${stepColor} 28%, transparent)`,
-                    }}
-                  >
-                    {idx + 1}
-                  </span>
+                {idx + 1}
+              </span>
 
-                  {/* Step label + badges */}
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-semibold truncate" style={{ color: C.textPrimary }} title={labelFor(s.step)}>
-                      {labelFor(s.step)}
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      {isCR && (
-                        <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0 rounded"
-                          style={{ background: C.surface, color: C.textMuted }}
-                          title={t("dashx.step.crNoteTooltip")}>
-                          {t("dashx.step.crBadge")}
-                        </span>
-                      )}
-                      {isDrop && (
-                        <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0 rounded"
-                          style={{ background: `color-mix(in srgb, ${C.red} 14%, transparent)`, color: C.red }}>
-                          <AlertTriangle size={9} /> {t("dashx.step.drop")}
-                        </span>
-                      )}
-                      {isBest && !isDrop && (
-                        <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0 rounded"
-                          style={{ background: `color-mix(in srgb, ${gold} 16%, transparent)`, color: gold }}>
-                          {t("dashx.step.best")}
-                        </span>
-                      )}
-                      {dropOffLeads !== null && dropOffLeads > 0 && (
-                        <span className="text-[9.5px] tabular-nums" style={{ color: C.textDim }}>
-                          {t("dashx.step.lostHere", { n: dropOffLeads })}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* 3 metric tiles inline — readable on first glance */}
-                  <div className="flex items-stretch gap-2">
-                    <Tile
-                      icon={Send}
-                      label={t("dashx.step.colSent")}
-                      value={s.sent.toLocaleString("en-US")}
-                      color={C.textBody}
-                    />
-                    <Tile
-                      icon={MessageSquare}
-                      label={t("dashx.step.colReplied")}
-                      value={isCR ? "—" : s.replied.toLocaleString("en-US")}
-                      color={s.replied > 0 && !isCR ? "#059669" : C.textBody}
-                    />
-                    <Tile
-                      label={t("dashx.step.colRate")}
-                      value={isCR ? "—" : insufficient ? "—" : `${s.replyRate}%`}
-                      color={isCR ? C.textDim : insufficient ? C.textDim : isDrop ? C.red : isBest ? gold : C.textPrimary}
-                      delta={deltaPp}
-                      emphasis
-                    />
-                  </div>
+              {/* Step label + badges */}
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-semibold truncate" style={{ color: C.textPrimary }} title={labelFor(s.step)}>
+                  {labelFor(s.step)}
+                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  {isCR && (
+                    <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0 rounded"
+                      style={{ background: C.surface, color: C.textMuted }}
+                      title={t("dashx.step.crNoteTooltip")}>
+                      {t("dashx.step.crBadge")}
+                    </span>
+                  )}
+                  {isDrop && (
+                    <span className="inline-flex items-center gap-0.5 text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0 rounded"
+                      style={{ background: `color-mix(in srgb, ${C.red} 14%, transparent)`, color: C.red }}>
+                      <AlertTriangle size={9} /> {t("dashx.step.drop")}
+                    </span>
+                  )}
+                  {isBest && !isDrop && (
+                    <span className="text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0 rounded"
+                      style={{ background: `color-mix(in srgb, ${gold} 16%, transparent)`, color: gold }}>
+                      {t("dashx.step.best")}
+                    </span>
+                  )}
+                  {dropOffLeads !== null && dropOffLeads > 0 && (
+                    <span className="text-[9.5px] tabular-nums" style={{ color: C.textDim }}>
+                      {t("dashx.step.lostHere", { n: dropOffLeads })}
+                    </span>
+                  )}
                 </div>
               </div>
+
+              {/* 3 metric tiles inline — readable on first glance */}
+              <div className="flex items-stretch gap-2">
+                <Tile
+                  icon={Send}
+                  label={t("dashx.step.colSent")}
+                  value={s.sent.toLocaleString("en-US")}
+                  color={C.textBody}
+                />
+                <Tile
+                  icon={MessageSquare}
+                  label={t("dashx.step.colReplied")}
+                  value={isCR ? "—" : s.replied.toLocaleString("en-US")}
+                  color={s.replied > 0 && !isCR ? "#059669" : C.textBody}
+                />
+                <Tile
+                  label={t("dashx.step.colRate")}
+                  value={isCR ? "—" : insufficient ? "—" : `${s.replyRate}%`}
+                  color={isCR ? C.textDim : insufficient ? C.textDim : isDrop ? C.red : isBest ? gold : C.textPrimary}
+                  delta={deltaPp}
+                  emphasis
+                />
+              </div>
+            </div>
+          );
+
+          return (
+            <div key={s.step}>
+              {href ? (
+                <Link id={anchorId} href={href} className={cardClass} style={cardStyle}>
+                  {cardInner}
+                </Link>
+              ) : (
+                <div id={anchorId} className={cardClass} style={cardStyle}>
+                  {cardInner}
+                </div>
+              )}
               {/* Drop-off row between steps — replaces the non-interactive
                   chevron arrow that boss flagged as "boton sin destino".
                   Shows the absolute volume lost going INTO the next step
