@@ -1525,6 +1525,8 @@ export default async function DashboardPage({
       <Panel
         title={t("dashx.channels.title")}
         subtitle={withScope(t("dashx.channels.unifiedSubtitle"))}
+        actionHref="/queue?tab=inbox"
+        actionLabel={t("dashx.panel.openInbox")}
         glow
         insightEyebrow={t("dashx.insight.eyebrow")}
         insightHint={t("dashx.insight.hint")}

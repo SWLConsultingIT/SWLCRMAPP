@@ -7,6 +7,7 @@
 // they're universally recognizable, but the *layout* and typography are
 // SWL-cohesive.
 
+import Link from "next/link";
 import { Share2, Mail, Phone, Smartphone, MessageSquare, Trophy } from "lucide-react";
 import { C, N, T } from "@/lib/design";
 
@@ -46,10 +47,11 @@ export default function ChannelCard({
   const channelLabel = t(meta.labelKey);
 
   return (
-    <div
+    <Link
+      href={`/queue?tab=inbox&channel=${encodeURIComponent(row.channel)}`}
       // Hover lift + channel-color glow ring + 3px top accent rail in
-      // channel color. Boss 2026-05-28 round B: "hace más lindo
-      // performance by channel".
+      // channel color. Whole card is the link (boss 2026-05-29: clicking
+      // a channel card lands on /queue inbox pre-filtered to that channel).
       className="group/card relative rounded-2xl border overflow-hidden p-4 sm:p-5 transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-[0_14px_32px_-12px_var(--card-glow)] flex flex-col"
       style={{
         backgroundColor: C.card,
@@ -127,7 +129,7 @@ export default function ChannelCard({
         <Mini label={t("dashx.channels.replied")} value={row.replied} />
         <Mini label={t("dashx.channels.positive")} value={row.positive} accent={row.positive > 0 ? C.green : undefined} />
       </div>
-    </div>
+    </Link>
   );
 }
 

@@ -26,7 +26,8 @@ export default function LinkedInConnectionsCard({
   const rate = sent > 0 ? Math.round((accepted / sent) * 100) : 0;
 
   return (
-    <div
+    <Link
+      href="/queue?tab=inbox&channel=linkedin"
       className="relative rounded-2xl border overflow-hidden p-4 sm:p-5 transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-md flex flex-col"
       style={{
         backgroundColor: C.card,
@@ -50,13 +51,7 @@ export default function LinkedInConnectionsCard({
             </p>
           </div>
         </div>
-        <Link
-          href="/?tab=campaigns"
-          className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] px-2 py-1 rounded-md transition-colors"
-          style={{ color: LI_COLOR, backgroundColor: `color-mix(in srgb, ${LI_COLOR} 10%, transparent)` }}
-        >
-          {labels.cta} <ArrowUpRight size={10} />
-        </Link>
+        <ArrowUpRight size={14} className="shrink-0 opacity-30 group-hover:opacity-60 transition-opacity" style={{ color: LI_COLOR }} />
       </div>
 
       <div className="mt-3 flex items-baseline gap-2 flex-1">
@@ -84,6 +79,6 @@ export default function LinkedInConnectionsCard({
           </p>
         </div>
       </div>
-    </div>
+    </Link>
   );
 }

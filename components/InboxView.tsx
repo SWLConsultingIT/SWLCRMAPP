@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search, CheckCircle2, XCircle, MessageSquare, ExternalLink,
   ThumbsUp, ThumbsDown, HelpCircle, Inbox as InboxIcon, Share2, Mail, Phone, Smartphone,
@@ -239,15 +239,19 @@ function FilterPill({
 
 export default function InboxView({ replies }: { replies: InboxReply[] }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const toast = useToast();
   const { t, locale } = useLocale();
-  const [tab, setTab] = useState<Tab>("pending");
+  // Boss 2026-05-29: dashboard Channels cards link here with `?channel=<x>`
+  // so the inbox lands pre-filtered to that channel. Also default to the
+  // History tab (was Pending Review) when a channel filter is passed —
+  // the seller arrived here to browse past activity, not to triage.
+  const initialChannel = searchParams?.get("channel") ?? "all";
+  const [tab, setTab] = useState<Tab>(initialChannel !== "all" ? "all" : "pending");
   const [search, setSearch] = useState("");
-  // Filters added on 2026-05-27 per boss feedback — sellers needed to slice
-  // the History tab by Campaign / ICP / Channel / date before triaging.
   const [campaignFilter, setCampaignFilter] = useState<string>("all");
   const [icpFilter, setIcpFilter] = useState<string>("all");
-  const [channelFilter, setChannelFilter] = useState<string>("all");
+  const [channelFilter, setChannelFilter] = useState<string>(initialChannel);
   // Date range lives inside this component (was previously in QueueClient
   // as a standalone toolbar dropdown that felt disconnected from the
   // sidebar filters). Default "30d" — most sellers only triage the last
