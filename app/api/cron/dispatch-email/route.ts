@@ -186,6 +186,7 @@ const BATCH_SIZE = 20;
 type EmailResult =
   | { kind: "sent"; msgId: string; leadId: string; instantlyCampaignId: string; providerLeadId: string | null; nextEligibleAt: string | null }
   | { kind: "failed"; msgId: string; leadId: string; reason: string }
+  | { kind: "skipped"; msgId: string; leadId: string; reason: string }
   | { kind: "rate_limited"; msgId: string; leadId: string; reason: string }
   | { kind: "lost_race"; msgId: string; leadId: string };
 
@@ -199,6 +200,24 @@ async function failMessage(
     metadata: { dispatched_by: "cron-dispatch-email", failed_at: new Date().toISOString() },
   }).eq("id", msgId);
   return { kind: "failed", msgId, leadId, reason };
+}
+
+// Skip an email send without flagging it as a failure — used when the lead's
+// address is known-bad up front (verified invalid, catch-all domain). The
+// alternative was to fail the message, but that inflates the dispatcher's
+// error count and triggers ops noise for an outcome we already expected.
+// Bounce-after-send is a separate concern (still a TODO — when Instantly
+// returns a bounce we should advance the step, not just keep retrying).
+async function skipMessage(
+  svc: ReturnType<typeof getSupabaseService>,
+  msgId: string, leadId: string, reason: string,
+): Promise<EmailResult> {
+  await svc.from("campaign_messages").update({
+    status: "skipped",
+    error_details: reason,
+    metadata: { dispatched_by: "cron-dispatch-email", skipped_at: new Date().toISOString() },
+  }).eq("id", msgId);
+  return { kind: "skipped", msgId, leadId, reason };
 }
 
 async function requeueRateLimited(
@@ -240,11 +259,22 @@ async function dispatchOneEmail(
   }
 
   const [{ data: lead }, { data: campaign }] = await Promise.all([
-    svc.from("leads").select("id, primary_first_name, primary_last_name, primary_work_email, company_bio_id, company_name, primary_title_role").eq("id", candidate.lead_id).maybeSingle(),
+    svc.from("leads").select("id, primary_first_name, primary_last_name, primary_work_email, primary_email_status, company_bio_id, company_name, primary_title_role").eq("id", candidate.lead_id).maybeSingle(),
     svc.from("campaigns").select("id, seller_id, sequence_steps").eq("id", candidate.campaign_id).maybeSingle(),
   ]);
   if (!lead || !campaign) return await failMessage(svc, candidate.id, candidate.lead_id, "lead or campaign missing");
   if (!lead.primary_work_email) return await failMessage(svc, candidate.id, candidate.lead_id, "lead has no work email");
+
+  // Pre-send hygiene: skip leads whose work email is known-bad. Set by the
+  // Instantly /email-verification pass (or any future verifier we wire up).
+  // 'invalid' = mailbox definitely doesn't exist. 'catch_all' = the domain
+  // accepts everything in SMTP handshake but the inner mailbox usually
+  // bounces silently — burning these against the inbox warmup is what put
+  // Arqy's campaign into Instantly status -2 on 2026-05-26.
+  const emailStatus = (lead as any).primary_email_status as string | null;
+  if (emailStatus === "invalid" || emailStatus === "catch_all") {
+    return await skipMessage(svc, candidate.id, candidate.lead_id, `email status: ${emailStatus}`);
+  }
 
   let seller: { id: string; name: string | null; company_bio_id: string | null } | null = null;
   if (campaign.seller_id) {
@@ -408,6 +438,7 @@ async function handle(req: NextRequest) {
 
   const sent = results.filter((r) => r.kind === "sent").length;
   const failed = results.filter((r) => r.kind === "failed").length;
+  const skipped = results.filter((r) => r.kind === "skipped").length;
   const rateLimited = results.filter((r) => r.kind === "rate_limited").length;
   const lostRace = results.filter((r) => r.kind === "lost_race").length;
 
@@ -416,6 +447,7 @@ async function handle(req: NextRequest) {
     processed: sent,
     attempted: eligible.length,
     failed,
+    skipped,
     rate_limited: rateLimited,
     lost_race: lostRace,
     results: results.map((r) => ({ kind: r.kind, msgId: r.msgId, leadId: r.leadId })),
