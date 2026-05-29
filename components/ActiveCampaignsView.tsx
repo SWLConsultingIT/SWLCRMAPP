@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { C, N } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
-import { Share2, Mail, Phone, BarChart3, Clock, Target, ChevronDown, Users, ChevronRight, TrendingDown, ListOrdered, Plus, UserPlus } from "lucide-react";
+import { Share2, Mail, Phone, BarChart3, Clock, Target, ChevronDown, Users, ChevronRight, TrendingDown, ListOrdered, Plus, UserPlus, Search, X, Trophy } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -352,37 +352,35 @@ function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
   const responseRate = group.totalLeads > 0 ? Math.round((group.totalReplies / group.totalLeads) * 100) : 0;
   const positiveRate = group.totalLeads > 0 ? Math.round((group.totalPositive / group.totalLeads) * 100) : 0;
   const ago = timeAgo(group.lastActivity);
+  // Boss 2026-05-29: row body (funnel + sequence) is heavy. Default-collapse
+  // it so the seller scans a tight summary; expand inline for the detail.
+  // The flow name remains a Link to /campaigns/[id] so navigation still
+  // works without going through the expanded view.
+  const [expanded, setExpanded] = useState(false);
 
   return (
-    <Link href={`/campaigns/${group.firstId}`}
-      className="block relative rounded-2xl overflow-hidden transition-[transform,box-shadow,border-color] duration-150 hover:-translate-y-0.5 hover:shadow-lg group cursor-pointer"
+    <div
+      className="relative rounded-2xl overflow-hidden transition-[transform,box-shadow,border-color] duration-150 hover:shadow-lg group"
       style={{
         backgroundColor: C.card,
-        // 1.5px border for definition against the tinted section bg, plus an
-        // outer ring that fires on hover to make "this whole block is a link"
-        // unmistakable. Without it the row blended into the surrounding section.
         boxShadow: "0 1px 0 rgba(0,0,0,0.04), 0 0 0 1.5px rgba(0,0,0,0.06)",
-        ["--hover-ring" as any]: `color-mix(in srgb, ${st.color} 55%, transparent)`,
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = `0 8px 24px rgba(0,0,0,0.07), 0 0 0 1.5px var(--hover-ring)`;
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = "0 1px 0 rgba(0,0,0,0.04), 0 0 0 1.5px rgba(0,0,0,0.06)";
       }}>
       {/* Status accent bar — bold left edge tells the seller at a glance. */}
       <div aria-hidden className="absolute left-0 top-0 bottom-0" style={{ width: 4, backgroundColor: st.color }} />
 
-      {/* Affordance: a quiet chevron on the right that brightens on hover so
-          the whole row reads as a single clickable entity. */}
-      <div aria-hidden className="absolute right-4 top-1/2 -translate-y-1/2 transition-[opacity,transform] duration-150 opacity-30 group-hover:opacity-100 group-hover:translate-x-0.5"
-        style={{ color: st.color }}>
-        <ChevronRight size={20} />
-      </div>
+      {/* Toggle button — covers the row's clickable area without competing
+          with the name Link / Add Leads link inside. */}
+      <button
+        type="button"
+        onClick={() => setExpanded(e => !e)}
+        aria-expanded={expanded}
+        aria-label={expanded ? t("flows.row.hideDetails") : t("flows.row.showDetails")}
+        className="absolute inset-0 cursor-pointer"
+      />
 
-      <div className="pl-6 pr-10 py-4">
-        {/* Top row: channels + name + status + seller. Single line at wide widths. */}
-        <div className="flex items-center justify-between gap-4 flex-wrap mb-3">
+      <div className="relative pl-6 pr-12 py-3.5 pointer-events-none">
+        {/* Top row: channels + name (Link, navigates) + status + sellers/ago/AddLeads */}
+        <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3 flex-wrap min-w-0">
             <div className="flex items-center gap-1.5 shrink-0">
               {group.channels.map(ch => {
@@ -397,10 +395,13 @@ function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
                 );
               })}
             </div>
-            <h3 className="text-[16px] font-semibold truncate group-hover:underline"
-              style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
+            <Link
+              href={`/campaigns/${group.firstId}`}
+              className="text-[16px] font-semibold truncate hover:underline pointer-events-auto relative z-10"
+              style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}
+            >
               {group.name}
-            </h3>
+            </Link>
             <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0"
               style={{
                 backgroundColor: st.bg,
@@ -422,14 +423,9 @@ function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
                 <Clock size={11} /> {ago}
               </span>
             )}
-            {/* Add leads to this flow — links to the campaign detail's
-                Add Leads tab, which already filters to same-ICP leads
-                per the one-ICP-per-campaign law. e.stopPropagation()
-                keeps the click off the parent <Link>. */}
             <Link
               href={`/campaigns/${group.firstId}?tab=add-leads`}
-              onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10.5px] font-semibold transition-opacity hover:opacity-85"
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10.5px] font-semibold transition-opacity hover:opacity-85 pointer-events-auto relative z-10"
               style={{
                 color: gold,
                 backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`,
@@ -440,6 +436,29 @@ function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
             </Link>
           </div>
         </div>
+
+        {/* Compact metrics line — visible in BOTH collapsed and expanded
+            states so the row is informative even when the heavy funnel +
+            sequence sub-cards are hidden. */}
+        <div className="flex items-center gap-4 mt-2 text-[11px] tabular-nums" style={{ color: C.textMuted }}>
+          <span><span className="font-bold" style={{ color: C.textBody }}>{group.totalLeads}</span> {t("flows.metric.leads").toLowerCase()}</span>
+          <span><span className="font-bold" style={{ color: group.totalReplies > 0 ? C.blue : C.textBody }}>{group.totalReplies}</span> {t("flows.metric.replies").toLowerCase()} <span style={{ color: C.textDim }}>({responseRate}%)</span></span>
+          <span><span className="font-bold" style={{ color: group.totalPositive > 0 ? C.green : C.textBody }}>{group.totalPositive}</span> {t("flows.metric.positive").toLowerCase()} <span style={{ color: C.textDim }}>({positiveRate}%)</span></span>
+          {group.totalSteps > 0 && (
+            <span><span className="font-bold" style={{ color: C.textBody }}>{group.totalSteps}</span> {t("flows.kpi.steps").toLowerCase()}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Expand chevron — top-right, rotates when open. */}
+      <div className="absolute right-4 top-4 pointer-events-none transition-transform duration-200"
+        style={{ color: st.color, transform: expanded ? "rotate(90deg)" : "rotate(0deg)" }}>
+        <ChevronRight size={18} />
+      </div>
+
+      {/* Collapsed: stop here. Expanded: render the funnel + sequence grid. */}
+      {expanded && (
+      <div className="relative pl-6 pr-6 pb-4 pt-0">
 
         {/* Status section — funnel + sequence side-by-side. Boss feedback
             2026-05-28: the seller has to read the whole flow head-to-toe.
@@ -586,7 +605,8 @@ function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
         </div>
 
       </div>
-    </Link>
+      )}
+    </div>
   );
 }
 
@@ -613,6 +633,62 @@ function MetricChip({ icon, label, value, color, solid }: {
       <span className="tabular-nums font-bold">{value}</span>
       <span className="opacity-90">{label}</span>
     </span>
+  );
+}
+
+function LeaderboardRibbon({ groups, t }: { groups: CampaignGroup[]; t: Tr }) {
+  if (groups.length < 2) return null;
+  // Sort flows by conversion. Dormant flows (zero leads) fall to the end.
+  const ranked = [...groups].sort((a, b) => {
+    const aConv = a.totalLeads > 0 ? (a.totalPositive / a.totalLeads) * 100 : -1;
+    const bConv = b.totalLeads > 0 ? (b.totalPositive / b.totalLeads) * 100 : -1;
+    if (aConv !== bConv) return bConv - aConv;
+    return b.totalPositive - a.totalPositive;
+  });
+  const top3 = ranked.slice(0, 3);
+  const someActive = top3.some(g => g.totalLeads > 0 && g.totalPositive > 0);
+  // Medal palette — gold/silver/bronze. Dormant flows use textDim.
+  const medalColors = ["#D4AF37", "#9CA3AF", "#A0522D"];
+  if (!someActive) {
+    return (
+      <div className="rounded-lg border px-3 py-2 text-[11px] italic"
+        style={{ backgroundColor: `color-mix(in srgb, ${gold} 4%, transparent)`, borderColor: C.border, color: C.textMuted }}>
+        <span className="text-[9px] font-bold uppercase tracking-[0.14em] mr-2" style={{ color: gold, fontStyle: "normal" }}>
+          {t("flows.podium.eyebrow")}
+        </span>
+        {t("flows.podium.empty")}
+      </div>
+    );
+  }
+  return (
+    <div className="rounded-lg border px-3 py-2 flex items-center gap-3 flex-wrap"
+      style={{
+        background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 7%, transparent), transparent 80%)`,
+        borderColor: `color-mix(in srgb, ${gold} 22%, ${C.border})`,
+      }}>
+      <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-[0.14em] shrink-0" style={{ color: gold }}>
+        <Trophy size={10} /> {t("flows.podium.eyebrow")}
+      </span>
+      {top3.map((g, idx) => {
+        const conv = g.totalLeads > 0 ? Math.round((g.totalPositive / g.totalLeads) * 100) : 0;
+        const isDormant = g.totalLeads === 0 || g.totalPositive === 0;
+        const medal = isDormant ? C.textDim : medalColors[idx] ?? C.textDim;
+        return (
+          <span key={g.name} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px]"
+            style={{
+              backgroundColor: `color-mix(in srgb, ${medal} 14%, transparent)`,
+              border: `1px solid color-mix(in srgb, ${medal} 32%, transparent)`,
+              color: C.textBody,
+            }}>
+            <span className="text-[10px] font-bold tabular-nums" style={{ color: medal }}>#{idx + 1}</span>
+            <span className="font-semibold truncate max-w-[180px]" style={{ color: C.textPrimary }}>{g.name}</span>
+            <span className="tabular-nums" style={{ color: isDormant ? C.textDim : medal }}>
+              {isDormant ? t("flows.podium.dormant") : `${conv}%`}
+            </span>
+          </span>
+        );
+      })}
+    </div>
   );
 }
 
@@ -766,11 +842,13 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
       {open && (
         <div className="p-5 space-y-3"
           style={{
-            // Deeper inset so the white flow cards float above this surface
-            // with obvious contrast — without it the rows blended into the
-            // section background and lost their "row" affordance.
             background: `linear-gradient(180deg, color-mix(in srgb, var(--c-bg, ${C.bg}) 95%, transparent) 0%, color-mix(in srgb, var(--c-bg, ${C.bg}) 85%, transparent) 100%)`,
           }}>
+          {/* Within-ICP leaderboard ribbon (boss 2026-05-29): compact
+              podium ranking the section's flows by conversion (positives /
+              leads × 100). Top 3 with medal icons; dormant flows (0
+              contacted) get a tag so they don't pretend to be #last. */}
+          <LeaderboardRibbon groups={section.groups} t={t} />
           {section.groups.map(g => <FlowRow key={g.name} group={g} t={t} />)}
         </div>
       )}
@@ -780,10 +858,33 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
 
 export default function ActiveCampaignsView({ campaigns, icpMap }: { campaigns: Campaign[]; icpMap: Record<string, IcpProfile> }) {
   const { t } = useLocale();
-  const groups = groupCampaigns(campaigns);
-  const sections = buildIcpSections(groups, icpMap);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "paused">("all");
 
-  if (sections.length === 0) {
+  const allGroups = useMemo(() => groupCampaigns(campaigns), [campaigns]);
+  const allSections = useMemo(() => buildIcpSections(allGroups, icpMap), [allGroups, icpMap]);
+
+  // Client-side filter pass — search matches against flow name + ICP name +
+  // seller name; status chip filters the flow row's rolled-up status.
+  // Empty groups (ICPs with zero matching flows) get pruned.
+  const sections = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q && statusFilter === "all") return allSections;
+    return allSections
+      .map(section => {
+        const filteredGroups = section.groups.filter(g => {
+          if (statusFilter !== "all" && g.status !== statusFilter) return false;
+          if (!q) return true;
+          const hay = `${g.name} ${section.name ?? ""} ${g.sellers.join(" ")}`.toLowerCase();
+          return hay.includes(q);
+        });
+        if (filteredGroups.length === 0) return null;
+        return { ...section, groups: filteredGroups };
+      })
+      .filter((s): s is NonNullable<typeof s> => s !== null);
+  }, [allSections, search, statusFilter]);
+
+  if (allSections.length === 0) {
     return (
       <div className="rounded-2xl border py-16 text-center"
         style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
@@ -800,11 +901,57 @@ export default function ActiveCampaignsView({ campaigns, icpMap }: { campaigns: 
     );
   }
 
+  const chips: Array<{ key: "all" | "active" | "paused"; label: string }> = [
+    { key: "all",    label: t("flows.statusChip.all") },
+    { key: "active", label: t("flows.statusChip.active") },
+    { key: "paused", label: t("flows.statusChip.paused") },
+  ];
+
   return (
     <div className="space-y-4">
-      {sections.map((section, i) => (
-        <IcpSectionBlock key={section.id ?? "uncategorized"} section={section} defaultOpen={i === 0} t={t} />
-      ))}
+      {/* Search + status chip row (D) — sits above the accordion. */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 rounded-lg border px-3 py-1.5 flex-1 min-w-[240px] max-w-md"
+          style={{ borderColor: C.border, backgroundColor: C.card }}>
+          <Search size={14} style={{ color: C.textDim }} />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder={t("flows.search.placeholder")}
+            className="bg-transparent text-sm outline-none flex-1"
+            style={{ color: C.textPrimary }}
+          />
+          {search && <button onClick={() => setSearch("")}><X size={12} style={{ color: C.textDim }} /></button>}
+        </div>
+        <div className="flex items-center gap-1 rounded-lg border p-0.5"
+          style={{ borderColor: C.border, backgroundColor: C.card }}>
+          {chips.map(c => {
+            const isActive = statusFilter === c.key;
+            return (
+              <button key={c.key} type="button" onClick={() => setStatusFilter(c.key)}
+                className="px-3 py-1 rounded-md text-[11px] font-semibold transition-colors"
+                style={{
+                  backgroundColor: isActive ? `color-mix(in srgb, ${gold} 16%, transparent)` : "transparent",
+                  color: isActive ? gold : C.textBody,
+                  border: isActive ? `1px solid color-mix(in srgb, ${gold} 40%, transparent)` : "1px solid transparent",
+                }}>
+                {c.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {sections.length === 0 ? (
+        <div className="rounded-2xl border py-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <p className="text-sm font-medium" style={{ color: C.textBody }}>{t("flows.filter.noMatch")}</p>
+        </div>
+      ) : (
+        sections.map((section, i) => (
+          <IcpSectionBlock key={section.id ?? "uncategorized"} section={section} defaultOpen={i === 0} t={t} />
+        ))
+      )}
     </div>
   );
 }

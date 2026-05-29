@@ -766,6 +766,27 @@ export const en: Dict = {
   "flows.chip.lost": "Lost",
   "flows.empty.title": "No active flows yet",
   "flows.empty.hint": "Open the Create New Flow tab to launch your first one.",
+  // Today's pulse strip (top of /campaigns)
+  "flows.pulse.eyebrow": "Today's pulse",
+  "flows.pulse.flowsRunning": "{n} flows running",
+  "flows.pulse.sentToday": "{n} sent today",
+  "flows.pulse.repliesToday": "{n} replies today",
+  "flows.pulse.positiveToday": "{n} positive",
+  "flows.pulse.readyToLaunch": "{n} leads ready to launch",
+  "flows.pulse.noPulse": "No sends or replies today yet",
+  // Search + status chips (top of ActiveCampaignsView)
+  "flows.search.placeholder": "Search flow or ICP…",
+  "flows.statusChip.all": "All",
+  "flows.statusChip.active": "Active",
+  "flows.statusChip.paused": "Paused",
+  "flows.filter.noMatch": "No flows match your filters",
+  // Per-flow row collapse toggle (B)
+  "flows.row.showDetails": "Show details",
+  "flows.row.hideDetails": "Hide details",
+  // Within-ICP leaderboard ribbon (C)
+  "flows.podium.eyebrow": "Best in this ICP",
+  "flows.podium.empty": "No conversion data yet to rank flows",
+  "flows.podium.dormant": "dormant",
   // Companies hero (/companies/[name])
   "companies.hero.icpScore": "ICP Score",
   "companies.hero.employees": "Employees",
@@ -2129,6 +2150,27 @@ export const es: Dict = {
   "flows.chip.lost": "Perdidas",
   "flows.empty.title": "Aún no hay flows activos",
   "flows.empty.hint": "Abrí la pestaña Crear nuevo flow para lanzar el primero.",
+  // Today's pulse
+  "flows.pulse.eyebrow": "Pulso de hoy",
+  "flows.pulse.flowsRunning": "{n} flows corriendo",
+  "flows.pulse.sentToday": "{n} enviados hoy",
+  "flows.pulse.repliesToday": "{n} respuestas hoy",
+  "flows.pulse.positiveToday": "{n} positivas",
+  "flows.pulse.readyToLaunch": "{n} leads listos para lanzar",
+  "flows.pulse.noPulse": "Aún no hay envíos ni respuestas hoy",
+  // Search + status chips
+  "flows.search.placeholder": "Buscar flow o ICP…",
+  "flows.statusChip.all": "Todos",
+  "flows.statusChip.active": "Activos",
+  "flows.statusChip.paused": "Pausados",
+  "flows.filter.noMatch": "Ningún flow coincide con tus filtros",
+  // Per-flow collapse toggle
+  "flows.row.showDetails": "Ver detalle",
+  "flows.row.hideDetails": "Ocultar detalle",
+  // Within-ICP leaderboard ribbon
+  "flows.podium.eyebrow": "Top del ICP",
+  "flows.podium.empty": "Aún no hay datos de conversión para rankear",
+  "flows.podium.dormant": "sin lanzar",
   // Companies hero (/companies/[name])
   "companies.hero.icpScore": "Score ICP",
   "companies.hero.employees": "Empleados",

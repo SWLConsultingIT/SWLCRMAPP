@@ -1,11 +1,12 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getUserScope } from "@/lib/scope";
 import { C } from "@/lib/design";
-import { Megaphone, TrendingUp, MessageSquare, Users } from "lucide-react";
+import { Megaphone, Send, MessageSquare, ThumbsUp, Sparkles, UserPlus } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import CampaignTabs from "./CampaignTabs";
 import TemplatesView from "./TemplatesView";
 import ActiveCampaignsView from "@/components/ActiveCampaignsView";
+import { getT } from "@/lib/i18n-server";
 // NewCampaignView import removed 2026-05-28 — Create New Flow tab dropped.
 // Flow creation now starts from a Lead Miner section header → lead picker
 // at /campaigns/new/[profileId]/pick.
@@ -41,7 +42,7 @@ async function getData() {
 
   const icpQ = supabase.from("icp_profiles").select("id, profile_name, target_industries, target_roles").eq("status", "approved");
 
-  const repliesQ = supabase.from("lead_replies").select("lead_id, classification, campaign_id, leads!inner(company_bio_id)");
+  const repliesQ = supabase.from("lead_replies").select("lead_id, classification, campaign_id, received_at, leads!inner(company_bio_id)");
 
   const [
     { data: campaigns },
@@ -102,10 +103,18 @@ async function getData() {
   const liInvitesByCamp: Record<string, number> = {};
   const liDmsByCamp: Record<string, number> = {};
   const emailsByCamp: Record<string, number> = {};
+  // Today's pulse — count messages sent since 00:00 local. Boss 2026-05-29
+  // wants a one-line "today" strip at the top of /campaigns instead of the
+  // generic 4 stat cards. Reuses the same campaign_messages query (one extra
+  // column, no extra round-trip).
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const startOfTodayMs = startOfToday.getTime();
+  let messagesSentToday = 0;
   if (campIds.length > 0) {
     const { data: msgCounts } = await supabase
       .from("campaign_messages")
-      .select("campaign_id, status, channel, step_number")
+      .select("campaign_id, status, channel, step_number, sent_at")
       .in("campaign_id", campIds) as any;
     for (const m of msgCounts ?? []) {
       totalCountByCamp[m.campaign_id] = (totalCountByCamp[m.campaign_id] ?? 0) + 1;
@@ -113,6 +122,9 @@ async function getData() {
         sentCountByCamp[m.campaign_id] = (sentCountByCamp[m.campaign_id] ?? 0) + 1;
       }
       if (m.status === "sent") {
+        if (m.sent_at && new Date(m.sent_at).getTime() >= startOfTodayMs) {
+          messagesSentToday++;
+        }
         if (m.channel === "linkedin") {
           if (m.step_number === 0) liInvitesByCamp[m.campaign_id] = (liInvitesByCamp[m.campaign_id] ?? 0) + 1;
           else liDmsByCamp[m.campaign_id] = (liDmsByCamp[m.campaign_id] ?? 0) + 1;
@@ -162,6 +174,16 @@ async function getData() {
   const positiveCount = [...contactedLeadIds].filter(id => positiveLeadIds.has(id)).length;
   const responseRate = contactedCount > 0 ? Math.round((repliedCount / contactedCount) * 100) : 0;
 
+  // Today-scoped reply counts for the pulse strip.
+  let repliesToday = 0;
+  let positiveRepliesToday = 0;
+  for (const r of allReplies ?? []) {
+    if (!r.received_at) continue;
+    if (new Date(r.received_at).getTime() < startOfTodayMs) continue;
+    repliesToday++;
+    if (r.classification === "positive" || r.classification === "meeting_intent") positiveRepliesToday++;
+  }
+
   // Enrich campaigns with reply data + message-based progress counts +
   // per-channel send breakdown so the cards can show LinkedIn invites
   // / LinkedIn DMs / emails / calls separately.
@@ -199,6 +221,9 @@ async function getData() {
       responseRate,
       positiveCount,
       readyToLaunch: totalUncampaigned,
+      messagesSentToday,
+      repliesToday,
+      positiveRepliesToday,
     },
     uncampaignedGroups,
     icpMap,
@@ -207,7 +232,11 @@ async function getData() {
 }
 
 export default async function CampaignsPage() {
-  const { campaigns, stats, uncampaignedGroups, icpMap, totalUncampaigned } = await getData();
+  const [{ campaigns, stats, uncampaignedGroups, icpMap, totalUncampaigned }, t] = await Promise.all([
+    getData(),
+    getT(),
+  ]);
+  const hasPulse = stats.messagesSentToday > 0 || stats.repliesToday > 0 || stats.readyToLaunch > 0;
 
   return (
     <div className="p-6 w-full">
@@ -221,57 +250,54 @@ export default async function CampaignsPage() {
         badge="Outreach Engine"
       />
 
-      {/* 4 stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: "Active Flows", value: stats.active, color: C.green, icon: Megaphone },
-          { label: "Response Rate", value: `${stats.responseRate}%`, color: C.blue, icon: MessageSquare },
-          { label: "Positive Replies", value: stats.positiveCount, color: C.green, icon: TrendingUp },
-          { label: "Ready to Launch", value: stats.readyToLaunch, color: gold, icon: Users },
-        ].map(({ label, value, color, icon: Icon }) => (
-          <div
-            key={label}
-            data-stat
-            className="rounded-2xl border px-6 py-5 card-lift relative overflow-hidden"
+      {/* Today's pulse strip — boss 2026-05-29: replaces the 4 generic stat
+          cards. One-line, today-scoped, actionable: how many flows running,
+          how many messages went out today, how many replies came in (with
+          positive count), and how many leads are sitting ready to launch.
+          The Ready-to-Launch chip is a Link to the lead picker so it's a
+          direct CTA, not a vanity number. */}
+      <div
+        className="rounded-2xl border mb-6 px-5 py-4 flex flex-wrap items-center gap-x-6 gap-y-2 relative overflow-hidden"
+        style={{
+          background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${gold} 4%, var(--c-card)) 100%)`,
+          borderColor: `color-mix(in srgb, ${gold} 25%, ${C.border})`,
+          boxShadow: `0 4px 16px color-mix(in srgb, ${gold} 8%, transparent)`,
+        }}
+      >
+        <span aria-hidden className="absolute -top-12 -right-12 w-32 h-32 rounded-full pointer-events-none opacity-50"
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 18%, transparent) 0%, transparent 70%)` }} />
+        <div className="flex items-center gap-2 shrink-0 relative">
+          <span className="w-8 h-8 rounded-lg flex items-center justify-center"
             style={{
-              background: `linear-gradient(135deg, var(--c-card) 0%, color-mix(in srgb, ${color} 5%, var(--c-card)) 100%)`,
-              borderColor: C.border,
-              borderTop: `3px solid ${color}`,
-            }}
-          >
-            {/* Soft halo behind the icon — premium depth without ornamentation. */}
-            <div
-              className="absolute -top-12 -right-12 w-32 h-32 rounded-full pointer-events-none opacity-50"
-              style={{ background: `radial-gradient(circle, color-mix(in srgb, ${color} 16%, transparent) 0%, transparent 70%)` }}
-            />
-            <div className="flex items-center justify-between mb-4 relative">
-              <span className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: C.textMuted }}>
-                {label}
-              </span>
-              <div
-                className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                style={{
-                  backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`,
-                  border: `1px solid color-mix(in srgb, ${color} 22%, transparent)`,
-                  boxShadow: `0 0 16px color-mix(in srgb, ${color} 18%, transparent)`,
-                }}
-              >
-                <Icon size={16} style={{ color }} />
-              </div>
-            </div>
-            <p
-              className="text-[30px] font-bold leading-none"
-              style={{
-                color,
-                fontFamily: "var(--font-outfit), system-ui, sans-serif",
-                letterSpacing: "-0.02em",
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
-              {value}
-            </p>
-          </div>
-        ))}
+              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`,
+              boxShadow: `0 3px 10px color-mix(in srgb, ${gold} 30%, transparent)`,
+              color: "#1A1505",
+            }}>
+            <Sparkles size={14} strokeWidth={2.4} />
+          </span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
+            {t("flows.pulse.eyebrow")}
+          </span>
+        </div>
+
+        <PulseStat icon={Megaphone}     label={t("flows.pulse.flowsRunning",   { n: stats.active })}              color={C.green} />
+        <PulseStat icon={Send}          label={t("flows.pulse.sentToday",      { n: stats.messagesSentToday })}    color="#0284C7" />
+        <PulseStat icon={MessageSquare} label={t("flows.pulse.repliesToday",   { n: stats.repliesToday })}         color="#7C3AED"
+          sub={stats.positiveRepliesToday > 0 ? t("flows.pulse.positiveToday", { n: stats.positiveRepliesToday }) : undefined} />
+
+        {stats.readyToLaunch > 0 && (
+          <a href="/campaigns#ready" className="ml-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] font-bold transition-opacity hover:opacity-90"
+            style={{
+              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 75%, white))`,
+              color: "#1A1505",
+              boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent)`,
+            }}>
+            <UserPlus size={13} strokeWidth={2.4} /> {t("flows.pulse.readyToLaunch", { n: stats.readyToLaunch })}
+          </a>
+        )}
+        {!hasPulse && (
+          <span className="text-[12px] italic" style={{ color: C.textMuted }}>{t("flows.pulse.noPulse")}</span>
+        )}
       </div>
 
       {/* Tabs — Flows / Templates. Create New Flow tab removed 2026-05-28
@@ -290,6 +316,37 @@ export default async function CampaignsPage() {
         {/* ═══ TAB 1: TEMPLATES ═══ */}
         <TemplatesView />
       </CampaignTabs>
+    </div>
+  );
+}
+
+function PulseStat({
+  icon: Icon, label, sub, color,
+}: {
+  icon: React.ComponentType<{ size?: number; strokeWidth?: number; style?: React.CSSProperties }>;
+  label: string;
+  sub?: string;
+  color: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 relative">
+      <span className="w-7 h-7 rounded-md flex items-center justify-center shrink-0"
+        style={{
+          backgroundColor: `color-mix(in srgb, ${color} 14%, transparent)`,
+          color,
+        }}>
+        <Icon size={13} strokeWidth={2.2} />
+      </span>
+      <div className="leading-tight">
+        <p className="text-[13px] font-bold tabular-nums" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+          {label}
+        </p>
+        {sub && (
+          <p className="text-[10.5px] font-semibold tabular-nums" style={{ color }}>
+            {sub}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
