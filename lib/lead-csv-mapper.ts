@@ -117,7 +117,10 @@ export async function inferLeadMapping(input: {
   sampleRows: Array<Record<string, string>>;
 }): Promise<LeadMappingResult> {
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OPENAI_API_KEY env var not set");
+  // No key configured → skip the network round-trip and serve the heuristic
+  // mapping straight away. The wizard surfaces it as suggestions the user
+  // can edit, so a slightly worse first guess is still useful.
+  if (!apiKey) return heuristicLeadMapping(input);
 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 45_000);
@@ -140,14 +143,19 @@ export async function inferLeadMapping(input: {
       }),
     });
     if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`OpenAI ${res.status}: ${text.slice(0, 300)}`);
+      // OpenAI billing / quota / rate-limit / 5xx → fall back to the heuristic
+      // mapper instead of bricking the entire upload wizard. The user still
+      // gets a usable starting mapping at step 2 that they can fine-tune.
+      const text = await res.text().catch(() => "");
+      console.warn(`[lead-csv-mapper] OpenAI ${res.status}, falling back to heuristic. body=${text.slice(0, 200)}`);
+      return heuristicLeadMapping(input);
     }
     const data = await res.json();
     const content: string = data.choices?.[0]?.message?.content ?? "{}";
     const parsed = JSON.parse(content);
     if (!Array.isArray(parsed.mappings)) {
-      throw new Error("Mapper response missing 'mappings' array");
+      console.warn("[lead-csv-mapper] OpenAI response missing 'mappings', falling back to heuristic");
+      return heuristicLeadMapping(input);
     }
     return {
       source_tool: typeof parsed.source_tool === "string" ? parsed.source_tool : "Other",
@@ -158,9 +166,144 @@ export async function inferLeadMapping(input: {
           typeof (m as LeadColumnMapping).target === "string",
       ),
     };
+  } catch (err) {
+    // Network / abort / JSON parse / anything else → same fallback. The
+    // wizard must never get stuck at step 1 because OpenAI hiccuped.
+    console.warn("[lead-csv-mapper] OpenAI threw, falling back to heuristic:", err);
+    return heuristicLeadMapping(input);
   } finally {
     clearTimeout(timer);
   }
+}
+
+// ─── Heuristic fallback ──────────────────────────────────────────────────
+// Pure-regex column mapper. Mirrors the canonical-mapping rules listed in
+// `buildPrompt` so a CSV that the AI mapper would handle correctly also
+// works without OpenAI. The fallback is intentionally conservative — it
+// prefers to leave a column as `_skip` over a wrong guess, since the user
+// gets to fix everything at step 2 anyway.
+
+const TRACKING_HEADERS = new Set([
+  "email open", "email opens", "email bounced", "email replied", "replied", "demoed",
+  "stage", "contact owner", "account owner", "owner",
+  "find people", "find work email", "enrich person",
+  // Status side-columns the validators emit ("Validate LeadMagic" etc.):
+  // they're either statuses or empty so we treat them as skip; the real
+  // value sits in the matching "Find Work Email" column we already map.
+]);
+
+function normHeader(h: string): string {
+  return h.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+// Returns the canonical target for a normalized header, or null if no rule
+// fires. `_fullname` / `_location` use a leading underscore to flag the
+// special split logic in `applyMappingToRow`.
+function heuristicTargetFor(headerNorm: string): string | null {
+  const h = headerNorm;
+  if (!h) return null;
+  if (TRACKING_HEADERS.has(h)) return null;
+  // Name
+  if (/(^|\b)full name\b/.test(h)) return "_fullname";
+  if (/(^|\b)name\b$/.test(h) && !/company|business|first|last/.test(h)) return "_fullname";
+  if (/\bfirst ?name\b/.test(h)) return "primary_first_name";
+  if (/\blast ?name\b/.test(h)) return "primary_last_name";
+  // LinkedIn — person vs company
+  if (/(person|profile|primary).*linkedin|linkedin.*(profile|url)|linkedin profile/.test(h)) return "primary_linkedin_url";
+  if (/company.*linkedin|linkedin.*company/.test(h)) return "company_linkedin";
+  if (/^linkedin( url)?$/.test(h)) return "primary_linkedin_url";
+  // Emails
+  if (/personal.*email|home.*email/.test(h)) return "primary_personal_email";
+  if (/work.*email|company.*email|business.*email|find.*work.*email|work email$/.test(h)) return "primary_work_email";
+  if (h === "email") return "primary_work_email";
+  if (/email status|email verified|email validity|verification status|validate/.test(h)) return "primary_email_status";
+  // Phones
+  if (/direct.*phone|mobile|cell|phone number$|^phone$/.test(h)) return "primary_phone";
+  if (/secondary.*phone|other.*phone|alt.*phone/.test(h)) return "primary_secondary_phone";
+  if (/company.*phone|office.*phone/.test(h)) return "company_phone";
+  // Socials
+  if (/instagram/.test(h) && /company/.test(h)) return "company_instagram";
+  if (/instagram/.test(h)) return "primary_instagram";
+  if (/facebook/.test(h) && /company/.test(h)) return "company_facebook";
+  if (/facebook/.test(h)) return "primary_facebook";
+  if (/twitter/.test(h)) return "twitter_url";
+  // Photo / headline / summary / role
+  if (/photo|avatar|picture/.test(h)) return "primary_photo_url";
+  if (/headline/.test(h)) return "primary_headline";
+  if (/^summary$|profile summary|bio$/.test(h)) return "primary_career";
+  if (/title|role|position|job title/.test(h)) return "primary_title_role";
+  if (/seniority/.test(h)) return "primary_seniority";
+  // Company core
+  if (/company name|organization name|account name$/.test(h)) return "company_name";
+  if (/website|domain|company url/.test(h)) return "company_website";
+  if (/industry/.test(h) && /sub/.test(h)) return "company_sub_industry";
+  if (/industry/.test(h)) return "company_industry";
+  if (/employees|employee count|number of employees|head ?count/.test(h)) return "employees";
+  if (/annual revenue|yearly revenue|revenue/.test(h)) return "annual_revenue";
+  if (/keywords|tags/.test(h)) return "keywords";
+  if (/(company|org).*tagline|tagline/.test(h)) return "organization_tagline";
+  if (/(company|org).*description|description|about/.test(h)) return "organization_description";
+  if (/short desc/.test(h)) return "organization_short_desc";
+  if (/seo desc|meta desc/.test(h)) return "organization_seo_desc";
+  if (/logo/.test(h)) return "organization_logo_url";
+  if (/technolog|tech stack|tools used|software used/.test(h)) return "organization_technologies";
+  if (/similar (companies|orgs|organizations)|competitors/.test(h)) return "similar_organization";
+  if (/google reviews|reviews rating|rating/.test(h)) return "google_reviews_rating";
+  // Geography
+  if (/^city$|company city/.test(h)) return "company_city";
+  if (/^state$|company state|region|province/.test(h)) return "company_state";
+  if (/^country$|company country/.test(h)) return "company_country";
+  if (/^address ?1?$|street/.test(h)) return "company_address_1";
+  if (/^address ?2$/.test(h)) return "company_address_2";
+  if (/postal|zip|^cp$/.test(h)) return "company_cp";
+  if (/^location$/.test(h)) return "_location";
+  // Connections, jobs count, headlines about LinkedIn → enrichment extras
+  return null;
+}
+
+function detectSourceTool(fileName: string, headers: string[]): string {
+  const blob = (fileName + " " + headers.join(" ")).toLowerCase();
+  if (/apollo/.test(blob)) return "Apollo";
+  if (/phantom/.test(blob)) return "Phantom Buster";
+  if (/sales ?nav|sn export/.test(blob)) return "LinkedIn Sales Nav";
+  if (/zoominfo|zi export/.test(blob)) return "ZoomInfo";
+  if (/rfa|red flag/.test(blob)) return "RFA";
+  if (/companies ?house/.test(blob)) return "Companies House";
+  return "Other";
+}
+
+export function heuristicLeadMapping(input: {
+  fileName: string;
+  sourceHeaders: string[];
+  sampleRows: Array<Record<string, string>>;
+}): LeadMappingResult {
+  const mappings: LeadColumnMapping[] = [];
+  // If both First Name and Last Name exist we want them to win over a
+  // generic "Full Name" → first-pass scan establishes that signal.
+  const lower = input.sourceHeaders.map(h => normHeader(h));
+  const hasFirst = lower.some(h => /\bfirst ?name\b/.test(h));
+  const hasLast = lower.some(h => /\blast ?name\b/.test(h));
+  for (let i = 0; i < input.sourceHeaders.length; i++) {
+    const raw = input.sourceHeaders[i];
+    const h = lower[i];
+    let target: string | null = heuristicTargetFor(h);
+    // "Full Name" when First + Last are already present is pure duplication —
+    // skip instead of stashing it in enrichment so we don't bloat the JSONB.
+    if (target === "_fullname" && hasFirst && hasLast) {
+      target = "_skip";
+    }
+    // Unknown column with non-empty data in the sample → bucket into the
+    // schemaless `_extra:` slot so it survives import.
+    if (!target) {
+      const hasValue = input.sampleRows.some(r => (r[raw] ?? "").toString().trim() !== "");
+      target = hasValue && !TRACKING_HEADERS.has(h) ? `_extra:${raw}` : "_skip";
+    }
+    mappings.push({ source: raw, target });
+  }
+  return {
+    source_tool: detectSourceTool(input.fileName, input.sourceHeaders),
+    mappings,
+  };
 }
 
 // Applies the mapping AI returned to one CSV row. Returns:
