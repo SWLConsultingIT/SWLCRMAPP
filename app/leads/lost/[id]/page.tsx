@@ -314,7 +314,10 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className="p-6 w-full max-w-4xl mx-auto">
-      <Breadcrumb crumbs={[{ label: "Leads", href: "/leads" }, { label: "Lost Leads" }, { label: name }]} />
+      {/* Breadcrumb back to /results — that's where Lost / Won / Renurture
+          live post 2026-05-28 restructure. Linking to /leads sent the
+          seller to an unrelated index (boss complaint 2026-05-29). */}
+      <Breadcrumb crumbs={[{ label: "Results", href: "/results" }, { label: "Lost", href: "/results" }, { label: name }]} />
 
       {/* ═══ HEADER CARD ═══ */}
       <div
@@ -597,8 +600,8 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
 
       {/* Actions */}
       <div className="flex items-center justify-between rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
-        <Link href="/leads" className="text-xs font-medium hover:underline flex items-center gap-1" style={{ color: C.textMuted }}>
-          <ArrowLeft size={12} /> Back to Leads
+        <Link href="/results" className="text-xs font-medium hover:underline flex items-center gap-1" style={{ color: C.textMuted }}>
+          <ArrowLeft size={12} /> Back to Results
         </Link>
         <div className="flex items-center gap-2">
           <Link href={`/leads/${lead.id}`}

@@ -287,8 +287,8 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
     <div className="p-6 w-full max-w-6xl mx-auto">
       <Breadcrumb
         crumbs={[
-          { label: "Leads", href: "/leads" },
-          { label: "Results — Won", href: "/leads" },
+          { label: "Results", href: "/results" },
+          { label: "Won", href: "/results" },
           { label: lead.fullName },
         ]}
       />
@@ -491,7 +491,7 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
 
       {/* Footer */}
       <div className="flex items-center justify-between rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <Link href="/leads" className="text-xs font-medium hover:underline flex items-center gap-1" style={{ color: C.textMuted }}>
+        <Link href="/results" className="text-xs font-medium hover:underline flex items-center gap-1" style={{ color: C.textMuted }}>
           <ArrowLeft size={12} /> Back to Results
         </Link>
         <div className="flex items-center gap-2">
@@ -686,7 +686,7 @@ function CampaignOpportunityRollup({ data }: { data: NonNullable<Awaited<ReturnT
       </div>
 
       <div className="flex items-center justify-between rounded-xl border p-4 mt-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <Link href="/leads" className="text-xs font-medium hover:underline flex items-center gap-1" style={{ color: C.textMuted }}>
+        <Link href="/results" className="text-xs font-medium hover:underline flex items-center gap-1" style={{ color: C.textMuted }}>
           <ArrowLeft size={12} /> Back to Results
         </Link>
         {data.campaignId && (

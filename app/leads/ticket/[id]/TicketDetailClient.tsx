@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 import {
@@ -683,7 +683,20 @@ function AddToExistingModal({
 // ─── Main ──────────────────────────────────────────────────────────────────────
 export default function TicketDetailClient({ profileId, ticketName, campaigns, leads, metrics, updates }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t, locale } = useLocale();
+  // Boss 2026-05-29: the ticket is reachable from multiple surfaces
+  // (/leads Lead Miner card, /dashboard/seller/[id] expand row,
+  // SellerScorecard). The breadcrumb always sent the user back to /leads,
+  // which felt random when they arrived from the dashboard. Now we honor
+  // a `?from=<url>` querystring so the entry point controls the back
+  // destination. Whitelist the prefix so a tampered URL can't redirect
+  // off-app (only relative paths on this origin).
+  const fromParam = searchParams?.get("from") ?? null;
+  const backHref = fromParam && fromParam.startsWith("/") ? fromParam : "/leads";
+  const backLabel = backHref.startsWith("/dashboard/seller") ? t("ticket.breadcrumb.backSeller")
+    : backHref.startsWith("/dashboard") ? t("ticket.breadcrumb.backDashboard")
+    : t("ticket.breadcrumb.back");
   const [tab, setTab] = useState(0);
   // Inside the Leads tab the boss wants the seller to split leads by whether
   // they're already in a flow ("With Campaign") vs idle ("Unassigned"). The
@@ -740,8 +753,8 @@ export default function TicketDetailClient({ profileId, ticketName, campaigns, l
     <div className="p-6 w-full">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs mb-5" style={{ color: C.textMuted }}>
-        <Link href="/leads" className="hover:underline flex items-center gap-1">
-          <ArrowLeft size={12} /> {t("ticket.breadcrumb.back")}
+        <Link href={backHref} className="hover:underline flex items-center gap-1">
+          <ArrowLeft size={12} /> {backLabel}
         </Link>
         <span>/</span>
         <span style={{ color: C.textBody }}>{ticketName}</span>

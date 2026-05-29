@@ -182,7 +182,7 @@ export default function SellerScorecard({
               items={seller.topCampaigns.map(c => ({ label: c.name, sent: c.sent, replied: c.replied, positive: c.positive, href: `/dashboard/campaign/${encodeURIComponent(c.name)}` }))}
               emptyLabel={labels.empty} sentLabel={labels.sentShort} repliedLabel={labels.repliedShort} positiveLabel={labels.positiveShort} />
             <AttrBlock title={labels.icpsTitle} Icon={Target}
-              items={seller.topIcps.map(i => ({ label: i.name, sent: i.sent, replied: i.replied, positive: i.positive, href: i.id !== "_unknown" ? `/leads/ticket/${i.id}` : null }))}
+              items={seller.topIcps.map(i => ({ label: i.name, sent: i.sent, replied: i.replied, positive: i.positive, href: i.id !== "_unknown" ? `/leads/ticket/${i.id}?from=${encodeURIComponent("/?tab=sellers")}` : null }))}
               emptyLabel={labels.empty} sentLabel={labels.sentShort} repliedLabel={labels.repliedShort} positiveLabel={labels.positiveShort} />
           </div>
 

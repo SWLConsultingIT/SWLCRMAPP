@@ -425,7 +425,10 @@ export default async function SellerDetailPage({
   return (
     <div className="p-4 sm:p-6 w-full space-y-5">
       <div className="flex items-center justify-between gap-2">
-        <Link href={periodChip ? `/?from=${periodFrom}&to=${periodTo}` : "/"} className="inline-flex items-center gap-1 text-xs hover:underline transition-opacity hover:opacity-70" style={{ color: C.textMuted }}>
+        {/* Preserve `?tab=sellers` so the back link lands on the Sellers
+            tab (where this detail is reached from), not the Today tab
+            default. Boss 2026-05-29 back-button audit. */}
+        <Link href={periodChip ? `/?tab=sellers&from=${periodFrom}&to=${periodTo}` : "/?tab=sellers"} className="inline-flex items-center gap-1 text-xs hover:underline transition-opacity hover:opacity-70" style={{ color: C.textMuted }}>
           <ArrowLeft size={12} /> {t("dashx.detail.back")}
         </Link>
         {periodChip && (

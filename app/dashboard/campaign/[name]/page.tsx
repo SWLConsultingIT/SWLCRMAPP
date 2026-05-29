@@ -360,7 +360,9 @@ export default async function CampaignDetailPage({
   return (
     <div className="p-4 sm:p-6 w-full space-y-6">
       <div className="flex items-center justify-between gap-2">
-        <Link href={periodChip ? `/?from=${periodFrom}&to=${periodTo}` : "/"} className="inline-flex items-center gap-1 text-xs hover:underline transition-opacity hover:opacity-70" style={{ color: C.textMuted }}>
+        {/* Preserve `?tab=campaigns` so back lands on the Campaigns tab
+            where this detail was reached from. */}
+        <Link href={periodChip ? `/?tab=campaigns&from=${periodFrom}&to=${periodTo}` : "/?tab=campaigns"} className="inline-flex items-center gap-1 text-xs hover:underline transition-opacity hover:opacity-70" style={{ color: C.textMuted }}>
           <ArrowLeft size={12} /> {t("dashx.detail.back")}
         </Link>
         {periodChip && (

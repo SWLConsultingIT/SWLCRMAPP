@@ -182,10 +182,13 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
   return (
     <div className="p-6 w-full fade-in">
 
-      {/* Breadcrumb */}
+      {/* Breadcrumb — back to the Companies sub-tab on /leads. The
+          ?view=companies param lands the operator on the Companies grid
+          (where this detail was clicked from) instead of the default
+          Leads sub-tab. */}
       <div className="flex items-center gap-2 text-xs mb-4" style={{ color: C.textMuted }}>
-        <Link href="/leads" className="hover:underline flex items-center gap-1">
-          <ArrowLeft size={12} /> Leads
+        <Link href="/leads?view=companies" className="hover:underline flex items-center gap-1">
+          <ArrowLeft size={12} /> Companies
         </Link>
         <span>/</span>
         <span style={{ color: C.textBody }}>{companyName}</span>

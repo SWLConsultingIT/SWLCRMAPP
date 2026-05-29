@@ -303,8 +303,10 @@ export default function FlowEditorPage() {
 
   return (
     <div className="p-6 w-full max-w-4xl mx-auto">
-      {/* Back */}
-      <Link href="/campaigns" className="flex items-center gap-2 text-sm font-medium mb-6 transition-colors hover:opacity-70 cursor-pointer"
+      {/* Back to the flow detail (not the /campaigns index — label said
+          "Outreach Flow" but href went to the list, boss back-button
+          audit 2026-05-29). */}
+      <Link href={`/campaigns/${campaignId}`} className="flex items-center gap-2 text-sm font-medium mb-6 transition-colors hover:opacity-70 cursor-pointer"
         style={{ color: C.textMuted }}>
         <ArrowLeft size={16} /> Back to Outreach Flow
       </Link>

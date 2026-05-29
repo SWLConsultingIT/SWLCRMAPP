@@ -219,7 +219,10 @@ export default function SellerRow({
               <Block
                 title={labels.icpsTitle}
                 Icon={Target}
-                items={seller.topIcps.map(i => ({ label: i.name, sent: i.sent, replied: i.replied, positive: i.positive, href: i.id !== "_unknown" ? `/leads/ticket/${i.id}` : null }))}
+                // ?from=/?tab=sellers so the ticket detail breadcrumb sends
+                // the user back to the dashboard Sellers tab (where the
+                // expand row lives) instead of /leads (boss 2026-05-29).
+                items={seller.topIcps.map(i => ({ label: i.name, sent: i.sent, replied: i.replied, positive: i.positive, href: i.id !== "_unknown" ? `/leads/ticket/${i.id}?from=${encodeURIComponent("/?tab=sellers")}` : null }))}
                 emptyLabel={labels.empty}
                 labels={{ sentShort: labels.sentShort, repliedShort: labels.repliedShort, positiveShort: labels.positiveShort }}
               />

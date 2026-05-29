@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { C } from "@/lib/design";
 import {
   Megaphone, ChevronRight, Target,
@@ -1726,7 +1726,12 @@ export default function LeadsCampaignsClient({ profileGroups, allLeads, lostLead
   // Campaigns tab removed 2026-05-28 — campaign management lives at
   // `/campaigns` (Outreach Flow page) now; the in-page Campaigns view
   // duplicated that surface and was unused.
-  const [mainView, setMainView] = useState<"leads" | "companies">("leads");
+  // `?view=companies` lands directly on the Companies sub-tab — used by
+  // the back breadcrumb on /companies/[name] so the operator returns to
+  // where they came from (boss back-button audit 2026-05-29).
+  const sp = useSearchParams();
+  const initialMainView = sp?.get("view") === "companies" ? "companies" : "leads";
+  const [mainView, setMainView] = useState<"leads" | "companies">(initialMainView);
   // Status chips trimmed to the three pipeline-membership states only.
   // Won/Lost/Re-nurture live in /results; Hot/Replied/Positive are
   // facets in the filter bar (Score + Reply), not top-level navigation
