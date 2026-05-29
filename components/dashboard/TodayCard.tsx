@@ -29,6 +29,14 @@ export type TodayLead = {
   icp?: string | null;
   when?: string | null;
   tag?: string | null;
+  /** First + last name. Surfaced in Replies + Calls rows (boss 2026-05-29).
+   * When null we fall back to company so the row never reads as blank. */
+  name?: string | null;
+  /** Channel of the reply (linkedin / email / call / whatsapp). Lets the
+   * Replies row show where the message came from. */
+  channel?: string | null;
+  /** Lead's primary phone — used by the Calls row's inline dial button. */
+  phone?: string | null;
 };
 
 export type TodaySectionKey = "replies" | "positives" | "calls" | "unassigned" | "stale";
@@ -155,13 +163,11 @@ export default function TodayCard({
         </div>
       </div>
 
-      {totalItems === 0 ? (
-        <p className="px-5 py-6 text-center text-[13px]" style={{ color: C.textMuted }}>
-          {labels.empty}
-        </p>
-      ) : (
-        <ul className="divide-y" style={{ borderColor: C.border }}>
-          {sections.map(s => {
+      {/* Boss feedback 2026-05-29: every section must render even at count=0
+          so the operator sees the universe of "what to do". Empty sections
+          collapse but the header (count + label + CTA) stays visible. */}
+      <ul className="divide-y" style={{ borderColor: C.border }}>
+        {sections.map(s => {
             const Icon = s.icon;
             const isOpen = open[s.key];
             const hasItems = s.list.length > 0;
@@ -226,63 +232,172 @@ export default function TodayCard({
                       backgroundColor: `color-mix(in srgb, ${s.accent} 3%, transparent)`,
                     }}
                   >
-                    {s.list.map(lead => {
-                      const when = fmtRelative(lead.when, locale);
-                      // Company is the preferred primary label; when it
-                      // comes back empty ("—"), promote the ICP name so
-                      // the row never looks orphaned. The seller can still
-                      // click in to /leads/[id] to see the contact details.
-                      const hasCompany = lead.company && lead.company !== "—";
-                      const primary = hasCompany ? lead.company : (lead.icp ?? labels.noIcp);
-                      const secondary = hasCompany
-                        ? [lead.icp ?? labels.noIcp, lead.tag].filter(Boolean).join(" · ")
-                        : (lead.tag ?? "");
-                      const avatarText = primary.replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2).toUpperCase() || "··";
-                      return (
-                        <li key={lead.id}>
-                          <Link
-                            href={`/leads/${lead.id}`}
-                            className="flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-black/[0.025] group"
-                            style={{ borderColor: C.border }}
-                          >
-                            <span
-                              className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold uppercase shrink-0"
-                              style={{
-                                backgroundColor: `color-mix(in srgb, ${s.accent} 14%, transparent)`,
-                                color: s.accent,
-                                border: `1px solid color-mix(in srgb, ${s.accent} 22%, transparent)`,
-                              }}
-                              aria-hidden
-                            >
-                              {avatarText}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[13px] font-medium truncate" style={{ color: C.textPrimary }}>
-                                {primary}
-                              </p>
-                              {secondary && (
-                                <p className="text-[10.5px] truncate" style={{ color: C.textDim }}>
-                                  {secondary}
-                                </p>
-                              )}
-                            </div>
-                            {when && (
-                              <span className="shrink-0 text-[10.5px] tabular-nums" style={{ color: C.textMuted }}>
-                                {when}
-                              </span>
-                            )}
-                            <ArrowUpRight size={12} className="shrink-0 transition-transform group-hover:translate-x-0.5" style={{ color: C.textDim }} />
-                          </Link>
-                        </li>
-                      );
-                    })}
+                    {s.list.map(lead => (
+                      <li key={lead.id}>
+                        <TodayLeadRow
+                          lead={lead}
+                          sectionKey={s.key}
+                          accent={s.accent}
+                          locale={locale}
+                          noIcp={labels.noIcp}
+                        />
+                      </li>
+                    ))}
                   </ul>
                 )}
               </li>
             );
           })}
         </ul>
-      )}
     </section>
+  );
+}
+
+/** Renders one lead row inside an expanded section. Replies + Calls get
+ * boss-specific treatments (classification badge + channel chip for
+ * Replies; inline phone-icon dial for Calls). Other sections fall back
+ * to the compact name+company layout. */
+function TodayLeadRow({
+  lead, sectionKey, accent, locale, noIcp,
+}: {
+  lead: TodayLead;
+  sectionKey: TodaySectionKey;
+  accent: string;
+  locale: "en" | "es";
+  noIcp: string;
+}) {
+  const when = fmtRelative(lead.when, locale);
+  const hasName = !!lead.name;
+  const hasCompany = lead.company && lead.company !== "—";
+  // Primary label: name when we have one, otherwise company (current fallback),
+  // otherwise ICP. Secondary line carries the supporting context: company,
+  // ICP, classification (Replies only), channel (Replies only).
+  const primary = hasName ? lead.name! : (hasCompany ? lead.company : (lead.icp ?? noIcp));
+  const secondaryParts: string[] = [];
+  if (hasName && hasCompany) secondaryParts.push(lead.company);
+  if (lead.icp) secondaryParts.push(lead.icp);
+  const avatarSeed = (lead.name ?? lead.company ?? "··").replace(/[^\p{L}\p{N}]/gu, "");
+  const avatarText = avatarSeed.slice(0, 2).toUpperCase() || "··";
+  const rowClass = "flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-black/[0.025] group";
+
+  // The Calls section needs an inline dial action; wrap as a div so the
+  // dial-icon button can sit alongside the navigate link without a
+  // nested-interactive-elements warning.
+  if (sectionKey === "calls") {
+    return (
+      <div className={rowClass} style={{ borderColor: C.border }}>
+        <Avatar accent={accent} text={avatarText} />
+        <Link href={`/leads/${lead.id}`} className="flex-1 min-w-0">
+          <p className="text-[13px] font-semibold truncate" style={{ color: C.textPrimary }}>
+            {primary}
+          </p>
+          {(hasName && hasCompany) && (
+            <p className="text-[10.5px] truncate" style={{ color: C.textDim }}>
+              {lead.company}{lead.icp ? ` · ${lead.icp}` : ""}
+            </p>
+          )}
+        </Link>
+        {when && (
+          <span className="shrink-0 text-[10.5px] tabular-nums" style={{ color: C.textMuted }}>
+            {when}
+          </span>
+        )}
+        {lead.phone ? (
+          <a href={`tel:${lead.phone}`}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-opacity hover:opacity-90 shrink-0"
+            style={{ backgroundColor: `color-mix(in srgb, ${accent} 14%, transparent)`, color: accent, border: `1px solid color-mix(in srgb, ${accent} 30%, transparent)` }}
+            aria-label={`Dial ${lead.phone}`}
+          >
+            <Phone size={11} /> {locale === "es" ? "Llamar" : "Dial"}
+          </a>
+        ) : (
+          <span className="text-[10px] italic shrink-0" style={{ color: C.textDim }}>
+            {locale === "es" ? "sin teléfono" : "no phone"}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  // Replies row: same shape as default but adds a classification badge
+  // (positive=green, negative=red, anything else=neutral) + channel chip.
+  if (sectionKey === "replies") {
+    const cls = lead.tag ?? "";
+    const isPositive = cls === "positive" || cls === "meeting_intent";
+    const isNegative = cls === "negative" || cls === "not_now" || cls === "unsubscribe";
+    const classColor = isPositive ? "#10B981" : isNegative ? "#DC2626" : "#D97706";
+    const classLabel = isPositive ? (locale === "es" ? "positivo" : "positive")
+      : isNegative ? (locale === "es" ? "negativo" : "negative")
+      : cls || (locale === "es" ? "revisar" : "review");
+    return (
+      <Link href={`/leads/${lead.id}`} className={rowClass} style={{ borderColor: C.border }}>
+        <Avatar accent={accent} text={avatarText} />
+        <div className="flex-1 min-w-0">
+          <p className="text-[13px] font-semibold truncate" style={{ color: C.textPrimary }}>
+            {primary}
+          </p>
+          {secondaryParts.length > 0 && (
+            <p className="text-[10.5px] truncate" style={{ color: C.textDim }}>
+              {secondaryParts.join(" · ")}
+            </p>
+          )}
+        </div>
+        <span className="text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0"
+          style={{ backgroundColor: `color-mix(in srgb, ${classColor} 14%, transparent)`, color: classColor }}>
+          {classLabel}
+        </span>
+        {lead.channel && (
+          <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0"
+            style={{ backgroundColor: C.surface, color: C.textMuted }}>
+            {lead.channel}
+          </span>
+        )}
+        {when && (
+          <span className="shrink-0 text-[10.5px] tabular-nums" style={{ color: C.textMuted }}>
+            {when}
+          </span>
+        )}
+        <ArrowUpRight size={12} className="shrink-0 transition-transform group-hover:translate-x-0.5" style={{ color: C.textDim }} />
+      </Link>
+    );
+  }
+
+  // Default (Stale, Unassigned, Positives if ever re-enabled): name + company.
+  return (
+    <Link href={`/leads/${lead.id}`} className={rowClass} style={{ borderColor: C.border }}>
+      <Avatar accent={accent} text={avatarText} />
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-semibold truncate" style={{ color: C.textPrimary }}>
+          {primary}
+        </p>
+        {secondaryParts.length > 0 && (
+          <p className="text-[10.5px] truncate" style={{ color: C.textDim }}>
+            {secondaryParts.join(" · ")}
+          </p>
+        )}
+      </div>
+      {when && (
+        <span className="shrink-0 text-[10.5px] tabular-nums" style={{ color: C.textMuted }}>
+          {when}
+        </span>
+      )}
+      <ArrowUpRight size={12} className="shrink-0 transition-transform group-hover:translate-x-0.5" style={{ color: C.textDim }} />
+    </Link>
+  );
+}
+
+function Avatar({ accent, text }: { accent: string; text: string }) {
+  return (
+    <span
+      className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold uppercase shrink-0"
+      style={{
+        backgroundColor: `color-mix(in srgb, ${accent} 14%, transparent)`,
+        color: accent,
+        border: `1px solid color-mix(in srgb, ${accent} 22%, transparent)`,
+      }}
+      aria-hidden
+    >
+      {text}
+    </span>
   );
 }

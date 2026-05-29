@@ -29,6 +29,9 @@ type LeadRow = {
   created_at: string | null;
   company_bio_id: string | null;
   company_name: string | null;
+  primary_first_name?: string | null;
+  primary_last_name?: string | null;
+  primary_phone?: string | null;
 };
 type CampRow = {
   id: string;
@@ -149,7 +152,10 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const scope = await getUserScope();
   const bioId = scope.isScoped ? scope.companyBioId! : null;
 
-  const leadsQ = supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at, company_bio_id, company_name");
+  // primary_first_name/last_name/phone surface in TodayCard rows (boss
+  // 2026-05-29 asked for name + dial in Replies/Calls). Lightweight cost —
+  // already a single SELECT per request.
+  const leadsQ = supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at, company_bio_id, company_name, primary_first_name, primary_last_name, primary_phone");
   const campsQ = supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, created_at, stop_reason, leads!inner(company_bio_id)");
   const repliesQ = supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, channel, received_at, leads!inner(company_bio_id)");
   const msgsQ = supabase.from("campaign_messages").select("id, campaign_id, step_number, status, sent_at, campaigns!inner(leads!inner(company_bio_id))");
@@ -1431,16 +1437,31 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     todayLists: (() => {
       const leadById = new Map(leads.map(l => [l.id, l]));
       const profileById = new Map(allProfiles.map(p => [p.id, p.profile_name]));
-      type TodayLead = { id: string; company: string; icp: string | null; when: string | null; tag: string | null };
-      const summarize = (leadId: string, extra: { when?: string | null; tag?: string | null } = {}): TodayLead | null => {
+      type TodayLead = {
+        id: string;
+        company: string;
+        icp: string | null;
+        when: string | null;
+        tag: string | null;
+        name: string | null;
+        channel: string | null;
+        phone: string | null;
+      };
+      const summarize = (leadId: string, extra: { when?: string | null; tag?: string | null; channel?: string | null } = {}): TodayLead | null => {
         const l = leadById.get(leadId);
         if (!l) return null;
+        const first = l.primary_first_name ?? "";
+        const last  = l.primary_last_name ?? "";
+        const name = `${first} ${last}`.trim() || null;
         return {
           id: l.id,
           company: l.company_name ?? "—",
           icp: l.icp_profile_id ? (profileById.get(l.icp_profile_id) ?? null) : null,
           when: extra.when ?? l.created_at ?? null,
           tag: extra.tag ?? null,
+          name,
+          channel: extra.channel ?? null,
+          phone: l.primary_phone ?? null,
         };
       };
       const repliesSorted = [...replies]
@@ -1451,7 +1472,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       for (const r of repliesSorted) {
         if (!r.lead_id || seenReplied.has(r.lead_id)) continue;
         seenReplied.add(r.lead_id);
-        const s = summarize(r.lead_id, { when: r.received_at, tag: r.classification });
+        const s = summarize(r.lead_id, { when: r.received_at, tag: r.classification, channel: r.channel });
         if (s) repliesList.push(s);
         if (repliesList.length >= 8) break;
       }
