@@ -430,13 +430,17 @@ async function handle(req: NextRequest) {
   const nowMs = Date.now();
 
   // Pull a window larger than the batch so eligibility filtering leaves enough.
+  // Order by metadata.eligible_at ASC — see dispatch-queue for context. The
+  // created_at order would push later steps of older campaigns ahead of step
+  // 0 from newer ones, starving the newer cohort. Bumped the limit too so
+  // future-scheduled rows don't crowd out the eligible ones.
   const { data: claimed } = await svc
     .from("campaign_messages")
     .select("id, campaign_id, lead_id, step_number, channel, content, status, metadata, campaigns(seller_id)")
     .eq("status", "queued")
     .eq("channel", "email")
-    .order("created_at", { ascending: true })
-    .limit(BATCH_SIZE * 3);
+    .order("metadata->>eligible_at", { ascending: true, nullsFirst: true })
+    .limit(Math.max(BATCH_SIZE * 5, 100));
 
   const eligible = (claimed ?? []).filter((r: any) => {
     const eligibleAt = r?.metadata?.eligible_at;

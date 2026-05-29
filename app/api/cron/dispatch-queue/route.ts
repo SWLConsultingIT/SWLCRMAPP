@@ -996,14 +996,26 @@ async function processSellerBatch(
   const batchSize = Math.min(remaining, BATCH_SIZE_PER_SELLER);
 
   // Pull a window of queued messages for this seller, filter eligible.
+  //
+  // Order by metadata.eligible_at ASC (not created_at) — the previous order
+  // would push step_2/step_3 rows of older campaigns ahead of step_0 rows
+  // from newer campaigns because the import inserts the whole sequence in
+  // one shot with consecutive microseconds. Result: a seller with lots of
+  // older campaigns and a recent batch of CRs would never get the CRs sent
+  // (they sit at positions 26+ in the candidate list, the .limit(20) cuts
+  // them off, every iteration the future-eligible older rows get rejected
+  // in JS and the seller "blocks idle"). Switching to eligible_at-ASC means
+  // the row closest to becoming eligible (or already eligible) always wins.
+  // Limit bumped to 100 to be defensive against the same trap recurring on
+  // a different shape.
   const { data: candidates } = await svc
     .from("campaign_messages")
     .select("id, campaign_id, lead_id, step_number, channel, content, status, metadata, campaigns!inner(seller_id)")
     .eq("status", "queued")
     .eq("channel", "linkedin")
     .eq("campaigns.seller_id", seller.id)
-    .order("created_at", { ascending: true })
-    .limit(20);
+    .order("metadata->>eligible_at", { ascending: true, nullsFirst: true })
+    .limit(100);
 
   const nowMs = Date.now();
   const eligible = (candidates ?? []).filter((r: any) => {
