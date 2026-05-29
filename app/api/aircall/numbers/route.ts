@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { getUserScope } from "@/lib/scope";
 
 const AIRCALL_AUTH = Buffer.from(
   `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`
@@ -66,32 +66,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ numbers: shaped.filter(n => allowedSet.has(n.id)) });
   }
 
-  // FALLBACK PATH (no lead context): viewer-tenant scope. Super_admin sees
-  // all numbers ONLY in this branch — used by surfaces that haven't been
-  // upgraded to pass leadId. Should be deprecated once every caller wires
-  // the leadId through.
-  const supabase = await getSupabaseServer();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ numbers: shaped });
-
-  const { data: profile } = await svc
-    .from("user_profiles")
-    .select("role, tier, company_bio_id")
-    .eq("user_id", user.id)
-    .single();
-
-  // Strictly tier-gated. The legacy `role === 'admin'` OR was the same
-  // pattern that produced the 2026-05-06 cross-tenant leak — a tenant owner
-  // with role='admin' would have seen the unfiltered global Aircall pool.
-  const isSuperAdmin = profile?.tier === "super_admin";
-  if (isSuperAdmin || !profile?.company_bio_id) {
-    return NextResponse.json({ numbers: shaped });
-  }
+  // FALLBACK PATH (no lead context): scope to the user's ACTIVE tenant via
+  // getUserScope(). When a super_admin has switched into a tenant via the
+  // TenantSwitcher (cookie ACTIVE_TENANT_COOKIE), scope.companyBioId is that
+  // tenant's id — even though the super_admin's own user_profiles.company_bio_id
+  // is still SWL. Returning the global pool there was the bug Fran caught
+  // 2026-05-29 in the campaign wizard: viewing Pathway, the Aircall picker
+  // showed SWL's + Pathway's + Arqy's numbers. Now it correctly shows only
+  // Pathway's. Only an UN-scoped super_admin (e.g. cross-tenant /admin
+  // surfaces) sees the full pool.
+  const scope = await getUserScope();
+  if (!scope.userId) return NextResponse.json({ numbers: shaped });
+  if (!scope.isScoped) return NextResponse.json({ numbers: shaped });
+  if (!scope.companyBioId) return NextResponse.json({ numbers: [] });
 
   const { data: bio } = await svc
     .from("company_bios")
     .select("aircall_number_ids")
-    .eq("id", profile.company_bio_id)
+    .eq("id", scope.companyBioId)
     .single();
 
   const allowed = bio?.aircall_number_ids as number[] | null;
