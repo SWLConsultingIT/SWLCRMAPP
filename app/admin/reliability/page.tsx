@@ -4,14 +4,15 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import Breadcrumb from "@/components/Breadcrumb";
 import { C } from "@/lib/design";
-import { AlertTriangle, CheckCircle2, Clock, Send, Hourglass, Snowflake, Activity, MessageSquare, TrendingUp, Building2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Send, Snowflake, Activity, MessageSquare, TrendingUp } from "lucide-react";
 import ReliabilityActions from "./ReliabilityActions";
 import RetryButton from "./RetryButton";
 import { CancelCooldownButton, PauseCampaignButton } from "./CooldownActions";
 import HideNoiseToggle from "./HideNoiseToggle";
 import CollapsibleSection from "./CollapsibleSection";
-import AutoRefresh from "./AutoRefresh";
 import FailedSummary from "./FailedSummary";
+import ReliabilityTabs, { type ReliabilityTabKey } from "./ReliabilityTabs";
+import TenantHealthGrid, { computeTenantHealth, type TenantHealth } from "./TenantHealthGrid";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
 // Reliability dashboard — SUPER ADMIN ONLY (canViewSwlAdmin gate).
@@ -89,6 +90,7 @@ type TenantSummary = {
   stuck: number;
   cooldown: number;
   sent24h: number;
+  ghost: number;
 };
 
 type ReliabilityData = {
@@ -396,7 +398,7 @@ async function fetchReliability(): Promise<ReliabilityData> {
   const tenantInit = (bioId: string): TenantSummary => ({
     bioId,
     name: bioNameMap.get(bioId) ?? "(unknown tenant)",
-    queued: 0, failed: 0, stuck: 0, cooldown: 0, sent24h: 0,
+    queued: 0, failed: 0, stuck: 0, cooldown: 0, sent24h: 0, ghost: 0,
   });
   const tenantMap = new Map<string, TenantSummary>();
   const bumpTenant = (bioId: string | null | undefined, field: keyof Omit<TenantSummary, "bioId" | "name">) => {
@@ -409,8 +411,9 @@ async function fetchReliability(): Promise<ReliabilityData> {
   for (const r of stuck) bumpTenant(r.leads?.company_bio_id, "stuck");
   for (const r of queuedCooldown) bumpTenant(r.leads?.company_bio_id, "cooldown");
   for (const r of reconciled) bumpTenant(r.leads?.company_bio_id, "sent24h");
+  for (const r of reconciled) if (r._bucket === "ghost") bumpTenant(r.leads?.company_bio_id, "ghost");
   const tenants = Array.from(tenantMap.values()).sort((a, b) =>
-    (b.failed + b.stuck) - (a.failed + a.stuck) || b.queued - a.queued || a.name.localeCompare(b.name),
+    (b.ghost + b.failed + b.stuck) - (a.ghost + a.failed + a.stuck) || b.queued - a.queued || a.name.localeCompare(b.name),
   );
 
   return {
@@ -472,13 +475,19 @@ function byTenant<T extends { leads?: { company_bio_id?: string | null } | null 
   return rows.filter(r => r.leads?.company_bio_id === tenantId);
 }
 
-export default async function ReliabilityPage({ searchParams }: { searchParams: Promise<{ noise?: string; tenant?: string }> }) {
+export default async function ReliabilityPage({ searchParams }: { searchParams: Promise<{ noise?: string; tenant?: string; tab?: string }> }) {
   const scope = await getUserScope();
   if (!canViewSwlAdmin(scope.tier)) redirect("/");
 
   const params = await searchParams;
   const showNoise = params.noise === "1";
   const tenantId = params.tenant && params.tenant !== "all" ? params.tenant : null;
+  // Tab selector — default is "status" (health overview + action required).
+  // Pipeline = queue/cooldown/waiting/dispatching. History = sent/skipped/expired.
+  const tab: ReliabilityTabKey =
+    params.tab === "pipeline" ? "pipeline"
+    : params.tab === "history" ? "history"
+    : "status";
 
   const data = await fetchReliability();
   const { queueHealth, sentVsUnipile, sellerHealth, kpis, fetchedAt, tenants } = data;
@@ -528,69 +537,42 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
   const allClean =
     actionRequiredCount === 0 && pipelineCount === 0;
 
+  // Per-tenant healthscore for the Status tab tenant grid. Computed off the
+  // tenant summaries built in fetchReliability (which already aggregate per
+  // bio_id). Scoring is identical across the page so the chip dot and the
+  // grid card border stay in sync.
+  const tenantHealth: TenantHealth[] = tenants.map(t => computeTenantHealth(t));
+  const globalHealth = tenantHealth.length > 0
+    ? Math.round(tenantHealth.reduce((a, t) => a + t.health, 0) / tenantHealth.length)
+    : 100;
+  // Counts shown next to each tab label so the operator sees at a glance
+  // whether they have to switch tabs (e.g. "5 ghosts in History").
+  const historyCount = fSentRows.length + skippedVisible.length + fExpired.length;
+  const tabCounts = {
+    status: actionRequiredCount,
+    pipeline: pipelineCount,
+    history: historyCount,
+  };
+
   return (
     <div className="p-6 w-full max-w-6xl mx-auto">
       <Breadcrumb crumbs={[{ label: "Admin", href: "/admin" }, { label: "Reliability" }]} />
 
       {/* ─── Header ───────────────────────────────────────────────── */}
-      <div className="flex items-end justify-between mb-6 flex-wrap gap-3">
+      <div className="flex items-end justify-between mb-5 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold mb-1" style={{ color: C.textPrimary }}>Reliability</h1>
           <p className="text-sm" style={{ color: C.textMuted }}>
             {selectedLabel === "All tenants"
-              ? `Pipeline health across every tenant. Fetched ${formatTime(fetchedAt)}.`
+              ? <>Pipeline health across every tenant. <span style={{ color: C.textDim }}>Fetched {formatTime(fetchedAt)}.</span></>
               : <>Pipeline health for <strong style={{ color: C.textBody }}>{selectedLabel}</strong>. <Link href="/admin/reliability" className="underline" style={{ color: C.linkedin }}>Ver todos</Link>.</>}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <AutoRefresh />
-          <ReliabilityActions />
-        </div>
+        <ReliabilityActions />
       </div>
 
-      {/* ─── Tenant selector ─────────────────────────────────────── */}
-      <div className="mb-6">
-        <p className="text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textMuted }}>
-          Tenants <span className="font-normal normal-case ml-1">({tenants.length} con actividad)</span>
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href="/admin/reliability"
-            className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-80"
-            style={{
-              backgroundColor: !tenantId ? `color-mix(in srgb, ${C.linkedin} 12%, transparent)` : C.card,
-              borderColor: !tenantId ? C.linkedin : C.border,
-              color: !tenantId ? C.linkedin : C.textBody,
-            }}>
-            All tenants
-          </Link>
-          {tenants.map(t => {
-            const isActive = tenantId === t.bioId;
-            const hasIssues = t.failed > 0 || t.stuck > 0;
-            const dotColor = hasIssues ? C.red : (t.cooldown > 0 ? "#D97706" : C.green);
-            return (
-              <Link
-                key={t.bioId}
-                href={`/admin/reliability?tenant=${encodeURIComponent(t.bioId)}`}
-                className="rounded-lg border px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-80 inline-flex items-center gap-2"
-                style={{
-                  backgroundColor: isActive ? `color-mix(in srgb, ${C.linkedin} 12%, transparent)` : C.card,
-                  borderColor: isActive ? C.linkedin : C.border,
-                  color: isActive ? C.linkedin : C.textBody,
-                }}>
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
-                {t.name}
-                <span className="text-[10px] tabular-nums" style={{ color: C.textDim }}>
-                  q{t.queued} · f{t.failed} · s{t.stuck}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-        <p className="text-[10px] mt-1.5" style={{ color: C.textDim }}>
-          q = queued · f = failed · s = stuck · dot = red if anything fails/stuck, amber if cooldown active, green if clean
-        </p>
-      </div>
+      {/* ─── Tab nav: Status / Pipeline / History ────────────────── */}
+      <ReliabilityTabs active={tab} counts={tabCounts} />
 
       {/* ─── KPI ribbon (scoped to selected tenant) ──────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
@@ -634,7 +616,34 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
         />
       </div>
 
-      {allClean && (
+      {/* ════════════════════════════════════════════════════════════
+          STATUS TAB — health banner + tenant grid + action required
+          ════════════════════════════════════════════════════════════ */}
+      {tab === "status" && (
+        <HealthBanner
+          global={globalHealth}
+          actionRequired={actionRequiredCount}
+          pipeline={pipelineCount}
+          scopeLabel={selectedLabel}
+        />
+      )}
+
+      {/* Tenant grid is only meaningful in the cross-tenant view. */}
+      {tab === "status" && selectedLabel === "All tenants" && tenantHealth.length > 0 && (
+        <section className="mb-6">
+          <div className="flex items-baseline justify-between mb-3">
+            <h2 className="text-sm font-bold uppercase tracking-wider" style={{ color: C.textPrimary }}>
+              Health por tenant
+            </h2>
+            <span className="text-[11px]" style={{ color: C.textMuted }}>
+              {tenantHealth.length} tenant{tenantHealth.length === 1 ? "" : "s"} con actividad · click para filtrar
+            </span>
+          </div>
+          <TenantHealthGrid tenants={tenantHealth} activeTenantId={tenantId} />
+        </section>
+      )}
+
+      {tab === "status" && allClean && (
         <div className="rounded-xl border p-5 mb-6 flex items-center gap-3"
           style={{ backgroundColor: C.greenLight, borderColor: C.green + "30" }}>
           <CheckCircle2 size={20} style={{ color: C.green }} />
@@ -644,10 +653,10 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════════════
-          🔴 ACCIÓN REQUERIDA — things you have to fix or decide
-          ════════════════════════════════════════════════════════════ */}
-      {actionRequiredCount > 0 && (
+      {/* ────────────────────────────────────────────────────────────
+          STATUS · Acción requerida — failed / stuck / ghosts
+          ──────────────────────────────────────────────────────────── */}
+      {tab === "status" && actionRequiredCount > 0 && (
         <SectionGroup title="Acción requerida" subtitle="Cosas que necesitan tu atención — el dispatcher no las va a resolver solo." accent={C.red} count={actionRequiredCount}>
           {/* Failed */}
           {(failedVisible.length > 0 || failedHiddenCount > 0) && (
@@ -763,9 +772,18 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
       )}
 
       {/* ════════════════════════════════════════════════════════════
-          🟡 PIPELINE EN CURSO — work flowing through, no action needed
+          PIPELINE TAB — work flowing through, no action needed
           ════════════════════════════════════════════════════════════ */}
-      {pipelineCount > 0 && (
+      {tab === "pipeline" && pipelineCount === 0 && (
+        <div className="rounded-xl border p-5 mb-6 flex items-center gap-3"
+          style={{ backgroundColor: C.greenLight, borderColor: C.green + "30" }}>
+          <CheckCircle2 size={20} style={{ color: C.green }} />
+          <span className="text-sm font-medium" style={{ color: C.green }}>
+            Sin mensajes en cola. {selectedLabel === "All tenants" ? "Todos los tenants vacíos." : `${selectedLabel} vacío.`}
+          </span>
+        </div>
+      )}
+      {tab === "pipeline" && pipelineCount > 0 && (
         <SectionGroup title="Pipeline en curso" subtitle="Mensajes que el dispatcher está procesando solo — no necesitan acción." accent="#D97706" count={pipelineCount}>
           {/* Cooldown */}
           {fQueuedCooldown.length > 0 && (
@@ -916,9 +934,18 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
       )}
 
       {/* ════════════════════════════════════════════════════════════
-          🟢 ACTIVIDAD RECIENTE — what just happened
+          HISTORY TAB — what just happened (sent / skipped / expired)
           ════════════════════════════════════════════════════════════ */}
-      {(fSentRows.length > 0 || skippedVisible.length > 0 || fExpired.length > 0) && (
+      {tab === "history" && historyCount === 0 && (
+        <div className="rounded-xl border p-5 mb-6 flex items-center gap-3"
+          style={{ backgroundColor: C.surface, borderColor: C.border }}>
+          <Activity size={20} style={{ color: C.textMuted }} />
+          <span className="text-sm" style={{ color: C.textBody }}>
+            Sin actividad reciente que mostrar.
+          </span>
+        </div>
+      )}
+      {tab === "history" && (fSentRows.length > 0 || skippedVisible.length > 0 || fExpired.length > 0) && (
         <SectionGroup title="Actividad reciente" subtitle="Lo que pasó hace poco. Sólo lectura." accent={C.green} count={fMatchedCount + skippedVisible.length + fExpired.length}>
           {/* Sent 24h reconciliation — 3 buckets:
               ✓ pending   matched in Unipile sent feed
@@ -1035,9 +1062,10 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
       )}
 
       {/* ════════════════════════════════════════════════════════════
-          Seller / Unipile health — own section, always visible
+          STATUS · Seller / Unipile account health
           ════════════════════════════════════════════════════════════ */}
-      <CollapsibleSection title="Seller / Unipile account health" accent={C.gold} hint={tenantId ? "Sellers del tenant seleccionado" : "Todos los sellers activos"}>
+      {tab === "status" && (
+      <CollapsibleSection title="Seller / Unipile account health" accent={C.gold} hint={tenantId ? "Sellers del tenant seleccionado" : "Todos los sellers activos"} defaultOpen={true}>
         <Table>
           <thead>
             <Th>Seller</Th>
@@ -1121,6 +1149,7 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
           </tbody>
         </Table>
       </CollapsibleSection>
+      )}
     </div>
   );
 }
@@ -1144,6 +1173,54 @@ function SectionGroup({ title, subtitle, accent, count, children }: { title: str
         </div>
       </div>
       <div className="space-y-3">{children}</div>
+    </div>
+  );
+}
+
+// Top-level health card for the Status tab. Reads as a one-line answer to
+// "¿hay que tocar algo ahora?" — green if everything's quiet, amber if the
+// dispatcher is busy but healthy, red if there's anything actionable.
+function HealthBanner({
+  global,
+  actionRequired,
+  pipeline,
+  scopeLabel,
+}: {
+  global: number;
+  actionRequired: number;
+  pipeline: number;
+  scopeLabel: string;
+}) {
+  const tone =
+    actionRequired > 0 ? "danger" :
+    pipeline > 0 ? "neutral" : "ok";
+  const accent = tone === "danger" ? C.red : tone === "neutral" ? "#D97706" : C.green;
+  const bg = tone === "danger" ? `color-mix(in srgb, ${C.red} 8%, ${C.card})`
+    : tone === "neutral" ? `color-mix(in srgb, #D97706 6%, ${C.card})`
+    : C.greenLight;
+  const headline =
+    tone === "danger" ? `${actionRequired} ${actionRequired === 1 ? "cosa" : "cosas"} requieren tu acción`
+    : tone === "neutral" ? `${pipeline} mensajes en pipeline — sin acción requerida`
+    : "Todo limpio";
+  const subline = scopeLabel === "All tenants"
+    ? "Health agregada de todos los tenants"
+    : `Scope: ${scopeLabel}`;
+  const Icon = tone === "danger" ? AlertTriangle : tone === "neutral" ? Activity : CheckCircle2;
+  return (
+    <div className="rounded-2xl border p-5 mb-5 flex items-center gap-4"
+      style={{ borderColor: `color-mix(in srgb, ${accent} 28%, ${C.border})`, backgroundColor: bg }}>
+      <span className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+        style={{ backgroundColor: `color-mix(in srgb, ${accent} 18%, transparent)`, color: accent }}>
+        <Icon size={22} />
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="text-[15px] font-bold leading-tight" style={{ color: accent }}>{headline}</p>
+        <p className="text-[12px] mt-0.5" style={{ color: C.textBody }}>{subline}</p>
+      </div>
+      <div className="shrink-0 text-right">
+        <p className="text-[28px] font-bold tabular-nums leading-none" style={{ color: accent, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{global}</p>
+        <p className="text-[10px] font-bold uppercase tracking-wider mt-0.5" style={{ color: accent }}>Health</p>
+      </div>
     </div>
   );
 }
