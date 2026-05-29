@@ -6,6 +6,7 @@
 
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getUserScope } from "@/lib/scope";
+import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
 export type DashboardFilters = {
   /** ISO YYYY-MM-DD (inclusive). null = no lower bound. */
@@ -153,9 +154,11 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const bioId = scope.isScoped ? scope.companyBioId! : null;
 
   // primary_first_name/last_name/phone surface in TodayCard rows (boss
-  // 2026-05-29 asked for name + dial in Replies/Calls). Lightweight cost —
-  // already a single SELECT per request.
-  const leadsQ = supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at, company_bio_id, company_name, primary_first_name, primary_last_name, primary_phone");
+  // 2026-05-29 asked for name + dial in Replies/Calls). Also `source` +
+  // `encrypted_payload` so we can decrypt client-uploaded leads below —
+  // without that pass the plain columns are NULL for tenants like De Vera
+  // Grill / Pathway client-source, and the Today rows fall back to ICP.
+  const leadsQ = supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at, company_bio_id, company_name, primary_first_name, primary_last_name, primary_phone, source, encrypted_payload");
   const campsQ = supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, created_at, stop_reason, leads!inner(company_bio_id)");
   const repliesQ = supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, channel, received_at, leads!inner(company_bio_id)");
   const msgsQ = supabase.from("campaign_messages").select("id, campaign_id, step_number, status, sent_at, campaigns!inner(leads!inner(company_bio_id))");
@@ -178,7 +181,38 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     bioId ? sellersQ.or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`) : sellersQ,
   ]);
 
-  const allLeads = (allLeadsRaw ?? []) as LeadRow[];
+  const allLeadsRawTyped = (allLeadsRaw ?? []) as Array<LeadRow & { source?: string | null; encrypted_payload?: unknown }>;
+
+  // Client-source leads keep PII in `encrypted_payload`; the plain
+  // `primary_first_name` / `primary_last_name` / `primary_phone` columns
+  // are NULL on those rows. The dashboard surfaces names in the Today
+  // card (Replies / Calls rows asked for by boss 2026-05-29), so without
+  // this decrypt pass De Vera Grill / Pathway client-source tenants saw
+  // ICP labels where the lead's name should be. Same pattern as
+  // /leads/page.tsx — resolve the tenant key once, decrypt every
+  // client-source row, merge.
+  const allLeads: LeadRow[] = await (async () => {
+    if (!bioId || allLeadsRawTyped.length === 0) return allLeadsRawTyped as LeadRow[];
+    const hasClient = allLeadsRawTyped.some(l => l.source === "client" && l.encrypted_payload);
+    if (!hasClient) return allLeadsRawTyped as LeadRow[];
+    try {
+      const { key } = await resolveTenantKey(bioId);
+      return allLeadsRawTyped.map(l => {
+        if (l.source !== "client" || !l.encrypted_payload) return l as LeadRow;
+        try {
+          const blob = bufferFromSupabaseBytea(l.encrypted_payload);
+          const decrypted = decryptWithResolvedKey(blob, key);
+          return { ...l, ...decrypted, encrypted_payload: undefined } as LeadRow;
+        } catch (err) {
+          console.error("[dashboard-data] decrypt failed for lead", l.id, err);
+          return l as LeadRow;
+        }
+      });
+    } catch (err) {
+      console.error("[dashboard-data] tenant key resolution failed", err);
+      return allLeadsRawTyped as LeadRow[];
+    }
+  })();
   const allCampaigns = (allCampsRaw ?? []) as CampRow[];
   const allReplies = (allRepliesRaw ?? []) as ReplyRow[];
   const allMessages = (allMsgsRaw ?? []) as MsgRow[];

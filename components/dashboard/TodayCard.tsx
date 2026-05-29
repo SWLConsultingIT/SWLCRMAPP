@@ -284,16 +284,19 @@ function TodayLeadRow({
   // dial-icon button can sit alongside the navigate link without a
   // nested-interactive-elements warning.
   if (sectionKey === "calls") {
+    const headline = hasName && hasCompany
+      ? `${lead.name} — ${lead.company}`
+      : (hasName ? lead.name! : (hasCompany ? lead.company : (lead.icp ?? noIcp)));
     return (
       <div className={rowClass} style={{ borderColor: C.border }}>
         <Avatar accent={accent} text={avatarText} />
         <Link href={`/leads/${lead.id}`} className="flex-1 min-w-0">
           <p className="text-[13px] font-semibold truncate" style={{ color: C.textPrimary }}>
-            {primary}
+            {headline}
           </p>
-          {(hasName && hasCompany) && (
+          {lead.icp && (
             <p className="text-[10.5px] truncate" style={{ color: C.textDim }}>
-              {lead.company}{lead.icp ? ` · ${lead.icp}` : ""}
+              {lead.icp}
             </p>
           )}
         </Link>
@@ -319,8 +322,10 @@ function TodayLeadRow({
     );
   }
 
-  // Replies row: same shape as default but adds a classification badge
-  // (positive=green, negative=red, anything else=neutral) + channel chip.
+  // Replies row: single-line "Name — Company" primary (boss 2026-05-29
+  // wanted the lead's name visible inline with the company, not stacked).
+  // Falls back to just name or just company when one of the two is
+  // missing. Classification badge + channel chip + time on the right.
   if (sectionKey === "replies") {
     const cls = lead.tag ?? "";
     const isPositive = cls === "positive" || cls === "meeting_intent";
@@ -329,16 +334,19 @@ function TodayLeadRow({
     const classLabel = isPositive ? (locale === "es" ? "positivo" : "positive")
       : isNegative ? (locale === "es" ? "negativo" : "negative")
       : cls || (locale === "es" ? "revisar" : "review");
+    const headline = hasName && hasCompany
+      ? `${lead.name} — ${lead.company}`
+      : (hasName ? lead.name! : (hasCompany ? lead.company : (lead.icp ?? noIcp)));
     return (
       <Link href={`/leads/${lead.id}`} className={rowClass} style={{ borderColor: C.border }}>
         <Avatar accent={accent} text={avatarText} />
         <div className="flex-1 min-w-0">
           <p className="text-[13px] font-semibold truncate" style={{ color: C.textPrimary }}>
-            {primary}
+            {headline}
           </p>
-          {secondaryParts.length > 0 && (
+          {lead.icp && (
             <p className="text-[10.5px] truncate" style={{ color: C.textDim }}>
-              {secondaryParts.join(" · ")}
+              {lead.icp}
             </p>
           )}
         </div>
