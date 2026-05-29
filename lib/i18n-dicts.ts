@@ -226,7 +226,7 @@ export const en: Dict = {
   "dashx.hero.download": "Download PDF",
   "dashx.hero.eyebrow": "Headline · Period total",
   "dashx.panel.openCampaigns": "Campaigns",
-  "dashx.panel.openInbox": "Open inbox",
+  "dashx.panel.openInbox": "Open History",
   "dashx.panel.openReports": "Reports",
   "dashx.panel.openChannels": "Channels",
   // "What to do today" expandable hero (boss feedback 2026-05-27)
@@ -250,7 +250,7 @@ export const en: Dict = {
   "dashx.today.leadsNoCampaignHint": "Without a campaign yet — start one",
   "dashx.today.stale": "Stale leads",
   "dashx.today.staleHint": "Contacted 7+ days ago, no reply — re-engage before they cool",
-  "dashx.today.openInbox": "Inbox",
+  "dashx.today.openInbox": "History",
   "dashx.today.openOpps": "Opportunities",
   "dashx.today.openCalls": "Calls",
   "dashx.today.openLeads": "Leads",
@@ -688,7 +688,7 @@ export const en: Dict = {
   "ticket.table.showMoreLink": "Show more ({n} remaining)",
   // Inbox (/queue)
   "inbox.tab.pending": "Pending review",
-  "inbox.tab.all": "All",
+  "inbox.tab.all": "History",
   "inbox.channel.linkedin": "LinkedIn",
   "inbox.channel.email": "Email",
   "inbox.channel.call": "Call",
@@ -1615,7 +1615,7 @@ export const es: Dict = {
   "dashx.hero.download": "Descargar PDF",
   "dashx.hero.eyebrow": "Headline · Total del período",
   "dashx.panel.openCampaigns": "Campañas",
-  "dashx.panel.openInbox": "Abrir inbox",
+  "dashx.panel.openInbox": "Abrir Historial",
   "dashx.panel.openReports": "Reportes",
   "dashx.panel.openChannels": "Canales",
   // "What to do today" expandable hero (boss feedback 2026-05-27)
@@ -1639,7 +1639,7 @@ export const es: Dict = {
   "dashx.today.leadsNoCampaignHint": "Sin campaña asignada — armá una",
   "dashx.today.stale": "Leads fríos",
   "dashx.today.staleHint": "Contactados hace 7+ días, sin respuesta — retocá antes que se enfríen",
-  "dashx.today.openInbox": "Inbox",
+  "dashx.today.openInbox": "History",
   "dashx.today.openOpps": "Oportunidades",
   "dashx.today.openCalls": "Llamadas",
   "dashx.today.openLeads": "Leads",
@@ -2073,7 +2073,7 @@ export const es: Dict = {
   "ticket.table.showMoreLink": "Ver más ({n} restantes)",
   // Inbox (/queue)
   "inbox.tab.pending": "Pendientes de revisión",
-  "inbox.tab.all": "Todos",
+  "inbox.tab.all": "Historial",
   "inbox.channel.linkedin": "LinkedIn",
   "inbox.channel.email": "Email",
   "inbox.channel.call": "Llamada",
