@@ -346,12 +346,16 @@ async function dispatchOneEmail(
     }).eq("id", candidate.campaign_id),
   ];
 
-  // Queue next step only if it's not a LinkedIn step. LinkedIn DMs require
-  // connection acceptance first — the BESFOHaqTt2Ki0Vw acceptance webhook
-  // handles queuing them. Queuing here would make dispatch-queue try to DM
-  // a lead that hasn't accepted yet and fail every tick until acceptance.
-  const nextStepChannel = nextStepConfig?.channel ?? null;
-  if (nextEligibleAt && nextStepChannel !== "linkedin") {
+  // Boss 2026-05-29: queue the next step regardless of channel. The
+  // previous "skip queuing if next is LinkedIn" rule existed because
+  // dispatch-queue would try to DM a lead that hadn't accepted yet and
+  // fail every tick. That's no longer the case: dispatch-queue's
+  // distance gate now calls parkAwaitingAcceptance, which parks the DM
+  // (21d window) AND queues the step AFTER it. So queueing a LinkedIn
+  // next step here is safe — it parks itself if the lead isn't
+  // connected, and the non-LinkedIn track keeps moving via the
+  // post-park queue advance.
+  if (nextEligibleAt) {
     updateOps.push(
       svc.from("campaign_messages").update({
         status: "queued",

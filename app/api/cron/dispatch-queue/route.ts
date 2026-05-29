@@ -833,20 +833,37 @@ async function dispatchOneMessage(
       },
     }).eq("id", candidate.id),
   ];
+  // Always update lead+campaign after a successful CR/DM send:
+  //   - Lead status flips to "contacted" once step 0 fires (parity with
+  //     the previous behavior).
+  //   - Campaign cursor advances so the next dispatcher tick sees this
+  //     step as done and won't re-pick the same row.
   if (candidate.step_number === 0) {
     updateOps.push(
       svc.from("leads").update({ status: "contacted", current_channel: "linkedin" }).eq("id", lead.id),
     );
-  } else {
-    updateOps.push(
-      svc.from("campaigns").update({
-        current_step: candidate.step_number,
-        last_step_at: now,
-        ...(nextEligibleAt === null ? { status: "completed" } : {}),
-      }).eq("id", candidate.campaign_id),
-    );
   }
-  if (candidate.step_number >= 1 && nextEligibleAt) {
+  updateOps.push(
+    svc.from("campaigns").update({
+      current_step: candidate.step_number,
+      last_step_at: now,
+      ...(nextEligibleAt === null ? { status: "completed" } : {}),
+    }).eq("id", candidate.campaign_id),
+  );
+  // Boss 2026-05-29: ALWAYS queue the next step, regardless of channel and
+  // regardless of whether this was step 0 or a later step. The previous
+  // "step 0 → step 1 is queued by the accept webhook" rule stalled every
+  // flow whose lead never accepted (PE Spain: 100 CRs sent, 0 accepts,
+  // 139 leads parked at current_step=0 with email step 1 in `draft`
+  // forever). The new rule:
+  //   - Queue the next step's draft → queued with eligible_at = now +
+  //     daysAfter so it fires on schedule.
+  //   - If the next step is a LinkedIn DM and the lead hasn't accepted,
+  //     dispatch-queue's distance gate at line ~663 calls
+  //     parkAwaitingAcceptance, which parks the DM (21d window) AND
+  //     queues the step AFTER it. So the non-LinkedIn track keeps
+  //     moving regardless of acceptance.
+  if (nextEligibleAt) {
     updateOps.push(
       svc.from("campaign_messages").update({
         status: "queued",
