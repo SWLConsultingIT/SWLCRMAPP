@@ -8,8 +8,13 @@
 //
 // Auth: require a Bearer token matching UNIPILE_WEBHOOK_SECRET. Unipile lets
 // you configure custom webhook headers — set Authorization: Bearer <secret>
-// in the Unipile dashboard for every webhook destination. Fail closed if the
-// env var isn't set so we never silently accept unsigned traffic again.
+// in the Unipile dashboard for every webhook destination.
+//
+// Backwards-compat: if UNIPILE_WEBHOOK_SECRET is unset we still accept the
+// request (matches the Aircall pattern in the sibling route) so deploying
+// this code doesn't break Unipile callbacks the moment it ships. Loud log
+// so the open channel is obvious in ops dashboards. SET THE ENV VAR + the
+// dashboard header to actually close the P0.
 
 import { NextRequest, NextResponse } from "next/server";
 
@@ -25,13 +30,13 @@ type UnipileNotify = {
 
 export async function POST(req: NextRequest) {
   if (!WEBHOOK_SECRET) {
-    console.warn("[unipile-webhook] UNIPILE_WEBHOOK_SECRET unset — refusing request");
-    return NextResponse.json({ error: "webhook secret not configured" }, { status: 503 });
-  }
-  const auth = req.headers.get("authorization") ?? "";
-  const presented = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
-  if (presented !== WEBHOOK_SECRET) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    console.warn("[unipile-webhook] UNIPILE_WEBHOOK_SECRET unset — accepting unsigned request");
+  } else {
+    const auth = req.headers.get("authorization") ?? "";
+    const presented = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+    if (presented !== WEBHOOK_SECRET) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
   }
 
   const body = (await req.json()) as UnipileNotify;
