@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import { mapLimit } from "@/lib/concurrency";
+import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
 // Same rationale as dispatch-queue: cap parallel seller batches so we don't
 // blow past the 60-direct-conn Supabase limit at scale.
@@ -213,16 +214,32 @@ async function dispatchOneCall(
   }
 
   // Hydrate lead + campaign + tenant.
-  const [{ data: lead }, { data: campaign }] = await Promise.all([
+  const [{ data: rawLead }, { data: campaign }] = await Promise.all([
     svc.from("leads")
-      .select("id, primary_first_name, primary_last_name, primary_phone, primary_secondary_phone, company_bio_id, company_country")
+      .select("id, source, encrypted_payload, primary_first_name, primary_last_name, primary_phone, primary_secondary_phone, company_bio_id, company_country")
       .eq("id", candidate.lead_id).maybeSingle(),
     svc.from("campaigns")
       .select("id, seller_id, name, aircall_number_id, sequence_steps")
       .eq("id", candidate.campaign_id).maybeSingle(),
   ]);
-  if (!lead || !campaign) {
+  if (!rawLead || !campaign) {
     return await failMessage(svc, candidate.id, candidate.lead_id, "lead or campaign missing");
+  }
+
+  // Decrypt client-source leads (Pathway, De Vera Grill, Gruppo Everest).
+  // Without this, primary_phone is null for every client-source lead because
+  // the real number lives inside the encrypted_payload bytea — every such
+  // row would skip as "lead has no phone" even though the phone exists.
+  let lead = rawLead as any;
+  if (rawLead.source === "client" && rawLead.encrypted_payload && rawLead.company_bio_id) {
+    try {
+      const { key } = await resolveTenantKey(rawLead.company_bio_id);
+      const blob = bufferFromSupabaseBytea(rawLead.encrypted_payload);
+      const decrypted = decryptWithResolvedKey(blob, key);
+      lead = { ...lead, ...decrypted };
+    } catch (err) {
+      console.error("[dispatch-call] decrypt failed for lead", rawLead.id, err);
+    }
   }
 
   // Business-hours guard: never dial a lead at 3 AM their time. Skip + requeue

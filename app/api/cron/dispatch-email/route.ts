@@ -3,6 +3,7 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import { getInstantlyConfig } from "@/lib/instantly-config";
 import { signStepAttachments } from "@/lib/campaign-attachments";
+import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
 // Cron-driven dispatcher for `campaign_messages` rows in `status='queued'`
 // where channel='email'. One mail per tick via Instantly v2.
@@ -273,16 +274,32 @@ async function dispatchOneEmail(
     return { kind: "lost_race", msgId: candidate.id, leadId: candidate.lead_id };
   }
 
-  const [{ data: lead }, { data: campaign }] = await Promise.all([
-    svc.from("leads").select("id, primary_first_name, primary_last_name, primary_work_email, primary_email_status, company_bio_id, company_name, primary_title_role").eq("id", candidate.lead_id).maybeSingle(),
+  const [{ data: rawLead }, { data: campaign }] = await Promise.all([
+    svc.from("leads").select("id, source, encrypted_payload, primary_first_name, primary_last_name, primary_work_email, primary_email_status, company_bio_id, company_name, primary_title_role").eq("id", candidate.lead_id).maybeSingle(),
     svc.from("campaigns").select("id, seller_id, sequence_steps").eq("id", candidate.campaign_id).maybeSingle(),
   ]);
-  if (!lead || !campaign) return await failMessage(svc, candidate.id, candidate.lead_id, "lead or campaign missing");
+  if (!rawLead || !campaign) return await failMessage(svc, candidate.id, candidate.lead_id, "lead or campaign missing");
+
+  // Decrypt client-source leads (Pathway, De Vera Grill, Gruppo Everest demo).
+  // Same pattern as dispatch-queue. Without this, primary_work_email is null
+  // for every client-source lead because the real address lives inside the
+  // encrypted_payload bytea — every such row would skip as "lead has no work
+  // email" even though the email exists. Pathway had 58 leads silently
+  // stranded on the email step before this fix.
+  let lead = rawLead as any;
+  if (rawLead.source === "client" && rawLead.encrypted_payload && rawLead.company_bio_id) {
+    try {
+      const { key } = await resolveTenantKey(rawLead.company_bio_id);
+      const blob = bufferFromSupabaseBytea(rawLead.encrypted_payload);
+      const decrypted = decryptWithResolvedKey(blob, key);
+      lead = { ...lead, ...decrypted };
+    } catch (err) {
+      console.error("[dispatch-email] decrypt failed for lead", rawLead.id, err);
+    }
+  }
+
   // "No email on the lead row" is a data-state issue, not a delivery failure.
-  // Skip so it doesn't show up in /admin/reliability as a failed send. The
-  // campaign cursor doesn't auto-advance here on purpose — a lead with no
-  // email shouldn't have been queued for an email step in the first place,
-  // and silently advancing would mask the upstream data-quality problem.
+  // Skip so it doesn't show up in /admin/reliability as a failed send.
   if (!lead.primary_work_email) return await skipMessage(svc, candidate.id, candidate.lead_id, "lead has no work email");
 
   // Pre-send hygiene: skip leads whose work email is known-bad. Set by the
