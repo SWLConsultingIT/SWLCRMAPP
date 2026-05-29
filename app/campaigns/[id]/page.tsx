@@ -394,12 +394,18 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
               )}
             </div>
           </div>
+          {/* Edit Flow CTA — outlined gold pill on the dark hero. Earlier
+              version used a gold→light-gold gradient that washed out into
+              a muddy mustard against the ink background. The clean glass-
+              outlined pill matches the in-hero channel chips and reads
+              "primary action" without competing for attention. */}
           <Link href={`/campaigns/${id}/edit`}
-            className="shrink-0 flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition-opacity hover:opacity-90"
+            className="shrink-0 inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-bold transition-[background-color,transform,box-shadow] hover:-translate-y-0.5"
             style={{
-              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 75%, white))`,
-              color: "#1A1505",
-              boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent)`,
+              color: gold,
+              backgroundColor: "color-mix(in srgb, white 6%, transparent)",
+              border: `1px solid color-mix(in srgb, ${gold} 50%, transparent)`,
+              boxShadow: `0 0 0 1px color-mix(in srgb, ${gold} 20%, transparent), 0 4px 14px color-mix(in srgb, ${gold} 12%, transparent)`,
             }}>
             <Settings size={12} /> {t("campaignDetail.editFlow")}
           </Link>
