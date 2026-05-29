@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Users, CheckSquare, Square, Building2, Globe, Briefcase, MapPin } from "lucide-react";
+import { Users, CheckSquare, Building2, Globe, Briefcase, MapPin, Megaphone, Send } from "lucide-react";
 import { C, N } from "@/lib/design";
 import { LeadFilterBar, emptyLeadFilterState, type LeadFilterState } from "@/components/LeadFilters";
+import AddToFlowModalIcpScoped from "@/components/AddToFlowModalIcpScoped";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -33,6 +34,7 @@ export default function PickLeadsClient({
   const router = useRouter();
   const [filters, setFilters] = useState<LeadFilterState>(emptyLeadFilterState());
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [showAddToFlow, setShowAddToFlow] = useState(false);
 
   // Filter options derived from the cohort. Industry / Country / Company
   // / Role read straight off the picker rows so the dropdowns only show
@@ -117,7 +119,7 @@ export default function PickLeadsClient({
             <p className="text-[13px] mt-2 max-w-[640px]" style={{ color: "color-mix(in srgb, white 65%, transparent)" }}>
               {leads.length === 0
                 ? "No eligible leads for this ICP — every lead is already in an active or paused flow."
-                : "Pick the leads you want to enrol. Filter by industry, country, company, role or score, then select the leads you want and Continue will appear."}
+                : "Pick the leads you want to enrol. Once selected, you can create a new flow with them or add them to an existing flow for this ICP."}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -341,15 +343,15 @@ export default function PickLeadsClient({
         </>
       )}
 
-      {/* Floating selection bar — appears when at least one lead is
-          picked. Sits sticky at the bottom-center of the viewport so the
-          Continue affordance follows the seller's scroll. Boss feedback
-          2026-05-28: didn't want the Continue button to live at the top
-          when nothing was selected — it now only shows up when there's
-          something to confirm. Cancel stays at the top. */}
+      {/* Floating selection bar — appears when at least one lead is picked.
+          Matches the /leads bulk bar: two primary actions (Add to existing
+          flow / Create new flow) instead of a single Continue button so the
+          seller can pick either path without leaving the page. ICP is fixed
+          (profileId) so the one-ICP-per-campaign LAW is automatically
+          satisfied for the modal too. */}
       {selected.size > 0 && (
         <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-2xl px-3 py-2.5 pl-5"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-2xl px-3 py-2.5 pl-5 flex-wrap"
           style={{
             background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
             border: `1px solid color-mix(in srgb, ${gold} 36%, ${N.hairline})`,
@@ -383,6 +385,21 @@ export default function PickLeadsClient({
             Clear
           </button>
           <span className="h-6 w-px" style={{ backgroundColor: "color-mix(in srgb, white 14%, transparent)" }} />
+          {/* Secondary CTA — Add to existing flow (same ICP only). */}
+          <button
+            type="button"
+            onClick={() => setShowAddToFlow(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-[12.5px] font-bold whitespace-nowrap transition-opacity hover:opacity-90"
+            style={{
+              background: "rgba(255,255,255,0.08)",
+              color: gold,
+              border: `1px solid color-mix(in srgb, ${gold} 45%, transparent)`,
+            }}
+          >
+            <Megaphone size={13} /> Add to existing flow
+          </button>
+          {/* Primary CTA — Create new flow (continues to the wizard with
+              the picked leads in the query string). */}
           <button
             type="button"
             onClick={continueToWizard}
@@ -393,10 +410,25 @@ export default function PickLeadsClient({
               boxShadow: `0 6px 18px color-mix(in srgb, ${gold} 38%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
             }}
           >
-            Continue <ArrowRight size={14} strokeWidth={2.8} />
+            <Send size={13} /> Create new flow
           </button>
           <style>{`@keyframes pick-bar-rise { from { transform: translate(-50%, 18px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }`}</style>
         </div>
+      )}
+
+      {showAddToFlow && (
+        <AddToFlowModalIcpScoped
+          leadIds={Array.from(selected)}
+          icpProfileId={profileId}
+          onClose={() => setShowAddToFlow(false)}
+          onAdded={() => {
+            setShowAddToFlow(false);
+            setSelected(new Set());
+            // After adding to an existing flow, send the seller back to
+            // /campaigns where they can see the flow they just topped up.
+            router.push("/campaigns");
+          }}
+        />
       )}
     </div>
   );
