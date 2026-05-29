@@ -278,7 +278,12 @@ async function dispatchOneEmail(
     svc.from("campaigns").select("id, seller_id, sequence_steps").eq("id", candidate.campaign_id).maybeSingle(),
   ]);
   if (!lead || !campaign) return await failMessage(svc, candidate.id, candidate.lead_id, "lead or campaign missing");
-  if (!lead.primary_work_email) return await failMessage(svc, candidate.id, candidate.lead_id, "lead has no work email");
+  // "No email on the lead row" is a data-state issue, not a delivery failure.
+  // Skip so it doesn't show up in /admin/reliability as a failed send. The
+  // campaign cursor doesn't auto-advance here on purpose — a lead with no
+  // email shouldn't have been queued for an email step in the first place,
+  // and silently advancing would mask the upstream data-quality problem.
+  if (!lead.primary_work_email) return await skipMessage(svc, candidate.id, candidate.lead_id, "lead has no work email");
 
   // Pre-send hygiene: skip leads whose work email is known-bad. Set by the
   // Instantly /email-verification pass (or any future verifier we wire up).

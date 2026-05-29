@@ -151,6 +151,28 @@ type DispatchOutcome =
   | { kind: "failed"; msgId: string; leadId: string; reason: string }
   | { kind: "lost_race"; msgId: string; leadId: string };
 
+// Skip a call without flagging it as a failure — used when the lead has
+// no phone. That's data-state, not delivery failure; treating it as a
+// failure clutters /admin/reliability.
+async function skipMessage(
+  svc: ReturnType<typeof getSupabaseService>,
+  msgId: string, leadId: string, reason: string,
+): Promise<DispatchOutcome> {
+  const { data: existing } = await svc
+    .from("campaign_messages").select("metadata").eq("id", msgId).maybeSingle();
+  const prevMeta = (existing?.metadata as Record<string, unknown> | null) ?? {};
+  await svc.from("campaign_messages").update({
+    status: "skipped",
+    error_details: reason,
+    metadata: {
+      ...prevMeta,
+      dispatched_by: "cron-dispatch-call",
+      skipped_at: new Date().toISOString(),
+    },
+  }).eq("id", msgId);
+  return { kind: "skipped", msgId, leadId, reason };
+}
+
 async function failMessage(
   svc: ReturnType<typeof getSupabaseService>,
   msgId: string, leadId: string, reason: string,
@@ -219,7 +241,8 @@ async function dispatchOneCall(
   // Phone resolution + E.164 normalization.
   const rawPhone = (lead as any).primary_phone || (lead as any).primary_secondary_phone || null;
   if (!rawPhone) {
-    return await failMessage(svc, candidate.id, candidate.lead_id, "lead has no phone");
+    // Data-state, not a delivery failure. Skip cleanly.
+    return await skipMessage(svc, candidate.id, candidate.lead_id, "lead has no phone");
   }
   const normalizedPhone = "+" + String(rawPhone).replace(/[^\d]/g, "");
   if (normalizedPhone.length < 8) {

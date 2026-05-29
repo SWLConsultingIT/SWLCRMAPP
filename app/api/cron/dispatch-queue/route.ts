@@ -371,6 +371,28 @@ type DispatchOutcome =
 
 // ────── DB helpers — mutate state, return shape (no NextResponse) ──────
 
+// Skip a LinkedIn send without flagging it as a failure — used when the
+// lead simply has no LinkedIn URL stored. That's a data-state issue, not
+// a delivery failure, and clutters /admin/reliability if treated as one.
+async function skipMessage(
+  svc: ReturnType<typeof getSupabaseService>,
+  msgId: string, leadId: string, reason: string,
+): Promise<DispatchOutcome> {
+  const { data: existing } = await svc
+    .from("campaign_messages").select("metadata").eq("id", msgId).maybeSingle();
+  const prevMeta = (existing?.metadata as Record<string, unknown> | null) ?? {};
+  await svc.from("campaign_messages").update({
+    status: "skipped",
+    error_details: reason,
+    metadata: {
+      ...prevMeta,
+      dispatched_by: "cron-dispatch-queue",
+      skipped_at: new Date().toISOString(),
+    },
+  }).eq("id", msgId);
+  return { kind: "skipped_invited", msgId, leadId };
+}
+
 async function failMessage(
   svc: ReturnType<typeof getSupabaseService>,
   msgId: string, leadId: string, reason: string,
@@ -617,7 +639,9 @@ async function dispatchOneMessage(
 
   const slug = extractLinkedinSlug(lead.primary_linkedin_url);
   if (!slug) {
-    return await failMessage(svc, candidate.id, candidate.lead_id, "no LinkedIn slug on lead");
+    // Data-state, not a delivery failure. Skip without flagging as failed
+    // (would otherwise show up in /admin/reliability as ops noise).
+    return await skipMessage(svc, candidate.id, candidate.lead_id, "no LinkedIn slug on lead");
   }
 
   let providerId = lead.linkedin_internal_id ?? null;
