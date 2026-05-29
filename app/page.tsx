@@ -1732,6 +1732,113 @@ export default async function DashboardPage({
         </Panel>
       </section>
 
+      {/* Team averages — boss 2026-05-29: "ya sé que tenemos el detalle de
+          los sellers pero está muy escondido tenemos que ser más simples".
+          Surfaces each seller's delta vs the team baseline on 4 axes
+          (Reply % · Conv % · Contacted · Positives) without forcing the
+          operator to drill into the per-seller detail page. Empty state
+          when there's < 2 sellers (no team to compare against). */}
+      {(() => {
+        type SellerForAvg = {
+          id: string; name: string;
+          contacted: number; replied: number; positive: number;
+          responseRate: number; conversionRate: number;
+        };
+        const sellers = data.sellerPerformance as unknown as SellerForAvg[];
+        if (sellers.length === 0) return null;
+        // Only show the comparison when there are ≥2 sellers (otherwise
+        // every delta is trivially 0). Render the section header + an
+        // empty hint so the seller knows the feature exists.
+        const hasTeam = sellers.length >= 2;
+        const avg = (arr: number[]) => arr.length === 0 ? 0 : arr.reduce((a, b) => a + b, 0) / arr.length;
+        const teamReplyRate = Math.round(avg(sellers.map(s => s.responseRate)));
+        const teamConvRate  = Math.round(avg(sellers.map(s => s.conversionRate)));
+        const teamContacted = Math.round(avg(sellers.map(s => s.contacted)) * 10) / 10;
+        const teamPositive  = Math.round(avg(sellers.map(s => s.positive)) * 10) / 10;
+        // Per-seller deltas: rates use percentage-point deltas (absolute),
+        // counts use percent deltas (relative to the team avg) so the
+        // sign + magnitude reads as "this seller is X% off the baseline".
+        return (
+          <Panel
+            title={t("dashx.sellerAvg.title")}
+            subtitle={t("dashx.sellerAvg.subtitle")}
+            glow
+          >
+            {/* Top strip — team baseline numbers */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+              {[
+                { label: t("dashx.sellerAvg.replyRate"),  value: `${teamReplyRate}%`, color: "#7C3AED" },
+                { label: t("dashx.sellerAvg.conversion"), value: `${teamConvRate}%`,  color: C.green },
+                { label: t("dashx.sellerAvg.contacted"),  value: teamContacted,        color: "#0284C7" },
+                { label: t("dashx.sellerAvg.positives"),  value: teamPositive,         color: gold },
+              ].map(tile => (
+                <div key={tile.label} className="rounded-xl border px-3 py-2.5"
+                  style={{ borderColor: C.border, backgroundColor: C.surface }}>
+                  <p className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textDim }}>
+                    {tile.label}
+                  </p>
+                  <p className="text-[22px] font-bold tabular-nums leading-tight tracking-[-0.02em] mt-0.5"
+                    style={{ color: tile.color, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                    {tile.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {!hasTeam ? (
+              <p className="text-center py-6 text-[12px] italic" style={{ color: C.textMuted }}>
+                {t("dashx.sellerAvg.empty")}
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {sellers.map(s => {
+                  const dReply = s.responseRate - teamReplyRate;     // pp
+                  const dConv  = s.conversionRate - teamConvRate;     // pp
+                  const dCont  = teamContacted > 0 ? Math.round(((s.contacted - teamContacted) / teamContacted) * 100) : 0;
+                  const dPos   = teamPositive > 0  ? Math.round(((s.positive  - teamPositive)  / teamPositive)  * 100) : 0;
+                  const scores = [dReply, dConv, dCont, dPos];
+                  const wins = scores.filter(d => d > 0).length;
+                  const losses = scores.filter(d => d < 0).length;
+                  const verdict = wins >= 3 ? "above" : losses >= 3 ? "below" : "track";
+                  const verdictColor = verdict === "above" ? C.green : verdict === "below" ? C.red : C.textMuted;
+                  const verdictLabel = verdict === "above"
+                    ? t("dashx.sellerAvg.aboveTeam")
+                    : verdict === "below"
+                      ? t("dashx.sellerAvg.belowTeam")
+                      : t("dashx.sellerAvg.onTrack");
+                  return (
+                    <Link key={s.id} href={withFilters(`/dashboard/seller/${s.id}`, filters)}
+                      className="block rounded-xl border px-4 py-3 transition-[transform,box-shadow,border-color] hover:-translate-y-px hover:shadow-md group"
+                      style={{ borderColor: C.border, backgroundColor: C.card }}>
+                      <div className="flex items-center gap-3 mb-2">
+                        <p className="text-[14px] font-bold truncate flex-1 group-hover:underline"
+                          style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                          {s.name}
+                        </p>
+                        <span className="text-[9px] font-bold uppercase tracking-[0.14em] px-2 py-0.5 rounded-full shrink-0"
+                          style={{
+                            backgroundColor: `color-mix(in srgb, ${verdictColor} 14%, transparent)`,
+                            color: verdictColor,
+                            border: `1px solid color-mix(in srgb, ${verdictColor} 30%, transparent)`,
+                          }}>
+                          {verdictLabel}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                        <DeltaChip label={t("dashx.sellerAvg.replyRate")}  value={`${s.responseRate}%`}    delta={dReply} unit="pp" />
+                        <DeltaChip label={t("dashx.sellerAvg.conversion")} value={`${s.conversionRate}%`}  delta={dConv}  unit="pp" />
+                        <DeltaChip label={t("dashx.sellerAvg.contacted")}  value={s.contacted}              delta={dCont}  unit="%" />
+                        <DeltaChip label={t("dashx.sellerAvg.positives")}  value={s.positive}               delta={dPos}   unit="%" />
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </Panel>
+        );
+      })()}
+
       {/* Channel Champions — who is best at each channel. Shows the seller
           with the highest reply rate per channel (LinkedIn / Email / Call)
           with their actual sent/replied so the operator picks the right
@@ -2169,6 +2276,37 @@ function ScoreTile({ label, value, color, accent }: {
         style={{ color, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
         {value}
       </p>
+    </div>
+  );
+}
+
+/** DeltaChip — used by the Sellers tab "Team averages" comparison rows.
+ * Renders label + current value + signed delta vs the team baseline with
+ * an up/down arrow + color (green when above, red when below, muted at 0).
+ * `unit="pp"` for rate deltas (percentage points), `unit="%"` for count
+ * deltas (relative to baseline). */
+function DeltaChip({ label, value, delta, unit }: {
+  label: string;
+  value: string | number;
+  delta: number;
+  unit: "pp" | "%";
+}) {
+  const positive = delta > 0;
+  const negative = delta < 0;
+  const color = positive ? C.green : negative ? C.red : C.textMuted;
+  const sign = positive ? "+" : negative ? "" : "±";
+  return (
+    <div className="rounded-lg border px-2.5 py-1.5"
+      style={{ borderColor: C.border, backgroundColor: C.surface }}>
+      <p className="text-[9px] font-bold uppercase tracking-wider truncate" style={{ color: C.textDim }}>{label}</p>
+      <div className="flex items-baseline gap-1.5 mt-0.5">
+        <span className="text-[15px] font-bold tabular-nums leading-none" style={{ color: C.textPrimary }}>
+          {value}
+        </span>
+        <span className="text-[10px] font-bold tabular-nums" style={{ color }}>
+          {positive ? "▴" : negative ? "▾" : "─"} {sign}{Math.abs(delta)}{unit}
+        </span>
+      </div>
     </div>
   );
 }
