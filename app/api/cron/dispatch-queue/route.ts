@@ -162,6 +162,15 @@ function stripNameNoise(raw: string): string {
   return s.replace(/[.]+$/, "");
 }
 
+// Strip diacritics so Iñaki/Inaki, Víctor/Victor, Nogué/Nogue, Peña/Pena
+// match. NFD decomposes "í" → "i" + U+0301; the regex drops every combining
+// mark. Imported CSVs frequently lose accents while Unipile preserves them —
+// without this normalization, every PE Spain Iberian name was a false-
+// positive "name mismatch" failure (reliability board 2026-05-29).
+function stripAccents(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
 function nameMatches(
   expectedFirst: string | null,
   expectedLast: string | null,
@@ -173,10 +182,13 @@ function nameMatches(
   const elRaw = (expectedLast ?? "").trim();
   const afRaw = stripNameNoise(apiFirst);
   const alRaw = stripNameNoise(apiLast);
-  const ef = stripNameNoise(efRaw).toLowerCase();
-  const el = stripNameNoise(elRaw).toLowerCase();
-  const af = afRaw.toLowerCase();
-  const al = alRaw.toLowerCase();
+  // Lowercase + strip accents on both sides so the comparison is purely
+  // about the underlying letters. Accent presence/absence is presentation,
+  // not identity.
+  const ef = stripAccents(stripNameNoise(efRaw)).toLowerCase();
+  const el = stripAccents(stripNameNoise(elRaw)).toLowerCase();
+  const af = stripAccents(afRaw).toLowerCase();
+  const al = stripAccents(alRaw).toLowerCase();
   if (!ef || !el || !af || !al) return false;
 
   // Slug with a unique random suffix (7+ chars + digit) guarantees the URL points to
