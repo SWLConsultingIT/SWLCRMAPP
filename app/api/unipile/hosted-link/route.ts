@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { signSellerName } from "@/lib/unipile-name-signing";
 
 const KEY = process.env.UNIPILE_API_KEY!;
 const DSN = process.env.UNIPILE_DSN!;
@@ -109,7 +110,10 @@ export async function POST(req: NextRequest) {
       providers: ["LINKEDIN"],
       api_url: `https://${DSN}`,
       expiresOn,
-      name: seller.id, // we'll receive this back in the notify_url
+      // HMAC-signed so the webhook can verify the callback came from a link
+      // we generated (not an attacker forging a raw seller UUID). Unipile
+      // echoes `name` back verbatim. See lib/unipile-name-signing.ts.
+      name: signSellerName(seller.id),
       success_redirect_url: `${baseUrl}/accounts?connected=1`,
       failure_redirect_url: `${baseUrl}/accounts?connected=0`,
       notify_url: `${baseUrl}/api/unipile/webhook`,
