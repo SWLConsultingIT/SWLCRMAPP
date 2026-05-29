@@ -887,6 +887,11 @@ async function dispatchOneMessage(
     svc.from("campaigns").update({
       current_step: candidate.step_number,
       last_step_at: now,
+      // Mirror the eligible_at of the next queued step onto the campaign so
+      // the UI ("Next step: ..." label in CampaignJourney + inbox stage) has
+      // a date to render. Pre-2026-05-29 this column was always NULL across
+      // every active campaign because nothing wrote it.
+      next_step_due_at: nextEligibleAt,
       ...(nextEligibleAt === null ? { status: "completed" } : {}),
     }).eq("id", candidate.campaign_id),
   );

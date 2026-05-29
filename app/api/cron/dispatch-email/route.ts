@@ -387,6 +387,9 @@ async function dispatchOneEmail(
     svc.from("campaigns").update({
       current_step: candidate.step_number,
       last_step_at: now,
+      // See dispatch-queue/route.ts — mirror eligible_at onto the campaign so
+      // the "Next step: ..." UI label has a date to render.
+      next_step_due_at: nextEligibleAt,
       ...(nextEligibleAt === null ? { status: "completed" } : {}),
     }).eq("id", candidate.campaign_id),
   ];
