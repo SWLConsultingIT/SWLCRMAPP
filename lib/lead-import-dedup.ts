@@ -50,21 +50,46 @@ type ExistingLead = {
 };
 
 // Same supabase shape both routes use. Kept loose so we don't pull the
-// supabase-js types into a library file.
+// supabase-js types into a library file. range() is mandatory because
+// PostgREST defaults to a 1000-row page — without it the dedup index
+// silently misses everything past lead #1001.
+type ListBuilder = {
+  range: (from: number, to: number) => Promise<{ data: unknown[] | null; error: unknown }>;
+};
 type Supa = {
   from: (table: string) => {
     select: (cols: string) => {
-      eq: (col: string, val: string) => {
-        limit?: (n: number) => Promise<{ data: unknown[] | null; error: unknown }>;
-      } & Promise<{ data: unknown[] | null; error: unknown }>;
-      in?: (col: string, vals: string[]) => Promise<{ data: unknown[] | null; error: unknown }>;
+      eq: (col: string, val: string) => ListBuilder;
+      in: (col: string, vals: string[]) => ListBuilder;
     };
   };
 };
 
+// Pull cap. 50k mirrors the wizard's row cap — any tenant past this point
+// should paginate, but we're nowhere near that yet (Pathway = 627 leads,
+// De Vera Grill ≈ 100s, biggest pilot under 5k). If you bump the wizard
+// cap, bump this too.
+const PAGE_CAP = 49_999;
+
 function normLI(url: string | null | undefined): string {
   if (!url) return "";
-  return String(url).trim().toLowerCase().split("?")[0].replace(/\/+$/, "");
+  const s = String(url).trim().toLowerCase();
+  if (!s) return "";
+  // Extract the canonical "/in/<slug>" or "/company/<slug>" segment.
+  // Same person/company can appear under many URL forms:
+  //   https://www.linkedin.com/in/jose-ventura/
+  //   https://linkedin.com/in/jose-ventura?utm=x
+  //   linkedin.com/in/jose-ventura/recent-activity/
+  // …all dedupe to "in:jose-ventura" once we strip everything else.
+  const m = s.match(/\/(in|company|pub|school)\/([^/?#]+)/);
+  if (m) return `${m[1]}:${m[2]}`;
+  // Fallback: strip protocol, www, query, hash, trailing slash.
+  return s
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .split("?")[0]
+    .split("#")[0]
+    .replace(/\/+$/, "");
 }
 function normEmail(e: string | null | undefined): string {
   return e ? String(e).trim().toLowerCase() : "";
@@ -75,8 +100,22 @@ function normPhone(p: string | null | undefined): string {
   if (digits.length < 7) return "";
   return digits.slice(-10);
 }
+// Normalize a free-form text field for fuzzy dedup keys. Strips
+// diacritics so "José" == "Jose", and collapses any non-alphanumeric
+// run to a single space so "Qbox  - Soluciones" == "Qbox - Soluciones".
+function normText(t: string | null | undefined): string {
+  if (!t) return "";
+  // ̀-ͯ is the combining-diacritics block; stripping after
+  // NFD turns "José" → "Jose" so dedup matches across encoding accidents.
+  return String(t)
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
 function normCo(c: string | null | undefined): string {
-  return c ? String(c).trim().toLowerCase() : "";
+  return normText(c);
 }
 
 export function calcLeadScore(l: Record<string, unknown>): number {
@@ -102,16 +141,20 @@ export async function buildImportPlan(input: {
   const { rows, mapping, targetBioId, supabase } = input;
 
   // One shot to pull every lead in this tenant + every lead-id with an
-  // in-flight campaign. The wizard caps imports at 50k rows, and tenant
-  // sizes top out in the low-tens-of-thousands, so a single SELECT here
-  // beats per-row roundtrips every time.
+  // in-flight campaign. PostgREST defaults to a 1000-row page, so
+  // .range(0, PAGE_CAP) is mandatory — without it the dedup index
+  // misses every lead past #1001 and the wizard's preview silently
+  // under-reports duplicates. Burned 2026-05-29: Fran's De Vera Grill
+  // import bulk-inserted ~400 leads that should've been flagged.
   const [existingRes, activeCampRes] = await Promise.all([
     supabase.from("leads")
       .select("id, primary_linkedin_url, primary_work_email, primary_personal_email, primary_phone, primary_first_name, primary_last_name, company_name")
-      .eq("company_bio_id", targetBioId),
+      .eq("company_bio_id", targetBioId)
+      .range(0, PAGE_CAP),
     supabase.from("campaigns")
       .select("lead_id")
-      .in!("status", ["active", "paused"]),
+      .in("status", ["active", "paused"])
+      .range(0, PAGE_CAP),
   ]);
 
   const existing = (existingRes.data ?? []) as ExistingLead[];
@@ -136,8 +179,8 @@ export async function buildImportPlan(input: {
     if (we) byWE.set(we, l);
     if (pe) byPE.set(pe, l);
     if (ph) byPh.set(ph, l);
-    const fn = (l.primary_first_name || "").trim().toLowerCase();
-    const ln = (l.primary_last_name || "").trim().toLowerCase();
+    const fn = normText(l.primary_first_name);
+    const ln = normText(l.primary_last_name);
     const co = normCo(l.company_name);
     if (fn && ln && co) byNameCo.set(`${fn}|${ln}|${co}`, l);
   }
