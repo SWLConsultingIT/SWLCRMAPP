@@ -155,10 +155,18 @@ async function failMessage(
   svc: ReturnType<typeof getSupabaseService>,
   msgId: string, leadId: string, reason: string,
 ): Promise<DispatchOutcome> {
+  // Merge metadata — see dispatch-queue.failMessage for context.
+  const { data: existing } = await svc
+    .from("campaign_messages").select("metadata").eq("id", msgId).maybeSingle();
+  const prevMeta = (existing?.metadata as Record<string, unknown> | null) ?? {};
   await svc.from("campaign_messages").update({
     status: "failed",
     error_details: reason,
-    metadata: { dispatched_by: "cron-dispatch-call", failed_at: new Date().toISOString() },
+    metadata: {
+      ...prevMeta,
+      dispatched_by: "cron-dispatch-call",
+      failed_at: new Date().toISOString(),
+    },
   }).eq("id", msgId);
   return { kind: "failed", msgId, leadId, reason };
 }

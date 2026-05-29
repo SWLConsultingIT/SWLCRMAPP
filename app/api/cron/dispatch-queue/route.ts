@@ -375,10 +375,21 @@ async function failMessage(
   svc: ReturnType<typeof getSupabaseService>,
   msgId: string, leadId: string, reason: string,
 ): Promise<DispatchOutcome> {
+  // Merge metadata instead of overwriting. Pre-2026-05-29 this clobbered
+  // existing fields like eligible_at, awaiting_acceptance, parked_since,
+  // and rate_limit_count — which then made re-queued rows (e.g., via the
+  // admin retry endpoint) impossible to audit ("how did this get stuck?").
+  const { data: existing } = await svc
+    .from("campaign_messages").select("metadata").eq("id", msgId).maybeSingle();
+  const prevMeta = (existing?.metadata as Record<string, unknown> | null) ?? {};
   await svc.from("campaign_messages").update({
     status: "failed",
     error_details: reason,
-    metadata: { dispatched_by: "cron-dispatch-queue", failed_at: new Date().toISOString() },
+    metadata: {
+      ...prevMeta,
+      dispatched_by: "cron-dispatch-queue",
+      failed_at: new Date().toISOString(),
+    },
   }).eq("id", msgId);
   return { kind: "failed", msgId, leadId, reason };
 }
@@ -389,12 +400,20 @@ async function skipAlreadyConnected(
 ): Promise<DispatchOutcome> {
   const now = new Date().toISOString();
   const eligibleAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+  const { data: existing } = await svc
+    .from("campaign_messages").select("metadata").eq("id", msgId).maybeSingle();
+  const prevMeta = (existing?.metadata as Record<string, unknown> | null) ?? {};
   await Promise.all([
     svc.from("campaign_messages").update({
       status: "skipped",
       sent_at: now,
       error_details: null,
-      metadata: { dispatched_by: "cron-dispatch-queue", skipped_reason: reason, skipped_at: now },
+      metadata: {
+        ...prevMeta,
+        dispatched_by: "cron-dispatch-queue",
+        skipped_reason: reason,
+        skipped_at: now,
+      },
     }).eq("id", msgId),
     svc.from("leads").update({ linkedin_connected: true, updated_at: now }).eq("id", leadId),
     svc.from("campaigns").update({
@@ -414,11 +433,20 @@ async function markAlreadyInvited(
   msgId: string, leadId: string, reason: string,
 ): Promise<DispatchOutcome> {
   const now = new Date().toISOString();
+  const { data: existing } = await svc
+    .from("campaign_messages").select("metadata").eq("id", msgId).maybeSingle();
+  const prevMeta = (existing?.metadata as Record<string, unknown> | null) ?? {};
   await svc.from("campaign_messages").update({
     status: "skipped",
     sent_at: null,
     error_details: null,
-    metadata: { dispatched_by: "cron-dispatch-queue", skipped_reason: reason, skipped_at: now, awaiting_acceptance: true },
+    metadata: {
+      ...prevMeta,
+      dispatched_by: "cron-dispatch-queue",
+      skipped_reason: reason,
+      skipped_at: now,
+      awaiting_acceptance: true,
+    },
   }).eq("id", msgId);
   return { kind: "skipped_invited", msgId, leadId };
 }
