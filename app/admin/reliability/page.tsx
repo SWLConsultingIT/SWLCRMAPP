@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import Breadcrumb from "@/components/Breadcrumb";
 import { C } from "@/lib/design";
-import { AlertTriangle, CheckCircle2, Send, Snowflake, Activity, MessageSquare, TrendingUp } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Send, Snowflake, Activity, MessageSquare, TrendingUp, ShieldCheck } from "lucide-react";
+import PageHero from "@/components/PageHero";
 import ReliabilityActions from "./ReliabilityActions";
 import RetryButton from "./RetryButton";
 import { CancelCooldownButton, PauseCampaignButton } from "./CooldownActions";
@@ -555,21 +556,49 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
   };
 
   return (
-    <div className="p-6 w-full max-w-6xl mx-auto">
+    <div className="p-6 w-full max-w-7xl mx-auto">
       <Breadcrumb crumbs={[{ label: "Admin", href: "/admin" }, { label: "Reliability" }]} />
 
-      {/* ─── Header ───────────────────────────────────────────────── */}
-      <div className="flex items-end justify-between mb-5 flex-wrap gap-3">
-        <div>
-          <h1 className="text-2xl font-bold mb-1" style={{ color: C.textPrimary }}>Reliability</h1>
-          <p className="text-sm" style={{ color: C.textMuted }}>
-            {selectedLabel === "All tenants"
-              ? <>Pipeline health across every tenant. <span style={{ color: C.textDim }}>Fetched {formatTime(fetchedAt)}.</span></>
-              : <>Pipeline health for <strong style={{ color: C.textBody }}>{selectedLabel}</strong>. <Link href="/admin/reliability" className="underline" style={{ color: C.linkedin }}>Ver todos</Link>.</>}
-          </p>
+      {/* ─── Hero ───────────────────────────────────────────────────
+          Same navy + gold treatment as the rest of the app (PageHero
+          component) so the page feels native to the brand. Action slot
+          carries the live-refresh widget; stats give a one-glance read
+          of tenants, global health and the actionable backlog. */}
+      <PageHero
+        icon={ShieldCheck}
+        section="ADMIN · INFRASTRUCTURE"
+        title="Reliability"
+        description={selectedLabel === "All tenants"
+          ? `Pipeline health across every tenant. Fetched ${formatTime(fetchedAt)}.`
+          : `Pipeline health for ${selectedLabel}. Click "All tenants" to widen the scope.`}
+        accentColor="var(--brand, #c9a83a)"
+        status={{ label: actionRequiredCount > 0 ? `${actionRequiredCount} acción${actionRequiredCount === 1 ? "" : "es"} requerida${actionRequiredCount === 1 ? "" : "s"}` : "Healthy", active: actionRequiredCount === 0 }}
+        action={<ReliabilityActions />}
+        stats={[
+          { label: "Tenants", value: tenants.length, tone: "neutral" },
+          { label: "Health", value: globalHealth, tone: globalHealth >= 85 ? "positive" : globalHealth >= 60 ? "warning" : "danger" },
+          { label: "Acción", value: actionRequiredCount, tone: actionRequiredCount > 0 ? "danger" : "neutral" },
+          { label: "Pipeline", value: pipelineCount, tone: pipelineCount > 0 ? "warning" : "neutral" },
+        ]}
+      />
+
+      {/* Scoped to one tenant? Surface a clear back-to-all chip so the
+          operator can widen the scope from the same place they narrowed
+          it — the chip strip used to live here pre-rework. */}
+      {tenantId && selectedTenant && (
+        <div className="mb-3 flex items-center gap-2 text-[12px]">
+          <Link
+            href="/admin/reliability"
+            className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 font-semibold transition-opacity hover:opacity-80"
+            style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}
+          >
+            ← All tenants
+          </Link>
+          <span style={{ color: C.textMuted }}>
+            Filtering by <strong style={{ color: C.textBody }}>{selectedTenant.name}</strong>
+          </span>
         </div>
-        <ReliabilityActions />
-      </div>
+      )}
 
       {/* ─── Tab nav: Status / Pipeline / History ────────────────── */}
       <ReliabilityTabs active={tab} counts={tabCounts} />
@@ -616,21 +645,50 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
         />
       </div>
 
+      {/* Status sub-nav — sticky jump-link strip so the operator can skip
+          straight to "Acción" or "Sellers" without scrolling past the
+          tenant grid. Only shown on Status (Pipeline + History don't
+          have enough sub-sections to justify a nav). */}
+      {tab === "status" && (
+        <nav
+          className="sticky z-30 mb-5 rounded-xl border flex items-center gap-1 px-2 py-1.5 backdrop-blur"
+          style={{
+            top: 12,
+            borderColor: C.border,
+            backgroundColor: "color-mix(in srgb, var(--bg, #fff) 88%, transparent)",
+          }}
+        >
+          <span className="text-[10px] font-bold uppercase tracking-wider px-2" style={{ color: C.textDim }}>Jump to</span>
+          <a href="#health" className="text-[11.5px] font-semibold px-2 py-1 rounded-md transition-colors hover:bg-black/[0.04]" style={{ color: C.textBody }}>Salud</a>
+          {selectedLabel === "All tenants" && tenantHealth.length > 0 && (
+            <a href="#tenants" className="text-[11.5px] font-semibold px-2 py-1 rounded-md transition-colors hover:bg-black/[0.04]" style={{ color: C.textBody }}>Tenants</a>
+          )}
+          {actionRequiredCount > 0 && (
+            <a href="#action-required" className="text-[11.5px] font-semibold px-2 py-1 rounded-md transition-colors hover:bg-black/[0.04]" style={{ color: C.red }}>
+              Acción <span className="tabular-nums">({actionRequiredCount})</span>
+            </a>
+          )}
+          <a href="#sellers" className="text-[11.5px] font-semibold px-2 py-1 rounded-md transition-colors hover:bg-black/[0.04]" style={{ color: C.textBody }}>Sellers</a>
+        </nav>
+      )}
+
       {/* ════════════════════════════════════════════════════════════
           STATUS TAB — health banner + tenant grid + action required
           ════════════════════════════════════════════════════════════ */}
       {tab === "status" && (
-        <HealthBanner
-          global={globalHealth}
-          actionRequired={actionRequiredCount}
-          pipeline={pipelineCount}
-          scopeLabel={selectedLabel}
-        />
+        <section id="health" className="scroll-mt-24">
+          <HealthBanner
+            global={globalHealth}
+            actionRequired={actionRequiredCount}
+            pipeline={pipelineCount}
+            scopeLabel={selectedLabel}
+          />
+        </section>
       )}
 
       {/* Tenant grid is only meaningful in the cross-tenant view. */}
       {tab === "status" && selectedLabel === "All tenants" && tenantHealth.length > 0 && (
-        <section className="mb-6">
+        <section id="tenants" className="mb-6 scroll-mt-24">
           <div className="flex items-baseline justify-between mb-3">
             <h2 className="text-sm font-bold uppercase tracking-wider" style={{ color: C.textPrimary }}>
               Health por tenant
@@ -657,6 +715,7 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
           STATUS · Acción requerida — failed / stuck / ghosts
           ──────────────────────────────────────────────────────────── */}
       {tab === "status" && actionRequiredCount > 0 && (
+        <section id="action-required" className="scroll-mt-24">
         <SectionGroup title="Acción requerida" subtitle="Cosas que necesitan tu atención — el dispatcher no las va a resolver solo." accent={C.red} count={actionRequiredCount}>
           {/* Failed */}
           {(failedVisible.length > 0 || failedHiddenCount > 0) && (
@@ -692,7 +751,9 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
                       <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
                       <Td>{r.step_number}</Td>
                       <Td>
-                        <span className="text-xs" style={{ color: C.red }}>{r.error_details ?? "(no error captured)"}</span>
+                        <span className="text-xs block max-w-[280px] truncate" style={{ color: C.red }} title={r.error_details ?? "(no error captured)"}>
+                          {r.error_details ?? "(no error captured)"}
+                        </span>
                       </Td>
                       <Td><RetryButton messageId={r.id} /></Td>
                     </tr>
@@ -761,7 +822,7 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
                       <Td>{formatTime(r.sent_at)}</Td>
                       <Td>{leadName(r)}</Td>
                       <Td>{r.campaigns?.sellers?.name ?? "—"}</Td>
-                      <Td><span className="text-xs" style={{ color: C.textMuted }}>{r._matchReason}</span></Td>
+                      <Td><span className="text-xs block max-w-[280px] truncate" style={{ color: C.textMuted }} title={r._matchReason}>{r._matchReason}</span></Td>
                     </tr>
                   ))}
                 </tbody>
@@ -769,6 +830,7 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
             </CollapsibleSection>
           )}
         </SectionGroup>
+        </section>
       )}
 
       {/* ════════════════════════════════════════════════════════════
@@ -818,7 +880,7 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
                           <span className="text-xs">{formatTime(r._cooldownUntil ?? null)}</span>
                           <span className="text-[10px] ml-2" style={{ color: C.textDim }}>({formatRelative(r._cooldownUntil ?? null)})</span>
                         </Td>
-                        <Td><span className="text-[11px]" style={{ color: C.textMuted }}>{reason.slice(0, 80)}</span></Td>
+                        <Td><span className="text-[11px] block max-w-[260px] truncate" style={{ color: C.textMuted }} title={reason}>{reason}</span></Td>
                         <Td><CancelCooldownButton messageId={r.id} /></Td>
                       </tr>
                     );
@@ -982,7 +1044,7 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
                             {bucketMeta.label}
                           </span>
                         </Td>
-                        <Td><span className="text-xs" style={{ color: C.textMuted }}>{r._matchReason}</span></Td>
+                        <Td><span className="text-xs block max-w-[280px] truncate" style={{ color: C.textMuted }} title={r._matchReason}>{r._matchReason}</span></Td>
                       </tr>
                     );
                   })}
@@ -1065,6 +1127,7 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
           STATUS · Seller / Unipile account health
           ════════════════════════════════════════════════════════════ */}
       {tab === "status" && (
+      <section id="sellers" className="scroll-mt-24">
       <CollapsibleSection title="Seller / Unipile account health" accent={C.gold} hint={tenantId ? "Sellers del tenant seleccionado" : "Todos los sellers activos"} defaultOpen={true}>
         <Table>
           <thead>
@@ -1149,6 +1212,7 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
           </tbody>
         </Table>
       </CollapsibleSection>
+      </section>
       )}
     </div>
   );
@@ -1239,7 +1303,15 @@ function Kpi({ label, value, sub, icon: Icon, color }: { label: string; value: s
 }
 
 function Table({ children }: { children: React.ReactNode }) {
-  return <table className="w-full text-sm">{children}</table>;
+  // Wrapped in an overflow-x container so long error strings or Unipile
+  // URLs can scroll horizontally inside the section instead of pushing
+  // the page out and forcing every other column into 1-char-per-line
+  // wraps. Error cells should still set a max-w + truncate themselves.
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm" style={{ minWidth: 720 }}>{children}</table>
+    </div>
+  );
 }
 
 function Th({ children }: { children: React.ReactNode }) {
