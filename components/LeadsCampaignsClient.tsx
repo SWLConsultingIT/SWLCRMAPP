@@ -1187,7 +1187,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
         // Floating bulk action bar — dark-gradient pop-up anchored to the
         // bottom-center of the viewport.
         <div className="fixed left-1/2 -translate-x-1/2 z-50 pointer-events-none" style={{ bottom: 24 }}>
-          <div className="pointer-events-auto rounded-2xl border flex items-center gap-3 px-4 py-3 flex-wrap shadow-2xl"
+          <div className="pointer-events-auto rounded-2xl border flex flex-col gap-2.5 px-4 py-3 shadow-2xl"
             style={{
               background: "linear-gradient(135deg, #0B0F1A 0%, #111827 60%, #0B0F1A 100%)",
               borderColor: `color-mix(in srgb, ${gold} 38%, transparent)`,
@@ -1195,82 +1195,96 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
               minWidth: 520,
               maxWidth: "calc(100vw - 48px)",
             }}>
-            <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#1A1505" }}>
-              <Sparkles size={15} />
-            </span>
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-bold leading-tight" style={{ color: "#fff", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-                {t(selected.size === 1 ? "leadsPage.bulk.leadSelected" : "leadsPage.bulk.leadsSelected", { n: selected.size })}
-              </p>
-              <p className="text-[11px] mt-0.5" style={{ color: "color-mix(in srgb, white 55%, transparent)" }}>
-                {hint}
-              </p>
+            {/* Header row: icon + text. Always one line; text container has
+                its own row so it can never collapse competing with buttons. */}
+            <div className="flex items-center gap-3">
+              <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#1A1505" }}>
+                <Sparkles size={15} />
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-bold leading-tight truncate" style={{ color: "#fff", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                  {t(selected.size === 1 ? "leadsPage.bulk.leadSelected" : "leadsPage.bulk.leadsSelected", { n: selected.size })}
+                </p>
+                <p className="text-[11px] mt-0.5 truncate" style={{ color: "color-mix(in srgb, white 55%, transparent)" }} title={hint}>
+                  {hint}
+                </p>
+              </div>
             </div>
 
-            {/* Flow buttons — only when every selected lead shares one ICP
-                AND none already sits in a flow (one-ICP-per-campaign LAW). */}
-            {canCreateFlow && sharedIcp && (
-              <>
-                <button onClick={() => setShowAddToFlow(true)} disabled={deleting}
-                  className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
-                  style={{ background: "rgba(255,255,255,0.08)", color: gold, border: `1px solid color-mix(in srgb, ${gold} 45%, transparent)` }}>
-                  <Megaphone size={13} /> {t("leadsPage.bulk.addToExisting")}
-                </button>
-                <button onClick={() => createNewFlowFromSelection(sharedIcp)} disabled={deleting}
-                  className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
-                  style={{
-                    background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 75%, white))`,
-                    color: "#1A1505",
-                    boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent)`,
-                  }}>
-                  <Send size={13} /> {t("leadsPage.bulk.createNewFlow")}
-                </button>
-              </>
-            )}
+            {/* Actions row: buttons wrap to a second line if the bar gets
+                squeezed, but never push the header text into single-word
+                breaks (which is what the old single-row + flex-wrap did). */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Flow buttons — only when every selected lead shares one ICP
+                  AND none already sits in a flow (one-ICP-per-campaign LAW). */}
+              {canCreateFlow && sharedIcp && (
+                <>
+                  <button onClick={() => setShowAddToFlow(true)} disabled={deleting}
+                    className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
+                    style={{ background: "rgba(255,255,255,0.08)", color: gold, border: `1px solid color-mix(in srgb, ${gold} 45%, transparent)` }}>
+                    <Megaphone size={13} /> {t("leadsPage.bulk.addToExisting")}
+                  </button>
+                  <button onClick={() => createNewFlowFromSelection(sharedIcp)} disabled={deleting}
+                    className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
+                    style={{
+                      background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 75%, white))`,
+                      color: "#1A1505",
+                      boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent)`,
+                    }}>
+                    <Send size={13} /> {t("leadsPage.bulk.createNewFlow")}
+                  </button>
+                </>
+              )}
 
-            {/* Status / delete — secondary, sit on the right edge. Native
-                select inherits OS styling; we just paint it dark to match. */}
-            <label className="relative inline-flex items-center">
-              <select
-                disabled={deleting}
-                onChange={e => {
-                  const v = e.target.value;
-                  e.target.value = "";
-                  if (v) void bulkChangeStatus(v);
-                }}
-                defaultValue=""
-                className="appearance-none text-[12px] font-semibold px-3 py-1.5 pr-7 rounded-lg cursor-pointer disabled:opacity-50"
-                style={{
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.18)",
-                  color: "rgba(255,255,255,0.9)",
-                }}
-              >
-                <option value="" disabled>{t("leadsPage.bulk.changeStatusPlaceholder")}</option>
-                <option value="new">{t("leadsPage.status.new")}</option>
-                <option value="contacted">{t("leadsPage.status.contacted")}</option>
-                <option value="connected">{t("leadsPage.status.connected")}</option>
-                <option value="responded">{t("leadsPage.status.responded")}</option>
-                <option value="qualified">{t("leadsPage.status.qualified")}</option>
-                <option value="proposal_sent">{t("leadsPage.status.proposalSent")}</option>
-                <option value="closed_won">{t("leadsPage.status.won")}</option>
-                <option value="closed_lost">{t("leadsPage.status.lost")}</option>
-                <option value="nurturing">{t("leadsPage.status.nurturing")}</option>
-              </select>
-              <ChevronRight size={11} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" style={{ color: "rgba(255,255,255,0.6)" }} />
-            </label>
-            <button onClick={() => setSelected(new Set())} disabled={deleting}
-              className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg transition-colors hover:bg-white/[0.06]"
-              style={{ color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.18)" }}>
-              {t("leadsPage.bulk.clear")}
-            </button>
-            <button onClick={bulkDelete} disabled={deleting}
-              className="text-[12px] font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
-              style={{ background: "linear-gradient(135deg, #DC2626, #B91C1C)", color: "#fff", boxShadow: "0 4px 14px rgba(220,38,38,0.35)" }}>
-              {deleting ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />}
-              {deleting ? t("leadsPage.bulk.working") : t("leadsPage.bulk.deleteN", { n: selected.size })}
-            </button>
+              {/* Spacer pushes status/clear/delete to the right edge when the
+                  flow buttons exist. Collapses to 0 when only secondary
+                  actions are present. */}
+              <div className="flex-1 min-w-0" />
+
+              {/* Status / delete — secondary, sit on the right edge. Native
+                  select inherits OS styling; we just paint it dark to match. */}
+              <label className="relative inline-flex items-center">
+                <select
+                  disabled={deleting}
+                  onChange={e => {
+                    const v = e.target.value;
+                    e.target.value = "";
+                    if (v) void bulkChangeStatus(v);
+                  }}
+                  defaultValue=""
+                  className="appearance-none text-[12px] font-semibold px-3 py-1.5 pr-7 rounded-lg cursor-pointer disabled:opacity-50"
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    color: "rgba(255,255,255,0.9)",
+                  }}
+                >
+                  <option value="" disabled>{t("leadsPage.bulk.changeStatusPlaceholder")}</option>
+                  <option value="new">{t("leadsPage.status.new")}</option>
+                  <option value="contacted">{t("leadsPage.status.contacted")}</option>
+                  <option value="connected">{t("leadsPage.status.connected")}</option>
+                  <option value="responded">{t("leadsPage.status.responded")}</option>
+                  <option value="qualified">{t("leadsPage.status.qualified")}</option>
+                  <option value="proposal_sent">{t("leadsPage.status.proposalSent")}</option>
+                  <option value="closed_won">{t("leadsPage.status.won")}</option>
+                  <option value="closed_lost">{t("leadsPage.status.lost")}</option>
+                  <option value="nurturing">{t("leadsPage.status.nurturing")}</option>
+                </select>
+                <ChevronRight size={11} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none rotate-90" style={{ color: "rgba(255,255,255,0.6)" }} />
+              </label>
+              <button onClick={() => setSelected(new Set())} disabled={deleting}
+                className="text-[11.5px] font-semibold px-3 py-1.5 rounded-lg transition-colors hover:bg-white/[0.06]"
+                style={{ color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.18)" }}>
+                {t("leadsPage.bulk.clear")}
+              </button>
+              <button onClick={bulkDelete} disabled={deleting}
+                className="text-[12px] font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{ background: "linear-gradient(135deg, #DC2626, #B91C1C)", color: "#fff", boxShadow: "0 4px 14px rgba(220,38,38,0.35)" }}>
+                {deleting ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                {deleting ? t("leadsPage.bulk.working") : t("leadsPage.bulk.deleteN", { n: selected.size })}
+              </button>
+            </div>
           </div>
         </div>
         );
