@@ -92,6 +92,20 @@ async function getQueueData() {
     .limit(50);
   if (scopedCompanyBioId) acceptQuery = acceptQuery.eq("company_bio_id", scopedCompanyBioId);
 
+  // Email issues — leads flagged 'invalid' or 'bounced' surface here so the
+  // seller sees them in History and can decide what to do (mark lost with a
+  // reason, pivot to another contact at the company, etc.). 'invalid' comes
+  // from the Instantly /email-verification pre-flight (see the Arqy 2026-05-29
+  // pass); 'bounced' comes from the Instantly webhook on `email_bounced`.
+  // Both are silent today — without surfacing them, sellers don't know the
+  // email track quietly died on a lead.
+  let emailIssuesQuery = supabase.from("leads")
+    .select("id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id, icp_profile_id, primary_email_status, primary_work_email, updated_at")
+    .in("primary_email_status", ["invalid", "bounced"])
+    .order("updated_at", { ascending: false })
+    .limit(50);
+  if (scopedCompanyBioId) emailIssuesQuery = emailIssuesQuery.eq("company_bio_id", scopedCompanyBioId);
+
   // (Pending Reviews + Updates tabs were removed from /queue per boss
   // feedback 2026-05-27 — Pending Reviews deleted entirely, Updates moved
   // to Lead Miner. Their data fetches were dropped here too.)
@@ -99,13 +113,14 @@ async function getQueueData() {
     { data: rawActiveCampaigns },
     { data: rawRecentReplies },
     { data: rawRecentAccepts },
-  ] = await Promise.all([campQuery, replyQuery, acceptQuery]);
+    { data: rawEmailIssues },
+  ] = await Promise.all([campQuery, replyQuery, acceptQuery, emailIssuesQuery]);
 
   // Decrypt client-source leads nested inside the three join queries so
   // sellers see real names instead of "Unknown" for tenants with encrypted
   // PII (eg De Vera Grill). Done as a single batch per query — hydration
   // resolves the tenant key once and reuses it across rows.
-  const [activeCampaigns, recentReplies, recentAccepts] = await Promise.all([
+  const [activeCampaigns, recentReplies, recentAccepts, emailIssues] = await Promise.all([
     hydrateNestedLeads((rawActiveCampaigns ?? []) as any[]),
     hydrateNestedLeads((rawRecentReplies ?? []) as any[]),
     // rawRecentAccepts comes from `supabase.from("leads")` directly — flat rows,
@@ -113,6 +128,8 @@ async function getQueueData() {
     // hydrateNestedLeads (which looks for r.leads) leaves PII columns null and
     // every "Aceptó la solicitud" entry renders as "Unknown".
     hydrateClientLeads((rawRecentAccepts ?? []) as any[]),
+    // Same flat-row shape as accepts.
+    hydrateClientLeads((rawEmailIssues ?? []) as any[]),
   ]);
 
   // Pending Calls — also enrich with the LATEST call per lead so the UI can
@@ -251,6 +268,9 @@ async function getQueueData() {
   for (const a of (recentAccepts ?? []) as any[]) {
     const id = a.icp_profile_id; if (id) icpIds.add(id);
   }
+  for (const e of (emailIssues ?? []) as any[]) {
+    const id = e.icp_profile_id; if (id) icpIds.add(id);
+  }
   const icpNameById: Record<string, string> = {};
   if (icpIds.size > 0) {
     const { data: icps } = await supabase.from("icp_profiles")
@@ -297,6 +317,29 @@ async function getQueueData() {
         replyText: null,
         receivedAt: acceptedAt,
         campaignName: meta?.campaign_name ?? null,
+        icpProfileName: lead.icp_profile_id ? (icpNameById[lead.icp_profile_id] ?? null) : null,
+        requiresHumanReview: false,
+      };
+    }),
+    // Email issues — invalid (caught by pre-flight verifier) and bounced
+    // (caught by Instantly webhook). receivedAt = updated_at, which is when
+    // the status flipped — the same UX expectation as accepts (newest
+    // engagement signal at top).
+    ...(emailIssues ?? []).map((lead: any) => {
+      const leadName = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown";
+      const isBounced = lead.primary_email_status === "bounced";
+      return {
+        id: `email-issue-${lead.id}`,
+        leadId: lead.id,
+        leadName,
+        company: lead.company_name ?? null,
+        channel: "email",
+        classification: isBounced ? "email_bounced" : "email_invalid",
+        replyText: lead.primary_work_email
+          ? `Address: ${lead.primary_work_email}`
+          : null,
+        receivedAt: lead.updated_at ?? new Date().toISOString(),
+        campaignName: null,
         icpProfileName: lead.icp_profile_id ? (icpNameById[lead.icp_profile_id] ?? null) : null,
         requiresHumanReview: false,
       };

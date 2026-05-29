@@ -54,6 +54,9 @@ function classBadge(c: string | null): { label: string; color: string; bg: strin
   if (c === "positive" || c === "meeting_intent") return { label: "Positive", color: C.green, bg: `color-mix(in srgb, ${C.green} 14%, transparent)` };
   if (c === "negative" || c === "not_now") return { label: "Negative", color: C.red, bg: `color-mix(in srgb, ${C.red} 14%, transparent)` };
   if (c === "question" || c === "needs_info") return { label: "Question", color: C.blue, bg: `color-mix(in srgb, ${C.blue} 14%, transparent)` };
+  if (c === "connection_accepted") return { label: "Accepted", color: C.green, bg: `color-mix(in srgb, ${C.green} 14%, transparent)` };
+  if (c === "email_invalid") return { label: "Invalid email", color: C.red, bg: `color-mix(in srgb, ${C.red} 14%, transparent)` };
+  if (c === "email_bounced") return { label: "Bounced", color: C.red, bg: `color-mix(in srgb, ${C.red} 14%, transparent)` };
   return { label: c, color: C.textMuted, bg: C.surface };
 }
 
