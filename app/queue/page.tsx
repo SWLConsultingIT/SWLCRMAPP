@@ -108,7 +108,11 @@ async function getQueueData() {
   const [activeCampaigns, recentReplies, recentAccepts] = await Promise.all([
     hydrateNestedLeads((rawActiveCampaigns ?? []) as any[]),
     hydrateNestedLeads((rawRecentReplies ?? []) as any[]),
-    hydrateNestedLeads((rawRecentAccepts ?? []) as any[]),
+    // rawRecentAccepts comes from `supabase.from("leads")` directly — flat rows,
+    // no `.leads` sub-object — so use the flat hydrator. Passing it through
+    // hydrateNestedLeads (which looks for r.leads) leaves PII columns null and
+    // every "Aceptó la solicitud" entry renders as "Unknown".
+    hydrateClientLeads((rawRecentAccepts ?? []) as any[]),
   ]);
 
   // Pending Calls — also enrich with the LATEST call per lead so the UI can

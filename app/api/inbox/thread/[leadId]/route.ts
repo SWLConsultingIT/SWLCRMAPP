@@ -238,18 +238,23 @@ export async function GET(
           msg?.is_sender === true || msg?.is_sender === 1 ||
           msg?.from_me === true || msg?.from_me === 1 ||
           (typeof msg?.sender_id === "string" && msg.sender_id === unipileAccountId);
-        // De-dupe inbound messages by text+timestamp (within 60s) against
-        // what we already have, since lead_replies stores reply_text but not
-        // the provider_message_id in older rows.
-        if (!provId) {
-          const ts = new Date(at).getTime();
-          const dupe = entries.some(e => {
-            if (e.direction !== (isFromUs ? "outbound" : "inbound")) return false;
-            const diff = Math.abs(new Date(e.at).getTime() - ts);
-            return diff < 60_000 && (e.body || "").trim() === text.trim();
-          });
-          if (dupe) continue;
-        }
+        // De-dupe by text+timestamp against entries we already have. Runs
+        // even when Unipile provides a provId because (a) lead_replies never
+        // stores a per-message provider_message_id (only provider_thread_id),
+        // so inbound DB rows can't match by ID, and (b) the CR invite-note
+        // gets re-surfaced in /chats/messages after the lead accepts with a
+        // timestamp that's MINUTES off the original sent_at (LinkedIn uses
+        // the accept time). 10-min window catches both cases without merging
+        // genuinely distinct messages — sellers don't fire two identical
+        // copies of the same note within the same 10 min.
+        const ts = new Date(at).getTime();
+        const targetDir = isFromUs ? "outbound" : "inbound";
+        const dupe = entries.some(e => {
+          if (e.direction !== targetDir) return false;
+          const diff = Math.abs(new Date(e.at).getTime() - ts);
+          return diff < 10 * 60_000 && (e.body || "").trim() === text.trim();
+        });
+        if (dupe) continue;
         entries.push({
           id: `unipile-${provId ?? at}`,
           direction: isFromUs ? "outbound" : "inbound",
