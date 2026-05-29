@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getUserScope } from "@/lib/scope";
 
@@ -7,18 +7,25 @@ import { getUserScope } from "@/lib/scope";
 // without forcing the entire campaign payload through the server prop
 // stream. Tenant scope comes from getUserScope so super-admins see all,
 // scoped roles see only their tenant.
-export async function GET() {
+//
+// Optional `?icp=<profile_id>` narrows the list to flows whose embedded
+// leads carry that icp_profile_id. The /leads bulk popup uses this to
+// enforce the one-ICP-per-campaign LAW: when surfacing "Add to existing
+// flow", only flows of the selected leads' shared ICP show up.
+export async function GET(req: NextRequest) {
   const supabase = await getSupabaseServer();
   const scope = await getUserScope();
   const bioId = scope.isScoped ? scope.companyBioId! : null;
+  const icpFilter = req.nextUrl.searchParams.get("icp");
 
   let q = supabase
     .from("campaigns")
-    .select("id, name, status, channel, sequence_steps, lead_id, leads!inner(company_bio_id)")
+    .select("id, name, status, channel, sequence_steps, lead_id, leads!inner(company_bio_id, icp_profile_id)")
     .in("status", ["active", "paused"])
     .order("created_at", { ascending: false })
     .limit(500);
   if (bioId) q = q.eq("leads.company_bio_id", bioId);
+  if (icpFilter) q = q.eq("leads.icp_profile_id", icpFilter);
 
   const { data, error } = await q;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

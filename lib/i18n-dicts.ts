@@ -981,8 +981,9 @@ export const en: Dict = {
   // Bulk action pop-up
   "leadsPage.bulk.leadSelected": "{n} lead selected",
   "leadsPage.bulk.leadsSelected": "{n} leads selected",
-  "leadsPage.bulk.someInFlow": "Bulk update status or delete. Flow creation lives on /campaigns.",
-  "leadsPage.bulk.pushHint": "Bulk update status or delete. Flow creation lives on /campaigns.",
+  "leadsPage.bulk.someInFlow": "{n} already in a flow — only status / delete available.",
+  "leadsPage.bulk.mixedIcp": "Mixed ICPs — flow creation needs every lead to share one ICP. Split by ICP first.",
+  "leadsPage.bulk.pushHint": "Push them into a new flow or attach to one already running.",
   "leadsPage.bulk.addToExisting": "Add to existing flow",
   "leadsPage.bulk.createNewFlow": "Create New Flow",
   "leadsPage.bulk.changeStatusPlaceholder": "Change status…",
@@ -2365,8 +2366,9 @@ export const es: Dict = {
   // Bulk action pop-up
   "leadsPage.bulk.leadSelected": "{n} lead seleccionado",
   "leadsPage.bulk.leadsSelected": "{n} leads seleccionados",
-  "leadsPage.bulk.someInFlow": "Cambiá estado o borrá en bulk. La creación de flows vive en /campaigns.",
-  "leadsPage.bulk.pushHint": "Cambiá estado o borrá en bulk. La creación de flows vive en /campaigns.",
+  "leadsPage.bulk.someInFlow": "{n} ya están en un flow — solo está disponible cambiar estado / borrar.",
+  "leadsPage.bulk.mixedIcp": "ICPs mezclados — crear un flow necesita que todos los leads compartan un solo ICP. Separá por ICP primero.",
+  "leadsPage.bulk.pushHint": "Mandalos a un nuevo flow o sumalos a uno que ya esté corriendo.",
   "leadsPage.bulk.addToExisting": "Sumar a un flow existente",
   "leadsPage.bulk.createNewFlow": "Crear nuevo flow",
   "leadsPage.bulk.changeStatusPlaceholder": "Cambiar estado…",

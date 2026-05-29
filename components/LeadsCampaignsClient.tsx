@@ -890,8 +890,11 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
   // Modal for "Add to existing flow" bulk action. Fetches active flows on
   // open so the picker reflects the current state (a campaign created in
   // another tab shows up without a refresh).
-  // showAddToFlow removed 2026-05-28 — AddToFlowModalLeads no longer
-  // surfaces from /leads (memory: feedback_campaigns_only_from_campaigns_page).
+  // Re-introduced 2026-05-29 (boss revised rule): the bulk popup may surface
+  // Create New Flow / Add to existing flow buttons — but ONLY when every
+  // selected lead shares a single ICP. Mixed-ICP selections still hide both
+  // buttons (preserves the LAW: one ICP per campaign).
+  const [showAddToFlow, setShowAddToFlow] = useState(false);
 
   const profileNames = [...new Set(leads.map(l => l.profile_name).filter(Boolean))] as string[];
   // Distinct role + industry values from the current lead set, sorted
@@ -1067,9 +1070,15 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
     }
   }
 
-  // createNewFlowFromSelection removed 2026-05-28 — see memory
-  // feedback_campaigns_only_from_campaigns_page.md. /leads no longer
-  // initiates flow creation; that lives only at /campaigns.
+  // "Create new flow" — feeds the wizard. The bulk popup only surfaces
+  // this button when every selected lead shares a single ICP (the
+  // one-ICP-per-campaign LAW), so we can deep-link to
+  // /campaigns/new/[icpId]?leads=… skipping the ICP picker.
+  function createNewFlowFromSelection(sharedIcpId: string) {
+    const ids = Array.from(selected);
+    if (ids.length === 0 || !sharedIcpId) return;
+    router.push(`/campaigns/new/${sharedIcpId}?leads=${ids.join(",")}`);
+  }
 
   async function bulkChangeStatus(status: string) {
     if (selected.size === 0 || deleting) return;
@@ -1152,18 +1161,31 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
       />
 
       {selected.size > 0 && (() => {
-        // Flow actions only make sense for leads that are NOT already in a
-        // flow — adding a lead to a second flow at the same time would
-        // double-send and creates an awkward "which campaign did this
-        // reply come from" mess. Boss feedback 2026-05-28: "los leads
-        // que tienen campaign no pueden tener el botón create flow y
-        // add to existing".
+        // Flow-creation surfaces re-enabled 2026-05-29 with the one-ICP guard
+        // (boss revised rule: ok desde /leads SI son del mismo ICP).
+        //   • Both buttons appear ONLY when every selected lead shares the
+        //     same `profile_id` (and that profile_id is non-null) AND none of
+        //     them already sits in a flow. That keeps the LAW intact
+        //     ("one ICP per campaign") without the hard ban on /leads.
+        //   • Mixed-ICP selections → buttons hidden, hint explains why.
+        //   • Some-already-in-flow selections → buttons hidden, hint explains.
+        const selectedLeadObjs = leads.filter(l => selected.has(l.id));
+        const someAlreadyInFlow = selectedLeadObjs.some(l => l.has_campaign === true);
+        const allWithoutFlow = selectedLeadObjs.length > 0 && !someAlreadyInFlow;
+        const icpSet = new Set(selectedLeadObjs.map(l => l.profile_id ?? null));
+        const sharedIcp = icpSet.size === 1 && [...icpSet][0] ? ([...icpSet][0] as string) : null;
+        const canCreateFlow = allWithoutFlow && sharedIcp !== null;
+        // Hint text picks the right reason for hiding the flow buttons so
+        // the seller knows what to do (move to Lead Miner ticket vs split
+        // by ICP first vs status-only because already in a flow).
+        const hint = someAlreadyInFlow
+          ? t("leadsPage.bulk.someInFlow", { n: selectedLeadObjs.filter(l => l.has_campaign).length })
+          : !sharedIcp
+            ? t("leadsPage.bulk.mixedIcp")
+            : t("leadsPage.bulk.pushHint");
         return (
         // Floating bulk action bar — dark-gradient pop-up anchored to the
-        // bottom-center of the viewport. Boss feedback 2026-05-28 r9:
-        // wanted the same premium pop-up style the Lead Miner ticket and
-        // Outreach Flow ICP page already use, not an inline strip stuck
-        // between the filters and the table.
+        // bottom-center of the viewport.
         <div className="fixed left-1/2 -translate-x-1/2 z-50 pointer-events-none" style={{ bottom: 24 }}>
           <div className="pointer-events-auto rounded-2xl border flex items-center gap-3 px-4 py-3 flex-wrap shadow-2xl"
             style={{
@@ -1182,15 +1204,30 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                 {t(selected.size === 1 ? "leadsPage.bulk.leadSelected" : "leadsPage.bulk.leadsSelected", { n: selected.size })}
               </p>
               <p className="text-[11px] mt-0.5" style={{ color: "color-mix(in srgb, white 55%, transparent)" }}>
-                {t("leadsPage.bulk.pushHint")}
+                {hint}
               </p>
             </div>
 
-            {/* Flow-creation buttons removed 2026-05-28 (boss feedback,
-                memory: feedback_campaigns_only_from_campaigns_page.md).
-                All flow creation now starts at /campaigns → Lead Miner
-                section "Create New Flow". /leads keeps bulk status +
-                bulk delete only. */}
+            {/* Flow buttons — only when every selected lead shares one ICP
+                AND none already sits in a flow (one-ICP-per-campaign LAW). */}
+            {canCreateFlow && sharedIcp && (
+              <>
+                <button onClick={() => setShowAddToFlow(true)} disabled={deleting}
+                  className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
+                  style={{ background: "rgba(255,255,255,0.08)", color: gold, border: `1px solid color-mix(in srgb, ${gold} 45%, transparent)` }}>
+                  <Megaphone size={13} /> {t("leadsPage.bulk.addToExisting")}
+                </button>
+                <button onClick={() => createNewFlowFromSelection(sharedIcp)} disabled={deleting}
+                  className="text-[12.5px] font-bold px-3.5 py-1.5 rounded-lg inline-flex items-center gap-1.5 transition-opacity hover:opacity-90 disabled:opacity-50"
+                  style={{
+                    background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 75%, white))`,
+                    color: "#1A1505",
+                    boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent)`,
+                  }}>
+                  <Send size={13} /> {t("leadsPage.bulk.createNewFlow")}
+                </button>
+              </>
+            )}
 
             {/* Status / delete — secondary, sit on the right edge. Native
                 select inherits OS styling; we just paint it dark to match. */}
@@ -1236,6 +1273,24 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
             </button>
           </div>
         </div>
+        );
+      })()}
+
+      {showAddToFlow && (() => {
+        // Compute sharedIcp again at modal-open time (selection might have
+        // shifted) so the modal can filter its flow list to that ICP only —
+        // belt-and-braces enforcement of the one-ICP-per-campaign LAW.
+        const selectedLeadObjs = leads.filter(l => selected.has(l.id));
+        const icpSet = new Set(selectedLeadObjs.map(l => l.profile_id ?? null));
+        const sharedIcp = icpSet.size === 1 && [...icpSet][0] ? ([...icpSet][0] as string) : null;
+        if (!sharedIcp) { setShowAddToFlow(false); return null; }
+        return (
+          <AddToFlowModalLeads
+            leadIds={Array.from(selected)}
+            icpProfileId={sharedIcp}
+            onClose={() => setShowAddToFlow(false)}
+            onAdded={() => { setShowAddToFlow(false); setSelected(new Set()); router.refresh(); }}
+          />
         );
       })()}
 
@@ -1527,9 +1582,13 @@ function ProfileCard({ group, t }: { group: ProfileGroup; t: Tr }) {
 // (no extra prop drilling) and posts to /api/campaigns/[id]/add-leads —
 // the same endpoint the Lead Miner ticket bulk-action uses.
 function AddToFlowModalLeads({
-  leadIds, onClose, onAdded,
+  leadIds, icpProfileId, onClose, onAdded,
 }: {
   leadIds: string[];
+  /** ICP shared by every selected lead. Filters the flow list server-side
+   * so the operator can't violate the one-ICP-per-campaign LAW from this
+   * modal (the bulk popup already gates the entry point). */
+  icpProfileId: string;
   onClose: () => void;
   onAdded: () => void;
 }) {
@@ -1546,13 +1605,13 @@ function AddToFlowModalLeads({
   // Lazy-load on mount.
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/campaigns/active-list", { cache: "no-store" })
+    fetch(`/api/campaigns/active-list?icp=${encodeURIComponent(icpProfileId)}`, { cache: "no-store" })
       .then(r => r.ok ? r.json() : { campaigns: [] })
       .then(data => { if (!cancelled) setCampaigns(Array.isArray(data.campaigns) ? data.campaigns : []); })
       .catch(() => { /* ignore — empty list */ })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, []);
+  }, [icpProfileId]);
 
   // Dedupe by flow name (a flow can have many campaign rows, one per
   // lead). Pick the most populous to attach against — the API resolves
