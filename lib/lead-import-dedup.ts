@@ -11,6 +11,7 @@
 // the writes before pressing Import.
 
 import { applyMappingToRow, type LeadMappingResult } from "@/lib/lead-csv-mapper";
+import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
 export type ImportRowOutcome = {
   rowIndex: number; // 1-based for the operator UI
@@ -40,6 +41,8 @@ export type ImportPlan = {
 
 type ExistingLead = {
   id: string;
+  source?: string | null;
+  encrypted_payload?: unknown;
   primary_linkedin_url: string | null;
   primary_work_email: string | null;
   primary_personal_email: string | null;
@@ -144,11 +147,17 @@ export async function buildImportPlan(input: {
   // in-flight campaign. PostgREST defaults to a 1000-row page, so
   // .range(0, PAGE_CAP) is mandatory — without it the dedup index
   // misses every lead past #1001 and the wizard's preview silently
-  // under-reports duplicates. Burned 2026-05-29: Fran's De Vera Grill
-  // import bulk-inserted ~400 leads that should've been flagged.
+  // under-reports duplicates. Burned 2026-05-29 (De Vera Grill: dedup
+  // bulk-inserted 95 leads that should've been caught).
+  //
+  // We also pull source + encrypted_payload because client-source
+  // leads keep their PII inside the ciphertext, not in plaintext
+  // columns — without hydrating them the dedup keys (first/last name,
+  // LinkedIn URL, email, phone, company) are all NULL and every
+  // re-import duplicates them invisibly. Burned 2026-05-29 too.
   const [existingRes, activeCampRes] = await Promise.all([
     supabase.from("leads")
-      .select("id, primary_linkedin_url, primary_work_email, primary_personal_email, primary_phone, primary_first_name, primary_last_name, company_name")
+      .select("id, source, encrypted_payload, primary_linkedin_url, primary_work_email, primary_personal_email, primary_phone, primary_first_name, primary_last_name, company_name")
       .eq("company_bio_id", targetBioId)
       .range(0, PAGE_CAP),
     supabase.from("campaigns")
@@ -157,7 +166,43 @@ export async function buildImportPlan(input: {
       .range(0, PAGE_CAP),
   ]);
 
-  const existing = (existingRes.data ?? []) as ExistingLead[];
+  const existingRaw = (existingRes.data ?? []) as ExistingLead[];
+
+  // Hydrate client-source rows by decrypting their payload into the
+  // plaintext column slots so the dedup lookup keys (LI slug, email,
+  // phone, name+company) actually have something to match.
+  const needsDecrypt = existingRaw.some(l => l.source === "client" && l.encrypted_payload);
+  let existing = existingRaw;
+  if (needsDecrypt) {
+    try {
+      const { key } = await resolveTenantKey(targetBioId);
+      existing = existingRaw.map(l => {
+        if (l.source !== "client" || !l.encrypted_payload) return l;
+        try {
+          const blob = bufferFromSupabaseBytea(l.encrypted_payload);
+          const decrypted = decryptWithResolvedKey(blob, key) as Record<string, unknown>;
+          return {
+            ...l,
+            primary_linkedin_url:  (decrypted.primary_linkedin_url  as string | null) ?? l.primary_linkedin_url,
+            primary_work_email:    (decrypted.primary_work_email    as string | null) ?? l.primary_work_email,
+            primary_personal_email:(decrypted.primary_personal_email as string | null) ?? l.primary_personal_email,
+            primary_phone:         (decrypted.primary_phone         as string | null) ?? l.primary_phone,
+            primary_first_name:    (decrypted.primary_first_name    as string | null) ?? l.primary_first_name,
+            primary_last_name:     (decrypted.primary_last_name     as string | null) ?? l.primary_last_name,
+            company_name:          (decrypted.company_name          as string | null) ?? l.company_name,
+          };
+        } catch (err) {
+          // Decrypt failures are common when the tenant key rotated or
+          // a row got corrupted on insert (bytea-as-JSON bug). Skip the
+          // row — better to miss one dedup match than crash the wizard.
+          console.warn(`[lead-import-dedup] decrypt failed for lead ${l.id}: ${err instanceof Error ? err.message : String(err)}`);
+          return l;
+        }
+      });
+    } catch (err) {
+      console.warn(`[lead-import-dedup] tenant key unavailable, dedup will skip encrypted leads: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
   const activeLeadIds = new Set(
     ((activeCampRes.data ?? []) as Array<{ lead_id: string | null }>)
       .map(r => r.lead_id)
