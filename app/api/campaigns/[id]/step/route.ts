@@ -1,9 +1,42 @@
+// Tenant-scoped manual step override for a campaign. Lets a seller drag a
+// lead between Step columns on the Outreach Flow board: "skip" fakes the Nth
+// DM as sent (no dispatch), "send" forces the orchestrator to send step N on
+// the next cycle by setting current_step=N-1 + back-dating last_step_at.
+//
+// Auth: requires canCreateCampaigns (any non-viewer authenticated user in the
+// tenant). Cross-tenant IDs are rejected with 403.
+//
+// Pre-2026-05-29 this route had NO auth gate — anyone could rewrite any
+// campaign's cursor or force-send messages on any tenant.
+
 import { getSupabaseService } from "@/lib/supabase-service";
+import { getUserScope, canCreateCampaigns } from "@/lib/scope";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const scope = await getUserScope();
+  if (!scope.userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!canCreateCampaigns(scope.tier)) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
   const supabase = getSupabaseService();
   const { id } = await params;
+
+  // Tenant gate — resolve the campaign's owning tenant via its lead.
+  const { data: campRow, error: readErr } = await supabase
+    .from("campaigns")
+    .select("id, leads!inner(company_bio_id)")
+    .eq("id", id)
+    .maybeSingle();
+  if (readErr) return NextResponse.json({ error: readErr.message }, { status: 500 });
+  if (!campRow) return NextResponse.json({ error: "not found" }, { status: 404 });
+  const leadsField = (campRow as any).leads;
+  const campBioId = Array.isArray(leadsField) ? leadsField[0]?.company_bio_id : leadsField?.company_bio_id;
+  if (scope.isScoped && campBioId !== scope.companyBioId) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
   const body = await req.json();
   const step = Number(body.currentStep);
   const action: "skip" | "send" = body.action === "send" ? "send" : "skip";

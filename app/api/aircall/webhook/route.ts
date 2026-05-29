@@ -6,12 +6,11 @@ const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
 const AIRCALL_WEBHOOK_SECRET = process.env.AIRCALL_WEBHOOK_SECRET ?? "";
 
 /**
- * HMAC validation in LOG-ONLY mode. If AIRCALL_WEBHOOK_SECRET is unset we
- * skip silently (current behavior, pre-2026-05-14). If it's set we compute
- * the expected signature and warn on mismatch — but DO NOT reject the
- * request until we've confirmed via logs that legitimate Aircall traffic
- * carries the header. Once we see clean traffic, flip the early return
- * below from a `console.warn` to a 401 response.
+ * HMAC validation in ENFORCED mode (flipped 2026-05-29 from log-only).
+ * If AIRCALL_WEBHOOK_SECRET is unset we still let the request through (so
+ * environments that haven't configured the secret yet keep working) but log
+ * loudly. If it's set we reject mismatches with 401 — anyone with the
+ * webhook URL could otherwise forge `call.ended` / `call.answered` events.
  *
  * Aircall convention: header `X-Aircall-Signature` = hex HMAC-SHA256(body)
  * using the signing key from Aircall Dashboard → Integrations → Public API.
@@ -75,13 +74,16 @@ export async function POST(req: NextRequest) {
   // `req.json()` first would consume the stream and leave us unable to
   // re-hash the original bytes.
   const rawBody = await req.text();
-  const sigCheck = verifyAircallSignature(rawBody, req.headers.get("x-aircall-signature"));
-  if (!sigCheck.valid) {
-    // LOG-ONLY mode: log + keep processing so we don't break legitimate
-    // Aircall traffic if their header format differs from our assumption.
-    // Flip this to `return NextResponse.json({ error: "bad signature" },
-    // { status: 401 })` once logs confirm 100% valid traffic.
-    console.warn("[aircall-webhook] invalid signature (log-only mode):", sigCheck.reason);
+  if (!AIRCALL_WEBHOOK_SECRET) {
+    // Secret not configured — let the request through but flag it loudly so
+    // the channel doesn't silently stay open in production.
+    console.warn("[aircall-webhook] AIRCALL_WEBHOOK_SECRET unset — signature check skipped");
+  } else {
+    const sigCheck = verifyAircallSignature(rawBody, req.headers.get("x-aircall-signature"));
+    if (!sigCheck.valid) {
+      console.warn("[aircall-webhook] rejected — invalid signature:", sigCheck.reason);
+      return NextResponse.json({ error: "invalid signature" }, { status: 401 });
+    }
   }
 
   let body: AircallEvent;
