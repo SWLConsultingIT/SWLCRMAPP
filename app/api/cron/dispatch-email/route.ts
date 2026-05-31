@@ -4,6 +4,7 @@ import { getUserScope } from "@/lib/scope";
 import { getInstantlyConfig } from "@/lib/instantly-config";
 import { signStepAttachments } from "@/lib/campaign-attachments";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
+import { renderPlaceholders, findUnresolvedPlaceholders } from "@/lib/placeholders";
 
 // Cron-driven dispatcher for `campaign_messages` rows in `status='queued'`
 // where channel='email'. One mail per tick via Instantly v2.
@@ -66,24 +67,13 @@ function authorized(req: NextRequest, scopeRole: string | null): boolean {
   return header === `Bearer ${CRON_SECRET}`;
 }
 
-function personalize(template: string, lead: any, seller: any): string {
-  const first = lead?.primary_first_name ?? "there";
-  const last = lead?.primary_last_name ?? "";
-  const full = `${first} ${last}`.trim();
-  const company = lead?.company_name ?? "";
-  const role = lead?.primary_title_role ?? "";
-  const sellerName = seller?.name ?? "";
-  return (template ?? "")
-    .replaceAll("{{first_name}}", first)
-    .replaceAll("{{last_name}}", last)
-    .replaceAll("{{full_name}}", full)
-    .replaceAll("{{company_name}}", company)
-    .replaceAll("{{company}}", company)
-    .replaceAll("{{role}}", role)
-    .replaceAll("{{title}}", role)
-    .replaceAll("{{seller_name}}", sellerName)
-    .replaceAll("{{seller_company}}", "");
-}
+// Render + leftover-token guard live in lib/placeholders.ts so this
+// dispatcher and the LinkedIn one (/api/cron/dispatch-queue) cannot drift.
+// Pre-2026-05-31 the local table here was missing `{{fund_name}}` and the
+// other PE-Spain aliases — a US PE follow-up shipped to Daniel Robin with
+// the literal `{{fund_name}}` because of that drift.
+const personalize = (template: string, lead: any, seller: any) =>
+  renderPlaceholders(template, lead, seller);
 
 async function instantlyFetch(apiKey: string, method: "POST" | "DELETE", path: string, body?: any): Promise<any> {
   // Instantly v2 rejects requests with `content-type: application/json` and no
@@ -339,6 +329,18 @@ async function dispatchOneEmail(
   const subject = personalize(subjectRaw, lead, seller).slice(0, 200);
   let body = personalize(candidate.content ?? "", lead, seller);
   if (!body.trim()) return await failMessage(svc, candidate.id, candidate.lead_id, "empty body after personalization");
+
+  // Defense-in-depth (PE Spain 2026-05-27 incident + Daniel Robin 2026-05-31
+  // recurrence): any leftover `{{…}}` is an unsupported / unfilled token.
+  // Never ship that raw — fail the row so the operator fixes the template
+  // before the next tick. Same guard the LinkedIn dispatcher uses.
+  const unresolved = findUnresolvedPlaceholders(`${subject}\n${body}`);
+  if (unresolved.length > 0) {
+    return await failMessage(
+      svc, candidate.id, candidate.lead_id,
+      `unresolved placeholder(s): ${unresolved.join(", ")} — fix the template before resending`,
+    );
+  }
 
   // Per-step attachments. Instantly v2 passthrough campaigns don't expose
   // per-lead attachments (attachments live on the campaign object, but we

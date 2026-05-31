@@ -67,3 +67,77 @@ export function unsupportedPlaceholdersIn(body: string): string[] {
   const bad = matches.filter(m => !SUPPORTED_PLACEHOLDERS.includes(m));
   return [...new Set(bad)];
 }
+
+// ── Render-time helpers ───────────────────────────────────────────────
+//
+// Both /api/cron/dispatch-queue (LinkedIn) and /api/cron/dispatch-email
+// (Instantly) call into here so the substitution table cannot drift.
+// Before 2026-05-31 each dispatcher had its own private personalize()
+// — the LinkedIn one knew about {{fund_name}} after the PE Spain fix,
+// the email one did not, and a US PE follow-up went out with literal
+// `{{fund_name}}` because the wizard let it through and the email
+// dispatcher silently passed it on. Single source of truth fixes both
+// halves: render here, refuse-on-unsupported here.
+
+export type PlaceholderLead = {
+  primary_first_name?: string | null;
+  primary_last_name?: string | null;
+  company_name?: string | null;
+  primary_title_role?: string | null;
+};
+
+export type PlaceholderSeller = {
+  name?: string | null;
+};
+
+export function renderPlaceholders(
+  template: string,
+  lead: PlaceholderLead,
+  seller: PlaceholderSeller,
+): string {
+  const first = lead.primary_first_name ?? "there";
+  const last = lead.primary_last_name ?? "";
+  const full = `${first} ${last}`.trim();
+  const company = lead.company_name ?? "";
+  const role = lead.primary_title_role ?? "";
+  const sellerName = seller.name ?? "";
+  return (template ?? "")
+    // First name — snake, camel, and "name" alone.
+    .replaceAll("{{first_name}}", first)
+    .replaceAll("{{firstName}}", first)
+    .replaceAll("{{name}}", first)
+    // Last name.
+    .replaceAll("{{last_name}}", last)
+    .replaceAll("{{lastName}}", last)
+    // Full name.
+    .replaceAll("{{full_name}}", full)
+    .replaceAll("{{fullName}}", full)
+    // Company — including PE-specific `fund_name` / `firm_name` aliases.
+    .replaceAll("{{company_name}}", company)
+    .replaceAll("{{companyName}}", company)
+    .replaceAll("{{company}}", company)
+    .replaceAll("{{fund_name}}", company)
+    .replaceAll("{{fundName}}", company)
+    .replaceAll("{{firm_name}}", company)
+    .replaceAll("{{firmName}}", company)
+    // Role / title.
+    .replaceAll("{{role}}", role)
+    .replaceAll("{{title}}", role)
+    .replaceAll("{{position}}", role)
+    // Seller name — several aliases sellers wrote by hand.
+    .replaceAll("{{seller_name}}", sellerName)
+    .replaceAll("{{sellerName}}", sellerName)
+    .replaceAll("{{sender_name}}", sellerName)
+    .replaceAll("{{senderName}}", sellerName)
+    .replaceAll("{{my_name}}", sellerName)
+    .replaceAll("{{seller_company}}", "")
+    .replaceAll("{{sellerCompany}}", "");
+}
+
+/** Any `{{…}}` left in the rendered string. Dispatchers must fail-the-row
+ *  on a non-empty result, never ship raw. PE Spain incident origin. */
+export function findUnresolvedPlaceholders(rendered: string): string[] {
+  const matches = rendered.match(/\{\{\s*[^}\s]+\s*\}\}/g);
+  if (!matches) return [];
+  return [...new Set(matches)];
+}

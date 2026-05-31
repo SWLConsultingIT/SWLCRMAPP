@@ -4,6 +4,7 @@ import { getUserScope } from "@/lib/scope";
 import { mapLimit } from "@/lib/concurrency";
 import { fetchStepAttachments } from "@/lib/campaign-attachments";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
+import { renderPlaceholders, findUnresolvedPlaceholders } from "@/lib/placeholders";
 
 // Hard cap on parallel seller batches in a single tick. Each seller's batch
 // opens ~3 DB connections (list queued, hydrate lead+campaign, update on
@@ -217,63 +218,14 @@ function nameMatches(
   return slugUnique;
 }
 
-// Canonical placeholders + every alias we've seen leak through human-written
-// copy. The PE Spain incident (2026-05-27) shipped 8 emails with literal
-// `{{firstName}}` and `{{fund_name}}` because the dispatcher only knew the
-// snake_case set. Now we accept camelCase + domain-specific aliases so a
-// template author can write whatever feels natural and it still renders.
-// New aliases belong here, NOT in a separate sync workflow — this is the
-// last point that touches the body before send.
-function personalizeNote(template: string, lead: LeadRow, seller: SellerRow): string {
-  const first = lead.primary_first_name ?? "there";
-  const last = lead.primary_last_name ?? "";
-  const full = `${first} ${last}`.trim();
-  const company = lead.company_name ?? "";
-  const role = lead.primary_title_role ?? "";
-  const sellerName = seller.name ?? "";
-  return (template ?? "")
-    // First name — snake, camel, and "name" alone (used in some templates).
-    .replaceAll("{{first_name}}", first)
-    .replaceAll("{{firstName}}", first)
-    .replaceAll("{{name}}", first)
-    // Last name.
-    .replaceAll("{{last_name}}", last)
-    .replaceAll("{{lastName}}", last)
-    // Full name.
-    .replaceAll("{{full_name}}", full)
-    .replaceAll("{{fullName}}", full)
-    // Company — including PE-specific `fund_name` alias.
-    .replaceAll("{{company_name}}", company)
-    .replaceAll("{{companyName}}", company)
-    .replaceAll("{{company}}", company)
-    .replaceAll("{{fund_name}}", company)
-    .replaceAll("{{fundName}}", company)
-    .replaceAll("{{firm_name}}", company)
-    .replaceAll("{{firmName}}", company)
-    // Role / title.
-    .replaceAll("{{role}}", role)
-    .replaceAll("{{title}}", role)
-    .replaceAll("{{position}}", role)
-    // Seller — accept several aliases sellers wrote by hand.
-    .replaceAll("{{seller_name}}", sellerName)
-    .replaceAll("{{sellerName}}", sellerName)
-    .replaceAll("{{sender_name}}", sellerName)
-    .replaceAll("{{senderName}}", sellerName)
-    .replaceAll("{{my_name}}", sellerName)
-    .replaceAll("{{seller_company}}", "")
-    .replaceAll("{{sellerCompany}}", "");
-}
-
-// Defense-in-depth: after personalization, any remaining `{{…}}` is an
-// unsupported placeholder. We must NOT ship raw to the lead — that's how the
-// PE Spain `{{fund_name}}` incident happened. Returns the list of leftover
-// tokens (e.g. `["{{fund_name}}", "{{firstName}}"]`) so the caller can fail
-// the row with a useful error message.
-function findUnresolvedPlaceholders(rendered: string): string[] {
-  const matches = rendered.match(/\{\{\s*[^}\s]+\s*\}\}/g);
-  if (!matches) return [];
-  return [...new Set(matches)];
-}
+// renderPlaceholders + findUnresolvedPlaceholders live in lib/placeholders.ts
+// as of 2026-05-31 so dispatch-queue (LinkedIn) and dispatch-email (Instantly)
+// share one substitution table. Pre-extraction, dispatch-email had its own
+// table that was missing the PE-Spain aliases (`fund_name`, camelCase, etc.)
+// — that drift shipped a US PE follow-up with literal `{{fund_name}}` on
+// 2026-05-31 to Daniel Robin. Single source of truth fixes both halves.
+const personalizeNote = (template: string, lead: LeadRow, seller: SellerRow) =>
+  renderPlaceholders(template, lead, seller);
 
 async function unipileGet(url: string): Promise<any> {
   const res = await fetch(url, {
