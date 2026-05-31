@@ -56,6 +56,12 @@ type NewReply = {
   campaignName: string | null;
   icpProfileName?: string | null;
   requiresHumanReview?: boolean;
+  // Persisted review state on the lead_replies row. The Inbox view reads
+  // this to disable "Mark reviewed" when the reply is already approved
+  // (and "Reject" when already rejected). Without it the buttons render
+  // active even on rows that have nothing left to do — the API call
+  // succeeds idempotently but the seller sees no visible change.
+  reviewStatus?: "pending" | "approved" | "rejected" | null;
 };
 
 type Props = {
@@ -637,11 +643,12 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
             channel: r.channel,
             replyText: r.replyText,
             receivedAt: r.receivedAt,
-            // NewReply (queue) doesn't track review_status separately — we
-            // derive `pending` if the row was flagged for human review and
-            // hasn't been acted on yet. Approvals from Inbox will refresh the
-            // server data on next nav.
-            reviewStatus: r.requiresHumanReview ? "pending" : null,
+            // Pass through the real persisted review_status. Falling back
+            // to the derived value (pending / null) made History-tab
+            // replies appear "not reviewed yet" even when they were —
+            // and made the Mark-reviewed / Reject buttons always look
+            // clickable, even on rows that had nothing left to do.
+            reviewStatus: r.reviewStatus ?? (r.requiresHumanReview ? "pending" : null),
             requiresHumanReview: !!r.requiresHumanReview,
             positive: r.classification === "positive" || r.classification === "meeting_intent",
           }))}
