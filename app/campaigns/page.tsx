@@ -24,7 +24,14 @@ async function getData() {
   const campsQ = supabase.from("campaigns")
     .select("id, name, status, channel, current_step, sequence_steps, last_step_at, paused_until, completed_at, created_at, lead_id, leads!inner(id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, status, lead_score, icp_profile_id, company_bio_id, created_at, source, encrypted_payload, linkedin_connected, transferred_to_odoo_at), sellers(name)")
     .in("status", ["active", "paused", "completed", "failed"])
-    .order("created_at", { ascending: false }).limit(200);
+    // .limit(200) silently truncated the Pathway view on 2026-05-31 —
+    // 478 active campaign rows (228 Asset + 250 Invoice multichannel)
+    // got clipped to the 200 most recent, hiding the whole Asset flow
+    // under the wrong-ICP / 0-flows card. .range(0, 9999) gives us 10k
+    // rows of headroom; if any tenant ever crosses that we want a true
+    // paginated reader, not silent truncation.
+    .order("created_at", { ascending: false })
+    .range(0, 9999);
 
   const campLeadsQ = supabase.from("campaigns").select("lead_id, leads!inner(company_bio_id)").in("status", ["active", "paused", "completed"]);
 
