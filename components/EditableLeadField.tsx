@@ -139,13 +139,20 @@ export default function EditableLeadField({ leadId, field, value, displayAs = "t
         type="button"
         onClick={() => setEditing(true)}
         aria-label={`Edit ${field}`}
-        // Always visible but dimmed; brightens on hover. Earlier opacity:0
-        // + group-hover:100 made the affordance impossible to discover
-        // when the parent <a> captured the cursor first (Fran 2026-06-01).
-        className="rounded p-0.5 opacity-50 hover:opacity-100 hover:bg-black/5 transition-opacity"
-        style={{ color: C.textMuted }}
+        // 2026-06-01: the 11px pencil at 50% opacity was indistinguishable
+        // from background noise — Fran reported "sigo sin ver el botón de
+        // editar número" on the lead detail Mobile card. Bumped to a 13px
+        // glyph rendered on a brand-tinted pill (always visible) so the
+        // affordance reads as "edit" without needing to hover-discover it.
+        className="inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide transition-colors hover:bg-black/[0.04]"
+        style={{
+          color: "var(--brand, #c9a83a)",
+          borderColor: "color-mix(in srgb, var(--brand, #c9a83a) 35%, transparent)",
+          backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 10%, transparent)",
+        }}
       >
         <Pencil size={11} />
+        Edit
       </button>
     </div>
   );

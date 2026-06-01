@@ -88,7 +88,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     // due in /queue), skipping unblocks the next non-call step via the
     // already-wired dispatcher advance logic — same path stale-call
     // cron uses.
-    await svc.from("leads").update({ allow_call: false, primary_phone: null, primary_secondary_phone: null, updated_at: now }).eq("id", leadId);
+    //
+    // 2026-06-01: keep the phone numbers on the row. We used to null
+    // them out, but then the lead detail had no way to surface a "this
+    // number is bad" badge next to the visible number — the seller
+    // couldn't tell at a glance which number was the broken one when
+    // looking up a re-research case. allow_call=false is the signal
+    // the UI reads to render the red "Wrong number" pill on the
+    // primary phone in the detail header + Mobile card.
+    await svc.from("leads").update({ allow_call: false, updated_at: now }).eq("id", leadId);
     const { data: callMsgs } = await svc.from("campaign_messages")
       .select("id, campaign_id, step_number")
       .eq("lead_id", leadId)

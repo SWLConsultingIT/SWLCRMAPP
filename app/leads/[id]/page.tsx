@@ -179,64 +179,58 @@ function isValidLinkedInUrl(url: string | null | undefined): boolean {
 // allow_linkedin=true with no primary_linkedin_url, which is what makes
 // dispatch fail downstream with "no LinkedIn slug on lead".
 // Channel chip → deep link target. getHref returns the URL the chip
-// should open when clicked (lead's LinkedIn profile, mailto:, tel:,
-// wa.me, etc.). When the chip is read-only (no data, or channel
-// blocked) we leave href null and the wrapper falls back to a non-
-// clickable <div>. External targets (https://) open in a new tab;
-// scheme URIs (mailto/tel/sms) handle themselves natively.
+// should open when clicked. The header row was confusing operators —
+// the email/phone/whatsapp chips were doubling as quick-actions that
+// opened mailto:/tel:/wa.me. Sellers expected the Call button + Mobile
+// card to be the one source of truth for outbound; the header chips
+// were sneaking in shortcuts that pulled them out of the CRM (mailto
+// opening Mail.app, tel: opening native dialer instead of Aircall).
+// `clickable: true` keeps the chip interactive — currently only
+// LinkedIn, because there's no in-app LinkedIn view to drop into. The
+// other chips render as static status indicators (ready / broken /
+// blocked) without href.
 const CHANNELS = [
   {
     key: "allow_linkedin", icon: <LinkedInIcon size={14} />, activeColor: "#0A66C2",
     hasData: (l: any) => isValidLinkedInUrl(l?.primary_linkedin_url),
     getHref: (l: any) => isValidLinkedInUrl(l?.primary_linkedin_url) ? (l.primary_linkedin_url as string) : null,
     external: true,
+    clickable: true,
   },
   {
     key: "allow_email", icon: <span className="text-sm">✉️</span>, activeColor: C.green,
     hasData: (l: any) => !!l?.primary_work_email || !!l?.primary_personal_email,
-    getHref: (l: any) => {
-      const e = (l?.primary_work_email as string | null) ?? (l?.primary_personal_email as string | null);
-      return e ? `mailto:${e}` : null;
-    },
+    getHref: (_l: any) => null,
     external: false,
+    clickable: false,
   },
   {
     key: "allow_call", icon: <span className="text-sm">📱</span>, activeColor: C.phone,
     hasData: (l: any) => !!l?.primary_phone || !!l?.primary_secondary_phone,
-    getHref: (l: any) => {
-      const p = (l?.primary_phone as string | null) ?? (l?.primary_secondary_phone as string | null);
-      return p ? `tel:${p}` : null;
-    },
+    getHref: (_l: any) => null,
     external: false,
+    clickable: false,
   },
   {
     key: "allow_whatsapp", icon: <span className="text-sm">💬</span>, activeColor: "#25D366",
     hasData: (l: any) => !!l?.whatsapp_number || !!l?.primary_phone,
-    getHref: (l: any) => {
-      const raw = (l?.whatsapp_number as string | null) ?? (l?.primary_phone as string | null);
-      if (!raw) return null;
-      const digits = String(raw).replace(/\D/g, "");
-      return digits ? `https://wa.me/${digits}` : null;
-    },
+    getHref: (_l: any) => null,
     external: true,
+    clickable: false,
   },
   {
     key: "allow_instagram", icon: <span className="text-sm">📸</span>, activeColor: "#E1306C",
     hasData: (l: any) => !!l?.primary_instagram,
-    getHref: (l: any) => {
-      const raw = l?.primary_instagram as string | null;
-      if (!raw) return null;
-      if (/^https?:\/\//i.test(raw)) return raw;
-      const handle = raw.replace(/^@/, "");
-      return `https://instagram.com/${handle}`;
-    },
+    getHref: (_l: any) => null,
     external: true,
+    clickable: false,
   },
   {
     key: "allow_sms", icon: <span className="text-sm">💬</span>, activeColor: C.blue,
     hasData: (l: any) => !!l?.primary_phone,
-    getHref: (l: any) => l?.primary_phone ? `sms:${l.primary_phone}` : null,
+    getHref: (_l: any) => null,
     external: false,
+    clickable: false,
   },
 ];
 
@@ -534,16 +528,37 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap justify-stretch sm:justify-end w-full sm:w-auto">
               {(lead.primary_phone || lead.primary_secondary_phone) && (
                 <div className="flex-1 sm:flex-initial">
-                  <CallButton
-                    phone={lead.primary_phone ?? lead.primary_secondary_phone ?? null}
-                    leadId={id}
-                    size="sm"
-                    defaultNumberId={campaign?.aircall_number_id ?? null}
-                    phones={[
-                      ...(lead.primary_phone ? [{ label: "Mobile", value: lead.primary_phone }] : []),
-                      ...(lead.primary_secondary_phone ? [{ label: "Work", value: lead.primary_secondary_phone }] : []),
-                    ]}
-                  />
+                  {lead.allow_call === false ? (
+                    // Phone marked wrong via the post-call outcome popup
+                    // (wrong_number). We keep the visible number so the
+                    // seller knows which one was flagged, but swap the
+                    // Call button for a red read-only pill — pressing dial
+                    // on a known-wrong number wastes time and contributes
+                    // to spam-flag risk on the from-number.
+                    <div
+                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold whitespace-nowrap"
+                      style={{
+                        backgroundColor: "color-mix(in srgb, #DC2626 14%, transparent)",
+                        color: "#DC2626",
+                        border: "1px solid color-mix(in srgb, #DC2626 35%, transparent)",
+                      }}
+                      title="Number marked as wrong via post-call outcome. Update the phone to re-enable Call."
+                    >
+                      <AlertTriangle size={14} />
+                      Wrong number
+                    </div>
+                  ) : (
+                    <CallButton
+                      phone={lead.primary_phone ?? lead.primary_secondary_phone ?? null}
+                      leadId={id}
+                      size="sm"
+                      defaultNumberId={campaign?.aircall_number_id ?? null}
+                      phones={[
+                        ...(lead.primary_phone ? [{ label: "Mobile", value: lead.primary_phone }] : []),
+                        ...(lead.primary_secondary_phone ? [{ label: "Work", value: lead.primary_secondary_phone }] : []),
+                      ]}
+                    />
+                  )}
                 </div>
               )}
               {/* "View flow" — always visible when the lead has any
@@ -615,10 +630,11 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                       )}
                     </>
                   );
-                  // Clickable when allowed AND we have a deep link. Otherwise
-                  // render a plain div so the chip still shows its state but
-                  // doesn't pretend to be interactive.
-                  if (href && allowed) {
+                  // Only LinkedIn is interactive in this row (see CHANNELS).
+                  // The other chips are status indicators — sellers should
+                  // hit Call / Mobile card / email composer for actions, not
+                  // sneak out to mailto:/tel: via these icons.
+                  if (ch.clickable && href && allowed) {
                     return (
                       <a
                         key={ch.key}
