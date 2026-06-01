@@ -18,6 +18,7 @@ import Breadcrumb from "@/components/Breadcrumb";
 import SyncAircallButton from "@/components/SyncAircallButton";
 import CallButton from "@/components/CallButton";
 import EditableLeadField from "@/components/EditableLeadField";
+import WrongNumberPill from "@/components/WrongNumberPill";
 import CallCard from "@/components/CallCard";
 import PersonalizedInfoPanel from "@/components/PersonalizedInfoPanel";
 import LeadSummaryTab from "@/components/LeadSummaryTab";
@@ -530,23 +531,15 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 <div className="flex-1 sm:flex-initial">
                   {lead.allow_call === false ? (
                     // Phone marked wrong via the post-call outcome popup
-                    // (wrong_number). We keep the visible number so the
-                    // seller knows which one was flagged, but swap the
-                    // Call button for a red read-only pill — pressing dial
-                    // on a known-wrong number wastes time and contributes
-                    // to spam-flag risk on the from-number.
-                    <div
-                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold whitespace-nowrap"
-                      style={{
-                        backgroundColor: "color-mix(in srgb, #DC2626 14%, transparent)",
-                        color: "#DC2626",
-                        border: "1px solid color-mix(in srgb, #DC2626 35%, transparent)",
-                      }}
-                      title="Number marked as wrong via post-call outcome. Update the phone to re-enable Call."
-                    >
-                      <AlertTriangle size={14} />
-                      Wrong number
-                    </div>
+                    // (wrong_number). We swap the Call button for a red
+                    // clickable pill that opens an inline replace flow —
+                    // saving auto re-enables allow_call (PATCH route side
+                    // effect 2026-06-01) so the next render restores the
+                    // normal Call button without an admin step.
+                    <WrongNumberPill
+                      leadId={id}
+                      currentPhone={lead.primary_phone ?? lead.primary_secondary_phone ?? null}
+                    />
                   ) : (
                     <CallButton
                       phone={lead.primary_phone ?? lead.primary_secondary_phone ?? null}
