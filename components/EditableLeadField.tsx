@@ -139,7 +139,10 @@ export default function EditableLeadField({ leadId, field, value, displayAs = "t
         type="button"
         onClick={() => setEditing(true)}
         aria-label={`Edit ${field}`}
-        className="opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5 hover:bg-black/5"
+        // Always visible but dimmed; brightens on hover. Earlier opacity:0
+        // + group-hover:100 made the affordance impossible to discover
+        // when the parent <a> captured the cursor first (Fran 2026-06-01).
+        className="rounded p-0.5 opacity-50 hover:opacity-100 hover:bg-black/5 transition-opacity"
         style={{ color: C.textMuted }}
       >
         <Pencil size={11} />

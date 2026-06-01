@@ -178,13 +178,66 @@ function isValidLinkedInUrl(url: string | null | undefined): boolean {
 // has the underlying contact info — flagging mis-configured leads like an
 // allow_linkedin=true with no primary_linkedin_url, which is what makes
 // dispatch fail downstream with "no LinkedIn slug on lead".
+// Channel chip → deep link target. getHref returns the URL the chip
+// should open when clicked (lead's LinkedIn profile, mailto:, tel:,
+// wa.me, etc.). When the chip is read-only (no data, or channel
+// blocked) we leave href null and the wrapper falls back to a non-
+// clickable <div>. External targets (https://) open in a new tab;
+// scheme URIs (mailto/tel/sms) handle themselves natively.
 const CHANNELS = [
-  { key: "allow_linkedin",  icon: <LinkedInIcon size={14} />,            activeColor: "#0A66C2", hasData: (l: any) => isValidLinkedInUrl(l?.primary_linkedin_url) },
-  { key: "allow_email",     icon: <span className="text-sm">✉️</span>, activeColor: C.green,    hasData: (l: any) => !!l?.primary_work_email || !!l?.primary_personal_email },
-  { key: "allow_call",      icon: <span className="text-sm">📱</span>, activeColor: C.phone,    hasData: (l: any) => !!l?.primary_phone || !!l?.primary_secondary_phone },
-  { key: "allow_whatsapp",  icon: <span className="text-sm">💬</span>, activeColor: "#25D366",  hasData: (l: any) => !!l?.whatsapp_number || !!l?.primary_phone },
-  { key: "allow_instagram", icon: <span className="text-sm">📸</span>, activeColor: "#E1306C",  hasData: (l: any) => !!l?.primary_instagram },
-  { key: "allow_sms",       icon: <span className="text-sm">💬</span>, activeColor: C.blue,     hasData: (l: any) => !!l?.primary_phone },
+  {
+    key: "allow_linkedin", icon: <LinkedInIcon size={14} />, activeColor: "#0A66C2",
+    hasData: (l: any) => isValidLinkedInUrl(l?.primary_linkedin_url),
+    getHref: (l: any) => isValidLinkedInUrl(l?.primary_linkedin_url) ? (l.primary_linkedin_url as string) : null,
+    external: true,
+  },
+  {
+    key: "allow_email", icon: <span className="text-sm">✉️</span>, activeColor: C.green,
+    hasData: (l: any) => !!l?.primary_work_email || !!l?.primary_personal_email,
+    getHref: (l: any) => {
+      const e = (l?.primary_work_email as string | null) ?? (l?.primary_personal_email as string | null);
+      return e ? `mailto:${e}` : null;
+    },
+    external: false,
+  },
+  {
+    key: "allow_call", icon: <span className="text-sm">📱</span>, activeColor: C.phone,
+    hasData: (l: any) => !!l?.primary_phone || !!l?.primary_secondary_phone,
+    getHref: (l: any) => {
+      const p = (l?.primary_phone as string | null) ?? (l?.primary_secondary_phone as string | null);
+      return p ? `tel:${p}` : null;
+    },
+    external: false,
+  },
+  {
+    key: "allow_whatsapp", icon: <span className="text-sm">💬</span>, activeColor: "#25D366",
+    hasData: (l: any) => !!l?.whatsapp_number || !!l?.primary_phone,
+    getHref: (l: any) => {
+      const raw = (l?.whatsapp_number as string | null) ?? (l?.primary_phone as string | null);
+      if (!raw) return null;
+      const digits = String(raw).replace(/\D/g, "");
+      return digits ? `https://wa.me/${digits}` : null;
+    },
+    external: true,
+  },
+  {
+    key: "allow_instagram", icon: <span className="text-sm">📸</span>, activeColor: "#E1306C",
+    hasData: (l: any) => !!l?.primary_instagram,
+    getHref: (l: any) => {
+      const raw = l?.primary_instagram as string | null;
+      if (!raw) return null;
+      if (/^https?:\/\//i.test(raw)) return raw;
+      const handle = raw.replace(/^@/, "");
+      return `https://instagram.com/${handle}`;
+    },
+    external: true,
+  },
+  {
+    key: "allow_sms", icon: <span className="text-sm">💬</span>, activeColor: C.blue,
+    hasData: (l: any) => !!l?.primary_phone,
+    getHref: (l: any) => l?.primary_phone ? `sms:${l.primary_phone}` : null,
+    external: false,
+  },
 ];
 
 // ── Page ──
@@ -525,23 +578,28 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   const ready = allowed && hasData;
                   const broken = allowed && !hasData;
                   const label = ch.key.replace("allow_", "");
-                  return (
-                    <div key={ch.key}
-                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center border relative"
-                      title={broken ? `${label} allowed but no contact data on file — dispatch will fail` : ready ? `${label}: ready` : `${label}: blocked`}
-                      style={{
-                        backgroundColor: ready
-                          ? `color-mix(in srgb, ${C.green} 14%, transparent)`
-                          : broken
-                          ? "color-mix(in srgb, #D97706 14%, transparent)"
-                          : C.surface,
-                        borderColor: ready
-                          ? `color-mix(in srgb, ${C.green} 35%, transparent)`
-                          : broken
-                          ? "color-mix(in srgb, #D97706 35%, transparent)"
-                          : C.border,
-                        opacity: allowed ? 1 : 0.45,
-                      }}>
+                  const href = ch.getHref(lead);
+                  const sharedClass = "w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center border relative transition-transform";
+                  const sharedStyle = {
+                    backgroundColor: ready
+                      ? `color-mix(in srgb, ${C.green} 14%, transparent)`
+                      : broken
+                      ? "color-mix(in srgb, #D97706 14%, transparent)"
+                      : C.surface,
+                    borderColor: ready
+                      ? `color-mix(in srgb, ${C.green} 35%, transparent)`
+                      : broken
+                      ? "color-mix(in srgb, #D97706 35%, transparent)"
+                      : C.border,
+                    opacity: allowed ? 1 : 0.45,
+                  } as const;
+                  const titleText = broken
+                    ? `${label} allowed but no contact data on file — dispatch will fail`
+                    : ready
+                    ? `${label}: ready · click to open`
+                    : `${label}: blocked`;
+                  const inner = (
+                    <>
                       {ch.icon}
                       {ready && (
                         <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full flex items-center justify-center"
@@ -555,6 +613,32 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                           <AlertTriangle size={7} color="#fff" />
                         </div>
                       )}
+                    </>
+                  );
+                  // Clickable when allowed AND we have a deep link. Otherwise
+                  // render a plain div so the chip still shows its state but
+                  // doesn't pretend to be interactive.
+                  if (href && allowed) {
+                    return (
+                      <a
+                        key={ch.key}
+                        href={href}
+                        target={ch.external ? "_blank" : undefined}
+                        rel={ch.external ? "noreferrer" : undefined}
+                        className={`${sharedClass} hover:scale-110 cursor-pointer`}
+                        title={titleText}
+                        style={sharedStyle}
+                      >
+                        {inner}
+                      </a>
+                    );
+                  }
+                  return (
+                    <div key={ch.key}
+                      className={sharedClass}
+                      title={titleText}
+                      style={sharedStyle}>
+                      {inner}
                     </div>
                   );
                 })}
