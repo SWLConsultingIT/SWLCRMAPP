@@ -14,7 +14,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: campaign } = await supabase
     .from("campaigns")
-    .select("id, name, sequence_steps, seller_id, sellers(company_bio_id)")
+    .select("id, name, sequence_steps, seller_id, call_advance_mode, sellers(company_bio_id)")
     .eq("id", campaignId)
     .single();
   if (!campaign) return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
@@ -51,6 +51,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const sequence = (campaign.sequence_steps as { channel: string; daysAfter: number }[] | null) ?? [];
   const firstChannel = sequence[0]?.channel ?? "linkedin";
+
+  // Pull the flow's message templates from a sibling lead already enrolled in
+  // the same flow. A campaign row alone never dispatches — the cron selects
+  // from `campaign_messages` (status=queued, channel=linkedin), so a lead with
+  // no message rows sits dead in the funnel forever (this is exactly what the
+  // old add-leads did: 216 De Vera leads enrolled with zero messages). Copy
+  // ONLY the per-step template (step_number / channel / content / subject) and
+  // assign fresh statuses below — never copy a sibling's sent/queued state.
+  const now = new Date().toISOString();
+  const { data: siblingIds } = await supabase
+    .from("campaigns").select("id").eq("name", campaign.name).neq("id", campaignId).limit(50);
+  const refIds = [campaignId, ...(siblingIds ?? []).map(s => s.id)];
+  const { data: tmplRows } = await supabase
+    .from("campaign_messages")
+    .select("step_number, channel, content, metadata")
+    .in("campaign_id", refIds)
+    .order("step_number", { ascending: true });
+  const templateByStep = new Map<number, { step_number: number; channel: string; content: string; subject: string | null }>();
+  for (const m of (tmplRows ?? [])) {
+    if (m.step_number == null || templateByStep.has(m.step_number)) continue;
+    const subject = (m.metadata as { subject?: string } | null)?.subject ?? null;
+    templateByStep.set(m.step_number, { step_number: m.step_number, channel: m.channel, content: m.content, subject });
+  }
+  const templates = Array.from(templateByStep.values());
+
+  // Insert the campaign rows, capturing each new id so we can attach its
+  // messages. Mirror the wizard enrollment fields (created_at, call_advance_mode).
   const rows = toAdd.map(leadId => ({
     lead_id: leadId,
     seller_id: campaign.seller_id,
@@ -59,13 +86,45 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     status: "active",
     current_step: 0,
     sequence_steps: sequence,
-    started_at: new Date().toISOString(),
+    call_advance_mode: campaign.call_advance_mode ?? "auto",
+    started_at: now,
+    created_at: now,
   }));
 
-  const { error: insertError } = await supabase.from("campaigns").insert(rows);
+  const { data: inserted, error: insertError } = await supabase
+    .from("campaigns").insert(rows).select("id, lead_id");
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
 
-  await supabase.from("leads").update({ status: "contacted", current_channel: firstChannel }).in("id", toAdd);
+  // Seed campaign_messages per new lead from the template. Step 0 (the LinkedIn
+  // CR) and a non-LinkedIn step 1 start `queued` so the dispatcher fires them
+  // now (throttled by the per-seller daily limit + 3-min min-spacing — they do
+  // NOT all send at once). LinkedIn steps 1+ stay `draft` until the connection
+  // is accepted, exactly like wizard enrollment.
+  if (templates.length > 0) {
+    const messageInserts = (inserted ?? []).flatMap(c => templates.map(t => {
+      const isFirstNonLinkedin = t.step_number === 1 && t.channel !== "linkedin";
+      const startQueued = t.step_number === 0 || isFirstNonLinkedin;
+      return {
+        campaign_id: c.id,
+        lead_id: c.lead_id,
+        step_number: t.step_number,
+        channel: t.channel,
+        content: t.content,
+        status: startQueued ? "queued" : "draft",
+        created_at: now,
+        ...(t.subject ? { metadata: { subject: t.subject } } : {}),
+      };
+    }));
+    if (messageInserts.length > 0) {
+      const { error: msgErr } = await supabase.from("campaign_messages").insert(messageInserts);
+      if (msgErr) return NextResponse.json({ error: `Leads added but messages failed: ${msgErr.message}` }, { status: 500 });
+    }
+  }
 
-  return NextResponse.json({ ok: true, added: toAdd.length, skipped, rejected });
+  // Set the channel only — let the dispatcher flip the lead to `contacted` once
+  // Unipile confirms the invite actually sent (matches approve/route.ts; setting
+  // contacted up-front produced ghost-contacted leads on Pathway).
+  await supabase.from("leads").update({ current_channel: firstChannel }).in("id", toAdd);
+
+  return NextResponse.json({ ok: true, added: toAdd.length, skipped, rejected, seededMessages: templates.length > 0 });
 }

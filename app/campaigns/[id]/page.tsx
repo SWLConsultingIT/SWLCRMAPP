@@ -116,28 +116,45 @@ async function getUnlinkedLeadsByProfile(companyBioId: string | null) {
   // see leads from every tenant in the "Add Leads" tab.
   if (!companyBioId) return [];
 
-  const { data: rawAllLeads } = await supabase
-    .from("leads")
-    .select("id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, primary_title_role, lead_score, allow_linkedin, allow_email, allow_call, icp_profile_id, company_bio_id")
-    .eq("company_bio_id", companyBioId)
-    .order("created_at", { ascending: false }).limit(200);
-  const allLeads = await hydrateClientLeads((rawAllLeads ?? []) as Record<string, unknown>[]);
+  // ID-first sweep so the "Add Leads" picker shows EVERY unenrolled lead, not
+  // just a recent slice. The old `.limit(200)` ordered by created_at meant the
+  // newest leads (almost always the just-enrolled ones) filled the 200-row
+  // budget, so older unenrolled leads silently vanished — De Vera showed "0
+  // eligible" while 165 leads sat outside any flow. We page the lightweight id
+  // list in full, subtract the enrolled set, then hydrate (decrypt) only the
+  // unenrolled leads we actually display.
+  const tenantLeadIds: string[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data: page } = await supabase
+      .from("leads").select("id").eq("company_bio_id", companyBioId)
+      .order("created_at", { ascending: false }).range(from, from + 999);
+    if (!page || page.length === 0) break;
+    page.forEach(r => tenantLeadIds.push(r.id as string));
+    if (page.length < 1000) break;
+  }
 
-  // Which of THESE candidate leads are already enrolled in an active/paused
-  // flow? Scope the campaigns lookup to the candidate ids — a global
-  // `.in("status", [...])` scan silently truncates at Supabase's 1000-row
-  // default once total active rows across every tenant exceed it, leaving
-  // already-enrolled leads to reappear here as "eligible" (and re-addable,
-  // which created duplicate campaign rows). Bounding by lead_id keeps the
-  // set exact regardless of how big the campaigns table grows.
-  const candidateIds = (allLeads ?? []).map(l => (l as { id: string }).id);
+  // Enrolled set, bounded by this tenant's lead ids (chunked so the `.in()` URL
+  // never blows up). A global `.in("status",[...])` scan truncates at Supabase's
+  // 1000-row default once all tenants' active rows exceed it — that bug let
+  // already-enrolled leads reappear here as "eligible" and get re-added,
+  // creating duplicate campaign rows. Scoping by lead_id keeps it exact.
   const activeSet = new Set<string>();
-  if (candidateIds.length) {
+  for (let i = 0; i < tenantLeadIds.length; i += 300) {
+    const chunk = tenantLeadIds.slice(i, i + 300);
     const { data: enrolled } = await supabase
       .from("campaigns").select("lead_id")
-      .in("status", ["active", "paused"]).in("lead_id", candidateIds);
+      .in("status", ["active", "paused"]).in("lead_id", chunk);
     (enrolled ?? []).forEach(c => { if (c.lead_id) activeSet.add(c.lead_id); });
   }
+
+  const unlinkedIds = tenantLeadIds.filter(id => !activeSet.has(id)).slice(0, 1000);
+  const { data: rawAllLeads } = unlinkedIds.length
+    ? await supabase
+        .from("leads")
+        .select("id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, primary_title_role, lead_score, allow_linkedin, allow_email, allow_call, icp_profile_id, company_bio_id")
+        .in("id", unlinkedIds)
+    : { data: [] };
+  const allLeads = await hydrateClientLeads((rawAllLeads ?? []) as Record<string, unknown>[]);
 
   const { data: profiles } = await supabase
     .from("icp_profiles").select("id, profile_name").eq("status", "approved").eq("company_bio_id", companyBioId);
