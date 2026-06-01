@@ -18,6 +18,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
+import { autoNormalizePlaceholders } from "@/lib/placeholders";
 
 type Assignment = { lead_id: string; seller_id: string };
 
@@ -132,9 +133,18 @@ export async function POST(
       }
     }
   }
-  const connectionRequest = stepMessages.connectionRequest ?? "";
+  // autoNormalizePlaceholders rewrites foreign-syntax tokens
+  // (`[First Name]`, `<<First Name>>`, `%FIRST_NAME%`, `__first_name__`)
+  // to their canonical `{{first_name}}` form on save so the row landing
+  // in campaign_messages.content is always one the dispatcher knows
+  // how to render. Same pass we run in /api/campaigns/approve.
+  const connectionRequest = autoNormalizePlaceholders(stepMessages.connectionRequest ?? "").normalized;
   const hasInvite = connectionRequest.length > 0 && channels.includes("linkedin");
-  const messageSteps = Array.isArray(stepMessages.steps) ? stepMessages.steps : [];
+  const messageSteps = (Array.isArray(stepMessages.steps) ? stepMessages.steps : []).map((m: any) => ({
+    ...m,
+    body: autoNormalizePlaceholders(m?.body ?? "").normalized,
+    subject: m?.subject ? autoNormalizePlaceholders(m.subject).normalized : m?.subject ?? null,
+  }));
 
   // 5. Create campaigns + messages per assignment.
   const errors: string[] = [];

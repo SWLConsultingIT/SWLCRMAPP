@@ -4,7 +4,7 @@ import { getUserScope } from "@/lib/scope";
 import { getInstantlyConfig } from "@/lib/instantly-config";
 import { signStepAttachments } from "@/lib/campaign-attachments";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
-import { renderPlaceholders, findUnresolvedPlaceholders } from "@/lib/placeholders";
+import { renderPlaceholders, findUnresolvedPlaceholders, findSuspiciousPlaceholders } from "@/lib/placeholders";
 
 // Cron-driven dispatcher for `campaign_messages` rows in `status='queued'`
 // where channel='email'. One mail per tick via Instantly v2.
@@ -326,8 +326,24 @@ async function dispatchOneEmail(
 
   const meta = (candidate.metadata as Record<string, unknown> | null) ?? {};
   const subjectRaw = (meta.subject as string | undefined) ?? `Quick idea for ${lead.company_name ?? "you"}`;
+  const bodyRaw = candidate.content ?? "";
+
+  // First, scan the RAW template + subject for foreign placeholder syntax
+  // (`[First Name]`, `<<First Name>>`, `%FIRST_NAME%`, `__first_name__`,
+  // `{First Name}`). The dispatcher only knows `{{snake_case}}`; foreign
+  // forms ship literally if we don't catch them. 2026-05-31: a LinkedIn
+  // DM to Craig Wilson went out with raw `[First Name]` for this reason.
+  const suspicious = findSuspiciousPlaceholders(`${subjectRaw}\n${bodyRaw}`);
+  if (suspicious.length > 0) {
+    const tokens = suspicious.map(s => s.token).join(", ");
+    return await failMessage(
+      svc, candidate.id, candidate.lead_id,
+      `Template contains foreign placeholder syntax (${tokens}) that the dispatcher cannot render. Use {{first_name}}, {{company_name}}, etc.`,
+    );
+  }
+
   const subject = personalize(subjectRaw, lead, seller).slice(0, 200);
-  let body = personalize(candidate.content ?? "", lead, seller);
+  let body = personalize(bodyRaw, lead, seller);
   if (!body.trim()) return await failMessage(svc, candidate.id, candidate.lead_id, "empty body after personalization");
 
   // Defense-in-depth (PE Spain 2026-05-27 incident + Daniel Robin 2026-05-31

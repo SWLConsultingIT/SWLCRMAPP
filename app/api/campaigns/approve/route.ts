@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getUserScope, canApproveCampaigns } from "@/lib/scope";
+import { autoNormalizePlaceholders } from "@/lib/placeholders";
 
 // Use service key to bypass RLS for admin operations
 const supabase = createClient(
@@ -274,7 +275,16 @@ export async function POST(req: NextRequest) {
     // the email would surface in the timeline before the email and feel out
     // of order; sending it AT the LinkedIn DM day is too late (lead needs time
     // to accept). One day's lead time is the right tradeoff.
-    const connectionRequest = prompts.channelMessages?.connectionRequest ?? "";
+    // autoNormalizePlaceholders rewrites foreign-syntax placeholders
+    // (`[First Name]`, `<<First Name>>`, `%FIRST_NAME%`, `__first_name__`)
+    // to their canonical `{{first_name}}` form. Operators paste copy in
+    // from Mailchimp / Apollo / Outreach all the time; without this the
+    // dispatcher would refuse the row (and rightly so — 2026-05-31
+    // Craig Wilson incident shipped raw `[First Name]`). Doing it on
+    // save means the row that ends up in campaign_messages.content is
+    // always canonical, so the dispatcher never has to fix it.
+    const connectionRequestRaw = prompts.channelMessages?.connectionRequest ?? "";
+    const connectionRequest = autoNormalizePlaceholders(connectionRequestRaw).normalized;
     if (connectionRequest && channels.includes("linkedin")) {
       const inviteOffsetDays = Math.max(0, (firstLinkedinCumDay ?? 0) - 1);
       const eligibleAt = inviteOffsetDays > 0
@@ -301,14 +311,21 @@ export async function POST(req: NextRequest) {
       const stepNum = msg.step ?? i + 1;
       const ch = msg.channel ?? sequence[i]?.channel ?? primaryChannel;
       const isFirstNonLinkedin = stepNum === 1 && ch !== "linkedin";
+      const bodyNormalized = autoNormalizePlaceholders(msg.body ?? "").normalized;
+      const subjectNormalized = msg.subject
+        ? autoNormalizePlaceholders(msg.subject).normalized
+        : null;
       messageInserts.push({
         campaign_id: campaign.id,
         lead_id: leadId,
         step_number: stepNum,
         channel: ch,
-        content: msg.body ?? "",
+        content: bodyNormalized,
         status: isFirstNonLinkedin ? "queued" : "draft",
         created_at: new Date().toISOString(),
+        // Email subjects live in metadata.subject — normalize there too so
+        // the dispatcher reads a canonical subject at send time.
+        ...(subjectNormalized ? { metadata: { subject: subjectNormalized } } : {}),
       });
     });
 

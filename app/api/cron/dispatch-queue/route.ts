@@ -4,7 +4,7 @@ import { getUserScope } from "@/lib/scope";
 import { mapLimit } from "@/lib/concurrency";
 import { fetchStepAttachments } from "@/lib/campaign-attachments";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
-import { renderPlaceholders, findUnresolvedPlaceholders } from "@/lib/placeholders";
+import { renderPlaceholders, findUnresolvedPlaceholders, findSuspiciousPlaceholders } from "@/lib/placeholders";
 
 // Hard cap on parallel seller batches in a single tick. Each seller's batch
 // opens ~3 DB connections (list queued, hydrate lead+campaign, update on
@@ -687,6 +687,22 @@ async function dispatchOneMessage(
   }
 
   const rawTemplate = candidate.content ?? "";
+
+  // First, refuse-on-foreign-syntax — `[First Name]`, `{First Name}`,
+  // `<<First Name>>`, `%FIRST_NAME%`, `__first_name__`. These never get
+  // substituted (the dispatcher only knows {{snake_case}}) so they would
+  // ship raw if we didn't catch them here. 2026-05-31: a LinkedIn DM
+  // shipped to Craig Wilson with literal `[First Name]` because nothing
+  // upstream was scanning for foreign syntaxes — only {{…}} was checked.
+  const suspicious = findSuspiciousPlaceholders(rawTemplate);
+  if (suspicious.length > 0) {
+    const tokens = suspicious.map(s => s.token).join(", ");
+    return await failMessage(
+      svc, candidate.id, candidate.lead_id,
+      `Template contains foreign placeholder syntax (${tokens}) that the dispatcher cannot render. Open the flow and fix the template — use {{first_name}}, {{company_name}}, etc.`,
+    );
+  }
+
   const personalized = personalizeNote(rawTemplate, lead as LeadRow, seller).trim();
 
   // Belt-and-braces: if any `{{...}}` slipped through (typo, unknown alias,

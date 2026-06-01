@@ -9,7 +9,7 @@ import {
   AlertTriangle, Tag,
 } from "lucide-react";
 import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
-import { PLACEHOLDER_GROUPS, unsupportedPlaceholdersIn } from "@/lib/placeholders";
+import { PLACEHOLDER_GROUPS, unsupportedPlaceholdersIn, findSuspiciousPlaceholders, autoNormalizePlaceholders } from "@/lib/placeholders";
 
 const gold = C.gold;
 
@@ -195,14 +195,34 @@ const inlinePlaceholdersByLocale: Record<"es" | "en", Record<string, string>> = 
 
 // Collapsible reference for the placeholders the dispatcher supports + a
 // live warning if any body contains a `{{…}}` we won't render. Click any
-// token to copy. Added after the PE Spain incident (2026-05-27) where two
-// camelCase placeholders shipped raw to 8 leads.
-function PlaceholdersHint({ bodies }: { bodies: string[] }) {
+// token to copy.
+//
+// 2026-05-27 (PE Spain): two camelCase `{{firstName}}` shipped raw to
+//   8 leads. → Added unsupportedPlaceholdersIn() warning.
+// 2026-05-31 (Craig Wilson): a LinkedIn DM shipped with literal
+//   `[First Name]` because the bracket form bypassed every check.
+//   → Added findSuspiciousPlaceholders() detection here + a one-click
+//   "Auto-fix" button that rewrites every recognised foreign token to
+//   its canonical {{snake_case}} form. The button calls back into the
+//   parent so the actual message bodies update in state.
+function PlaceholdersHint({
+  bodies,
+  onAutoFix,
+}: {
+  bodies: string[];
+  /** Called when the operator clicks the "Auto-fix" button. The parent
+   *  decides how to apply the rewrite (each body has different state).
+   *  We pass a function that maps the original body to its normalized
+   *  form — parent picks which slot each body belongs to. */
+  onAutoFix?: (rewriter: (body: string) => string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
 
   const allText = bodies.join("\n");
   const bad = unsupportedPlaceholdersIn(allText);
+  const suspicious = findSuspiciousPlaceholders(allText);
+  const fixable = suspicious.filter(s => s.suggested !== null);
 
   function copy(token: string) {
     try {
@@ -212,23 +232,34 @@ function PlaceholdersHint({ bodies }: { bodies: string[] }) {
     } catch { /* ignore */ }
   }
 
+  const hasProblem = bad.length > 0 || suspicious.length > 0;
   return (
     <div className="rounded-xl border overflow-hidden"
       style={{
-        backgroundColor: bad.length > 0 ? "color-mix(in srgb, #DC2626 5%, var(--c-card))" : C.card,
-        borderColor: bad.length > 0 ? "color-mix(in srgb, #DC2626 35%, var(--c-border))" : C.border,
+        backgroundColor: hasProblem ? "color-mix(in srgb, #DC2626 5%, var(--c-card))" : C.card,
+        borderColor: hasProblem ? "color-mix(in srgb, #DC2626 35%, var(--c-border))" : C.border,
       }}>
       <button type="button" onClick={() => setOpen(o => !o)}
         className="w-full px-4 py-2.5 flex items-center gap-2.5 text-left transition-colors hover:bg-black/[0.02]">
         <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
           style={{
-            backgroundColor: bad.length > 0 ? "color-mix(in srgb, #DC2626 14%, transparent)" : `color-mix(in srgb, ${gold} 12%, transparent)`,
-            color: bad.length > 0 ? "#DC2626" : gold,
+            backgroundColor: hasProblem ? "color-mix(in srgb, #DC2626 14%, transparent)" : `color-mix(in srgb, ${gold} 12%, transparent)`,
+            color: hasProblem ? "#DC2626" : gold,
           }}>
-          {bad.length > 0 ? <AlertTriangle size={13} /> : <Tag size={13} />}
+          {hasProblem ? <AlertTriangle size={13} /> : <Tag size={13} />}
         </div>
         <div className="flex-1 min-w-0">
-          {bad.length > 0 ? (
+          {suspicious.length > 0 ? (
+            <>
+              <p className="text-[12px] font-bold" style={{ color: "#DC2626" }}>
+                Foreign placeholder syntax detected — the dispatcher won&apos;t render these
+              </p>
+              <p className="text-[10px]" style={{ color: C.textMuted }}>
+                Found: <span className="font-mono">{suspicious.slice(0, 6).map(s => s.token).join(", ")}{suspicious.length > 6 ? ` +${suspicious.length - 6} more` : ""}</span>.
+                Use <span className="font-mono">{"{{first_name}}"}</span>, <span className="font-mono">{"{{company_name}}"}</span> etc. — not <span className="font-mono">[First Name]</span> or <span className="font-mono">%FIRST_NAME%</span>.
+              </p>
+            </>
+          ) : bad.length > 0 ? (
             <>
               <p className="text-[12px] font-bold" style={{ color: "#DC2626" }}>
                 Unsupported placeholders in your messages — fix before launch
@@ -248,6 +279,20 @@ function PlaceholdersHint({ bodies }: { bodies: string[] }) {
             </>
           )}
         </div>
+        {fixable.length > 0 && onAutoFix && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAutoFix((body) => autoNormalizePlaceholders(body).normalized);
+            }}
+            className="shrink-0 text-[10.5px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-85"
+            style={{ backgroundColor: gold, color: "#1A1A2E" }}
+            title={`Rewrite ${fixable.length} token${fixable.length === 1 ? "" : "s"} to {{snake_case}}`}
+          >
+            Auto-fix ({fixable.length})
+          </button>
+        )}
         {open ? <ChevronUp size={14} style={{ color: C.textMuted }} /> : <ChevronDown size={14} style={{ color: C.textMuted }} />}
       </button>
 
@@ -615,6 +660,30 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           ...(channelMessages.steps ?? []).map(s => s?.body ?? ""),
           ...(channelMessages.steps ?? []).map(s => s?.subject ?? ""),
         ].filter(Boolean)}
+        onAutoFix={(rewriter) => {
+          // Apply the rewriter to every slot that holds free-text copy:
+          // the connection request, plus every step's body + subject.
+          // Steps stay 1:1 with sequence indices (wizard storage invariant
+          // memory, LAW) — we map in place, never reorder.
+          const nextSteps = (channelMessages.steps ?? []).map((s): StepMessage => ({
+            ...s,
+            body: rewriter(s?.body ?? ""),
+            subject: s?.subject ? rewriter(s.subject) : s?.subject,
+          }));
+          const nextReplies = channelMessages.autoReplies
+            ? {
+                ...channelMessages.autoReplies,
+                positive: channelMessages.autoReplies.positive ? rewriter(channelMessages.autoReplies.positive) : channelMessages.autoReplies.positive,
+                negative: channelMessages.autoReplies.negative ? rewriter(channelMessages.autoReplies.negative) : channelMessages.autoReplies.negative,
+              }
+            : channelMessages.autoReplies;
+          onChange({
+            ...channelMessages,
+            connectionRequest: rewriter(channelMessages.connectionRequest ?? ""),
+            steps: nextSteps,
+            autoReplies: nextReplies,
+          });
+        }}
       />
 
       {/* ═══ LINKEDIN CONNECTION REQUEST (always shown if LinkedIn is in sequence) ═══ */}
