@@ -110,7 +110,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
       const labelMap = {
         interested: "Interested — campaign closed as won",
         not_interested: "Not interested — campaign closed as lost",
-        bad_timing: "Snoozed 30 days",
+        bad_timing: "Logged as follow-up — campaign continues",
         wrong_number: "Wrong number — call channel disabled for lead",
       } as const;
       toast.show({ kind: "success", title: "Outcome logged", description: labelMap[outcome] });
@@ -391,7 +391,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
             {([
               { v: "interested" as const,     label: "Interested",     desc: "Book meeting",      icon: ThumbsUp,      color: C.green,   bg: `color-mix(in srgb, ${C.green} 12%, transparent)` },
               { v: "not_interested" as const, label: "Not interested", desc: "Close",             icon: ThumbsDown,    color: C.red,     bg: `color-mix(in srgb, ${C.red} 12%, transparent)` },
-              { v: "bad_timing" as const,     label: "Bad timing",     desc: "Snooze 30 days",    icon: Calendar,      color: "#D97706", bg: "color-mix(in srgb, #D97706 12%, transparent)" },
+              { v: "bad_timing" as const,     label: "Bad timing",     desc: "Keep campaign going",icon: Calendar,      color: "#D97706", bg: "color-mix(in srgb, #D97706 12%, transparent)" },
               { v: "wrong_number" as const,   label: "Wrong number",   desc: "Skip call channel", icon: PhoneOffIcon,  color: C.textMuted, bg: C.surface },
             ]).map(opt => {
               const OptIcon = opt.icon;

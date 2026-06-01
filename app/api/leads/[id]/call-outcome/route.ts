@@ -11,8 +11,11 @@ import { getUserScope } from "@/lib/scope";
 //                    closed_won (stop_reason='call_positive')
 //   not_interested → lead = closed_lost, campaigns closed_lost
 //                    (stop_reason='call_negative')
-//   bad_timing     → campaigns paused 30d (paused_until = now+30d,
-//                    paused_reason='call_bad_timing')
+//   bad_timing     → log the outcome only; the campaign keeps running
+//                    on its normal cadence (follow-up will land per
+//                    the existing sequence_steps). Fran 2026-06-01:
+//                    'bad timing is follow up — que siga la campaign
+//                    nomas'.
 //   wrong_number   → lead.allow_call = false, every queued/draft call
 //                    step on this lead's campaigns gets skipped, the
 //                    campaign current_step advances past the bad step
@@ -45,7 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const now = new Date().toISOString();
   const summary = outcome === "interested" ? "Call outcome: interested — proceed to book meeting"
     : outcome === "not_interested" ? "Call outcome: not interested"
-    : outcome === "bad_timing"     ? "Call outcome: bad timing — snoozed 30 days"
+    : outcome === "bad_timing"     ? "Call outcome: bad timing — campaign continues normally"
                                    : "Call outcome: wrong number — call channel disabled for lead";
 
   // 1) Synthetic lead_reply so the outcome appears in /queue History
@@ -74,8 +77,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await svc.from("leads").update({ status: "closed_lost", responded: true, response_outcome: "not_interested", updated_at: now }).eq("id", leadId);
     await svc.from("campaigns").update({ status: "closed_lost", stop_reason: "call_negative", completed_at: now }).eq("lead_id", leadId).eq("status", "active");
   } else if (outcome === "bad_timing") {
-    const resumeAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-    await svc.from("campaigns").update({ status: "paused", paused_until: resumeAt, paused_channel: null }).eq("lead_id", leadId).eq("status", "active");
+    // No campaign mutation — the lead_replies row above already
+    // records the outcome for History. Campaign keeps running on
+    // its existing cadence and the next step fires per sequence_steps.
     await svc.from("leads").update({ updated_at: now }).eq("id", leadId);
   } else {
     // wrong_number: flag the lead so future calls are blocked, then
