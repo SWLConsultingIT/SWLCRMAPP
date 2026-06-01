@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/lib/theme";
 import { LocaleProvider } from "@/lib/i18n";
 import { BrandProvider } from "@/lib/brand";
 import { AuthProvider } from "@/lib/auth-context";
+import AircallPhoneProvider from "@/components/AircallPhoneProvider";
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 const outfit = Outfit({ variable: "--font-outfit", subsets: ["latin"], weight: ["500", "600", "700", "800"] });
@@ -88,7 +89,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <LocaleProvider>
             <BrandProvider>
               <AuthProvider>
-                <AppShell>{children}</AppShell>
+                <AircallPhoneProvider>
+                  <AppShell>{children}</AppShell>
+                </AircallPhoneProvider>
               </AuthProvider>
             </BrandProvider>
           </LocaleProvider>

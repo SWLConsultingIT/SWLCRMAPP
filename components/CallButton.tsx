@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Phone, Loader2, CheckCheck, PhoneOff, ChevronDown, RefreshCw, ThumbsUp, ThumbsDown, Clock, X } from "lucide-react";
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
+import { useAircallPhone } from "@/components/AircallPhoneProvider";
 
 const DEFAULT_AIRCALL_USER_ID = process.env.NEXT_PUBLIC_AIRCALL_DEFAULT_USER_ID
   ? Number(process.env.NEXT_PUBLIC_AIRCALL_DEFAULT_USER_ID)
@@ -55,6 +56,12 @@ type Props = {
 export default function CallButton({ phone, leadId, size = "md", variant = "solid", label, defaultNumberId, phones }: Props) {
   const router = useRouter();
   const toast = useToast();
+  // Aircall Everywhere SDK provider — gives us in-app calling (no desktop
+  // Aircall required). Calling dial() opens the SWL-branded phone modal
+  // and routes the call through the embedded workspace. The legacy POST
+  // to /api/aircall/dial is gone; the Aircall webhook still populates
+  // the calls row on call.created/ended.
+  const aircall = useAircallPhone();
   const [numbers, setNumbers] = useState<AircallNumber[]>([]);
   const [selectedNumberId, setSelectedNumberId] = useState<number | null>(null);
   const [state, setState] = useState<"idle" | "calling" | "called" | "error">("idle");
@@ -125,31 +132,25 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
     if (!dialingPhone) return;
     setState("calling");
     try {
-      const res = await fetch("/api/aircall/dial", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: dialingPhone,
-          leadId,
-          numberId: selectedNumberId,
-          aircallUserId: DEFAULT_AIRCALL_USER_ID,
-        }),
-      });
-      if (res.ok) {
+      // Dial via the embedded Aircall workspace. If the agent hasn't
+      // logged into Aircall yet, the modal still opens — they log in
+      // there, the dial command queues and fires after `not_ready`
+      // resolves (or they hit the dialpad themselves once in).
+      const result = await aircall.dial(dialingPhone, leadId);
+      if (result.ok) {
         setState("called");
-        // Capture the just-inserted calls.id so we can open the classify
-        // prompt the moment Aircall picks up. Without this the seller had
-        // to navigate to /queue to log the outcome — most never did.
-        try {
-          const data = await res.json() as { callId?: string | null };
-          if (data?.callId) setClassifyCallId(data.callId);
-        } catch { /* ignore parse error — the dial still succeeded */ }
-        // Refresh server components so the lead moves from "To Call" to
-        // "Awaiting Outcome" in /queue immediately — the dial endpoint already
-        // inserted a calls row with status=initiated + classification=null.
-        router.refresh();
+        // No more pre-insert: the Aircall webhook will create the calls
+        // row when Aircall reports call.created/ended. router.refresh
+        // after a short delay lets the call appear in the lead timeline.
+        setTimeout(() => { router.refresh(); }, 4000);
         setTimeout(() => setState("idle"), 4000);
       } else {
+        // Surface common errors so the seller knows what to fix.
+        const code = result.error || "unknown";
+        const msg = code === "not_ready" ? "Sign in to Aircall in the phone window to start the call."
+          : code === "in_call"  ? "Wait for the current call to end before starting another."
+          : `Couldn't start the call (${code}).`;
+        toast.show({ kind: "warning", title: "Call not started", description: msg });
         setState("error");
         setTimeout(() => setState("idle"), 3000);
       }
