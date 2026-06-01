@@ -16,6 +16,7 @@ import DeleteLeadButton from "@/components/DeleteLeadButton";
 import Breadcrumb from "@/components/Breadcrumb";
 import SyncAircallButton from "@/components/SyncAircallButton";
 import CallButton from "@/components/CallButton";
+import NextCallButton from "@/components/NextCallButton";
 import CallCard from "@/components/CallCard";
 import PersonalizedInfoPanel from "@/components/PersonalizedInfoPanel";
 import LeadSummaryTab from "@/components/LeadSummaryTab";
@@ -491,6 +492,13 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   />
                 </div>
               )}
+              {/* "Next call" chain — only renders when the lead's active
+                  flow has more pending call steps. NextCallButton itself
+                  fetches /api/leads/[id]/next-in-campaign on mount and
+                  returns null when there's nothing to jump to, so the
+                  header doesn't show a dead button on leads outside a
+                  calling sequence. */}
+              <NextCallButton leadId={id} size="sm" />
               <DeleteLeadButton leadId={id} leadName={contactName} />
             </div>
 
