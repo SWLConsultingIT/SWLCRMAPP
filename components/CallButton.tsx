@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Phone, Loader2, CheckCheck, PhoneOff, ChevronDown, RefreshCw, ThumbsUp, ThumbsDown, Clock, X } from "lucide-react";
+import { Phone, Loader2, CheckCheck, PhoneOff, ChevronDown, RefreshCw, ThumbsUp, ThumbsDown, Clock, X, PhoneOff as PhoneOffIcon, Calendar } from "lucide-react";
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
 import { useAircallPhone } from "@/components/AircallPhoneProvider";
@@ -74,11 +74,52 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
     : (phone ? [{ label: "Mobile", value: phone }] : []);
   const [selectedPhone, setSelectedPhone] = useState<string | null>(phoneOptions[0]?.value ?? null);
   const [phonePicker, setPhonePicker] = useState(false);
-  // Post-call classification prompt — auto-opens after a successful dial so
-  // sellers don't forget to log the outcome. Sellers were leaving calls in
-  // "initiated" forever, polluting /queue with phantom pending tasks.
-  const [classifyCallId, setClassifyCallId] = useState<string | null>(null);
+  // Post-call outcome prompt — opens automatically after the embedded
+  // Aircall workspace fires `call_ended`. 4 buttons map to 4 concrete
+  // CRM actions (see /api/leads/[id]/call-outcome). Sellers were
+  // forgetting to log outcomes when the popup wasn't auto-opening.
+  const [outcomeOpen, setOutcomeOpen] = useState(false);
   const [classifying, setClassifying] = useState(false);
+  // Track the last currentCall state so we only open once per call
+  // (not on every render while the call is in 'ended' state).
+  const prevCallStateRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const state = aircall.currentCall?.state ?? null;
+    const wasForThisLead = aircall.currentCall?.leadId === leadId;
+    if (state === "ended" && prevCallStateRef.current !== "ended" && wasForThisLead) {
+      setOutcomeOpen(true);
+    }
+    prevCallStateRef.current = state;
+  }, [aircall.currentCall?.state, aircall.currentCall?.leadId, leadId]);
+
+  async function submitOutcome(outcome: "interested" | "not_interested" | "bad_timing" | "wrong_number") {
+    if (classifying) return;
+    setClassifying(true);
+    try {
+      const r = await fetch(`/api/leads/${leadId}/call-outcome`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ outcome }),
+      });
+      if (!r.ok) {
+        const { error } = await r.json().catch(() => ({ error: "Failed" }));
+        toast.show({ kind: "error", title: "Couldn't log outcome", description: error || "Try again." });
+        return;
+      }
+      const labelMap = {
+        interested: "Interested — campaign closed as won",
+        not_interested: "Not interested — campaign closed as lost",
+        bad_timing: "Snoozed 30 days",
+        wrong_number: "Wrong number — call channel disabled for lead",
+      } as const;
+      toast.show({ kind: "success", title: "Outcome logged", description: labelMap[outcome] });
+      setOutcomeOpen(false);
+      router.refresh();
+    } finally {
+      setClassifying(false);
+    }
+  }
 
   const loadNumbers = useCallback(async (opts?: { fresh?: boolean }) => {
     // Pass leadId so the API scopes to the LEAD's tenant (not the viewer's).
@@ -311,43 +352,47 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
         </div>
       )}
 
-      {/* Post-dial classification prompt — fixed bottom-right toast-card.
-          Opens automatically after a successful dial. Three-button triage:
-          Positive / Negative / Follow-up. Dismiss with X if not done yet. */}
-      {classifyCallId && (
+      {/* Post-call outcome prompt — fixed bottom-right card, opens
+          automatically when the Aircall workspace fires `call_ended`
+          for this lead. Four mutually-exclusive outcomes, each maps
+          to a concrete CRM action via /api/leads/[id]/call-outcome:
+          Interested (book) / Not interested (close) / Bad timing
+          (snooze 30d) / Wrong number (skip channel for this lead). */}
+      {outcomeOpen && (
         <div
-          className="fixed bottom-6 right-6 z-[1100] rounded-2xl border shadow-2xl p-4 animate-[fadeIn_0.2s_ease-out]"
+          className="fixed bottom-6 right-6 z-[1100] rounded-2xl border shadow-2xl p-5 animate-[fadeIn_0.2s_ease-out]"
           style={{
             backgroundColor: C.card,
             borderColor: `color-mix(in srgb, ${C.gold} 35%, ${C.border})`,
-            boxShadow: "0 16px 48px -16px rgba(0,0,0,0.35)",
-            width: 320,
+            boxShadow: "0 24px 60px -16px rgba(0,0,0,0.4)",
+            width: 340,
             maxWidth: "calc(100vw - 3rem)",
           }}
         >
           <button
             type="button"
-            onClick={() => setClassifyCallId(null)}
+            onClick={() => setOutcomeOpen(false)}
             aria-label="Skip for now"
-            className="absolute top-2 right-2 rounded p-1 hover:bg-black/[0.04] transition-colors"
+            className="absolute top-3 right-3 rounded p-1 hover:bg-black/[0.04] transition-colors"
             style={{ color: C.textDim }}
           >
             <X size={14} />
           </button>
-          <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.gold }}>
+          <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.gold, letterSpacing: "0.18em" }}>
             How did it go?
           </p>
-          <p className="text-sm font-semibold mb-3 pr-6" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+          <p className="text-sm font-semibold mb-3 pr-6" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
             Log the call outcome
           </p>
-          <p className="text-[11px] mb-3" style={{ color: C.textMuted }}>
-            Takes 1 click — keeps your queue clean and the AI&apos;s reply matching accurate.
+          <p className="text-[11px] mb-4" style={{ color: C.textMuted }}>
+            One click — each option moves the lead through its flow correctly.
           </p>
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-2 gap-2">
             {([
-              { v: "positive" as const, label: "Positive", icon: ThumbsUp, color: C.green, bg: `color-mix(in srgb, ${C.green} 12%, transparent)` },
-              { v: "negative" as const, label: "Negative", icon: ThumbsDown, color: C.red, bg: `color-mix(in srgb, ${C.red} 12%, transparent)` },
-              { v: "follow_up" as const, label: "Follow-up", icon: Clock, color: "#D97706", bg: "color-mix(in srgb, #D97706 12%, transparent)" },
+              { v: "interested" as const,     label: "Interested",     desc: "Book meeting",      icon: ThumbsUp,      color: C.green,   bg: `color-mix(in srgb, ${C.green} 12%, transparent)` },
+              { v: "not_interested" as const, label: "Not interested", desc: "Close",             icon: ThumbsDown,    color: C.red,     bg: `color-mix(in srgb, ${C.red} 12%, transparent)` },
+              { v: "bad_timing" as const,     label: "Bad timing",     desc: "Snooze 30 days",    icon: Calendar,      color: "#D97706", bg: "color-mix(in srgb, #D97706 12%, transparent)" },
+              { v: "wrong_number" as const,   label: "Wrong number",   desc: "Skip call channel", icon: PhoneOffIcon,  color: C.textMuted, bg: C.surface },
             ]).map(opt => {
               const OptIcon = opt.icon;
               return (
@@ -355,36 +400,19 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
                   key={opt.v}
                   type="button"
                   disabled={classifying}
-                  onClick={async () => {
-                    if (classifying) return;
-                    setClassifying(true);
-                    try {
-                      const r = await fetch(`/api/calls/${classifyCallId}/classify`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ classification: opt.v }),
-                      });
-                      if (!r.ok) {
-                        const { error } = await r.json().catch(() => ({ error: "Failed" }));
-                        toast.show({ kind: "error", title: "Couldn't log outcome", description: error || "Try again from Queue." });
-                        return;
-                      }
-                      toast.show({ kind: "success", title: `Logged as ${opt.label.toLowerCase()}` });
-                      setClassifyCallId(null);
-                      router.refresh();
-                    } finally {
-                      setClassifying(false);
-                    }
-                  }}
-                  className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-lg border text-[11px] font-semibold transition-opacity hover:opacity-85 disabled:opacity-50"
+                  onClick={() => submitOutcome(opt.v)}
+                  className="flex flex-col items-start gap-1 px-3 py-2.5 rounded-lg border text-left transition-opacity hover:opacity-85 disabled:opacity-50"
                   style={{
                     backgroundColor: opt.bg,
                     color: opt.color,
                     borderColor: `color-mix(in srgb, ${opt.color} 30%, transparent)`,
                   }}
                 >
-                  <OptIcon size={14} />
-                  {opt.label}
+                  <div className="flex items-center gap-1.5">
+                    <OptIcon size={13} />
+                    <span className="text-[12px] font-semibold">{opt.label}</span>
+                  </div>
+                  <span className="text-[10px] opacity-80">{opt.desc}</span>
                 </button>
               );
             })}
