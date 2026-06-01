@@ -710,19 +710,37 @@ export default function CampaignDetailClient({
               // First DM body would be silently dropped (the 2026-05-24 Viandas
               // bug where the foto.jpeg + viandas pitch vanished from the UI).
               const bodyMessageCount = messages.filter(m => m.step_number > 0).length;
-              const seqHasCRPlaceholder = sequence.length > bodyMessageCount;
+              // DB-driven render (2026-06-01 refactor): iterate the
+              // campaign_messages rows directly, sorted by step_number,
+              // EXCLUDING the CR (step_number=0) which is rendered as
+              // the invite card above. Each message brings its own
+              // channel + content, so a mismatch between sequence_steps
+              // and messages can't drop content under the wrong icon
+              // anymore. sequence_steps is still used positionally for
+              // daysAfter timing only — if it disagrees with messages
+              // (e.g. wizard storage shift bug), the channel label
+              // follows the message, not the sequence.
+              const bodyMessages = messages
+                .filter(m => m.step_number > 0)
+                .sort((a, b) => a.step_number - b.step_number);
+              // Pad sequence positionally to body length so timing
+              // lookup never blows up when arrays disagree.
+              const stepCount = Math.max(bodyMessages.length, sequence.length);
+              const rows: { msg: Message | null; seq: typeof sequence[number] | null; channel: string }[] = [];
+              for (let i = 0; i < stepCount; i++) {
+                const msg = bodyMessages[i] ?? null;
+                const seq = sequence[i] ?? null;
+                // Channel: message wins; sequence is fallback when a
+                // sequence row has no corresponding message yet.
+                const channel = msg?.channel ?? seq?.channel ?? "linkedin";
+                rows.push({ msg, seq, channel });
+              }
               return (<>
               {/* CR card always renders first — before any sequence row. */}
               {showInviteCard && renderInvite()}
-              {sequence.map((step, i) => {
-              // Legacy-format campaigns saved the CR as sequence[0]. Now that
-              // we render the invite card at the very top unconditionally, we
-              // collapse that placeholder row to avoid a duplicate.
-              if (seqHasCRPlaceholder && showInviteCard && i === firstLinkedinIdx && step.channel === "linkedin" && step.daysAfter === 0)
-                return null;
-              const meta = channelMeta[step.channel] ?? channelMeta.linkedin;
+              {rows.map(({ msg, seq, channel }, i) => {
+              const meta = channelMeta[channel] ?? channelMeta.linkedin;
               const Icon = meta.icon;
-              const msg = messages.find(m => m.step_number === i + stepOffset) ?? null;
               const tmpl = messageTemplates[i] ?? null;
               // displayBody: prefer sent/tracked message, fall back to wizard template
               const displayBody: string | null = msg?.content ?? tmpl?.body ?? null;
@@ -734,14 +752,16 @@ export default function CampaignDetailClient({
               const isCurrent = i === currentStep;
               const isOpen = expandedStep === i;
               const isEditing = editingIdx === i;
+              const daysAfter = seq?.daysAfter ?? 0;
+              const isFirstLinkedinRow = channel === "linkedin" && rows.slice(0, i).every(r => r.channel !== "linkedin");
               // Inline "+ connection note" badge as a fallback only when the
               // standalone CR card isn't being rendered above (showInviteCard
               // is false for non-LinkedIn campaigns).
-              const showConnNote = !showInviteCard && i === firstLinkedinIdx && (!!connectionNote || !!connReqMsg);
+              const showConnNote = !showInviteCard && isFirstLinkedinRow && (!!connectionNote || !!connReqMsg);
 
               return (
                 <div key={i}>
-                <div style={{ borderBottom: i < sequence.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                <div style={{ borderBottom: i < rows.length - 1 ? `1px solid ${C.border}` : "none" }}>
                   <button onClick={() => setExpandedStep(isOpen ? null : i)}
                     className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-gray-50">
                     <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
@@ -749,7 +769,7 @@ export default function CampaignDetailClient({
                       {isPast ? <Check size={12} color="#fff" /> : isCurrent ? <PlayCircle size={12} color="#fff" /> : <span className="text-[10px] font-bold text-white">{i + 1}</span>}
                     </div>
                     <span className="flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: `${meta.color}12`, color: meta.color }}><Icon size={11} /> {meta.label}</span>
-                    <span className="text-xs" style={{ color: C.textDim }}>Day {dayPerStep[i] ?? 0}{i > 0 ? ` (+${step.daysAfter}d)` : ""}</span>
+                    <span className="text-xs" style={{ color: C.textDim }}>Day {dayPerStep[i] ?? 0}{i > 0 ? ` (+${daysAfter}d)` : ""}</span>
                     {showConnNote && <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: "#0A66C212", color: "#0A66C2" }}>+ connection note</span>}
                     <div className="flex-1" />
                     {isSent && <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: C.greenLight, color: C.green }}><Send size={10} /> Sent</span>}
@@ -774,9 +794,9 @@ export default function CampaignDetailClient({
                               what the dispatcher will (or did) attach via
                               Unipile. The actual binary is fetched at send
                               time; here we only surface metadata. */}
-                          {Array.isArray((step as any)?.attachments) && (step as any).attachments.length > 0 && (
+                          {Array.isArray((seq as any)?.attachments) && (seq as any).attachments.length > 0 && (
                             <div className="mt-3 flex flex-wrap gap-1.5">
-                              {((step as any).attachments as Array<{ name: string; mimeType?: string; sizeBytes?: number }>).map((a, idx) => (
+                              {((seq as any).attachments as Array<{ name: string; mimeType?: string; sizeBytes?: number }>).map((a, idx) => (
                                 <span key={idx}
                                   className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md border"
                                   title={a.mimeType ? `${a.mimeType}${a.sizeBytes ? ` · ${Math.round(a.sizeBytes / 1024)}KB` : ""}` : undefined}
