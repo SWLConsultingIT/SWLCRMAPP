@@ -259,13 +259,17 @@ async function getData() {
     // toggle, bulk-add-to-flow guard, CSV export) all share this semantic.
     const hasCampaign = leadCamps.some((c: any) => c.status === "active" || c.status === "paused");
 
-    // Pick the most-actionable campaign for the row (active > paused >
-    // any). Used by the Campaign column in the table — clicking it
-    // should land on the relevant campaign, not on the first arbitrary
-    // one. ICP id stays so the ICP column links to the ticket.
+    // Pick the most-actionable campaign for the row (active > paused).
+    // Used by the Campaign column in the table — only return a row when
+    // the campaign is actually running. Completed/closed_lost/failed
+    // rows used to fall through here via `leadCamps[0]`, which made the
+    // Campaign column show flow names for leads whose flows had already
+    // ended — inconsistent with the chip count that says "0 in a flow"
+    // and the Outreach Flow page that doesn't list them. Fran caught
+    // this on Arqy 2026-06-01: 102 leads showed campaign names while
+    // only Simone's was actually running.
     const activeCamp = leadCamps.find((c: any) => c.status === "active")
       ?? leadCamps.find((c: any) => c.status === "paused")
-      ?? leadCamps[0]
       ?? null;
     const leadData = {
       id: lead.id,
