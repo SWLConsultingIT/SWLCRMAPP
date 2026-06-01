@@ -76,11 +76,11 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
           onLogin: () => { if (alive) setIsLoggedIn(true); },
           onLogout: () => { if (alive) setIsLoggedIn(false); },
           domToLoadWorkspace: "#aircall-iframe-target",
-          // 'auto' = iframe is 100% width/height; we control dimensions
-          // via the container CSS. 'big' (default) hardcodes 376x666 in
-          // the iframe style attr which overflowed the SWL modal and
-          // left a ton of empty whitespace below the Aircall content.
-          size: "auto",
+          // 'small' = 376x600 compact dial view. 'auto' rendered the full
+          // workspace sidebar (Conversations/Calls/Messages/...) which
+          // crowded out the dial form and broke the auto-fill of the
+          // phone number on dial_number events (Fran 2026-06-01).
+          size: "small",
           debug: false,
         });
         sdkRef.current = sdk;
@@ -139,23 +139,18 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
       state: "dialing",
       startedAt: Date.now(),
     });
-    // Payload kitchen-sink experiment 2026-06-01: the SDK docs only mention
-    // `phone_number`, but the SDK source just forwards `value` to the
-    // workspace iframe via postMessage — so any extra keys are passed
-    // through transparently. Throw the most likely names at the wall so
-    // that if Aircall's workspace honours any of them, we skip both the
-    // "Start conversation from" picker AND the confirm-to-dial screen.
-    // The phone_number key is the only required one; everything else is
-    // best-effort and silently ignored by older workspace builds.
+    // Reverted to the documented-only payload (2026-06-01): adding
+    // undocumented keys (auto_call, dial_immediately, from_number_id,
+    // etc.) caused the workspace to open a blank "Start conversation
+    // from" overlay with an EMPTY To field instead of pre-filling the
+    // phone number. The official `phone_number` is enough; the picker
+    // for from-number stays because that's by Aircall's design when
+    // the agent has multiple outbound numbers attached.
     const payload: Record<string, unknown> = { phone_number: phoneNumber };
-    if (fromNumberId != null) {
-      payload.from_number_id = fromNumberId;
-      payload.outbound_number_id = fromNumberId;
-      payload.number_id = fromNumberId;
-    }
-    payload.auto_call = true;
-    payload.dial_immediately = true;
-    payload.direct_dial = true;
+
+    // Suppress unused-var warning while we leave the fromNumberId in the
+    // public API for a future SDK build that may honour it.
+    void fromNumberId;
 
     return new Promise<{ ok: boolean; error?: string }>((resolve) => {
       sdkRef.current!.send("dial_number", payload, (success, data) => {
@@ -213,9 +208,10 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
       >
         <div
           style={{
-            width: 520,
+            // Sized for the 376x600 'small' Aircall iframe + ~24px side padding
+            width: 440,
             maxWidth: "100%",
-            maxHeight: "90vh",
+            maxHeight: "92vh",
             background: "var(--c-card, #ffffff)",
             borderRadius: 20,
             boxShadow: "0 30px 80px -10px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06)",
@@ -298,31 +294,32 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
             </div>
           </div>
 
-          {/* Aircall iframe target — sized via CSS since SDK is in 'auto'
-              mode. Height capped against viewport so the modal never
-              overflows the screen on shorter displays / laptops. */}
+          {/* Aircall iframe target — SDK injects a 376x600 iframe via
+              inline style attr in 'small' mode. We center it and let
+              the modal scroll vertically on short viewports. */}
           <div
             style={{
               padding: 14,
               background: "var(--c-card, #ffffff)",
               flex: 1,
               minHeight: 0,
+              overflow: "auto",
               display: "flex",
+              justifyContent: "center",
             }}
           >
             <div
               id="aircall-iframe-target"
               ref={containerRef}
               style={{
-                width: "100%",
-                // Sized to fit the Aircall workspace UI without the dialpad
-                // expanded; the iframe itself will get height:100% from the
-                // SDK in 'auto' mode and stretch to fill this container.
-                height: "min(620px, calc(90vh - 130px))",
+                width: 376,
+                height: 600,
+                maxWidth: "100%",
                 borderRadius: 12,
                 overflow: "hidden",
                 background: "#f6f7fb",
                 boxShadow: "0 1px 0 rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.06)",
+                flexShrink: 0,
               }}
             />
           </div>
