@@ -123,10 +123,14 @@ async function getUnlinkedLeadsByProfile(companyBioId: string | null) {
   // eligible" while 165 leads sat outside any flow. We page the lightweight id
   // list in full, subtract the enrolled set, then hydrate (decrypt) only the
   // unenrolled leads we actually display.
+  // Terminal-status leads (lost/won) must never resurface in the picker — a
+  // lost lead belongs in Results → Re-nurture, not back in an active flow.
+  const TERMINAL_LEAD_STATUSES = ["closed_lost", "closed_won", "won"];
   const tenantLeadIds: string[] = [];
   for (let from = 0; ; from += 1000) {
     const { data: page } = await supabase
       .from("leads").select("id").eq("company_bio_id", companyBioId)
+      .not("status", "in", `(${TERMINAL_LEAD_STATUSES.join(",")})`)
       .order("created_at", { ascending: false }).range(from, from + 999);
     if (!page || page.length === 0) break;
     page.forEach(r => tenantLeadIds.push(r.id as string));

@@ -26,25 +26,37 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data: leads } = await supabase
     .from("leads")
-    .select("id, company_bio_id")
+    .select("id, company_bio_id, status")
     .in("id", leadIds);
-  const valid = (leads ?? []).filter(l => l.company_bio_id === tenantBioId).map(l => l.id);
-  const rejected = leadIds.filter(id => !valid.includes(id));
-  if (valid.length === 0) {
+  const tenantLeads = (leads ?? []).filter(l => l.company_bio_id === tenantBioId);
+  const rejected = leadIds.filter(id => !tenantLeads.some(l => l.id === id));
+  if (tenantLeads.length === 0) {
     return NextResponse.json({ error: "All leads belong to a different tenant", rejected }, { status: 403 });
   }
 
-  // De-dupe: skip any lead already enrolled in an active/paused flow. Without
-  // this guard, re-clicking "+ Add" on a lead that the eligible list wrongly
-  // still showed (or a double click) inserted a second campaign row — De Vera
-  // accumulated 225 duplicate rows this way. Mirrors the eligible-leads query
-  // in page.tsx so the two never disagree.
-  const { data: existing } = await supabase
-    .from("campaigns").select("lead_id")
-    .in("status", ["active", "paused"]).in("lead_id", valid);
-  const alreadyIn = new Set((existing ?? []).map(e => e.lead_id).filter(Boolean));
+  // Never re-outreach a closed lead. A lost lead lives in the Results →
+  // Re-nurture bucket, and "Add all compatible" happily pulled the 2 De Vera
+  // closed_lost leads back into the active flow (and queued LinkedIn invites to
+  // them). Terminal-status leads are skipped here and hidden from the eligible
+  // list in page.tsx.
+  const TERMINAL = new Set(["closed_lost", "closed_won", "won"]);
+  const valid = tenantLeads.filter(l => !TERMINAL.has(l.status)).map(l => l.id);
+  const closedSkipped = tenantLeads.filter(l => TERMINAL.has(l.status)).map(l => l.id);
+  if (valid.length === 0) {
+    return NextResponse.json({ ok: true, added: 0, skipped: closedSkipped, rejected });
+  }
+
+  // De-dupe on two axes: (a) a lead already in ANY active/paused flow, and
+  // (b) a lead that ALREADY HAS A ROW IN THIS FLOW regardless of status —
+  // re-adding a completed/cancelled lead to the same flow created a second row
+  // (the funnel showed it twice). Together these keep one row per lead per flow.
+  const [{ data: existingActive }, { data: inThisFlow }] = await Promise.all([
+    supabase.from("campaigns").select("lead_id").in("status", ["active", "paused"]).in("lead_id", valid),
+    supabase.from("campaigns").select("lead_id").eq("name", campaign.name).in("lead_id", valid),
+  ]);
+  const alreadyIn = new Set([...(existingActive ?? []), ...(inThisFlow ?? [])].map(e => e.lead_id).filter(Boolean));
   const toAdd = valid.filter(id => !alreadyIn.has(id));
-  const skipped = valid.filter(id => alreadyIn.has(id));
+  const skipped = [...valid.filter(id => alreadyIn.has(id)), ...closedSkipped];
   if (toAdd.length === 0) {
     return NextResponse.json({ ok: true, added: 0, skipped, rejected });
   }
