@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   FileText, Loader2, Search, Share2, Mail, Phone, MessageSquare, X,
   Trash2, Play, Plus, MoreHorizontal, Copy, FolderTree, Clock, List,
-  ChevronDown, ChevronRight, AlertCircle, ArrowRight, Pencil,
+  ChevronDown, ChevronRight, AlertCircle, ArrowRight, Pencil, Archive,
 } from "lucide-react";
 import { C } from "@/lib/design";
 import EmptyState from "@/components/EmptyState";
@@ -38,7 +38,29 @@ type TemplateListItem = {
 };
 
 type IcpOption = { id: string; profile_name: string };
-type ViewMode = "by_icp" | "recent" | "all";
+type ViewMode = "by_icp" | "recent" | "all" | "historic";
+
+type HistoricFlow = {
+  key: string;
+  name: string;
+  icp_profile_id: string | null;
+  icp_name: string | null;
+  sampleCampaignId: string;
+  cohortSize: number;
+  channels: string[];
+  sellers: string[];
+  totalSteps: number;
+  messagesSent: number;
+  messagesTotal: number;
+  liInvitesSent: number;
+  liMessagesSent: number;
+  emailsSent: number;
+  repliesTotal: number;
+  positiveReplies: number;
+  replyRate: number;
+  firstStartedAt: string | null;
+  lastEndedAt: string | null;
+};
 
 const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
   linkedin: { icon: Share2,        color: "#0A66C2", label: "LinkedIn" },
@@ -72,6 +94,7 @@ export default function TemplatesView() {
   const router = useRouter();
   const toast = useToast();
   const [templates, setTemplates] = useState<TemplateListItem[] | null>(null);
+  const [historic, setHistoric] = useState<HistoricFlow[] | null>(null);
   const [icps, setIcps] = useState<IcpOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -106,6 +129,24 @@ export default function TemplatesView() {
       setErr(e?.message ?? "Network error");
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Historic flows fetch — separate from `load()` because the dataset
+  // is derived (campaigns + messages + replies) and pricier to compute.
+  // Only pulled when the user opens the Historic tab.
+  async function loadHistoric() {
+    if (historic !== null) return; // cached for the session
+    try {
+      const res = await fetch("/api/templates/historic", { cache: "no-store" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.show({ kind: "error", title: "Couldn't load historic flows", description: body.error ?? `HTTP ${res.status}` });
+        return;
+      }
+      setHistoric(body.historic ?? []);
+    } catch (e: any) {
+      toast.show({ kind: "error", title: "Network error loading historic flows", description: e?.message ?? "unknown" });
     }
   }
 
@@ -243,14 +284,18 @@ export default function TemplatesView() {
         <div className="flex items-center gap-0.5 rounded-lg p-0.5 border"
           style={{ borderColor: C.border, backgroundColor: C.bg }}>
           {([
-            { id: "by_icp", label: "By ICP", icon: FolderTree },
-            { id: "recent", label: "Recent", icon: Clock },
-            { id: "all",    label: "All",    icon: List },
+            { id: "by_icp",   label: "By ICP",   icon: FolderTree },
+            { id: "recent",   label: "Recent",   icon: Clock },
+            { id: "all",      label: "All",      icon: List },
+            { id: "historic", label: "Historic", icon: Archive },
           ] as const).map(t => {
             const Icon = t.icon;
             const active = view === t.id;
             return (
-              <button key={t.id} onClick={() => setView(t.id)}
+              <button key={t.id} onClick={() => {
+                setView(t.id);
+                if (t.id === "historic") void loadHistoric();
+              }}
                 className="text-[11px] font-semibold px-2.5 py-1 rounded-md inline-flex items-center gap-1.5 transition-colors"
                 style={{
                   backgroundColor: active ? C.card : "transparent",
@@ -385,6 +430,8 @@ export default function TemplatesView() {
             );
           })}
         </div>
+      ) : view === "historic" ? (
+        <HistoricFlowsList historic={historic} icps={icps} />
       ) : (
         <div className="space-y-2">
           {(view === "recent" ? flatRecent : (templates ?? [])).map(t => (
@@ -568,6 +615,105 @@ function IcpPickerMenu({
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+// ─── Historic Flows ──────────────────────────────────────────────────
+// Shows past flows (terminal-status campaign groups) grouped by ICP.
+// Each card is the aggregate of every campaign sharing the same name
+// under the same ICP — leads, msgs sent, replies, response rate, the
+// channels used and how long it ran. Click-through opens any one
+// instance for the receipts.
+function HistoricFlowsList({ historic, icps }: { historic: HistoricFlow[] | null; icps: IcpOption[] }) {
+  const [openIcps, setOpenIcps] = useState<Record<string, boolean>>({});
+
+  if (historic === null) {
+    return (
+      <div className="flex items-center justify-center py-16" style={{ color: C.textMuted }}>
+        <Loader2 size={16} className="animate-spin mr-2" />
+        <span className="text-sm">Loading historic flows…</span>
+      </div>
+    );
+  }
+  if (historic.length === 0) {
+    return (
+      <EmptyState
+        icon={Archive}
+        title="No historic flows yet"
+        description="When a flow finishes (every lead completes its sequence or is closed), it lands here as a permanent reference grouped by ICP."
+        accent="var(--brand, #c9a83a)"
+        accentSoft="color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)"
+      />
+    );
+  }
+
+  // Group by ICP for the section list. Sort ICPs by total cohort size desc.
+  const icpMap = new Map(icps.map(i => [i.id, i.profile_name]));
+  const byIcp = new Map<string, { label: string; items: HistoricFlow[] }>();
+  for (const h of historic) {
+    const key = h.icp_profile_id ?? "_no_icp_";
+    const label = h.icp_profile_id ? (icpMap.get(h.icp_profile_id) ?? h.icp_name ?? "(deleted ICP)") : "Without ICP";
+    if (!byIcp.has(key)) byIcp.set(key, { label, items: [] });
+    byIcp.get(key)!.items.push(h);
+  }
+  const groups = Array.from(byIcp.entries())
+    .map(([k, v]) => ({ key: k, label: v.label, items: v.items }))
+    .sort((a, b) => b.items.length - a.items.length);
+
+  return (
+    <div className="space-y-3">
+      {groups.map(group => {
+        const open = openIcps[group.key] ?? true;
+        return (
+          <div key={group.key} className="rounded-xl border"
+            style={{ backgroundColor: C.card, borderColor: C.border }}>
+            <button onClick={() => setOpenIcps(o => ({ ...o, [group.key]: !open }))}
+              className="w-full px-4 py-3 flex items-center gap-2 text-left transition-colors hover:bg-black/[0.02] rounded-t-xl"
+              style={{ borderBottom: open ? `1px solid ${C.border}` : "none" }}>
+              {open ? <ChevronDown size={14} style={{ color: C.textMuted }} /> : <ChevronRight size={14} style={{ color: C.textMuted }} />}
+              <span className="text-sm font-bold" style={{ color: C.textPrimary }}>{group.label}</span>
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}>
+                {group.items.length}
+              </span>
+            </button>
+            {open && (
+              <div>
+                {group.items.map((h, i) => (
+                  <Link key={h.key}
+                    href={`/campaigns/${h.sampleCampaignId}`}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-black/[0.02] transition-colors text-sm"
+                    style={{ borderTop: i === 0 ? "none" : `1px solid ${C.border}`, color: C.textBody }}>
+                    <Archive size={13} style={{ color: C.textMuted }} className="shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold truncate" style={{ color: C.textPrimary }}>{h.name}</div>
+                      <div className="text-[11px] flex items-center gap-3 mt-0.5" style={{ color: C.textMuted }}>
+                        <span>{h.cohortSize} leads</span>
+                        <span>·</span>
+                        <span>{h.messagesSent} msgs sent</span>
+                        <span>·</span>
+                        <span style={{ color: h.repliesTotal > 0 ? "#0A66C2" : C.textMuted }}>{h.repliesTotal} replies</span>
+                        {h.positiveReplies > 0 && <><span>·</span><span style={{ color: "#059669" }}>{h.positiveReplies} positive</span></>}
+                        {h.replyRate > 0 && <><span>·</span><span>{h.replyRate}% reply rate</span></>}
+                      </div>
+                    </div>
+                    <div className="hidden md:flex items-center gap-1.5 shrink-0">
+                      {h.channels.map(ch => <ChannelChip key={ch} ch={ch} />)}
+                    </div>
+                    {h.lastEndedAt && (
+                      <span className="hidden lg:inline text-[10px] shrink-0" style={{ color: C.textDim }}>
+                        {timeAgo(h.lastEndedAt)}
+                      </span>
+                    )}
+                    <ChevronRight size={13} style={{ color: C.textDim }} className="shrink-0" />
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
