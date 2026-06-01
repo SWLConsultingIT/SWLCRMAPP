@@ -13,6 +13,7 @@ import { LinkedInIcon, InstagramIcon, TwitterXIcon, FacebookIcon, GoogleIcon, We
 import CompanyTabs from "@/components/CompanyTabs";
 import ContactCards from "@/components/ContactCards";
 import ActivityTimeline from "@/components/ActivityTimeline";
+import CompanyHooksPanel from "@/components/CompanyHooksPanel";
 
 const gold = "var(--brand, #c9a83a)";
 const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";
@@ -301,6 +302,11 @@ export default async function CompanyDetailPage({ params }: { params: Promise<{ 
 
           {/* ═══ TAB 0: OVERVIEW ═══ */}
           <div className="space-y-6">
+
+            {/* Call hooks — distills the rest of the enrichment into
+                3–5 ready-to-read openers so sellers stop spending 20+
+                min reading the portfolio site looking for an angle. */}
+            <CompanyHooksPanel leadId={lead?.id ?? null} companyName={companyName} />
 
             {/* Row 1: Company Profile + Location & Contact */}
             <div className="grid grid-cols-2 gap-6">
