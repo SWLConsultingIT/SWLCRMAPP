@@ -36,7 +36,7 @@ type Ctx = {
   isReady: boolean;
   isLoggedIn: boolean;
   currentCall: CallInfo | null;
-  dial: (phoneNumber: string, leadId?: string | null) => Promise<{ ok: boolean; error?: string }>;
+  dial: (phoneNumber: string, leadId?: string | null, fromNumberId?: number | null) => Promise<{ ok: boolean; error?: string }>;
   openPhone: () => void;
   closePhone: () => void;
 };
@@ -125,7 +125,7 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
     };
   }, []);
 
-  const dial = useCallback<Ctx["dial"]>(async (phoneNumber, leadId) => {
+  const dial = useCallback<Ctx["dial"]>(async (phoneNumber, leadId, fromNumberId) => {
     if (!sdkRef.current) return { ok: false, error: "SDK not ready" };
     setIsOpen(true);
     setCurrentCall({
@@ -135,8 +135,26 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
       state: "dialing",
       startedAt: Date.now(),
     });
+    // Payload kitchen-sink experiment 2026-06-01: the SDK docs only mention
+    // `phone_number`, but the SDK source just forwards `value` to the
+    // workspace iframe via postMessage — so any extra keys are passed
+    // through transparently. Throw the most likely names at the wall so
+    // that if Aircall's workspace honours any of them, we skip both the
+    // "Start conversation from" picker AND the confirm-to-dial screen.
+    // The phone_number key is the only required one; everything else is
+    // best-effort and silently ignored by older workspace builds.
+    const payload: Record<string, unknown> = { phone_number: phoneNumber };
+    if (fromNumberId != null) {
+      payload.from_number_id = fromNumberId;
+      payload.outbound_number_id = fromNumberId;
+      payload.number_id = fromNumberId;
+    }
+    payload.auto_call = true;
+    payload.dial_immediately = true;
+    payload.direct_dial = true;
+
     return new Promise<{ ok: boolean; error?: string }>((resolve) => {
-      sdkRef.current!.send("dial_number", { phone_number: phoneNumber }, (success, data) => {
+      sdkRef.current!.send("dial_number", payload, (success, data) => {
         if (success) {
           resolve({ ok: true });
         } else {
@@ -161,9 +179,9 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
       {children}
 
       {/* SWL-branded modal shell. The iframe lives INSIDE this DOM target
-          (#aircall-iframe-target) for the SDK to mount into. We always
-          keep the target rendered — toggling visibility instead of
-          unmounting — so the SDK login + warm-up only happen once. */}
+          (#aircall-iframe-target) for the SDK to mount into. Iframe stays
+          mounted permanently — we toggle visibility on the wrapper so the
+          login + warm-up cost only happens once per session. */}
       <div
         aria-hidden={!isOpen}
         style={{
@@ -172,11 +190,14 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
           zIndex: 9999,
           pointerEvents: isOpen ? "auto" : "none",
           opacity: isOpen ? 1 : 0,
-          transition: "opacity 180ms ease",
-          background: "rgba(0,0,0,0.55)",
+          transition: "opacity 200ms cubic-bezier(0.16, 1, 0.3, 1)",
+          background: "rgba(8, 12, 28, 0.55)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
+          padding: 24,
         }}
         onClick={(e) => {
           // Close on backdrop click only when not in an active call —
@@ -188,78 +209,120 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
       >
         <div
           style={{
-            width: 720,
-            maxWidth: "92vw",
+            width: 460,
+            maxWidth: "100%",
             background: "var(--c-card, #ffffff)",
-            borderRadius: 16,
-            boxShadow: "0 20px 60px rgba(0,0,0,0.35)",
-            border: `1px solid color-mix(in srgb, ${gold} 22%, var(--c-border, #e5e7eb))`,
+            borderRadius: 20,
+            boxShadow: "0 30px 80px -10px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06)",
             overflow: "hidden",
             display: "flex",
             flexDirection: "column",
+            transform: isOpen ? "translateY(0) scale(1)" : "translateY(12px) scale(0.98)",
+            transition: "transform 220ms cubic-bezier(0.16, 1, 0.3, 1)",
           }}
         >
-          {/* SWL branded header */}
+          {/* SWL branded header — slimmer, more premium */}
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              padding: "14px 18px",
+              position: "relative",
+              padding: "16px 20px",
               background: `linear-gradient(135deg, var(--c-ink, #0d1224) 0%, var(--c-ink2, #161c33) 100%)`,
-              borderBottom: `1px solid color-mix(in srgb, ${gold} 18%, transparent)`,
+              overflow: "hidden",
+            }}
+          >
+            {/* Hairline gold accent on the bottom edge — editorial detail */}
+            <span aria-hidden style={{
+              position: "absolute", inset: "auto 0 0 0", height: 1,
+              background: `linear-gradient(90deg, transparent 0%, color-mix(in srgb, ${gold} 55%, transparent) 30%, color-mix(in srgb, ${gold} 55%, transparent) 70%, transparent 100%)`,
+            }} />
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div
+                style={{
+                  width: 38, height: 38, borderRadius: 10,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 70%, white) 100%)`,
+                  boxShadow: `0 6px 18px color-mix(in srgb, ${gold} 36%, transparent)`,
+                  color: "#0d1224",
+                  flexShrink: 0,
+                }}
+              >
+                <Phone size={17} strokeWidth={2.4} />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{
+                  margin: 0, fontSize: 9.5, fontWeight: 700, textTransform: "uppercase",
+                  letterSpacing: "0.22em", color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                }}>SWL Phone</p>
+                <p style={{
+                  margin: "2px 0 0", fontSize: 14, fontWeight: 600, color: "#fff",
+                  letterSpacing: "-0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  textShadow: `0 1px 12px color-mix(in srgb, ${gold} 18%, transparent)`,
+                }}>
+                  {!isReady && "Connecting to workspace…"}
+                  {isReady && !isLoggedIn && "Sign in to start calling"}
+                  {isReady && isLoggedIn && !currentCall && "Ready"}
+                  {currentCall?.state === "dialing" && `Dialing ${currentCall.phoneNumber}`}
+                  {currentCall?.state === "ringing" && `Ringing ${currentCall.phoneNumber}`}
+                  {currentCall?.state === "answered" && `In call · ${currentCall.phoneNumber}`}
+                  {currentCall?.state === "ended" && "Call ended"}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closePhone}
+                aria-label="Close phone"
+                style={{
+                  width: 32, height: 32, borderRadius: 8, border: "none", cursor: "pointer",
+                  background: "color-mix(in srgb, white 8%, transparent)",
+                  color: "color-mix(in srgb, white 70%, transparent)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transition: "background 140ms, color 140ms",
+                  flexShrink: 0,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "color-mix(in srgb, white 18%, transparent)";
+                  e.currentTarget.style.color = "#fff";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "color-mix(in srgb, white 8%, transparent)";
+                  e.currentTarget.style.color = "color-mix(in srgb, white 70%, transparent)";
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* Aircall iframe target — fixed size matching SDK 'big' preset (376×666) */}
+          <div
+            style={{
+              padding: "16px 0 0",
+              background: "var(--c-card, #ffffff)",
+              display: "flex",
+              justifyContent: "center",
             }}
           >
             <div
+              id="aircall-iframe-target"
+              ref={containerRef}
               style={{
-                width: 32, height: 32, borderRadius: 8,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                background: `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 70%, white) 100%)`,
-                color: "#0d1224",
+                width: 376,
+                height: 666,
+                maxWidth: "100%",
+                borderRadius: 12,
+                overflow: "hidden",
+                background: "#f6f7fb",
+                boxShadow: "0 1px 0 rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.06)",
               }}
-            >
-              <Phone size={16} strokeWidth={2.4} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.18em", color: gold }}>SWL Phone</p>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: "#fff" }}>
-                {!isReady && "Loading workspace…"}
-                {isReady && !isLoggedIn && "Sign in below to start calling"}
-                {isReady && isLoggedIn && !currentCall && "Ready"}
-                {currentCall?.state === "dialing" && `Dialing ${currentCall.phoneNumber}…`}
-                {currentCall?.state === "ringing" && `Ringing ${currentCall.phoneNumber}`}
-                {currentCall?.state === "answered" && `In call · ${currentCall.phoneNumber}`}
-                {currentCall?.state === "ended" && "Call ended"}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={closePhone}
-              aria-label="Close phone"
-              style={{
-                width: 30, height: 30, borderRadius: 8, border: "none", cursor: "pointer",
-                background: "color-mix(in srgb, white 12%, transparent)",
-                color: "#fff",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >
-              <X size={16} />
-            </button>
+            />
           </div>
 
-          {/* Aircall iframe target — SDK mounts the workspace iframe inside this div */}
-          <div
-            id="aircall-iframe-target"
-            ref={containerRef}
-            style={{
-              width: "100%",
-              height: 420,
-              background: C.bg,
-            }}
-          />
-
-          <div style={{ padding: "10px 16px", borderTop: `1px solid var(--c-border, #e5e7eb)`, fontSize: 11, color: C.textMuted }}>
-            Powered by Aircall · audio runs through your browser, no app required
+          <div style={{
+            padding: "12px 20px 14px",
+            fontSize: 10.5, color: C.textMuted, textAlign: "center",
+            letterSpacing: "0.04em",
+          }}>
+            Audio runs through your browser · no desktop app required
           </div>
         </div>
       </div>

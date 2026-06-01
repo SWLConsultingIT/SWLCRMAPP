@@ -136,7 +136,12 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
       // logged into Aircall yet, the modal still opens — they log in
       // there, the dial command queues and fires after `not_ready`
       // resolves (or they hit the dialpad themselves once in).
-      const result = await aircall.dial(dialingPhone, leadId);
+      // selectedNumberId is the tenant's outbound Aircall number — we
+      // forward it as best-effort metadata so the workspace iframe can
+      // skip its "Start conversation from" picker when the agent has
+      // access to multiple numbers (e.g. SWL admin seeing all tenants).
+      const fromNumberId = selectedNumberId ?? defaultNumberId ?? null;
+      const result = await aircall.dial(dialingPhone, leadId, fromNumberId);
       if (result.ok) {
         setState("called");
         // No more pre-insert: the Aircall webhook will create the calls
