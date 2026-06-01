@@ -77,5 +77,21 @@ export async function POST(req: NextRequest) {
     maxAge: 60 * 60 * 12,
   });
 
+  // ── Mirror the switch into user_profiles.company_bio_id ────────────────
+  // The SQL RLS function get_auth_company_bio_id() (migration 002, line 42)
+  // reads from user_profiles.company_bio_id directly — it has no access to
+  // the active_tenant cookie. Without this mirror write, every browser-side
+  // RLS-protected query still filters against the user's OLD primary tenant
+  // and SWL/Pathway data renders as empty. Found 2026-06-01 when Simone
+  // entered SWL and saw zero leads despite owning the tenant.
+  //
+  // Skip for super_admins — they have is_admin() bypass on every policy,
+  // so RLS doesn't gate them either way. Writing here would corrupt their
+  // home tenant id (super_admin profiles canonically point at SWL Consulting
+  // for /admin defaults).
+  if (!isSuperAdmin) {
+    await svc.from("user_profiles").update({ company_bio_id: companyBioId }).eq("user_id", user.id);
+  }
+
   return NextResponse.json({ ok: true, companyBioId });
 }
