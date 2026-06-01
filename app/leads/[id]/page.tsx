@@ -7,6 +7,7 @@ import Link from "next/link";
 import {
   Mail, Phone, Building2,
   ExternalLink, CheckCircle2, AlertTriangle,
+  Megaphone,
 } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
 import CompanyTabs from "@/components/CompanyTabs";
@@ -499,6 +500,26 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   header doesn't show a dead button on leads outside a
                   calling sequence. */}
               <NextCallButton leadId={id} size="sm" />
+              {/* "View flow" — always visible when the lead has any
+                  campaign linked (active OR completed). One click to the
+                  campaign detail / flow view. Sits between the call
+                  chain and Delete so it's grouped with the navigation
+                  affordances. */}
+              {campaign?.id && (
+                <Link
+                  href={`/campaigns/${campaign.id}`}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold whitespace-nowrap transition-opacity hover:opacity-85"
+                  style={{
+                    backgroundColor: `color-mix(in srgb, ${C.gold} 14%, transparent)`,
+                    color: C.gold ?? "#c9a83a",
+                    border: `1px solid color-mix(in srgb, ${C.gold} 30%, transparent)`,
+                  }}
+                  title="Open this lead's flow"
+                >
+                  <Megaphone size={14} />
+                  View flow
+                </Link>
+              )}
               <DeleteLeadButton leadId={id} leadName={contactName} />
             </div>
 
