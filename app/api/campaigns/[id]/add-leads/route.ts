@@ -34,9 +34,24 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "All leads belong to a different tenant", rejected }, { status: 403 });
   }
 
+  // De-dupe: skip any lead already enrolled in an active/paused flow. Without
+  // this guard, re-clicking "+ Add" on a lead that the eligible list wrongly
+  // still showed (or a double click) inserted a second campaign row — De Vera
+  // accumulated 225 duplicate rows this way. Mirrors the eligible-leads query
+  // in page.tsx so the two never disagree.
+  const { data: existing } = await supabase
+    .from("campaigns").select("lead_id")
+    .in("status", ["active", "paused"]).in("lead_id", valid);
+  const alreadyIn = new Set((existing ?? []).map(e => e.lead_id).filter(Boolean));
+  const toAdd = valid.filter(id => !alreadyIn.has(id));
+  const skipped = valid.filter(id => alreadyIn.has(id));
+  if (toAdd.length === 0) {
+    return NextResponse.json({ ok: true, added: 0, skipped, rejected });
+  }
+
   const sequence = (campaign.sequence_steps as { channel: string; daysAfter: number }[] | null) ?? [];
   const firstChannel = sequence[0]?.channel ?? "linkedin";
-  const rows = valid.map(leadId => ({
+  const rows = toAdd.map(leadId => ({
     lead_id: leadId,
     seller_id: campaign.seller_id,
     name: campaign.name,
@@ -50,7 +65,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { error: insertError } = await supabase.from("campaigns").insert(rows);
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
 
-  await supabase.from("leads").update({ status: "contacted", current_channel: firstChannel }).in("id", valid);
+  await supabase.from("leads").update({ status: "contacted", current_channel: firstChannel }).in("id", toAdd);
 
-  return NextResponse.json({ ok: true, added: valid.length, rejected });
+  return NextResponse.json({ ok: true, added: toAdd.length, skipped, rejected });
 }

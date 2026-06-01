@@ -205,15 +205,25 @@ export default function CampaignDetailClient({
       const err = await res.json().catch(() => ({}));
       toast.show({ kind: "error", title: "Couldn't add leads", description: err.error ?? res.statusText });
     } else {
-      const data = await res.json() as { added?: number; rejected?: string[] };
-      if (data.rejected && data.rejected.length > 0) {
+      const data = await res.json() as { added?: number; rejected?: string[]; skipped?: string[] };
+      const added = data.added ?? 0;
+      const dupCount = data.skipped?.length ?? 0;
+      const tenantCount = data.rejected?.length ?? 0;
+      const notes: string[] = [];
+      if (dupCount > 0) notes.push(`${dupCount} already in this flow`);
+      if (tenantCount > 0) notes.push(`${tenantCount} from another tenant`);
+      if (added > 0) {
+        toast.show({
+          kind: "success",
+          title: `Added ${added} ${added === 1 ? "lead" : "leads"} to campaign`,
+          ...(notes.length ? { description: `${notes.join(" · ")} (skipped).` } : {}),
+        });
+      } else if (notes.length) {
         toast.show({
           kind: "warning",
-          title: `Added ${data.added ?? 0} leads`,
-          description: `${data.rejected.length} skipped (different tenant).`,
+          title: "No leads added",
+          description: `${notes.join(" · ")} (skipped).`,
         });
-      } else if ((data.added ?? 0) > 0) {
-        toast.show({ kind: "success", title: `Added ${data.added} leads to campaign` });
       }
     }
     setAdding(false);

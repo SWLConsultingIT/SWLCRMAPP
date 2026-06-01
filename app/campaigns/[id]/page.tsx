@@ -95,7 +95,11 @@ async function getSiblingCampaigns(campaignName: string, excludeId: string) {
     .eq("name", campaignName)
     .neq("id", excludeId)
     .order("created_at", { ascending: false })
-    .limit(500);
+    // Was 500: a flow with >501 enrolled leads silently truncated the Leads
+    // tab and the "Total Leads" stat (De Vera read a fake 501 off a 536-row
+    // flow). Pathway flows already exceed this. Raised so large flows count
+    // and list in full.
+    .limit(5000);
   const rows = data ?? [];
   // Decrypt all sibling leads in one pass. Each campaign carries an inner
   // `leads` object — collect them, hydrate, and re-attach in order.
@@ -112,16 +116,28 @@ async function getUnlinkedLeadsByProfile(companyBioId: string | null) {
   // see leads from every tenant in the "Add Leads" tab.
   if (!companyBioId) return [];
 
-  const { data: activeCampLeadIds } = await supabase
-    .from("campaigns").select("lead_id").in("status", ["active", "paused"]);
-  const activeSet = new Set((activeCampLeadIds ?? []).map(c => c.lead_id).filter(Boolean));
-
   const { data: rawAllLeads } = await supabase
     .from("leads")
     .select("id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, primary_title_role, lead_score, allow_linkedin, allow_email, allow_call, icp_profile_id, company_bio_id")
     .eq("company_bio_id", companyBioId)
     .order("created_at", { ascending: false }).limit(200);
   const allLeads = await hydrateClientLeads((rawAllLeads ?? []) as Record<string, unknown>[]);
+
+  // Which of THESE candidate leads are already enrolled in an active/paused
+  // flow? Scope the campaigns lookup to the candidate ids — a global
+  // `.in("status", [...])` scan silently truncates at Supabase's 1000-row
+  // default once total active rows across every tenant exceed it, leaving
+  // already-enrolled leads to reappear here as "eligible" (and re-addable,
+  // which created duplicate campaign rows). Bounding by lead_id keeps the
+  // set exact regardless of how big the campaigns table grows.
+  const candidateIds = (allLeads ?? []).map(l => (l as { id: string }).id);
+  const activeSet = new Set<string>();
+  if (candidateIds.length) {
+    const { data: enrolled } = await supabase
+      .from("campaigns").select("lead_id")
+      .in("status", ["active", "paused"]).in("lead_id", candidateIds);
+    (enrolled ?? []).forEach(c => { if (c.lead_id) activeSet.add(c.lead_id); });
+  }
 
   const { data: profiles } = await supabase
     .from("icp_profiles").select("id, profile_name").eq("status", "approved").eq("company_bio_id", companyBioId);
