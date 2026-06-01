@@ -189,17 +189,97 @@ export async function POST(req: NextRequest) {
       });
       return NextResponse.json({ ok: true, status, linked: match.id });
     }
+
+    // 2026-06-01: outbound from the Aircall Everywhere SDK (the embed
+    // modal) goes through aircall.sdk.dial(), not our /api/aircall/dial
+    // endpoint — so there's NO pre-existing initiated row to link.
+    // Without this branch, the webhook would write nothing for embed
+    // calls and the lead's Calls tab would stay empty even though
+    // Aircall recorded everything. Caught 2026-06-01 — Fran made a
+    // test call from the embed; 2 rows landed via the sync cron with
+    // lead_id=null. Same last-10-digits match as the inbound branch:
+    // raw_digits is what the seller dialed (the lead's number), and
+    // we already store that in leads.primary_phone.
+    if (call.raw_digits) {
+      const last10 = call.raw_digits.replace(/[^\d]/g, "").slice(-10);
+      // Phone numbers in lead rows carry their original formatting
+      // ("+54 9 11 3394 2012"), so an ilike on the joined digit-only
+      // string (1133942012) never matches — the spaces break the
+      // substring. Pull candidates whose phone ENDS in any 4-digit
+      // suffix of last10 and finish the match in JS by stripping
+      // non-digits on both sides. 4-digit tail keeps the candidate set
+      // small even on tenants with thousands of leads while staying
+      // permissive enough that international format variants survive.
+      const tail4 = last10.slice(-4);
+      const lookup = await fetch(
+        `${SB_URL}/leads?or=(primary_phone.ilike.*${tail4},primary_secondary_phone.ilike.*${tail4})&select=id,primary_phone,primary_secondary_phone&limit=200`,
+        { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
+      );
+      const rows: Array<{ id: string; primary_phone: string | null; primary_secondary_phone: string | null }> = await lookup.json().catch(() => []);
+      const match = Array.isArray(rows) ? rows.find(r => {
+        const p1 = (r.primary_phone ?? "").replace(/\D/g, "").slice(-10);
+        const p2 = (r.primary_secondary_phone ?? "").replace(/\D/g, "").slice(-10);
+        return p1 === last10 || p2 === last10;
+      }) : null;
+      const leadId = match?.id ?? null;
+      const insertRes = await fetch(`${SB_URL}/calls?on_conflict=aircall_call_id`, {
+        method: "POST",
+        headers: {
+          apikey: SB_KEY,
+          Authorization: `Bearer ${SB_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "return=representation,resolution=merge-duplicates",
+        },
+        body: JSON.stringify({
+          aircall_call_id: call.id,
+          lead_id: leadId,
+          direction: call.direction,
+          status,
+          phone_number: call.raw_digits,
+          duration: call.duration ?? null,
+          started_at: tsToIso(call.started_at),
+          ended_at: tsToIso(call.ended_at),
+          recording_url: call.recording ?? call.asset ?? call.voicemail ?? null,
+          transcript: call.transcription?.content ?? null,
+          notes,
+        }),
+      });
+      const insertedRows = await insertRes.json().catch(() => []);
+      const inserted = Array.isArray(insertedRows) && insertedRows[0] ? insertedRows[0] : null;
+      // Same transcribe + archive triggers as the inbound branch — the
+      // recording URL is Aircall's S3 presign and expires within hours.
+      if (inserted?.id && (call.recording || call.asset)) {
+        const origin = req.nextUrl.origin;
+        fetch(`${origin}/api/aircall/transcribe`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ callId: inserted.id }),
+        }).catch(() => {});
+        import("@/lib/archive-call-recording")
+          .then(m => m.archiveCallRecording(inserted.id as string))
+          .catch(() => {});
+      }
+      return NextResponse.json({ ok: true, status, linkedLead: leadId, callId: inserted?.id ?? null });
+    }
   }
 
   if (Array.isArray(updated) && updated.length === 0 && call.direction === "inbound" && call.raw_digits) {
-    const digits = call.raw_digits.replace(/[^\d+]/g, "");
-    const last10 = digits.slice(-10);
+    const last10 = call.raw_digits.replace(/\D/g, "").slice(-10);
+    // Same digit-only normalization as the outbound branch — the
+    // pre-existing ilike here also failed against phones stored with
+    // spaces. Pull on the 4-digit tail and finalize in JS.
+    const tail4 = last10.slice(-4);
     const lookup = await fetch(
-      `${SB_URL}/leads?or=(primary_phone.ilike.*${last10},primary_phone.ilike.*${encodeURIComponent(last10)}*)&select=id&limit=1`,
+      `${SB_URL}/leads?or=(primary_phone.ilike.*${tail4},primary_secondary_phone.ilike.*${tail4})&select=id,primary_phone,primary_secondary_phone&limit=200`,
       { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
     );
-    const rows = await lookup.json().catch(() => []);
-    const leadId = Array.isArray(rows) && rows[0]?.id ? rows[0].id : null;
+    const rowsList: Array<{ id: string; primary_phone: string | null; primary_secondary_phone: string | null }> = await lookup.json().catch(() => []);
+    const inboundMatch = Array.isArray(rowsList) ? rowsList.find(r => {
+      const p1 = (r.primary_phone ?? "").replace(/\D/g, "").slice(-10);
+      const p2 = (r.primary_secondary_phone ?? "").replace(/\D/g, "").slice(-10);
+      return p1 === last10 || p2 === last10;
+    }) : null;
+    const leadId = inboundMatch?.id ?? null;
 
     // Upsert on aircall_call_id (UNIQUE partial index, migration 018) so a
     // retried Aircall webhook (normal behavior) doesn't create duplicate
