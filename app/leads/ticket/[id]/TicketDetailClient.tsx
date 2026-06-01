@@ -39,6 +39,7 @@ type LeadInfo = {
 type CampaignGroup = {
   name: string;
   firstId: string;
+  cohort: "active" | "past";
   channels: string[];
   statuses: Record<string, number>;
   totalLeads: number;
@@ -296,10 +297,11 @@ function UpdatesTab({ updates, t }: { updates: TicketUpdate[]; t: Tr }) {
 
 // ─── Outreach Flows Tab ───────────────────────────────────────────────────────
 function OutreachFlowsTab({ campaigns, t, locale }: { campaigns: CampaignGroup[]; t: Tr; locale: "en" | "es" }) {
-  const [pastOpen, setPastOpen] = useState(false);
-
-  const activeCamps = campaigns.filter(c => (c.statuses.active ?? 0) > 0 || (c.statuses.paused ?? 0) > 0);
-  const pastCamps   = campaigns.filter(c => (c.statuses.active ?? 0) === 0 && (c.statuses.paused ?? 0) === 0);
+  // Past Flows defaults to OPEN when there are no active cohorts, so an ICP
+  // whose work is entirely historic doesn't look empty.
+  const activeCamps = campaigns.filter(c => c.cohort === "active");
+  const pastCamps   = campaigns.filter(c => c.cohort === "past");
+  const [pastOpen, setPastOpen] = useState(activeCamps.length === 0 && pastCamps.length > 0);
 
   if (campaigns.length === 0) {
     return (
@@ -318,14 +320,10 @@ function OutreachFlowsTab({ campaigns, t, locale }: { campaigns: CampaignGroup[]
         </div>
       )}
 
-      {activeCamps.length === 0 && pastCamps.length > 0 && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {pastCamps.map(c => <CampaignCard key={c.firstId} camp={c} t={t} locale={locale} />)}
-        </div>
-      )}
-
-      {/* Past Flows — collapsible compact list */}
-      {activeCamps.length > 0 && pastCamps.length > 0 && (
+      {/* Past Flows — collapsible compact list. Always shown when pastCamps
+          exists, regardless of whether activeCamps is also present. Fran
+          asked for the history to live inside each ICP in Lead Miner. */}
+      {pastCamps.length > 0 && (
         <div>
           <button
             onClick={() => setPastOpen(o => !o)}
@@ -346,6 +344,9 @@ function OutreachFlowsTab({ campaigns, t, locale }: { campaigns: CampaignGroup[]
                 const st = failed ? statusMeta.failed : statusMeta.completed;
                 const StIcon = st.icon;
                 const responseRate = c.totalLeads > 0 ? Math.round((c.totalReplies / c.totalLeads) * 100) : 0;
+                const sellerLabel = c.sellers.length === 0
+                  ? null
+                  : c.sellers.length === 1 ? c.sellers[0] : `${c.sellers[0]} +${c.sellers.length - 1}`;
                 return (
                   <Link
                     key={c.firstId}
@@ -358,11 +359,25 @@ function OutreachFlowsTab({ campaigns, t, locale }: { campaigns: CampaignGroup[]
                       <span className="text-[10px] font-semibold" style={{ color: st.color }}>{t(`ticket.status.${st.key}`)}</span>
                     </div>
                     <span className="text-sm font-semibold flex-1 truncate" style={{ color: C.textBody }}>{c.name}</span>
-                    <div className="flex items-center gap-4 shrink-0 text-xs" style={{ color: C.textMuted }}>
-                      <span>{c.totalLeads} {t("ticket.flow.leads")}</span>
-                      <span>{c.totalReplies} {t("ticket.flow.replies")}</span>
+                    <div className="flex items-center gap-3 shrink-0 text-xs" style={{ color: C.textMuted }}>
+                      <span title={t("ticket.flow.leads")}>{c.totalLeads}L</span>
+                      <span title={locale === "es" ? "Mensajes enviados" : "Messages sent"} style={{ color: C.textBody }}>{c.totalMsgsSent}m</span>
+                      <span title={t("ticket.flow.replies")} style={{ color: c.totalReplies > 0 ? C.blue : C.textDim }}>{c.totalReplies}r</span>
                       {responseRate > 0 && <span style={{ color: C.blue }}>{responseRate}% {t("ticket.flow.respShort")}</span>}
-                      {c.lastActivity && <span>{timeAgo(c.lastActivity, t)}</span>}
+                      {c.channels.length > 0 && (
+                        <span className="hidden md:inline-flex items-center gap-1" title={c.channels.join(", ")}>
+                          {c.channels.includes("linkedin") && <Share2 size={10} style={{ color: "#0A66C2" }} />}
+                          {c.channels.includes("email") && <Mail size={10} style={{ color: "#059669" }} />}
+                          {c.channels.includes("call") && <UsersIcon size={10} style={{ color: C.textMuted }} />}
+                        </span>
+                      )}
+                      {sellerLabel && (
+                        <span className="hidden lg:inline-flex items-center gap-1 truncate max-w-[10rem]" title={c.sellers.join(", ")}>
+                          <UsersIcon size={10} style={{ color: C.textDim }} />
+                          <span className="truncate">{sellerLabel}</span>
+                        </span>
+                      )}
+                      {c.lastActivity && <span className="hidden xl:inline">{timeAgo(c.lastActivity, t)}</span>}
                     </div>
                     <ChevronRight size={13} style={{ color: C.textDim }} className="shrink-0" />
                   </Link>

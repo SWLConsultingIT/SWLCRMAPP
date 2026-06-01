@@ -117,14 +117,23 @@ async function getProfileData(profileId: string) {
   }
   const renurturingLeadIds = new Set([...leadHasCompleted].filter(id => leadHasActive.has(id)));
 
-  // Build campaign entries (grouped by name)
+  // Build campaign entries grouped by (name, cohort). Splitting by cohort
+  // lets the UI show the active leads of "Contractors UK - Multichannel"
+  // as one card and the 33 past-cohort leads of the SAME flow as a
+  // separate row in the Past Flows section — instead of a single card
+  // where 33 closed leads silently dilute the active card's metrics.
+  // cohort = 'active' for status in {active,paused}, 'past' for the rest.
+  const cohortOf = (status: string) =>
+    (status === "active" || status === "paused") ? "active" : "past";
   const campGroups: Record<string, any> = {};
   for (const c of campaigns ?? []) {
-    const key = c.name;
+    const cohort = cohortOf(c.status);
+    const key = `${c.name}|||${cohort}`;
     if (!campGroups[key]) {
       campGroups[key] = {
         name: c.name,
         firstId: c.id,
+        cohort,
         channels: new Set<string>(),
         statuses: { active: 0, paused: 0, completed: 0, failed: 0 },
         totalLeads: 0,
@@ -177,6 +186,7 @@ async function getProfileData(profileId: string) {
   const campaignList = Object.values(campGroups).map((g: any) => ({
     name: g.name,
     firstId: g.firstId,
+    cohort: g.cohort as "active" | "past",
     channels: [...g.channels],
     statuses: g.statuses,
     totalLeads: g.totalLeads,
