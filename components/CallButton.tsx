@@ -84,6 +84,28 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
   // (not on every render while the call is in 'ended' state).
   const prevCallStateRef = useRef<string | null>(null);
 
+  // Shared-seat busy state. Fran's tenants run on one Aircall user per
+  // company (one seat shared across N sellers). Polling /api/aircall
+  // /active-call every 5s lets the second seller see "Aircall busy by
+  // <name>" before they waste a click. busy=null means "no other call
+  // detected"; otherwise the object carries who started it + when.
+  const [busy, setBusy] = useState<{ byName: string; startedAt: string | null } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    async function poll() {
+      try {
+        const r = await fetch("/api/aircall/active-call", { cache: "no-store" });
+        const body = await r.json().catch(() => ({}));
+        if (!alive) return;
+        if (r.ok && body.busy) setBusy({ byName: body.byName ?? "another seller", startedAt: body.startedAt ?? null });
+        else setBusy(null);
+      } catch { /* network blip — ignore one tick */ }
+    }
+    void poll();
+    const id = setInterval(poll, 5000);
+    return () => { alive = false; clearInterval(id); };
+  }, []);
+
   useEffect(() => {
     const state = aircall.currentCall?.state ?? null;
     const wasForThisLead = aircall.currentCall?.leadId === leadId;
@@ -169,10 +191,29 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
 
   async function handleDial() {
     if (state === "calling") return;
+    if (busy) {
+      toast.show({
+        kind: "warning",
+        title: "Aircall is busy",
+        description: `${busy.byName} is currently on a call. Wait for it to end and try again.`,
+      });
+      return;
+    }
     const dialingPhone = selectedPhone || phoneOptions[0]?.value;
     if (!dialingPhone) return;
     setState("calling");
     try {
+      // Write a dial marker BEFORE the SDK fires so the active-call
+      // poller in other sellers' browsers sees us holding the seat
+      // immediately, not 30s later when the webhook finally lands.
+      // Fire-and-forget — if the row insert fails we still dial,
+      // we just lose the busy-banner protection for this attempt.
+      void fetch("/api/aircall/dial-marker", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId, phone: dialingPhone }),
+      });
+
       // Dial via the embedded Aircall workspace. If the agent hasn't
       // logged into Aircall yet, the modal still opens — they log in
       // there, the dial command queues and fires after `not_ready`
@@ -221,10 +262,30 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
   const dialingPhoneDisplay = selectedPhoneOpt?.value ?? phone;
 
   return (
-    <div className="inline-flex items-center gap-1.5 relative">
+    <div className="inline-flex flex-col gap-1.5 relative">
+      {busy && (
+        // Shared-seat warning. Sits above the Call button so it's the
+        // first thing the seller reads. Click handler is intentionally
+        // absent — the banner is a status indicator, not a navigation
+        // affordance; the seller knows what to do (wait).
+        <div
+          className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold"
+          style={{
+            backgroundColor: "color-mix(in srgb, #DC2626 12%, transparent)",
+            color: "#DC2626",
+            border: "1px solid color-mix(in srgb, #DC2626 30%, transparent)",
+            alignSelf: "flex-start",
+          }}
+        >
+          <Phone size={10} />
+          Aircall busy — {busy.byName} is on a call
+        </div>
+      )}
+      <div className="inline-flex items-center gap-1.5 relative">
       <button
         onClick={handleDial}
-        disabled={state === "calling" || !selectedNumberId}
+        disabled={state === "calling" || !selectedNumberId || !!busy}
+        title={busy ? `Aircall in use by ${busy.byName} — wait for it to free up.` : undefined}
         className={`flex items-center gap-1.5 rounded-lg ${padding} ${text} font-semibold transition-opacity hover:opacity-85 disabled:opacity-60`}
         style={{
           ...baseStyle,
@@ -419,6 +480,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
