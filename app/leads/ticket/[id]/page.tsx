@@ -227,7 +227,11 @@ async function getProfileData(profileId: string) {
       has_positive: leadReplies.some((r: any) => r.classification === "positive" || r.classification === "meeting_intent"),
       campaign_name: activeCamp?.name ?? (leadCamps[0]?.name ?? null),
       campaign_status: activeCamp?.status ?? (leadCamps[0]?.status ?? null),
-      has_campaign: leadCamps.length > 0,
+      // Mirror of the semantic on /leads (page.tsx): "in a flow" means an
+      // active or paused campaign — not a completed/closed one. Keeps the
+      // ticket's Unassigned/With Campaign sub-toggle consistent with the
+      // main Leads page chip counts.
+      has_campaign: leadCamps.some((c: any) => c.status === "active" || c.status === "paused"),
     };
   });
 

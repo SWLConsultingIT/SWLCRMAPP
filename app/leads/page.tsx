@@ -249,7 +249,15 @@ async function getData() {
     const pid = lead.icp_profile_id;
     const leadReplies = repliesByLead[lead.id] ?? [];
     const leadCamps = campsByLead[lead.id] ?? [];
-    const hasCampaign = leadCamps.length > 0;
+    // "In a flow" = currently in an active or paused campaign. Completed,
+    // closed_lost, or failed campaigns DON'T count — those leads are no
+    // longer being outreached and belong to the Lost / Renurture buckets.
+    // Earlier rule (length > 0) inflated the "In a flow" chip with leads
+    // whose campaigns had already ended; Fran caught this on Arqy 2026-05-31
+    // where the chip showed 97 leads in flow while only 5 were actually
+    // running. Downstream consumers (TicketDetailClient with/unassigned
+    // toggle, bulk-add-to-flow guard, CSV export) all share this semantic.
+    const hasCampaign = leadCamps.some((c: any) => c.status === "active" || c.status === "paused");
 
     // Pick the most-actionable campaign for the row (active > paused >
     // any). Used by the Campaign column in the table — clicking it
