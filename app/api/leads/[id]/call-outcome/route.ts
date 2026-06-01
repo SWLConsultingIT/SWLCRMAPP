@@ -69,6 +69,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     requires_human_review: false,
   });
 
+  // 1b) Mirror the outcome into the most recent call row so the
+  //     /leads/{id} Calls tab + Notifications view show the same pill
+  //     the popup just collected. Without this, the popup outcome was
+  //     stored in lead_replies but the Calls list still asked the seller
+  //     to re-classify each row with the old 3 buttons. Map to the
+  //     calls.classification text values the legacy classifier wrote
+  //     (positive/negative/follow_up + the new wrong_number).
+  const callsClassificationMap: Record<Outcome, string> = {
+    interested: "positive",
+    not_interested: "negative",
+    bad_timing: "follow_up",
+    wrong_number: "wrong_number",
+  };
+  const { data: recentCalls } = await svc
+    .from("calls")
+    .select("id")
+    .eq("lead_id", leadId)
+    .is("classification", null)
+    .order("started_at", { ascending: false })
+    .limit(1);
+  const targetCallId = recentCalls?.[0]?.id;
+  if (targetCallId) {
+    await svc.from("calls")
+      .update({ classification: callsClassificationMap[outcome], ai_confidence: 1, ai_summary: summary })
+      .eq("id", targetCallId);
+  }
+
   // 2) Per-outcome side effects on the lead + its campaigns.
   if (outcome === "interested") {
     await svc.from("leads").update({ status: "qualified", responded: true, response_outcome: "interested", updated_at: now }).eq("id", leadId);

@@ -8,7 +8,11 @@ const headers = {
   "Content-Type": "application/json",
 };
 
-const VALID = ["positive", "negative", "follow_up", null] as const;
+// 2026-06-01: aligned with the 4 outcomes the post-call popup exposes.
+// `wrong_number` is the new fourth value — it also flips the lead's
+// allow_call flag off and skips queued call-channel campaign messages,
+// matching what /api/leads/[id]/call-outcome does.
+const VALID = ["positive", "negative", "follow_up", "wrong_number", null] as const;
 type Classification = typeof VALID[number];
 
 export async function POST(
@@ -51,7 +55,40 @@ export async function POST(
     }),
   });
 
-  // 3. If classification is null (undo) or follow_up → don't touch campaign/lead
+  // 3. wrong_number — disable the call channel on the lead + skip every
+  //    queued/draft call message so the dispatcher unblocks the next
+  //    non-call step. Mirrors /api/leads/[id]/call-outcome's wrong_number
+  //    branch so the two entry points (per-call popup + per-call list
+  //    button) converge on the same effect.
+  if (classification === "wrong_number") {
+    const now = new Date().toISOString();
+    await fetch(`${SB_URL}/rest/v1/leads?id=eq.${call.lead_id}`, {
+      method: "PATCH",
+      headers: { ...headers, Prefer: "return=minimal" },
+      body: JSON.stringify({ allow_call: false, updated_at: now }),
+    });
+    // Skip queued/draft call messages for this lead.
+    const callMsgsRes = await fetch(
+      `${SB_URL}/rest/v1/campaign_messages?lead_id=eq.${call.lead_id}&channel=eq.call&status=in.(queued,draft)&select=id`,
+      { headers }
+    );
+    const callMsgs = (await callMsgsRes.json().catch(() => [])) as Array<{ id: string }>;
+    if (callMsgs.length > 0) {
+      const idsCsv = callMsgs.map(m => m.id).join(",");
+      await fetch(`${SB_URL}/rest/v1/campaign_messages?id=in.(${idsCsv})`, {
+        method: "PATCH",
+        headers: { ...headers, Prefer: "return=minimal" },
+        body: JSON.stringify({
+          status: "skipped",
+          error_details: "wrong_number — channel disabled for lead",
+          metadata: { skipped_by: "call-classify-wrong-number", skipped_at: now },
+        }),
+      });
+    }
+    return NextResponse.json({ ok: true, action: "wrong_number" });
+  }
+
+  // 4. If classification is null (undo) or follow_up → don't touch campaign/lead
   if (!classification || classification === "follow_up") {
     return NextResponse.json({ ok: true, action: classification === "follow_up" ? "marked_follow_up" : "cleared" });
   }

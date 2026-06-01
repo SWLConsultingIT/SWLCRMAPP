@@ -40,7 +40,7 @@ type PendingCall = {
   latestCall: {
     id: string;
     startedAt: string | null;
-    classification: "positive" | "negative" | "follow_up" | null;
+    classification: "positive" | "negative" | "follow_up" | "wrong_number" | null;
   } | null;
 };
 
@@ -81,11 +81,15 @@ const channelMeta: Record<string, { icon: typeof Share2; color: string; label: s
 // sits on top of whatever the underlying card surface is.
 const tint = (color: string, pct = 12) => `color-mix(in srgb, ${color} ${pct}%, transparent)`;
 const classificationMeta: Record<string, { color: string; bg: string; label: string }> = {
-  positive:            { color: C.green,    bg: tint(C.green, 12),   label: "Positive" },
+  // Labels mirror the post-call outcome popup so the History entry the
+  // seller sees in Notifications matches the button they tapped.
+  positive:            { color: C.green,    bg: tint(C.green, 12),   label: "Interested" },
   meeting_intent:      { color: C.green,    bg: tint(C.green, 12),   label: "Meeting Intent" },
-  negative:            { color: C.red,      bg: tint(C.red, 12),     label: "Negative" },
+  negative:            { color: C.red,      bg: tint(C.red, 12),     label: "Not interested" },
   needs_info:          { color: "#D97706",  bg: tint("#D97706", 12), label: "Needs Info" },
   not_now:             { color: C.textMuted, bg: tint(C.textMuted, 10), label: "Not Now" },
+  follow_up:           { color: "#D97706",  bg: tint("#D97706", 12), label: "Bad timing" },
+  wrong_number:        { color: C.textMuted, bg: tint(C.textMuted, 10), label: "Wrong number" },
   connection_accepted: { color: "#0A66C2",  bg: tint("#0A66C2", 12), label: "Accepted Connection" },
 };
 
@@ -108,10 +112,15 @@ function timeAgo(iso: string | null) {
 // again and classifies it definitively.
 function InlineClassifier({ call }: { call: PendingCall }) {
   const router = useRouter();
-  const [busy, setBusy] = useState<"positive" | "negative" | "follow_up" | null>(null);
+  // 2026-06-01: aligned with the 4 outcomes the post-call popup uses.
+  // Wire values stay legacy-compatible (interested → positive, etc.) so
+  // the existing classify endpoint + downstream cascades don't need to
+  // change. `wrong_number` is the new fourth value — it disables the
+  // call channel on the lead and skips queued call steps.
+  const [busy, setBusy] = useState<"positive" | "negative" | "follow_up" | "wrong_number" | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
-  async function classify(c: "positive" | "negative" | "follow_up") {
+  async function classify(c: "positive" | "negative" | "follow_up" | "wrong_number") {
     if (!call.latestCall) return;
     setBusy(c);
     setErr(null);
@@ -136,18 +145,24 @@ function InlineClassifier({ call }: { call: PendingCall }) {
 
   if (!call.latestCall) return null;
 
-  // Follow-up already logged: show the badge + a re-classify hint.
-  if (call.latestCall.classification === "follow_up") {
+  // Already classified: show the matching badge + a re-classify hint.
+  // follow_up renders "Bad timing logged", wrong_number renders "Wrong
+  // number logged". Positive/negative don't reach this branch — those
+  // collapse the campaign and remove the entry from /queue entirely.
+  if (call.latestCall.classification === "follow_up" || call.latestCall.classification === "wrong_number") {
+    const isFollow = call.latestCall.classification === "follow_up";
+    const color = isFollow ? "#D97706" : C.textMuted;
+    const Icon = isFollow ? Clock : PhoneOff;
+    const label = isFollow ? "Bad timing logged" : "Wrong number logged";
+    const hint = isFollow ? "Call again to update outcome" : "Call channel disabled — update the phone to re-enable";
     return (
       <div className="border-t px-5 py-2.5 flex items-center gap-2 text-[11px] flex-wrap"
-        style={{ borderColor: C.border, backgroundColor: "color-mix(in srgb, #D97706 10%, transparent)" }}>
-        <Clock size={11} style={{ color: "#D97706" }} />
-        <span style={{ color: "#D97706", fontWeight: 600 }}>
-          Follow-up logged {timeAgo(call.latestCall.startedAt)}
+        style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)` }}>
+        <Icon size={11} style={{ color }} />
+        <span style={{ color, fontWeight: 600 }}>
+          {label} {timeAgo(call.latestCall.startedAt)}
         </span>
-        <span style={{ color: C.textMuted }}>
-          · Call again to update outcome
-        </span>
+        <span style={{ color: C.textMuted }}>· {hint}</span>
         {err && <span className="ml-auto" style={{ color: C.red }}>{err}</span>}
       </div>
     );
@@ -168,7 +183,7 @@ function InlineClassifier({ call }: { call: PendingCall }) {
         className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
         style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)`, borderColor: `color-mix(in srgb, ${C.green} 35%, transparent)`, color: C.green }}>
         {busy === "positive" ? <Loader2 size={10} className="animate-spin" /> : <ThumbsUp size={10} />}
-        Positive
+        Interested
       </button>
       <button
         onClick={() => classify("negative")}
@@ -176,7 +191,7 @@ function InlineClassifier({ call }: { call: PendingCall }) {
         className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
         style={{ backgroundColor: `color-mix(in srgb, ${C.red} 12%, transparent)`, borderColor: `color-mix(in srgb, ${C.red} 35%, transparent)`, color: C.red }}>
         {busy === "negative" ? <Loader2 size={10} className="animate-spin" /> : <ThumbsDown size={10} />}
-        Negative
+        Not interested
       </button>
       <button
         onClick={() => classify("follow_up")}
@@ -184,7 +199,15 @@ function InlineClassifier({ call }: { call: PendingCall }) {
         className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
         style={{ backgroundColor: "color-mix(in srgb, #D97706 12%, transparent)", borderColor: "color-mix(in srgb, #D97706 35%, transparent)", color: "#D97706" }}>
         {busy === "follow_up" ? <Loader2 size={10} className="animate-spin" /> : <Clock size={10} />}
-        Follow-up
+        Bad timing
+      </button>
+      <button
+        onClick={() => classify("wrong_number")}
+        disabled={busy !== null}
+        className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
+        style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textMuted }}>
+        {busy === "wrong_number" ? <Loader2 size={10} className="animate-spin" /> : <PhoneOff size={10} />}
+        Wrong number
       </button>
       {err && <span className="text-[11px]" style={{ color: C.red }}>{err}</span>}
     </div>

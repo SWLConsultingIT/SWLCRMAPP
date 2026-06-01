@@ -84,6 +84,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   update.updated_at = new Date().toISOString();
+
+  // Replacing a wrong-number flag: when the seller edits primary_phone
+  // (or primary_secondary_phone) on a lead that had allow_call=false from
+  // a "wrong number" post-call outcome, re-enable the channel automatically
+  // so the next dispatch / Call button works without needing a separate
+  // admin step. Without this, sellers were updating the number, getting
+  // no feedback that the channel was still disabled, and discovering it
+  // again at the next call attempt. (2026-06-01.)
+  if ("primary_phone" in update || "primary_secondary_phone" in update) {
+    update.allow_call = true;
+  }
+
   const { error } = await svc.from("leads").update(update).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true, updated: Object.keys(update) });

@@ -2,10 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ThumbsUp, ThumbsDown, Clock, Loader2, Sparkles, X } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Clock, PhoneOff, Loader2, Sparkles, X } from "lucide-react";
 import { C } from "@/lib/design";
 
-type Classification = "positive" | "negative" | "follow_up";
+// 2026-06-01: aligned with the 4 outcomes exposed by the post-call
+// popup (components/CallButton.tsx submitOutcome). Wire-format values
+// stay backwards-compatible — interested → 'positive', not_interested
+// → 'negative', bad_timing → 'follow_up' — so we don't have to migrate
+// the calls.classification column. Wrong number is a new fourth value
+// that the popup also writes, with side-effects on the lead row.
+type Classification = "positive" | "negative" | "follow_up" | "wrong_number";
 
 type Props = {
   callId: string;
@@ -15,9 +21,10 @@ type Props = {
 };
 
 const meta: Record<Classification, { label: string; color: string; bg: string; border: string; icon: typeof ThumbsUp }> = {
-  positive:  { label: "Positive",  color: "#16A34A", bg: "#DCFCE7", border: "#BBF7D0", icon: ThumbsUp },
-  negative:  { label: "Negative",  color: C.red,    bg: C.redLight, border: `${C.red}30`, icon: ThumbsDown },
-  follow_up: { label: "Follow-up", color: "#D97706", bg: "#FEF3C7", border: "#FDE68A", icon: Clock },
+  positive:     { label: "Interested",     color: "#16A34A", bg: "#DCFCE7", border: "#BBF7D0", icon: ThumbsUp },
+  negative:     { label: "Not interested", color: C.red,     bg: C.redLight, border: `${C.red}30`, icon: ThumbsDown },
+  follow_up:    { label: "Bad timing",     color: "#D97706", bg: "#FEF3C7", border: "#FDE68A", icon: Clock },
+  wrong_number: { label: "Wrong number",   color: C.textMuted, bg: C.surface, border: C.border, icon: PhoneOff },
 };
 
 export default function CallClassifier({ callId, current, aiConfidence, aiSummary }: Props) {
