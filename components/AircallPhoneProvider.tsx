@@ -213,7 +213,7 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
       >
         <div
           style={{
-            width: 420,
+            width: 520,
             maxWidth: "100%",
             maxHeight: "90vh",
             background: "var(--c-card, #ffffff)",

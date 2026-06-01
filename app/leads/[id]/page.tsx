@@ -17,7 +17,7 @@ import DeleteLeadButton from "@/components/DeleteLeadButton";
 import Breadcrumb from "@/components/Breadcrumb";
 import SyncAircallButton from "@/components/SyncAircallButton";
 import CallButton from "@/components/CallButton";
-import NextCallButton from "@/components/NextCallButton";
+import EditableLeadField from "@/components/EditableLeadField";
 import CallCard from "@/components/CallCard";
 import PersonalizedInfoPanel from "@/components/PersonalizedInfoPanel";
 import LeadSummaryTab from "@/components/LeadSummaryTab";
@@ -493,13 +493,6 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   />
                 </div>
               )}
-              {/* "Next call" chain — only renders when the lead's active
-                  flow has more pending call steps. NextCallButton itself
-                  fetches /api/leads/[id]/next-in-campaign on mount and
-                  returns null when there's nothing to jump to, so the
-                  header doesn't show a dead button on leads outside a
-                  calling sequence. */}
-              <NextCallButton leadId={id} size="sm" />
               {/* "View flow" — always visible when the lead has any
                   campaign linked (active OR completed). One click to the
                   campaign detail / flow view. Sits between the call
@@ -902,16 +895,24 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                     </div>
                   </div>
                 )}
-                {lead.primary_phone && (
-                  <div className="flex items-center gap-2.5 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
-                    <Phone size={14} style={{ color: C.phone }} />
-                    <div>
-                      <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Mobile</p>
-                      <a href={`tel:${lead.primary_phone}`} className="text-sm font-medium hover:underline"
-                        style={{ color: C.textBody }}>{lead.primary_phone}</a>
-                    </div>
+                <div className="flex items-center gap-2.5 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
+                  <Phone size={14} style={{ color: C.phone }} />
+                  <div className="min-w-0">
+                    <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Mobile</p>
+                    <EditableLeadField
+                      leadId={id}
+                      field="primary_phone"
+                      value={lead.primary_phone ?? null}
+                      placeholder="+54 9 11 1234 5678"
+                      inputType="tel"
+                      ariaLabel="Edit mobile phone"
+                      renderDisplay={(v) => v
+                        ? <a href={`tel:${v}`} className="text-sm font-medium hover:underline" style={{ color: C.textBody }}>{v}</a>
+                        : <span className="text-sm" style={{ color: C.textDim }}>—</span>
+                      }
+                    />
                   </div>
-                )}
+                </div>
                 {(() => {
                   const url = lead.primary_linkedin_url as string | null;
                   const valid = isValidLinkedInUrl(url);
