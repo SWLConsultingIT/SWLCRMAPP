@@ -905,11 +905,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                       value={lead.primary_phone ?? null}
                       placeholder="+54 9 11 1234 5678"
                       inputType="tel"
+                      displayAs="tel"
                       ariaLabel="Edit mobile phone"
-                      renderDisplay={(v) => v
-                        ? <a href={`tel:${v}`} className="text-sm font-medium hover:underline" style={{ color: C.textBody }}>{v}</a>
-                        : <span className="text-sm" style={{ color: C.textDim }}>—</span>
-                      }
                     />
                   </div>
                 </div>

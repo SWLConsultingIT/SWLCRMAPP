@@ -17,14 +17,31 @@ type Props = {
   leadId: string;
   field: "primary_phone" | "primary_secondary_phone" | "primary_work_email" | "primary_linkedin_url";
   value: string | null;
-  // Rendered when not editing. Receives the current displayed value.
-  renderDisplay: (v: string | null) => React.ReactNode;
+  // Display style controls how the read-only state is rendered. Kept as
+  // primitives (strings/booleans) so this component can be called from
+  // a server component — passing a render fn across the RSC boundary
+  // crashes the production error boundary (see feedback_rsc_no_event_handlers).
+  displayAs?: "tel" | "email" | "url" | "text";
   placeholder?: string;
   inputType?: string;
   ariaLabel?: string;
+  // CSS class / styling pass-throughs for the display anchor.
+  displayClassName?: string;
 };
 
-export default function EditableLeadField({ leadId, field, value, renderDisplay, placeholder, inputType = "text", ariaLabel }: Props) {
+function DisplayValue({ value, displayAs, className }: { value: string | null; displayAs: "tel" | "email" | "url" | "text"; className?: string }) {
+  if (!value) {
+    return <span className={className ?? "text-sm"} style={{ color: C.textDim }}>—</span>;
+  }
+  const cls = className ?? "text-sm font-medium hover:underline";
+  const styl = { color: C.textBody };
+  if (displayAs === "tel") return <a href={`tel:${value}`} className={cls} style={styl}>{value}</a>;
+  if (displayAs === "email") return <a href={`mailto:${value}`} className={cls} style={styl}>{value}</a>;
+  if (displayAs === "url") return <a href={value} target="_blank" rel="noreferrer" className={cls} style={styl}>{value}</a>;
+  return <span className={cls} style={styl}>{value}</span>;
+}
+
+export default function EditableLeadField({ leadId, field, value, displayAs = "text", placeholder, inputType = "text", ariaLabel, displayClassName }: Props) {
   const router = useRouter();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
@@ -117,7 +134,7 @@ export default function EditableLeadField({ leadId, field, value, renderDisplay,
 
   return (
     <div className="group inline-flex items-center gap-1.5">
-      {renderDisplay(current)}
+      <DisplayValue value={current} displayAs={displayAs} className={displayClassName} />
       <button
         type="button"
         onClick={() => setEditing(true)}
