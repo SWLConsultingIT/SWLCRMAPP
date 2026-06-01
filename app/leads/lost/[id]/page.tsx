@@ -9,6 +9,7 @@ import Breadcrumb from "@/components/Breadcrumb";
 import LostLeadActions from "@/components/LostLeadActions";
 import RegenerateLossAnalysis from "@/components/RegenerateLossAnalysis";
 import CopyTemplateButton from "@/components/CopyTemplateButton";
+import LostReasonPanel from "@/components/LostReasonPanel";
 import {
   ArrowLeft, Share2, Mail, Phone, Star, Send,
   MessageSquare, XCircle, AlertTriangle, Target, Megaphone,
@@ -263,6 +264,19 @@ async function getLostLeadData(leadId: string) {
   const hasCompleted = (campaigns ?? []).some(c => c.status === "completed" || c.status === "failed");
   const lossReason = negReply ? "negative" : hasCompleted ? "no_reply" : "ongoing";
 
+  // Operator-supplied "why was this lead lost" reason. Stored in
+  // lead_replies with a [LOST_REASON] prefix by /api/leads/[id]/status
+  // (see route.ts → LOST_REASON_PREFIX) so we don't need a new column.
+  // Most recent prefixed row wins — sellers can update the reason and
+  // /leads/lost/[id] re-renders with the latest.
+  const LOST_REASON_PREFIX = "[LOST_REASON] ";
+  const lostReasonReply = [...(replies ?? [])]
+    .reverse()
+    .find(r => typeof r.reply_text === "string" && r.reply_text.startsWith(LOST_REASON_PREFIX));
+  const lostReasonText = lostReasonReply
+    ? lostReasonReply.reply_text.slice(LOST_REASON_PREFIX.length).trim()
+    : null;
+
   // Stats
   const totalSteps = (campaigns ?? []).reduce((s, c) => s + (Array.isArray(c.sequence_steps) ? c.sequence_steps.length : 0), 0);
   const stepsCompleted = (campaigns ?? []).reduce((s, c) => s + (c.current_step ?? 0), 0);
@@ -285,6 +299,7 @@ async function getLostLeadData(leadId: string) {
     calls: calls ?? [],
     timeline,
     lossReason,
+    lostReasonText,
     stats: {
       totalCampaigns: (campaigns ?? []).length,
       totalSteps,
@@ -301,7 +316,7 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
   const data = await getLostLeadData(id);
   if (!data) notFound();
 
-  const { lead, profile, campaigns, replies, calls, timeline, lossReason, stats } = data;
+  const { lead, profile, campaigns, replies, calls, timeline, lossReason, stats, lostReasonText } = data;
 
   // Use cached analysis if present; otherwise generate and cache (blocks first render once)
   let aiAnalysis: LossAnalysis | null = (lead.ai_loss_analysis as LossAnalysis) ?? null;
@@ -389,6 +404,12 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
       </div>
+
+      {/* Why this lead was lost — seller-authored reason. Surface here
+          so the answer to "why" is the first thing you see when you open
+          a lost lead; the timeline and AI-generated post-mortem below
+          only contextualize it. */}
+      <LostReasonPanel leadId={id} initialReason={lostReasonText} />
 
       {/* ═══ STATS ROW ═══ */}
       <div className="grid grid-cols-5 gap-3 mb-6">
