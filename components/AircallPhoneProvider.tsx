@@ -76,7 +76,11 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
           onLogin: () => { if (alive) setIsLoggedIn(true); },
           onLogout: () => { if (alive) setIsLoggedIn(false); },
           domToLoadWorkspace: "#aircall-iframe-target",
-          size: "big",
+          // 'auto' = iframe is 100% width/height; we control dimensions
+          // via the container CSS. 'big' (default) hardcodes 376x666 in
+          // the iframe style attr which overflowed the SWL modal and
+          // left a ton of empty whitespace below the Aircall content.
+          size: "auto",
           debug: false,
         });
         sdkRef.current = sdk;
@@ -209,8 +213,9 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
       >
         <div
           style={{
-            width: 460,
+            width: 420,
             maxWidth: "100%",
+            maxHeight: "90vh",
             background: "var(--c-card, #ffffff)",
             borderRadius: 20,
             boxShadow: "0 30px 80px -10px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.06)",
@@ -293,22 +298,27 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
             </div>
           </div>
 
-          {/* Aircall iframe target — fixed size matching SDK 'big' preset (376×666) */}
+          {/* Aircall iframe target — sized via CSS since SDK is in 'auto'
+              mode. Height capped against viewport so the modal never
+              overflows the screen on shorter displays / laptops. */}
           <div
             style={{
-              padding: "16px 0 0",
+              padding: 14,
               background: "var(--c-card, #ffffff)",
+              flex: 1,
+              minHeight: 0,
               display: "flex",
-              justifyContent: "center",
             }}
           >
             <div
               id="aircall-iframe-target"
               ref={containerRef}
               style={{
-                width: 376,
-                height: 666,
-                maxWidth: "100%",
+                width: "100%",
+                // Sized to fit the Aircall workspace UI without the dialpad
+                // expanded; the iframe itself will get height:100% from the
+                // SDK in 'auto' mode and stretch to fill this container.
+                height: "min(620px, calc(90vh - 130px))",
                 borderRadius: 12,
                 overflow: "hidden",
                 background: "#f6f7fb",
@@ -318,9 +328,10 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
           </div>
 
           <div style={{
-            padding: "12px 20px 14px",
+            padding: "10px 20px 14px",
             fontSize: 10.5, color: C.textMuted, textAlign: "center",
             letterSpacing: "0.04em",
+            borderTop: `1px solid color-mix(in srgb, var(--c-border, #e5e7eb) 60%, transparent)`,
           }}>
             Audio runs through your browser · no desktop app required
           </div>
