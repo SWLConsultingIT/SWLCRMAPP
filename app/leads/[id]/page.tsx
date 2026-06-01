@@ -988,19 +988,29 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                     </div>
                   </div>
                 )}
-                <div className="flex items-center gap-2.5 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
-                  <Phone size={14} style={{ color: C.phone }} />
-                  <div className="min-w-0">
+                <div className="flex items-start gap-2.5 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
+                  <Phone size={14} style={{ color: C.phone, marginTop: 2 }} />
+                  <div className="min-w-0 flex-1">
                     <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Mobile</p>
-                    <EditableLeadField
-                      leadId={id}
-                      field="primary_phone"
-                      value={lead.primary_phone ?? null}
-                      placeholder="+54 9 11 1234 5678"
-                      inputType="tel"
-                      displayAs="tel"
-                      ariaLabel="Edit mobile phone"
-                    />
+                    {lead.allow_call === false ? (
+                      // Wrong-number flag from the post-call popup. Surface
+                      // the same inline-replace flow we use in the header
+                      // so the seller can fix it here without scrolling up.
+                      <WrongNumberPill
+                        leadId={id}
+                        currentPhone={lead.primary_phone ?? null}
+                      />
+                    ) : (
+                      <EditableLeadField
+                        leadId={id}
+                        field="primary_phone"
+                        value={lead.primary_phone ?? null}
+                        placeholder="+54 9 11 1234 5678"
+                        inputType="tel"
+                        displayAs="tel"
+                        ariaLabel="Edit mobile phone"
+                      />
+                    )}
                   </div>
                 </div>
                 {(() => {
@@ -1330,6 +1340,25 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               <SyncAircallButton />
             </div>
           </div>
+          {/* Wrong-number banner: a one-liner above the call list when the
+              lead's allow_call=false, so the seller landing on the Calls
+              tab sees the warning + can jump back to the header pill to
+              replace the number. The badge is repeated once at the top
+              (not on every row — would be noisy with N call cards). */}
+          {lead.allow_call === false && (
+            <div
+              className="rounded-xl border px-4 py-2.5 mb-3 flex items-center gap-2 text-xs"
+              style={{
+                backgroundColor: "color-mix(in srgb, #DC2626 8%, transparent)",
+                borderColor: "color-mix(in srgb, #DC2626 30%, transparent)",
+                color: "#DC2626",
+              }}
+            >
+              <AlertTriangle size={13} />
+              <span className="font-semibold">Phone marked wrong</span>
+              <span className="opacity-75">— scroll to the top of the page to replace it and re-enable Call.</span>
+            </div>
+          )}
           {calls.length === 0 ? (
             <div className="rounded-2xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
               <Phone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
