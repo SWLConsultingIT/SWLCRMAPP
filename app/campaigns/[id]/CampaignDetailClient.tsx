@@ -9,9 +9,10 @@ import {
   Share2, Mail, Phone, MessageCircle, Check, Pencil, X, Save, Copy,
   PlayCircle, Loader2, Pause, Play, Trash2, Send, Paperclip,
   Users, UserPlus, Megaphone, Target, CheckCircle2,
-  MessageSquare, PhoneCall, Clock, AlertTriangle, ChevronRight, LayoutGrid,
+  MessageSquare, PhoneCall, Clock, AlertTriangle, ChevronRight, LayoutGrid, BarChart3,
 } from "lucide-react";
 import CampaignKanban from "@/components/CampaignKanban";
+import FlowMetricsPanel, { type FlowMetrics } from "@/components/FlowMetricsPanel";
 import CampaignCallsTab from "@/components/CampaignCallsTab";
 import MoveForwardButton from "@/components/MoveForwardButton";
 import { classifyUrgency } from "@/lib/overdue";
@@ -45,7 +46,7 @@ type LeadGroup = { profileName: string; leads: UnlinkedLead[] };
 
 export default function CampaignDetailClient({
   campaignId, campaignName, campaignStatus, campaignIcpId, sellerName, sequence, messages, dayPerStep, currentStep,
-  allCampaigns, leadGroups, channels, autoReplies, connectionNote, messageTemplates,
+  allCampaigns, leadGroups, channels, autoReplies, connectionNote, messageTemplates, flowMetrics,
 }: {
   campaignId: string;
   campaignName: string;
@@ -62,21 +63,19 @@ export default function CampaignDetailClient({
   autoReplies: { positive?: string; negative?: string; question?: string };
   connectionNote: string;
   messageTemplates: { channel: string; body: string; subject?: string }[];
+  flowMetrics: FlowMetrics | null;
 }) {
   const router = useRouter();
   const sp = useSearchParams();
   // Deep-link to a specific tab via ?tab=<slug>. Used by the flow card's
   // "Add leads to this flow" CTA (slug: add-leads) on the /campaigns page.
-  const initialTab = (() => {
-    const slug = sp.get("tab");
-    if (slug === "calls") return 2;
-    if (slug === "add-leads") return 3;
-    return 0;
-  })();
+  // Tab order: Metrics(0) · Leads(1) · Sequence(2) · Calls(3) · Add Leads(4).
+  const slugToTab = (slug: string | null): number | null =>
+    slug === "metrics" ? 0 : slug === "leads" ? 1 : slug === "sequence" ? 2 : slug === "calls" ? 3 : slug === "add-leads" ? 4 : null;
+  const initialTab = slugToTab(sp.get("tab")) ?? 0;
   const [tab, setTab] = useState(initialTab);
   useEffect(() => {
-    const slug = sp.get("tab");
-    const idx = slug === "calls" ? 2 : slug === "add-leads" ? 3 : null;
+    const idx = slugToTab(sp.get("tab"));
     if (idx !== null && idx !== tab) setTab(idx);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sp]);
@@ -279,6 +278,7 @@ export default function CampaignDetailClient({
   const overdueCount = nextActions.filter(a => a.isOverdue).length;
 
   const tabs = [
+    { label: "Metrics", icon: BarChart3, count: null },
     { label: "Leads", icon: Users, count: visibleCampaigns.length },
     { label: "Sequence", icon: Megaphone, count: sequence.length },
     { label: "Calls", icon: PhoneCall, count: null },
@@ -364,8 +364,17 @@ export default function CampaignDetailClient({
         })}
       </div>
 
-      {/* ═══ TAB 0: LEADS (list ⇄ kanban) ═══ */}
+      {/* ═══ TAB 0: METRICS — flow performance ═══ */}
       {tab === 0 && (
+        flowMetrics
+          ? <FlowMetricsPanel metrics={flowMetrics} />
+          : <div className="rounded-xl border py-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <p className="text-sm" style={{ color: C.textDim }}>No metrics yet for this flow.</p>
+            </div>
+      )}
+
+      {/* ═══ TAB 1: LEADS (list ⇄ kanban) ═══ */}
+      {tab === 1 && (
         <div>
           <div className="flex items-center gap-2 mb-4 flex-wrap">
             {/* View toggle */}
@@ -454,8 +463,8 @@ export default function CampaignDetailClient({
         </div>
       )}
 
-      {/* ═══ TAB 1: SEQUENCE ═══ */}
-      {tab === 1 && (
+      {/* ═══ TAB 2: SEQUENCE ═══ */}
+      {tab === 2 && (
         <div className="space-y-5">
 
           {/* Actions row */}
@@ -878,12 +887,12 @@ export default function CampaignDetailClient({
         </div>
       )}
 
-      {/* ═══ TAB 2: CALLS ═══ */}
-      {tab === 2 && (
+      {/* ═══ TAB 3: CALLS ═══ */}
+      {tab === 3 && (
         <CampaignCallsTab leads={allCampaigns.map(c => c.leads).filter(Boolean)} />
       )}
 
-      {/* ═══ TAB 3: ADD LEADS ═══
+      {/* ═══ TAB 4: ADD LEADS ═══
           Hard rule (memory: feedback_one_icp_per_campaign.md): a campaign
           can only ever contain leads from a single ICP — the campaign's
           own. The picker filters to that ICP server-side via campaignIcpId
@@ -893,7 +902,7 @@ export default function CampaignDetailClient({
 
           Filterable by industry / company / role / score using the
           shared LeadFilterBar so the seller can slice large cohorts. */}
-      {tab === 3 && (() => {
+      {tab === 4 && (() => {
         // 1. Universe — only leads from the campaign's ICP.
         const eligibleLeads: UnlinkedLead[] = campaignIcpId
           ? leadGroups.flatMap((g: LeadGroup) => g.leads.filter((l: UnlinkedLead) => (l as any).icp_profile_id === campaignIcpId))

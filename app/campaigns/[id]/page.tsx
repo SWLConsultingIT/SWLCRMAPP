@@ -8,7 +8,7 @@ import {
   Users, Clock, Settings,
 } from "lucide-react";
 import CampaignDetailClient from "./CampaignDetailClient";
-import FlowMetricsPanel, { type FlowMetrics, type DrillLead } from "@/components/FlowMetricsPanel";
+import { type FlowMetrics, type DrillLead } from "@/components/FlowMetricsPanel";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
 // Hydrates client-source leads in a list by decrypting encrypted_payload
@@ -622,11 +622,9 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         </div>
       </div>
 
-      {/* ═══ FLOW METRICS PANEL — funnel + per-channel + issues ═══ */}
-      {flowMetrics && <FlowMetricsPanel metrics={flowMetrics} />}
-
-      {/* ═══ TABBED CONTENT (Client Component) ═══ */}
+      {/* ═══ TABBED CONTENT (Client Component) — Metrics tab is first ═══ */}
       <CampaignDetailClient
+        flowMetrics={flowMetrics}
         campaignId={id}
         campaignName={campaign.name}
         campaignStatus={campaign.status}
