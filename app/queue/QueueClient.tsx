@@ -588,8 +588,8 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
                             // the `phone` prop and the picker stays hidden inside the
                             // CallButton component.
                             const phonesList = [
-                              ...(call.phone ? [{ label: "Mobile", value: call.phone }] : []),
-                              ...(call.secondaryPhone ? [{ label: "Work", value: call.secondaryPhone }] : []),
+                              ...(call.phone ? [{ label: "Personal", value: call.phone }] : []),
+                              ...(call.secondaryPhone ? [{ label: "Company", value: call.secondaryPhone }] : []),
                             ];
                             return awaitingOutcome ? (
                               <CallButton phone={call.phone ?? call.secondaryPhone ?? null} leadId={call.leadId} size="sm" variant="ghost" label="Call again" defaultNumberId={call.aircallNumberId ?? null} phones={phonesList} />

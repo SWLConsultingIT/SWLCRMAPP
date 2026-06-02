@@ -71,7 +71,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
   // Defaults to first option (typically primary_phone / mobile).
   const phoneOptions: PhoneOption[] = (phones && phones.length > 0)
     ? phones.filter(p => p.value && p.value.trim().length > 0)
-    : (phone ? [{ label: "Mobile", value: phone }] : []);
+    : (phone ? [{ label: "Personal", value: phone }] : []);
   const [selectedPhone, setSelectedPhone] = useState<string | null>(phoneOptions[0]?.value ?? null);
   const [phonePicker, setPhonePicker] = useState(false);
   // Post-call outcome prompt — opens automatically after the embedded

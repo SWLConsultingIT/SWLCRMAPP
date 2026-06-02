@@ -547,8 +547,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                       size="sm"
                       defaultNumberId={campaign?.aircall_number_id ?? null}
                       phones={[
-                        ...(lead.primary_phone ? [{ label: "Mobile", value: lead.primary_phone }] : []),
-                        ...(lead.primary_secondary_phone ? [{ label: "Work", value: lead.primary_secondary_phone }] : []),
+                        ...(lead.primary_phone ? [{ label: "Personal", value: lead.primary_phone }] : []),
+                        ...(lead.primary_secondary_phone ? [{ label: "Company", value: lead.primary_secondary_phone }] : []),
                       ]}
                     />
                   )}
@@ -1332,8 +1332,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   size="sm"
                   defaultNumberId={campaign?.aircall_number_id ?? null}
                   phones={[
-                    ...(lead.primary_phone ? [{ label: "Mobile", value: lead.primary_phone }] : []),
-                    ...(lead.primary_secondary_phone ? [{ label: "Work", value: lead.primary_secondary_phone }] : []),
+                    ...(lead.primary_phone ? [{ label: "Personal", value: lead.primary_phone }] : []),
+                    ...(lead.primary_secondary_phone ? [{ label: "Company", value: lead.primary_secondary_phone }] : []),
                   ]}
                 />
               )}
