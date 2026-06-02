@@ -34,12 +34,11 @@ type InboxReply = {
 // what was already triaged). The classify buttons inside each card move a
 // row out of Pending Review and into All. Previously had 6 tabs which
 // Fran said was too noisy — sellers were toggling instead of working.
-type Tab = "pending" | "history" | "events";
+type Tab = "pending" | "history";
 
 const TAB_LABELS: Record<Tab, string> = {
   pending: "Pending review",
   history: "History",
-  events: "Events",
 };
 
 function channelIcon(ch: string | null) {
@@ -325,19 +324,18 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
   // seller hits any classify button, the API flips status→approved and
   // requires_human_review→false, so the row drops out of this tab into All.
   // Events (connection accepted, email bounced/invalid) are NOT replies that
-  // need an answer — they're activity notifications. They get their own tab so
-  // "Pending review" stays a clean list of real lead messages to triage.
+  // need an answer — they're activity notifications, surfaced elsewhere (accepts
+  // in the queue, bounces on the lead's email-health badge). They're kept OUT of
+  // the inbox entirely so it stays a clean list of real lead messages.
   const EVENT_CLASS = new Set(["connection_accepted", "email_bounced", "email_invalid"]);
   const isEvent = (r: InboxReply) => EVENT_CLASS.has(r.classification ?? "");
   const isPending = (r: InboxReply) =>
     !isEvent(r) && (r.requiresHumanReview || r.reviewStatus === "pending");
-  // Tabs are mutually exclusive — every reply lands in exactly ONE: pending
-  // (needs triage), history (already triaged), or events. No more rows showing
-  // up in both Pending review and History.
+  // Two mutually-exclusive tabs over replies only — pending (needs triage) and
+  // history (already triaged). A reply is in exactly one; events are in neither.
   const counts = useMemo(() => ({
     pending: replies.filter(isPending).length,
     history: replies.filter(r => !isEvent(r) && !isPending(r)).length,
-    events: replies.filter(isEvent).length,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [replies]);
 
@@ -360,7 +358,6 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
     let list = replies;
     if (tab === "pending") list = list.filter(isPending);
     else if (tab === "history") list = list.filter(r => !isEvent(r) && !isPending(r));
-    else if (tab === "events") list = list.filter(isEvent);
     if (campaignFilter !== "all") list = list.filter(r => r.campaignName === campaignFilter);
     if (icpFilter !== "all") list = list.filter(r => r.icpProfileName === icpFilter);
     if (channelFilter !== "all") list = list.filter(r => r.channel === channelFilter);
@@ -546,7 +543,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                 marginBottom: -1,
               }}
             >
-              {k === "pending" ? t("inbox.tab.pending") : k === "history" ? t("inbox.tab.all") : (locale === "es" ? "Eventos" : "Events")}
+              {k === "pending" ? t("inbox.tab.pending") : t("inbox.tab.all")}
               {n > 0 && (
                 <span
                   className="text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full"
