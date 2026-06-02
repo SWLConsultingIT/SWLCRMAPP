@@ -182,6 +182,17 @@ async function getUnlinkedLeadsByProfile(companyBioId: string | null) {
 // 1000-row default (a single global `.in()` would silently truncate — the same
 // trap that produced the De Vera ghost counts). Service-key REST because RLS
 // hides campaign_messages from the cookie client.
+function failCategory(e: string | null): string {
+  const s = (e ?? "").toLowerCase();
+  if (!s) return "Unknown";
+  if (s.includes("name mismatch")) return "Name mismatch";
+  if (s.includes("not found") || s.includes("/users/") || s.includes("404")) return "Profile not found";
+  if (s.includes("422") || s.includes("limit")) return "Rate limit";
+  if (s.includes("bounce")) return "Bounce";
+  if (s.includes("empty body") || s.includes("placeholder")) return "Content/placeholder";
+  return "Other";
+}
+
 async function getFlowMetrics(
   campaignIds: string[],
   leadIds: string[],
@@ -189,6 +200,7 @@ async function getFlowMetrics(
   leadInfo: Map<string, { name: string; company: string | null }>,
   channelsUsed: string[],
   progressPct: number,
+  campRows: { lead_id: string; status: string }[],
 ): Promise<FlowMetrics | null> {
   if (campaignIds.length === 0) return null;
   const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -203,38 +215,62 @@ async function getFlowMetrics(
     const inClause = `(${campaignIds.slice(i, i + 80).join(",")})`;
     msgs = msgs.concat(await restGet(`campaign_messages?campaign_id=in.${encodeURIComponent(inClause)}&select=lead_id,step_number,channel,status,error_details,metadata`));
   }
-  const connected = new Set<string>(); const bouncedSet = new Set<string>();
+  const connected = new Set<string>(); const bouncedSet = new Set<string>(); const lostSet = new Set<string>();
   for (let i = 0; i < leadIds.length; i += 100) {
     const inClause = `(${leadIds.slice(i, i + 100).join(",")})`;
-    const rows = await restGet(`leads?id=in.${encodeURIComponent(inClause)}&select=id,linkedin_connected,primary_email_status`);
-    rows.forEach((r: any) => { if (r.linkedin_connected) connected.add(r.id); if (r.primary_email_status === "bounced") bouncedSet.add(r.id); });
+    const rows = await restGet(`leads?id=in.${encodeURIComponent(inClause)}&select=id,linkedin_connected,primary_email_status,status`);
+    rows.forEach((r: any) => {
+      if (r.linkedin_connected) connected.add(r.id);
+      if (r.primary_email_status === "bounced") bouncedSet.add(r.id);
+      if (r.status === "closed_lost") lostSet.add(r.id);
+    });
   }
-  const repliedSet = new Set<string>(); const positiveSet = new Set<string>();
+  // Reply classification per lead (strongest: positive > question > negative > other).
+  const replyClass = new Map<string, string>();
   const repliesByChannel: Record<string, Set<string>> = {};
+  const rank: Record<string, number> = { positive: 4, question: 3, negative: 2, other: 1 };
   for (let i = 0; i < leadIds.length; i += 100) {
     const inClause = `(${leadIds.slice(i, i + 100).join(",")})`;
     const rows = await restGet(`lead_replies?lead_id=in.${encodeURIComponent(inClause)}&select=lead_id,classification,channel`);
     rows.forEach((r: any) => {
-      repliedSet.add(r.lead_id);
-      if ((r.classification ?? "").toLowerCase().includes("positive")) positiveSet.add(r.lead_id);
+      const c = (r.classification ?? "").toLowerCase();
+      const bucket = c.includes("positive") ? "positive" : c.includes("question") ? "question" : c.includes("negative") ? "negative" : "other";
+      const prev = replyClass.get(r.lead_id);
+      if (!prev || rank[bucket] > rank[prev]) replyClass.set(r.lead_id, bucket);
       const ch = r.channel ?? "other"; (repliesByChannel[ch] ||= new Set()).add(r.lead_id);
     });
   }
+  const repliedSet = new Set(replyClass.keys());
+  const positiveSet = new Set([...replyClass].filter(([, b]) => b === "positive").map(([id]) => id));
 
   const sent = msgs.filter(m => m.status === "sent");
   const requestsSent = sent.filter(m => m.step_number === 0 && m.channel === "linkedin").length;
+  const step0SentLeads = new Set(sent.filter(m => m.step_number === 0 && m.channel === "linkedin").map(m => m.lead_id));
   const accepted = connected.size;
   const totalLeads = leadIds.length;
-  const distinctAt = (n: number) => new Set(sent.filter(m => m.step_number === n).map(m => m.lead_id)).size;
+  const messagedSet = new Set(sent.filter(m => m.step_number > 0).map(m => m.lead_id));
+  const pendingAcceptSet = new Set([...step0SentLeads].filter(id => !connected.has(id) && !lostSet.has(id)));
 
-  const stepFunnel: { label: string; channel: string; reached: number }[] = [];
-  if (channelsUsed.includes("linkedin")) stepFunnel.push({ label: "Invite", channel: "linkedin", reached: distinctAt(0) });
-  for (let s = 1; s <= sequence.length; s++) stepFunnel.push({ label: `Step ${s}`, channel: sequence[s - 1]?.channel ?? "linkedin", reached: distinctAt(s) });
+  // Per-step breakdown (CR = step 0, then sequence steps).
+  const stepNums = [...(channelsUsed.includes("linkedin") ? [0] : []), ...Array.from({ length: sequence.length }, (_, i) => i + 1)];
+  const steps = stepNums.map(n => {
+    const at = msgs.filter(m => m.step_number === n);
+    const ch = n === 0 ? "linkedin" : (sequence[n - 1]?.channel ?? "linkedin");
+    return {
+      label: n === 0 ? "Invite" : `Step ${n}`, channel: ch,
+      sent: at.filter(m => m.status === "sent").length,
+      failed: at.filter(m => m.status === "failed").length,
+      skipped: at.filter(m => m.status === "skipped").length,
+      pending: at.filter(m => m.status === "queued" || m.status === "draft" || m.status === "dispatching").length,
+    };
+  });
 
   const linkedin = channelsUsed.includes("linkedin") ? {
     invitesSent: requestsSent, accepted, acceptRate: requestsSent ? Math.round((accepted / requestsSent) * 100) : 0,
+    pendingAccept: pendingAcceptSet.size,
     dmsSent: sent.filter(m => m.channel === "linkedin" && m.step_number > 0).length,
     replies: repliesByChannel["linkedin"]?.size ?? 0,
+    failed: msgs.filter(m => m.channel === "linkedin" && m.status === "failed").length,
   } : null;
   const emailSent = sent.filter(m => m.channel === "email").length;
   const email = channelsUsed.includes("email") ? {
@@ -245,20 +281,37 @@ async function getFlowMetrics(
   const call = channelsUsed.includes("call") ? { dialed: sent.filter(m => m.channel === "call").length } : null;
 
   const failedMsgs = msgs.filter(m => m.status === "failed");
-  const parked = new Set(msgs.filter(m => m.status === "queued" && (m.metadata as any)?.awaiting_acceptance).map(m => m.lead_id)).size;
+  const failCounts: Record<string, number> = {};
+  failedMsgs.forEach(m => { const c = failCategory(m.error_details); failCounts[c] = (failCounts[c] ?? 0) + 1; });
+  const failureReasons = Object.entries(failCounts).map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count);
+
+  const statusDist = { active: 0, paused: 0, completed: 0, cancelled: 0 };
+  campRows.forEach(c => { if (c.status in statusDist) (statusDist as any)[c.status]++; });
+
   const nameOf = (id: string): DrillLead => ({ id, name: leadInfo.get(id)?.name ?? "Unknown", company: leadInfo.get(id)?.company ?? null });
 
   return {
-    totalLeads, requestsSent, accepted, acceptRate: requestsSent ? Math.round((accepted / requestsSent) * 100) : 0,
-    replied: repliedSet.size, replyRate: totalLeads ? Math.round((repliedSet.size / totalLeads) * 100) : 0,
-    positive: positiveSet.size, progressPct,
-    stepFunnel, linkedin, email, call,
-    issues: { failed: failedMsgs.length, bounced: bouncedSet.size, parked },
+    totalLeads, invitesSent: requestsSent, accepted, messaged: messagedSet.size, replied: repliedSet.size, positive: positiveSet.size,
+    acceptRate: requestsSent ? Math.round((accepted / requestsSent) * 100) : 0,
+    messagedRate: accepted ? Math.round((messagedSet.size / accepted) * 100) : 0,
+    replyRate: messagedSet.size ? Math.round((repliedSet.size / messagedSet.size) * 100) : 0,
+    positiveRate: repliedSet.size ? Math.round((positiveSet.size / repliedSet.size) * 100) : 0,
+    progressPct, pendingAccept: pendingAcceptSet.size, lost: lostSet.size,
+    statusDist, steps, linkedin, email, call, failureReasons,
+    replyBreakdown: {
+      positive: [...replyClass.values()].filter(b => b === "positive").length,
+      negative: [...replyClass.values()].filter(b => b === "negative").length,
+      question: [...replyClass.values()].filter(b => b === "question").length,
+      other: [...replyClass.values()].filter(b => b === "other").length,
+    },
     drill: {
       accepted: [...connected].map(nameOf),
-      replied: [...repliedSet].map(id => ({ ...nameOf(id), detail: positiveSet.has(id) ? "positive" : undefined })),
+      messaged: [...messagedSet].map(nameOf),
+      pendingAccept: [...pendingAcceptSet].map(nameOf),
+      replied: [...replyClass].map(([id, b]) => ({ ...nameOf(id), detail: b })),
+      positive: [...positiveSet].map(nameOf),
       bounced: [...bouncedSet].map(id => ({ ...nameOf(id), detail: "bounced" })),
-      failed: failedMsgs.map(m => ({ ...nameOf(m.lead_id), detail: `step ${m.step_number} ${m.channel}: ${(m.error_details ?? "").slice(0, 60) || "failed"}` })),
+      failed: failedMsgs.map(m => ({ ...nameOf(m.lead_id), detail: `${m.step_number === 0 ? "invite" : "step " + m.step_number} · ${failCategory(m.error_details)}` })),
     },
   };
 }
@@ -441,7 +494,8 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
     if (l?.id) leadInfo.set(l.id, { name: `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || "Unknown", company: l.company_name ?? null });
   }
   const flowLeadIds = [...new Set(allGroupCampaigns.map(c => (c as any).lead_id).filter(Boolean) as string[])];
-  const flowMetrics = await getFlowMetrics(allCampaignIds, flowLeadIds, sequence, leadInfo, channels, pct);
+  const campRows = allGroupCampaigns.map(c => ({ lead_id: (c as any).lead_id as string, status: c.status as string }));
+  const flowMetrics = await getFlowMetrics(allCampaignIds, flowLeadIds, sequence, leadInfo, channels, pct, campRows);
 
   return (
     <div className="p-6 w-full">
