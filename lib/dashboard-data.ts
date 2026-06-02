@@ -53,6 +53,8 @@ type ReplyRow = {
   classification: string | null;
   channel: string | null;
   received_at: string | null;
+  requires_human_review: boolean | null;
+  review_status: string | null;
 };
 type MsgRow = {
   id: string;
@@ -160,7 +162,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   // Grill / Pathway client-source, and the Today rows fall back to ICP.
   const leadsQ = supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at, company_bio_id, company_name, primary_first_name, primary_last_name, primary_phone, source, encrypted_payload");
   const campsQ = supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, created_at, stop_reason, leads!inner(company_bio_id)");
-  const repliesQ = supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, channel, received_at, leads!inner(company_bio_id)");
+  const repliesQ = supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, channel, received_at, requires_human_review, review_status, leads!inner(company_bio_id)");
   const msgsQ = supabase.from("campaign_messages").select("id, campaign_id, step_number, status, sent_at, campaigns!inner(leads!inner(company_bio_id))");
   const profilesQ = supabase.from("icp_profiles").select("id, profile_name, company_bio_id").eq("status", "approved");
   const sellersQ = supabase.from("sellers").select("id, name, active, company_bio_id");
@@ -1469,7 +1471,14 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     // decryption needed). Calls list intentionally omitted in this commit
     // — re-introduced separately once the calls fetch is stabilized.
     todayLists: (() => {
-      const leadById = new Map(leads.map(l => [l.id, l]));
+      // "What to do today" is a LIVE action hero — it must reflect the current
+      // actionable state of the workspace, NOT the analytics period selector.
+      // So every bucket reads the UNFILTERED sources (allLeads/allReplies/
+      // allCampaigns/allMessages); binding it to from/to made replies on
+      // older leads silently vanish (leadById miss) and stale buckets jump
+      // around when the operator changed the period. (Fixed 2026-06-02.)
+      const leadById = new Map(allLeads.map(l => [l.id, l]));
+      const allRepliedLeadIds = new Set(allReplies.map(r => r.lead_id).filter(Boolean) as string[]);
       const profileById = new Map(allProfiles.map(p => [p.id, p.profile_name]));
       type TodayLead = {
         id: string;
@@ -1498,13 +1507,18 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
           phone: l.primary_phone ?? null,
         };
       };
-      const repliesSorted = [...replies]
-        .filter(r => r.lead_id && repliedLeadIds.has(r.lead_id))
+      const allRepliesSorted = [...allReplies]
         .sort((a, b) => (b.received_at ?? "").localeCompare(a.received_at ?? ""));
+      // Replies bucket = what the seller has to TRIAGE now. Mirrors the inbox
+      // "Pending review" definition (requires_human_review OR review_status
+      // pending) so the count here matches /queue Inbox exactly — instead of
+      // listing every lead that ever replied (including already-handled ones).
       const repliesList: TodayLead[] = [];
       const seenReplied = new Set<string>();
-      for (const r of repliesSorted) {
+      for (const r of allRepliesSorted) {
         if (!r.lead_id || seenReplied.has(r.lead_id)) continue;
+        const needsReview = r.requires_human_review === true || r.review_status === "pending";
+        if (!needsReview) continue;
         seenReplied.add(r.lead_id);
         const s = summarize(r.lead_id, { when: r.received_at, tag: r.classification, channel: r.channel });
         if (s) repliesList.push(s);
@@ -1512,7 +1526,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       }
       const positivesList: TodayLead[] = [];
       const seenPos = new Set<string>();
-      for (const r of repliesSorted) {
+      for (const r of allRepliesSorted) {
         if (!r.lead_id || !POSITIVE_CLASS.has(r.classification ?? "")) continue;
         if (seenPos.has(r.lead_id)) continue;
         seenPos.add(r.lead_id);
@@ -1522,7 +1536,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       }
       const withCampaignSet = new Set<string>();
       for (const c of allCampaigns) if (c.lead_id) withCampaignSet.add(c.lead_id);
-      const unassignedList: TodayLead[] = leads
+      const unassignedList: TodayLead[] = allLeads
         .filter(l => !withCampaignSet.has(l.id))
         .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
         .slice(0, 8)
@@ -1566,8 +1580,8 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       const staleCandidates: Array<{ leadId: string; lastSentIso: string; tMs: number }> = [];
       for (const [leadId, tMs] of lastSentByLead.entries()) {
         if (tMs > staleCutoffMs) continue;            // touched recently — not stale
-        if (repliedLeadIds.has(leadId)) continue;     // replied — not stale
-        if (!leadById.has(leadId)) continue;          // out of period scope
+        if (allRepliedLeadIds.has(leadId)) continue;  // replied — not stale
+        if (!leadById.has(leadId)) continue;          // lead must still exist
         staleCandidates.push({ leadId, lastSentIso: new Date(tMs).toISOString(), tMs });
       }
       staleCandidates.sort((a, b) => a.tMs - b.tMs); // oldest first
