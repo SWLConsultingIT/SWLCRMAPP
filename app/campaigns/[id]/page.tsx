@@ -8,6 +8,7 @@ import {
   Users, Clock, Settings,
 } from "lucide-react";
 import CampaignDetailClient from "./CampaignDetailClient";
+import FlowMetricsPanel, { type FlowMetrics, type DrillLead } from "@/components/FlowMetricsPanel";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
 // Hydrates client-source leads in a list by decrypting encrypted_payload
@@ -174,6 +175,92 @@ async function getUnlinkedLeadsByProfile(companyBioId: string | null) {
     grouped[key].leads.push(l);
   }
   return Object.values(grouped);
+}
+
+// Aggregate the whole flow's outreach status from campaign_messages + lead
+// signals. Chunked by 80 campaign ids so each REST page stays well under the
+// 1000-row default (a single global `.in()` would silently truncate — the same
+// trap that produced the De Vera ghost counts). Service-key REST because RLS
+// hides campaign_messages from the cookie client.
+async function getFlowMetrics(
+  campaignIds: string[],
+  leadIds: string[],
+  sequence: { channel: string; daysAfter: number }[],
+  leadInfo: Map<string, { name: string; company: string | null }>,
+  channelsUsed: string[],
+  progressPct: number,
+): Promise<FlowMetrics | null> {
+  if (campaignIds.length === 0) return null;
+  const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const sbKey = process.env.SUPABASE_SERVICE_KEY!;
+  const headers = { apikey: sbKey, Authorization: `Bearer ${sbKey}` };
+  const restGet = async (path: string): Promise<any[]> => {
+    try { const r = await fetch(`${sbUrl}/rest/v1/${path}`, { headers, cache: "no-store" }); return r.ok ? await r.json() : []; } catch { return []; }
+  };
+  type Msg = { lead_id: string; step_number: number; channel: string; status: string; error_details: string | null; metadata: Record<string, unknown> | null };
+  let msgs: Msg[] = [];
+  for (let i = 0; i < campaignIds.length; i += 80) {
+    const inClause = `(${campaignIds.slice(i, i + 80).join(",")})`;
+    msgs = msgs.concat(await restGet(`campaign_messages?campaign_id=in.${encodeURIComponent(inClause)}&select=lead_id,step_number,channel,status,error_details,metadata`));
+  }
+  const connected = new Set<string>(); const bouncedSet = new Set<string>();
+  for (let i = 0; i < leadIds.length; i += 100) {
+    const inClause = `(${leadIds.slice(i, i + 100).join(",")})`;
+    const rows = await restGet(`leads?id=in.${encodeURIComponent(inClause)}&select=id,linkedin_connected,primary_email_status`);
+    rows.forEach((r: any) => { if (r.linkedin_connected) connected.add(r.id); if (r.primary_email_status === "bounced") bouncedSet.add(r.id); });
+  }
+  const repliedSet = new Set<string>(); const positiveSet = new Set<string>();
+  const repliesByChannel: Record<string, Set<string>> = {};
+  for (let i = 0; i < leadIds.length; i += 100) {
+    const inClause = `(${leadIds.slice(i, i + 100).join(",")})`;
+    const rows = await restGet(`lead_replies?lead_id=in.${encodeURIComponent(inClause)}&select=lead_id,classification,channel`);
+    rows.forEach((r: any) => {
+      repliedSet.add(r.lead_id);
+      if ((r.classification ?? "").toLowerCase().includes("positive")) positiveSet.add(r.lead_id);
+      const ch = r.channel ?? "other"; (repliesByChannel[ch] ||= new Set()).add(r.lead_id);
+    });
+  }
+
+  const sent = msgs.filter(m => m.status === "sent");
+  const requestsSent = sent.filter(m => m.step_number === 0 && m.channel === "linkedin").length;
+  const accepted = connected.size;
+  const totalLeads = leadIds.length;
+  const distinctAt = (n: number) => new Set(sent.filter(m => m.step_number === n).map(m => m.lead_id)).size;
+
+  const stepFunnel: { label: string; channel: string; reached: number }[] = [];
+  if (channelsUsed.includes("linkedin")) stepFunnel.push({ label: "Invite", channel: "linkedin", reached: distinctAt(0) });
+  for (let s = 1; s <= sequence.length; s++) stepFunnel.push({ label: `Step ${s}`, channel: sequence[s - 1]?.channel ?? "linkedin", reached: distinctAt(s) });
+
+  const linkedin = channelsUsed.includes("linkedin") ? {
+    invitesSent: requestsSent, accepted, acceptRate: requestsSent ? Math.round((accepted / requestsSent) * 100) : 0,
+    dmsSent: sent.filter(m => m.channel === "linkedin" && m.step_number > 0).length,
+    replies: repliesByChannel["linkedin"]?.size ?? 0,
+  } : null;
+  const emailSent = sent.filter(m => m.channel === "email").length;
+  const email = channelsUsed.includes("email") ? {
+    sent: emailSent, bounced: bouncedSet.size,
+    bounceRate: (emailSent + bouncedSet.size) ? Math.round((bouncedSet.size / (emailSent + bouncedSet.size)) * 100) : 0,
+    replies: repliesByChannel["email"]?.size ?? 0,
+  } : null;
+  const call = channelsUsed.includes("call") ? { dialed: sent.filter(m => m.channel === "call").length } : null;
+
+  const failedMsgs = msgs.filter(m => m.status === "failed");
+  const parked = new Set(msgs.filter(m => m.status === "queued" && (m.metadata as any)?.awaiting_acceptance).map(m => m.lead_id)).size;
+  const nameOf = (id: string): DrillLead => ({ id, name: leadInfo.get(id)?.name ?? "Unknown", company: leadInfo.get(id)?.company ?? null });
+
+  return {
+    totalLeads, requestsSent, accepted, acceptRate: requestsSent ? Math.round((accepted / requestsSent) * 100) : 0,
+    replied: repliedSet.size, replyRate: totalLeads ? Math.round((repliedSet.size / totalLeads) * 100) : 0,
+    positive: positiveSet.size, progressPct,
+    stepFunnel, linkedin, email, call,
+    issues: { failed: failedMsgs.length, bounced: bouncedSet.size, parked },
+    drill: {
+      accepted: [...connected].map(nameOf),
+      replied: [...repliedSet].map(id => ({ ...nameOf(id), detail: positiveSet.has(id) ? "positive" : undefined })),
+      bounced: [...bouncedSet].map(id => ({ ...nameOf(id), detail: "bounced" })),
+      failed: failedMsgs.map(m => ({ ...nameOf(m.lead_id), detail: `step ${m.step_number} ${m.channel}: ${(m.error_details ?? "").slice(0, 60) || "failed"}` })),
+    },
+  };
 }
 
 export default async function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -346,6 +433,15 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const effectiveCurrentStep = activeLeadSteps.length > 0
     ? Math.max(...activeLeadSteps)
     : Math.min(campaign.current_step ?? 0, sequence.length);
+
+  // Flow-wide outreach metrics for the panel under the hero.
+  const leadInfo = new Map<string, { name: string; company: string | null }>();
+  for (const c of allGroupCampaigns) {
+    const l = (c as any).leads;
+    if (l?.id) leadInfo.set(l.id, { name: `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || "Unknown", company: l.company_name ?? null });
+  }
+  const flowLeadIds = [...new Set(allGroupCampaigns.map(c => (c as any).lead_id).filter(Boolean) as string[])];
+  const flowMetrics = await getFlowMetrics(allCampaignIds, flowLeadIds, sequence, leadInfo, channels, pct);
 
   return (
     <div className="p-6 w-full">
@@ -525,6 +621,9 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           </div>
         </div>
       </div>
+
+      {/* ═══ FLOW METRICS PANEL — funnel + per-channel + issues ═══ */}
+      {flowMetrics && <FlowMetricsPanel metrics={flowMetrics} />}
 
       {/* ═══ TABBED CONTENT (Client Component) ═══ */}
       <CampaignDetailClient
