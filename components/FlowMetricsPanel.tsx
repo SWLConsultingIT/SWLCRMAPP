@@ -17,7 +17,10 @@ export type FlowMetrics = {
   acceptRate: number; messagedRate: number; replyRate: number; positiveRate: number; progressPct: number;
   pendingAccept: number; lost: number;
   statusDist: { active: number; paused: number; completed: number; cancelled: number };
-  steps: { label: string; channel: string; sent: number; failed: number; skipped: number; pending: number }[];
+  steps: {
+    label: string; channel: string; sent: number; failed: number; skipped: number; pending: number;
+    leads: { sent: DrillLead[]; failed: DrillLead[]; skipped: DrillLead[]; pending: DrillLead[] };
+  }[];
   linkedin: { invitesSent: number; accepted: number; acceptRate: number; pendingAccept: number; dmsSent: number; replies: number; failed: number } | null;
   email: { sent: number; bounced: number; bounceRate: number; replies: number } | null;
   call: { dialed: number } | null;
@@ -36,6 +39,7 @@ const CH = {
 
 export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics }) {
   const [open, setOpen] = useState<DrillKey | null>(null);
+  const [stepOpen, setStepOpen] = useState<number | null>(null);
   const toggle = (k: DrillKey) => setOpen(o => (o === k ? null : k));
   const has = (k: DrillKey) => (m.drill[k]?.length ?? 0) > 0;
 
@@ -123,29 +127,43 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
 
       {/* ── TWO-COLUMN: step table + channels/issues ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Step-by-step */}
-        <Section title="Step-by-step">
-          <div className="space-y-2">
+        {/* Step-by-step — click a step to see exactly which leads */}
+        <Section title="Step-by-step" right={<span className="text-[10px]" style={{ color: C.textDim }}>click a step → leads</span>}>
+          <div className="space-y-1">
             <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 text-[10px] font-bold uppercase tracking-wider pb-1" style={{ color: C.textDim }}>
               <span>Step</span><span className="text-right w-10">Sent</span><span className="text-right w-10">Fail</span><span className="text-right w-10">Skip</span><span className="text-right w-12">Pend.</span>
             </div>
             {m.steps.map((s, i) => {
               const meta = CH[s.channel] ?? { label: s.channel, color: C.textMuted };
               const total = s.sent + s.failed + s.skipped + s.pending;
+              const expanded = stepOpen === i;
               return (
-                <div key={i} className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center text-sm">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: meta.color }} />
-                    <span className="font-medium truncate" style={{ color: C.textBody }}>{s.label}</span>
-                    <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{meta.label}</span>
-                    <div className="flex-1 h-1 rounded ml-1" style={{ backgroundColor: C.border }}>
-                      <div className="h-1 rounded" style={{ width: `${(total / stepMax) * 100}%`, backgroundColor: meta.color }} />
+                <div key={i}>
+                  <button type="button" onClick={() => setStepOpen(o => (o === i ? null : i))}
+                    className="w-full grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center text-sm py-1 rounded transition-colors"
+                    style={{ backgroundColor: expanded ? `color-mix(in srgb, ${meta.color} 7%, transparent)` : "transparent" }}>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <ChevronRight size={12} style={{ color: C.textDim, transform: expanded ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: meta.color }} />
+                      <span className="font-medium truncate" style={{ color: C.textBody }}>{s.label}</span>
+                      <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{meta.label}</span>
+                      <div className="flex-1 h-1 rounded ml-1" style={{ backgroundColor: C.border }}>
+                        <div className="h-1 rounded" style={{ width: `${(total / stepMax) * 100}%`, backgroundColor: meta.color }} />
+                      </div>
                     </div>
-                  </div>
-                  <span className="text-right w-10 tabular-nums font-semibold" style={{ color: C.textPrimary }}>{s.sent}</span>
-                  <span className="text-right w-10 tabular-nums" style={{ color: s.failed ? C.red : C.textDim }}>{s.failed}</span>
-                  <span className="text-right w-10 tabular-nums" style={{ color: C.textDim }}>{s.skipped}</span>
-                  <span className="text-right w-12 tabular-nums" style={{ color: s.pending ? "#0A66C2" : C.textDim }}>{s.pending}</span>
+                    <span className="text-right w-10 tabular-nums font-semibold" style={{ color: C.textPrimary }}>{s.sent}</span>
+                    <span className="text-right w-10 tabular-nums" style={{ color: s.failed ? C.red : C.textDim }}>{s.failed}</span>
+                    <span className="text-right w-10 tabular-nums" style={{ color: C.textDim }}>{s.skipped}</span>
+                    <span className="text-right w-12 tabular-nums" style={{ color: s.pending ? "#0A66C2" : C.textDim }}>{s.pending}</span>
+                  </button>
+                  {expanded && (
+                    <div className="ml-5 mb-2 mt-1 rounded-lg border divide-y" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                      <StepBucket label="Sent" leads={s.leads.sent} color={C.green} />
+                      <StepBucket label="Failed" leads={s.leads.failed} color={C.red} showDetail />
+                      <StepBucket label="Skipped" leads={s.leads.skipped} color={C.textMuted} showDetail />
+                      <StepBucket label="Pending" leads={s.leads.pending} color="#0A66C2" showDetail />
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -212,6 +230,29 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
           </div>
         </div>
       </Section>
+    </div>
+  );
+}
+
+function StepBucket({ label, leads, color, showDetail }: { label: string; leads: DrillLead[]; color: string; showDetail?: boolean }) {
+  const [o, setO] = useState(false);
+  if (leads.length === 0) return null;
+  return (
+    <div>
+      <button type="button" onClick={() => setO(v => !v)} className="w-full flex items-center justify-between px-3 py-1.5">
+        <span className="text-[11px] font-bold" style={{ color }}>{leads.length} {label}</span>
+        <ChevronRight size={11} style={{ color: C.textDim, transform: o ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
+      </button>
+      {o && (
+        <div className="max-h-48 overflow-y-auto">
+          {leads.map((d, i) => (
+            <div key={d.id + i} className="flex items-center justify-between gap-2 px-3 py-1 border-t" style={{ borderColor: C.border }}>
+              <Link href={`/leads/${d.id}`} className="text-xs font-medium hover:underline truncate" style={{ color: C.textPrimary }}>{d.name}{d.company ? ` · ${d.company}` : ""}</Link>
+              {showDetail && d.detail && <span className="text-[10px] shrink-0 text-right max-w-[55%] truncate" style={{ color }} title={d.detail}>{d.detail}</span>}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

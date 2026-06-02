@@ -252,6 +252,9 @@ async function getFlowMetrics(
   const pendingAcceptSet = new Set([...step0SentLeads].filter(id => !connected.has(id) && !lostSet.has(id)));
 
   // Per-step breakdown (CR = step 0, then sequence steps).
+  const nameOfEarly = (id: string): DrillLead => ({ id, name: leadInfo.get(id)?.name ?? "Unknown", company: leadInfo.get(id)?.company ?? null });
+  const withDetail = (id: string, detail: string): DrillLead => ({ ...nameOfEarly(id), detail });
+  const isPending = (s: string) => s === "queued" || s === "draft" || s === "dispatching";
   const stepNums = [...(channelsUsed.includes("linkedin") ? [0] : []), ...Array.from({ length: sequence.length }, (_, i) => i + 1)];
   const steps = stepNums.map(n => {
     const at = msgs.filter(m => m.step_number === n);
@@ -261,7 +264,15 @@ async function getFlowMetrics(
       sent: at.filter(m => m.status === "sent").length,
       failed: at.filter(m => m.status === "failed").length,
       skipped: at.filter(m => m.status === "skipped").length,
-      pending: at.filter(m => m.status === "queued" || m.status === "draft" || m.status === "dispatching").length,
+      pending: at.filter(m => isPending(m.status)).length,
+      leads: {
+        // Per-lead detail so the seller can see EXACTLY who got each step,
+        // who failed and the literal reason, who was skipped and why.
+        sent: at.filter(m => m.status === "sent").map(m => nameOfEarly(m.lead_id)),
+        failed: at.filter(m => m.status === "failed").map(m => withDetail(m.lead_id, (m.error_details ?? failCategory(m.error_details)).slice(0, 140))),
+        skipped: at.filter(m => m.status === "skipped").map(m => withDetail(m.lead_id, String((m.metadata as any)?.skipped_reason ?? "skipped"))),
+        pending: at.filter(m => isPending(m.status)).map(m => withDetail(m.lead_id, m.status)),
+      },
     };
   });
 
