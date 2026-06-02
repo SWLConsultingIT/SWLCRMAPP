@@ -486,15 +486,6 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   }
   for (const c of allGroupCampaigns) (c as any).current_msg = currentMsgMap[c.id] ?? null;
 
-  // Attach the lead's strongest reply classification (positive > question >
-  // negative > other) so the kanban can show a meaningful lifecycle badge
-  // (REPLIED / POSITIVE / NEGATIVE) instead of stale dispatch plumbing
-  // ("LINKEDIN QUEUED") on leads that already answered. 2026-06-02.
-  for (const c of allGroupCampaigns) {
-    const lid = (c as any).leads?.id ?? null;
-    (c as any).reply_class = lid ? (replyClass.get(lid) ?? null) : null;
-  }
-
   let cumDays = 0;
   const dayPerStep = sequence.map((s: any, i: number) => {
     cumDays += i === 0 ? 0 : s.daysAfter;
