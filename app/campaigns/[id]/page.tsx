@@ -225,18 +225,23 @@ async function getFlowMetrics(
       if (r.status === "closed_lost") lostSet.add(r.id);
     });
   }
-  // Reply classification per lead (strongest: positive > question > negative > other).
+  // Reply classification per lead (strongest: positive > question > negative > other)
+  // + the latest reply text so the UI can show exactly what each lead said.
   const replyClass = new Map<string, string>();
+  const replyText = new Map<string, { text: string; at: string; channel: string }>();
   const repliesByChannel: Record<string, Set<string>> = {};
   const rank: Record<string, number> = { positive: 4, question: 3, negative: 2, other: 1 };
   for (let i = 0; i < leadIds.length; i += 100) {
     const inClause = `(${leadIds.slice(i, i + 100).join(",")})`;
-    const rows = await restGet(`lead_replies?lead_id=in.${encodeURIComponent(inClause)}&select=lead_id,classification,channel`);
+    const rows = await restGet(`lead_replies?lead_id=in.${encodeURIComponent(inClause)}&select=lead_id,classification,channel,reply_text,received_at`);
     rows.forEach((r: any) => {
       const c = (r.classification ?? "").toLowerCase();
       const bucket = c.includes("positive") ? "positive" : c.includes("question") ? "question" : c.includes("negative") ? "negative" : "other";
       const prev = replyClass.get(r.lead_id);
       if (!prev || rank[bucket] > rank[prev]) replyClass.set(r.lead_id, bucket);
+      const at = r.received_at ?? "";
+      const prevText = replyText.get(r.lead_id);
+      if (r.reply_text && (!prevText || at > prevText.at)) replyText.set(r.lead_id, { text: r.reply_text, at, channel: r.channel ?? "other" });
       const ch = r.channel ?? "other"; (repliesByChannel[ch] ||= new Set()).add(r.lead_id);
     });
   }
@@ -316,6 +321,7 @@ async function getFlowMetrics(
       accepted: connected.has(id),
       messaged: sentMsgs.filter(x => x.step_number > 0).length,
       replied: replyClass.get(id) ?? null,
+      replyText: replyText.get(id)?.text ?? null,
       bounced: bouncedSet.has(id),
       status: campStatusByLead.get(id) ?? "—",
       lastActivity,

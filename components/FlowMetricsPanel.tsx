@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import {
@@ -13,7 +13,7 @@ const gold = "var(--brand, #c9a83a)";
 export type DrillLead = { id: string; name: string; company: string | null; detail?: string };
 export type LeadActivity = {
   id: string; name: string; company: string | null; channels: string[];
-  inviteSent: boolean; accepted: boolean; messaged: number; replied: string | null; bounced: boolean;
+  inviteSent: boolean; accepted: boolean; messaged: number; replied: string | null; replyText: string | null; bounced: boolean;
   status: string; lastActivity: string | null;
 };
 export type FlowMetrics = {
@@ -235,6 +235,7 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
 function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "accepted" | "replied" | "pending" | "bounced">("all");
+  const [openLead, setOpenLead] = useState<string | null>(null);
   const fmt = (s: string | null) => {
     if (!s) return "—";
     try { const d = new Date(s); return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) + " " + d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }); } catch { return "—"; }
@@ -281,8 +282,12 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
             <tbody>
               {filtered.length === 0 ? (
                 <tr><td colSpan={8} className="px-4 py-6 text-center text-xs" style={{ color: C.textDim }}>No leads match.</td></tr>
-              ) : filtered.map(r => (
-                <tr key={r.id} className="border-t" style={{ borderColor: C.border }}>
+              ) : filtered.map(r => {
+                const rc = r.replied ? (replyColor[r.replied] ?? C.textMuted) : C.textMuted;
+                const expanded = openLead === r.id;
+                return (
+                <Fragment key={r.id}>
+                <tr className="border-t" style={{ borderColor: C.border }}>
                   <td className="px-4 py-2 max-w-[220px]">
                     <Link href={`/leads/${r.id}`} className="font-medium hover:underline" style={{ color: C.textPrimary }}>{r.name}</Link>
                     {r.company && <div className="text-[11px] truncate" style={{ color: C.textMuted }}>{r.company}</div>}
@@ -297,14 +302,34 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
                   <td className="text-center px-2 py-2 tabular-nums" style={{ color: r.messaged ? C.textBody : C.textDim }}>{r.messaged || "—"}</td>
                   <td className="px-2 py-2">
                     {r.replied
-                      ? <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded" style={{ color: replyColor[r.replied] ?? C.textMuted, backgroundColor: `color-mix(in srgb, ${replyColor[r.replied] ?? C.textMuted} 12%, transparent)` }}>{r.replied}</span>
+                      ? (r.replyText
+                          ? <button type="button" onClick={() => setOpenLead(o => (o === r.id ? null : r.id))}
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded"
+                              style={{ color: rc, backgroundColor: `color-mix(in srgb, ${rc} 12%, transparent)` }}>
+                              {r.replied} <ChevronRight size={10} style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
+                            </button>
+                          : <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded" style={{ color: rc, backgroundColor: `color-mix(in srgb, ${rc} 12%, transparent)` }}>{r.replied}</span>)
                       : <span style={{ color: C.textDim }}>—</span>}
                     {r.bounced && <span className="text-[11px] font-semibold ml-1" style={{ color: C.red }}>bounced</span>}
                   </td>
                   <td className="px-2 py-2 text-xs" style={{ color: C.textMuted }}>{r.status}</td>
                   <td className="px-3 py-2 text-xs whitespace-nowrap" style={{ color: C.textMuted }}>{fmt(r.lastActivity)}</td>
                 </tr>
-              ))}
+                {expanded && r.replyText && (
+                  <tr style={{ backgroundColor: C.bg }}>
+                    <td colSpan={8} className="px-4 py-2.5">
+                      <div className="rounded-lg border px-3 py-2" style={{ borderColor: `color-mix(in srgb, ${rc} 30%, ${C.border})`, backgroundColor: C.card }}>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <MessageSquare size={11} style={{ color: rc }} />
+                          <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: rc }}>{r.replied} reply</span>
+                        </div>
+                        <p className="text-xs whitespace-pre-wrap" style={{ color: C.textBody }}>{r.replyText}</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
+              );})}
             </tbody>
           </table>
         </div>
