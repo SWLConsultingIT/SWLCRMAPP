@@ -978,16 +978,33 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
               {/* Contact methods */}
               <div className="grid grid-cols-3 gap-3 mb-4">
-                {lead.primary_work_email && (
-                  <div className="flex items-center gap-2.5 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
-                    <Mail size={14} style={{ color: C.email }} />
+                {lead.primary_work_email && (() => {
+                  // Email-health flag, mirroring the wrong-number pill on Mobile.
+                  // primary_email_status is set by the Instantly verification pass
+                  // and the bounce handler — surface it here so a dead address is
+                  // visible right on the lead, not only in the funnel.
+                  const es = lead.primary_email_status as string | null;
+                  const label = es === "bounced" ? "Bounced — undeliverable"
+                    : es === "invalid" ? "Invalid address"
+                    : es === "catch_all" ? "Catch-all — risky" : null;
+                  const col = es === "catch_all" ? "#D97706" : C.red;
+                  const bad = !!label;
+                  return (
+                  <div className="flex items-start gap-2.5 p-3 rounded-lg" style={{ backgroundColor: bad ? `color-mix(in srgb, ${col} 10%, transparent)` : C.bg, border: bad ? `1px solid color-mix(in srgb, ${col} 32%, transparent)` : "none" }}>
+                    <Mail size={14} style={{ color: bad ? col : C.email, marginTop: 2 }} />
                     <div className="min-w-0">
                       <p className="text-xs uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Email</p>
                       <a href={`mailto:${lead.primary_work_email}`} className="text-sm font-medium hover:underline block truncate"
-                        style={{ color: C.textBody }}>{lead.primary_work_email}</a>
+                        style={{ color: bad ? col : C.textBody }}>{lead.primary_work_email}</a>
+                      {label && (
+                        <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ color: col, backgroundColor: `color-mix(in srgb, ${col} 14%, transparent)` }}>
+                          ⚠ {label}
+                        </span>
+                      )}
                     </div>
                   </div>
-                )}
+                  );
+                })()}
                 <div className="flex items-start gap-2.5 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
                   <Phone size={14} style={{ color: C.phone, marginTop: 2 }} />
                   <div className="min-w-0 flex-1">
