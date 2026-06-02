@@ -209,11 +209,11 @@ async function getFlowMetrics(
   const restGet = async (path: string): Promise<any[]> => {
     try { const r = await fetch(`${sbUrl}/rest/v1/${path}`, { headers, cache: "no-store" }); return r.ok ? await r.json() : []; } catch { return []; }
   };
-  type Msg = { lead_id: string; step_number: number; channel: string; status: string; error_details: string | null; metadata: Record<string, unknown> | null };
+  type Msg = { lead_id: string; step_number: number; channel: string; status: string; sent_at: string | null; error_details: string | null; metadata: Record<string, unknown> | null };
   let msgs: Msg[] = [];
   for (let i = 0; i < campaignIds.length; i += 80) {
     const inClause = `(${campaignIds.slice(i, i + 80).join(",")})`;
-    msgs = msgs.concat(await restGet(`campaign_messages?campaign_id=in.${encodeURIComponent(inClause)}&select=lead_id,step_number,channel,status,error_details,metadata`));
+    msgs = msgs.concat(await restGet(`campaign_messages?campaign_id=in.${encodeURIComponent(inClause)}&select=lead_id,step_number,channel,status,sent_at,error_details,metadata`));
   }
   const connected = new Set<string>(); const bouncedSet = new Set<string>(); const lostSet = new Set<string>();
   for (let i = 0; i < leadIds.length; i += 100) {
@@ -301,7 +301,29 @@ async function getFlowMetrics(
 
   const nameOf = (id: string): DrillLead => ({ id, name: leadInfo.get(id)?.name ?? "Unknown", company: leadInfo.get(id)?.company ?? null });
 
+  // Per-lead activity table — one row per lead, sorted by most-recent activity.
+  const byLead: Record<string, Msg[]> = {};
+  msgs.forEach(m => { (byLead[m.lead_id] ||= []).push(m); });
+  const campStatusByLead = new Map(campRows.map(c => [c.lead_id, c.status]));
+  const leadsActivity = leadIds.map(id => {
+    const lm = byLead[id] ?? [];
+    const sentMsgs = lm.filter(x => x.status === "sent");
+    const lastActivity = sentMsgs.map(x => x.sent_at).filter(Boolean).sort().slice(-1)[0] ?? null;
+    return {
+      id, name: leadInfo.get(id)?.name ?? "Unknown", company: leadInfo.get(id)?.company ?? null,
+      channels: [...new Set(lm.map(x => x.channel))],
+      inviteSent: sentMsgs.some(x => x.step_number === 0 && x.channel === "linkedin"),
+      accepted: connected.has(id),
+      messaged: sentMsgs.filter(x => x.step_number > 0).length,
+      replied: replyClass.get(id) ?? null,
+      bounced: bouncedSet.has(id),
+      status: campStatusByLead.get(id) ?? "—",
+      lastActivity,
+    };
+  }).sort((a, b) => (b.lastActivity ?? "").localeCompare(a.lastActivity ?? ""));
+
   return {
+    leadsActivity,
     totalLeads, invitesSent: requestsSent, accepted, messaged: messagedSet.size, replied: repliedSet.size, positive: positiveSet.size,
     acceptRate: requestsSent ? Math.round((accepted / requestsSent) * 100) : 0,
     messagedRate: accepted ? Math.round((messagedSet.size / accepted) * 100) : 0,
