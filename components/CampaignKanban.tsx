@@ -31,6 +31,11 @@ type Campaign = {
   status: string;
   current_step: number;
   sequence_steps: SequenceStep[] | null;
+  /** Strongest reply classification for the lead (positive > question >
+   *  negative > other), attached server-side. Drives the lifecycle badge so a
+   *  lead that already answered reads as REPLIED/POSITIVE/NEGATIVE instead of
+   *  showing stale dispatch plumbing. */
+  reply_class?: string | null;
   leads: {
     id: string;
     primary_first_name: string | null;
@@ -111,7 +116,29 @@ function stepBadge(camp: Campaign): CardBadge | null {
   return null;
 }
 
+// Lifecycle badge — the lead's REAL state, takes priority over dispatch
+// plumbing. A lead that replied / a paused or finished campaign should read
+// as REPLIED / POSITIVE / NEGATIVE / PAUSED / DONE, not "LINKEDIN QUEUED"
+// (which is stale once the lead is out of the active send loop). Returns null
+// for in-flight active campaigns so the dispatch badges still show.
+function lifecycleBadge(camp: Campaign): CardBadge | null {
+  const rc = (camp.reply_class ?? "").toLowerCase();
+  if (rc === "positive") return { label: "POSITIVE REPLY", color: "#15803D", bg: "#DCFCE7" };
+  if (rc === "negative") return { label: "NEGATIVE REPLY", color: "#DC2626", bg: "#FEE2E2" };
+  if (rc === "question") return { label: "REPLIED · QUESTION", color: "#7C3AED", bg: "#EDE9FE" };
+  if (rc && rc !== "other") return { label: "REPLIED", color: "#0A66C2", bg: "#DBEAFE" };
+  if (rc === "other") return { label: "REPLIED", color: "#0A66C2", bg: "#DBEAFE" };
+  if (camp.status === "paused") return { label: "PAUSED", color: "#D97706", bg: "#FEF3C7" };
+  if (camp.status === "completed") return { label: "DONE", color: "#15803D", bg: "#DCFCE7" };
+  if (camp.status === "failed") return { label: "FLOW FAILED", color: "#DC2626", bg: "#FEE2E2" };
+  return null;
+}
+
 // Up to 2 badges per card:
+//   - If the lead has a terminal/lifecycle state (replied / paused / done /
+//     failed): show ONLY that — the dispatch plumbing is irrelevant once the
+//     lead left the active send loop, and showing "CR SENT · LINKEDIN QUEUED"
+//     on a lead who already replied is what read as "flojo" (Fran 2026-06-02).
 //   - On step 0 columns (CR not yet "done"): show the CR badge only.
 //   - On step 1+ columns: show the column step's status (e.g. EMAIL QUEUED)
 //     PLUS the CR result (e.g. CR SENT / ALREADY CONNECTED) as a secondary
@@ -120,6 +147,8 @@ function stepBadge(camp: Campaign): CardBadge | null {
 //     because the previous logic only surfaced the CR status while the
 //     card visually sat in the Email column — looked like the wrong state.
 function deriveCardBadges(camp: Campaign): CardBadge[] {
+  const life = lifecycleBadge(camp);
+  if (life) return [life];
   const cs = camp.current_step ?? 0;
   const cr = crBadge(camp);
   if (cs === 0) {
@@ -220,8 +249,12 @@ function LeadCard({ camp, isDragging }: { camp: Campaign; isDragging?: boolean }
               {b.label}
             </span>
           ))}
-          {camp.status === "completed" && <CheckCircle size={11} style={{ color: C.green }} />}
-          {camp.status === "paused" && <span className="text-[9px] font-bold" style={{ color: "#D97706" }}>PAUSED</span>}
+          {/* Completed/paused now surface via the lifecycle badge in
+              deriveCardBadges — no separate inline indicator needed. A green
+              check still reads nicely on a won/positive card. */}
+          {camp.status === "completed" && (camp.reply_class ?? "").toLowerCase() === "positive" && (
+            <CheckCircle size={11} style={{ color: C.green }} />
+          )}
         </div>
       </div>
     </div>
