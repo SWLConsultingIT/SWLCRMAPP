@@ -421,7 +421,13 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
           (snooze 30d) / Wrong number (skip channel for this lead). */}
       {outcomeOpen && (
         <div
-          className="fixed bottom-6 right-6 z-[1100] rounded-2xl border shadow-2xl p-5 animate-[fadeIn_0.2s_ease-out]"
+          className="fixed inset-0 z-[1100] flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]"
+          style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+          onClick={() => setOutcomeOpen(false)}
+        >
+        <div
+          className="rounded-2xl border shadow-2xl p-5"
+          onClick={e => e.stopPropagation()}
           style={{
             backgroundColor: C.card,
             borderColor: `color-mix(in srgb, ${C.gold} 35%, ${C.border})`,
@@ -478,6 +484,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
               );
             })}
           </div>
+        </div>
         </div>
       )}
       </div>
