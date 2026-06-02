@@ -272,6 +272,14 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
     all:   t("inbox.date.allTime"),
   };
   const [selectedId, setSelectedId] = useState<string | null>(replies[0]?.id ?? null);
+  // Bulk multi-select — clear a batch of obvious replies (e.g. 10 negatives) in
+  // one action instead of one-by-one. Keyed by reply id.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const toggleSelect = (id: string) => setSelectedIds(prev => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
   const [working, setWorking] = useState(false);
   // Thread state — fetched on selection change. Lets the right pane show the
   // full back-and-forth (outbound + inbound) rather than a single isolated
@@ -461,6 +469,40 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
     }
   }
 
+  // Bulk action over the currently-selected replies. Reuses the per-reply
+  // review endpoint so the campaign cascade (negative → closed_lost + 90d
+  // suppression, positive → qualified) runs for each. One refresh at the end.
+  async function bulkApply(action: "negative" | "positive" | "reviewed") {
+    if (working || selectedIds.size === 0) return;
+    setWorking(true);
+    const ids = [...selectedIds];
+    const body = action === "reviewed"
+      ? { status: "approved" }
+      : { status: "approved", classification: action };
+    try {
+      const results = await Promise.allSettled(ids.map(id =>
+        fetch(`/api/replies/${id}/review`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        }).then(r => { if (!r.ok) throw new Error(String(r.status)); })
+      ));
+      const ok = results.filter(r => r.status === "fulfilled").length;
+      const failed = ids.length - ok;
+      toast.show({
+        kind: failed ? "warning" : "success",
+        title: failed
+          ? `${ok} ${locale === "es" ? "actualizadas" : "updated"}, ${failed} ${locale === "es" ? "fallaron" : "failed"}`
+          : action === "negative" ? `${ok} ${locale === "es" ? "marcadas negative — campañas cerradas" : "marked negative — campaigns closed"}`
+          : action === "positive" ? `${ok} ${locale === "es" ? "marcadas positive" : "marked positive"}`
+          : `${ok} ${locale === "es" ? "marcadas como revisadas" : "marked reviewed"}`,
+      });
+      setSelectedIds(new Set());
+      router.refresh();
+    } finally {
+      setWorking(false);
+    }
+  }
+
   async function review(status: "approved" | "rejected" | "pending") {
     if (!selected || working) return;
     setWorking(true);
@@ -600,6 +642,41 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
           </div>
 
           <div className="overflow-y-auto flex-1 px-2 py-2" style={{ backgroundColor: `color-mix(in srgb, ${C.surface} 35%, ${C.bg})` }}>
+            {/* Bulk toolbar — select all + batch actions so the seller can clear
+                a batch (e.g. all obvious negatives) without going one-by-one. */}
+            {filtered.length > 0 && (
+              <div className="sticky top-0 z-20 mb-1.5 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border"
+                style={{ backgroundColor: C.card, borderColor: selectedIds.size > 0 ? `color-mix(in srgb, var(--brand, #c9a83a) 45%, transparent)` : C.border }}>
+                <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] font-semibold" style={{ color: C.textMuted }}>
+                  <input type="checkbox"
+                    checked={filtered.every(r => selectedIds.has(r.id))}
+                    onChange={() => { const all = filtered.every(r => selectedIds.has(r.id)); setSelectedIds(all ? new Set() : new Set(filtered.map(r => r.id))); }} />
+                  {selectedIds.size > 0 ? `${selectedIds.size} ${locale === "es" ? "seleccionadas" : "selected"}` : (locale === "es" ? "Seleccionar todo" : "Select all")}
+                </label>
+                {selectedIds.size > 0 && (
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <button disabled={working} onClick={() => bulkApply("negative")} title={t("inbox.action.markNegative")}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold disabled:opacity-40"
+                      style={{ color: C.red, backgroundColor: `color-mix(in srgb, ${C.red} 14%, transparent)`, border: `1px solid color-mix(in srgb, ${C.red} 30%, transparent)` }}>
+                      <ThumbsDown size={11} /> {locale === "es" ? "Negativas" : "Negative"}
+                    </button>
+                    <button disabled={working} onClick={() => bulkApply("positive")} title={t("inbox.action.markPositive")}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold disabled:opacity-40"
+                      style={{ color: C.green, backgroundColor: `color-mix(in srgb, ${C.green} 14%, transparent)`, border: `1px solid color-mix(in srgb, ${C.green} 30%, transparent)` }}>
+                      <ThumbsUp size={11} /> {locale === "es" ? "Positivas" : "Positive"}
+                    </button>
+                    <button disabled={working} onClick={() => bulkApply("reviewed")} title={t("inbox.action.markReviewed")}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold disabled:opacity-40"
+                      style={{ color: C.textMuted, backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
+                      <Check size={11} /> {locale === "es" ? "Revisadas" : "Reviewed"}
+                    </button>
+                    <button onClick={() => setSelectedIds(new Set())} className="text-[10px] font-semibold hover:underline px-1" style={{ color: C.textMuted }}>
+                      {locale === "es" ? "Limpiar" : "Clear"}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             {filtered.length === 0 ? (
               <div className="px-4 py-10 text-center">
                 <div className="w-10 h-10 mx-auto mb-3 rounded-2xl flex items-center justify-center" style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)` }}>
@@ -619,6 +696,16 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                   const chColor = channelColor(r.channel);
                   return (
                     <li key={r.id} className="relative group/ix">
+                      {/* Bulk-select checkbox — sits in the left gutter, shown on
+                          hover or when the row is selected. stopPropagation so it
+                          doesn't open the thread. */}
+                      <div
+                        className={`absolute top-2.5 left-0.5 z-20 transition-opacity ${selectedIds.has(r.id) ? "opacity-100" : "opacity-0 group-hover/ix:opacity-100"}`}
+                        onClick={(e) => { e.stopPropagation(); toggleSelect(r.id); }}
+                        title={locale === "es" ? "Seleccionar" : "Select"}
+                      >
+                        <input type="checkbox" readOnly checked={selectedIds.has(r.id)} className="cursor-pointer" />
+                      </div>
                       <button
                         type="button"
                         onClick={() => setSelectedId(r.id)}
