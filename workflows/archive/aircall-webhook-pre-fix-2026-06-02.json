@@ -1,0 +1,21 @@
+{
+  "id": "26vRoCGqSNuti1Ky",
+  "name": "SWL - CRM AIRCALL - Webhook Events",
+  "active": true,
+  "versionId_before_fix": "9cc1c56d-5056-45dd-b0bc-15e414806a11",
+  "captured_at": "2026-06-02",
+  "reason": "Pre-fix snapshot before applying (a) Spain country-code strip in normPhone, (b) lastNode response mode so Aircall retries on Supabase failures, (c) throw-on-error wrap of safeReq for critical writes.",
+  "webhook_node": {
+    "id": "webhook-trigger",
+    "name": "Webhook - Aircall Events",
+    "type": "n8n-nodes-base.webhook",
+    "typeVersion": 2,
+    "parameters": {
+      "httpMethod": "POST",
+      "path": "aircall-events",
+      "responseMode": "onReceived",
+      "responseData": "noData"
+    }
+  },
+  "code_node_original_jsCode": "// ─────── Token validation (LOG-ONLY, reverted 2026-05-29) ────────\n// Aircall sends Authorization: Bearer <token> with the token configured in\n// Aircall Dashboard → Integrations → Public API. Mismatch is logged but\n// the workflow continues — per the project rule (rules.md §C): ship new\n// security checks in log-only mode FIRST, flip to enforce only after\n// confirming zero false flags in production logs. Initial flip-to-enforce\n// on 2026-05-29 was premature; reverted to log-only the same day.\n//\n// To finalize enforcement: watch n8n executions for 24-48h, confirm every\n// legitimate Aircall webhook arrives with a matching Bearer token, then\n// replace `console.warn` below with `throw new Error(...)`.\n//\n// TODO: rotate this token + move to n8n Credentials (currently hardcoded).\ntry {\n  const EXPECTED_TOKEN = '7f4a9322925a44c588cd14e2f91f4b43';\n  const headers = $input.first().json.headers || {};\n  const authHeader = headers.authorization || headers.Authorization || '';\n  const presentedToken = authHeader.replace(/^Bearer\\s+/i, '').trim();\n  if (presentedToken !== EXPECTED_TOKEN) {\n    console.warn('[aircall-webhook] token mismatch (log-only):', {\n      hasHeader: !!authHeader,\n      presentedLength: presentedToken.length,\n      receivedAt: new Date().toISOString(),\n    });\n  }\n} catch (tokenCheckErr) {\n  console.warn('[aircall-webhook] token check error (log-only):', tokenCheckErr.message);\n}\n// (full body redacted in this snapshot for brevity — the live workflow JSON is recoverable via mcp__n8n-mcp__n8n_get_workflow with mode='full')"
+}
