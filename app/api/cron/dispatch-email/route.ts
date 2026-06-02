@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import { getInstantlyConfig } from "@/lib/instantly-config";
+import { resolveFlowCampaignId } from "@/lib/instantly-flow-campaign";
 import { signStepAttachments } from "@/lib/campaign-attachments";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { renderPlaceholders, findUnresolvedPlaceholders, findSuspiciousPlaceholders } from "@/lib/placeholders";
@@ -266,7 +267,7 @@ async function dispatchOneEmail(
 
   const [{ data: rawLead }, { data: campaign }] = await Promise.all([
     svc.from("leads").select("id, source, encrypted_payload, primary_first_name, primary_last_name, primary_work_email, primary_email_status, company_bio_id, company_name, primary_title_role").eq("id", candidate.lead_id).maybeSingle(),
-    svc.from("campaigns").select("id, seller_id, sequence_steps").eq("id", candidate.campaign_id).maybeSingle(),
+    svc.from("campaigns").select("id, name, seller_id, sequence_steps").eq("id", candidate.campaign_id).maybeSingle(),
   ]);
   if (!rawLead || !campaign) return await failMessage(svc, candidate.id, candidate.lead_id, "lead or campaign missing");
 
@@ -318,10 +319,20 @@ async function dispatchOneEmail(
   if (!config) {
     return await failMessage(svc, candidate.id, candidate.lead_id, `tenant ${tenantBioId} has no Instantly API key`);
   }
-  const instantlyCampaignId = config.campaignId;
-  if (!instantlyCampaignId) {
+  if (!config.campaignId) {
     const { data: bio } = await svc.from("company_bios").select("company_name").eq("id", tenantBioId).maybeSingle();
     return await failMessage(svc, candidate.id, candidate.lead_id, `tenant "${(bio as any)?.company_name ?? tenantBioId}" has no instantly_campaign_id set`);
+  }
+
+  // Resolve the per-FLOW Instantly campaign (created + activated on first use),
+  // instead of dumping every flow into one tenant campaign. Isolates bounce
+  // auto-pauses per flow — see lib/instantly-flow-campaign.ts.
+  const { data: bioRow } = await svc.from("company_bios").select("company_name").eq("id", tenantBioId).maybeSingle();
+  const tenantLabel = ((bioRow as any)?.company_name as string | undefined) ?? "CRM";
+  const flowName = ((campaign as any).name as string | undefined) ?? "Flow";
+  const { campaignId: instantlyCampaignId, error: flowErr } = await resolveFlowCampaignId(config, tenantBioId, flowName, tenantLabel);
+  if (!instantlyCampaignId) {
+    return await failMessage(svc, candidate.id, candidate.lead_id, flowErr ?? "could not resolve per-flow Instantly campaign");
   }
 
   const meta = (candidate.metadata as Record<string, unknown> | null) ?? {};
