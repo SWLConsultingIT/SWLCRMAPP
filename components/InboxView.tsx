@@ -34,11 +34,12 @@ type InboxReply = {
 // what was already triaged). The classify buttons inside each card move a
 // row out of Pending Review and into All. Previously had 6 tabs which
 // Fran said was too noisy — sellers were toggling instead of working.
-type Tab = "pending" | "all";
+type Tab = "pending" | "history" | "events";
 
 const TAB_LABELS: Record<Tab, string> = {
   pending: "Pending review",
-  all: "All",
+  history: "History",
+  events: "Events",
 };
 
 function channelIcon(ch: string | null) {
@@ -247,7 +248,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
   // History tab (was Pending Review) when a channel filter is passed —
   // the seller arrived here to browse past activity, not to triage.
   const initialChannel = searchParams?.get("channel") ?? "all";
-  const [tab, setTab] = useState<Tab>(initialChannel !== "all" ? "all" : "pending");
+  const [tab, setTab] = useState<Tab>(initialChannel !== "all" ? "history" : "pending");
   const [search, setSearch] = useState("");
   const [campaignFilter, setCampaignFilter] = useState<string>("all");
   const [icpFilter, setIcpFilter] = useState<string>("all");
@@ -315,11 +316,21 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
   // a reply that's never been touched (review_status pending). The moment the
   // seller hits any classify button, the API flips status→approved and
   // requires_human_review→false, so the row drops out of this tab into All.
+  // Events (connection accepted, email bounced/invalid) are NOT replies that
+  // need an answer — they're activity notifications. They get their own tab so
+  // "Pending review" stays a clean list of real lead messages to triage.
+  const EVENT_CLASS = new Set(["connection_accepted", "email_bounced", "email_invalid"]);
+  const isEvent = (r: InboxReply) => EVENT_CLASS.has(r.classification ?? "");
   const isPending = (r: InboxReply) =>
-    r.requiresHumanReview || r.reviewStatus === "pending";
+    !isEvent(r) && (r.requiresHumanReview || r.reviewStatus === "pending");
+  // Tabs are mutually exclusive — every reply lands in exactly ONE: pending
+  // (needs triage), history (already triaged), or events. No more rows showing
+  // up in both Pending review and History.
   const counts = useMemo(() => ({
     pending: replies.filter(isPending).length,
-    all: replies.length,
+    history: replies.filter(r => !isEvent(r) && !isPending(r)).length,
+    events: replies.filter(isEvent).length,
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [replies]);
 
   // Distinct values for the dropdown options. Recomputed when replies
@@ -340,6 +351,8 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
   const filtered = useMemo(() => {
     let list = replies;
     if (tab === "pending") list = list.filter(isPending);
+    else if (tab === "history") list = list.filter(r => !isEvent(r) && !isPending(r));
+    else if (tab === "events") list = list.filter(isEvent);
     if (campaignFilter !== "all") list = list.filter(r => r.campaignName === campaignFilter);
     if (icpFilter !== "all") list = list.filter(r => r.icpProfileName === icpFilter);
     if (channelFilter !== "all") list = list.filter(r => r.channel === channelFilter);
@@ -491,7 +504,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                 marginBottom: -1,
               }}
             >
-              {k === "pending" ? t("inbox.tab.pending") : t("inbox.tab.all")}
+              {k === "pending" ? t("inbox.tab.pending") : k === "history" ? t("inbox.tab.all") : (locale === "es" ? "Eventos" : "Events")}
               {n > 0 && (
                 <span
                   className="text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-full"
