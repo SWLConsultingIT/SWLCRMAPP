@@ -959,9 +959,11 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                         ? "Connection Request"
                         : entry.stepNumber != null && entry.stepNumber > 0
                           ? `Step ${entry.stepNumber}`
-                          : entry.kind === "auto_reply" || (entry.source === "unipile" && isOut)
+                          : entry.kind === "auto_reply" || entry.stepNumber === -1
                             ? "Auto-reply"
-                            : null;
+                            : (entry.source === "unipile" && isOut)
+                              ? "Seller reply"
+                              : null;
                       const time = formatTimeOnly(entry.at);
                       const dayDate = new Date(entry.at);
                       const dayKey = `${dayDate.getFullYear()}-${dayDate.getMonth()}-${dayDate.getDate()}`;
