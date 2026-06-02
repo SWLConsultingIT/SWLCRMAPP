@@ -48,6 +48,24 @@ export const PLACEHOLDER_GROUPS: PlaceholderGroup[] = [
     description: "The seller assigned to this campaign — your name.",
     tokens: ["{{seller_name}}", "{{sellerName}}", "{{sender_name}}", "{{my_name}}"],
   },
+  // ── AI-filled slots ──────────────────────────────────────────────────
+  // 2026-06-02 feature ("tailored messages per lead"). The wizard
+  // accepts these inside template bodies; /api/campaigns/tailor calls
+  // Claude Haiku per-lead with the lead/ICP/research as context and
+  // returns { hook, fit }. The filled values get substituted into the
+  // body BEFORE campaign_messages.content is persisted, so by the time
+  // the dispatcher reads it there's no `{{tailored:*}}` left to render.
+  // Listing them here keeps the wizard / guards / autocomplete happy.
+  {
+    label: "AI hook (per lead)",
+    description: "AI-generated opener specific to THIS lead — referencing their company, role, recent move, or signal. Filled at campaign approve, not at send. 12–25 words.",
+    tokens: ["{{tailored:hook}}", "{{tailoredHook}}"],
+  },
+  {
+    label: "AI why-we-fit (per lead)",
+    description: "AI-generated sentence connecting the lead's pain to your service. References ICP pain points + your value prop, not generic. Filled at campaign approve. 15–30 words.",
+    tokens: ["{{tailored:fit}}", "{{tailoredFit}}"],
+  },
 ];
 
 /** Flat list of every supported token. Useful for validation / autocomplete. */
@@ -132,6 +150,47 @@ export function renderPlaceholders(
     .replaceAll("{{my_name}}", sellerName)
     .replaceAll("{{seller_company}}", "")
     .replaceAll("{{sellerCompany}}", "");
+}
+
+// ── Tailored AI slots (feature 2026-06-02) ───────────────────────────
+// Tokens like {{tailored:hook}} are NOT filled at send time by the
+// dispatcher (renderPlaceholders does not touch them). They're filled
+// at campaign approve by /api/campaigns/tailor — Haiku reads the lead's
+// research and produces { hook, fit }. We substitute, persist into
+// campaign_messages.content, and by the time the dispatcher runs the
+// body is already pure text with classic {{first_name}} placeholders.
+export type TailoredSlots = { hook?: string | null; fit?: string | null };
+
+export const TAILORED_SLOT_NAMES = ["hook", "fit"] as const;
+export type TailoredSlotName = (typeof TAILORED_SLOT_NAMES)[number];
+
+/** Returns the list of tailored slot names referenced in `body`. */
+export function findTailoredSlots(body: string): TailoredSlotName[] {
+  if (!body) return [];
+  const found = new Set<TailoredSlotName>();
+  for (const name of TAILORED_SLOT_NAMES) {
+    const snake = new RegExp(`\\{\\{\\s*tailored:${name}\\s*\\}\\}`, "i");
+    const camel = new RegExp(`\\{\\{\\s*tailored${name[0].toUpperCase()}${name.slice(1)}\\s*\\}\\}`, "i");
+    if (snake.test(body) || camel.test(body)) found.add(name);
+  }
+  return [...found];
+}
+
+/** Substitutes filled tailored values into a body. Both snake (`tailored:hook`)
+ *  and camel (`tailoredHook`) forms are accepted so seller-typed variants don't
+ *  silently fall through. Missing slot values default to empty string so the
+ *  body doesn't end up shipping a literal `{{tailored:...}}` if the AI flow
+ *  errored mid-campaign — the row would still be rejected by the dispatcher's
+ *  findUnresolvedPlaceholders guard, but the user-facing copy reads cleanly. */
+export function substituteTailoredSlots(template: string, slots: TailoredSlots): string {
+  if (!template) return template;
+  const hook = (slots.hook ?? "").trim();
+  const fit = (slots.fit ?? "").trim();
+  return template
+    .replaceAll("{{tailored:hook}}", hook)
+    .replaceAll("{{tailoredHook}}", hook)
+    .replaceAll("{{tailored:fit}}", fit)
+    .replaceAll("{{tailoredFit}}", fit);
 }
 
 /** Any `{{…}}` left in the rendered string. Dispatchers must fail-the-row

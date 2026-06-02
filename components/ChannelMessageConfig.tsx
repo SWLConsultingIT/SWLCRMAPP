@@ -299,27 +299,46 @@ function PlaceholdersHint({
       {open && (
         <div className="px-4 pb-4 pt-1 grid grid-cols-1 sm:grid-cols-2 gap-3"
           style={{ borderTop: `1px solid ${C.border}` }}>
-          {PLACEHOLDER_GROUPS.map(g => (
+          {PLACEHOLDER_GROUPS.map(g => {
+            // Tailored AI slots get the gold pill + sparkle treatment so
+            // the seller can tell at a glance they're AI-filled per lead,
+            // not static substitution. Detection is structural (any token
+            // starting with `{{tailored:` or `{{tailored` camelCase) to
+            // future-proof against new slot names.
+            const isTailored = g.tokens.some(t => /^\{\{tailored/i.test(t));
+            return (
             <div key={g.label} className="rounded-lg p-2.5"
-              style={{ backgroundColor: C.bg, border: `1px solid ${C.border}` }}>
-              <p className="text-[11px] font-bold" style={{ color: C.textPrimary }}>{g.label}</p>
+              style={{
+                backgroundColor: isTailored ? `color-mix(in srgb, ${gold} 6%, transparent)` : C.bg,
+                border: `1px solid ${isTailored ? `color-mix(in srgb, ${gold} 35%, transparent)` : C.border}`,
+              }}>
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <p className="text-[11px] font-bold" style={{ color: isTailored ? gold : C.textPrimary }}>{g.label}</p>
+                {isTailored && (
+                  <span className="text-[8.5px] font-bold uppercase tracking-wider px-1 py-0.5 rounded"
+                    style={{ backgroundColor: gold, color: "#1A1A2E" }}>
+                    AI · per lead
+                  </span>
+                )}
+              </div>
               <p className="text-[10px] mb-1.5" style={{ color: C.textMuted }}>{g.description}</p>
               <div className="flex flex-wrap gap-1">
                 {g.tokens.map(tok => (
                   <button key={tok} onClick={() => copy(tok)}
                     className="text-[10px] font-mono px-1.5 py-0.5 rounded border transition-[background-color,color]"
                     style={{
-                      borderColor: copied === tok ? gold : C.border,
-                      color: copied === tok ? gold : C.textBody,
-                      backgroundColor: copied === tok ? `color-mix(in srgb, ${gold} 10%, transparent)` : C.card,
+                      borderColor: copied === tok ? gold : (isTailored ? `color-mix(in srgb, ${gold} 50%, transparent)` : C.border),
+                      color: copied === tok || isTailored ? gold : C.textBody,
+                      backgroundColor: copied === tok ? `color-mix(in srgb, ${gold} 15%, transparent)` : (isTailored ? `color-mix(in srgb, ${gold} 4%, var(--c-card))` : C.card),
                     }}
-                    title="Click to copy">
+                    title={isTailored ? "Click to copy. AI fills this per lead at campaign approve (one Haiku call per lead × first-touch step)." : "Click to copy"}>
                     {copied === tok ? "Copied!" : tok}
                   </button>
                 ))}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

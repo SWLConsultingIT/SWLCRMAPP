@@ -209,6 +209,12 @@ export async function POST(req: NextRequest) {
 
   // 4. Create campaigns and messages for each lead
   let campaignsCreated = 0;
+  // Track every campaign id we create in this approve so we can run the
+  // tailor pass at the end (feature 2026-06-02: AI fills {{tailored:hook}}
+  // and {{tailored:fit}} per lead). The tailor endpoint is a no-op for
+  // campaigns whose templates have no slots, so this list is safe to
+  // pass through regardless.
+  const createdCampaignIds: string[] = [];
   const errors: string[] = [];
 
   for (const leadId of leadIds) {
@@ -349,6 +355,43 @@ export async function POST(req: NextRequest) {
       .eq("id", leadId);
 
     campaignsCreated++;
+    createdCampaignIds.push(campaign.id);
+  }
+
+  // 4b. Tailor pass — for each newly created campaign, fill the AI slots
+  //     (`{{tailored:hook}}`, `{{tailored:fit}}`) on its first-touch
+  //     messages. Per Fran's spec (2026-06-02): synchronous — block until
+  //     done so the seller sees fully-rendered messages on approve.
+  //     Concurrency-5 here keeps the rate under Anthropic's tier limit
+  //     while still finishing a 100-lead campaign in ~30-60s. The tailor
+  //     route itself is idempotent + no-ops for templates without slots,
+  //     so this is safe to call unconditionally.
+  if (createdCampaignIds.length > 0) {
+    const origin = req.nextUrl.origin;
+    const cookieHeader = req.headers.get("cookie") ?? "";
+    const TAILOR_CONCURRENCY = 5;
+    let cursor = 0;
+    let tailoredCount = 0;
+    async function tailorWorker() {
+      while (true) {
+        const idx = cursor++;
+        if (idx >= createdCampaignIds.length) return;
+        const cid = createdCampaignIds[idx];
+        try {
+          const r = await fetch(`${origin}/api/campaigns/tailor`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", cookie: cookieHeader },
+            body: JSON.stringify({ campaignId: cid }),
+          });
+          if (r.ok) {
+            const body = await r.json().catch(() => ({})) as { tailored?: number };
+            tailoredCount += body.tailored ?? 0;
+          }
+        } catch { /* swallow — campaign is still usable without tailoring */ }
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(TAILOR_CONCURRENCY, createdCampaignIds.length) }, () => tailorWorker()));
+    void tailoredCount; // reserved — could surface in the response if the UI wants to show "AI-tailored X messages"
   }
 
   // 5. Mark the request as approved
