@@ -1316,24 +1316,35 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                 <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>
                   Review
                 </span>
-                <button
-                  onClick={() => review("approved")}
-                  disabled={working || selected.reviewStatus === "approved"}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-85"
-                  style={{ backgroundColor: `color-mix(in srgb, ${C.green} 16%, transparent)`, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 32%, transparent)` }}
-                  title={t("inbox.action.markReviewed")}
-                >
-                  <Check size={12} /> Mark reviewed
-                </button>
-                <button
-                  onClick={() => review("rejected")}
-                  disabled={working || selected.reviewStatus === "rejected"}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-85"
-                  style={{ backgroundColor: `color-mix(in srgb, ${C.red} 14%, transparent)`, color: C.red, border: `1px solid color-mix(in srgb, ${C.red} 30%, transparent)` }}
-                  title={t("inbox.action.reject")}
-                >
-                  <XIcon size={12} /> Reject
-                </button>
+                {isPending(selected) ? (
+                  <>
+                    <button
+                      onClick={() => review("approved")}
+                      disabled={working}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-85"
+                      style={{ backgroundColor: `color-mix(in srgb, ${C.green} 16%, transparent)`, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 32%, transparent)` }}
+                      title={t("inbox.action.markReviewed")}
+                    >
+                      <Check size={12} /> Mark reviewed
+                    </button>
+                    <button
+                      onClick={() => review("rejected")}
+                      disabled={working}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-85"
+                      style={{ backgroundColor: `color-mix(in srgb, ${C.red} 14%, transparent)`, color: C.red, border: `1px solid color-mix(in srgb, ${C.red} 30%, transparent)` }}
+                      title={t("inbox.action.reject")}
+                    >
+                      <XIcon size={12} /> Reject
+                    </button>
+                  </>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg"
+                    style={{ color: selected.reviewStatus === "rejected" ? C.red : C.green, backgroundColor: `color-mix(in srgb, ${selected.reviewStatus === "rejected" ? C.red : C.green} 12%, transparent)` }}>
+                    {selected.reviewStatus === "rejected"
+                      ? <><XIcon size={12} /> {locale === "es" ? "Rechazada" : "Rejected"}</>
+                      : <><Check size={12} /> {locale === "es" ? "Revisada" : "Reviewed"}</>}
+                  </span>
+                )}
                 {selected.reviewStatus && selected.reviewStatus !== "pending" && (
                   <button
                     onClick={() => review("pending")}
