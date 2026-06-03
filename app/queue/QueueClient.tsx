@@ -339,10 +339,13 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
   // History is first (sellers open Notifications to triage replies +
   // acceptances, not to start cold calls). Pending Reviews + Updates tabs
   // were deleted entirely. Today's Focus card was removed too.
+  // `id` is the stable render index (0=replies, 1=calls, 2=chat) — used by the
+  // tab===N render blocks and deep links. The array order is just the visual
+  // order: conversations first (Replies, Team Chat), call queue last.
   const tabs = [
-    { label: "History", count: newReplies.length,   color: C.blue,    reviewCount: needsReviewCount },
-    { label: "Calls",   count: pendingCalls.length, color: "#F97316", reviewCount: 0 },
-    { label: "Chat",    count: 0,                    color: "#7C3AED", reviewCount: 0 },
+    { id: 0, label: "Lead Replies", count: newReplies.length,   color: C.blue,    reviewCount: needsReviewCount, dividerBefore: false },
+    { id: 2, label: "Team Chat",    count: 0,                    color: "#7C3AED", reviewCount: 0,                dividerBefore: false },
+    { id: 1, label: "Calls",        count: pendingCalls.length, color: "#F97316", reviewCount: 0,                dividerBefore: true },
   ];
 
   return (
@@ -363,10 +366,12 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
 
       {/* Tabs + search */}
       <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
-        {tabs.map((t, i) => {
-          const isActive = tab === i;
+        {tabs.map((t) => {
+          const isActive = tab === t.id;
           return (
-            <button key={t.label} onClick={() => setTab(i)}
+            <div key={t.label} className="flex items-center">
+            {t.dividerBefore && <div className="w-px h-5 mx-1.5" style={{ backgroundColor: C.border }} />}
+            <button onClick={() => setTab(t.id)}
               className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-[opacity,transform,box-shadow,background-color,border-color] relative"
               style={{ color: isActive ? t.color : C.textMuted }}>
               {t.label}
@@ -384,6 +389,7 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
               )}
               {isActive && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: t.color }} />}
             </button>
+            </div>
           );
         })}
         <div className="flex-1" />
@@ -609,11 +615,12 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
                               same brief that lives on the lead detail page so the
                               seller doesn't have to leave the Queue to read it. */}
                           {call.talkingPoints && call.talkingPoints.length > 0 && (
-                            <div className="absolute right-0 top-full mt-2 w-96 z-50 hidden group-hover/call:block pointer-events-none">
-                              <div className="rounded-xl border p-3 shadow-lg"
+                            <div className="absolute right-0 top-full mt-2 w-80 z-[60] hidden group-hover/call:block pointer-events-none">
+                              <div className="rounded-xl border p-3.5"
                                 style={{
-                                  background: "linear-gradient(135deg, color-mix(in srgb, var(--brand, #c9a83a) 6%, var(--card)), var(--card))",
-                                  borderColor: "color-mix(in srgb, var(--brand, #c9a83a) 50%, transparent)",
+                                  backgroundColor: C.card,
+                                  borderColor: "color-mix(in srgb, var(--brand, #c9a83a) 45%, transparent)",
+                                  boxShadow: "0 16px 40px -12px rgba(0,0,0,0.35), 0 0 0 1px color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)",
                                 }}>
                                 <p className="text-[10px] font-bold uppercase tracking-wider mb-2"
                                   style={{ color: "var(--brand, #c9a83a)", letterSpacing: "0.08em" }}>
