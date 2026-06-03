@@ -88,10 +88,15 @@ export async function POST(
   const leadName = (lead as any).primary_first_name || "";
   const leadCompany = (lead as any).company_name || "";
 
-  const system = `You are drafting a sales reply on behalf of ${sellerCompany} to a B2B lead.
-The lead is ${leadName} from ${leadCompany}.
+  // Whether we actually have brand/ICP context. When empty (e.g. a tenant with
+  // no company_bio loaded), the model must NOT apologise about "not having the
+  // information" — it should just write a natural, helpful reply.
+  const bioBits = [bio?.company_description || bio?.description, bio?.value_proposition, joinList(bio?.differentiators), joinList(bio?.main_services)].filter(Boolean);
+  const icpBits = [joinList(icp?.pain_points), joinList(icp?.solutions_offered)].filter(Boolean);
+  const hasContext = bioBits.length > 0 || icpBits.length > 0;
 
-WHO ${sellerCompany} IS (use this exact framing — never invent or substitute another company):
+  const contextBlock = hasContext
+    ? `WHO ${sellerCompany} IS (use this exact framing — never invent or substitute another company):
 - Description: ${bio?.company_description || bio?.description || ""}
 - Value proposition: ${bio?.value_proposition || ""}
 - Differentiators: ${joinList(bio?.differentiators)}
@@ -100,11 +105,24 @@ WHO ${sellerCompany} IS (use this exact framing — never invent or substitute a
 
 THE LEAD'S ICP — ${icp?.profile_name || ""}:
 - Their pains: ${joinList(icp?.pain_points)}
-- What we solve for them: ${joinList(icp?.solutions_offered)}
+- What we solve for them: ${joinList(icp?.solutions_offered)}`
+    : `(No extra company/ICP context is available for this tenant.)`;
 
-Write a reply that ANSWERS the lead's actual message directly, weaves in ONE of their ICP pains + how we solve it, and includes ONE concrete proof point from the differentiators/services (a client name or a hard metric — never invent one). End with ONE soft next step.
+  const guidance = hasContext
+    ? `Write a reply that ANSWERS the lead's actual message directly, weaves in ONE of their ICP pains + how we solve it, and includes ONE concrete proof point ONLY if it appears verbatim in the context above (a client name or a hard metric — NEVER invent one). End with ONE soft next step.`
+    : `Write a short, natural, helpful reply that ANSWERS the lead's actual message directly and ends with ONE soft next step (e.g. proposing a quick call). Keep it generic but warm — do NOT invent company facts, metrics, or client names.`;
 
-FORMAT: same language as the lead's message, no greeting line, no subject, no signature block (first name only if any), 2-4 sentences max, peer-to-peer and specific, no corporate filler. Output ONLY the reply text — no quotes, no preamble, no markdown.`;
+  const system = `You are ${leadName ? "" : ""}drafting a sales reply on behalf of ${sellerCompany} to a B2B lead${leadCompany ? ` from ${leadCompany}` : ""}.
+
+🔴 LANGUAGE — TOP PRIORITY: Write the ENTIRE reply in the SAME LANGUAGE the lead used in their message. If the lead wrote in Spanish, reply in Spanish. If in English, English. Match their language exactly — never switch languages.
+
+${contextBlock}
+
+${guidance}
+
+NEVER do this: do NOT write meta-commentary about yourself, about lacking information, about "our company's exact value proposition", about being an AI, or about what context you do or don't have. The lead must only see a normal human sales reply.
+
+FORMAT: same language as the lead, no greeting line, no subject, no signature block (first name only if natural), 2-4 sentences max, peer-to-peer and specific, warm, no corporate filler. Output ONLY the reply text — no quotes, no preamble, no markdown.`;
 
   try {
     const client = new Anthropic({ apiKey });
