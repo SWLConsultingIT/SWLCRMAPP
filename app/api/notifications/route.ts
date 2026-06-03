@@ -11,12 +11,15 @@ export async function GET() {
   if (!scope.userId) return NextResponse.json({ notifications: [], unread: 0 });
 
   const svc = getSupabaseService();
-  const { data } = await svc
+  let q = svc
     .from("notifications")
     .select("id, type, actor_name, lead_id, body, link, read_at, created_at")
-    .eq("recipient_user_id", scope.userId)
-    .order("created_at", { ascending: false })
-    .limit(50);
+    .eq("recipient_user_id", scope.userId);
+  // Scope to the tenant the user is currently in: a tag/mention created in
+  // Company B must not surface (or count as unread) while they're switched to
+  // Company A. super_admin (no active scope) sees everything.
+  if (scope.isScoped && scope.companyBioId) q = q.eq("company_bio_id", scope.companyBioId);
+  const { data } = await q.order("created_at", { ascending: false }).limit(50);
 
   const notifications = data ?? [];
   const unread = notifications.filter(n => !n.read_at).length;
