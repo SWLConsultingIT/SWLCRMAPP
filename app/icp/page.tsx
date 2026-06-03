@@ -59,6 +59,7 @@ type IcpProfile = {
   executed_at: string | null;
   leads_uploaded: number | null;
   leads_requested: number | null;
+  created_by_email: string | null;
 };
 
 function formatRelative(iso: string | null | undefined): string | null {
@@ -428,8 +429,13 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
               </span>
             )}
           </div>
-          <p className="text-xs flex items-center gap-3" style={{ color: C.textMuted }}>
+          <p className="text-xs flex items-center gap-3 flex-wrap" style={{ color: C.textMuted }}>
             <span>Created {new Date(profile.created_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</span>
+            {profile.created_by_email && (
+              <span className="inline-flex items-center gap-1">
+                <Users size={11} /> by {profile.created_by_email}
+              </span>
+            )}
             {profile.executed_at && (
               <span style={{ color: C.green }}>
                 · Leads uploaded {new Date(profile.executed_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
@@ -862,9 +868,12 @@ export default function LeadGenPage() {
       throw new Error("No Company Bio found. Please create one first at /company-bios before submitting a ticket.");
     }
 
+    // Stamp the creator so the ICP shows who/which account made it.
+    const { data: { user } } = await supabase.auth.getUser();
+
     const { error } = await supabase
       .from("icp_profiles")
-      .insert({ ...form, company_bio_id: bioId, status: "pending" });
+      .insert({ ...form, company_bio_id: bioId, status: "pending", created_by: user?.id ?? null, created_by_email: user?.email ?? null });
 
     if (error) throw error;
     setShowForm(false);

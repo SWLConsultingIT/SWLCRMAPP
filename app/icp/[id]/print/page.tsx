@@ -145,7 +145,12 @@ export default async function IcpPrintPage({ params }: { params: Promise<{ id: s
             <h1 style={{ fontSize: 24, fontWeight: 800, color: "#111827", margin: 0, letterSpacing: "-0.01em" }}>{icp.profile_name}</h1>
             <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 6, color: st.color, backgroundColor: `color-mix(in srgb, ${st.color} 12%, white)` }}>{st.label}</span>
           </div>
-          {createdAt && <p style={{ fontSize: 11, color: "#9CA3AF", margin: "6px 0 0" }}>Created {createdAt}</p>}
+          {(createdAt || icp.created_by_email) && (
+            <p style={{ fontSize: 11, color: "#9CA3AF", margin: "6px 0 0" }}>
+              {createdAt && <>Created {createdAt}</>}
+              {icp.created_by_email && <> · by {icp.created_by_email}</>}
+            </p>
+          )}
         </div>
 
         {/* Overview grid */}
