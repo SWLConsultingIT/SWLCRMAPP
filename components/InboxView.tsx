@@ -301,6 +301,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
     nextStepChannel: string | null;
     nextStepDueAt: string | null;
     stopReason: string | null;
+    haltedByReply?: boolean;
   } | null>(null);
   // Collapse the conversation list so the thread can take the full width.
   // Persisted in sessionStorage so it survives navigating into a lead and
