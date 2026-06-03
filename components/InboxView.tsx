@@ -478,6 +478,26 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
     }
   }
 
+  // follow_up is the only class that RESUMES the flow, so make it deliberate:
+  // a confirm dialog that spells out what happens, with a "don't show again"
+  // opt-out persisted in localStorage. (Fran 2026-06-03.)
+  const FOLLOWUP_OFF_KEY = "swl-followup-confirm-off";
+  const [confirmFollowUpId, setConfirmFollowUpId] = useState<string | null>(null);
+  const [dontAskAgain, setDontAskAgain] = useState(false);
+  function requestFollowUp(replyId: string) {
+    let off = false;
+    try { off = typeof window !== "undefined" && window.localStorage.getItem(FOLLOWUP_OFF_KEY) === "1"; } catch { /* */ }
+    if (off) { void quickClassify(replyId, "follow_up"); return; }
+    setDontAskAgain(false);
+    setConfirmFollowUpId(replyId);
+  }
+  function confirmFollowUpNow() {
+    const replyId = confirmFollowUpId;
+    if (dontAskAgain) { try { window.localStorage.setItem(FOLLOWUP_OFF_KEY, "1"); } catch { /* */ } }
+    setConfirmFollowUpId(null);
+    if (replyId) void quickClassify(replyId, "follow_up");
+  }
+
   // Bulk action over the currently-selected replies. Reuses the per-reply
   // review endpoint so the campaign cascade (negative → closed_lost + 90d
   // suppression, positive → qualified) runs for each. One refresh at the end.
@@ -818,7 +838,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                         <button
                           type="button"
                           disabled={working}
-                          onClick={(e) => { e.stopPropagation(); void quickClassify(r.id, "follow_up"); }}
+                          onClick={(e) => { e.stopPropagation(); requestFollowUp(r.id); }}
                           title={t("inbox.action.markFollowUp")}
                           className="w-6 h-6 inline-flex items-center justify-center rounded-md transition-opacity hover:opacity-85 disabled:opacity-40"
                           style={{ backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#D97706", border: "1px solid color-mix(in srgb, #D97706 30%, transparent)" }}
@@ -1421,6 +1441,40 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
           )}
         </div>
       </div>
+
+      {/* follow_up confirm — spells out that this RESUMES the flow. */}
+      {confirmFollowUpId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.45)" }} onClick={() => setConfirmFollowUpId(null)}>
+          <div className="rounded-2xl border w-full max-w-[420px] p-5" style={{ backgroundColor: C.card, borderColor: C.border }} onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, #D97706 16%, transparent)", color: "#D97706" }}><Radio size={14} /></span>
+              <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>¿Marcar como Follow-up?</h3>
+            </div>
+            <p className="text-[12.5px] leading-relaxed mb-2" style={{ color: C.textBody }}>
+              Esto <b>RETOMA el flujo</b> para este lead: aunque ya te respondió, la secuencia <b>vuelve a correr</b> y le va a seguir mandando los próximos pasos automáticos.
+            </p>
+            <p className="text-[12px] leading-relaxed mb-3" style={{ color: C.textMuted }}>
+              Es la única clasificación que reanuda una campaña. Si el lead vuelve a escribir, el flujo se frena de nuevo solo.
+            </p>
+            <label className="flex items-center gap-2 text-[12px] mb-4 cursor-pointer" style={{ color: C.textMuted }}>
+              <input type="checkbox" checked={dontAskAgain} onChange={(e) => setDontAskAgain(e.target.checked)} />
+              No volver a mostrar este aviso
+            </label>
+            <div className="flex items-center justify-end gap-2">
+              <button type="button" onClick={() => setConfirmFollowUpId(null)} disabled={working}
+                className="text-xs font-semibold px-3 py-2 rounded-lg border transition-opacity hover:opacity-85"
+                style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
+                Cancelar
+              </button>
+              <button type="button" onClick={confirmFollowUpNow} disabled={working}
+                className="text-xs font-semibold px-3 py-2 rounded-lg transition-opacity hover:opacity-85 disabled:opacity-50"
+                style={{ color: "#fff", backgroundColor: "#D97706" }}>
+                Sí, retomar el flujo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

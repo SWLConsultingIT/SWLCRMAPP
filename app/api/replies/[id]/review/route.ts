@@ -141,5 +141,47 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await Promise.all(updates).catch(() => { /* best-effort */ });
   }
 
-  return NextResponse.json({ ok: true, cascadeApplied: cascadeOn });
+  // ─── follow_up override (Fran 2026-06-03): KEEP the sequence running ────────
+  // The seller deliberately decides this reply should NOT stop the flow. We
+  // reuse the dispatcher's `reengaged` bypass: reopen the campaign, re-queue the
+  // next pending step, and stamp reengaged_at=now so the OLD reply no longer
+  // blocks. A NEW reply received after this moment re-stops the flow via the
+  // normal handler. This is the ONLY reply class that resumes a flow, and always
+  // by an explicit human choice.
+  let followUpApplied = false;
+  if (classOverride === "follow_up" && replyRow) {
+    const campaignId = (replyRow as any).campaign_id as string | null;
+    const now = new Date().toISOString();
+    try {
+      if (campaignId) {
+        const { data: campRow } = await supabase
+          .from("campaigns").select("metadata").eq("id", campaignId).maybeSingle();
+        const md = ((campRow as any)?.metadata ?? {}) as Record<string, unknown>;
+        await supabase.from("campaigns").update({
+          status: "active",
+          stop_reason: null,
+          metadata: { ...md, reengaged: true, reengaged_at: now, follow_up_resumed_at: now },
+        }).eq("id", campaignId);
+        // Re-queue the next pending step so the dispatcher picks it up.
+        const { data: next } = await supabase
+          .from("campaign_messages")
+          .select("id, metadata")
+          .eq("campaign_id", campaignId)
+          .in("status", ["draft", "queued", "paused", "cancelled", "skipped"])
+          .order("step_number", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (next) {
+          const nmd = ((next as any).metadata ?? {}) as Record<string, unknown>;
+          await supabase.from("campaign_messages").update({
+            status: "queued",
+            metadata: { ...nmd, eligible_at: now, reengaged: true, queued_by: "follow_up" },
+          }).eq("id", (next as any).id);
+        }
+        followUpApplied = true;
+      }
+    } catch { /* best-effort */ }
+  }
+
+  return NextResponse.json({ ok: true, cascadeApplied: cascadeOn, followUpApplied });
 }
