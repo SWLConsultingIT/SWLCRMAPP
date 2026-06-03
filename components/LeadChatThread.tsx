@@ -7,9 +7,10 @@
 // Mounted inside the lead detail's "Recent Activity" tab via a Timeline/Chat
 // toggle (Fran 2026-06-02).
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Share2, Mail, Phone, Smartphone, MessageSquare } from "lucide-react";
 import { C } from "@/lib/design";
+import InboxComposer from "./InboxComposer";
 
 type ThreadEntry = {
   id: string;
@@ -57,10 +58,9 @@ export default function LeadChatThread({ leadId, leadName }: { leadId?: string; 
   const [thread, setThread] = useState<ThreadEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (!leadId) { setThread([]); setLoading(false); return; }
+  const reload = useCallback(() => {
+    if (!leadId) { setThread([]); setLoading(false); return () => {}; }
     let cancelled = false;
-    setLoading(true);
     fetch(`/api/inbox/thread/${leadId}`, { cache: "no-store" })
       .then(r => (r.ok ? r.json() : { thread: [] }))
       .then(data => { if (!cancelled) setThread(Array.isArray(data.thread) ? data.thread : []); })
@@ -68,6 +68,15 @@ export default function LeadChatThread({ leadId, leadName }: { leadId?: string; 
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [leadId]);
+
+  useEffect(() => {
+    setLoading(true);
+    const cleanup = reload();
+    return cleanup;
+  }, [reload]);
+
+  // Latest inbound channel → tells the composer how to send.
+  const lastInboundChannel = [...thread].reverse().find(e => e.direction === "inbound")?.channel ?? null;
 
   if (loading) {
     return (
@@ -83,11 +92,14 @@ export default function LeadChatThread({ leadId, leadName }: { leadId?: string; 
 
   if (thread.length === 0) {
     return (
-      <div className="rounded-2xl border py-14 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <p className="text-sm font-semibold" style={{ color: C.textBody }}>Sin mensajes todavía</p>
-        <p className="text-xs mt-1" style={{ color: C.textMuted }}>
-          Cuando el lead responda o le mandes algo, va a aparecer acá.
-        </p>
+      <div className="space-y-3">
+        <div className="rounded-2xl border py-14 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <p className="text-sm font-semibold" style={{ color: C.textBody }}>Sin mensajes todavía</p>
+          <p className="text-xs mt-1" style={{ color: C.textMuted }}>
+            Cuando el lead responda o le mandes algo, va a aparecer acá.
+          </p>
+        </div>
+        {leadId && <InboxComposer leadId={leadId} channel={lastInboundChannel} onSent={reload} />}
       </div>
     );
   }
@@ -96,6 +108,7 @@ export default function LeadChatThread({ leadId, leadName }: { leadId?: string; 
   let lastDay: string | null = null;
 
   return (
+    <div className="space-y-3">
     <div className="rounded-2xl border px-4 py-4 space-y-3" style={{ backgroundColor: `color-mix(in srgb, ${C.surface} 40%, ${C.bg})`, borderColor: C.border }}>
       {thread.map(entry => {
         const isOut = entry.direction === "outbound";
@@ -153,6 +166,8 @@ export default function LeadChatThread({ leadId, leadName }: { leadId?: string; 
           </div>
         );
       })}
+    </div>
+    {leadId && <InboxComposer leadId={leadId} channel={lastInboundChannel} onSent={reload} />}
     </div>
   );
 }

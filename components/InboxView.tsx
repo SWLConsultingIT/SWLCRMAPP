@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -12,6 +12,7 @@ import {
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
 import { useLocale } from "@/lib/i18n";
+import InboxComposer from "./InboxComposer";
 
 type InboxReply = {
   id: string;
@@ -391,15 +392,12 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
 
   // Fetch the full thread when the selected reply changes. Cancellation token
   // guards against out-of-order responses if the seller clicks quickly.
-  useEffect(() => {
-    if (!selected?.leadId) { setThread([]); setStage(null); return; }
-    // Reset the channel filter whenever the selected lead changes so a
-    // stale "Email only" view doesn't persist across leads.
-    setThreadChannel("all");
+  const selectedLeadId = selected?.leadId ?? null;
+  const reloadThread = useCallback(() => {
+    if (!selectedLeadId) { setThread([]); setStage(null); return () => {}; }
     let cancelled = false;
     setThreadLoading(true);
-    setStage(null);
-    fetch(`/api/inbox/thread/${selected.leadId}`, { cache: "no-store" })
+    fetch(`/api/inbox/thread/${selectedLeadId}`, { cache: "no-store" })
       .then(r => r.ok ? r.json() : { thread: [], stage: null })
       .then(data => {
         if (cancelled) return;
@@ -409,7 +407,17 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
       .catch(() => { if (!cancelled) { setThread([]); setStage(null); } })
       .finally(() => { if (!cancelled) setThreadLoading(false); });
     return () => { cancelled = true; };
-  }, [selected?.leadId]);
+  }, [selectedLeadId]);
+
+  useEffect(() => {
+    if (!selectedLeadId) { setThread([]); setStage(null); return; }
+    // Reset the channel filter whenever the selected lead changes so a
+    // stale "Email only" view doesn't persist across leads.
+    setThreadChannel("all");
+    setStage(null);
+    const cleanup = reloadThread();
+    return cleanup;
+  }, [selectedLeadId, reloadThread]);
 
   function selectByIdx(idx: number) {
     if (idx < 0 || idx >= filtered.length) return;
@@ -1311,6 +1319,19 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                   })()
                 )}
               </div>
+
+              {/* Composer — reply out the lead's channel + AI draft helper.
+                  Sits below the conversation, above the review actions. */}
+              {selected.leadId && (
+                <div className="px-5 py-3 border-t" style={{ borderColor: C.border }}>
+                  <InboxComposer
+                    leadId={selected.leadId}
+                    channel={(selected as any).channel ?? null}
+                    onSent={reloadThread}
+                    compact
+                  />
+                </div>
+              )}
 
               {/* Actions */}
               <div className="px-5 py-3 border-t flex items-center gap-2 flex-wrap" style={{ borderColor: C.border }}>
