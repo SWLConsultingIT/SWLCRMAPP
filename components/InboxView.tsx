@@ -778,6 +778,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                           top-right of the row so it doesn't fight for layout.
                           One click classifies AND marks reviewed, freeing the
                           seller from opening every thread. */}
+                      {isPending(r) && (
                       <div className="absolute top-2 right-2 opacity-0 group-hover/ix:opacity-100 transition-opacity flex items-center gap-1 pointer-events-auto">
                         <button
                           type="button"
@@ -810,6 +811,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                           <HelpCircle size={11} />
                         </button>
                       </div>
+                      )}
                     </li>
                   );
                 })}
