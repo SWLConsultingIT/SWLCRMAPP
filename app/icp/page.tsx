@@ -17,6 +17,29 @@ import AddToFlowModal from "@/components/icp/AddToFlowModal";
 const gold = C.gold;
 const goldLight = C.goldGlow;
 
+// Download an ICP as a branded PDF WITHOUT leaving the page: load the
+// chrome-less /icp/[id]/print view into a hidden iframe and fire the browser's
+// print/save-as-PDF dialog on it. The user stays on /icp the whole time.
+function printIcpPdf(id: string) {
+  const PREV = document.getElementById("icp-print-frame");
+  if (PREV) PREV.remove();
+  const iframe = document.createElement("iframe");
+  iframe.id = "icp-print-frame";
+  iframe.setAttribute("aria-hidden", "true");
+  iframe.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;";
+  iframe.src = `/icp/${id}/print`;
+  iframe.onload = () => {
+    // Small delay so fonts/styles settle before the print snapshot.
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch { /* popup/sandbox edge — ignore */ }
+    }, 350);
+  };
+  document.body.appendChild(iframe);
+}
+
 type IcpProfile = {
   id: string;
   company_bio_id: string | null;
@@ -412,7 +435,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => window.open(`/icp/${profile.id}/print`, "_blank")}
+          <button onClick={() => printIcpPdf(profile.id)}
             title="Download as branded PDF"
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
             style={{ backgroundColor: C.card, color: C.textBody, border: `1px solid ${C.border}` }}>

@@ -23,7 +23,9 @@ import { ToastProvider } from "@/lib/toast";
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const isPublic = ["/login", "/signup", "/forgot-password", "/onboarding"].includes(pathname);
-  const isPrint = pathname === "/reports/print";
+  // Any /print route renders chrome-less (no sidebar/header) so the exported
+  // PDF is just the document. Covers /reports/print and /icp/[id]/print.
+  const isPrint = pathname.endsWith("/print");
 
   if (isPublic || isPrint) {
     return <ToastProvider>{children}</ToastProvider>;
