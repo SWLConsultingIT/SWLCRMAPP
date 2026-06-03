@@ -597,6 +597,19 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const sellerDailyLimit = (campaign.sellers?.linkedin_daily_limit as number | null | undefined) ?? null;
   const flowMetrics = await getFlowMetrics(allCampaignIds, flowLeadIds, sequence, leadInfo, channels, pct, campRows, sellerDailyLimit);
 
+  // Attach each lead's reply bucket to the kanban campaigns so the board can
+  // badge POSITIVE / NEGATIVE / REPLIED instead of stale dispatch plumbing.
+  // Source = flowMetrics.drill.replied (per-lead positive/question/negative/
+  // other), which is in scope here. 2026-06-03 (re-added in-scope after the
+  // earlier out-of-scope crash).
+  const replyClassByLead = new Map(
+    (flowMetrics?.drill?.replied ?? []).map((r: { id: string; detail?: string | null }) => [r.id, r.detail ?? null]),
+  );
+  for (const c of allGroupCampaigns) {
+    const lid = (c as { leads?: { id?: string } }).leads?.id;
+    (c as { reply_class?: string | null }).reply_class = lid ? (replyClassByLead.get(lid) ?? null) : null;
+  }
+
   return (
     <div className="p-6 w-full">
       {/* Breadcrumb */}
