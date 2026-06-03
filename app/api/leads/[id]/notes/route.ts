@@ -13,6 +13,7 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, canViewAllTenantData } from "@/lib/scope";
+import { createNotifications } from "@/lib/notify";
 import { NextRequest, NextResponse } from "next/server";
 
 async function authorDisplayName(scope: { userId: string | null }): Promise<string> {
@@ -45,14 +46,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!scope.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const { content } = await req.json().catch(() => ({}));
+  const { content, mentioned_user_ids } = await req.json().catch(() => ({}));
   if (!content?.trim()) return NextResponse.json({ error: "Content required" }, { status: 400 });
   if (content.length > 4000) return NextResponse.json({ error: "Note too long (max 4000)" }, { status: 400 });
 
   const svc = getSupabaseService();
-  if (!(await assertLeadInScope(svc, id, scope))) {
+  // Fetch the lead once: scope check + tenant id + label for the @mention ping.
+  const { data: lead } = await svc.from("leads").select("company_bio_id, first_name, last_name, company").eq("id", id).maybeSingle();
+  const leadBio = (lead as { company_bio_id?: string | null } | null)?.company_bio_id ?? null;
+  if (scope.isScoped && leadBio !== scope.companyBioId) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
+
+  const mentions = Array.isArray(mentioned_user_ids)
+    ? mentioned_user_ids.filter((x: unknown): x is string => typeof x === "string")
+    : [];
 
   const author_name = await authorDisplayName(scope);
   const { data, error } = await svc
@@ -62,11 +70,28 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       content: content.trim(),
       created_by: scope.userId,
       author_name,
+      mentioned_user_ids: mentions.length ? mentions : null,
     })
-    .select("id, content, created_at, created_by, author_name")
+    .select("id, content, created_at, created_by, author_name, mentioned_user_ids")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Notify mentioned teammates (excluding the author).
+  if (mentions.length && leadBio) {
+    const l = lead as { first_name?: string | null; last_name?: string | null; company?: string | null };
+    const label = [l.first_name, l.last_name].filter(Boolean).join(" ") || l.company || "a lead";
+    await createNotifications({
+      companyBioId: leadBio,
+      recipientUserIds: mentions,
+      actorUserId: scope.userId,
+      actorName: author_name,
+      type: "mention",
+      leadId: id,
+      body: `mentioned you on ${label}`,
+      link: `/leads/${id}`,
+    });
+  }
   return NextResponse.json({ note: data });
 }
 
@@ -82,7 +107,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data, error } = await svc
     .from("lead_notes")
-    .select("id, content, created_at, created_by, author_name")
+    .select("id, content, created_at, created_by, author_name, mentioned_user_ids")
     .eq("lead_id", id)
     .order("created_at", { ascending: false })
     .limit(100);

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, type ReactElement } from "react";
 import { C } from "@/lib/design";
-import { Mail, PlusCircle, ChevronDown, ChevronUp, MessageSquare, StickyNote, Trash2, Loader2, Paperclip } from "lucide-react";
+import { Mail, PlusCircle, ChevronDown, ChevronUp, MessageSquare, StickyNote, Trash2, Loader2, Paperclip, AtSign } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
 import LeadChatThread from "@/components/LeadChatThread";
 
@@ -34,7 +34,10 @@ type Note = {
   created_at?: string;
   created_by?: string | null;
   author_name?: string | null;
+  mentioned_user_ids?: string[] | null;
 };
+
+type RosterMember = { userId: string; name: string };
 
 function ChannelIcon({ channel, size = 14 }: { channel: string; size?: number }) {
   const s = size > 14 ? "text-base" : "text-sm";
@@ -86,6 +89,22 @@ function timeAgo(iso: string) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+// Highlight "@Name" tokens (for the note's mentioned teammates) in gold.
+function renderNoteText(text: string, names: string[]) {
+  if (!names.length) return text;
+  const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const pattern = new RegExp(`@(?:${names.map(esc).join("|")})`, "g");
+  const out: (string | ReactElement)[] = [];
+  let last = 0, i = 0, m: RegExpExecArray | null;
+  while ((m = pattern.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    out.push(<span key={i++} style={{ color: "var(--brand, #c9a83a)", fontWeight: 600 }}>{m[0]}</span>);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
 export default function ActivityTimeline({ activities, notes: initialNotes, leadId }: { activities: ActivityItem[]; notes: Note[]; leadId?: string }) {
   const [filter, setFilter] = useState<"all" | "messages" | "replies" | "calls">("all");
   // Timeline (event log) vs Chat (read-only conversation thread for this lead).
@@ -97,6 +116,41 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
   const [notes, setNotes] = useState(initialNotes);
   const [noteError, setNoteError] = useState("");
   const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
+  // @mentions: tenant roster + the teammates picked in the current draft.
+  const [roster, setRoster] = useState<RosterMember[]>([]);
+  const [mentioned, setMentioned] = useState<RosterMember[]>([]);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const noteRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    fetch("/api/team/roster").then(r => r.ok ? r.json() : { roster: [] }).then(d => setRoster(d.roster ?? [])).catch(() => {});
+  }, []);
+
+  const rosterMap = new Map(roster.map(m => [m.userId, m.name]));
+  const mentionMatches = mentionQuery !== null
+    ? roster.filter(m => m.name.toLowerCase().includes(mentionQuery.toLowerCase())).slice(0, 6)
+    : [];
+
+  // Detect a trailing "@word" at the caret to drive the mention dropdown.
+  function onNoteChange(value: string) {
+    setNoteText(value);
+    const caret = noteRef.current?.selectionStart ?? value.length;
+    const before = value.slice(0, caret);
+    const m = before.match(/(?:^|\s)@(\w*)$/);
+    setMentionQuery(m ? m[1] : null);
+  }
+
+  function pickMention(member: RosterMember) {
+    const el = noteRef.current;
+    const caret = el?.selectionStart ?? noteText.length;
+    const before = noteText.slice(0, caret).replace(/@(\w*)$/, `@${member.name} `);
+    const after = noteText.slice(caret);
+    const next = before + after;
+    setNoteText(next);
+    setMentionQuery(null);
+    setMentioned(prev => prev.some(p => p.userId === member.userId) ? prev : [...prev, member]);
+    setTimeout(() => { el?.focus(); }, 0);
+  }
 
   // Hydrate notes from /api/leads/[id]/notes on mount so the SSR-passed
   // `initialNotes` (which is the legacy lead.seller_notes single-string)
@@ -110,7 +164,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
         if (!res.ok) return;
         const { notes: rows } = await res.json();
         if (cancelled || !Array.isArray(rows)) return;
-        setNotes(rows.map((r: { id: string; content: string; created_at: string; created_by: string | null; author_name: string | null }) => ({
+        setNotes(rows.map((r: { id: string; content: string; created_at: string; created_by: string | null; author_name: string | null; mentioned_user_ids: string[] | null }) => ({
           id: r.id,
           author: r.author_name ?? "Team",
           author_name: r.author_name,
@@ -118,6 +172,7 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
           time: timeAgo(r.created_at),
           created_at: r.created_at,
           created_by: r.created_by,
+          mentioned_user_ids: r.mentioned_user_ids,
         })));
       } catch {
         /* keep initialNotes on network error */
@@ -497,14 +552,37 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
           </div>
 
           <div className="mb-4">
-            <textarea
-              value={noteText}
-              onChange={e => setNoteText(e.target.value)}
-              placeholder="Add a note about this lead..."
-              rows={3}
-              className="w-full text-sm px-3 py-2 rounded-lg border resize-none"
-              style={{ borderColor: C.border, color: C.textBody }}
-            />
+            <div className="relative">
+              <textarea
+                ref={noteRef}
+                value={noteText}
+                onChange={e => onNoteChange(e.target.value)}
+                placeholder="Add a note… type @ to mention a teammate"
+                rows={3}
+                className="w-full text-sm px-3 py-2 rounded-lg border resize-none"
+                style={{ borderColor: C.border, color: C.textBody }}
+              />
+              {mentionQuery !== null && mentionMatches.length > 0 && (
+                <div className="absolute z-30 left-2 right-2 bottom-full mb-1 rounded-lg border shadow-lg max-h-48 overflow-y-auto"
+                  style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 12px 32px rgba(0,0,0,0.14)" }}>
+                  {mentionMatches.map(m => (
+                    <button key={m.userId} onMouseDown={e => { e.preventDefault(); pickMention(m); }}
+                      className="w-full flex items-center gap-2 text-left px-3 py-2 text-sm transition-colors hover:bg-black/[0.04]" style={{ color: C.textBody }}>
+                      <AtSign size={12} style={{ color: "var(--brand, #c9a83a)" }} /> {m.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {mentioned.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap mt-2">
+                <span className="text-[10px] uppercase tracking-wider" style={{ color: C.textDim }}>Notifying:</span>
+                {mentioned.filter(m => noteText.includes(`@${m.name}`)).map(m => (
+                  <span key={m.userId} className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: `color-mix(in srgb, ${C.gold} 14%, transparent)`, color: C.gold }}>@{m.name}</span>
+                ))}
+              </div>
+            )}
             {noteError && <p className="text-xs mt-1" style={{ color: C.red }}>{noteError}</p>}
             <div className="flex items-center justify-end gap-2 mt-2">
               <button
@@ -513,11 +591,12 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                   if (!leadId || !noteText.trim()) return;
                   setSavingNote(true);
                   setNoteError("");
+                  const ids = mentioned.filter(m => noteText.includes(`@${m.name}`)).map(m => m.userId);
                   try {
                     const res = await fetch(`/api/leads/${leadId}/notes`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ content: noteText.trim() }),
+                      body: JSON.stringify({ content: noteText.trim(), mentioned_user_ids: ids }),
                     });
                     if (res.ok) {
                       const { note } = await res.json();
@@ -532,10 +611,13 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                           time: timeAgo(note.created_at),
                           created_at: note.created_at,
                           created_by: note.created_by,
+                          mentioned_user_ids: note.mentioned_user_ids,
                         },
                         ...prev,
                       ]);
                       setNoteText("");
+                      setMentioned([]);
+                      setMentionQuery(null);
                     } else {
                       const data = await res.json();
                       setNoteError(data.error ?? "Failed to save");
@@ -603,7 +685,9 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                           )}
                         </div>
                       </div>
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{note.text}</p>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>
+                        {renderNoteText(note.text, (note.mentioned_user_ids ?? []).map(uid => rosterMap.get(uid)).filter((n): n is string => !!n))}
+                      </p>
                     </div>
                   </div>
                 );
