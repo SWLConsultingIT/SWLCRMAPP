@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getUserScope } from "@/lib/scope";
+import { getSupabaseServer } from "@/lib/supabase-server";
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
@@ -54,6 +56,31 @@ export async function POST(
       ai_summary: note ?? null,
     }),
   });
+
+  // 2b. Persist the after-call note as a "Call note" in the lead's notes log
+  //     so it shows up in the lead's Notes tab. Best-effort — never blocks the
+  //     classify flow.
+  if (note?.trim()) {
+    try {
+      const scope = await getUserScope();
+      const sb = await getSupabaseServer();
+      const { data: { user } } = await sb.auth.getUser();
+      const m = (user?.user_metadata ?? {}) as Record<string, unknown>;
+      const authorName = (m.full_name as string) ?? (m.display_name as string) ?? (m.name as string)
+        ?? (user?.email as string | undefined)?.split("@")[0] ?? "Call note";
+      await fetch(`${SB_URL}/rest/v1/lead_notes`, {
+        method: "POST",
+        headers: { ...headers, Prefer: "return=minimal" },
+        body: JSON.stringify({
+          lead_id: call.lead_id,
+          content: note.trim(),
+          created_by: scope.userId,
+          author_name: authorName,
+          note_type: "call",
+        }),
+      });
+    } catch { /* best-effort */ }
+  }
 
   // 3. wrong_number — disable the call channel on the lead + skip every
   //    queued/draft call message so the dispatcher unblocks the next

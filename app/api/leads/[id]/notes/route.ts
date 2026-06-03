@@ -46,9 +46,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!scope.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { id } = await params;
-  const { content, mentioned_user_ids } = await req.json().catch(() => ({}));
+  const { content, mentioned_user_ids, note_type } = await req.json().catch(() => ({}));
   if (!content?.trim()) return NextResponse.json({ error: "Content required" }, { status: 400 });
   if (content.length > 4000) return NextResponse.json({ error: "Note too long (max 4000)" }, { status: 400 });
+  const noteType = note_type === "call" ? "call" : "general";
 
   const svc = getSupabaseService();
   // Fetch the lead once: scope check + tenant id + label for the @mention ping.
@@ -71,8 +72,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       created_by: scope.userId,
       author_name,
       mentioned_user_ids: mentions.length ? mentions : null,
+      note_type: noteType,
     })
-    .select("id, content, created_at, created_by, author_name, mentioned_user_ids")
+    .select("id, content, created_at, created_by, author_name, mentioned_user_ids, note_type, pinned")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -107,12 +109,28 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data, error } = await svc
     .from("lead_notes")
-    .select("id, content, created_at, created_by, author_name, mentioned_user_ids")
+    .select("id, content, created_at, created_by, author_name, mentioned_user_ids, note_type, pinned")
     .eq("lead_id", id)
     .order("created_at", { ascending: false })
     .limit(100);
   if (error) return NextResponse.json({ notes: [] });
   return NextResponse.json({ notes: data ?? [] });
+}
+
+// Toggle a note's `pinned` flag (surfaces it in the lead's Profile Overview).
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const scope = await getUserScope();
+  if (!scope.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { id } = await params;
+  const { noteId, pinned } = await req.json().catch(() => ({}));
+  if (!noteId || typeof pinned !== "boolean") return NextResponse.json({ error: "noteId + pinned required" }, { status: 400 });
+
+  const svc = getSupabaseService();
+  if (!(await assertLeadInScope(svc, id, scope))) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+
+  const { error } = await svc.from("lead_notes").update({ pinned }).eq("id", noteId).eq("lead_id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
