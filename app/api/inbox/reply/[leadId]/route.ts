@@ -21,6 +21,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import { getInstantlyConfig } from "@/lib/instantly-config";
+import { renderPlaceholders } from "@/lib/placeholders";
 
 export const runtime = "nodejs";
 
@@ -50,7 +51,7 @@ export async function POST(
   // Hydrate the lead + enforce tenant scope.
   const { data: lead } = await svc
     .from("leads")
-    .select("id, primary_work_email, company_bio_id")
+    .select("id, primary_work_email, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role")
     .eq("id", leadId)
     .maybeSingle();
   if (!lead) return NextResponse.json({ error: "lead not found" }, { status: 404 });
@@ -68,6 +69,21 @@ export async function POST(
     .maybeSingle();
   const campaignId = (camp as any)?.id ?? null;
   const sellerId = (camp as any)?.seller_id ?? null;
+
+  // Placeholder safety net — if the seller pastes a template that still has
+  // {{first_name}}/{{company}}/etc., render it; then STRIP any leftover token
+  // so a raw {{…}} or [Merge Field] can NEVER ship out (same guarantee the
+  // dispatcher + n8n reply handlers enforce). Canonical map in lib/placeholders.
+  let sellerName: string | null = null;
+  if (sellerId) {
+    const { data: s } = await svc.from("sellers").select("name").eq("id", sellerId).maybeSingle();
+    sellerName = (s as any)?.name ?? null;
+  }
+  const outgoing = renderPlaceholders(text, lead as any, { name: sellerName })
+    .replace(/\{\{[^}]*\}\}/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+  if (!outgoing) return NextResponse.json({ error: "message empty after placeholder cleanup" }, { status: 400 });
 
   // Channel: explicit override, else infer from the lead's latest inbound reply.
   let channel: Channel | null =
@@ -122,7 +138,7 @@ export async function POST(
       const res = await fetch(url, {
         method: "POST",
         headers: { "X-API-KEY": UNIPILE_KEY, "Content-Type": "application/json", accept: "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text: outgoing }),
       });
       const raw = await res.text();
       let parsed: any = null;
@@ -166,7 +182,7 @@ export async function POST(
       const replyToId = (lastReply as any)?.provider_thread_id ?? null;
       const subject = lastSubject ? `Re: ${lastSubject.replace(/^re:\s*/i, "")}` : "Re:";
 
-      const payload: Record<string, unknown> = { to, subject, body: text };
+      const payload: Record<string, unknown> = { to, subject, body: outgoing };
       if (from) payload.from = from;
       if (replyToId) payload.reply_to_message_id = replyToId;
 
@@ -200,13 +216,13 @@ export async function POST(
   // template step). rendered_content carries the literal text so the thread
   // renders exactly what we sent.
   const nowIso = new Date().toISOString();
-  sentMeta.rendered_content = text;
+  sentMeta.rendered_content = outgoing;
   const insertRow: Record<string, unknown> = {
     lead_id: leadId,
     campaign_id: campaignId,
     step_number: -1,
     channel,
-    content: text,
+    content: outgoing,
     status: "sent",
     sent_at: nowIso,
     provider_message_id: providerMessageId,
