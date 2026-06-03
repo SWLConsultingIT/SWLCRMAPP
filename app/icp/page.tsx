@@ -20,7 +20,7 @@ const goldLight = C.goldGlow;
 // Download an ICP as a branded PDF WITHOUT leaving the page: load the
 // chrome-less /icp/[id]/print view into a hidden iframe and fire the browser's
 // print/save-as-PDF dialog on it. The user stays on /icp the whole time.
-function printIcpPdf(id: string) {
+function printIcpPdf(id: string, name: string) {
   const PREV = document.getElementById("icp-print-frame");
   if (PREV) PREV.remove();
   const iframe = document.createElement("iframe");
@@ -32,6 +32,9 @@ function printIcpPdf(id: string) {
     // Small delay so fonts/styles settle before the print snapshot.
     setTimeout(() => {
       try {
+        // The browser uses the document title as the default PDF filename, so
+        // set it to the ICP name → "<ICP name>.pdf".
+        if (iframe.contentDocument && name) iframe.contentDocument.title = name;
         iframe.contentWindow?.focus();
         iframe.contentWindow?.print();
       } catch { /* popup/sandbox edge — ignore */ }
@@ -435,7 +438,7 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => printIcpPdf(profile.id)}
+          <button onClick={() => printIcpPdf(profile.id, profile.profile_name)}
             title="Download as branded PDF"
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
             style={{ backgroundColor: C.card, color: C.textBody, border: `1px solid ${C.border}` }}>
