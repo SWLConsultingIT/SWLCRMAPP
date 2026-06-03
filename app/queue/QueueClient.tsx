@@ -13,6 +13,7 @@ import {
 import PageHero from "@/components/PageHero";
 import CallButton from "@/components/CallButton";
 import InboxView, { type InboxReply } from "@/components/InboxView";
+import ChatPanel from "@/components/ChatPanel";
 import { classifyUrgency } from "@/lib/overdue";
 
 const gold = "var(--brand, #c9a83a)";
@@ -230,6 +231,7 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
   const initialTab = (() => {
     const t = searchParams.get("tab");
     if (t === "calls") return 1;
+    if (t === "chat") return 2;
     return 0;
   })();
   const [tab, setTab] = useState(initialTab);
@@ -340,6 +342,7 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
   const tabs = [
     { label: "History", count: newReplies.length,   color: C.blue,    reviewCount: needsReviewCount },
     { label: "Calls",   count: pendingCalls.length, color: "#F97316", reviewCount: 0 },
+    { label: "Chat",    count: 0,                    color: "#7C3AED", reviewCount: 0 },
   ];
 
   return (
@@ -701,6 +704,8 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
           }))}
         />
       )}
+
+      {tab === 2 && <ChatPanel initialThreadId={searchParams.get("thread")} />}
     </div>
   );
 }
