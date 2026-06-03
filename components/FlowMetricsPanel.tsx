@@ -64,9 +64,36 @@ function Section({ title, action, children, pad = true }: { title: string; actio
 
 export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics }) {
   const [open, setOpen] = useState<DrillKey | null>(null);
+  // Which section opened the drill, so the lead list renders RIGHT THERE
+  // (under the funnel vs under Issues) instead of always jumping to the top.
+  const [openFrom, setOpenFrom] = useState<"funnel" | "issues">("funnel");
   const [stepOpen, setStepOpen] = useState<number | null>(null);
-  const toggle = (k: DrillKey) => setOpen(o => (o === k ? null : k));
+  const toggle = (k: DrillKey, from: "funnel" | "issues" = "funnel") => {
+    setOpen(o => (o === k && openFrom === from ? null : k));
+    setOpenFrom(from);
+  };
   const has = (k: DrillKey) => (m.drill[k]?.length ?? 0) > 0;
+
+  // The shared drill-down list (who) — rendered under whichever section opened it.
+  const drillPanel = open ? (
+    <div className="mt-3 rounded-xl border max-h-64 overflow-y-auto" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+      <div className="px-4 py-2 border-b sticky top-0 flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+        <span className="text-[11px] font-bold uppercase tracking-wider capitalize" style={{ color: gold }}>{open} · {m.drill[open]?.length ?? 0}</span>
+        <button type="button" onClick={() => setOpen(null)}><XCircle size={14} style={{ color: C.textDim }} /></button>
+      </div>
+      {(m.drill[open] ?? []).length === 0
+        ? <p className="px-4 py-3 text-xs" style={{ color: C.textDim }}>None</p>
+        : (m.drill[open] ?? []).map((d, i) => (
+          <div key={d.id + i} className="flex items-center justify-between gap-3 px-4 py-1.5 border-b last:border-b-0" style={{ borderColor: C.border }}>
+            <div className="min-w-0">
+              <Link href={`/leads/${d.id}`} className="text-sm font-medium hover:underline" style={{ color: C.textPrimary }}>{d.name}</Link>
+              {d.company && <span className="text-xs" style={{ color: C.textMuted }}> · {d.company}</span>}
+            </div>
+            {d.detail && <span className="text-[11px] shrink-0 font-medium" style={{ color: open === "bounced" || open === "failed" ? C.red : (open === "positive" || d.detail === "positive") ? C.green : C.textDim }}>{d.detail}</span>}
+          </div>
+        ))}
+    </div>
+  ) : null;
 
   // Funnel stages (top → bottom), with the conversion vs the previous stage.
   const stages: { key: string; label: string; value: number; icon: typeof Mail; color: string; drill: DrillKey | null; conv: number | null; convLabel: string }[] = [
@@ -120,30 +147,12 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
           })}
         </div>
 
-        {/* drill list (who) — opens inline under the funnel */}
-        {open && (
-          <div className="mt-3 rounded-xl border max-h-64 overflow-y-auto" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-            <div className="px-4 py-2 border-b sticky top-0 flex items-center justify-between" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-              <span className="text-[11px] font-bold uppercase tracking-wider capitalize" style={{ color: gold }}>{open} · {m.drill[open]?.length ?? 0}</span>
-              <button type="button" onClick={() => setOpen(null)}><XCircle size={14} style={{ color: C.textDim }} /></button>
-            </div>
-            {(m.drill[open] ?? []).length === 0
-              ? <p className="px-4 py-3 text-xs" style={{ color: C.textDim }}>None</p>
-              : (m.drill[open] ?? []).map((d, i) => (
-                <div key={d.id + i} className="flex items-center justify-between gap-3 px-4 py-1.5 border-b last:border-b-0" style={{ borderColor: C.border }}>
-                  <div className="min-w-0">
-                    <Link href={`/leads/${d.id}`} className="text-sm font-medium hover:underline" style={{ color: C.textPrimary }}>{d.name}</Link>
-                    {d.company && <span className="text-xs" style={{ color: C.textMuted }}> · {d.company}</span>}
-                  </div>
-                  {d.detail && <span className="text-[11px] shrink-0 font-medium" style={{ color: open === "bounced" || open === "failed" ? C.red : (open === "positive" || d.detail === "positive") ? C.green : C.textDim }}>{d.detail}</span>}
-                </div>
-              ))}
-          </div>
-        )}
+        {/* drill list (who) — only when opened from the funnel */}
+        {openFrom === "funnel" && drillPanel}
 
         {/* secondary chips */}
         <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
-          <MiniChip icon={Hourglass} label="awaiting acceptance" n={m.pendingAccept} color="#D97706" active={open === "pendingAccept"} onClick={() => has("pendingAccept") && toggle("pendingAccept")} clickable={has("pendingAccept")} />
+          <MiniChip icon={Hourglass} label="awaiting acceptance" n={m.pendingAccept} color="#D97706" active={open === "pendingAccept" && openFrom === "funnel"} onClick={() => has("pendingAccept") && toggle("pendingAccept", "funnel")} clickable={has("pendingAccept")} />
           <MiniChip icon={TrendingUp} label="progress" n={`${m.progressPct}%`} color={gold as string} />
           <MiniChip icon={XCircle} label="lost" n={m.lost} color={C.red} />
         </div>
@@ -236,11 +245,13 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
             )}
           </div>
           <div className="flex flex-wrap gap-1.5">
-            <MiniChip icon={AlertTriangle} label="failed steps" n={m.steps.reduce((a, s) => a + s.failed, 0)} color={C.red} active={open === "failed"} onClick={() => has("failed") && toggle("failed")} clickable={has("failed")} />
-            <MiniChip icon={Mail} label="bounced" n={m.email?.bounced ?? 0} color={C.red} active={open === "bounced"} onClick={() => has("bounced") && toggle("bounced")} clickable={has("bounced")} />
-            <MiniChip icon={Hourglass} label="awaiting accept" n={m.pendingAccept} color="#D97706" active={open === "pendingAccept"} onClick={() => has("pendingAccept") && toggle("pendingAccept")} clickable={has("pendingAccept")} />
+            <MiniChip icon={AlertTriangle} label="failed steps" n={m.steps.reduce((a, s) => a + s.failed, 0)} color={C.red} active={open === "failed" && openFrom === "issues"} onClick={() => has("failed") && toggle("failed", "issues")} clickable={has("failed")} />
+            <MiniChip icon={Mail} label="bounced" n={m.email?.bounced ?? 0} color={C.red} active={open === "bounced" && openFrom === "issues"} onClick={() => has("bounced") && toggle("bounced", "issues")} clickable={has("bounced")} />
+            <MiniChip icon={Hourglass} label="awaiting accept" n={m.pendingAccept} color="#D97706" active={open === "pendingAccept" && openFrom === "issues"} onClick={() => has("pendingAccept") && toggle("pendingAccept", "issues")} clickable={has("pendingAccept")} />
           </div>
         </div>
+        {/* drill list — only when opened from Issues, so it appears RIGHT HERE */}
+        {openFrom === "issues" && drillPanel}
       </Section>
     </div>
   );
