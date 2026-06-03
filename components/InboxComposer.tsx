@@ -10,7 +10,7 @@
 // Reply-only by design (Fran 2026-06-02): the seller always reviews/edits
 // before anything leaves. Used in InboxView's right pane and LeadChatThread.
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Sparkles, Send, Loader2 } from "lucide-react";
 import { C } from "@/lib/design";
 
@@ -19,11 +19,16 @@ export default function InboxComposer({
   channel,
   onSent,
   compact = false,
+  autoSuggest = false,
 }: {
   leadId: string;
   channel?: string | null;
   onSent?: () => void;
   compact?: boolean;
+  /** When true, auto-generate a draft as soon as this lead's thread opens
+   *  (used for the Inbox "needs review" questions so the seller never stares
+   *  at a blank box). The seller still edits + sends manually. */
+  autoSuggest?: boolean;
 }) {
   const [text, setText] = useState("");
   const [suggesting, setSuggesting] = useState(false);
@@ -33,7 +38,7 @@ export default function InboxComposer({
   const channelLabel =
     channel === "email" ? "Email" : channel === "linkedin" ? "LinkedIn" : null;
 
-  async function suggest() {
+  const suggest = useCallback(async () => {
     setError(null);
     setSuggesting(true);
     try {
@@ -46,7 +51,16 @@ export default function InboxComposer({
     } finally {
       setSuggesting(false);
     }
-  }
+  }, [leadId]);
+
+  // Reset on lead change so a draft never leaks across leads. When autoSuggest
+  // is on, kick off a fresh draft for the newly-opened question.
+  useEffect(() => {
+    setText("");
+    setError(null);
+    if (autoSuggest && leadId) void suggest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leadId, autoSuggest]);
 
   async function send() {
     const body = text.trim();

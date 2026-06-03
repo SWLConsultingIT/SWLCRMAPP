@@ -1329,6 +1329,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                     channel={(selected as any).channel ?? null}
                     onSent={reloadThread}
                     compact
+                    autoSuggest={isPending(selected)}
                   />
                 </div>
               )}
