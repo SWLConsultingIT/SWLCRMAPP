@@ -282,7 +282,7 @@ export async function GET(
   // current_step, totalSteps, next channel/label, status, days until next.
   const { data: campRow } = await svc
     .from("campaigns")
-    .select("id, status, current_step, stop_reason, sequence_steps, next_step_due_at, last_step_at, started_at")
+    .select("id, status, current_step, stop_reason, sequence_steps, next_step_due_at, last_step_at, started_at, metadata")
     .eq("lead_id", leadId)
     .order("started_at", { ascending: false })
     .limit(1)
@@ -296,6 +296,7 @@ export async function GET(
     nextStepChannel: string | null;
     nextStepDueAt: string | null;
     stopReason: string | null;
+    haltedByReply: boolean;
   } | null = null;
   if (campRow) {
     const seq = Array.isArray((campRow as any).sequence_steps) ? (campRow as any).sequence_steps as any[] : [];
@@ -312,6 +313,20 @@ export async function GET(
       if (channel === "call") return same === 1 ? "First Call" : `Follow-up Call`;
       return channel;
     };
+    // Will the next step ACTUALLY fire? Mirror the dispatcher stop-guard: any
+    // inbound reply halts the flow unless the campaign was re-engaged (follow_up)
+    // AFTER that reply. Without this the header showed "listo para disparar" on
+    // a lead who had clearly replied (Fran 2026-06-03).
+    const md = ((campRow as any).metadata ?? {}) as Record<string, unknown>;
+    const reengaged = md.reengaged === true;
+    const reengagedAt = typeof md.reengaged_at === "string" ? (md.reengaged_at as string) : null;
+    const lastInboundAt = entries
+      .filter(e => e.direction === "inbound" && e.at)
+      .map(e => e.at)
+      .sort()
+      .pop() ?? null;
+    const blockingReply = !!lastInboundAt && (!reengaged || !reengagedAt || lastInboundAt > reengagedAt);
+    const active = ((campRow as any).status ?? null) === "active";
     stage = {
       status: (campRow as any).status ?? null,
       currentStep: cur,
@@ -320,6 +335,7 @@ export async function GET(
       nextStepChannel: next?.channel ?? null,
       nextStepDueAt: (campRow as any).next_step_due_at ?? null,
       stopReason: (campRow as any).stop_reason ?? null,
+      haltedByReply: active && blockingReply,
     };
   }
 

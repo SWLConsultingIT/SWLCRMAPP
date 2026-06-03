@@ -289,10 +289,14 @@ async function dispatchOneEmail(
   const respondedTerminal = !reengaged
     && ((rawLead as { responded?: boolean | null }).responded === true || leadStatus === "responded");
   const leadTerminal = hardTerminal || respondedTerminal;
-  let replyQuery = svc.from("lead_replies").select("id").eq("lead_id", candidate.lead_id).limit(1);
+  let replyQuery = svc.from("lead_replies").select("id, classification").eq("lead_id", candidate.lead_id);
   if (reengaged && reengagedAt) replyQuery = replyQuery.gt("received_at", reengagedAt);
   const { data: anyReply } = await replyQuery;
-  const hasReplied = Array.isArray(anyReply) && anyReply.length > 0;
+  // Mirror dispatch-queue: a non-blocking 'connection_greeting' (polite reply
+  // to the CR) does not stop the flow. Any other reply blocks.
+  const NON_BLOCKING_REPLY = new Set(["connection_greeting"]);
+  const hasReplied = Array.isArray(anyReply)
+    && anyReply.some(r => !NON_BLOCKING_REPLY.has(((r as { classification?: string | null }).classification) ?? ""));
   if ((campaign as { status?: string | null }).status !== "active" || leadTerminal || hasReplied) {
     return await skipMessage(
       svc, candidate.id, candidate.lead_id,

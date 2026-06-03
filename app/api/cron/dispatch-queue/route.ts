@@ -593,10 +593,16 @@ async function dispatchOneMessage(
   const respondedTerminal = !reengaged
     && ((rawLead as { responded?: boolean | null }).responded === true || leadStatus === "responded");
   const leadTerminal = hardTerminal || respondedTerminal;
-  let replyQuery = svc.from("lead_replies").select("id").eq("lead_id", candidate.lead_id).limit(1);
+  let replyQuery = svc.from("lead_replies").select("id, classification").eq("lead_id", candidate.lead_id);
   if (reengaged && reengagedAt) replyQuery = replyQuery.gt("received_at", reengagedAt);
   const { data: anyReply } = await replyQuery;
-  const hasReplied = Array.isArray(anyReply) && anyReply.length > 0;
+  // A polite reply to the Connection Request before any DM ("gracias por
+  // conectar / un gusto / lindo día") is NOT real engagement and must NOT stop
+  // the sequence — the flow keeps going to the First DM (Fran 2026-06-03). The
+  // LinkedIn handler tags these 'connection_greeting'. Any OTHER reply blocks.
+  const NON_BLOCKING_REPLY = new Set(["connection_greeting"]);
+  const hasReplied = Array.isArray(anyReply)
+    && anyReply.some(r => !NON_BLOCKING_REPLY.has(((r as { classification?: string | null }).classification) ?? ""));
   if (!campaignActive || leadTerminal || hasReplied) {
     return await skipMessage(
       svc, candidate.id, candidate.lead_id,

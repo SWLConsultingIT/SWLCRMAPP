@@ -57,6 +57,7 @@ function classBadge(c: string | null): { label: string; color: string; bg: strin
   if (c === "question" || c === "needs_info") return { label: "Question", color: C.blue, bg: `color-mix(in srgb, ${C.blue} 14%, transparent)` };
   if (c === "follow_up" || c === "nurturing") return { label: "Follow-up", color: "#D97706", bg: "color-mix(in srgb, #D97706 14%, transparent)" };
   if (c === "connection_accepted") return { label: "Accepted", color: C.green, bg: `color-mix(in srgb, ${C.green} 14%, transparent)` };
+  if (c === "connection_greeting") return { label: "Saludo conexión", color: C.textMuted, bg: C.surface };
   if (c === "email_invalid") return { label: "Invalid email", color: C.red, bg: `color-mix(in srgb, ${C.red} 14%, transparent)` };
   if (c === "email_bounced") return { label: "Bounced", color: C.red, bg: `color-mix(in srgb, ${C.red} 14%, transparent)` };
   return { label: c, color: C.textMuted, bg: C.surface };
@@ -949,6 +950,11 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                           style={{ backgroundColor: `color-mix(in srgb, #D97706 14%, transparent)`, color: "#D97706" }}>
                           Campaña pausada
                         </span>
+                      ) : stage.haltedByReply ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold"
+                          style={{ backgroundColor: `color-mix(in srgb, #D97706 14%, transparent)`, color: "#D97706" }}>
+                          Frenada — el lead respondió
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold"
                           style={{ backgroundColor: `color-mix(in srgb, ${C.green} 14%, transparent)`, color: C.green }}>
@@ -964,7 +970,9 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                       {stage.nextStepLabel && stage.status !== "completed" && (
                         <span style={{ color: C.textMuted }}>
                           · Próximo: <span className="font-medium" style={{ color: channelColor(stage.nextStepChannel) }}>{stage.nextStepLabel}</span>
-                          {stage.nextStepDueAt && (() => {
+                          {stage.haltedByReply ? (
+                            <span style={{ color: "#D97706" }}> · en espera — respondé para continuar</span>
+                          ) : stage.nextStepDueAt && (() => {
                             const when = new Date(stage.nextStepDueAt);
                             const ms = when.getTime() - Date.now();
                             const days = Math.ceil(ms / 86_400_000);
