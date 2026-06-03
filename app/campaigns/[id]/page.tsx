@@ -532,8 +532,16 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
     const l = (c as any).leads;
     if (l?.id) leadInfo.set(l.id, { name: `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || "Unknown", company: l.company_name ?? null });
   }
-  const flowLeadIds = [...new Set(allGroupCampaigns.map(c => (c as any).lead_id).filter(Boolean) as string[])];
-  const campRows = allGroupCampaigns.map(c => ({ lead_id: (c as any).lead_id as string, status: c.status as string }));
+  // Use the nested leads.id, NOT a top-level c.lead_id: getSiblingCampaigns
+  // doesn't select the lead_id column, so c.lead_id is undefined for every
+  // sibling — only the representative row (select *) had it. That collapsed
+  // flowLeadIds to 1, so the whole funnel (accepted/replied/positive/bounced)
+  // + the Leads activity table computed over a SINGLE lead. leads.id is present
+  // on rep + siblings → fixes the counts to the full cohort.
+  const flowLeadIds = [...new Set(allGroupCampaigns.map(c => ((c as any).leads?.id as string | undefined)).filter(Boolean) as string[])];
+  const campRows = allGroupCampaigns
+    .map(c => ({ lead_id: (c as any).leads?.id as string | undefined, status: c.status as string }))
+    .filter((r): r is { lead_id: string; status: string } => !!r.lead_id);
   const flowMetrics = await getFlowMetrics(allCampaignIds, flowLeadIds, sequence, leadInfo, channels, pct, campRows);
 
   return (
