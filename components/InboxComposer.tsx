@@ -20,6 +20,7 @@ export default function InboxComposer({
   onSent,
   compact = false,
   autoSuggest = false,
+  defaultSubject = null,
 }: {
   leadId: string;
   channel?: string | null;
@@ -29,14 +30,19 @@ export default function InboxComposer({
    *  (used for the Inbox "needs review" questions so the seller never stares
    *  at a blank box). The seller still edits + sends manually. */
   autoSuggest?: boolean;
+  /** Prefill for the email Subject line (e.g. "Re: <original subject>"). Only
+   *  used when channel === "email". */
+  defaultSubject?: string | null;
 }) {
   const [text, setText] = useState("");
+  const [subject, setSubject] = useState("");
   const [suggesting, setSuggesting] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const channelLabel =
     channel === "email" ? "Email" : channel === "linkedin" ? "LinkedIn" : null;
+  const isEmail = channel === "email";
 
   const suggest = useCallback(async () => {
     setError(null);
@@ -57,10 +63,11 @@ export default function InboxComposer({
   // is on, kick off a fresh draft for the newly-opened question.
   useEffect(() => {
     setText("");
+    setSubject(defaultSubject ?? "");
     setError(null);
     if (autoSuggest && leadId) void suggest();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leadId, autoSuggest]);
+  }, [leadId, autoSuggest, defaultSubject]);
 
   async function send() {
     const body = text.trim();
@@ -71,7 +78,11 @@ export default function InboxComposer({
       const r = await fetch(`/api/inbox/reply/${leadId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(channel ? { text: body, channel } : { text: body }),
+        body: JSON.stringify({
+          text: body,
+          ...(channel ? { channel } : {}),
+          ...(isEmail && subject.trim() ? { subject: subject.trim() } : {}),
+        }),
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) { setError(data?.error || "No se pudo enviar"); return; }
@@ -91,11 +102,26 @@ export default function InboxComposer({
       className="rounded-2xl border p-2.5"
       style={{ backgroundColor: C.card, borderColor: C.border }}
     >
+      {isEmail && (
+        <div className="flex items-center gap-2 px-1 pb-1.5 mb-1.5 border-b" style={{ borderColor: C.border }}>
+          <span className="text-[10px] uppercase tracking-wide font-semibold shrink-0" style={{ color: C.textDim }}>Subject</span>
+          <input
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            placeholder="Re: …"
+            disabled={sending}
+            className="flex-1 bg-transparent text-sm outline-none"
+            style={{ color: C.textPrimary }}
+          />
+        </div>
+      )}
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder={
-          channelLabel
+          isEmail
+            ? "Cuerpo del email…"
+            : channelLabel
             ? `Responder por ${channelLabel}…`
             : "Escribí tu respuesta…"
         }

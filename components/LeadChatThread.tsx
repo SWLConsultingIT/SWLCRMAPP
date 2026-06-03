@@ -77,6 +77,10 @@ export default function LeadChatThread({ leadId, leadName }: { leadId?: string; 
 
   // Latest inbound channel → tells the composer how to send.
   const lastInboundChannel = [...thread].reverse().find(e => e.direction === "inbound")?.channel ?? null;
+  const lastEmailSubject = (() => {
+    const s = [...thread].reverse().find(e => e.channel === "email" && e.subject)?.subject;
+    return s ? `Re: ${s.replace(/^re:\s*/i, "")}` : null;
+  })();
 
   if (loading) {
     return (
@@ -99,7 +103,7 @@ export default function LeadChatThread({ leadId, leadName }: { leadId?: string; 
             Cuando el lead responda o le mandes algo, va a aparecer acá.
           </p>
         </div>
-        {leadId && <InboxComposer leadId={leadId} channel={lastInboundChannel} onSent={reload} />}
+        {leadId && <InboxComposer leadId={leadId} channel={lastInboundChannel} onSent={reload} defaultSubject={lastEmailSubject} />}
       </div>
     );
   }
@@ -167,7 +171,7 @@ export default function LeadChatThread({ leadId, leadName }: { leadId?: string; 
         );
       })}
     </div>
-    {leadId && <InboxComposer leadId={leadId} channel={lastInboundChannel} onSent={reload} />}
+    {leadId && <InboxComposer leadId={leadId} channel={lastInboundChannel} onSent={reload} defaultSubject={lastEmailSubject} />}
     </div>
   );
 }

@@ -1330,6 +1330,10 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                     onSent={reloadThread}
                     compact
                     autoSuggest={isPending(selected)}
+                    defaultSubject={(() => {
+                      const s = [...thread].reverse().find(e => e.channel === "email" && e.subject)?.subject;
+                      return s ? `Re: ${s.replace(/^re:\s*/i, "")}` : null;
+                    })()}
                   />
                 </div>
               )}

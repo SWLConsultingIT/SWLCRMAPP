@@ -180,7 +180,10 @@ export async function POST(
         .limit(1)
         .maybeSingle();
       const replyToId = (lastReply as any)?.provider_thread_id ?? null;
-      const subject = lastSubject ? `Re: ${lastSubject.replace(/^re:\s*/i, "")}` : "Re:";
+      // Prefer a caller-supplied subject (seller edited it in the composer);
+      // otherwise auto-build "Re: <last subject>".
+      const subjectIn = typeof body?.subject === "string" ? body.subject.trim() : "";
+      const subject = subjectIn || (lastSubject ? `Re: ${lastSubject.replace(/^re:\s*/i, "")}` : "Re:");
 
       const payload: Record<string, unknown> = { to, subject, body: outgoing };
       if (from) payload.from = from;
