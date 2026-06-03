@@ -10,7 +10,7 @@ import Link from "next/link";
 import {
   Target, Plus, X, CheckCircle, AlertCircle, Clock, Loader2, ArrowLeft,
   Pencil, Trash2, ChevronRight, Users, MapPin, Briefcase, Megaphone, ExternalLink,
-  Building2, Lightbulb, BookOpen, CheckSquare, Square, Sparkles, Send,
+  Building2, Lightbulb, BookOpen, CheckSquare, Square, Sparkles, Send, Download,
 } from "lucide-react";
 import AddToFlowModal from "@/components/icp/AddToFlowModal";
 
@@ -412,6 +412,12 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => window.open(`/icp/${profile.id}/print`, "_blank")}
+            title="Download as branded PDF"
+            className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
+            style={{ backgroundColor: C.card, color: C.textBody, border: `1px solid ${C.border}` }}>
+            <Download size={12} /> Download
+          </button>
           {leads.length === 0 && (
             <button onClick={onEdit}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity hover:opacity-80"
