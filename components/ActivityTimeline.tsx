@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { C } from "@/lib/design";
 import { Mail, PlusCircle, ChevronDown, ChevronUp, MessageSquare, StickyNote, Trash2, Loader2, Paperclip } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
+import LeadChatThread from "@/components/LeadChatThread";
 
 type ActivityItem = {
   id: string;
@@ -87,6 +88,8 @@ function timeAgo(iso: string) {
 
 export default function ActivityTimeline({ activities, notes: initialNotes, leadId }: { activities: ActivityItem[]; notes: Note[]; leadId?: string }) {
   const [filter, setFilter] = useState<"all" | "messages" | "replies" | "calls">("all");
+  // Timeline (event log) vs Chat (read-only conversation thread for this lead).
+  const [view, setView] = useState<"timeline" | "chat">("timeline");
   const [contactFilter, setContactFilter] = useState("all");
   const [expandedMsgs, setExpandedMsgs] = useState<Set<string>>(new Set());
   const [noteText, setNoteText] = useState("");
@@ -148,6 +151,25 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
 
       {/* ── LEFT: Timeline ── */}
       <div>
+        {/* View toggle — Timeline (event log) vs Chat (read-only conversation
+            thread for this lead, reusing the inbox thread API). */}
+        <div className="flex items-center gap-1 mb-4 px-2">
+          {(["timeline", "chat"] as const).map(v => (
+            <button key={v} onClick={() => setView(v)}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
+              style={{
+                backgroundColor: view === v ? "color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)" : "transparent",
+                color: view === v ? "var(--brand, #c9a83a)" : C.textMuted,
+                borderColor: view === v ? "color-mix(in srgb, var(--brand, #c9a83a) 40%, transparent)" : C.border,
+              }}>
+              {v === "timeline" ? "Timeline" : "Chat"}
+            </button>
+          ))}
+        </div>
+        {view === "chat" ? (
+          <LeadChatThread leadId={leadId} leadName={activities.find(a => a.contactName)?.contactName ?? null} />
+        ) : (
+        <>
         {/* Filter bar */}
         <div className="flex items-center gap-2 mb-5 flex-wrap px-2">
           {(["all", "messages", "replies", "calls"] as const).map(f => (
@@ -441,6 +463,8 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
               </div>
             ))}
           </div>
+        )}
+        </>
         )}
       </div>
 
