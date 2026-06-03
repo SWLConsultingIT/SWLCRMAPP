@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
-import OnboardingForm from "./OnboardingForm";
+import OnboardingGate from "./OnboardingGate";
 
 export default async function OnboardingPage() {
   const supabase = await getSupabaseServer();
@@ -18,5 +18,5 @@ export default async function OnboardingPage() {
 
   if (profile?.company_bio_id) redirect("/");
 
-  return <OnboardingForm displayName={(user.user_metadata as any)?.display_name ?? ""} email={user.email ?? ""} />;
+  return <OnboardingGate displayName={(user.user_metadata as any)?.display_name ?? ""} email={user.email ?? ""} />;
 }
