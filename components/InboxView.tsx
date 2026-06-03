@@ -480,25 +480,29 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
     }
   }
 
-  // follow_up is the only class that RESUMES the flow, so make it deliberate:
-  // a confirm dialog that spells out what happens, with a "don't show again"
-  // opt-out persisted in localStorage. (Fran 2026-06-03.)
-  const FOLLOWUP_OFF_KEY = "swl-followup-confirm-off";
-  const [confirmFollowUpId, setConfirmFollowUpId] = useState<string | null>(null);
+  // Each consequential classify action gets a confirm dialog that spells out
+  // what happens (in the Settings language), with a per-action "don't show
+  // again" opt-out in localStorage. follow_up RESUMES the flow; positive/negative
+  // CLOSE the campaign. (Fran 2026-06-03.)
+  type ConfirmClass = "positive" | "negative" | "follow_up";
+  const [confirmClassify, setConfirmClassify] = useState<{ replyId: string; classification: ConfirmClass } | null>(null);
   const [dontAskAgain, setDontAskAgain] = useState(false);
-  function requestFollowUp(replyId: string) {
+  const confirmOffKey = (c: ConfirmClass) => `swl-confirm-off-${c}`;
+  function requestClassify(replyId: string, classification: ConfirmClass) {
     let off = false;
-    try { off = typeof window !== "undefined" && window.localStorage.getItem(FOLLOWUP_OFF_KEY) === "1"; } catch { /* */ }
-    if (off) { void quickClassify(replyId, "follow_up"); return; }
+    try { off = typeof window !== "undefined" && window.localStorage.getItem(confirmOffKey(classification)) === "1"; } catch { /* */ }
+    if (off) { void quickClassify(replyId, classification); return; }
     setDontAskAgain(false);
-    setConfirmFollowUpId(replyId);
+    setConfirmClassify({ replyId, classification });
   }
-  function confirmFollowUpNow() {
-    const replyId = confirmFollowUpId;
-    if (dontAskAgain) { try { window.localStorage.setItem(FOLLOWUP_OFF_KEY, "1"); } catch { /* */ } }
-    setConfirmFollowUpId(null);
-    if (replyId) void quickClassify(replyId, "follow_up");
+  function confirmClassifyNow() {
+    const c = confirmClassify;
+    if (!c) return;
+    if (dontAskAgain) { try { window.localStorage.setItem(confirmOffKey(c.classification), "1"); } catch { /* */ } }
+    setConfirmClassify(null);
+    void quickClassify(c.replyId, c.classification);
   }
+  const CONFIRM_COLOR: Record<ConfirmClass, string> = { positive: C.green, negative: C.red, follow_up: "#D97706" };
 
   // Bulk action over the currently-selected replies. Reuses the per-reply
   // review endpoint so the campaign cascade (negative → closed_lost + 90d
@@ -820,7 +824,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                         <button
                           type="button"
                           disabled={working}
-                          onClick={(e) => { e.stopPropagation(); void quickClassify(r.id, "positive"); }}
+                          onClick={(e) => { e.stopPropagation(); requestClassify(r.id, "positive"); }}
                           title={t("inbox.action.markPositive")}
                           className="w-6 h-6 inline-flex items-center justify-center rounded-md transition-opacity hover:opacity-85 disabled:opacity-40"
                           style={{ backgroundColor: `color-mix(in srgb, ${C.green} 18%, transparent)`, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 32%, transparent)` }}
@@ -830,7 +834,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                         <button
                           type="button"
                           disabled={working}
-                          onClick={(e) => { e.stopPropagation(); void quickClassify(r.id, "negative"); }}
+                          onClick={(e) => { e.stopPropagation(); requestClassify(r.id, "negative"); }}
                           title={t("inbox.action.markNegative")}
                           className="w-6 h-6 inline-flex items-center justify-center rounded-md transition-opacity hover:opacity-85 disabled:opacity-40"
                           style={{ backgroundColor: `color-mix(in srgb, ${C.red} 14%, transparent)`, color: C.red, border: `1px solid color-mix(in srgb, ${C.red} 30%, transparent)` }}
@@ -840,7 +844,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                         <button
                           type="button"
                           disabled={working}
-                          onClick={(e) => { e.stopPropagation(); requestFollowUp(r.id); }}
+                          onClick={(e) => { e.stopPropagation(); requestClassify(r.id, "follow_up"); }}
                           title={t("inbox.action.markFollowUp")}
                           className="w-6 h-6 inline-flex items-center justify-center rounded-md transition-opacity hover:opacity-85 disabled:opacity-40"
                           style={{ backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#D97706", border: "1px solid color-mix(in srgb, #D97706 30%, transparent)" }}
@@ -1451,39 +1455,42 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
         </div>
       </div>
 
-      {/* follow_up confirm — spells out that this RESUMES the flow. */}
-      {confirmFollowUpId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.45)" }} onClick={() => setConfirmFollowUpId(null)}>
-          <div className="rounded-2xl border w-full max-w-[420px] p-5" style={{ backgroundColor: C.card, borderColor: C.border }} onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: "color-mix(in srgb, #D97706 16%, transparent)", color: "#D97706" }}><Radio size={14} /></span>
-              <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>¿Marcar como Follow-up?</h3>
-            </div>
-            <p className="text-[12.5px] leading-relaxed mb-2" style={{ color: C.textBody }}>
-              Esto <b>RETOMA el flujo</b> para este lead: aunque ya te respondió, la secuencia <b>vuelve a correr</b> y le va a seguir mandando los próximos pasos automáticos.
-            </p>
-            <p className="text-[12px] leading-relaxed mb-3" style={{ color: C.textMuted }}>
-              Es la única clasificación que reanuda una campaña. Si el lead vuelve a escribir, el flujo se frena de nuevo solo.
-            </p>
-            <label className="flex items-center gap-2 text-[12px] mb-4 cursor-pointer" style={{ color: C.textMuted }}>
-              <input type="checkbox" checked={dontAskAgain} onChange={(e) => setDontAskAgain(e.target.checked)} />
-              No volver a mostrar este aviso
-            </label>
-            <div className="flex items-center justify-end gap-2">
-              <button type="button" onClick={() => setConfirmFollowUpId(null)} disabled={working}
-                className="text-xs font-semibold px-3 py-2 rounded-lg border transition-opacity hover:opacity-85"
-                style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
-                Cancelar
-              </button>
-              <button type="button" onClick={confirmFollowUpNow} disabled={working}
-                className="text-xs font-semibold px-3 py-2 rounded-lg transition-opacity hover:opacity-85 disabled:opacity-50"
-                style={{ color: "#fff", backgroundColor: "#D97706" }}>
-                Sí, retomar el flujo
-              </button>
+      {/* Classify confirm — positive/negative CLOSE the campaign, follow_up
+          RESUMES it. Text comes from i18n (Settings language). */}
+      {confirmClassify && (() => {
+        const cls = confirmClassify.classification;
+        const color = CONFIRM_COLOR[cls];
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.45)" }} onClick={() => setConfirmClassify(null)}>
+            <div className="rounded-2xl border w-full max-w-[420px] p-5" style={{ backgroundColor: C.card, borderColor: C.border }} onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-7 h-7 rounded-full flex items-center justify-center" style={{ backgroundColor: `color-mix(in srgb, ${color} 16%, transparent)`, color }}>
+                  {cls === "positive" ? <ThumbsUp size={13} /> : cls === "negative" ? <ThumbsDown size={13} /> : <Radio size={14} />}
+                </span>
+                <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>{t(`inbox.confirm.${cls}.title`)}</h3>
+              </div>
+              <p className="text-[12.5px] leading-relaxed mb-2" style={{ color: C.textBody }}>{t(`inbox.confirm.${cls}.body`)}</p>
+              <p className="text-[12px] leading-relaxed mb-3" style={{ color: C.textMuted }}>{t(`inbox.confirm.${cls}.note`)}</p>
+              <label className="flex items-center gap-2 text-[12px] mb-4 cursor-pointer" style={{ color: C.textMuted }}>
+                <input type="checkbox" checked={dontAskAgain} onChange={(e) => setDontAskAgain(e.target.checked)} />
+                {t("inbox.confirm.dontShow")}
+              </label>
+              <div className="flex items-center justify-end gap-2">
+                <button type="button" onClick={() => setConfirmClassify(null)} disabled={working}
+                  className="text-xs font-semibold px-3 py-2 rounded-lg border transition-opacity hover:opacity-85"
+                  style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
+                  {t("inbox.confirm.cancel")}
+                </button>
+                <button type="button" onClick={confirmClassifyNow} disabled={working}
+                  className="text-xs font-semibold px-3 py-2 rounded-lg transition-opacity hover:opacity-85 disabled:opacity-50"
+                  style={{ color: "#fff", backgroundColor: color }}>
+                  {t(`inbox.confirm.${cls}.yes`)}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
