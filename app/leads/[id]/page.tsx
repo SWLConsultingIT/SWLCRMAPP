@@ -12,6 +12,7 @@ import {
 import { LinkedInIcon } from "@/components/SocialIcons";
 import CompanyTabs from "@/components/CompanyTabs";
 import ActivityTimeline from "@/components/ActivityTimeline";
+import LeadNotes from "@/components/LeadNotes";
 import CampaignJourney from "@/components/CampaignJourney";
 import DeleteLeadButton from "@/components/DeleteLeadButton";
 import Breadcrumb from "@/components/Breadcrumb";
@@ -940,6 +941,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         { label: "Calls", count: calls.length || undefined },
         { label: "Summary" },
         { label: "Recent Activity",  count: activityItems.length },
+        { label: "Notes" },
         { label: "Social & Content" },
       ]}>
 
@@ -1405,7 +1407,10 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         {/* ── TAB 5: Recent Activity ── */}
         <ActivityTimeline activities={activityItems as any} notes={teamNotes} leadId={id} />
 
-        {/* ── TAB 6: Social & Content ── */}
+        {/* ── TAB 6: Notes ── the lead collaboration hub (notes + @mentions + pin) */}
+        <LeadNotes leadId={id} />
+
+        {/* ── TAB 7: Social & Content ── */}
         <div className="space-y-5">
 
           {/* Social Feed */}
