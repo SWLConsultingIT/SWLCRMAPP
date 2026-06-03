@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
+import { prettyDisplayName } from "@/lib/display-name";
 
 export async function GET(req: NextRequest) {
   const scope = await getUserScope();
@@ -27,13 +28,7 @@ export async function GET(req: NextRequest) {
   const roster = await Promise.all(userIds.map(async (uid) => {
     try {
       const { data } = await svc.auth.admin.getUserById(uid);
-      const meta = data?.user?.user_metadata ?? {};
-      const name = (meta.full_name as string | undefined)
-        ?? (meta.display_name as string | undefined)
-        ?? (meta.name as string | undefined)
-        ?? (data?.user?.email as string | undefined)?.split("@")[0]
-        ?? "Teammate";
-      return { userId: uid, name };
+      return { userId: uid, name: prettyDisplayName(data?.user?.user_metadata, data?.user?.email) };
     } catch {
       return { userId: uid, name: "Teammate" };
     }

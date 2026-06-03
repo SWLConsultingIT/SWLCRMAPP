@@ -5,13 +5,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
+import { prettyDisplayName } from "@/lib/display-name";
 
 async function nameOf(svc: ReturnType<typeof getSupabaseService>, userId: string): Promise<string> {
   try {
     const { data } = await svc.auth.admin.getUserById(userId);
-    const m = data?.user?.user_metadata ?? {};
-    return (m.full_name as string) ?? (m.display_name as string) ?? (m.name as string)
-      ?? (data?.user?.email as string | undefined)?.split("@")[0] ?? "Teammate";
+    return prettyDisplayName(data?.user?.user_metadata, data?.user?.email);
   } catch { return "Teammate"; }
 }
 

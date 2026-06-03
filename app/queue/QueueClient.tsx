@@ -14,6 +14,7 @@ import PageHero from "@/components/PageHero";
 import CallButton from "@/components/CallButton";
 import InboxView, { type InboxReply } from "@/components/InboxView";
 import ChatPanel from "@/components/ChatPanel";
+import PreCallBrief from "@/components/PreCallBrief";
 import { classifyUrgency } from "@/lib/overdue";
 
 const gold = "var(--brand, #c9a83a)";
@@ -611,51 +612,11 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
                               <PhoneOff size={12} /> No lead linked
                             </span>
                           )}
-                          {/* Hover preview of the AI talking points — surfaces the
-                              same brief that lives on the lead detail page so the
-                              seller doesn't have to leave the Queue to read it. */}
-                          {call.talkingPoints && call.talkingPoints.length > 0 && (
-                            <div className="absolute right-0 top-full mt-2 w-80 z-[60] hidden group-hover/call:block pointer-events-none">
-                              <div className="rounded-xl border p-3.5"
-                                style={{
-                                  backgroundColor: C.card,
-                                  borderColor: "color-mix(in srgb, var(--brand, #c9a83a) 45%, transparent)",
-                                  boxShadow: "0 16px 40px -12px rgba(0,0,0,0.35), 0 0 0 1px color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)",
-                                }}>
-                                <p className="text-[10px] font-bold uppercase tracking-wider mb-2"
-                                  style={{ color: "var(--brand, #c9a83a)", letterSpacing: "0.08em" }}>
-                                  Pre-Call Brief
-                                </p>
-                                <ol className="space-y-2">
-                                  {call.talkingPoints.map((p, i) => {
-                                    const structured = typeof p === "object" && p !== null && "type" in p;
-                                    const label = structured
-                                      ? p.type === "pain" ? "Pain"
-                                      : p.type === "fit" ? "Fit"
-                                      : "Opener"
-                                      : `${i + 1}.`;
-                                    const labelColor = structured
-                                      ? p.type === "pain" ? "#B91C1C"
-                                      : p.type === "fit" ? "#1D4ED8"
-                                      : "#B45309"
-                                      : "var(--brand, #c9a83a)";
-                                    const text = typeof p === "string" ? p : p.text;
-                                    return (
-                                      <li key={i}>
-                                        <span className="text-[9px] font-bold uppercase tracking-wider mr-1.5"
-                                          style={{ color: labelColor, letterSpacing: "0.06em" }}>
-                                          {label}
-                                        </span>
-                                        <span className="text-[11px] leading-snug" style={{ color: C.textPrimary }}>{text}</span>
-                                      </li>
-                                    );
-                                  })}
-                                </ol>
-                              </div>
-                            </div>
-                          )}
                         </div>
                       </div>
+
+                      {/* Pre-call brief — inline, toggled (no overlapping popover) */}
+                      <PreCallBrief talkingPoints={call.talkingPoints} />
 
                       {/* Inline classifier — shows in Awaiting Outcome with
                           the 3 outcome buttons. In To Call sub-tab it only

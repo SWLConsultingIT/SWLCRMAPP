@@ -71,7 +71,7 @@ export default function LeadSellerTags({ leadId, compact = false }: { leadId: st
           <Plus size={11} /> Tag teammate
         </button>
         {open && (
-          <div className="absolute z-30 mt-1 left-0 rounded-lg border shadow-lg w-60" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 12px 32px rgba(0,0,0,0.14)" }}>
+          <div className="absolute z-40 mt-1 left-0 rounded-lg border w-60" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 16px 40px -12px rgba(0,0,0,0.3)" }}>
             {!pending ? (
               <div className="max-h-56 overflow-y-auto">
                 {available.length === 0 ? (
