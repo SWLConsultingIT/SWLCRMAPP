@@ -557,12 +557,36 @@ async function dispatchOneMessage(
   // dispatcher fails every client-source lead with "no LinkedIn slug" even
   // though the slug exists — encrypted.
   const [{ data: rawLead }, { data: campaign }] = await Promise.all([
-    svc.from("leads").select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, primary_linkedin_url, linkedin_internal_id, linkedin_connected, company_name, primary_title_role")
+    svc.from("leads").select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, primary_linkedin_url, linkedin_internal_id, linkedin_connected, company_name, primary_title_role, responded, status")
       .eq("id", candidate.lead_id).maybeSingle(),
-    svc.from("campaigns").select("id, seller_id, name, sequence_steps").eq("id", candidate.campaign_id).maybeSingle(),
+    svc.from("campaigns").select("id, seller_id, name, sequence_steps, status, stop_reason").eq("id", candidate.campaign_id).maybeSingle(),
   ]);
   if (!rawLead || !campaign) {
     return await failMessage(svc, candidate.id, candidate.lead_id, "lead or campaign missing");
+  }
+
+  // ── Stop-condition guard (2026-06-03) ──────────────────────────────────
+  // NEVER send to a lead who already responded, or whose campaign is no longer
+  // active. A queued step can outlive the reply that closed the campaign — the
+  // reply handler marks the campaign completed but a step that was already
+  // queued stays queued, and a later tick would send it (Diego @ Lanai got a
+  // step-2 DM ~18h after replying positive). The dispatcher must re-check state
+  // at send time, not trust that the queue was cleaned.
+  const leadTerminal = (rawLead as { responded?: boolean | null }).responded === true
+    || ["qualified", "closed_won", "closed_lost", "responded"].includes((rawLead as { status?: string | null }).status ?? "");
+  const campaignActive = (campaign as { status?: string | null }).status === "active";
+  // Fran 2026-06-03: a lead who replied AT ALL — positive, negative, question/
+  // needs_info, anything — must not get more automated steps. Ambiguous replies
+  // don't set responded and don't close the campaign, so we also check for ANY
+  // recorded reply. The seller takes over from the inbox once the lead engaged.
+  const { data: anyReply } = await svc
+    .from("lead_replies").select("id").eq("lead_id", candidate.lead_id).limit(1);
+  const hasReplied = Array.isArray(anyReply) && anyReply.length > 0;
+  if (!campaignActive || leadTerminal || hasReplied) {
+    return await skipMessage(
+      svc, candidate.id, candidate.lead_id,
+      `stale step — campaign ${(campaign as { status?: string | null }).status}${(leadTerminal || hasReplied) ? " / lead already replied" : ""}`,
+    );
   }
 
   // Decrypt PII columns for client-source leads. Keep the plain row when

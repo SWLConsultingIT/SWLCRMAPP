@@ -266,10 +266,29 @@ async function dispatchOneEmail(
   }
 
   const [{ data: rawLead }, { data: campaign }] = await Promise.all([
-    svc.from("leads").select("id, source, encrypted_payload, primary_first_name, primary_last_name, primary_work_email, primary_email_status, company_bio_id, company_name, primary_title_role").eq("id", candidate.lead_id).maybeSingle(),
-    svc.from("campaigns").select("id, name, seller_id, sequence_steps").eq("id", candidate.campaign_id).maybeSingle(),
+    svc.from("leads").select("id, source, encrypted_payload, primary_first_name, primary_last_name, primary_work_email, primary_email_status, company_bio_id, company_name, primary_title_role, responded, status").eq("id", candidate.lead_id).maybeSingle(),
+    svc.from("campaigns").select("id, name, seller_id, sequence_steps, status, stop_reason").eq("id", candidate.campaign_id).maybeSingle(),
   ]);
   if (!rawLead || !campaign) return await failMessage(svc, candidate.id, candidate.lead_id, "lead or campaign missing");
+
+  // ── Stop-condition guard (2026-06-03) ──────────────────────────────────
+  // Never email a lead who already responded, or whose campaign is no longer
+  // active. A queued step can outlive the reply that closed the campaign, so we
+  // re-check at send time instead of trusting the queue was cleaned. Mirrors
+  // the same guard in dispatch-queue (the Diego @ Lanai stale-step incident).
+  const leadTerminal = (rawLead as { responded?: boolean | null }).responded === true
+    || ["qualified", "closed_won", "closed_lost", "responded"].includes((rawLead as { status?: string | null }).status ?? "");
+  // Fran 2026-06-03: any recorded reply (incl. question/needs_info) stops the
+  // sequence — the seller takes over. Mirrors dispatch-queue.
+  const { data: anyReply } = await svc
+    .from("lead_replies").select("id").eq("lead_id", candidate.lead_id).limit(1);
+  const hasReplied = Array.isArray(anyReply) && anyReply.length > 0;
+  if ((campaign as { status?: string | null }).status !== "active" || leadTerminal || hasReplied) {
+    return await skipMessage(
+      svc, candidate.id, candidate.lead_id,
+      `stale step — campaign ${(campaign as { status?: string | null }).status}${(leadTerminal || hasReplied) ? " / lead already replied" : ""}`,
+    );
+  }
 
   // Decrypt client-source leads (Pathway, De Vera Grill, Gruppo Everest demo).
   // Same pattern as dispatch-queue. Without this, primary_work_email is null
