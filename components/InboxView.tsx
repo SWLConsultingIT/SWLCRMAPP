@@ -7,7 +7,7 @@ import {
   Search, CheckCircle2, XCircle, MessageSquare, ExternalLink,
   ThumbsUp, ThumbsDown, HelpCircle, Inbox as InboxIcon, Share2, Mail, Phone, Smartphone,
   Check, X as XIcon, ChevronRight, ChevronLeft, PanelLeftClose, PanelLeftOpen,
-  ChevronDown, Megaphone, Target, Radio, Calendar,
+  ChevronDown, Megaphone, Target, Radio, Calendar, Maximize2, Minimize2,
 } from "lucide-react";
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
@@ -305,6 +305,9 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
   // Persisted in sessionStorage so it survives navigating into a lead and
   // back. Default open so first-time sellers see the inventory.
   const [listCollapsed, setListCollapsed] = useState(false);
+  // Maximize the conversation card to read/compose comfortably (taller pane +
+  // list collapsed for full width). Fran 2026-06-03.
+  const [maximized, setMaximized] = useState(false);
   useEffect(() => {
     try {
       const v = sessionStorage.getItem("swl-inbox-list-collapsed");
@@ -573,7 +576,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
           panel, leaving sellers unable to bring the list back — Fran caught
           this on 2026-05-26). Flex layout means the thread always flex-1's
           regardless of whether the list pane is rendered. */}
-      <div className="flex flex-col md:flex-row h-[78vh]">
+      <div className={`flex flex-col md:flex-row ${maximized ? "h-[92vh]" : "h-[78vh]"}`}>
         {/* List */}
         <div className={`${listCollapsed ? "hidden md:hidden" : "flex"} border-b md:border-b-0 md:border-r overflow-hidden flex-col md:w-[42%] md:min-w-[300px]`} style={{ borderColor: C.border }}>
           {/* Search + filters (Campaign / ICP / Channel — added 2026-05-27
@@ -649,8 +652,10 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
 
           <div className="overflow-y-auto flex-1 px-2 py-2" style={{ backgroundColor: `color-mix(in srgb, ${C.surface} 35%, ${C.bg})` }}>
             {/* Bulk toolbar — select all + batch actions so the seller can clear
-                a batch (e.g. all obvious negatives) without going one-by-one. */}
-            {filtered.length > 0 && (
+                a batch (e.g. all obvious negatives) without going one-by-one.
+                Only in Pending review — History replies are already resolved, so
+                the result-marking options don't belong there. */}
+            {filtered.length > 0 && tab === "pending" && (
               <div className="sticky top-0 z-20 mb-1.5 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border"
                 style={{ backgroundColor: C.card, borderColor: selectedIds.size > 0 ? `color-mix(in srgb, var(--brand, #c9a83a) 45%, transparent)` : C.border }}>
                 <label className="inline-flex items-center gap-1.5 cursor-pointer text-[10px] font-semibold" style={{ color: C.textMuted }}>
@@ -702,16 +707,17 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                   const chColor = channelColor(r.channel);
                   return (
                     <li key={r.id} className="relative group/ix">
-                      {/* Bulk-select checkbox — sits in the left gutter, shown on
-                          hover or when the row is selected. stopPropagation so it
-                          doesn't open the thread. */}
-                      <div
-                        className={`absolute top-2.5 left-0.5 z-20 transition-opacity ${selectedIds.has(r.id) ? "opacity-100" : "opacity-0 group-hover/ix:opacity-100"}`}
-                        onClick={(e) => { e.stopPropagation(); toggleSelect(r.id); }}
-                        title={locale === "es" ? "Seleccionar" : "Select"}
-                      >
-                        <input type="checkbox" readOnly checked={selectedIds.has(r.id)} className="cursor-pointer" />
-                      </div>
+                      {/* Bulk-select checkbox — only in Pending (History has no
+                          bulk result-marking). Shown on hover or when selected. */}
+                      {tab === "pending" && (
+                        <div
+                          className={`absolute top-2.5 left-0.5 z-20 transition-opacity ${selectedIds.has(r.id) ? "opacity-100" : "opacity-0 group-hover/ix:opacity-100"}`}
+                          onClick={(e) => { e.stopPropagation(); toggleSelect(r.id); }}
+                          title={locale === "es" ? "Seleccionar" : "Select"}
+                        >
+                          <input type="checkbox" readOnly checked={selectedIds.has(r.id)} className="cursor-pointer" />
+                        </div>
+                      )}
                       <button
                         type="button"
                         onClick={() => setSelectedId(r.id)}
@@ -951,13 +957,25 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                   )}
                   </div>
                 </div>
-                <Link
-                  href={`/leads/${selected.leadId}`}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-opacity hover:opacity-85 shrink-0"
-                  style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}
-                >
-                  Open lead <ExternalLink size={10} />
-                </Link>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setMaximized(m => { const next = !m; if (next) setListCollapsed(true); return next; })}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-opacity hover:opacity-85"
+                    style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}
+                    title={maximized ? "Restaurar tamaño" : "Expandir para leer mejor"}
+                  >
+                    {maximized ? <Minimize2 size={11} /> : <Maximize2 size={11} />}
+                    {maximized ? "Restaurar" : "Expandir"}
+                  </button>
+                  <Link
+                    href={`/leads/${selected.leadId}`}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-opacity hover:opacity-85"
+                    style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}
+                  >
+                    Open lead <ExternalLink size={10} />
+                  </Link>
+                </div>
               </div>
 
               {/* Channel filter — only renders when more than one channel

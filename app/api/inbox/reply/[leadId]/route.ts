@@ -119,8 +119,23 @@ export async function POST(
         .order("sent_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      const chatId =
+      let chatId =
         ((lastSent as any)?.metadata?.chat_id as string | undefined) ?? null;
+      // Fallback: a lead who replied to the Connection Request (step 0) has no
+      // DM we sent, so no chat_id in campaign_messages — but the inbound webhook
+      // stored the LinkedIn chat id in lead_replies.provider_thread_id. Use it.
+      if (!chatId) {
+        const { data: lr } = await svc
+          .from("lead_replies")
+          .select("provider_thread_id")
+          .eq("lead_id", leadId)
+          .eq("channel", "linkedin")
+          .not("provider_thread_id", "is", null)
+          .order("received_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        chatId = ((lr as any)?.provider_thread_id as string | undefined) ?? null;
+      }
       // seller account
       let unipileAccountId: string | null = null;
       if (sellerId) {
