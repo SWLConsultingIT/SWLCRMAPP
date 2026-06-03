@@ -559,7 +559,7 @@ async function dispatchOneMessage(
   const [{ data: rawLead }, { data: campaign }] = await Promise.all([
     svc.from("leads").select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, primary_linkedin_url, linkedin_internal_id, linkedin_connected, company_name, primary_title_role, responded, status")
       .eq("id", candidate.lead_id).maybeSingle(),
-    svc.from("campaigns").select("id, seller_id, name, sequence_steps, status, stop_reason").eq("id", candidate.campaign_id).maybeSingle(),
+    svc.from("campaigns").select("id, seller_id, name, sequence_steps, status, stop_reason, metadata").eq("id", candidate.campaign_id).maybeSingle(),
   ]);
   if (!rawLead || !campaign) {
     return await failMessage(svc, candidate.id, candidate.lead_id, "lead or campaign missing");
@@ -572,15 +572,30 @@ async function dispatchOneMessage(
   // queued stays queued, and a later tick would send it (Diego @ Lanai got a
   // step-2 DM ~18h after replying positive). The dispatcher must re-check state
   // at send time, not trust that the queue was cleaned.
-  const leadTerminal = (rawLead as { responded?: boolean | null }).responded === true
-    || ["qualified", "closed_won", "closed_lost", "responded"].includes((rawLead as { status?: string | null }).status ?? "");
+  const leadStatus = (rawLead as { status?: string | null }).status ?? "";
   const campaignActive = (campaign as { status?: string | null }).status === "active";
   // Fran 2026-06-03 (per seller): a lead who replied AT ALL stops the flow
   // COMPLETELY — no auto-resume. Once the lead engages, the seller takes over
   // manually; the sequence must never re-fire on its own. Any lead_replies row
-  // = full stop. (Re-engagement is a manual renurture decision, not automatic.)
-  const { data: anyReply } = await svc
-    .from("lead_replies").select("id").eq("lead_id", candidate.lead_id).limit(1);
+  // = full stop.
+  //
+  // EXCEPTION — automatic re-engagement (the "SWL - CRM - Re-engagement Nudge"
+  // workflow): after N business days of silence following our reply it sends a
+  // nudge; after N more it re-opens the flow by setting campaign.metadata
+  // { reengaged:true, reengaged_at }. When that flag is set, the OLD reply (the
+  // one that originally stopped the flow) no longer blocks — only a reply
+  // received AFTER reengaged_at counts as fresh engagement and re-stops it.
+  // closed_lost / closed_won / qualified stay hard-terminal regardless.
+  const campMeta = ((campaign as { metadata?: Record<string, unknown> | null }).metadata ?? {}) as Record<string, unknown>;
+  const reengaged = campMeta.reengaged === true;
+  const reengagedAt = typeof campMeta.reengaged_at === "string" ? (campMeta.reengaged_at as string) : null;
+  const hardTerminal = ["qualified", "closed_won", "closed_lost"].includes(leadStatus);
+  const respondedTerminal = !reengaged
+    && ((rawLead as { responded?: boolean | null }).responded === true || leadStatus === "responded");
+  const leadTerminal = hardTerminal || respondedTerminal;
+  let replyQuery = svc.from("lead_replies").select("id").eq("lead_id", candidate.lead_id).limit(1);
+  if (reengaged && reengagedAt) replyQuery = replyQuery.gt("received_at", reengagedAt);
+  const { data: anyReply } = await replyQuery;
   const hasReplied = Array.isArray(anyReply) && anyReply.length > 0;
   if (!campaignActive || leadTerminal || hasReplied) {
     return await skipMessage(

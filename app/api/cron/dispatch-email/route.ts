@@ -267,7 +267,7 @@ async function dispatchOneEmail(
 
   const [{ data: rawLead }, { data: campaign }] = await Promise.all([
     svc.from("leads").select("id, source, encrypted_payload, primary_first_name, primary_last_name, primary_work_email, primary_email_status, company_bio_id, company_name, primary_title_role, responded, status").eq("id", candidate.lead_id).maybeSingle(),
-    svc.from("campaigns").select("id, name, seller_id, sequence_steps, status, stop_reason").eq("id", candidate.campaign_id).maybeSingle(),
+    svc.from("campaigns").select("id, name, seller_id, sequence_steps, status, stop_reason, metadata").eq("id", candidate.campaign_id).maybeSingle(),
   ]);
   if (!rawLead || !campaign) return await failMessage(svc, candidate.id, candidate.lead_id, "lead or campaign missing");
 
@@ -276,12 +276,22 @@ async function dispatchOneEmail(
   // active. A queued step can outlive the reply that closed the campaign, so we
   // re-check at send time instead of trusting the queue was cleaned. Mirrors
   // the same guard in dispatch-queue (the Diego @ Lanai stale-step incident).
-  const leadTerminal = (rawLead as { responded?: boolean | null }).responded === true
-    || ["qualified", "closed_won", "closed_lost", "responded"].includes((rawLead as { status?: string | null }).status ?? "");
-  // Fran 2026-06-03 (per seller): any reply stops the flow COMPLETELY — no
-  // auto-resume. The seller takes over manually. Mirrors dispatch-queue.
-  const { data: anyReply } = await svc
-    .from("lead_replies").select("id").eq("lead_id", candidate.lead_id).limit(1);
+  //
+  // EXCEPTION — automatic re-engagement: when the re-engagement workflow re-opens
+  // a stopped flow it sets campaign.metadata { reengaged:true, reengaged_at }.
+  // The OLD reply then no longer blocks; only a reply AFTER reengaged_at counts
+  // as fresh engagement. Hard-terminal statuses still stop. Mirrors dispatch-queue.
+  const leadStatus = (rawLead as { status?: string | null }).status ?? "";
+  const campMeta = ((campaign as { metadata?: Record<string, unknown> | null }).metadata ?? {}) as Record<string, unknown>;
+  const reengaged = campMeta.reengaged === true;
+  const reengagedAt = typeof campMeta.reengaged_at === "string" ? (campMeta.reengaged_at as string) : null;
+  const hardTerminal = ["qualified", "closed_won", "closed_lost"].includes(leadStatus);
+  const respondedTerminal = !reengaged
+    && ((rawLead as { responded?: boolean | null }).responded === true || leadStatus === "responded");
+  const leadTerminal = hardTerminal || respondedTerminal;
+  let replyQuery = svc.from("lead_replies").select("id").eq("lead_id", candidate.lead_id).limit(1);
+  if (reengaged && reengagedAt) replyQuery = replyQuery.gt("received_at", reengagedAt);
+  const { data: anyReply } = await replyQuery;
   const hasReplied = Array.isArray(anyReply) && anyReply.length > 0;
   if ((campaign as { status?: string | null }).status !== "active" || leadTerminal || hasReplied) {
     return await skipMessage(
