@@ -43,12 +43,13 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const { data } = await svc
     .from("lead_tags")
-    .select("user_id, created_at")
+    .select("user_id, reason, created_at")
     .eq("lead_id", id)
     .order("created_at", { ascending: true });
   const tags = await Promise.all((data ?? []).map(async t => ({
     userId: t.user_id,
     name: await userName(svc, t.user_id),
+    reason: t.reason ?? null,
   })));
   return NextResponse.json({ tags });
 }
@@ -57,8 +58,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const scope = await getUserScope();
   if (!scope.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  const { userId } = await req.json().catch(() => ({}));
+  const { userId, reason } = await req.json().catch(() => ({}));
   if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 });
+  const reasonText = typeof reason === "string" && reason.trim() ? reason.trim().slice(0, 280) : null;
 
   const svc = getSupabaseService();
   const lead = await loadLead(svc, id);
@@ -66,7 +68,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (scope.isScoped && lead.company_bio_id !== scope.companyBioId) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const { error } = await svc.from("lead_tags").upsert({
-    lead_id: id, user_id: userId, company_bio_id: lead.company_bio_id, tagged_by: scope.userId,
+    lead_id: id, user_id: userId, company_bio_id: lead.company_bio_id, tagged_by: scope.userId, reason: reasonText,
   }, { onConflict: "lead_id,user_id" });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
@@ -78,7 +80,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     actorName: await actorName(),
     type: "tag",
     leadId: id,
-    body: `tagged you on ${leadLabel}`,
+    body: `tagged you on ${leadLabel}${reasonText ? ` — ${reasonText}` : ""}`,
     link: `/leads/${id}`,
   });
   return NextResponse.json({ ok: true });

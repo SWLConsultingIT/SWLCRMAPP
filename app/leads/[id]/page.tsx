@@ -519,6 +519,11 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   </span>
                 )}
               </div>
+
+              {/* Tagged teammates — loop colleagues in, with a reason on hover */}
+              <div className="mt-2.5">
+                <LeadSellerTags leadId={lead.id} compact />
+              </div>
             </div>
           </div>
 
@@ -1129,9 +1134,6 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   </div>
                 </div>
               </div>
-
-              {/* Tagged sellers — loop teammates in beyond the single owner */}
-              <LeadSellerTags leadId={lead.id} />
             </div>
 
             {/* Personalized Info — client-specific enrichment (Pathway: credit signals) */}
