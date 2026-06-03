@@ -31,6 +31,26 @@ async function loadLead(svc: ReturnType<typeof getSupabaseService>, id: string) 
   return data as { company_bio_id: string | null; first_name: string | null; last_name: string | null; company: string | null } | null;
 }
 
+// Find-or-create the single DM thread between two users (one per pair). Repeat
+// tags of the same teammate reuse this thread — they just add another message.
+async function ensureDm(svc: ReturnType<typeof getSupabaseService>, bioId: string, me: string, other: string): Promise<string | null> {
+  const { data: mine } = await svc.from("chat_participants").select("thread_id").eq("user_id", me);
+  const myIds = (mine ?? []).map(m => m.thread_id);
+  if (myIds.length) {
+    const { data: dmThreads } = await svc.from("chat_threads").select("id").eq("kind", "dm").in("id", myIds);
+    const dmIds = (dmThreads ?? []).map(t => t.id);
+    if (dmIds.length) {
+      const { data: shared } = await svc.from("chat_participants").select("thread_id").eq("user_id", other).in("thread_id", dmIds);
+      const existing = (shared ?? [])[0]?.thread_id;
+      if (existing) return existing;
+    }
+  }
+  const { data: thread } = await svc.from("chat_threads").insert({ company_bio_id: bioId, kind: "dm", created_by: me }).select("id").single();
+  if (!thread) return null;
+  await svc.from("chat_participants").insert([{ thread_id: thread.id, user_id: me }, { thread_id: thread.id, user_id: other }]);
+  return thread.id;
+}
+
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const scope = await getUserScope();
   if (!scope.userId) return NextResponse.json({ tags: [] });
@@ -72,17 +92,33 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const leadLabel = [lead.first_name, lead.last_name].filter(Boolean).join(" ") || lead.company || "a lead";
+  const who = await actorName();
+
+  // Open (or reuse) the 1:1 DM with this teammate and drop a message so the
+  // tag becomes an actual conversation. Repeat tags reuse the same thread.
+  const threadId = await ensureDm(svc, lead.company_bio_id, scope.userId, userId);
+  if (threadId) {
+    await svc.from("chat_messages").insert({
+      thread_id: threadId,
+      sender_id: scope.userId,
+      sender_name: who,
+      body: `🏷️ Tagged you on ${leadLabel}${reasonText ? `: ${reasonText}` : ""}\n→ /leads/${id}`,
+    });
+    await svc.from("chat_participants").update({ last_read_at: new Date().toISOString() }).eq("thread_id", threadId).eq("user_id", scope.userId);
+  }
+
+  // Notification points at the conversation so clicking it opens the DM.
   await createNotifications({
     companyBioId: lead.company_bio_id,
     recipientUserIds: [userId],
     actorUserId: scope.userId,
-    actorName: await actorName(),
+    actorName: who,
     type: "tag",
     leadId: id,
     body: `tagged you on ${leadLabel}${reasonText ? ` — ${reasonText}` : ""}`,
-    link: `/leads/${id}`,
+    link: threadId ? `/queue?tab=chat&thread=${threadId}` : `/leads/${id}`,
   });
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, threadId });
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
