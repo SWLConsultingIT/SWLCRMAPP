@@ -21,6 +21,7 @@ import EditableLeadField from "@/components/EditableLeadField";
 import WrongNumberPill from "@/components/WrongNumberPill";
 import CallCard from "@/components/CallCard";
 import PersonalizedInfoPanel from "@/components/PersonalizedInfoPanel";
+import LeadSellerTags from "@/components/LeadSellerTags";
 import LeadSummaryTab from "@/components/LeadSummaryTab";
 import LeadStatsBar from "@/components/LeadStatsBar";
 import MoveForwardButton from "@/components/MoveForwardButton";
@@ -1128,6 +1129,9 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   </div>
                 </div>
               </div>
+
+              {/* Tagged sellers — loop teammates in beyond the single owner */}
+              <LeadSellerTags leadId={lead.id} />
             </div>
 
             {/* Personalized Info — client-specific enrichment (Pathway: credit signals) */}
