@@ -66,7 +66,7 @@ async function getCampaign(id: string) {
   const supabase = await getSupabaseServer();
   const { data } = await supabase
     .from("campaigns")
-    .select("*, leads(id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, company_industry, icp_profile_id), sellers(name, company_bio_id)")
+    .select("*, leads(id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, company_industry, icp_profile_id), sellers(name, company_bio_id, linkedin_daily_limit)")
     .eq("id", id)
     .single();
   if (data?.leads) {
@@ -92,7 +92,7 @@ async function getSiblingCampaigns(campaignName: string, excludeId: string) {
   const supabase = await getSupabaseServer();
   const { data } = await supabase
     .from("campaigns")
-    .select("id, status, current_step, sequence_steps, channel, last_step_at, seller_id, leads(id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, lead_score, is_priority, allow_linkedin, allow_email, allow_call), sellers(name)")
+    .select("id, status, current_step, sequence_steps, channel, last_step_at, started_at, seller_id, leads(id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, lead_score, is_priority, allow_linkedin, allow_email, allow_call), sellers(name)")
     .eq("name", campaignName)
     .neq("id", excludeId)
     .order("created_at", { ascending: false })
@@ -200,7 +200,8 @@ async function getFlowMetrics(
   leadInfo: Map<string, { name: string; company: string | null }>,
   channelsUsed: string[],
   progressPct: number,
-  campRows: { lead_id: string; status: string }[],
+  campRows: { lead_id: string; status: string; current_step: number | null; started_at: string | null }[],
+  dailyLimit: number | null,
 ): Promise<FlowMetrics | null> {
   if (campaignIds.length === 0) return null;
   const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -230,6 +231,8 @@ async function getFlowMetrics(
   const replyClass = new Map<string, string>();
   const replyText = new Map<string, { text: string; at: string; channel: string }>();
   const repliesByChannel: Record<string, Set<string>> = {};
+  const firstReplyAt = new Map<string, string>();
+  const replyDates: string[] = [];
   const rank: Record<string, number> = { positive: 4, question: 3, negative: 2, other: 1 };
   for (let i = 0; i < leadIds.length; i += 100) {
     const inClause = `(${leadIds.slice(i, i + 100).join(",")})`;
@@ -242,6 +245,9 @@ async function getFlowMetrics(
       const at = r.received_at ?? "";
       const prevText = replyText.get(r.lead_id);
       if (r.reply_text && (!prevText || at > prevText.at)) replyText.set(r.lead_id, { text: r.reply_text, at, channel: r.channel ?? "other" });
+      const fr = firstReplyAt.get(r.lead_id);
+      if (at && (!fr || at < fr)) firstReplyAt.set(r.lead_id, at);
+      if (at) replyDates.push(at);
       const ch = r.channel ?? "other"; (repliesByChannel[ch] ||= new Set()).add(r.lead_id);
     });
   }
@@ -296,6 +302,40 @@ async function getFlowMetrics(
   } : null;
   const call = channelsUsed.includes("call") ? { dialed: sent.filter(m => m.channel === "call").length } : null;
 
+  // ── Velocity (is it moving?) + cooldown (why isn't it?) ──
+  const now = Date.now();
+  const dayKey = (iso: string) => { try { return new Date(iso).toISOString().slice(0, 10); } catch { return ""; } };
+  const todayKey = new Date(now).toISOString().slice(0, 10);
+  const sentToday = sent.filter(m => m.sent_at && dayKey(m.sent_at) === todayKey).length;
+  const lastActivityAt = sent.map(m => m.sent_at).filter(Boolean).sort().slice(-1)[0] ?? null;
+  const byDay: { date: string; sent: number; replies: number }[] = [];
+  for (let d = 13; d >= 0; d--) {
+    const key = new Date(now - d * 86400000).toISOString().slice(0, 10);
+    byDay.push({
+      date: key,
+      sent: sent.filter(m => m.sent_at && dayKey(m.sent_at) === key).length,
+      replies: replyDates.filter(r => dayKey(r) === key).length,
+    });
+  }
+  const firstSentByLead = new Map<string, string>();
+  sent.forEach(m => { if (m.sent_at) { const p = firstSentByLead.get(m.lead_id); if (!p || m.sent_at < p) firstSentByLead.set(m.lead_id, m.sent_at); } });
+  const replyGaps: number[] = [];
+  firstReplyAt.forEach((rAt, lid) => { const fs = firstSentByLead.get(lid); if (fs) { const g = (new Date(rAt).getTime() - new Date(fs).getTime()) / 86400000; if (g >= 0) replyGaps.push(g); } });
+  const avgDaysToReply = replyGaps.length ? Math.round((replyGaps.reduce((a, b) => a + b, 0) / replyGaps.length) * 10) / 10 : null;
+  const velocity = { sentToday, dailyLimit: dailyLimit ?? null, lastActivityAt, byDay, avgDaysToReply };
+
+  // Cooldown: newest rate-limit marker on a queued LinkedIn message, still inside
+  // the 4h window the dispatcher honours. Surfaces WHY nothing is sending.
+  let cooldown: { until: string; channel: string } | null = null;
+  const rlTimes = msgs
+    .filter(m => m.status === "queued" && m.channel === "linkedin" && (m.metadata as any)?.last_rate_limit_at)
+    .map(m => new Date((m.metadata as any).last_rate_limit_at).getTime())
+    .filter(t => !isNaN(t));
+  if (rlTimes.length) {
+    const newest = Math.max(...rlTimes);
+    if (now - newest < 4 * 3600 * 1000) cooldown = { until: new Date(newest + 4 * 3600 * 1000).toISOString(), channel: "linkedin" };
+  }
+
   const failedMsgs = msgs.filter(m => m.status === "failed");
   const failCounts: Record<string, number> = {};
   failedMsgs.forEach(m => { const c = failCategory(m.error_details); failCounts[c] = (failCounts[c] ?? 0) + 1; });
@@ -309,11 +349,12 @@ async function getFlowMetrics(
   // Per-lead activity table — one row per lead, sorted by most-recent activity.
   const byLead: Record<string, Msg[]> = {};
   msgs.forEach(m => { (byLead[m.lead_id] ||= []).push(m); });
-  const campStatusByLead = new Map(campRows.map(c => [c.lead_id, c.status]));
+  const campMeta = new Map(campRows.map(c => [c.lead_id, c]));
   const leadsActivity = leadIds.map(id => {
     const lm = byLead[id] ?? [];
     const sentMsgs = lm.filter(x => x.status === "sent");
     const lastActivity = sentMsgs.map(x => x.sent_at).filter(Boolean).sort().slice(-1)[0] ?? null;
+    const meta = campMeta.get(id);
     return {
       id, name: leadInfo.get(id)?.name ?? "Unknown", company: leadInfo.get(id)?.company ?? null,
       channels: [...new Set(lm.map(x => x.channel))],
@@ -323,13 +364,15 @@ async function getFlowMetrics(
       replied: replyClass.get(id) ?? null,
       replyText: replyText.get(id)?.text ?? null,
       bounced: bouncedSet.has(id),
-      status: campStatusByLead.get(id) ?? "—",
+      status: meta?.status ?? "—",
+      currentStep: meta?.current_step ?? null,
+      daysInFlow: meta?.started_at ? Math.max(0, Math.round((now - new Date(meta.started_at).getTime()) / 86400000)) : null,
       lastActivity,
     };
   }).sort((a, b) => (b.lastActivity ?? "").localeCompare(a.lastActivity ?? ""));
 
   return {
-    leadsActivity,
+    leadsActivity, velocity, cooldown,
     totalLeads, invitesSent: requestsSent, accepted, messaged: messagedSet.size, replied: repliedSet.size, positive: positiveSet.size,
     acceptRate: requestsSent ? Math.round((accepted / requestsSent) * 100) : 0,
     messagedRate: accepted ? Math.round((messagedSet.size / accepted) * 100) : 0,
@@ -540,9 +583,10 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   // on rep + siblings → fixes the counts to the full cohort.
   const flowLeadIds = [...new Set(allGroupCampaigns.map(c => ((c as any).leads?.id as string | undefined)).filter(Boolean) as string[])];
   const campRows = allGroupCampaigns
-    .map(c => ({ lead_id: (c as any).leads?.id as string | undefined, status: c.status as string }))
-    .filter((r): r is { lead_id: string; status: string } => !!r.lead_id);
-  const flowMetrics = await getFlowMetrics(allCampaignIds, flowLeadIds, sequence, leadInfo, channels, pct, campRows);
+    .map(c => ({ lead_id: (c as any).leads?.id as string | undefined, status: c.status as string, current_step: (c.current_step ?? null) as number | null, started_at: ((c as any).started_at ?? null) as string | null }))
+    .filter((r): r is { lead_id: string; status: string; current_step: number | null; started_at: string | null } => !!r.lead_id);
+  const sellerDailyLimit = (campaign.sellers?.linkedin_daily_limit as number | null | undefined) ?? null;
+  const flowMetrics = await getFlowMetrics(allCampaignIds, flowLeadIds, sequence, leadInfo, channels, pct, campRows, sellerDailyLimit);
 
   return (
     <div className="p-6 w-full">
@@ -650,12 +694,14 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         {/* Stats grid — five tiles each with a top-border KPI accent +
             inset halo so the bar reads like premium gauges, not plain
             text rows. Active In replaces the redundant "Active" stat. */}
-        <div className="px-2 py-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 relative">
+        {/* Slim hero stats: cross-tab context only (Total / Paused / Completed).
+            Progress + "Active In" moved out — the Metrics tab's funnel + per-channel
+            cards now own progress and channel activity (no duplication). */}
+        <div className="px-2 py-2 grid grid-cols-3 gap-2 relative">
           {[
             { label: t("campaignDetail.metric.totalLeads"), value: totalLeadsInGroup,                                color: gold },
             { label: t("campaignDetail.metric.paused"),     value: pausedInGroup,                                    color: "#D97706" },
             { label: t("campaignDetail.metric.completed"),  value: completedInGroup,                                 color: "color-mix(in srgb, #F5F2E8 65%, transparent)" },
-            { label: t("campaignDetail.metric.progress"),   value: `${pct}%`,                                        color: gold },
           ].map(s => (
             <div
               key={s.label}
@@ -684,42 +730,6 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
               </p>
             </div>
           ))}
-          <div
-            className="px-3 py-3 rounded-xl relative overflow-hidden"
-            style={{
-              backgroundColor: "rgba(255,255,255,0.025)",
-              borderTop: `2px solid color-mix(in srgb, ${gold} 70%, transparent)`,
-              boxShadow: `0 0 18px color-mix(in srgb, ${gold} 8%, transparent) inset`,
-            }}
-          >
-            <p className="text-[9px] font-bold uppercase tracking-[0.14em] mb-1.5" style={{ color: "color-mix(in srgb, #F5F2E8 55%, transparent)", letterSpacing: "0.14em" }}>{t("campaignDetail.metric.activeIn")}</p>
-            {activeChannelEntries.length === 0 ? (
-              <p className="text-[16px] font-bold leading-none" style={{ color: "color-mix(in srgb, #F5F2E8 35%, transparent)", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>—</p>
-            ) : (
-              <div className="flex flex-wrap items-center gap-1">
-                {activeChannelEntries.map(([ch, count]) => {
-                  const meta = ({
-                    linkedin: { label: "LinkedIn", color: "#5BA9FF" },
-                    email:    { label: "Email",    color: "#B093FF" },
-                    call:     { label: "Call",     color: "#FF9D5B" },
-                    whatsapp: { label: "WhatsApp", color: "#5BE89A" },
-                  } as Record<string, { label: string; color: string }>)[ch] ?? { label: ch, color: "color-mix(in srgb, #F5F2E8 70%, transparent)" };
-                  return (
-                    <span key={ch}
-                      className="inline-flex items-center gap-1 text-[10px] font-semibold rounded-full px-2 py-0.5 border"
-                      title={`${count} lead${count === 1 ? "" : "s"} currently on a ${meta.label} step`}
-                      style={{
-                        backgroundColor: `color-mix(in srgb, ${meta.color} 16%, transparent)`,
-                        color: meta.color,
-                        borderColor: `color-mix(in srgb, ${meta.color} 38%, transparent)`,
-                      }}>
-                      <span className="font-bold tabular-nums">{count}</span> {meta.label}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
         </div>
       </div>
 

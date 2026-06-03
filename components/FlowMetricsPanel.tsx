@@ -5,7 +5,7 @@ import Link from "next/link";
 import { C } from "@/lib/design";
 import {
   Users, Send, UserCheck, MessageSquare, Trophy, TrendingUp, AlertTriangle,
-  Share2, Mail, Phone, ChevronRight, ChevronDown, XCircle, Hourglass, Search,
+  Share2, Mail, Phone, ChevronRight, ChevronDown, XCircle, Hourglass, Search, Download,
 } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
@@ -15,10 +15,12 @@ export type DrillLead = { id: string; name: string; company: string | null; deta
 export type LeadActivity = {
   id: string; name: string; company: string | null; channels: string[];
   inviteSent: boolean; accepted: boolean; messaged: number; replied: string | null; replyText: string | null; bounced: boolean;
-  status: string; lastActivity: string | null;
+  status: string; currentStep: number | null; daysInFlow: number | null; lastActivity: string | null;
 };
 export type FlowMetrics = {
   leadsActivity: LeadActivity[];
+  velocity: { sentToday: number; dailyLimit: number | null; lastActivityAt: string | null; byDay: { date: string; sent: number; replies: number }[]; avgDaysToReply: number | null };
+  cooldown: { until: string; channel: string } | null;
   totalLeads: number;
   invitesSent: number; accepted: number; messaged: number; replied: number; positive: number;
   acceptRate: number; messagedRate: number; replyRate: number; positiveRate: number; progressPct: number;
@@ -95,20 +97,50 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
     </div>
   ) : null;
 
+  // Benchmark colour for a rate (higher = better). Signals good/ok/bad at a glance.
+  const bench = (rate: number, hi: number, mid: number) => rate >= hi ? "#16A34A" : rate >= mid ? "#D97706" : C.red;
   // Funnel stages (top → bottom), with the conversion vs the previous stage.
-  const stages: { key: string; label: string; value: number; icon: typeof Mail; color: string; drill: DrillKey | null; conv: number | null; convLabel: string }[] = [
+  // benchT = [good, ok] thresholds for the conversion INTO this stage (when it's
+  // a quality signal, not an operational one we fully control).
+  const stages: { key: string; label: string; value: number; icon: typeof Mail; color: string; drill: DrillKey | null; conv: number | null; convLabel: string; benchT?: [number, number] }[] = [
     { key: "leads", label: "Leads", value: m.totalLeads, icon: Users, color: gold as string, drill: null, conv: null, convLabel: "" },
     { key: "invites", label: "Invites", value: m.invitesSent, icon: Send, color: "#0A66C2", drill: null, conv: m.totalLeads ? Math.round((m.invitesSent / m.totalLeads) * 100) : 0, convLabel: "invited" },
-    { key: "accepted", label: "Accepted", value: m.accepted, icon: UserCheck, color: "#16A34A", drill: "accepted", conv: m.acceptRate, convLabel: "of invites" },
+    { key: "accepted", label: "Accepted", value: m.accepted, icon: UserCheck, color: "#16A34A", drill: "accepted", conv: m.acceptRate, convLabel: "of invites", benchT: [30, 15] },
     { key: "messaged", label: "Messaged", value: m.messaged, icon: MessageSquare, color: "#0EA5E9", drill: "messaged", conv: m.messagedRate, convLabel: "of accepted" },
-    { key: "replied", label: "Replied", value: m.replied, icon: MessageSquare, color: "#8B5CF6", drill: "replied", conv: m.replyRate, convLabel: "of messaged" },
-    { key: "positive", label: "Positive", value: m.positive, icon: Trophy, color: "#D97706", drill: "positive", conv: m.positiveRate, convLabel: "of replied" },
+    { key: "replied", label: "Replied", value: m.replied, icon: MessageSquare, color: "#8B5CF6", drill: "replied", conv: m.replyRate, convLabel: "of messaged", benchT: [10, 3] },
+    { key: "positive", label: "Positive", value: m.positive, icon: Trophy, color: "#D97706", drill: "positive", conv: m.positiveRate, convLabel: "of replied", benchT: [40, 20] },
   ];
   const maxV = Math.max(1, m.totalLeads, m.invitesSent);
   const stepMax = Math.max(1, ...m.steps.map(s => s.sent + s.failed + s.skipped + s.pending));
 
+  const v = m.velocity;
+  const limitPct = v.dailyLimit ? Math.min(100, Math.round((v.sentToday / v.dailyLimit) * 100)) : null;
+
   return (
     <div className="space-y-5">
+      {/* ── COOLDOWN BANNER ── */}
+      {m.cooldown && (
+        <div className="rounded-xl border px-4 py-2.5 flex items-center gap-2.5" style={{ borderColor: "color-mix(in srgb, #D97706 38%, transparent)", backgroundColor: "color-mix(in srgb, #D97706 8%, transparent)" }}>
+          <Hourglass size={15} style={{ color: "#D97706" }} />
+          <span className="text-[13px]" style={{ color: C.textBody }}>
+            <strong style={{ color: "#B45309" }}>{m.cooldown.channel === "linkedin" ? "LinkedIn" : m.cooldown.channel} on cooldown</strong> — provider rate limit hit; sending paused until <strong>{fmtDT(m.cooldown.until)}</strong>, then auto-resumes.
+          </span>
+        </div>
+      )}
+
+      {/* ── VELOCITY STRIP ── */}
+      <Section title="Velocity">
+        <div className="flex items-center gap-5 flex-wrap">
+          <VStat label="Sent today" value={v.dailyLimit ? `${v.sentToday}/${v.dailyLimit}` : `${v.sentToday}`} sub={limitPct != null ? `${limitPct}% of daily` : "today"} color={limitPct != null && limitPct >= 90 ? "#D97706" : "#0A66C2"} />
+          <VStat label="Last activity" value={fmtDT(v.lastActivityAt)} sub="last send" color={C.textPrimary} small />
+          <VStat label="Avg to reply" value={v.avgDaysToReply != null ? `${v.avgDaysToReply}d` : "—"} sub="first send → reply" color="#8B5CF6" />
+          <div className="flex-1 min-w-[200px]">
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textDim }}>Last 14 days</p>
+            <Sparkline data={v.byDay} />
+          </div>
+        </div>
+      </Section>
+
       {/* ── OUTREACH FUNNEL ── */}
       <Section title="Outreach funnel">
         <div className="space-y-0.5">
@@ -122,7 +154,7 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
                 {i > 0 && s.conv != null && (
                   <div className="flex items-center gap-1.5 pl-[8.5rem] h-5">
                     <ChevronDown size={12} style={{ color: C.textDim }} />
-                    <span className="text-[12px] font-bold tabular-nums" style={{ color: s.color }}>{s.conv}%</span>
+                    <span className="text-[12px] font-bold tabular-nums" style={{ color: s.benchT ? bench(s.conv, s.benchT[0], s.benchT[1]) : s.color }}>{s.conv}%</span>
                     <span className="text-[10px]" style={{ color: C.textDim }}>{s.convLabel}</span>
                   </div>
                 )}
@@ -162,7 +194,7 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
       <Section title="By channel" pad>
         <div className="flex flex-wrap gap-3">
           {m.linkedin && <ChannelCard ch="linkedin" stats={[["invites", m.linkedin.invitesSent], ["accepted", `${m.linkedin.accepted} · ${m.linkedin.acceptRate}%`], ["pending", m.linkedin.pendingAccept], ["DMs", m.linkedin.dmsSent], ["replies", m.linkedin.replies], ["failed", m.linkedin.failed]]} danger={m.linkedin.failed > 0} />}
-          {m.email && <ChannelCard ch="email" stats={[["sent", m.email.sent], ["bounced", `${m.email.bounced} · ${m.email.bounceRate}%`], ["replies", m.email.replies]]} danger={m.email.bounced > 0} />}
+          {m.email && <ChannelCard ch="email" stats={[["sent", m.email.sent], ["bounced", `${m.email.bounced} · ${m.email.bounceRate}%`], ["replies", m.email.replies]]} danger={m.email.bounceRate > 5} />}
           {m.call && <ChannelCard ch="call" stats={[["dialed", m.call.dialed]]} />}
         </div>
         <div className="mt-3 pt-3 border-t flex flex-wrap items-center gap-1.5" style={{ borderColor: C.border }}>
@@ -257,14 +289,13 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
   );
 }
 
+type SortKey = "name" | "messaged" | "currentStep" | "daysInFlow" | "lastActivity";
 function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "accepted" | "replied" | "pending" | "bounced">("all");
   const [openLead, setOpenLead] = useState<string | null>(null);
-  const fmt = (s: string | null) => {
-    if (!s) return "—";
-    try { const d = new Date(s); return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) + " " + d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }); } catch { return "—"; }
-  };
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "lastActivity", dir: -1 });
+  const fmt = fmtDT;
   const replyColor: Record<string, string> = { positive: C.green, question: "#0EA5E9", negative: C.red, other: C.textMuted };
   const filtered = rows.filter(r => {
     if (q.trim()) { const s = q.trim().toLowerCase(); if (!`${r.name} ${r.company ?? ""}`.toLowerCase().includes(s)) return false; }
@@ -274,6 +305,33 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
     if (filter === "bounced") return r.bounced;
     return true;
   });
+  const sorted = [...filtered].sort((a, b) => {
+    const k = sort.key;
+    let av: string | number = ""; let bv: string | number = "";
+    if (k === "name") { av = a.name.toLowerCase(); bv = b.name.toLowerCase(); }
+    else if (k === "messaged") { av = a.messaged; bv = b.messaged; }
+    else if (k === "currentStep") { av = a.currentStep ?? -1; bv = b.currentStep ?? -1; }
+    else if (k === "daysInFlow") { av = a.daysInFlow ?? -1; bv = b.daysInFlow ?? -1; }
+    else { av = a.lastActivity ?? ""; bv = b.lastActivity ?? ""; }
+    return (av < bv ? -1 : av > bv ? 1 : 0) * sort.dir;
+  });
+  const toggleSort = (key: SortKey) => setSort(s => (s.key === key ? { key, dir: (s.dir === 1 ? -1 : 1) } : { key, dir: key === "name" ? 1 : -1 }));
+  const Sortable = ({ k, label, align = "left" }: { k: SortKey; label: string; align?: "left" | "center" }) => (
+    <th className={`px-2 py-2.5 cursor-pointer select-none ${align === "center" ? "text-center" : "text-left"}`} onClick={() => toggleSort(k)}>
+      <span className="inline-flex items-center gap-0.5">{label}{sort.key === k && (sort.dir === 1 ? <ChevronDown size={10} className="rotate-180" /> : <ChevronDown size={10} />)}</span>
+    </th>
+  );
+  const downloadCsv = () => {
+    const head = ["Lead", "Company", "Channels", "Invite", "Accepted", "Messages", "Replied", "Bounced", "Status", "Step", "Days in flow", "Last activity"];
+    const esc = (s: string) => `"${String(s ?? "").replace(/"/g, '""')}"`;
+    const lines = [head.map(esc).join(",")].concat(sorted.map(r => [
+      r.name, r.company ?? "", r.channels.join("|"), r.inviteSent ? "yes" : "no", r.accepted ? "yes" : "no",
+      String(r.messaged), r.replied ?? "", r.bounced ? "yes" : "no", r.status, r.currentStep ?? "", r.daysInFlow ?? "", r.lastActivity ?? "",
+    ].map(x => esc(String(x))).join(",")));
+    const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = "leads-activity.csv"; a.click(); URL.revokeObjectURL(url);
+  };
 
   return (
     <Section title="Leads activity" pad={false}
@@ -286,31 +344,40 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
               style={{ borderColor: filter === f ? gold : C.border, color: filter === f ? gold : C.textMuted, backgroundColor: filter === f ? `color-mix(in srgb, ${gold} 8%, transparent)` : "transparent" }}>{f}</button>
           ))}
         </div>
-        <div className="relative">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: C.textDim }} />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search name / company…"
-            className="text-xs rounded-lg border pl-7 pr-2.5 py-1.5 outline-none w-52" style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textPrimary }} />
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: C.textDim }} />
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search name / company…"
+              className="text-xs rounded-lg border pl-7 pr-2.5 py-1.5 outline-none w-52" style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textPrimary }} />
+          </div>
+          <button type="button" onClick={downloadCsv} disabled={sorted.length === 0}
+            className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-colors disabled:opacity-40 hover:opacity-80"
+            style={{ borderColor: C.border, color: C.textBody }}>
+            <Download size={12} /> CSV
+          </button>
         </div>
       </div>
       <div className="overflow-x-auto">
-        <div className="max-h-[440px] overflow-y-auto min-w-[680px]">
+        <div className="max-h-[440px] overflow-y-auto min-w-[860px]">
           <table className="w-full text-sm border-collapse">
             <thead className="sticky top-0 z-10" style={{ backgroundColor: C.bg, boxShadow: `inset 0 -1px 0 ${C.border}` }}>
               <tr className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>
-                <th className="text-left px-4 py-2.5">Lead</th>
+                <Sortable k="name" label="Lead" />
                 <th className="text-left px-2 py-2.5">Channels</th>
                 <th className="text-center px-2 py-2.5">Invite</th>
                 <th className="text-center px-2 py-2.5">Accepted</th>
-                <th className="text-center px-2 py-2.5">Msgs</th>
+                <Sortable k="messaged" label="Msgs" align="center" />
                 <th className="text-left px-2 py-2.5">Replied</th>
+                <Sortable k="currentStep" label="Step" align="center" />
+                <Sortable k="daysInFlow" label="Days" align="center" />
                 <th className="text-left px-2 py-2.5">Status</th>
-                <th className="text-left px-3 py-2.5">Last activity</th>
+                <Sortable k="lastActivity" label="Last activity" />
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-xs" style={{ color: C.textDim }}>No leads match this filter.</td></tr>
-              ) : filtered.map(r => {
+              {sorted.length === 0 ? (
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textDim }}>No leads match this filter.</td></tr>
+              ) : sorted.map(r => {
                 const rc = r.replied ? (replyColor[r.replied] ?? C.textMuted) : C.textMuted;
                 const expanded = openLead === r.id;
                 return (
@@ -338,12 +405,14 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
                           : <span style={{ color: C.textDim }}>—</span>}
                         {r.bounced && <span className="text-[11px] font-semibold ml-1" style={{ color: C.red }}>bounced</span>}
                       </td>
+                      <td className="text-center px-2 py-2 tabular-nums text-xs" style={{ color: r.currentStep != null ? C.textBody : C.textDim }}>{r.currentStep != null ? (r.currentStep === 0 ? "CR" : r.currentStep) : "—"}</td>
+                      <td className="text-center px-2 py-2 tabular-nums text-xs" style={{ color: C.textMuted }}>{r.daysInFlow != null ? `${r.daysInFlow}d` : "—"}</td>
                       <td className="px-2 py-2 text-xs capitalize" style={{ color: C.textMuted }}>{r.status}</td>
                       <td className="px-3 py-2 text-xs whitespace-nowrap" style={{ color: C.textMuted }}>{fmt(r.lastActivity)}</td>
                     </tr>
                     {expanded && r.replyText && (
                       <tr style={{ backgroundColor: C.bg }}>
-                        <td colSpan={8} className="px-4 py-2.5">
+                        <td colSpan={10} className="px-4 py-2.5">
                           <div className="rounded-lg border px-3 py-2" style={{ borderColor: `color-mix(in srgb, ${rc} 30%, ${C.border})`, backgroundColor: C.card }}>
                             <div className="flex items-center gap-1.5 mb-1">
                               <MessageSquare size={11} style={{ color: rc }} />
@@ -418,6 +487,36 @@ function Tag({ label, n, color }: { label: string; n: number; color: string }) {
       style={{ borderColor: n ? `color-mix(in srgb, ${color} 40%, transparent)` : C.border, color: n ? color : C.textDim, backgroundColor: n ? `color-mix(in srgb, ${color} 8%, transparent)` : "transparent" }}>
       <span className="font-bold tabular-nums">{n}</span> {label}
     </span>
+  );
+}
+
+// Deterministic Buenos Aires formatting so server + client agree (no hydration mismatch).
+function fmtDT(iso: string | null): string {
+  if (!iso) return "—";
+  try { return new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" }); } catch { return "—"; }
+}
+
+function VStat({ label, value, sub, color, small }: { label: string; value: string; sub: string; color: string; small?: boolean }) {
+  return (
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{label}</p>
+      <p className={small ? "text-[13px] font-semibold leading-tight" : "text-[20px] font-bold leading-none tabular-nums"} style={{ color, fontFamily: small ? undefined : OUTFIT }}>{value}</p>
+      <p className="text-[10px] mt-0.5" style={{ color: C.textMuted }}>{sub}</p>
+    </div>
+  );
+}
+
+function Sparkline({ data }: { data: { date: string; sent: number; replies: number }[] }) {
+  const max = Math.max(1, ...data.map(d => d.sent));
+  return (
+    <div className="flex items-end gap-[3px] h-10">
+      {data.map((d, i) => (
+        <div key={i} className="flex-1 flex flex-col items-center justify-end h-full" title={`${d.date}: ${d.sent} sent · ${d.replies} replies`}>
+          {d.replies > 0 && <span className="w-1 h-1 rounded-full mb-0.5 shrink-0" style={{ backgroundColor: C.green }} />}
+          <div className="w-full rounded-sm" style={{ height: `${Math.max(4, (d.sent / max) * 100)}%`, backgroundColor: d.sent ? "color-mix(in srgb, #0A66C2 70%, transparent)" : C.border }} />
+        </div>
+      ))}
+    </div>
   );
 }
 
