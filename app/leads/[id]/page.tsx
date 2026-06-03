@@ -13,6 +13,7 @@ import { LinkedInIcon } from "@/components/SocialIcons";
 import CompanyTabs from "@/components/CompanyTabs";
 import ActivityTimeline from "@/components/ActivityTimeline";
 import LeadNotes from "@/components/LeadNotes";
+import LeadPinnedNotes from "@/components/LeadPinnedNotes";
 import CampaignJourney from "@/components/CampaignJourney";
 import DeleteLeadButton from "@/components/DeleteLeadButton";
 import Breadcrumb from "@/components/Breadcrumb";
@@ -1137,6 +1138,9 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 </div>
               </div>
             </div>
+
+            {/* Key notes — notes the seller pinned from the Notes tab */}
+            <LeadPinnedNotes leadId={id} />
 
             {/* Personalized Info — client-specific enrichment (Pathway: credit signals) */}
             <PersonalizedInfoPanel enrichment={lead.enrichment} />

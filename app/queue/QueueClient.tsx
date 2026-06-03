@@ -126,6 +126,7 @@ function InlineClassifier({ call }: { call: PendingCall }) {
   // call channel on the lead and skips queued call steps.
   const [busy, setBusy] = useState<"positive" | "negative" | "follow_up" | "wrong_number" | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [note, setNote] = useState("");
 
   async function classify(c: "positive" | "negative" | "follow_up" | "wrong_number") {
     if (!call.latestCall) return;
@@ -135,7 +136,7 @@ function InlineClassifier({ call }: { call: PendingCall }) {
       const res = await fetch(`/api/calls/${call.latestCall.id}/classify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ classification: c }),
+        body: JSON.stringify({ classification: c, note: note.trim() || undefined }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -179,8 +180,8 @@ function InlineClassifier({ call }: { call: PendingCall }) {
   // The 'positive'/'negative' actions close the campaign (entry will then
   // disappear from /queue on the next router.refresh()).
   return (
-    <div className="border-t px-5 py-2.5 flex items-center gap-2 flex-wrap"
-      style={{ borderColor: C.border, backgroundColor: C.bg }}>
+    <div className="border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+    <div className="px-5 py-2.5 flex items-center gap-2 flex-wrap">
       <span className="text-[11px] font-semibold mr-1" style={{ color: C.textBody }}>
         Called {timeAgo(call.latestCall.startedAt)} — outcome?
       </span>
@@ -217,6 +218,18 @@ function InlineClassifier({ call }: { call: PendingCall }) {
         Wrong number
       </button>
       {err && <span className="text-[11px]" style={{ color: C.red }}>{err}</span>}
+    </div>
+    {/* Optional after-call note — saved to the lead's Notes (as a Call note)
+        with whichever outcome the seller picks. */}
+    <div className="px-5 pb-2.5">
+      <input
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="Add a note about the call (optional) — saved to the lead's Notes"
+        className="w-full text-[11px] px-2.5 py-1.5 rounded-md border outline-none"
+        style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}
+      />
+    </div>
     </div>
   );
 }
