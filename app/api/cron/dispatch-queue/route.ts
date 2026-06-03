@@ -575,22 +575,17 @@ async function dispatchOneMessage(
   const leadTerminal = (rawLead as { responded?: boolean | null }).responded === true
     || ["qualified", "closed_won", "closed_lost", "responded"].includes((rawLead as { status?: string | null }).status ?? "");
   const campaignActive = (campaign as { status?: string | null }).status === "active";
-  // Fran 2026-06-03: a lead who replied recently must not get the next automated
-  // step on top of an open conversation. Positive/negative already close the
-  // campaign (caught above); for question/ambiguous the campaign stays active,
-  // so we hold the sequence for a 3-DAY COOLDOWN after the last reply. If the
-  // lead goes silent past 3 days the step resumes on its own; a new reply resets
-  // the window. This IS the "resume after 3 days" behaviour.
-  const REPLY_COOLDOWN_DAYS = 3;
-  const cooldownCutoff = new Date(Date.now() - REPLY_COOLDOWN_DAYS * 86400000).toISOString();
-  const { data: recentReply } = await svc
-    .from("lead_replies").select("id").eq("lead_id", candidate.lead_id)
-    .gte("received_at", cooldownCutoff).limit(1);
-  const repliedRecently = Array.isArray(recentReply) && recentReply.length > 0;
-  if (!campaignActive || leadTerminal || repliedRecently) {
+  // Fran 2026-06-03 (per seller): a lead who replied AT ALL stops the flow
+  // COMPLETELY — no auto-resume. Once the lead engages, the seller takes over
+  // manually; the sequence must never re-fire on its own. Any lead_replies row
+  // = full stop. (Re-engagement is a manual renurture decision, not automatic.)
+  const { data: anyReply } = await svc
+    .from("lead_replies").select("id").eq("lead_id", candidate.lead_id).limit(1);
+  const hasReplied = Array.isArray(anyReply) && anyReply.length > 0;
+  if (!campaignActive || leadTerminal || hasReplied) {
     return await skipMessage(
       svc, candidate.id, candidate.lead_id,
-      `held — campaign ${(campaign as { status?: string | null }).status}${leadTerminal ? " / lead terminal" : repliedRecently ? " / replied within 3d (cooldown)" : ""}`,
+      `stopped — campaign ${(campaign as { status?: string | null }).status}${leadTerminal ? " / lead terminal" : hasReplied ? " / lead replied (flow stopped)" : ""}`,
     );
   }
 
