@@ -34,7 +34,7 @@ export type FlowMetrics = {
   email: { sent: number; bounced: number; bounceRate: number; replies: number } | null;
   call: { dialed: number } | null;
   failureReasons: { reason: string; count: number }[];
-  replyBreakdown: { positive: number; negative: number; question: number; other: number };
+  replyBreakdown: { positive: number; negative: number; question: number; followup: number; other: number };
   drill: { accepted: DrillLead[]; messaged: DrillLead[]; pendingAccept: DrillLead[]; replied: DrillLead[]; positive: DrillLead[]; bounced: DrillLead[]; failed: DrillLead[] };
 };
 type DrillKey = keyof FlowMetrics["drill"];
@@ -201,6 +201,7 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
           <span className="text-[10px] font-bold uppercase tracking-wider mr-1" style={{ color: C.textDim }}>Replies</span>
           <Tag label="positive" n={m.replyBreakdown.positive} color={C.green} />
           <Tag label="question" n={m.replyBreakdown.question} color="#0EA5E9" />
+          <Tag label="follow-up" n={m.replyBreakdown.followup} color="#D97706" />
           <Tag label="negative" n={m.replyBreakdown.negative} color={C.red} />
           <Tag label="other" n={m.replyBreakdown.other} color={C.textMuted} />
           <span className="text-[10px] font-bold uppercase tracking-wider mx-1" style={{ color: C.textDim }}>Status</span>
@@ -296,7 +297,7 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
   const [openLead, setOpenLead] = useState<string | null>(null);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "lastActivity", dir: -1 });
   const fmt = fmtDT;
-  const replyColor: Record<string, string> = { positive: C.green, question: "#0EA5E9", negative: C.red, other: C.textMuted };
+  const replyColor: Record<string, string> = { positive: C.green, question: "#0EA5E9", followup: "#D97706", negative: C.red, other: C.textMuted };
   const filtered = rows.filter(r => {
     if (q.trim()) { const s = q.trim().toLowerCase(); if (!`${r.name} ${r.company ?? ""}`.toLowerCase().includes(s)) return false; }
     if (filter === "accepted") return r.accepted;
@@ -379,6 +380,7 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
                 <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textDim }}>No leads match this filter.</td></tr>
               ) : sorted.map(r => {
                 const rc = r.replied ? (replyColor[r.replied] ?? C.textMuted) : C.textMuted;
+                const rlabel = r.replied === "followup" ? "follow-up" : r.replied;
                 const expanded = openLead === r.id;
                 return (
                   <Fragment key={r.id}>
@@ -399,9 +401,9 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
                             ? <button type="button" onClick={() => setOpenLead(o => (o === r.id ? null : r.id))}
                                 className="inline-flex items-center gap-1 text-[11px] font-semibold px-1.5 py-0.5 rounded capitalize"
                                 style={{ color: rc, backgroundColor: `color-mix(in srgb, ${rc} 12%, transparent)` }}>
-                                {r.replied} <ChevronRight size={10} style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
+                                {rlabel} <ChevronRight size={10} style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
                               </button>
-                            : <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded capitalize" style={{ color: rc, backgroundColor: `color-mix(in srgb, ${rc} 12%, transparent)` }}>{r.replied}</span>)
+                            : <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded capitalize" style={{ color: rc, backgroundColor: `color-mix(in srgb, ${rc} 12%, transparent)` }}>{rlabel}</span>)
                           : <span style={{ color: C.textDim }}>—</span>}
                         {r.bounced && <span className="text-[11px] font-semibold ml-1" style={{ color: C.red }}>bounced</span>}
                       </td>
@@ -416,7 +418,7 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
                           <div className="rounded-lg border px-3 py-2" style={{ borderColor: `color-mix(in srgb, ${rc} 30%, ${C.border})`, backgroundColor: C.card }}>
                             <div className="flex items-center gap-1.5 mb-1">
                               <MessageSquare size={11} style={{ color: rc }} />
-                              <span className="text-[10px] font-bold uppercase tracking-wider capitalize" style={{ color: rc }}>{r.replied} reply</span>
+                              <span className="text-[10px] font-bold uppercase tracking-wider capitalize" style={{ color: rc }}>{rlabel} reply</span>
                             </div>
                             <p className="text-xs whitespace-pre-wrap" style={{ color: C.textBody }}>{r.replyText}</p>
                           </div>

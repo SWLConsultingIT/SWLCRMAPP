@@ -37,14 +37,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // buttons so a seller can both correct the AI's guess AND mark the row
   // reviewed in a single round trip.
   //
-  // "follow_up" is NOT an enum value of reply_classification. It's a UI-only
-  // intent meaning "I saw this, no classification change, campaign keeps
-  // running, will respond manually later". Treat it as a review-only action
-  // — mark the row reviewed but leave the AI's classification alone.
-  // Writing it to the enum column was the cause of the 500 in production
-  // (incident 2026-05-25: clicking the ❓ Follow-up button toasted
-  // "invalid input value for enum reply_classification: 'follow_up'").
-  const ENUM_CLASS = new Set(["positive", "negative", "question", "meeting_intent", "needs_info", "nurturing", "not_now", "unsubscribe", "spam", "auto_reply"]);
+  // "follow_up" is now a real reply_classification enum value (added 2026-06-03),
+  // so the seller's reclassification persists and shows consistently everywhere
+  // (inbox badge + Metrics funnel/table). It is NON-terminal: unlike
+  // positive/negative it does NOT cascade-close the campaign — the flow keeps
+  // running and the seller follows up manually. (Pre-2026-06-03 it was UI-only
+  // and writing it 500'd because it wasn't in the enum — incident 2026-05-25.)
+  const ENUM_CLASS = new Set(["positive", "negative", "question", "follow_up", "meeting_intent", "needs_info", "nurturing", "not_now", "unsubscribe", "spam", "auto_reply"]);
   const classOverride = (body as { classification?: string }).classification;
   const patch: Record<string, unknown> = {
     review_status: status,
@@ -53,8 +52,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (classOverride && ENUM_CLASS.has(classOverride)) {
     patch.classification = classOverride;
   }
-  // follow_up falls through: no classification write, just the review_status
-  // update above. Campaign / lead state stays untouched.
 
   const { data: replyRow, error } = await supabase
     .from("lead_replies")

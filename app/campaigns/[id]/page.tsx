@@ -233,13 +233,21 @@ async function getFlowMetrics(
   const repliesByChannel: Record<string, Set<string>> = {};
   const firstReplyAt = new Map<string, string>();
   const replyDates: string[] = [];
-  const rank: Record<string, number> = { positive: 4, question: 3, negative: 2, other: 1 };
+  // Bucketing aligned with the inbox classBadge so Metrics + Inbox + lead
+  // detail show the SAME label. rank = which wins when a lead has >1 reply.
+  const rank: Record<string, number> = { positive: 5, question: 4, followup: 3, negative: 2, other: 1 };
+  const bucketOf = (c: string) =>
+    (c === "positive" || c === "meeting_intent") ? "positive"
+    : (c === "question" || c === "needs_info") ? "question"
+    : (c === "follow_up" || c === "nurturing") ? "followup"
+    : (c === "negative" || c === "not_now") ? "negative"
+    : "other";
   for (let i = 0; i < leadIds.length; i += 100) {
     const inClause = `(${leadIds.slice(i, i + 100).join(",")})`;
     const rows = await restGet(`lead_replies?lead_id=in.${encodeURIComponent(inClause)}&select=lead_id,classification,channel,reply_text,received_at`);
     rows.forEach((r: any) => {
       const c = (r.classification ?? "").toLowerCase();
-      const bucket = c.includes("positive") ? "positive" : c.includes("question") ? "question" : c.includes("negative") ? "negative" : "other";
+      const bucket = bucketOf(c);
       const prev = replyClass.get(r.lead_id);
       if (!prev || rank[bucket] > rank[prev]) replyClass.set(r.lead_id, bucket);
       const at = r.received_at ?? "";
@@ -384,6 +392,7 @@ async function getFlowMetrics(
       positive: [...replyClass.values()].filter(b => b === "positive").length,
       negative: [...replyClass.values()].filter(b => b === "negative").length,
       question: [...replyClass.values()].filter(b => b === "question").length,
+      followup: [...replyClass.values()].filter(b => b === "followup").length,
       other: [...replyClass.values()].filter(b => b === "other").length,
     },
     drill: {
