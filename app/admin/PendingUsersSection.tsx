@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { C } from "@/lib/design";
-import { UserPlus, AlertTriangle } from "lucide-react";
+import { UserPlus, AlertTriangle, Trash2, Loader2 } from "lucide-react";
 import AddPersonModal, { type AddPersonResult } from "./AddPersonModal";
 import { useToast } from "@/lib/toast";
 
@@ -17,6 +17,7 @@ export default function PendingUsersSection() {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [assignTarget, setAssignTarget] = useState<PendingUser | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/users")
@@ -36,6 +37,25 @@ export default function PendingUsersSection() {
     setUsers(prev => prev.filter(u => u.id !== target.id));
     const where = result.count > 1 ? `${result.count} companies` : "the company";
     toast.show({ kind: "success", title: `${target.email} added to ${where}` });
+  }
+
+  async function removeUser(user: PendingUser) {
+    if (!window.confirm(`Delete ${user.email}? This permanently removes the account. They'll have to sign up again.`)) return;
+    setDeleting(user.id);
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        toast.show({ kind: "error", title: "Couldn't delete", description: d.error ?? "Try again." });
+        return;
+      }
+      setUsers(prev => prev.filter(u => u.id !== user.id));
+      toast.show({ kind: "success", title: `${user.email} deleted` });
+    } catch {
+      toast.show({ kind: "error", title: "Network error", description: "Try again in a moment." });
+    } finally {
+      setDeleting(null);
+    }
   }
 
   if (loading) return null;
@@ -71,6 +91,15 @@ export default function PendingUsersSection() {
             style={{ borderColor: "#D97706", color: "#fff", backgroundColor: "#D97706" }}
           >
             <UserPlus size={12} /> Assign to companies…
+          </button>
+          <button
+            onClick={() => removeUser(user)}
+            disabled={deleting === user.id}
+            title="Delete account"
+            className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-black/[0.05] shrink-0 disabled:opacity-50"
+            style={{ color: C.red }}
+          >
+            {deleting === user.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
           </button>
         </div>
       ))}

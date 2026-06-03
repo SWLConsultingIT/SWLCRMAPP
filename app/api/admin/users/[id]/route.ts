@@ -28,7 +28,14 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (guard instanceof NextResponse) return guard;
   const { id } = await params;
   const supabase = getSupabaseService();
-  const { error } = await supabase.from("user_profiles").delete().eq("user_id", id);
+  // Full purge — used by the Pending Assignment "delete" action to remove an
+  // unassigned/test account entirely: memberships + profile + the auth user.
+  // (Postgrest builders have no .catch, so await the row deletes directly;
+  // they no-op when there are no rows. The auth deletion is the one that
+  // makes the account actually disappear.)
+  await supabase.from("user_company_memberships").delete().eq("user_id", id);
+  await supabase.from("user_profiles").delete().eq("user_id", id);
+  const { error } = await supabase.auth.admin.deleteUser(id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   invalidateProfileCache(id);
   return NextResponse.json({ ok: true });
