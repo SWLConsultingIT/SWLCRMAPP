@@ -247,15 +247,25 @@ export async function POST(
     metadata: sentMeta,
   };
   const { error: insErr } = await svc.from("campaign_messages").insert(insertRow);
+
+  // Replying = handling it: mark the lead's pending replies reviewed so the
+  // inbox row moves out of "Pending review" into History. (Fran 2026-06-03.)
+  await svc
+    .from("lead_replies")
+    .update({ review_status: "approved", requires_human_review: false })
+    .eq("lead_id", leadId)
+    .eq("requires_human_review", true);
+
   if (insErr) {
     // The message DID go out — surface a soft warning, don't fail the request.
     return NextResponse.json({
       ok: true,
       channel,
       providerMessageId,
+      reviewed: true,
       warning: `sent but failed to log: ${insErr.message}`,
     });
   }
 
-  return NextResponse.json({ ok: true, channel, providerMessageId, sentAt: nowIso });
+  return NextResponse.json({ ok: true, channel, providerMessageId, reviewed: true, sentAt: nowIso });
 }

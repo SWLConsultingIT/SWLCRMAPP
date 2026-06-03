@@ -1358,14 +1358,14 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                 )}
               </div>
 
-              {/* Composer — reply out the lead's channel + AI draft helper.
-                  Sits below the conversation, above the review actions. */}
-              {selected.leadId && (
+              {/* Composer — only on Pending review items. Replying marks the
+                  row reviewed (→ History), so History stays read-only. */}
+              {selected.leadId && isPending(selected) && (
                 <div className="px-5 py-3 border-t" style={{ borderColor: C.border }}>
                   <InboxComposer
                     leadId={selected.leadId}
                     channel={(selected as any).channel ?? null}
-                    onSent={reloadThread}
+                    onSent={() => { reloadThread(); router.refresh(); }}
                     compact
                     autoSuggest={isPending(selected)}
                     defaultSubject={(() => {
