@@ -8,6 +8,7 @@ import { useLocale } from "@/lib/i18n";
 import { useAuthUser, useAuth } from "@/lib/auth-context";
 import TodayPlanPopover from "./TodayPlanPopover";
 import HelpMenu from "./HelpMenu";
+import NotificationBell from "./NotificationBell";
 
 const ROUTE_KEYS: Record<string, { key: string; brand?: string }> = {
   "/":              { key: "nav.dashboard" },
@@ -127,6 +128,7 @@ export default function TopHeader() {
       {/* Right: actions + user */}
       <div className="flex items-center gap-1 w-56 justify-end">
         <HelpMenu />
+        <NotificationBell />
         <TodayPlanPopover />
         <Link
           href="/settings"
