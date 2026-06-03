@@ -14,6 +14,8 @@ import PageHero from "@/components/PageHero";
 import PendingUsersSection from "./PendingUsersSection";
 import ActivityWidget from "@/components/ActivityWidget";
 import TenantTeamTab from "./TenantTeamTab";
+import AddPersonModal from "./AddPersonModal";
+import { useToast } from "@/lib/toast";
 
 type UserRow = {
   id: string;
@@ -902,8 +904,19 @@ function timeAgo(iso: string | null) {
 }
 
 export default function AdminClient({ clients, pendingApprovals, stats, myCompanyBioId }: Props) {
+  const toast = useToast();
   const [tab, setTab] = useState(0);
   const [search, setSearch] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  // Canonical company list (all bios, incl. SWL) for the "Add person" modal —
+  // same source the rest of the admin uses. Cheap; fetched once on mount.
+  const [allCompanies, setAllCompanies] = useState<Company[]>([]);
+  useEffect(() => {
+    fetch("/api/admin/users")
+      .then(r => r.json())
+      .then(d => setAllCompanies(d.companies ?? []))
+      .catch(() => { /* non-critical */ });
+  }, []);
 
   const filteredClients = !search
     ? clients
@@ -939,8 +952,33 @@ export default function AdminClient({ clients, pendingApprovals, stats, myCompan
         status={{ label: "Internal", active: true }}
       />
 
+      {/* Always-visible "Add person" — opens the multi-company modal for any
+          person (new or existing), independent of the Pending banner. */}
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={() => setAddOpen(true)}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg"
+          style={{ background: `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, ${C.gold} 65%, white))`, color: "#1A1A2E" }}
+        >
+          <Plus size={14} /> Add person
+        </button>
+      </div>
+
       {/* Pending user assignments (hidden when empty) */}
       <PendingUsersSection />
+
+      {addOpen && (
+        <AddPersonModal
+          companies={allCompanies}
+          onClose={() => setAddOpen(false)}
+          onSuccess={(result) => {
+            setAddOpen(false);
+            const where = result.count > 1 ? `${result.count} companies` : "the company";
+            const verb = result.mode === "invited" ? "invited to" : "added to";
+            toast.show({ kind: "success", title: `${result.email} ${verb} ${where}` });
+          }}
+        />
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-4 gap-4 mb-6">
