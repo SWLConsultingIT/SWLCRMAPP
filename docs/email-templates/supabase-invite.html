@@ -1,0 +1,106 @@
+<!--
+  SWL / GrowthAI — Branded "Invite user" email for Supabase Auth.
+
+  HOW TO USE:
+  1. Supabase dashboard → project uljoengwmmwdqpcxnbjs → Authentication → Emails
+     → "Invite user" template.
+  2. Paste the HTML below into the "Message body" (source/HTML mode).
+  3. (Optional) Set the Subject to: You're invited to GrowthAI
+  4. The "Confirm signup" template can use the SAME html — it also exposes
+     {{ .ConfirmationURL }}; just change the heading copy to "Confirm your email".
+
+  PLACEHOLDERS YOU MUST EDIT BEFORE PASTING:
+  - VIDEO_URL  → the Pathway intro Loom SHARE url (e.g. https://www.loom.com/share/xxxx).
+                 If you don't have it yet, delete the whole "Watch the 2-min intro"
+                 block (marked below) and paste it in later.
+  - The logo <img src> → a PUBLICLY reachable https url of the SWL/tenant logo.
+                 Email clients can't read app assets; host it (Supabase Storage
+                 public bucket works) and paste the url.
+
+  Supabase template variables available: {{ .ConfirmationURL }}, {{ .SiteURL }},
+  {{ .Email }}, {{ .Token }}. Custom variables are NOT supported, so the video
+  url is hardcoded here.
+-->
+<!DOCTYPE html>
+<html lang="en">
+  <body style="margin:0;padding:0;background-color:#0b0e14;font-family:'Segoe UI',Helvetica,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#0b0e14;padding:32px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,0.35);">
+
+            <!-- Brand bar -->
+            <tr>
+              <td style="background:linear-gradient(135deg,#c9a83a,#b79832);padding:28px 32px;text-align:center;">
+                <!-- Replace src with a public logo url; alt text shows if it fails -->
+                <img src="https://REPLACE_WITH_PUBLIC_LOGO_URL.png" alt="GrowthAI" height="34" style="display:inline-block;height:34px;border:0;" />
+                <div style="color:#1a1a2e;font-size:13px;font-weight:700;letter-spacing:2px;margin-top:8px;text-transform:uppercase;">GrowthAI</div>
+              </td>
+            </tr>
+
+            <!-- Body -->
+            <tr>
+              <td style="padding:36px 32px 8px 32px;">
+                <h1 style="margin:0 0 12px 0;font-size:22px;font-weight:800;color:#11151f;">You're invited 🎉</h1>
+                <p style="margin:0 0 16px 0;font-size:15px;line-height:1.6;color:#3a4252;">
+                  You've been invited to <strong>GrowthAI</strong> — your outbound growth platform: AI-personalized
+                  LinkedIn &amp; email campaigns, a live lead pipeline, and everything you need to turn cold
+                  contacts into conversations.
+                </p>
+                <p style="margin:0 0 26px 0;font-size:15px;line-height:1.6;color:#3a4252;">
+                  Click below to accept your invite and set your password — it takes less than a minute.
+                </p>
+
+                <!-- Primary CTA -->
+                <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 28px 0;">
+                  <tr>
+                    <td align="center" style="border-radius:10px;background:linear-gradient(135deg,#c9a83a,#b79832);">
+                      <a href="{{ .ConfirmationURL }}"
+                         style="display:inline-block;padding:13px 30px;font-size:15px;font-weight:700;color:#1a1a2e;text-decoration:none;border-radius:10px;">
+                        Accept invitation &amp; set password
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+
+                <!-- ===== Watch the 2-min intro (delete this block if no VIDEO_URL yet) ===== -->
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px 0;border:1px solid #ececec;border-radius:12px;background-color:#faf8f0;">
+                  <tr>
+                    <td style="padding:18px 20px;">
+                      <div style="font-size:11px;font-weight:700;letter-spacing:1.5px;color:#a07f1f;text-transform:uppercase;margin-bottom:6px;">New here?</div>
+                      <div style="font-size:14px;font-weight:600;color:#11151f;margin-bottom:12px;">Watch the 2-minute intro — a quick tour of every screen.</div>
+                      <a href="VIDEO_URL"
+                         style="display:inline-block;padding:9px 18px;font-size:13px;font-weight:700;color:#b79832;text-decoration:none;border:1.5px solid #c9a83a;border-radius:8px;">
+                        ▶  Watch the intro video
+                      </a>
+                    </td>
+                  </tr>
+                </table>
+                <!-- ===== end intro block ===== -->
+
+                <p style="margin:0 0 6px 0;font-size:12px;line-height:1.5;color:#8a92a3;">
+                  If the button doesn't work, copy and paste this link into your browser:
+                </p>
+                <p style="margin:0 0 8px 0;font-size:12px;line-height:1.5;word-break:break-all;">
+                  <a href="{{ .ConfirmationURL }}" style="color:#b79832;">{{ .ConfirmationURL }}</a>
+                </p>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="padding:20px 32px 28px 32px;border-top:1px solid #f0f0f0;">
+                <p style="margin:0;font-size:11px;line-height:1.5;color:#9aa1b0;">
+                  You received this email because someone invited {{ .Email }} to GrowthAI.
+                  If you weren't expecting this, you can safely ignore it.
+                </p>
+              </td>
+            </tr>
+
+          </table>
+          <div style="color:#5b6473;font-size:11px;margin-top:18px;">© SWL Consulting · Powered by GrowthAI</div>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

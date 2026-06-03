@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { useAuthUser } from "@/lib/auth-context";
 import TenantSwitcher from "@/components/TenantSwitcher";
+import HelpMenu from "@/components/HelpMenu";
 import {
   LayoutDashboard, Users, Megaphone,
   Building2, Target, Shield, ChevronDown, Bell, UserCircle, Settings, Inbox,
@@ -511,6 +512,7 @@ export default function Sidebar() {
             </div>
           </>
         )}
+        <HelpMenu variant="sidebar" />
         <Link
           href="/settings"
           title={t("nav.settings")}

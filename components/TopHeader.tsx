@@ -1,12 +1,13 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, HelpCircle, Search, ChevronRight, LogOut, Settings } from "lucide-react";
+import { Search, ChevronRight, LogOut, Settings } from "lucide-react";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 import { useAuthUser, useAuth } from "@/lib/auth-context";
 import TodayPlanPopover from "./TodayPlanPopover";
+import HelpMenu from "./HelpMenu";
 
 const ROUTE_KEYS: Record<string, { key: string; brand?: string }> = {
   "/":              { key: "nav.dashboard" },
@@ -125,6 +126,7 @@ export default function TopHeader() {
 
       {/* Right: actions + user */}
       <div className="flex items-center gap-1 w-56 justify-end">
+        <HelpMenu />
         <TodayPlanPopover />
         <Link
           href="/settings"
