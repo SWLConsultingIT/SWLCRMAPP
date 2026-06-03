@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import {
-  Building2, Users, Megaphone, Clock, ChevronRight,
+  Building2, Users, Clock, ChevronRight,
   Target, Search, X, CheckCircle, ArrowRight, Shield,
   Trash2, Loader2, Share2, AlertTriangle, Phone, Mail,
   Activity, Theater, Zap, Plus, Edit3,
@@ -903,7 +903,7 @@ function timeAgo(iso: string | null) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
-export default function AdminClient({ clients, pendingApprovals, stats, myCompanyBioId }: Props) {
+export default function AdminClient({ clients, pendingApprovals, myCompanyBioId }: Props) {
   const toast = useToast();
   const [tab, setTab] = useState(0);
   const [search, setSearch] = useState("");
@@ -979,26 +979,6 @@ export default function AdminClient({ clients, pendingApprovals, stats, myCompan
           }}
         />
       )}
-
-      {/* Stat cards */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        {[
-          { label: "Clients",           value: stats.totalClients,     color: gold,      icon: Building2 },
-          { label: "Total Leads",       value: stats.totalLeads,       color: C.blue,    icon: Users },
-          { label: "Pending Approvals", value: stats.pendingApprovals, color: "#D97706", icon: Clock },
-          { label: "Active Campaigns",  value: stats.activeCampaigns,  color: C.green,   icon: Megaphone },
-        ].map(({ label, value, color, icon: Icon }) => (
-          <div key={label} className="rounded-xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${color}` }}>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{label}</span>
-              <div className="rounded-lg p-1.5" style={{ backgroundColor: `${color}15` }}>
-                <Icon size={13} style={{ color }} />
-              </div>
-            </div>
-            <p className="text-2xl font-bold tabular-nums" style={{ color }}>{value}</p>
-          </div>
-        ))}
-      </div>
 
       {/* Tabs */}
       <div className="flex items-center gap-1 border-b mb-6" style={{ borderColor: C.border }}>
