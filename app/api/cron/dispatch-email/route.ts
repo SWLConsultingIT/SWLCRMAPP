@@ -278,15 +278,20 @@ async function dispatchOneEmail(
   // the same guard in dispatch-queue (the Diego @ Lanai stale-step incident).
   const leadTerminal = (rawLead as { responded?: boolean | null }).responded === true
     || ["qualified", "closed_won", "closed_lost", "responded"].includes((rawLead as { status?: string | null }).status ?? "");
-  // Fran 2026-06-03: any recorded reply (incl. question/needs_info) stops the
-  // sequence — the seller takes over. Mirrors dispatch-queue.
-  const { data: anyReply } = await svc
-    .from("lead_replies").select("id").eq("lead_id", candidate.lead_id).limit(1);
-  const hasReplied = Array.isArray(anyReply) && anyReply.length > 0;
-  if ((campaign as { status?: string | null }).status !== "active" || leadTerminal || hasReplied) {
+  // Fran 2026-06-03: hold the sequence for a 3-DAY COOLDOWN after the lead's last
+  // reply (question/ambiguous keep the campaign active). Past 3 days of silence
+  // the step resumes; a new reply resets the window. Positive/negative already
+  // close the campaign (caught above). Mirrors dispatch-queue.
+  const REPLY_COOLDOWN_DAYS = 3;
+  const cooldownCutoff = new Date(Date.now() - REPLY_COOLDOWN_DAYS * 86400000).toISOString();
+  const { data: recentReply } = await svc
+    .from("lead_replies").select("id").eq("lead_id", candidate.lead_id)
+    .gte("received_at", cooldownCutoff).limit(1);
+  const repliedRecently = Array.isArray(recentReply) && recentReply.length > 0;
+  if ((campaign as { status?: string | null }).status !== "active" || leadTerminal || repliedRecently) {
     return await skipMessage(
       svc, candidate.id, candidate.lead_id,
-      `stale step — campaign ${(campaign as { status?: string | null }).status}${(leadTerminal || hasReplied) ? " / lead already replied" : ""}`,
+      `held — campaign ${(campaign as { status?: string | null }).status}${leadTerminal ? " / lead terminal" : repliedRecently ? " / replied within 3d (cooldown)" : ""}`,
     );
   }
 

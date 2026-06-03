@@ -575,17 +575,22 @@ async function dispatchOneMessage(
   const leadTerminal = (rawLead as { responded?: boolean | null }).responded === true
     || ["qualified", "closed_won", "closed_lost", "responded"].includes((rawLead as { status?: string | null }).status ?? "");
   const campaignActive = (campaign as { status?: string | null }).status === "active";
-  // Fran 2026-06-03: a lead who replied AT ALL — positive, negative, question/
-  // needs_info, anything — must not get more automated steps. Ambiguous replies
-  // don't set responded and don't close the campaign, so we also check for ANY
-  // recorded reply. The seller takes over from the inbox once the lead engaged.
-  const { data: anyReply } = await svc
-    .from("lead_replies").select("id").eq("lead_id", candidate.lead_id).limit(1);
-  const hasReplied = Array.isArray(anyReply) && anyReply.length > 0;
-  if (!campaignActive || leadTerminal || hasReplied) {
+  // Fran 2026-06-03: a lead who replied recently must not get the next automated
+  // step on top of an open conversation. Positive/negative already close the
+  // campaign (caught above); for question/ambiguous the campaign stays active,
+  // so we hold the sequence for a 3-DAY COOLDOWN after the last reply. If the
+  // lead goes silent past 3 days the step resumes on its own; a new reply resets
+  // the window. This IS the "resume after 3 days" behaviour.
+  const REPLY_COOLDOWN_DAYS = 3;
+  const cooldownCutoff = new Date(Date.now() - REPLY_COOLDOWN_DAYS * 86400000).toISOString();
+  const { data: recentReply } = await svc
+    .from("lead_replies").select("id").eq("lead_id", candidate.lead_id)
+    .gte("received_at", cooldownCutoff).limit(1);
+  const repliedRecently = Array.isArray(recentReply) && recentReply.length > 0;
+  if (!campaignActive || leadTerminal || repliedRecently) {
     return await skipMessage(
       svc, candidate.id, candidate.lead_id,
-      `stale step — campaign ${(campaign as { status?: string | null }).status}${(leadTerminal || hasReplied) ? " / lead already replied" : ""}`,
+      `held — campaign ${(campaign as { status?: string | null }).status}${leadTerminal ? " / lead terminal" : repliedRecently ? " / replied within 3d (cooldown)" : ""}`,
     );
   }
 
