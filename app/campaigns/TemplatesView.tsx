@@ -6,12 +6,13 @@ import Link from "next/link";
 import {
   FileText, Loader2, Search, Share2, Mail, Phone, MessageSquare, X,
   Trash2, Play, Plus, MoreHorizontal, Copy, FolderTree, Clock, List,
-  ChevronDown, ChevronRight, AlertCircle, ArrowRight, Pencil, Archive,
+  ChevronDown, ChevronRight, AlertCircle, ArrowRight, Pencil, Archive, Download,
 } from "lucide-react";
 import { C } from "@/lib/design";
 import EmptyState from "@/components/EmptyState";
 import TemplateLaunchModal from "@/components/TemplateLaunchModal";
 import { useToast } from "@/lib/toast";
+import { printPdf } from "@/lib/print-pdf";
 
 // 2026-05-17 — Templates organized by ICP.
 // Default view: "By ICP" with collapsible sections per ICP. A "Needs ICP"
@@ -557,6 +558,11 @@ function TemplateRow({
                 onClick={() => setMenuOpen(false)}>
                 <Pencil size={12} /> Edit template
               </Link>
+              <button onClick={() => { setMenuOpen(false); printPdf(`/campaigns/templates/${t.id}/print`, t.name); }}
+                className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-black/[0.04]"
+                style={{ color: C.textBody }}>
+                <Download size={12} /> Download PDF
+              </button>
               <button onClick={() => setSubmenu("duplicate")}
                 className="w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-black/[0.04]"
                 style={{ color: C.textBody }}>

@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Play, MoreHorizontal, Copy, FolderTree, Trash2, X, ArrowRight, Loader2,
-  Pencil, Save, Share2, Mail, Phone, MessageSquare, Plus, GripVertical,
+  Pencil, Save, Share2, Mail, Phone, MessageSquare, Plus, GripVertical, Download,
 } from "lucide-react";
 import { C } from "@/lib/design";
 import TemplateLaunchModal from "@/components/TemplateLaunchModal";
 import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
 import { useToast } from "@/lib/toast";
+import { printPdf } from "@/lib/print-pdf";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -120,6 +121,13 @@ export default function TemplateDetailActions({
         className="text-sm font-semibold px-4 py-2 rounded-lg inline-flex items-center gap-2 disabled:opacity-50"
         style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
         <Play size={13} /> Use template
+      </button>
+
+      <button onClick={() => printPdf(`/campaigns/templates/${templateId}/print`, templateName)} disabled={busy}
+        title="Download as branded PDF"
+        className="text-sm font-semibold px-3 py-2 rounded-lg border inline-flex items-center gap-2 disabled:opacity-50"
+        style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}>
+        <Download size={13} /> PDF
       </button>
 
       <div className="relative" ref={ref}>
