@@ -50,6 +50,7 @@ type IcpProfile = {
   target_industries: string[];
   target_roles: string[];
   company_size: string;
+  company_size_buckets: string[] | null;
   geography: string[];
   pain_points: string;
   solutions_offered: string;
@@ -81,11 +82,24 @@ function isRecentUpload(iso: string | null | undefined): boolean {
   return Date.now() - new Date(iso).getTime() < 7 * 86_400_000;
 }
 
+// Canonical employee-count bands offered as multi-select checkboxes. Stored in
+// the `company_size_buckets` text[] column. The legacy single `company_size`
+// text column is left untouched for older/freeform profiles (e.g. PE/VC "AUM…").
+const COMPANY_SIZE_BUCKETS = ["1-10", "11-50", "51-200", "201-500", "500+"];
+
+// Render helper: prefer the new multi-buckets, fall back to legacy free text.
+function companySizeLabel(p: { company_size_buckets?: string[] | null; company_size?: string | null }): string | null {
+  if (p.company_size_buckets && p.company_size_buckets.length > 0) {
+    return p.company_size_buckets.map(b => `${b} employees`).join(", ");
+  }
+  return p.company_size?.trim() || null;
+}
+
 const emptyForm = {
   profile_name: "",
   target_industries: [] as string[],
   target_roles: [] as string[],
-  company_size: "",
+  company_size_buckets: [] as string[],
   geography: [] as string[],
   pain_points: "",
   solutions_offered: "",
@@ -144,6 +158,50 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
   const [error, setError] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
 
+  // AI generator (create flow only) — drafts the whole form from a short brief.
+  const [genOpen, setGenOpen] = useState(false);
+  const [genPrompt, setGenPrompt] = useState("");
+  const [genUrl, setGenUrl] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+  const [genDone, setGenDone] = useState(false);
+
+  async function handleGenerate() {
+    if (!genPrompt.trim() && !genUrl.trim()) {
+      setGenError("Write a short brief or paste a company URL.");
+      return;
+    }
+    setGenerating(true);
+    setGenError(null);
+    setGenDone(false);
+    try {
+      const res = await fetch("/api/icp/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: genPrompt, url: genUrl }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? "Generation failed");
+      const d = data.draft;
+      // Merge the draft into the form, keeping anything the user already typed.
+      setForm(f => ({
+        ...f,
+        profile_name: f.profile_name || d.profile_name || "",
+        target_industries: f.target_industries.length ? f.target_industries : (d.target_industries ?? []),
+        target_roles: f.target_roles.length ? f.target_roles : (d.target_roles ?? []),
+        company_size_buckets: f.company_size_buckets.length ? f.company_size_buckets : (d.company_size_buckets ?? []),
+        geography: f.geography.length ? f.geography : (d.geography ?? []),
+        pain_points: f.pain_points || d.pain_points || "",
+        solutions_offered: f.solutions_offered || d.solutions_offered || "",
+        notes: f.notes || d.notes || "",
+      }));
+      setGenDone(true);
+    } catch (e: any) {
+      setGenError(e.message ?? "Generation failed");
+    }
+    setGenerating(false);
+  }
+
   function fieldError(value: string | string[]): string | null {
     if (!tried) return null;
     if (Array.isArray(value)) return value.length === 0 ? "Required" : null;
@@ -173,6 +231,45 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
         <button onClick={onCancel} style={{ color: C.textMuted }}><X size={18} /></button>
       </div>
       <div className="p-6 space-y-5">
+        {isNew && (
+          <div className="rounded-2xl border overflow-hidden" style={{ borderColor: `color-mix(in srgb, ${C.aiAccent} 35%, transparent)`, background: `linear-gradient(135deg, color-mix(in srgb, ${C.aiAccent} 6%, var(--c-card)) 0%, var(--c-card) 100%)` }}>
+            <button type="button" onClick={() => setGenOpen(o => !o)}
+              className="w-full flex items-center justify-between px-4 py-3 text-left">
+              <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: C.aiAccent }}>
+                <Sparkles size={15} /> Generate with AI
+                <span className="text-[11px] font-normal" style={{ color: C.textDim }}>— describe it or paste a URL and we draft the whole profile</span>
+              </span>
+              <ChevronRight size={16} style={{ color: C.textDim, transform: genOpen ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
+            </button>
+            {genOpen && (
+              <div className="px-4 pb-4 space-y-2.5">
+                <textarea rows={2} className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+                  style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
+                  value={genPrompt} onChange={e => setGenPrompt(e.target.value)}
+                  placeholder="E.g.: construction companies in Argentina and Chile still running projects on Excel, that would buy project-management software" />
+                <input className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
+                  style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
+                  value={genUrl} onChange={e => setGenUrl(e.target.value)}
+                  placeholder="Optional — a target/example company URL (https://…)" />
+                <div className="flex items-center gap-3">
+                  <button type="button" onClick={handleGenerate} disabled={generating}
+                    className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-opacity disabled:opacity-40"
+                    style={{ backgroundColor: C.aiAccent, color: "#04070d" }}>
+                    {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                    {generating ? "Generating…" : "Generate draft"}
+                  </button>
+                  <span className="text-[11px]" style={{ color: C.textDim }}>Uses your Company Bio for context. Review &amp; edit before submitting.</span>
+                </div>
+                {genError && <p className="text-xs font-medium" style={{ color: C.red }}>{genError}</p>}
+                {genDone && !genError && (
+                  <p className="text-xs font-medium flex items-center gap-1" style={{ color: C.green }}>
+                    <CheckCircle size={12} /> Draft applied below — tweak anything, then submit.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="block text-xs font-medium" style={{ color: C.textBody }}>Profile Name *</label>
@@ -200,13 +297,33 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
             <TagInput values={form.target_roles} onChange={v => setForm(f => ({ ...f, target_roles: v }))} placeholder="CEO, CFO, Sales Manager…" />
           </div>
           <div>
-            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Company Size</label>
-            <select className="w-full rounded-lg border px-3.5 py-2.5 text-sm focus:outline-none bg-transparent"
-              style={{ borderColor: C.border, color: form.company_size ? C.textPrimary : C.textDim, backgroundColor: C.bg }}
-              value={form.company_size} onChange={e => setForm(f => ({ ...f, company_size: e.target.value }))}>
-              <option value="">Any size</option>
-              {["1-10", "11-50", "51-200", "201-500", "500+"].map(s => <option key={s} value={s}>{s} employees</option>)}
-            </select>
+            <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>
+              Company Size <span style={{ color: C.textDim }}>(select all that apply)</span>
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {COMPANY_SIZE_BUCKETS.map(s => {
+                const active = form.company_size_buckets.includes(s);
+                return (
+                  <button key={s} type="button"
+                    onClick={() => setForm(f => ({
+                      ...f,
+                      company_size_buckets: active
+                        ? f.company_size_buckets.filter(x => x !== s)
+                        : [...f.company_size_buckets, s],
+                    }))}
+                    className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors"
+                    style={{
+                      borderColor: active ? gold : C.border,
+                      backgroundColor: active ? goldLight : C.bg,
+                      color: active ? gold : C.textBody,
+                    }}>
+                    {active ? <CheckSquare size={13} /> : <Square size={13} />}
+                    {s}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-[11px] mt-1" style={{ color: C.textDim }}>employees</p>
           </div>
           <div>
             <div className="flex items-center justify-between mb-1.5">
@@ -484,10 +601,10 @@ function ProfileDetail({ profile, onEdit, onDelete, onClose }: {
             </div>
           </OverviewCard>
         )}
-        {profile.company_size && (
+        {companySizeLabel(profile) && (
           <OverviewCard icon={Users} label="Company Size" accent={"#7C3AED"}>
             <p className="text-[12px] leading-relaxed" style={{ color: C.textBody }}>
-              {profile.company_size}
+              {companySizeLabel(profile)}
             </p>
           </OverviewCard>
         )}
@@ -957,7 +1074,7 @@ export default function LeadGenPage() {
             profile_name: editingProfile.profile_name,
             target_industries: editingProfile.target_industries ?? [],
             target_roles: editingProfile.target_roles ?? [],
-            company_size: editingProfile.company_size ?? "",
+            company_size_buckets: editingProfile.company_size_buckets ?? [],
             geography: editingProfile.geography ?? [],
             pain_points: editingProfile.pain_points ?? "",
             solutions_offered: editingProfile.solutions_offered ?? "",
@@ -1080,8 +1197,8 @@ export default function LeadGenPage() {
                           <Briefcase size={10} /> {tags.slice(0, 3).join(", ")}{tags.length > 3 ? ` +${tags.length - 3}` : ""}
                         </span>
                       )}
-                      {p.company_size && (
-                        <span className="flex items-center gap-1"><Users size={10} /> {p.company_size}</span>
+                      {companySizeLabel(p) && (
+                        <span className="flex items-center gap-1"><Users size={10} /> {companySizeLabel(p)}</span>
                       )}
                       {p.geography?.length > 0 && (
                         <span className="flex items-center gap-1"><MapPin size={10} /> {p.geography.slice(0, 2).join(", ")}</span>

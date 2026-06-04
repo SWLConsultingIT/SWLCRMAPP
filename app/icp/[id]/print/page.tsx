@@ -161,9 +161,14 @@ export default async function IcpPrintPage({ params }: { params: Promise<{ id: s
           {Array.isArray(icp.target_roles) && icp.target_roles.length > 0 && (
             <Section label="Target Roles" accent="#0D9488"><Chips items={icp.target_roles} color="#0D9488" /></Section>
           )}
-          {icp.company_size && (
-            <Section label="Company Size" accent="#7C3AED"><p style={{ margin: 0, fontSize: 13, color: "#374151" }}>{icp.company_size}</p></Section>
-          )}
+          {(() => {
+            const sizeLabel = Array.isArray(icp.company_size_buckets) && icp.company_size_buckets.length > 0
+              ? icp.company_size_buckets.map((b: string) => `${b} employees`).join(", ")
+              : (icp.company_size || "").trim() || null;
+            return sizeLabel && (
+              <Section label="Company Size" accent="#7C3AED"><p style={{ margin: 0, fontSize: 13, color: "#374151" }}>{sizeLabel}</p></Section>
+            );
+          })()}
           {Array.isArray(icp.geography) && icp.geography.length > 0 && (
             <Section label="Geography" accent="#EA580C"><Chips items={icp.geography} color="#EA580C" /></Section>
           )}
