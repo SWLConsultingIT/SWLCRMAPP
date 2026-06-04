@@ -149,16 +149,16 @@ async function fetchReliability(): Promise<ReliabilityData> {
   const expiredCutoff = new Date(nowMs - EXPIRED_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
   const [queuedQ, dispatchingQ, failedQ, skippedQ, sentLedgerQ, sellersQ, stuckExpiredQ, sent7dQ, sent30dQ, replies7dQ, bioQ] = await Promise.all([
-    svc.from("campaign_messages").select(queueSelect).eq("status", "queued").order("created_at", { ascending: true }),
-    svc.from("campaign_messages").select(queueSelect).eq("status", "dispatching").order("created_at", { ascending: true }),
+    svc.from("campaign_messages").select(queueSelect).eq("status", "queued").order("created_at", { ascending: true }).limit(1000),
+    svc.from("campaign_messages").select(queueSelect).eq("status", "dispatching").order("created_at", { ascending: true }).limit(1000),
     svc.from("campaign_messages").select(queueSelect).eq("status", "failed").order("created_at", { ascending: false }).limit(50),
     svc.from("campaign_messages").select(queueSelect).eq("status", "skipped").order("created_at", { ascending: false }).limit(50),
-    svc.from("campaign_messages").select(queueSelect).eq("status", "sent").eq("step_number", 0).gte("sent_at", since24h).order("sent_at", { ascending: false }),
+    svc.from("campaign_messages").select(queueSelect).eq("status", "sent").eq("step_number", 0).gte("sent_at", since24h).order("sent_at", { ascending: false }).limit(1000),
     svc.from("sellers").select("id, name, unipile_account_id, active, linkedin_daily_limit, company_bio_id").eq("active", true),
     svc.from("campaign_messages").select(queueSelect)
       .eq("status", "sent").eq("step_number", 0).eq("channel", "linkedin")
       .lt("sent_at", stuckCutoff)
-      .order("sent_at", { ascending: true }),
+      .order("sent_at", { ascending: true }).limit(1000),
     svc.from("campaign_messages").select("id, lead_id, campaigns!inner(seller_id), leads!inner(linkedin_connected)")
       .eq("status", "sent").eq("step_number", 0).eq("channel", "linkedin")
       .gte("sent_at", since7d),
@@ -216,7 +216,12 @@ async function fetchReliability(): Promise<ReliabilityData> {
       try {
         const res = await fetch(
           `${UNIPILE_BASE}/api/v1/users/invite/sent?account_id=${encodeURIComponent(s.unipile_account_id)}&limit=100`,
-          { headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" }, cache: "no-store" },
+          // 8s hard timeout per seller. Without it a single hung Unipile call
+          // makes Promise.all never resolve → the server component hangs until
+          // the serverless function times out → client gets "Connection
+          // closed". The catch below turns an abort into a per-seller error so
+          // the rest of the page still renders.
+          { headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(8000) },
         );
         const body = await res.json().catch(() => ({}));
         if (!res.ok) {
