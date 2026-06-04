@@ -181,30 +181,47 @@ async function getData() {
   // and replies both depend on leadIds; pendingRequests is independent of
   // both, so it can join this round instead of waiting for round 3.
   const leadIds = (allLeads ?? []).map(l => l.id);
+  const leadIdSet = new Set(leadIds);
+  // Scope campaigns / replies / messages by company_bio_id (tenant) instead of
+  // a lead_id IN(...) list. With 1000+ leads that IN list became a ~47KB URL
+  // that blew past the request size limit → the query silently failed → every
+  // lead rendered "No Campaign" and the "In a flow" tab showed 0 even with 200
+  // active flows. Tenant filters are bounded + indexed; rows are matched back
+  // to the shown leads in memory via leadIdSet. (limit 500→2000 so a busy
+  // tenant's flows aren't truncated either.)
   const campaignsQ = supabase
     .from("campaigns")
     .select("id, name, status, channel, current_step, sequence_steps, last_step_at, created_at, lead_id, sellers(name)")
     .in("status", ["active", "paused", "completed", "failed"])
     .order("created_at", { ascending: false })
-    .limit(500);
+    .limit(2000);
   const [campaignsRes, repliesRes, pendingRequestsRes] = await Promise.all([
-    bioId && leadIds.length > 0
-      ? campaignsQ.in("lead_id", leadIds)
-      : (bioId ? Promise.resolve({ data: [] as any[] }) : campaignsQ),
-    leadIds.length > 0
-      ? supabase.from("lead_replies").select("lead_id, classification, received_at, channel, reply_text").in("lead_id", leadIds).order("received_at", { ascending: false })
-      : Promise.resolve({ data: [] as any[] }),
+    bioId ? campaignsQ.eq("company_bio_id", bioId) : campaignsQ,
+    bioId
+      ? supabase.from("lead_replies").select("lead_id, classification, received_at, channel, reply_text").eq("company_bio_id", bioId).order("received_at", { ascending: false }).limit(5000)
+      : (leadIds.length > 0
+          ? supabase.from("lead_replies").select("lead_id, classification, received_at, channel, reply_text").in("lead_id", leadIds).order("received_at", { ascending: false })
+          : Promise.resolve({ data: [] as any[] })),
     supabase.from("campaign_requests").select("lead_id, name, status, created_at").eq("status", "pending_review"),
   ]);
-  const campaigns = campaignsRes.data;
-  const replies = repliesRes.data;
+  // The tenant filter can return rows for leads filtered out of this view —
+  // keep only the ones actually shown.
+  const campaigns = (campaignsRes.data ?? []).filter((c: any) => leadIdSet.has(c.lead_id));
+  const replies = (repliesRes.data ?? []).filter((r: any) => leadIdSet.has(r.lead_id));
   const pendingRequests = pendingRequestsRes.data;
 
-  // Round 3 — messages depends on campIds.
-  const campIds = (campaigns ?? []).map(c => c.id);
-  const { data: messages } = campIds.length > 0
-    ? await supabase.from("campaign_messages").select("campaign_id, sent_at").in("campaign_id", campIds)
-    : { data: [] as any[] };
+  // Round 3 — sent/total counts per campaign. Chunk the campaign_id IN() (80
+  // per request, like the metrics tab) so hundreds of flows don't rebuild the
+  // oversized-URL problem and no chunk trips the 1000-row default cap.
+  const campIds = (campaigns ?? []).map((c: any) => c.id);
+  const campChunks: string[][] = [];
+  for (let i = 0; i < campIds.length; i += 80) campChunks.push(campIds.slice(i, i + 80));
+  const msgChunks = await Promise.all(
+    campChunks.map(chunk =>
+      supabase.from("campaign_messages").select("campaign_id, sent_at").in("campaign_id", chunk)
+    )
+  );
+  const messages = msgChunks.flatMap(r => (r.data ?? []) as any[]);
 
   const pendingRequestsByLead: Record<string, { name: string; status: string }> = {};
   for (const r of pendingRequests ?? []) {
