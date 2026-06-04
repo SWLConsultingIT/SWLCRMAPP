@@ -334,7 +334,18 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
     return new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime();
   });
 
-  const totalCount = pendingCalls.length + newReplies.length;
+  // Actionable reply count — mirrors InboxView's "Pending review" (isPending):
+  // exclude events (accepted-connection / bounces) and already-resolved rows.
+  // The tab badge + hero counts use THIS, not newReplies.length, so the number
+  // matches what the seller actually has to work (was inflated by the synthetic
+  // "Accepted Connection" entries, which live in neither Pending nor History).
+  const REPLY_EVENT_CLASS = new Set(["connection_accepted", "email_bounced", "email_invalid"]);
+  const isReplyEvent = (r: NewReply) => REPLY_EVENT_CLASS.has(r.classification ?? "");
+  const pendingReplyCount = newReplies.filter(
+    r => !isReplyEvent(r) && (r.requiresHumanReview || r.reviewStatus === "pending"),
+  ).length;
+
+  const totalCount = pendingCalls.length + pendingReplyCount;
   const needsReviewCount = newReplies.filter(r => r.requiresHumanReview).length;
 
   const applyCallSearch = (list: PendingCall[]) => !search ? list
@@ -357,7 +368,7 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
   // tab===N render blocks and deep links. The array order is just the visual
   // order: conversations first (Replies, Team Chat), call queue last.
   const tabs = [
-    { id: 0, label: "Lead Replies", count: newReplies.length,   color: C.blue,    reviewCount: needsReviewCount, dividerBefore: false },
+    { id: 0, label: "Lead Replies", count: pendingReplyCount,   color: C.blue,    reviewCount: needsReviewCount, dividerBefore: false },
     { id: 2, label: "Team Chat",    count: 0,                    color: "#7C3AED", reviewCount: 0,                dividerBefore: false },
     { id: 1, label: "Calls",        count: pendingCalls.length, color: "#F97316", reviewCount: 0,                dividerBefore: true },
   ];
@@ -373,7 +384,7 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
         status={{ label: totalCount > 0 ? `${totalCount} pending` : "All Clear", active: totalCount > 0 }}
         stats={[
           { label: "Calls to make", value: pendingCalls.length, tone: pendingCalls.length > 0 ? "warning" : "neutral" },
-          { label: "New replies", value: newReplies.length, tone: newReplies.length > 0 ? "positive" : "neutral" },
+          { label: "New replies", value: pendingReplyCount, tone: pendingReplyCount > 0 ? "positive" : "neutral" },
           { label: "Need review", value: needsReviewCount, tone: needsReviewCount > 0 ? "danger" : "neutral" },
         ]}
       />

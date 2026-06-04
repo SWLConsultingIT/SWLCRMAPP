@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { Bell, Phone, MessageSquare, AlertCircle, ArrowRight, CheckCircle2 } from "lucide-react";
+import { CalendarCheck, Phone, MessageSquare, AlertCircle, ArrowRight, CheckCircle2 } from "lucide-react";
 import { C } from "@/lib/design";
 
 // Bell icon in the TopHeader → opens a slim popover summarising "Today's plan":
@@ -196,7 +196,7 @@ export default function TodayPlanPopover() {
         className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100 relative"
         style={{ color: C.textMuted }}
       >
-        <Bell size={16} />
+        <CalendarCheck size={16} />
         {total > 0 && (
           <span
             className="absolute top-1 right-1 w-2 h-2 rounded-full pulse-dot"
