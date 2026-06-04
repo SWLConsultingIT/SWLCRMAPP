@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { C, N } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
-import { Share2, Mail, Phone, BarChart3, Clock, Target, ChevronDown, Users, ChevronRight, TrendingDown, ListOrdered, Plus, UserPlus, Search, X, Trophy } from "lucide-react";
+import { Share2, Mail, Phone, BarChart3, Clock, Target, ChevronDown, ChevronRight, TrendingDown, ListOrdered, Plus, UserPlus, Search, X, Trophy } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -413,8 +413,9 @@ function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
           </div>
           <div className="flex items-center gap-3 text-[11px] shrink-0" style={{ color: C.textMuted }}>
             {group.sellers.length > 0 && (
-              <span className="flex items-center gap-1.5">
-                <Users size={11} />
+              <span className="flex items-center gap-1.5" title="LinkedIn sending account(s) for this flow">
+                <Share2 size={11} style={{ color: "#0A66C2" }} />
+                <span style={{ color: C.textDim, fontWeight: 600 }}>LinkedIn:</span>
                 <span style={{ color: C.textBody, fontWeight: 500 }}>{group.sellers.join(", ")}</span>
               </span>
             )}

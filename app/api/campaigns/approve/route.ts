@@ -52,6 +52,14 @@ export async function POST(req: NextRequest) {
   const rawMode = (prompts as any).callAdvanceMode;
   const callAdvanceMode: "auto" | "manual" = rawMode === "manual" ? "manual" : "auto";
 
+  // Campaign OWNER — the team member who follows the whole campaign + owns the
+  // calls (a head-of-sales assigning an internal rep). Label-only for now: we
+  // stamp leads.assigned_seller with the owner's name so it shows in the lead
+  // detail + flow card. The LinkedIn SENDING identity is the per-lead seller
+  // (stamped into leads.linkedin_assigned_account below). Wizard ships
+  // ownerName/ownerUserId inside message_prompts.
+  const ownerName: string | null = (prompts as any).ownerName ?? null;
+
   // When sequence[0] is the LinkedIn day-0 invite, that entry IS the
   // Connection Request — its body lives in channelMessages.connectionRequest
   // (added below as step_number=0). The wizard reserves channelMessages.steps[0]
@@ -207,6 +215,17 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Resolve seller (LinkedIn account) names for the leads.linkedin_assigned_account
+  // stamp. Covers every seller referenced by the quota map + the fallback.
+  const sellerNameById = new Map<string, string>();
+  {
+    const ids = [...new Set([...leadSellerMap.values(), fallbackSellerId].filter(Boolean) as string[])];
+    if (ids.length > 0) {
+      const { data: sRows } = await supabase.from("sellers").select("id, name").in("id", ids);
+      for (const s of sRows ?? []) sellerNameById.set((s as any).id, (s as any).name);
+    }
+  }
+
   // 4. Create campaigns and messages for each lead
   let campaignsCreated = 0;
   // Track every campaign id we create in this approve so we can run the
@@ -349,9 +368,18 @@ export async function POST(req: NextRequest) {
     // dispatcher will flip the lead to 'contacted' once Unipile confirms the
     // invite was actually sent. (Pre-fix bug: lead was marked contacted before
     // any LinkedIn call, producing 8 ghost-contacted leads on Pathway.)
+    // Stamp the owner (assigned_seller = who follows the campaign) and the
+    // LinkedIn sending account (linkedin_assigned_account = the seller). Both
+    // are display labels for now — they drive the lead detail + flow-card
+    // attribution without changing queue/Aircall routing.
+    const linkedinAccountName = sellerId ? (sellerNameById.get(sellerId) ?? null) : null;
     await supabase
       .from("leads")
-      .update({ current_channel: primaryChannel })
+      .update({
+        current_channel: primaryChannel,
+        ...(ownerName ? { assigned_seller: ownerName } : {}),
+        ...(linkedinAccountName ? { linkedin_assigned_account: linkedinAccountName } : {}),
+      })
       .eq("id", leadId);
 
     campaignsCreated++;

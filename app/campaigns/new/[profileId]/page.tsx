@@ -138,6 +138,12 @@ export default function NewCampaignWizard() {
   const [icpTemplates, setIcpTemplates] = useState<Array<{ id: string; name: string; description: string | null; sequence_steps: any[]; step_messages: any }>>([]);
   const [aircallNumbers, setAircallNumbers] = useState<{ id: number; name: string; digits: string; country: string }[]>([]);
   const [selectedAircallNumberId, setSelectedAircallNumberId] = useState<number | null>(null);
+  // Campaign OWNER — the team member (a head of sales assigning an internal
+  // rep) who follows the whole campaign + owns the calls. Distinct from the
+  // per-lead LinkedIn SENDING account (sellers below). Roster = tenant team
+  // members. Label-only for now; stamped onto leads.assigned_seller on approve.
+  const [teamRoster, setTeamRoster] = useState<{ userId: string; name: string }[]>([]);
+  const [ownerUserId, setOwnerUserId] = useState<string>("");
   // Manual = sequence freezes at the call step until the seller dials.
   // Auto = cron auto-dials + auto-advances past the call step at daysAfter.
   // Default kept as 'auto' to match pre-2026-05-21 behavior.
@@ -350,6 +356,19 @@ export default function NewCampaignWizard() {
       if (sellerList && sellerList.length > 0) {
         setSellerQuotas([{ sellerId: sellerList[0].id, quota: 20 }]);
       }
+
+      // Team roster for the campaign Owner picker. Default the owner to the
+      // signed-in user if they're on the roster, else the first teammate.
+      try {
+        const rosterRes = await fetch("/api/team/roster", { cache: "no-store" });
+        if (rosterRes.ok) {
+          const { roster } = await rosterRes.json();
+          const list = (roster ?? []) as { userId: string; name: string }[];
+          setTeamRoster(list);
+          const mine = user && list.find(m => m.userId === user.id);
+          setOwnerUserId(mine ? mine.userId : (list[0]?.userId ?? ""));
+        }
+      } catch { /* owner picker just stays empty */ }
 
       // Load saved templates for this ICP
       try {
@@ -586,7 +605,7 @@ export default function NewCampaignWizard() {
       sequence_length: sequence.length,
       frequency_days: 0,
       target_leads_count: leadsCount,
-      message_prompts: { sequence, channelMessages, language, timezone, selectedLeadIds: isPartialSelection ? selectedLeadIds : null, sellerId: sellerQuotas[0]?.sellerId ?? null, sellerQuotas: sellerQuotas.length > 0 ? sellerQuotas : null, aircallNumberId: selectedAircallNumberId, callAdvanceMode },
+      message_prompts: { sequence, channelMessages, language, timezone, selectedLeadIds: isPartialSelection ? selectedLeadIds : null, sellerId: sellerQuotas[0]?.sellerId ?? null, sellerQuotas: sellerQuotas.length > 0 ? sellerQuotas : null, aircallNumberId: selectedAircallNumberId, callAdvanceMode, ownerUserId: ownerUserId || null, ownerName: teamRoster.find(m => m.userId === ownerUserId)?.name ?? null },
       status: "pending_review",
     };
     const { error } = await supabase.from("campaign_requests").insert(insertData);
@@ -1177,6 +1196,30 @@ export default function NewCampaignWizard() {
                 Choose who will run this outreach flow and which accounts to use for each channel.
               </p>
 
+              {/* Campaign Owner — the team member who follows the whole flow
+                  (follow-ups + calls). Separate from the LinkedIn sending
+                  accounts below. Label-only for now: stamped on each lead. */}
+              <div className="mb-6">
+                <label className="text-xs font-semibold uppercase tracking-wider block" style={{ color: C.textMuted }}>Campaign Owner</label>
+                <p className="text-xs mt-0.5 mb-2" style={{ color: C.textDim }}>
+                  The team member who follows this campaign end-to-end and makes the calls. Each lead is marked with this owner.
+                </p>
+                {teamRoster.length > 0 ? (
+                  <select
+                    value={ownerUserId}
+                    onChange={e => setOwnerUserId(e.target.value)}
+                    className="w-full rounded-lg border px-3 py-2 text-sm outline-none"
+                    style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary }}
+                  >
+                    {teamRoster.map(m => <option key={m.userId} value={m.userId}>{m.name}</option>)}
+                  </select>
+                ) : (
+                  <p className="text-xs rounded-lg border border-dashed px-3 py-2" style={{ color: C.textDim, borderColor: C.border }}>
+                    No team members found for this tenant.
+                  </p>
+                )}
+              </div>
+
               {/* Multi-seller with quotas */}
               {(() => {
                 const totalCap = sellerQuotas.reduce((s, q) => s + q.quota, 0);
@@ -1202,9 +1245,9 @@ export default function NewCampaignWizard() {
                   <div className="mb-6">
                     <div className="flex items-center justify-between mb-3">
                       <div>
-                        <label className="text-xs font-semibold uppercase tracking-wider block" style={{ color: C.textMuted }}>Assigned Sellers</label>
+                        <label className="text-xs font-semibold uppercase tracking-wider block" style={{ color: C.textMuted }}>LinkedIn Assigned Accounts</label>
                         <p className="text-xs mt-0.5" style={{ color: C.textDim }}>
-                          {leadsCount > 0 ? `${leadsCount} leads to distribute` : "Set how many leads each seller handles."}
+                          {leadsCount > 0 ? `${leadsCount} leads to distribute across LinkedIn sending accounts` : "The LinkedIn account(s) that send for each lead."}
                         </p>
                       </div>
                       {sellerQuotas.length < sellers.length && (
