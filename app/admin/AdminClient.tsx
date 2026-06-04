@@ -7,7 +7,7 @@ import {
   Building2, Users, Clock, ChevronRight,
   Target, Search, X, CheckCircle, ArrowRight, Shield,
   Trash2, Loader2, Share2, AlertTriangle, Phone, Mail,
-  Activity, Theater, Zap, Plus, Edit3,
+  Activity, Theater, Zap, Plus, Edit3, Megaphone,
 } from "lucide-react";
 import AdminActions from "./AdminActions";
 import PageHero from "@/components/PageHero";
