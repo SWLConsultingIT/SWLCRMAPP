@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
-import { advanceCallStepForLead } from "@/lib/advance-call-step";
 
 // Quick-classify endpoint triggered by the post-call popup on the lead
 // detail. Four mutually exclusive outcomes, each mapped to a concrete
@@ -105,13 +104,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await svc.from("leads").update({ status: "closed_lost", responded: true, response_outcome: "not_interested", updated_at: now }).eq("id", leadId);
     await svc.from("campaigns").update({ status: "closed_lost", stop_reason: "call_negative", completed_at: now }).eq("lead_id", leadId).eq("status", "active");
   } else if (outcome === "bad_timing") {
-    // Bad timing = the call CONNECTED but it's a follow-up. The call step is
-    // DONE, so advance the campaign past it — the next step (email/LinkedIn)
-    // fires when its daysAfter elapses (per Fran 2026-06-04: "que avance cuando
-    // sea el turno del próximo step"). Without this the campaign froze on the
-    // call step waiting for a manual re-dial that never auto-advanced.
+    // Bad timing = follow-up. Do NOT advance the step on the spot — the
+    // campaign stays parked on the call step and the lead's call_advance_mode
+    // (chosen in the create flow) decides what happens next, via the
+    // skip-stale-calls cron:
+    //   • auto   → the cron advances to the next step when the window elapses
+    //              (no seller action needed),
+    //   • manual → it stays on the call step for the seller to handle (longer
+    //              window before the cron force-advances).
+    // We only touch updated_at so History reflects the outcome. (Per Fran
+    // 2026-06-04: "que no avance al instante… que respete auto/manual".)
     await svc.from("leads").update({ updated_at: now }).eq("id", leadId);
-    await advanceCallStepForLead(svc, leadId, "call-outcome-bad-timing");
   } else {
     // wrong_number: flag the lead so future calls are blocked, then
     // walk every active/draft campaign step that's a call and skip
