@@ -100,7 +100,7 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
       const res = await fetch(`/api/team/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tier: newTier }),
+        body: JSON.stringify({ tier: newTier, bioId: companyBioId }),
       });
       const d = await res.json();
       if (!res.ok) {
@@ -118,7 +118,7 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
     setTeam(prev => prev?.filter(m => m.userId !== userId) ?? prev);
     setRemoveTarget(null);
     try {
-      const res = await fetch(`/api/team/${userId}`, { method: "DELETE" });
+      const res = await fetch(`/api/team/${userId}?bioId=${encodeURIComponent(companyBioId)}`, { method: "DELETE" });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) {
         setTeam(prevTeam);
@@ -233,9 +233,9 @@ export default function TenantTeamTab({ companyBioId, canManage }: Props) {
             setInviteOpen(false);
             loadTeam();
             const who = result.email ?? "member";
-            if (result.mode === "invited") toast({ kind: "success", message: `Invite sent to ${who}` });
-            else if (result.mode === "added") toast({ kind: "success", message: `${who} added to this tenant` });
-            else if (result.mode === "already_member") toast({ kind: "info", message: `${who} was already a member` });
+            if (result.mode === "invited") toast.show({ kind: "success", title: `Invite sent to ${who}` });
+            else if (result.mode === "added") toast.show({ kind: "success", title: `${who} added to this tenant` });
+            else if (result.mode === "already_member") toast.show({ kind: "info", title: `${who} was already a member` });
           }}
         />
       )}

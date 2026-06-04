@@ -27,15 +27,40 @@ async function loadTargetProfile(userId: string) {
   return data as { user_id: string; company_bio_id: string | null; role: string; tier: Tier } | null;
 }
 
-async function isSameTenantOrSuper(scope: Awaited<ReturnType<typeof getUserScope>>, target: { company_bio_id: string | null }): Promise<boolean> {
-  if (scope.tier === "super_admin") return true;
-  return !!scope.companyBioId && target.company_bio_id === scope.companyBioId;
+// The user's role on a SPECIFIC tenant lives in user_company_memberships, not
+// in their (single, home-tenant) user_profiles row. Team management must scope
+// to the membership row for the tenant being acted on.
+async function loadMembership(userId: string, bioId: string) {
+  const svc = getSupabaseService();
+  const { data } = await svc
+    .from("user_company_memberships")
+    .select("user_id, company_bio_id, tier")
+    .eq("user_id", userId)
+    .eq("company_bio_id", bioId)
+    .maybeSingle();
+  return data as { user_id: string; company_bio_id: string; tier: Tier } | null;
 }
 
-async function countOwnersInTenant(bioId: string): Promise<number> {
+// Resolve which tenant the caller is acting on, and whether they may.
+//   - super_admin: any tenant (explicit bioId, else their active tenant).
+//   - owner: their own active tenant only; an explicit mismatching bioId is 403.
+function resolveTargetTenant(
+  scope: Awaited<ReturnType<typeof getUserScope>>,
+  requestedBioId: string | null,
+): { bioId: string | null; forbidden: boolean } {
+  if (scope.tier === "super_admin") {
+    return { bioId: requestedBioId || scope.companyBioId, forbidden: false };
+  }
+  if (requestedBioId && requestedBioId !== scope.companyBioId) {
+    return { bioId: null, forbidden: true };
+  }
+  return { bioId: scope.companyBioId, forbidden: false };
+}
+
+async function countOwnerMemberships(bioId: string): Promise<number> {
   const svc = getSupabaseService();
   const { count } = await svc
-    .from("user_profiles")
+    .from("user_company_memberships")
     .select("user_id", { count: "exact", head: true })
     .eq("company_bio_id", bioId)
     .eq("tier", "owner");
@@ -60,15 +85,17 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ userId: s
     return NextResponse.json({ error: "Cannot change your own tier — ask another owner" }, { status: 400 });
   }
 
-  const target = await loadTargetProfile(userId);
-  if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
-  if (!(await isSameTenantOrSuper(scope, target))) {
-    return NextResponse.json({ error: "User not in your tenant" }, { status: 403 });
-  }
+  const requestedBioId = typeof body?.bioId === "string" ? body.bioId : null;
+  const { bioId, forbidden } = resolveTargetTenant(scope, requestedBioId);
+  if (forbidden) return NextResponse.json({ error: "User not in your tenant" }, { status: 403 });
+  if (!bioId) return NextResponse.json({ error: "No tenant" }, { status: 400 });
 
-  // If demoting an owner, ensure at least one other owner exists.
-  if (target.tier === "owner" && newTier !== "owner" && target.company_bio_id) {
-    const owners = await countOwnersInTenant(target.company_bio_id);
+  const membership = await loadMembership(userId, bioId);
+  if (!membership) return NextResponse.json({ error: "User not in this tenant" }, { status: 404 });
+
+  // If demoting an owner, ensure at least one other owner remains on THIS tenant.
+  if (membership.tier === "owner" && newTier !== "owner") {
+    const owners = await countOwnerMemberships(bioId);
     if (owners <= 1) {
       return NextResponse.json({
         error: "Cannot demote the last owner of this tenant — promote another member to owner first",
@@ -78,16 +105,26 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ userId: s
 
   const svc = getSupabaseService();
   const { error } = await svc
-    .from("user_profiles")
+    .from("user_company_memberships")
     .update({ tier: newTier })
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .eq("company_bio_id", bioId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Keep the home-tenant profile tier in sync: when the tenant being edited is
+  // the user's home tenant, their effective tier is read from
+  // user_profiles.tier (see lib/scope.ts ownBioId branch), not the membership.
+  // Don't touch a super_admin's global tier from a per-tenant edit.
+  const profile = await loadTargetProfile(userId);
+  if (profile && profile.company_bio_id === bioId && profile.tier !== "super_admin") {
+    await svc.from("user_profiles").update({ tier: newTier }).eq("user_id", userId);
+  }
 
   invalidateProfileCache(userId);
   return NextResponse.json({ ok: true, tier: newTier });
 }
 
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ userId: string }> }) {
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ userId: string }> }) {
   const scope = await getUserScope();
   if (!scope.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canManageTeam(scope.tier)) {
@@ -99,15 +136,17 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ userId:
     return NextResponse.json({ error: "Cannot remove yourself" }, { status: 400 });
   }
 
-  const target = await loadTargetProfile(userId);
-  if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
-  if (!(await isSameTenantOrSuper(scope, target))) {
-    return NextResponse.json({ error: "User not in your tenant" }, { status: 403 });
-  }
+  const requestedBioId = new URL(req.url).searchParams.get("bioId");
+  const { bioId, forbidden } = resolveTargetTenant(scope, requestedBioId);
+  if (forbidden) return NextResponse.json({ error: "User not in your tenant" }, { status: 403 });
+  if (!bioId) return NextResponse.json({ error: "No tenant" }, { status: 400 });
 
-  // Last-owner guard.
-  if (target.tier === "owner" && target.company_bio_id) {
-    const owners = await countOwnersInTenant(target.company_bio_id);
+  const membership = await loadMembership(userId, bioId);
+  if (!membership) return NextResponse.json({ error: "User not in this tenant" }, { status: 404 });
+
+  // Last-owner guard — count owners on THIS tenant.
+  if (membership.tier === "owner") {
+    const owners = await countOwnerMemberships(bioId);
     if (owners <= 1) {
       return NextResponse.json({
         error: "Cannot remove the last owner of this tenant — promote another member first",
@@ -117,35 +156,31 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ userId:
 
   const svc = getSupabaseService();
 
-  // Owner-of-one-tenant detach scope: a super_admin who removes a member from
-  // a SPECIFIC tenant should detach them from THAT tenant only, not nuke
-  // their access everywhere. We restrict the full purge to the case where
-  // the caller is an owner (single-tenant) or super_admin acting on a user
-  // whose only membership IS the target tenant.
+  // Detach-only vs full purge: if the user belongs to OTHER tenants too,
+  // removing them here just drops this one membership. Only when this is their
+  // sole tenant do we purge the user entirely (profile + auth row).
   const { data: allMemberships } = await svc
     .from("user_company_memberships")
     .select("company_bio_id")
     .eq("user_id", userId);
   const memberships = (allMemberships ?? []).map(m => m.company_bio_id);
-  const callerScopeBioId = scope.tier === "super_admin"
-    ? (target.company_bio_id ?? scope.companyBioId)
-    : scope.companyBioId;
-  const detachOnly = memberships.length > 1 && memberships.includes(callerScopeBioId ?? "");
+  const detachOnly = memberships.length > 1;
 
-  if (detachOnly && callerScopeBioId) {
+  if (detachOnly) {
     // Multi-tenant user: keep their other memberships, just drop this tenant.
     const { error: memErr } = await svc
       .from("user_company_memberships")
       .delete()
       .eq("user_id", userId)
-      .eq("company_bio_id", callerScopeBioId);
+      .eq("company_bio_id", bioId);
     if (memErr) return NextResponse.json({ error: memErr.message }, { status: 500 });
 
     // If this tenant happened to be their primary in user_profiles, move
     // them onto one of the remaining memberships so they don't end up with
     // a stale primary FK pointing into a tenant they no longer belong to.
-    if (target.company_bio_id === callerScopeBioId) {
-      const fallback = memberships.find(b => b !== callerScopeBioId);
+    const target = await loadTargetProfile(userId);
+    if (target?.company_bio_id === bioId) {
+      const fallback = memberships.find(b => b !== bioId);
       await svc
         .from("user_profiles")
         .update({ company_bio_id: fallback ?? null })
