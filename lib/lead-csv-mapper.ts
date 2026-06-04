@@ -310,6 +310,13 @@ export function heuristicLeadMapping(input: {
 //   - canonical fields as direct keys
 //   - extras collected under `enrichment` key (which lives in leads.enrichment JSONB)
 // `_fullname` and `_location` are split into their canonical parts.
+// Lead columns typed as Postgres text[] (udt _text). A CSV cell for these
+// arrives as a comma-separated string (Apollo's "Technologies" column: "Amazon
+// AWS, Slack, Stripe, …"); written verbatim Postgres throws "malformed array
+// literal" and the whole insert fails. Split into a JS array so supabase-js
+// serializes a valid array literal.
+const ARRAY_FIELDS = new Set<string>(["organization_technologies"]);
+
 export function applyMappingToRow(
   row: Record<string, string>,
   mapping: LeadMappingResult,
@@ -339,6 +346,8 @@ export function applyMappingToRow(
       enrichment[key] = value;
     } else if (FORBIDDEN.includes(m.target)) {
       // ignore — never write internal columns from CSV
+    } else if (ARRAY_FIELDS.has(m.target)) {
+      out[m.target] = value.split(",").map(p => p.trim()).filter(Boolean);
     } else {
       out[m.target] = value;
     }
