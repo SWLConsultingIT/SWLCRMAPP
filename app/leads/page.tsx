@@ -315,6 +315,7 @@ async function getData() {
       channel: lead.current_channel,
       reply_count: leadReplies.length,
       has_positive: leadReplies.some((r: any) => r.classification === "positive" || r.classification === "meeting_intent"),
+      has_negative: leadReplies.some((r: any) => r.classification === "negative"),
       has_campaign: hasCampaign,
       profile_id: pid ?? null,
       profile_name: pid ? (icpMap[pid]?.profile_name ?? null) : null,

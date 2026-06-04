@@ -34,6 +34,7 @@ type LeadInfo = {
   channel: string | null;
   reply_count?: number;
   has_positive?: boolean;
+  has_negative?: boolean;
   has_campaign?: boolean;
   /** ICP / Lead Miner profile id — used by the ICP column link in the
    *  table. Null when the lead has no ICP assigned. */
@@ -929,12 +930,10 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
       // Negative = lead has at least one negative reply OR a finished
       // campaign with no positive. (Mirrors how /results buckets Lost.)
       const isPositive = !!l.has_positive;
-      // We only have a boolean has_positive on the lead row; a "negative"
-      // signal lives in lead_replies which isn't shipped here. Until we
-      // ship reply classifications on the lead row, treat "negative" as
-      // "replied but not positive" — same proxy /leads has used for the
-      // No-Response chip.
-      const isNegative = !isPositive && (l.reply_count ?? 0) > 0;
+      // has_negative now ships on the lead row (any lead_reply classified
+      // "negative"), so the Negative facet matches true negatives only — not
+      // every non-positive reply (needs_info / not_now / follow_up etc.).
+      const isNegative = !isPositive && !!l.has_negative;
       const resOk =
         (filters.results.includes("positive") && isPositive) ||
         (filters.results.includes("negative") && isNegative);
@@ -1335,8 +1334,8 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
               const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || t("leadsPage.unknown");
               const badge = scoreBadge(lead.score, lead.is_priority);
               const hasReply = (lead.reply_count ?? 0) > 0;
-              const replyColor = lead.has_positive ? C.green : hasReply ? "#D97706" : C.textDim;
-              const replyLabel = lead.has_positive ? t("leadsPage.table.replyPositive") : hasReply ? t("leadsPage.table.replyReplied") : "—";
+              const replyColor = lead.has_positive ? C.green : lead.has_negative ? C.red : hasReply ? "#D97706" : C.textDim;
+              const replyLabel = lead.has_positive ? t("leadsPage.table.replyPositive") : lead.has_negative ? t("leadsPage.table.replyNegative") : hasReply ? t("leadsPage.table.replyReplied") : "—";
               const isSelected = selected.has(lead.id);
               const isUpdating = rowUpdating === lead.id;
               const menuOpen = openMenuId === lead.id;
