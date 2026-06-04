@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "node:crypto";
+import { phoneSuffixMatch, ilikeDigitPattern } from "@/lib/phone-match";
 
 const SB_URL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1`;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
@@ -25,22 +26,8 @@ function verifyAircallSignature(rawBody: string, presentedSignature: string | nu
   return { valid: crypto.timingSafeEqual(a, b), reason: undefined };
 }
 
-// Phone match for linking calls↔leads. The old logic compared the
-// exact LAST 10 DIGITS, which only works for NANP (+1 → 1-digit country
-// code + 10 national). International numbers break it: a Spanish mobile
-// "+34 634 28 78 57" is 11 digits, so slice(-10) drops the leading "3"
-// of "34" and compares a garbage 10-digit slice — so the answered call
-// never links to the dialed lead and lands with lead_id=null (no outcome
-// surface). Fix: strip to digits and require a solid TRAILING overlap
-// (≥9 digits, or the whole shorter number if it's shorter) — that covers
-// ES/IT/CO/AR national lengths and still matches US on its last 9+.
-function phoneSuffixMatch(a: string | null | undefined, b: string | null | undefined): boolean {
-  const da = (a ?? "").replace(/\D/g, "");
-  const db = (b ?? "").replace(/\D/g, "");
-  if (da.length < 7 || db.length < 7) return false;
-  const k = Math.min(da.length, db.length, 9);
-  return da.slice(-k) === db.slice(-k);
-}
+// Phone matching (strip-to-digits + trailing overlap) lives in lib/phone-match
+// so the webhook and the Aircall sync route stay in lockstep.
 
 type AircallCall = {
   id: number;
@@ -217,23 +204,20 @@ export async function POST(req: NextRequest) {
     // raw_digits is what the seller dialed (the lead's number), and
     // we already store that in leads.primary_phone.
     if (call.raw_digits) {
-      const last10 = call.raw_digits.replace(/[^\d]/g, "").slice(-10);
       // Phone numbers in lead rows carry their original formatting
-      // ("+54 9 11 3394 2012"), so an ilike on the joined digit-only
-      // string (1133942012) never matches — the spaces break the
-      // substring. Pull candidates whose phone ENDS in any 4-digit
-      // suffix of last10 and finish the match in JS by stripping
-      // non-digits on both sides. 4-digit tail keeps the candidate set
-      // small even on tenants with thousands of leads while staying
-      // permissive enough that international format variants survive.
-      const tail4 = last10.slice(-4);
+      // ("+54 9 11 3394 2012", "'+34 917 37 32 47"), so an ilike on a
+      // contiguous digit run never matches — spaces in the trailing group
+      // break the substring. ilikeDigitPattern places a wildcard between
+      // every digit of the trailing suffix so any spacing survives; the
+      // JS phoneSuffixMatch below finalizes strictly.
+      const pattern = ilikeDigitPattern(call.raw_digits);
       const lookup = await fetch(
-        `${SB_URL}/leads?or=(primary_phone.ilike.*${tail4},primary_secondary_phone.ilike.*${tail4})&select=id,primary_phone,primary_secondary_phone&limit=200`,
+        `${SB_URL}/leads?or=(primary_phone.ilike.${pattern},primary_secondary_phone.ilike.${pattern})&select=id,primary_phone,primary_secondary_phone&limit=200`,
         { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
       );
       const rows: Array<{ id: string; primary_phone: string | null; primary_secondary_phone: string | null }> = await lookup.json().catch(() => []);
       // Suffix match (not exact last-10) so international format/country-code
-      // variants link too — the tail4 ilike above is just the cheap prefilter.
+      // variants link too — the digit-pattern ilike above is just the prefilter.
       const match = Array.isArray(rows) ? rows.find(r =>
         phoneSuffixMatch(r.primary_phone, call.raw_digits) || phoneSuffixMatch(r.primary_secondary_phone, call.raw_digits)
       ) : null;
@@ -280,13 +264,10 @@ export async function POST(req: NextRequest) {
   }
 
   if (Array.isArray(updated) && updated.length === 0 && call.direction === "inbound" && call.raw_digits) {
-    const last10 = call.raw_digits.replace(/\D/g, "").slice(-10);
-    // Same digit-only normalization as the outbound branch — the
-    // pre-existing ilike here also failed against phones stored with
-    // spaces. Pull on the 4-digit tail and finalize in JS.
-    const tail4 = last10.slice(-4);
+    // Same space-tolerant prefilter as the outbound branch.
+    const pattern = ilikeDigitPattern(call.raw_digits);
     const lookup = await fetch(
-      `${SB_URL}/leads?or=(primary_phone.ilike.*${tail4},primary_secondary_phone.ilike.*${tail4})&select=id,primary_phone,primary_secondary_phone&limit=200`,
+      `${SB_URL}/leads?or=(primary_phone.ilike.${pattern},primary_secondary_phone.ilike.${pattern})&select=id,primary_phone,primary_secondary_phone&limit=200`,
       { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
     );
     const rowsList: Array<{ id: string; primary_phone: string | null; primary_secondary_phone: string | null }> = await lookup.json().catch(() => []);

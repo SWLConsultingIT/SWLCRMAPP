@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { phoneSuffixMatch, ilikeDigitPattern } from "@/lib/phone-match";
 
 const AIRCALL_AUTH = Buffer.from(
   `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`
@@ -35,17 +36,43 @@ function mapStatus(c: AircallCall): string {
   return "initiated";
 }
 
+// Format-tolerant lead lookup. The old `ilike.*<last10>*` never matched a
+// phone stored with spaces in its trailing group ("...37 32 47"), so every
+// ES/IT-formatted number landed lead_id=null. Pull candidates with a
+// per-digit wildcard pattern (survives any spacing) then finalize with a
+// strict digit-suffix compare in JS.
 async function findLeadIdByPhone(raw: string | null): Promise<string | null> {
-  if (!raw) return null;
-  const digits = raw.replace(/[^\d]/g, "");
-  if (!digits) return null;
-  const last10 = digits.slice(-10);
+  const pattern = ilikeDigitPattern(raw);
+  if (!pattern) return null;
   const res = await fetch(
-    `${SB_URL}/leads?primary_phone=ilike.*${last10}*&select=id&limit=1`,
+    `${SB_URL}/leads?or=(primary_phone.ilike.${pattern},primary_secondary_phone.ilike.${pattern})&select=id,primary_phone,primary_secondary_phone&limit=200`,
     { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
   );
-  const rows = await res.json().catch(() => []);
-  return Array.isArray(rows) && rows[0]?.id ? rows[0].id : null;
+  const rows: Array<{ id: string; primary_phone: string | null; primary_secondary_phone: string | null }> = await res.json().catch(() => []);
+  const match = Array.isArray(rows)
+    ? rows.find(r => phoneSuffixMatch(r.primary_phone, raw) || phoneSuffixMatch(r.primary_secondary_phone, raw))
+    : null;
+  return match?.id ?? null;
+}
+
+// Reconcile against an existing dial-marker / dial row. /api/aircall/dial-marker
+// (and the legacy /dial) insert an outbound row (status=initiated,
+// aircall_call_id=null) the instant the seller clicks Call. When Aircall later
+// reports the real call, we must REUSE that row — it already carries the
+// seller_id and the lead_id. Without this the sync inserted a brand-new
+// lead_id=null orphan, leaving the recording detached from the lead and the
+// marker stuck "initiated" forever (boss flagged missing recordings 2026-06-04).
+async function findMarkerId(raw: string | null): Promise<string | null> {
+  const digits = (raw ?? "").replace(/\D/g, "");
+  if (digits.length < 7) return null;
+  const sinceIso = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const res = await fetch(
+    `${SB_URL}/calls?aircall_call_id=is.null&direction=eq.outbound&started_at=gte.${sinceIso}&select=id,phone_number&order=started_at.desc&limit=50`,
+    { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
+  );
+  const rows: Array<{ id: string; phone_number: string | null }> = await res.json().catch(() => []);
+  const match = Array.isArray(rows) ? rows.find(r => phoneSuffixMatch(r.phone_number, raw)) : null;
+  return match?.id ?? null;
 }
 
 export async function POST(req: NextRequest) {
@@ -91,6 +118,25 @@ export async function POST(req: NextRequest) {
 
     if (Array.isArray(rows) && rows.length > 0) {
       updated += rows.length;
+      continue;
+    }
+
+    // Reuse the dial-marker row for this call if one exists (keeps seller_id +
+    // lead_id and prevents a duplicate orphan). Only adopt the marker's
+    // lead_id; don't clobber it to null when the phone lookup misses.
+    const markerId = c.direction === "outbound" ? await findMarkerId(c.raw_digits) : null;
+    if (markerId) {
+      await fetch(`${SB_URL}/calls?id=eq.${markerId}`, {
+        method: "PATCH",
+        headers: {
+          apikey: SB_KEY,
+          Authorization: `Bearer ${SB_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "return=minimal",
+        },
+        body: JSON.stringify({ aircall_call_id: c.id, ...base }),
+      });
+      updated++;
       continue;
     }
 
