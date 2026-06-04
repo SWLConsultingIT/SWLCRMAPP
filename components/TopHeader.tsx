@@ -6,7 +6,6 @@ import Link from "next/link";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 import { useAuthUser, useAuth } from "@/lib/auth-context";
-import TodayPlanPopover from "./TodayPlanPopover";
 import HelpMenu from "./HelpMenu";
 import NotificationBell from "./NotificationBell";
 
@@ -129,7 +128,6 @@ export default function TopHeader() {
       <div className="flex items-center gap-1 w-56 justify-end">
         <HelpMenu />
         <NotificationBell />
-        <TodayPlanPopover />
         <Link
           href="/settings"
           className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
