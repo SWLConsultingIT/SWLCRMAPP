@@ -110,8 +110,12 @@ async function getQueueData() {
   // timing / Wrong number) so the team can review what was actually dialed,
   // filter by date, and replay recordings. Tenant-scoped via leads join; not
   // seller-filtered on purpose — managers want the whole team's call log.
+  // NOTE: no `sellers(name)` embed — the calls table has NO foreign-key
+  // relationship to sellers in the schema, so embedding it 400s the whole
+  // query and History silently renders 0 calls (caught 2026-06-04). seller_id
+  // is resolved to a name in a separate lookup below.
   let callHistoryQuery = supabase.from("calls")
-    .select("id, lead_id, classification, status, duration, started_at, recording_url, aircall_call_id, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id), sellers(name)")
+    .select("id, lead_id, seller_id, classification, status, duration, started_at, recording_url, transcript, notes, aircall_call_id, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id)")
     .in("classification", ["positive", "negative", "follow_up", "wrong_number"])
     .order("started_at", { ascending: false })
     .limit(500);
@@ -145,6 +149,13 @@ async function getQueueData() {
   ]);
 
   const callHistoryRows = await hydrateNestedLeads((rawCallHistory ?? []) as any[]);
+  // Resolve seller names separately (no calls→sellers FK to embed).
+  const histSellerIds = [...new Set(callHistoryRows.map((c: any) => c.seller_id).filter(Boolean))] as string[];
+  const sellerNameById: Record<string, string> = {};
+  if (histSellerIds.length > 0) {
+    const { data: sellerRows } = await supabase.from("sellers").select("id, name").in("id", histSellerIds);
+    for (const s of sellerRows ?? []) sellerNameById[(s as any).id] = (s as any).name;
+  }
   const callHistory = callHistoryRows.map((c: any) => {
     const lead = c.leads;
     const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
@@ -162,8 +173,11 @@ async function getQueueData() {
       status: (c.status ?? null) as string | null,
       durationSec: (c.duration ?? null) as number | null,
       startedAt: (c.started_at ?? null) as string | null,
-      sellerName: ((c.sellers as any)?.name ?? null) as string | null,
+      sellerName: (c.seller_id ? (sellerNameById[c.seller_id] ?? null) : null) as string | null,
       hasRecording,
+      transcript: (c.transcript ?? null) as string | null,
+      notes: (c.notes ?? null) as string | null,
+      aircallCallId: (c.aircall_call_id ?? null) as number | string | null,
     };
   });
 

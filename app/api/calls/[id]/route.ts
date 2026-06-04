@@ -49,6 +49,40 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   });
 }
 
+// PATCH — save a free-text note on the call. Used by the /queue History tab
+// so the team can annotate a call while reviewing the recording. Tenant-scoped
+// the same way GET is (the call's lead must belong to the caller's tenant).
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const scope = await getUserScope();
+  if (!scope.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { id } = await params;
+  const body = await req.json().catch(() => ({}));
+  if (typeof body.notes !== "string") {
+    return NextResponse.json({ error: "notes (string) required" }, { status: 400 });
+  }
+
+  const svc = getSupabaseService();
+  const { data: existing } = await svc
+    .from("calls")
+    .select("id, leads!inner(company_bio_id)")
+    .eq("id", id)
+    .maybeSingle();
+  if (!existing) return NextResponse.json({ error: "not found" }, { status: 404 });
+  if (scope.isScoped) {
+    type LeadJoin = { company_bio_id?: string | null };
+    const leadJoin = (existing as { leads?: LeadJoin | LeadJoin[] | null }).leads;
+    const bio = (Array.isArray(leadJoin) ? leadJoin[0]?.company_bio_id : leadJoin?.company_bio_id) ?? null;
+    if (!bio || bio !== scope.companyBioId) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+  }
+
+  const { error } = await svc.from("calls").update({ notes: body.notes.trim() || null }).eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
+
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const scope = await getUserScope();
   if (!canViewAllTenantData(scope.tier)) {

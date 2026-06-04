@@ -83,6 +83,9 @@ type CallHistoryEntry = {
   startedAt: string | null;
   sellerName: string | null;
   hasRecording: boolean;
+  transcript: string | null;
+  notes: string | null;
+  aircallCallId: number | string | null;
 };
 
 type Props = {
@@ -273,6 +276,142 @@ const HIST_TABS: Array<{ key: "positive" | "negative" | "wrong_number" | "follow
   { key: "wrong_number", label: "Wrong number",   color: C.textMuted },
 ];
 
+// One reviewable call in the History list: recording player, transcript
+// (view / generate), and an editable note. Self-contained so each row owns
+// its own expand + save state.
+function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
+  const router = useRouter();
+  const [expanded, setExpanded] = useState(false);
+  const [transcript, setTranscript] = useState(e.transcript);
+  const [transcribing, setTranscribing] = useState(false);
+  const [note, setNote] = useState(e.notes ?? "");
+  const [savingNote, setSavingNote] = useState(false);
+  const [noteSaved, setNoteSaved] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const meta = e.classification ? classificationMeta[e.classification] : null;
+  const canTranscribe = e.hasRecording && !transcript && !!e.aircallCallId;
+
+  async function transcribe() {
+    if (transcribing) return;
+    setTranscribing(true); setErr(null);
+    try {
+      const r = await fetch("/api/aircall/transcribe", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callId: e.id }),
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) { setErr(body.error ?? "Couldn't transcribe"); return; }
+      if (body.transcript) setTranscript(body.transcript);
+      else router.refresh();
+    } catch { setErr("Network error"); }
+    finally { setTranscribing(false); }
+  }
+
+  async function saveNote() {
+    if (savingNote) return;
+    setSavingNote(true); setErr(null); setNoteSaved(false);
+    try {
+      const r = await fetch(`/api/calls/${e.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes: note }),
+      });
+      if (!r.ok) { const b = await r.json().catch(() => ({})); setErr(b.error ?? "Couldn't save note"); return; }
+      setNoteSaved(true);
+      window.setTimeout(() => setNoteSaved(false), 1500);
+    } catch { setErr("Network error"); }
+    finally { setSavingNote(false); }
+  }
+
+  return (
+    <div className="rounded-xl border" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="px-4 py-3 flex items-center gap-4">
+        <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+          style={{ background: "linear-gradient(135deg, #F97316, #FB923C)", color: "#fff" }}>
+          <Phone size={15} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link href={e.leadId ? `/leads/${e.leadId}` : "#"} className="text-sm font-bold hover:underline" style={{ color: C.textPrimary }}>
+              {e.leadName}
+            </Link>
+            {e.company && <span className="text-xs" style={{ color: C.textMuted }}>· {e.company}</span>}
+            {meta && (
+              <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: meta.bg, color: meta.color }}>
+                {meta.label}
+              </span>
+            )}
+            {e.sellerName && (
+              <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE" }}>
+                {e.sellerName}
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>
+            {fmtDateTime(e.startedAt)} · {fmtDuration(e.durationSec)}
+            {e.status && <> · {e.status}</>}
+            {transcript && <> · transcript ✓</>}
+            {(e.notes) && <> · note ✓</>}
+          </p>
+        </div>
+        {e.hasRecording ? (
+          <audio controls preload="none" src={`/api/aircall/calls/${e.id}/play`} className="h-8 max-w-[200px]" />
+        ) : (
+          <span className="text-[10px] px-2 py-1 rounded-md" style={{ backgroundColor: C.surface, color: C.textDim }}>
+            No recording
+          </span>
+        )}
+        <button onClick={() => setExpanded(v => !v)}
+          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-colors shrink-0"
+          style={{ borderColor: C.border, color: C.textMuted, backgroundColor: expanded ? C.surface : "transparent" }}>
+          {expanded ? "Hide" : "Transcript & notes"} <ChevronRight size={11} style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform 150ms" }} />
+        </button>
+      </div>
+
+      {expanded && (
+        <div className="border-t px-4 py-3 space-y-3" style={{ borderColor: C.border }}>
+          {/* Transcript */}
+          <div>
+            <p className="text-[10px] uppercase tracking-wider mb-1.5 font-semibold" style={{ color: C.textDim }}>Transcript</p>
+            {transcript ? (
+              <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{transcript}</p>
+            ) : canTranscribe ? (
+              <button onClick={transcribe} disabled={transcribing}
+                className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-opacity hover:opacity-85 disabled:opacity-50"
+                style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.surface }}>
+                {transcribing ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                {transcribing ? "Transcribing…" : "Transcribe call"}
+              </button>
+            ) : (
+              <p className="text-[11px]" style={{ color: C.textDim }}>No transcript {e.hasRecording ? "yet" : "(no recording)"}.</p>
+            )}
+          </div>
+          {/* Notes */}
+          <div>
+            <p className="text-[10px] uppercase tracking-wider mb-1.5 font-semibold" style={{ color: C.textDim }}>Notes</p>
+            <textarea value={note} onChange={ev => setNote(ev.target.value)} rows={2}
+              placeholder="Add a note about this call…"
+              className="w-full rounded-lg border px-3 py-2 text-[12px] resize-none outline-none focus:ring-2"
+              style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary }} />
+            <div className="flex items-center gap-2 mt-1.5">
+              <button onClick={saveNote} disabled={savingNote || note === (e.notes ?? "")}
+                className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+                style={{ backgroundColor: "#F97316" }}>
+                {savingNote ? <Loader2 size={11} className="animate-spin" /> : null}
+                Save note
+              </button>
+              {noteSaved && <span className="text-[11px] font-semibold" style={{ color: C.green }}>Saved ✓</span>}
+            </div>
+          </div>
+          {err && <p className="text-[11px]" style={{ color: C.red }}>{err}</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CallHistoryPanel({
   entries, search, histClass, setHistClass, histFrom, setHistFrom, histTo, setHistTo,
 }: {
@@ -357,40 +496,7 @@ function CallHistoryPanel({
         </div>
       ) : (
         <div className="space-y-2">
-          {rows.map(e => (
-            <div key={e.id} className="rounded-xl border px-4 py-3 flex items-center gap-4"
-              style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: "linear-gradient(135deg, #F97316, #FB923C)", color: "#fff" }}>
-                <Phone size={15} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Link href={e.leadId ? `/leads/${e.leadId}` : "#"} className="text-sm font-bold hover:underline" style={{ color: C.textPrimary }}>
-                    {e.leadName}
-                  </Link>
-                  {e.company && <span className="text-xs" style={{ color: C.textMuted }}>· {e.company}</span>}
-                  {e.sellerName && (
-                    <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                      style={{ backgroundColor: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE" }}>
-                      {e.sellerName}
-                    </span>
-                  )}
-                </div>
-                <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>
-                  {fmtDateTime(e.startedAt)} · {fmtDuration(e.durationSec)}
-                  {e.status && <> · {e.status}</>}
-                </p>
-              </div>
-              {e.hasRecording ? (
-                <audio controls preload="none" src={`/api/aircall/calls/${e.id}/play`} className="h-8 max-w-[220px]" />
-              ) : (
-                <span className="text-[10px] px-2 py-1 rounded-md" style={{ backgroundColor: C.surface, color: C.textDim }}>
-                  No recording
-                </span>
-              )}
-            </div>
-          ))}
+          {rows.map(e => <CallHistoryRow key={e.id} e={e} />)}
         </div>
       )}
     </>
