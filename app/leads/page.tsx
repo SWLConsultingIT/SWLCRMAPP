@@ -32,37 +32,48 @@ async function getData() {
     .select("id, profile_name, target_industries, target_roles, status")
     .eq("status", "approved")
     .order("created_at", { ascending: false });
-  let leadsQ = supabase
-    .from("leads")
-    .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at, source, encrypted_payload, company_bio_id, transferred_to_odoo_at")
-    .order("created_at", { ascending: false });
-  // No cap (2026-05-28 r6). The client-side filters need every lead in
-  // memory to work — paginating would break multi-select facet behaviour
-  // ("Select all 627" must mean 627). PostgREST applies a default 1000-row
-  // limit; we bypass it explicitly so larger tenants still get everyone.
-  // If a tenant ever crosses ~10k leads the right next step is moving the
-  // facets to the server, not re-capping here.
-  leadsQ = leadsQ.range(0, 99999);
-  // Companion count() to compute the true tenant-wide total. Head-only request
-  // (no rows downloaded) so this is essentially free vs the data fetch above.
-  // We use it client-side to surface a "Showing 500 of N" banner when the cap
-  // truncates the visible list — sellers used to silently lose ~hundreds of
-  // leads with no UI signal.
-  let leadsCountQ = supabase
-    .from("leads")
-    .select("id", { count: "exact", head: true });
   // Seller-tier filter: only leads where seller_id ∈ their linked sellers.
-  // Empty array (sellerIds.length=0) → in([]) returns no rows, which is the
-  // intended behavior — a seller with no link sees nothing until they're
-  // linked to a seller record.
-  if (sellerIds !== null) {
-    const ids = sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"];
-    leadsQ = leadsQ.in("seller_id", ids);
-    leadsCountQ = leadsCountQ.in("seller_id", ids);
-  }
-  const [{ data: profiles }, { data: rawLeads }, { count: totalLeadCount }] = await Promise.all([
+  // Empty array (sellerIds.length=0) → in([]) returns no rows (a seller with
+  // no link sees nothing until linked). Resolved once, reused by the factory.
+  const sellerInIds = sellerIds !== null
+    ? (sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"])
+    : null;
+
+  // Factory: a fresh leads query per page. A Supabase builder is single-use —
+  // re-calling .range() on the same instance won't paginate — so we rebuild.
+  const mkLeadsQuery = () => {
+    let q = supabase
+      .from("leads")
+      .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at, source, encrypted_payload, company_bio_id, transferred_to_odoo_at")
+      .order("created_at", { ascending: false });
+    if (sellerInIds) q = q.in("seller_id", sellerInIds);
+    if (bioId) q = q.eq("company_bio_id", bioId);
+    return q;
+  };
+
+  // Paginate to fetch EVERY lead. Supabase caps a single response at 1000 rows
+  // (a bare .range(0,99999) still returns only the first 1000), which silently
+  // truncated larger tenants — Pathway showed "1000 of 1400". Loop 1000-row
+  // pages until a short page; 50k hard ceiling as a runaway guard.
+  const fetchAllLeads = async () => {
+    const PAGE = 1000;
+    const all: Record<string, unknown>[] = [];
+    for (let from = 0; from < 50000; from += PAGE) {
+      const { data, error } = await mkLeadsQuery().range(from, from + PAGE - 1);
+      if (error || !data || data.length === 0) break;
+      all.push(...(data as Record<string, unknown>[]));
+      if (data.length < PAGE) break;
+    }
+    return all;
+  };
+
+  // Companion count() for the true tenant-wide total (head-only, ~free).
+  let leadsCountQ = supabase.from("leads").select("id", { count: "exact", head: true });
+  if (sellerInIds) leadsCountQ = leadsCountQ.in("seller_id", sellerInIds);
+
+  const [{ data: profiles }, rawLeads, { count: totalLeadCount }] = await Promise.all([
     bioId ? profilesQ.eq("company_bio_id", bioId) : profilesQ,
-    bioId ? leadsQ.eq("company_bio_id", bioId) : leadsQ,
+    fetchAllLeads(),
     bioId ? leadsCountQ.eq("company_bio_id", bioId) : leadsCountQ,
   ]);
 
