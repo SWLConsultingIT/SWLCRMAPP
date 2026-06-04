@@ -31,16 +31,32 @@ export async function POST(req: NextRequest) {
 
   const svc = getSupabaseService();
 
-  // Find the seller row matched to the current user (if any) so the
-  // marker carries seller_id, not just user_id. The /admin/<tenant>/Aircall
-  // page binds user_id → seller_id; super-admins acting on a tenant
-  // won't have a binding and will be recorded with seller_id=null.
-  const { data: seller } = await svc
-    .from("sellers")
-    .select("id")
-    .eq("user_id", scope.userId)
-    .eq("active", true)
-    .maybeSingle();
+  // Resolve the dialing tenant from the lead (a super_admin can dial across
+  // tenants), falling back to the caller's own scope.
+  let dialingBioId: string | null = scope.companyBioId ?? null;
+  if (leadId) {
+    const { data: leadRow } = await svc.from("leads").select("company_bio_id").eq("id", leadId).maybeSingle();
+    dialingBioId = ((leadRow as { company_bio_id?: string | null } | null)?.company_bio_id) ?? dialingBioId;
+  }
+
+  // Find the seller row matched to the current user (if any) so the marker
+  // carries seller_id, not just user_id. MUST be scoped to the dialing tenant
+  // — without it, an admin whose user_id is also a seller in ANOTHER tenant
+  // got that foreign seller stamped on the call (cross-tenant mis-attribution:
+  // SWL calls showed "Luciano Sosa", a seller from a different bio, 2026-06-04).
+  // No in-tenant seller binding → seller_id stays null (no chip), which is
+  // correct for admins who aren't a seller in this tenant.
+  let seller: { id: string } | null = null;
+  if (dialingBioId) {
+    const { data } = await svc
+      .from("sellers")
+      .select("id")
+      .eq("user_id", scope.userId)
+      .eq("active", true)
+      .eq("company_bio_id", dialingBioId)
+      .maybeSingle();
+    seller = (data as { id: string } | null) ?? null;
+  }
 
   const { data: inserted, error } = await svc.from("calls").insert({
     lead_id: leadId ?? null,
