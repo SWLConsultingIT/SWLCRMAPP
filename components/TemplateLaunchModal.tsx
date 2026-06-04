@@ -203,8 +203,14 @@ export default function TemplateLaunchModal({
         setError(body.error ?? `Failed (${res.status})`);
         return;
       }
-      // Land on the campaigns page with a banner-friendly query param.
-      router.push(`/campaigns?launched_template=${encodeURIComponent(templateId)}&n=${body.campaigns_created ?? assignments.length}`);
+      // "Use template" now creates a pending campaign_request that an admin
+      // approves (instead of auto-activating campaigns). Land on the review
+      // page so the approver sees it immediately.
+      if (body.requestId) {
+        router.push(`/admin/review/${body.requestId}`);
+      } else {
+        router.push(`/campaigns?launched_template=${encodeURIComponent(templateId)}&n=${body.target_leads_count ?? assignments.length}`);
+      }
     } catch (e: any) {
       setError(e?.message ?? "Network error");
     } finally {
@@ -454,7 +460,7 @@ export default function TemplateLaunchModal({
               className="text-sm font-semibold px-5 py-2.5 rounded-lg inline-flex items-center gap-2 disabled:opacity-50"
               style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#1A1A2E" }}>
               {launching ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} />}
-              {launching ? "Launching…" : `Launch ${selectedCount || ""}`.trim()}
+              {launching ? "Sending…" : `Send ${selectedCount || ""} for approval`.trim()}
             </button>
           </div>
         </div>

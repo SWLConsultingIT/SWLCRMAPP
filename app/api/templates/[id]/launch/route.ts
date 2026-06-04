@@ -119,122 +119,53 @@ export async function POST(
     }, { status: 400 });
   }
 
-  // 4. Compute the connection-request scheduling once for the template (same
-  //    sequence for every assignment). Connection request fires ~24h before
-  //    the first LinkedIn step (Day 0 if LinkedIn is the first step).
-  let firstLinkedinCumDay: number | null = null;
-  {
-    let cum = 0;
-    for (let i = 0; i < sequence.length; i++) {
-      cum += i === 0 ? 0 : (sequence[i].daysAfter ?? 0);
-      if (sequence[i].channel === "linkedin" && firstLinkedinCumDay === null) {
-        firstLinkedinCumDay = cum;
-        break;
-      }
-    }
-  }
-  // autoNormalizePlaceholders rewrites foreign-syntax tokens
-  // (`[First Name]`, `<<First Name>>`, `%FIRST_NAME%`, `__first_name__`)
-  // to their canonical `{{first_name}}` form on save so the row landing
-  // in campaign_messages.content is always one the dispatcher knows
-  // how to render. Same pass we run in /api/campaigns/approve.
-  const connectionRequest = autoNormalizePlaceholders(stepMessages.connectionRequest ?? "").normalized;
-  const hasInvite = connectionRequest.length > 0 && channels.includes("linkedin");
-  const messageSteps = (Array.isArray(stepMessages.steps) ? stepMessages.steps : []).map((m: any) => ({
-    ...m,
-    body: autoNormalizePlaceholders(m?.body ?? "").normalized,
-    subject: m?.subject ? autoNormalizePlaceholders(m.subject).normalized : m?.subject ?? null,
-  }));
+  // Route through APPROVAL instead of auto-creating active campaigns. Build ONE
+  // pending campaign_request carrying the template's sequence + messages + the
+  // per-lead seller assignment. The admin approves it in /admin/review and
+  // /api/campaigns/approve creates the per-lead campaigns — which (unlike the
+  // old launch path) slices the LinkedIn connection-request slot correctly (no
+  // empty step-1 DM) and never sends without an explicit approval. Before this,
+  // "Use template" set status:"active" directly AND skipped the CR slicing →
+  // 200 LATAM campaigns went live unapproved with a blank step-1 (2026-06-04).
+  const effectiveChannels = channels.length > 0 ? channels : [...new Set(sequence.map((s) => s.channel))];
+  const leadSellers: Record<string, string> = {};
+  for (const a of assignments) leadSellers[a.lead_id] = a.seller_id;
+  const sm = (tpl.step_messages ?? {}) as { connectionRequest?: string; steps?: unknown[]; autoReplies?: unknown };
 
-  // 5. Create campaigns + messages per assignment.
-  const errors: string[] = [];
-  const campaignIds: string[] = [];
+  const { data: request, error: reqErr } = await svc.from("campaign_requests").insert({
+    name: tpl.name,
+    icp_profile_id: tpl.icp_profile_id ?? null,
+    company_bio_id: scope.companyBioId,
+    lead_id: null,
+    channels: effectiveChannels,
+    sequence_length: sequence.length,
+    frequency_days: 0,
+    target_leads_count: leadIds.length,
+    message_prompts: {
+      sequence,
+      channelMessages: {
+        connectionRequest: sm.connectionRequest ?? "",
+        steps: Array.isArray(sm.steps) ? sm.steps : [],
+        autoReplies: sm.autoReplies ?? {},
+      },
+      selectedLeadIds: leadIds,
+      leadSellers,
+      templateId: tpl.id,
+    },
+    status: "pending_review",
+  }).select("id").single();
 
-  for (const a of assignments) {
-    const primaryChannel = sequence[0]?.channel ?? channels[0] ?? "linkedin";
-
-    const { data: campaign, error: campErr } = await svc
-      .from("campaigns")
-      .insert({
-        lead_id: a.lead_id,
-        seller_id: a.seller_id,
-        name: tpl.name,
-        channel: primaryChannel,
-        status: "active",
-        current_step: 0,
-        sequence_steps: sequence,
-        started_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        // company_bio_id derived via the lead's FK in dispatcher logic;
-        // set it explicitly here so cron filters and analytics don't have
-        // to join just to scope.
-        company_bio_id: scope.companyBioId,
-      })
-      .select("id")
-      .single();
-
-    if (campErr || !campaign) {
-      errors.push(`Lead ${a.lead_id}: ${campErr?.message ?? "failed to create campaign"}`);
-      continue;
-    }
-    campaignIds.push(campaign.id);
-
-    const messageInserts: any[] = [];
-
-    if (hasInvite) {
-      const inviteOffsetDays = Math.max(0, (firstLinkedinCumDay ?? 0) - 1);
-      const eligibleAt = inviteOffsetDays > 0
-        ? new Date(Date.now() + inviteOffsetDays * 86400000).toISOString()
-        : null;
-      messageInserts.push({
-        campaign_id: campaign.id,
-        lead_id: a.lead_id,
-        step_number: 0,
-        channel: "linkedin",
-        content: connectionRequest,
-        status: "queued",
-        created_at: new Date().toISOString(),
-        metadata: eligibleAt ? { eligible_at: eligibleAt } : null,
-      });
-    }
-    messageSteps.forEach((msg, i) => messageInserts.push({
-      campaign_id: campaign.id,
-      lead_id: a.lead_id,
-      step_number: msg.step ?? i + 1,
-      channel: msg.channel ?? sequence[i]?.channel ?? primaryChannel,
-      content: msg.body ?? "",
-      // Email subject lives in metadata to match the rest of the system.
-      metadata: msg.subject ? { subject: msg.subject } : null,
-      status: "draft",
-      created_at: new Date().toISOString(),
-    }));
-
-    if (messageInserts.length > 0) {
-      const { error: msgErr } = await svc.from("campaign_messages").insert(messageInserts);
-      if (msgErr) errors.push(`Lead ${a.lead_id} messages: ${msgErr.message}`);
-    }
-
-    await svc.from("leads").update({ current_channel: primaryChannel }).eq("id", a.lead_id);
+  if (reqErr || !request) {
+    return NextResponse.json({ error: reqErr?.message ?? "Failed to create approval request" }, { status: 500 });
   }
 
-  // 6. Bump the template's usage count + last_used_at so TemplatesView
-  //    ordering and the stats strip stay current. Read-modify-write — race
-  //    is acceptable (cosmetic counter, not financial). Best-effort: a
-  //    failure here doesn't fail the whole launch.
+  // Template usage bump (cosmetic, best-effort).
   try {
-    const { data: cur } = await svc
-      .from("campaign_templates").select("usage_count").eq("id", tpl.id).maybeSingle();
-    const next = (cur?.usage_count ?? 0) + campaignIds.length;
+    const { data: cur } = await svc.from("campaign_templates").select("usage_count").eq("id", tpl.id).maybeSingle();
     await svc.from("campaign_templates")
-      .update({ usage_count: next, last_used_at: new Date().toISOString() })
-      .eq("id", tpl.id)
-      .eq("company_bio_id", scope.companyBioId);
+      .update({ usage_count: (cur?.usage_count ?? 0) + 1, last_used_at: new Date().toISOString() })
+      .eq("id", tpl.id).eq("company_bio_id", scope.companyBioId);
   } catch { /* swallow — cosmetic */ }
 
-  return NextResponse.json({
-    campaigns_created: campaignIds.length,
-    campaign_ids: campaignIds,
-    template_id: tpl.id,
-    errors: errors.length > 0 ? errors : undefined,
-  });
+  return NextResponse.json({ pending: true, requestId: request.id, target_leads_count: leadIds.length });
 }
