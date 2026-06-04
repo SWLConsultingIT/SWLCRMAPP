@@ -394,7 +394,11 @@ export default function NewCampaignWizard() {
       const isEncrypted = (r: any) => r.source === "client";
       const okLi   = (r: any) => (isEncrypted(r) || isValidLi(r.primary_linkedin_url)) && r.allow_linkedin !== false;
       const okMail = (r: any) => (isEncrypted(r) || r.primary_work_email || r.primary_personal_email) && r.allow_email !== false;
-      const okCall = (r: any) => (isEncrypted(r) || r.primary_phone) && r.allow_call !== false;
+      // Call reachability must mirror the dispatcher + queue, which dial
+      // primary_phone ?? primary_secondary_phone. The old check only looked at
+      // primary_phone, so leads with ONLY a corporate/secondary number were
+      // wrongly flagged BLOCKED for Call (inflated the "21 blocked" warning).
+      const okCall = (r: any) => (isEncrypted(r) || r.primary_phone || r.primary_secondary_phone) && r.allow_call !== false;
       const okWa   = (r: any) => (isEncrypted(r) || r.primary_phone || r.primary_secondary_phone) && r.allow_call !== false;
       const cov = {
         total: rows.length,

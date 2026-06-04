@@ -160,18 +160,12 @@ async function getData() {
   }
 
   // Reply lookups
+  // By-lead reply sets — include EVERY channel (LinkedIn, email, AND call
+  // outcomes). Call positives have no campaign_id on their lead_reply, so we
+  // attribute replies to flows via the campaign's lead_id, not the reply's
+  // campaign_id (see enrichedCampaigns below).
   const repliedLeadIds = new Set((allReplies ?? []).map((r: any) => r.lead_id));
   const positiveLeadIds = new Set((allReplies ?? []).filter((r: any) => r.classification === "positive" || r.classification === "meeting_intent").map((r: any) => r.lead_id));
-  const repliesByCamp: Record<string, number> = {};
-  const positiveByCamp: Record<string, number> = {};
-  for (const r of allReplies ?? []) {
-    if (r.campaign_id) {
-      repliesByCamp[r.campaign_id] = (repliesByCamp[r.campaign_id] ?? 0) + 1;
-      if (r.classification === "positive" || r.classification === "meeting_intent") {
-        positiveByCamp[r.campaign_id] = (positiveByCamp[r.campaign_id] ?? 0) + 1;
-      }
-    }
-  }
 
   // Stats — "Active Campaigns" matches the tab view (active + paused)
   const activeCamps = (campaigns ?? []).filter((c: any) => c.status === "active" || c.status === "paused");
@@ -196,8 +190,15 @@ async function getData() {
   // / LinkedIn DMs / emails / calls separately.
   const enrichedCampaigns = (campaigns ?? []).map((c: any) => ({
     ...c,
-    reply_count: repliesByCamp[c.id] ?? 0,
-    positive_count: positiveByCamp[c.id] ?? 0,
+    // Reply / positive are LEAD-level signals, keyed off the campaign's
+    // lead_id — NOT lead_replies.campaign_id. A positive logged via a CALL
+    // (post-call popup) inserts a lead_reply with classification='positive'
+    // but NO campaign_id, so the old `repliesByCamp[c.id]` (campaign_id-keyed)
+    // silently dropped every call outcome — the flow card showed Positive 0
+    // while the flow's Metrics tab (which keys off lead_id) showed the real
+    // count. repliedLeadIds/positiveLeadIds already include all channels.
+    reply_count: (c.lead_id && repliedLeadIds.has(c.lead_id)) ? 1 : 0,
+    positive_count: (c.lead_id && positiveLeadIds.has(c.lead_id)) ? 1 : 0,
     sent_steps: sentCountByCamp[c.id] ?? 0,
     total_steps: totalCountByCamp[c.id] ?? (c.sequence_steps?.length ?? 0),
     linkedin_invites_sent: liInvitesByCamp[c.id] ?? 0,
