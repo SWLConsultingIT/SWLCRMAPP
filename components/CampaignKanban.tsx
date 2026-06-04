@@ -126,6 +126,7 @@ function lifecycleBadge(camp: Campaign): CardBadge | null {
   if (rc === "positive") return { label: "POSITIVE REPLY", color: "#15803D", bg: "#DCFCE7" };
   if (rc === "negative") return { label: "NEGATIVE REPLY", color: "#DC2626", bg: "#FEE2E2" };
   if (rc === "question") return { label: "REPLIED · QUESTION", color: "#7C3AED", bg: "#EDE9FE" };
+  if (rc === "followup") return { label: "FOLLOW-UP · BAD TIMING", color: "#D97706", bg: "#FEF3C7" };
   if (rc && rc !== "other") return { label: "REPLIED", color: "#0A66C2", bg: "#DBEAFE" };
   if (rc === "other") return { label: "REPLIED", color: "#0A66C2", bg: "#DBEAFE" };
   if (camp.status === "paused") return { label: "PAUSED", color: "#D97706", bg: "#FEF3C7" };

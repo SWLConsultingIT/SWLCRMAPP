@@ -23,7 +23,8 @@ import MessagesByStep, { type MessageStepGroup } from "@/components/dashboard/Me
 
 const gold = "var(--brand, #c9a83a)";
 const POSITIVE_CLASS = new Set(["positive", "meeting_intent"]);
-const NEGATIVE_CLASS = new Set(["negative", "not_now", "unsubscribe"]);
+// "not_now" (bad timing) is a follow-up, NOT a negative/lost outcome — excluded.
+const NEGATIVE_CLASS = new Set(["negative", "unsubscribe"]);
 
 const channelMeta: Record<string, { Icon: React.ElementType; color: string }> = {
   linkedin: { Icon: Share2,     color: "#0A66C2" },

@@ -239,8 +239,8 @@ async function getFlowMetrics(
   const bucketOf = (c: string) =>
     (c === "positive" || c === "meeting_intent") ? "positive"
     : (c === "question" || c === "needs_info") ? "question"
-    : (c === "follow_up" || c === "nurturing") ? "followup"
-    : (c === "negative" || c === "not_now") ? "negative"
+    : (c === "follow_up" || c === "nurturing" || c === "not_now") ? "followup"
+    : (c === "negative") ? "negative"
     : "other";
   for (let i = 0; i < leadIds.length; i += 100) {
     const inClause = `(${leadIds.slice(i, i + 100).join(",")})`;

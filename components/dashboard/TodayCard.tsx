@@ -329,10 +329,13 @@ function TodayLeadRow({
   if (sectionKey === "replies") {
     const cls = lead.tag ?? "";
     const isPositive = cls === "positive" || cls === "meeting_intent";
-    const isNegative = cls === "negative" || cls === "not_now" || cls === "unsubscribe";
+    // "not_now" (bad timing) is a follow-up, NOT negative.
+    const isNegative = cls === "negative" || cls === "unsubscribe";
+    const isFollowUp = cls === "not_now" || cls === "follow_up" || cls === "nurturing";
     const classColor = isPositive ? "#10B981" : isNegative ? "#DC2626" : "#D97706";
     const classLabel = isPositive ? (locale === "es" ? "positivo" : "positive")
       : isNegative ? (locale === "es" ? "negativo" : "negative")
+      : isFollowUp ? (locale === "es" ? "seguimiento" : "follow-up")
       : cls || (locale === "es" ? "revisar" : "review");
     const headline = hasName && hasCompany
       ? `${lead.name} — ${lead.company}`

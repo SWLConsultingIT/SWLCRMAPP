@@ -65,7 +65,8 @@ type MsgRow = {
 };
 
 const POSITIVE_CLASS = new Set(["positive", "meeting_intent"]);
-const NEGATIVE_CLASS = new Set(["negative", "not_now", "unsubscribe"]);
+// "not_now" (bad timing) is a follow-up, NOT a negative/lost outcome — excluded.
+const NEGATIVE_CLASS = new Set(["negative", "unsubscribe"]);
 
 function inWindow(iso: string | null | undefined, fromMs: number | null, toMs: number | null) {
   if (!iso) return false;
