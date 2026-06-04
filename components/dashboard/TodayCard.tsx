@@ -68,6 +68,7 @@ function fmtRelative(iso: string | null | undefined, locale: "en" | "es"): strin
 export default function TodayCard({
   labels,
   data,
+  counts,
   locale,
 }: {
   labels: TodayLabels;
@@ -78,6 +79,10 @@ export default function TodayCard({
     unassigned: TodayLead[];
     stale: TodayLead[];
   };
+  /** Real, un-capped distinct-lead count per section. The `data` arrays are
+   * only the top-N preview rendered on expand; the header must show this
+   * count, never `list.length` (which is capped and would lie). */
+  counts: Record<TodaySectionKey, number>;
   locale: "en" | "es";
 }) {
   // Boss feedback follow-up 2026-05-27: both buckets land collapsed so
@@ -105,14 +110,15 @@ export default function TodayCard({
     accent: string;
     href: string;
     list: TodayLead[];
+    count: number;
   }> = [
-    { key: "replies",    icon: MessageSquare, accent: "#7C3AED", href: "/inbox",                 list: data.replies },
-    { key: "calls",      icon: Phone,         accent: "#EA580C", href: "/queue",                 list: data.calls },
-    { key: "stale",      icon: AlertCircle,   accent: "#D97706", href: "/leads?filter=stale",    list: data.stale },
-    { key: "unassigned", icon: UserPlus,      accent: "#0EA5E9", href: "/leads?filter=no-camp",  list: data.unassigned },
+    { key: "replies",    icon: MessageSquare, accent: "#7C3AED", href: "/inbox",                 list: data.replies,    count: counts.replies },
+    { key: "calls",      icon: Phone,         accent: "#EA580C", href: "/queue",                 list: data.calls,      count: counts.calls },
+    { key: "stale",      icon: AlertCircle,   accent: "#D97706", href: "/leads?filter=stale",    list: data.stale,      count: counts.stale },
+    { key: "unassigned", icon: UserPlus,      accent: "#0EA5E9", href: "/leads?filter=no-camp",  list: data.unassigned, count: counts.unassigned },
   ];
 
-  const totalItems = sections.reduce((acc, s) => acc + s.list.length, 0);
+  const totalItems = sections.reduce((acc, s) => acc + s.count, 0);
 
   return (
     <section
@@ -170,7 +176,7 @@ export default function TodayCard({
         {sections.map(s => {
             const Icon = s.icon;
             const isOpen = open[s.key];
-            const hasItems = s.list.length > 0;
+            const hasItems = s.count > 0;
             const sl = labels.sections[s.key];
 
             return (
@@ -197,7 +203,7 @@ export default function TodayCard({
                         className="text-[20px] font-bold tabular-nums leading-none tracking-[-0.02em]"
                         style={{ color: hasItems ? s.accent : C.textDim, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}
                       >
-                        {s.list.length}
+                        {s.count}
                       </span>
                       <span className="text-[13px] font-semibold" style={{ color: C.textPrimary }}>
                         {sl.label}
@@ -243,6 +249,22 @@ export default function TodayCard({
                         />
                       </li>
                     ))}
+                    {/* The preview is capped; surface the remainder honestly
+                        with a deep-link to the full list (never silent-truncate). */}
+                    {s.count > s.list.length && (
+                      <li>
+                        <Link
+                          href={s.href}
+                          className="flex items-center justify-center gap-1.5 px-5 py-2.5 text-[11.5px] font-semibold transition-opacity hover:opacity-80"
+                          style={{ color: s.accent }}
+                        >
+                          {locale === "es"
+                            ? `+${s.count - s.list.length} más — ver todos`
+                            : `+${s.count - s.list.length} more — view all`}
+                          <ArrowUpRight size={12} />
+                        </Link>
+                      </li>
+                    )}
                   </ul>
                 )}
               </li>

@@ -609,6 +609,7 @@ export default async function DashboardPage({
           },
         }}
         data={data.todayLists}
+        counts={data.todayLists.counts}
       />
       </section>
       )}

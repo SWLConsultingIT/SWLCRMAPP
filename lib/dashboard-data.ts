@@ -126,6 +126,7 @@ const EMPTY_DASHBOARD = {
     calls: [] as Array<{ id: string; company: string; icp: string | null; when: string | null; tag: string | null }>,
     unassigned: [] as Array<{ id: string; company: string; icp: string | null; when: string | null; tag: string | null }>,
     stale: [] as Array<{ id: string; company: string; icp: string | null; when: string | null; tag: string | null }>,
+    counts: { replies: 0, positives: 0, calls: 0, unassigned: 0, stale: 0 },
   },
   velocity: { perDay: 0, winRate: 0, medianTimeToReplyMin: null as number | null, acceptanceRate: 0, forecastMonthEnd: 0 },
   matrix: { icps: [] as Array<{ id: string; name: string; totalLeads: number }>, channels: [] as string[], cells: [] as Array<any>, mean: 0, stddev: 0 },
@@ -141,6 +142,30 @@ const EMPTY_DASHBOARD = {
     call: Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]),
   } as Record<string, number[][]>,
 };
+
+// Pages through a PostgREST query 1000 rows at a time until the tail is
+// short. `makeQuery` MUST return a fresh builder each call — .range()
+// configures a builder in place, so a reused builder would only ever
+// fetch one page. On error we log and return what we gathered so far,
+// matching the prior "degrade this source to empty, keep the dashboard
+// alive" behaviour (one bad source must not blank every tab).
+async function fetchAllRows<T = Record<string, unknown>>(
+  makeQuery: () => { range: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }> },
+  pageSize = 1000,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await makeQuery().range(from, from + pageSize - 1);
+    if (error) {
+      console.warn("[dashboard-data] paginated fetch error — degrading source to partial:", error);
+      break;
+    }
+    const rows = (data ?? []) as T[];
+    out.push(...rows);
+    if (rows.length < pageSize) break;
+  }
+  return out;
+}
 
 export async function getDashboardData(filters: DashboardFilters) {
   try {
@@ -161,27 +186,53 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   // `encrypted_payload` so we can decrypt client-uploaded leads below —
   // without that pass the plain columns are NULL for tenants like De Vera
   // Grill / Pathway client-source, and the Today rows fall back to ICP.
-  const leadsQ = supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at, company_bio_id, company_name, primary_first_name, primary_last_name, primary_phone, source, encrypted_payload");
-  const campsQ = supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, created_at, stop_reason, leads!inner(company_bio_id)");
-  const repliesQ = supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, channel, received_at, requires_human_review, review_status, leads!inner(company_bio_id)");
-  const msgsQ = supabase.from("campaign_messages").select("id, campaign_id, step_number, status, sent_at, campaigns!inner(leads!inner(company_bio_id))");
-  const profilesQ = supabase.from("icp_profiles").select("id, profile_name, company_bio_id").eq("status", "approved");
-  const sellersQ = supabase.from("sellers").select("id, name, active, company_bio_id");
+  // PostgREST caps every response at 1000 rows by default. The dashboard
+  // aggregates the ENTIRE workspace (SWL alone has >1.2k leads and >3k
+  // messages), so an un-paginated fetch silently truncated every headline:
+  // "TOTAL LEADS" froze at exactly 1000, "Leads to assign"/"Stale" were
+  // wrong, and numbers disagreed across tabs. fetchAllRows pages through
+  // .range() until the tail is short, so every derived figure is real.
+  // Each source uses a query FACTORY (fresh builder per page) because
+  // .range() can only be applied to a builder once.
+  const makeLeadsQ = () => {
+    const q = supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at, company_bio_id, company_name, primary_first_name, primary_last_name, primary_phone, source, encrypted_payload");
+    return bioId ? q.eq("company_bio_id", bioId) : q;
+  };
+  const makeCampsQ = () => {
+    const q = supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, created_at, stop_reason, leads!inner(company_bio_id)");
+    return bioId ? q.eq("leads.company_bio_id", bioId) : q;
+  };
+  const makeRepliesQ = () => {
+    const q = supabase.from("lead_replies").select("id, lead_id, campaign_id, classification, channel, received_at, requires_human_review, review_status, leads!inner(company_bio_id)");
+    return bioId ? q.eq("leads.company_bio_id", bioId) : q;
+  };
+  const makeMsgsQ = () => {
+    const q = supabase.from("campaign_messages").select("id, campaign_id, step_number, status, sent_at, campaigns!inner(leads!inner(company_bio_id))");
+    return bioId ? q.eq("campaigns.leads.company_bio_id", bioId) : q;
+  };
+  const makeProfilesQ = () => {
+    const q = supabase.from("icp_profiles").select("id, profile_name, company_bio_id").eq("status", "approved");
+    return bioId ? q.eq("company_bio_id", bioId) : q;
+  };
+  const makeSellersQ = () => {
+    const q = supabase.from("sellers").select("id, name, active, company_bio_id");
+    return bioId ? q.or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`) : q;
+  };
 
   const [
-    { data: allLeadsRaw },
-    { data: allCampsRaw },
-    { data: allRepliesRaw },
-    { data: allMsgsRaw },
-    { data: allProfilesRaw },
-    { data: allSellersRaw },
+    allLeadsRaw,
+    allCampsRaw,
+    allRepliesRaw,
+    allMsgsRaw,
+    allProfilesRaw,
+    allSellersRaw,
   ] = await Promise.all([
-    bioId ? leadsQ.eq("company_bio_id", bioId) : leadsQ,
-    bioId ? campsQ.eq("leads.company_bio_id", bioId) : campsQ,
-    bioId ? repliesQ.eq("leads.company_bio_id", bioId) : repliesQ,
-    bioId ? msgsQ.eq("campaigns.leads.company_bio_id", bioId) : msgsQ,
-    bioId ? profilesQ.eq("company_bio_id", bioId) : profilesQ,
-    bioId ? sellersQ.or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`) : sellersQ,
+    fetchAllRows(makeLeadsQ),
+    fetchAllRows(makeCampsQ),
+    fetchAllRows(makeRepliesQ),
+    fetchAllRows(makeMsgsQ),
+    fetchAllRows(makeProfilesQ),
+    fetchAllRows(makeSellersQ),
   ]);
 
   const allLeadsRawTyped = (allLeadsRaw ?? []) as Array<LeadRow & { source?: string | null; encrypted_payload?: unknown }>;
@@ -234,12 +285,12 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   try {
     const cappedLeadIds = allLeads.map(l => l.id).slice(0, 5000);
     if (cappedLeadIds.length > 0) {
-      const { data, error } = await supabase
-        .from("calls")
-        .select("id, lead_id, status, duration, classification, started_at")
-        .in("lead_id", cappedLeadIds);
-      if (error) throw error;
-      allCalls = (data ?? []) as CallRow[];
+      allCalls = await fetchAllRows<CallRow>(() =>
+        supabase
+          .from("calls")
+          .select("id, lead_id, status, duration, classification, started_at")
+          .in("lead_id", cappedLeadIds),
+      );
     }
   } catch (e) {
     console.warn("[dashboard-data] calls fetch failed — degrading to empty breakdown:", e);
@@ -1510,63 +1561,76 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       };
       const allRepliesSorted = [...allReplies]
         .sort((a, b) => (b.received_at ?? "").localeCompare(a.received_at ?? ""));
+      // Each section keeps a full distinct-lead COUNT (the real number shown
+      // in the header) and a top-N preview list (rendered when expanded).
+      // Decoupling the two is the whole point of this pass: the header used
+      // to show `list.length`, which was capped at 8 and lied. The preview
+      // stays bounded so the panel is scannable; the count never lies.
+      const TODAY_PREVIEW = 8;
+
       // Replies bucket = what the seller has to TRIAGE now. Mirrors the inbox
       // "Pending review" definition (requires_human_review OR review_status
-      // pending) so the count here matches /queue Inbox exactly — instead of
-      // listing every lead that ever replied (including already-handled ones).
+      // pending). EXCLUDES synthetic call-outcome rows (channel='call'): the
+      // call-outcome route logs those into lead_replies, but they're NOT
+      // inbound messages and belong in Calls/Results, not "Replies to review"
+      // (boss 2026-06-04 — Replies must show replies only, never call results).
+      const repliesIds = new Set<string>();
       const repliesList: TodayLead[] = [];
-      const seenReplied = new Set<string>();
       for (const r of allRepliesSorted) {
-        if (!r.lead_id || seenReplied.has(r.lead_id)) continue;
-        const needsReview = r.requires_human_review === true || r.review_status === "pending";
-        if (!needsReview) continue;
-        seenReplied.add(r.lead_id);
-        const s = summarize(r.lead_id, { when: r.received_at, tag: r.classification, channel: r.channel });
-        if (s) repliesList.push(s);
-        if (repliesList.length >= 8) break;
+        if (!r.lead_id || r.channel === "call") continue;
+        if (!(r.requires_human_review === true || r.review_status === "pending")) continue;
+        if (!leadById.has(r.lead_id) || repliesIds.has(r.lead_id)) continue;
+        repliesIds.add(r.lead_id);
+        if (repliesList.length < TODAY_PREVIEW) {
+          const s = summarize(r.lead_id, { when: r.received_at, tag: r.classification, channel: r.channel });
+          if (s) repliesList.push(s);
+        }
       }
+
+      const positivesIds = new Set<string>();
       const positivesList: TodayLead[] = [];
-      const seenPos = new Set<string>();
       for (const r of allRepliesSorted) {
         if (!r.lead_id || !POSITIVE_CLASS.has(r.classification ?? "")) continue;
-        if (seenPos.has(r.lead_id)) continue;
-        seenPos.add(r.lead_id);
-        const s = summarize(r.lead_id, { when: r.received_at, tag: r.classification });
-        if (s) positivesList.push(s);
-        if (positivesList.length >= 8) break;
+        if (!leadById.has(r.lead_id) || positivesIds.has(r.lead_id)) continue;
+        positivesIds.add(r.lead_id);
+        if (positivesList.length < TODAY_PREVIEW) {
+          const s = summarize(r.lead_id, { when: r.received_at, tag: r.classification });
+          if (s) positivesList.push(s);
+        }
       }
+
       const withCampaignSet = new Set<string>();
       for (const c of allCampaigns) if (c.lead_id) withCampaignSet.add(c.lead_id);
-      const unassignedList: TodayLead[] = allLeads
-        .filter(l => !withCampaignSet.has(l.id))
+      const unassignedAll = allLeads.filter(l => !withCampaignSet.has(l.id));
+      const unassignedList: TodayLead[] = [...unassignedAll]
         .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
-        .slice(0, 8)
+        .slice(0, TODAY_PREVIEW)
         .map(l => summarize(l.id))
         .filter((x): x is TodayLead => x !== null);
 
       // Today's pending calls — call-channel campaign messages queued/pending
-      // for sellers to dial. Mirrors the count surfaced in callsBreakdown but
-      // also gives us the actual lead list to render inline. Capped at 8.
+      // for sellers to dial. Distinct-lead count + top-N preview.
       const campaignById = new Map(allCampaigns.map(c => [c.id, c]));
+      const callsIds = new Set<string>();
       const callsList: TodayLead[] = [];
-      const seenCalls = new Set<string>();
       for (const m of allMessages) {
         if (m.status !== "queued" && m.status !== "pending") continue;
         if (!m.campaign_id) continue;
         const camp = campaignById.get(m.campaign_id);
         if (!camp || camp.channel !== "call") continue;
         const leadId = camp.lead_id;
-        if (!leadId || seenCalls.has(leadId)) continue;
-        seenCalls.add(leadId);
-        const s = summarize(leadId, { when: null, tag: null });
-        if (s) callsList.push(s);
-        if (callsList.length >= 8) break;
+        if (!leadId || !leadById.has(leadId) || callsIds.has(leadId)) continue;
+        callsIds.add(leadId);
+        if (callsList.length < TODAY_PREVIEW) {
+          const s = summarize(leadId, { when: null, tag: null });
+          if (s) callsList.push(s);
+        }
       }
 
       // Stale leads — contacted ≥7d ago, never replied. Bleeding-momentum
       // bucket. Per-lead latest sent_at comes from allMessages; we exclude
       // any lead that ever replied. Sorted by oldest-touch-first so the
-      // operator works the riskiest cohort first. Capped at 8.
+      // operator works the riskiest cohort first.
       const STALE_DAYS = 7;
       const staleCutoffMs = Date.now() - STALE_DAYS * 86_400_000;
       const lastSentByLead = new Map<string, number>();
@@ -1587,7 +1651,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       }
       staleCandidates.sort((a, b) => a.tMs - b.tMs); // oldest first
       const staleList: TodayLead[] = staleCandidates
-        .slice(0, 8)
+        .slice(0, TODAY_PREVIEW)
         .map(s => summarize(s.leadId, { when: s.lastSentIso, tag: null }))
         .filter((x): x is TodayLead => x !== null);
 
@@ -1597,6 +1661,14 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
         calls: callsList,
         unassigned: unassignedList,
         stale: staleList,
+        // Real, un-capped distinct-lead counts for each section header.
+        counts: {
+          replies: repliesIds.size,
+          positives: positivesIds.size,
+          calls: callsIds.size,
+          unassigned: unassignedAll.length,
+          stale: staleCandidates.length,
+        },
       };
     })(),
     velocity: {
