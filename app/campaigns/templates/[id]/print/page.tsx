@@ -48,6 +48,15 @@ type Template = {
   icp_profile_id: string | null; created_at: string | null;
 };
 
+// Coerce any value to a printable string — guards against a step body/subject
+// stored as an object (would otherwise throw "Objects are not valid as a React
+// child" and blow up the whole print page).
+function txt(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  try { return JSON.stringify(v); } catch { return String(v); }
+}
+
 function Chip({ label, color }: { label: string; color: string }) {
   return <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, color, backgroundColor: `color-mix(in srgb, ${color} 12%, white)` }}>{label}</span>;
 }
@@ -55,15 +64,17 @@ function Chip({ label, color }: { label: string; color: string }) {
 export default async function TemplatePrintPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const scope = await getUserScope();
-  if (!scope.userId || !scope.companyBioId) notFound();
+  if (!scope.userId) notFound();
 
+  // Mirror /icp/[id]/print: scope to the user's tenant, but a super_admin
+  // (no companyBioId) can print any tenant's template.
   const svc = getSupabaseService();
-  const { data: tpl } = await svc
+  let q = svc
     .from("campaign_templates")
     .select("id, name, description, sequence_steps, step_messages, channels, tone_preset, rewrite_mode, icp_profile_id, created_at")
-    .eq("id", id)
-    .eq("company_bio_id", scope.companyBioId)
-    .maybeSingle();
+    .eq("id", id);
+  if (scope.isScoped && scope.companyBioId) q = q.eq("company_bio_id", scope.companyBioId);
+  const { data: tpl } = await q.maybeSingle();
   if (!tpl) notFound();
   const t = tpl as Template;
 
@@ -77,7 +88,7 @@ export default async function TemplatePrintPage({ params }: { params: Promise<{ 
   const sm = t.step_messages ?? {};
   const seq = Array.isArray(t.sequence_steps) ? t.sequence_steps : [];
   const steps = Array.isArray(sm.steps) ? sm.steps : [];
-  const cr = sm.connectionRequest?.trim();
+  const cr = txt(sm.connectionRequest).trim();
   const generatedAt = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
   return (
@@ -162,8 +173,8 @@ export default async function TemplatePrintPage({ params }: { params: Promise<{ 
                       {typeof day === "number" && <span style={{ fontSize: 10, color: "#9CA3AF" }}>· {day === 0 ? "Same day" : `Day ${day}`}</span>}
                     </div>
                     <div style={{ padding: 14 }}>
-                      {s.subject && <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: "#111827" }}>Subject: <span style={{ fontWeight: 500, color: "#374151" }}>{s.subject}</span></p>}
-                      <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "#374151", whiteSpace: "pre-wrap" }}>{s.body}</p>
+                      {s.subject && <p style={{ margin: "0 0 8px", fontSize: 12, fontWeight: 700, color: "#111827" }}>Subject: <span style={{ fontWeight: 500, color: "#374151" }}>{txt(s.subject)}</span></p>}
+                      <p style={{ margin: 0, fontSize: 13, lineHeight: 1.6, color: "#374151", whiteSpace: "pre-wrap" }}>{txt(s.body)}</p>
                     </div>
                   </div>
                 );
