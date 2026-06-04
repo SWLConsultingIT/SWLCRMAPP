@@ -2,8 +2,11 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { C } from "@/lib/design";
-import { Send, Plus, Hash, User, X, Loader2, MessageSquare } from "lucide-react";
+import { Send, Plus, Hash, User, X, Loader2, MessageSquare, Smile, Trash2 } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
+
+// Lightweight emoji palette for the composer (no external dep).
+const EMOJIS = ["😀","😅","😂","🤣","😊","😍","😘","😎","🤔","😉","🙌","👍","👎","👏","🙏","💪","🔥","✨","🎉","✅","❌","⚠️","💯","👀","🚀","💼","📈","📞","📧","💰","🤝","👋","😇","😮","😢","😡","❤️","💛","💚","💙","⭐","💡","⏰","📌","🎯","🥳"];
 
 // Internal team chat: DMs + named channels. Thread list (left) + message pane
 // (right). New messages arrive live via Supabase Realtime on chat_messages
@@ -29,7 +32,10 @@ export default function ChatPanel({ initialThreadId }: { initialThreadId?: strin
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [composing, setComposing] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   const loadThreads = useCallback(async () => {
     try { const r = await fetch("/api/chat/threads", { cache: "no-store" }); const d = await r.json(); setThreads(d.threads ?? []); } catch {}
@@ -74,6 +80,24 @@ export default function ChatPanel({ initialThreadId }: { initialThreadId?: strin
       const r = await fetch(`/api/chat/threads/${activeId}/messages`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body }) });
       if (r.ok) { const d = await r.json(); setMessages(prev => prev.some(x => x.id === d.message.id) ? prev : [...prev, d.message]); loadThreads(); }
     } finally { setSending(false); }
+  }
+
+  async function delThread(id: string) {
+    if (!confirm("Delete this conversation for everyone? This can't be undone.")) return;
+    setDeleting(true);
+    try {
+      const r = await fetch(`/api/chat/threads/${id}`, { method: "DELETE" });
+      if (r.ok) {
+        setThreads(prev => prev.filter(t => t.id !== id));
+        if (activeId === id) { setActiveId(null); setMessages([]); }
+      }
+    } finally { setDeleting(false); }
+  }
+
+  function addEmoji(e: string) {
+    setInput(prev => prev + e);
+    setShowEmoji(false);
+    setTimeout(() => inputRef.current?.focus(), 0);
   }
 
   const active = threads.find(t => t.id === activeId);
@@ -125,6 +149,10 @@ export default function ChatPanel({ initialThreadId }: { initialThreadId?: strin
               {active.kind === "channel" ? <Hash size={14} style={{ color: "#7C3AED" }} /> : <User size={14} style={{ color: C.gold }} />}
               <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{active.title}</p>
               <span className="text-[11px]" style={{ color: C.textDim }}>· {active.members.length} {active.members.length === 1 ? "member" : "members"}</span>
+              <button onClick={() => delThread(active.id)} disabled={deleting} title="Delete conversation"
+                className="ml-auto p-1.5 rounded-lg transition-colors hover:bg-black/[0.04] disabled:opacity-50" style={{ color: C.textMuted }}>
+                {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+              </button>
             </div>
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
               {messages.map(m => {
@@ -142,10 +170,26 @@ export default function ChatPanel({ initialThreadId }: { initialThreadId?: strin
                 );
               })}
             </div>
-            <div className="px-3 py-3 border-t flex items-center gap-2" style={{ borderColor: C.border }}>
-              <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+            <div className="px-3 py-3 border-t flex items-center gap-2 relative" style={{ borderColor: C.border }}>
+              {showEmoji && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowEmoji(false)} />
+                  <div className="absolute bottom-full left-2 mb-2 z-20 w-64 max-h-44 overflow-y-auto rounded-xl border shadow-lg p-2 grid grid-cols-8 gap-0.5"
+                    style={{ backgroundColor: C.card, borderColor: C.border }}>
+                    {EMOJIS.map(e => (
+                      <button key={e} onClick={() => addEmoji(e)} className="text-lg rounded-md hover:bg-black/[0.06] leading-none p-1" title={e}>{e}</button>
+                    ))}
+                  </div>
+                </>
+              )}
+              <button onClick={() => setShowEmoji(v => !v)} title="Emoji"
+                className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-colors hover:bg-black/[0.04]"
+                style={{ color: showEmoji ? C.gold : C.textMuted }}>
+                <Smile size={18} />
+              </button>
+              <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
                 placeholder="Write a message…" className="flex-1 text-sm px-3 py-2 rounded-lg border outline-none" style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }} />
-              <button onClick={send} disabled={sending || !input.trim()} className="w-9 h-9 rounded-lg flex items-center justify-center disabled:opacity-40" style={{ backgroundColor: "var(--brand, #c9a83a)", color: "#04070d" }}>
+              <button onClick={send} disabled={sending || !input.trim()} className="w-9 h-9 rounded-lg flex items-center justify-center disabled:opacity-40 shrink-0" style={{ backgroundColor: "var(--brand, #c9a83a)", color: "#04070d" }}>
                 {sending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
               </button>
             </div>
