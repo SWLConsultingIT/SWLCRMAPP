@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
+import { advanceCallStepForLead } from "@/lib/advance-call-step";
 
 const AIRCALL_AUTH = Buffer.from(
   `${process.env.AIRCALL_API_ID}:${process.env.AIRCALL_API_TOKEN}`
@@ -278,7 +279,7 @@ export async function POST(req: NextRequest) {
   // is the ONLY path that advances a manual-mode campaign.
   if (leadId) {
     try {
-      await advanceCallStepForLead(svc, leadId);
+      await advanceCallStepForLead(svc, leadId, "manual-dial-aircall");
     } catch (e) {
       // Don't fail the user-visible dial just because step bookkeeping
       // had a problem — log to console and let the webhook reconciler
@@ -292,78 +293,4 @@ export async function POST(req: NextRequest) {
   // call_id arrives later via webhook; we surface the Supabase row id which
   // is what /api/calls/<id>/classify accepts anyway.
   return NextResponse.json({ success: true, callId: insertedDialId });
-}
-
-async function advanceCallStepForLead(
-  svc: ReturnType<typeof getSupabaseService>,
-  leadId: string,
-): Promise<void> {
-  // Locate the active campaign for this lead whose current step is a call —
-  // that's the one the seller is unblocking. Multiple campaigns per lead is
-  // rare (we generally archive losses), so pick the most recently started.
-  const { data: campaigns } = await svc
-    .from("campaigns")
-    .select("id, current_step, sequence_steps, status")
-    .eq("lead_id", leadId)
-    .eq("status", "active")
-    .order("started_at", { ascending: false })
-    .limit(5);
-
-  for (const c of (campaigns ?? []) as Array<{ id: string; current_step: number | null; sequence_steps: Array<{ channel?: string; daysAfter?: number }> | null }>) {
-    const steps = Array.isArray(c.sequence_steps) ? c.sequence_steps : [];
-    const currentStep = c.current_step ?? 0;
-    // The "next pending step" is at sequence_steps[currentStep] (current_step
-    // is 0-indexed into the sequence steps array). If that step is a call,
-    // this dial counts as completing it.
-    const pendingStep = steps[currentStep];
-    if (pendingStep?.channel !== "call") continue;
-
-    const newStepNumber = currentStep + 1;
-    const nextStepConfig = steps[newStepNumber] ?? null;
-    const nextDaysAfter = typeof nextStepConfig?.daysAfter === "number" ? nextStepConfig.daysAfter : null;
-    const nextEligibleAt = nextDaysAfter !== null
-      ? new Date(Date.now() + nextDaysAfter * 24 * 60 * 60 * 1000).toISOString()
-      : null;
-    const now = new Date().toISOString();
-
-    // The call campaign_message at step_number = newStepNumber (campaign_messages
-    // step_number is 1-indexed; sequence_steps is 0-indexed, so they offset by 1).
-    const callStepNumber = newStepNumber;
-
-    await Promise.all([
-      // Mark the call message as sent so it stops sitting in queued.
-      svc.from("campaign_messages")
-        .update({
-          status: "sent",
-          sent_at: now,
-          metadata: { dispatched_by: "manual-dial-aircall", advanced_at: now },
-        })
-        .eq("campaign_id", c.id)
-        .eq("step_number", callStepNumber)
-        .eq("channel", "call")
-        .eq("status", "queued"),
-      // Advance the campaign pointer.
-      svc.from("campaigns")
-        .update({
-          current_step: newStepNumber,
-          last_step_at: now,
-          ...(nextEligibleAt === null ? { status: "completed" } : {}),
-        })
-        .eq("id", c.id),
-      // Queue the next draft step so its channel's cron picks it up.
-      ...(nextEligibleAt ? [
-        svc.from("campaign_messages")
-          .update({
-            status: "queued",
-            metadata: { eligible_at: nextEligibleAt, queued_by: "manual-dial-aircall" },
-          })
-          .eq("campaign_id", c.id)
-          .eq("step_number", callStepNumber + 1)
-          .eq("status", "draft"),
-      ] : []),
-    ]);
-    // Only advance one campaign per dial — if the lead has multiple, the rest
-    // can be dealt with on subsequent dials.
-    return;
-  }
 }
