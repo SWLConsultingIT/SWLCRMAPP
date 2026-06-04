@@ -36,6 +36,7 @@ type PendingCall = {
   // flagged the number; the badge clicks through to the lead detail
   // where the WrongNumberPill opens its inline replace flow.
   allowCall?: boolean | null;
+  phoneMarkedWrong?: boolean | null;
   email: string | null;
   sellerName: string | null;
   talkingPoints: Array<string | { type: "pain" | "fit" | "opener"; text: string }> | null;
@@ -591,7 +592,7 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
                               allow_call is false. Click → lead detail
                               (anchored at the top so the WrongNumberPill
                               is the first action the seller sees). */}
-                          {call.leadId && call.allowCall === false && (
+                          {call.leadId && call.phoneMarkedWrong === true && (
                             <Link
                               href={`/leads/${call.leadId}`}
                               className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold whitespace-nowrap transition-opacity hover:opacity-85"

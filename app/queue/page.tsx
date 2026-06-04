@@ -154,6 +154,11 @@ async function getQueueData() {
   // service-role internally; here we use the user-scoped client so RLS still
   // applies (defense in depth in case scope was bypassed upstream).
   let latestCallByLead = new Map<string, { id: string; started_at: string | null; classification: string | null }>();
+  // Leads whose phone was genuinely marked wrong (a call outcome === 'wrong_number').
+  // This — NOT allow_call=false — is what drives the "Wrong number" badge.
+  // allow_call can be false simply because the call channel was off at import,
+  // which is not a wrong number and must not show the alarm badge.
+  const wrongNumberLeadIds = new Set<string>();
   if (candidateLeadIds.length > 0) {
     const { data: callRows } = await supabase
       .from("calls")
@@ -163,6 +168,7 @@ async function getQueueData() {
     for (const cr of callRows ?? []) {
       const lid = (cr as any).lead_id as string | null;
       if (!lid) continue;
+      if ((cr as any).classification === "wrong_number") wrongNumberLeadIds.add(lid);
       // First entry wins because we ordered by created_at desc.
       if (!latestCallByLead.has(lid)) {
         latestCallByLead.set(lid, {
@@ -218,6 +224,7 @@ async function getQueueData() {
       // popup flagged the number; the badge click-throughs to the lead
       // detail where it can be replaced.
       allowCall: (lead as any)?.allow_call ?? null,
+      phoneMarkedWrong: c.lead_id ? wrongNumberLeadIds.has(c.lead_id as string) : false,
       email: lead?.primary_work_email ?? null,
       sellerName: (c as any)?.sellers?.name ?? null,
       talkingPoints: (lead as any)?.call_talking_points ?? null,
