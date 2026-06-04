@@ -183,6 +183,12 @@ async function getQueueData() {
   const pendingCalls: any[] = [];
   for (const { c, currentStepIdx, steps } of pendingCallCandidates) {
     const lead = c.leads as any;
+    // Skip call tasks that aren't actionable: the call channel is off for this
+    // lead (allow_call=false — wrong-number outcome OR call disabled), or there's
+    // no phone on file at all. Either way the seller can't / shouldn't dial, so
+    // the call step doesn't belong in "To Call".
+    const hasPhone = !!(lead?.primary_phone || lead?.primary_secondary_phone);
+    if (lead?.allow_call === false || !hasPhone) continue;
     const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
     const daysAfter = steps[currentStepIdx]?.daysAfter ?? 0;
     // Working-days math: dueAt counts calendar days as before, but if the
