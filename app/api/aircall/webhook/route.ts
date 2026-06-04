@@ -25,6 +25,23 @@ function verifyAircallSignature(rawBody: string, presentedSignature: string | nu
   return { valid: crypto.timingSafeEqual(a, b), reason: undefined };
 }
 
+// Phone match for linking calls↔leads. The old logic compared the
+// exact LAST 10 DIGITS, which only works for NANP (+1 → 1-digit country
+// code + 10 national). International numbers break it: a Spanish mobile
+// "+34 634 28 78 57" is 11 digits, so slice(-10) drops the leading "3"
+// of "34" and compares a garbage 10-digit slice — so the answered call
+// never links to the dialed lead and lands with lead_id=null (no outcome
+// surface). Fix: strip to digits and require a solid TRAILING overlap
+// (≥9 digits, or the whole shorter number if it's shorter) — that covers
+// ES/IT/CO/AR national lengths and still matches US on its last 9+.
+function phoneSuffixMatch(a: string | null | undefined, b: string | null | undefined): boolean {
+  const da = (a ?? "").replace(/\D/g, "");
+  const db = (b ?? "").replace(/\D/g, "");
+  if (da.length < 7 || db.length < 7) return false;
+  const k = Math.min(da.length, db.length, 9);
+  return da.slice(-k) === db.slice(-k);
+}
+
 type AircallCall = {
   id: number;
   direction?: "inbound" | "outbound";
@@ -170,10 +187,9 @@ export async function POST(req: NextRequest) {
       { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
     );
     const candidates = await recentRes.json().catch(() => []);
-    const wantDigits = call.raw_digits.replace(/[^\d]/g, "").slice(-10);
     const match = Array.isArray(candidates)
       ? candidates.find((r: { phone_number?: string | null }) =>
-          ((r.phone_number ?? "").replace(/[^\d]/g, "").slice(-10) === wantDigits)
+          phoneSuffixMatch(r.phone_number, call.raw_digits)
         )
       : null;
     if (match?.id) {
@@ -216,11 +232,11 @@ export async function POST(req: NextRequest) {
         { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
       );
       const rows: Array<{ id: string; primary_phone: string | null; primary_secondary_phone: string | null }> = await lookup.json().catch(() => []);
-      const match = Array.isArray(rows) ? rows.find(r => {
-        const p1 = (r.primary_phone ?? "").replace(/\D/g, "").slice(-10);
-        const p2 = (r.primary_secondary_phone ?? "").replace(/\D/g, "").slice(-10);
-        return p1 === last10 || p2 === last10;
-      }) : null;
+      // Suffix match (not exact last-10) so international format/country-code
+      // variants link too — the tail4 ilike above is just the cheap prefilter.
+      const match = Array.isArray(rows) ? rows.find(r =>
+        phoneSuffixMatch(r.primary_phone, call.raw_digits) || phoneSuffixMatch(r.primary_secondary_phone, call.raw_digits)
+      ) : null;
       const leadId = match?.id ?? null;
       const insertRes = await fetch(`${SB_URL}/calls?on_conflict=aircall_call_id`, {
         method: "POST",
@@ -274,11 +290,9 @@ export async function POST(req: NextRequest) {
       { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
     );
     const rowsList: Array<{ id: string; primary_phone: string | null; primary_secondary_phone: string | null }> = await lookup.json().catch(() => []);
-    const inboundMatch = Array.isArray(rowsList) ? rowsList.find(r => {
-      const p1 = (r.primary_phone ?? "").replace(/\D/g, "").slice(-10);
-      const p2 = (r.primary_secondary_phone ?? "").replace(/\D/g, "").slice(-10);
-      return p1 === last10 || p2 === last10;
-    }) : null;
+    const inboundMatch = Array.isArray(rowsList) ? rowsList.find(r =>
+      phoneSuffixMatch(r.primary_phone, call.raw_digits) || phoneSuffixMatch(r.primary_secondary_phone, call.raw_digits)
+    ) : null;
     const leadId = inboundMatch?.id ?? null;
 
     // Upsert on aircall_call_id (UNIQUE partial index, migration 018) so a

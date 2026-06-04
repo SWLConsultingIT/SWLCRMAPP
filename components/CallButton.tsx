@@ -80,6 +80,16 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
   // forgetting to log outcomes when the popup wasn't auto-opening.
   const [outcomeOpen, setOutcomeOpen] = useState(false);
   const [classifying, setClassifying] = useState(false);
+  // Interested / Not interested open a note step before saving — the seller
+  // can jot context (who, next step, why) that persists into the lead_reply
+  // (positive/negative). Bad timing & wrong number stay one-click.
+  const [pendingOutcome, setPendingOutcome] = useState<"interested" | "not_interested" | null>(null);
+  const [outcomeNote, setOutcomeNote] = useState("");
+  function closeOutcome() {
+    setOutcomeOpen(false);
+    setPendingOutcome(null);
+    setOutcomeNote("");
+  }
   // Track the last currentCall state so we only open once per call
   // (not on every render while the call is in 'ended' state).
   const prevCallStateRef = useRef<string | null>(null);
@@ -115,14 +125,14 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
     prevCallStateRef.current = state;
   }, [aircall.currentCall?.state, aircall.currentCall?.leadId, leadId]);
 
-  async function submitOutcome(outcome: "interested" | "not_interested" | "bad_timing" | "wrong_number") {
+  async function submitOutcome(outcome: "interested" | "not_interested" | "bad_timing" | "wrong_number", note?: string) {
     if (classifying) return;
     setClassifying(true);
     try {
       const r = await fetch(`/api/leads/${leadId}/call-outcome`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outcome }),
+        body: JSON.stringify({ outcome, note: note?.trim() || undefined }),
       });
       if (!r.ok) {
         const { error } = await r.json().catch(() => ({ error: "Failed" }));
@@ -136,7 +146,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
         wrong_number: "Wrong number — call channel disabled for lead",
       } as const;
       toast.show({ kind: "success", title: "Outcome logged", description: labelMap[outcome] });
-      setOutcomeOpen(false);
+      closeOutcome();
       router.refresh();
     } finally {
       setClassifying(false);
@@ -423,10 +433,10 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
         <div
           className="fixed inset-0 z-[1100] flex items-center justify-center p-4 animate-[fadeIn_0.2s_ease-out]"
           style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
-          onClick={() => setOutcomeOpen(false)}
+          onClick={closeOutcome}
         >
         <div
-          className="rounded-2xl border shadow-2xl p-5"
+          className="rounded-2xl border shadow-2xl p-5 relative"
           onClick={e => e.stopPropagation()}
           style={{
             backgroundColor: C.card,
@@ -438,52 +448,108 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
         >
           <button
             type="button"
-            onClick={() => setOutcomeOpen(false)}
+            onClick={closeOutcome}
             aria-label="Skip for now"
             className="absolute top-3 right-3 rounded p-1 hover:bg-black/[0.04] transition-colors"
             style={{ color: C.textDim }}
           >
             <X size={14} />
           </button>
-          <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.gold, letterSpacing: "0.18em" }}>
-            How did it go?
-          </p>
-          <p className="text-sm font-semibold mb-3 pr-6" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
-            Log the call outcome
-          </p>
-          <p className="text-[11px] mb-4" style={{ color: C.textMuted }}>
-            One click — each option moves the lead through its flow correctly.
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {([
-              { v: "interested" as const,     label: "Interested",     desc: "Book meeting",      icon: ThumbsUp,      color: C.green,   bg: `color-mix(in srgb, ${C.green} 12%, transparent)` },
-              { v: "not_interested" as const, label: "Not interested", desc: "Close",             icon: ThumbsDown,    color: C.red,     bg: `color-mix(in srgb, ${C.red} 12%, transparent)` },
-              { v: "bad_timing" as const,     label: "Bad timing",     desc: "Keep campaign going",icon: Calendar,      color: "#D97706", bg: "color-mix(in srgb, #D97706 12%, transparent)" },
-              { v: "wrong_number" as const,   label: "Wrong number",   desc: "Skip call channel", icon: PhoneOffIcon,  color: C.textMuted, bg: C.surface },
-            ]).map(opt => {
-              const OptIcon = opt.icon;
+
+          {pendingOutcome ? (
+            // Note step for Interested / Not interested. The note is saved
+            // onto the lead_reply (classification positive/negative) by
+            // /api/leads/[id]/call-outcome.
+            (() => {
+              const isPos = pendingOutcome === "interested";
+              const accent = isPos ? C.green : C.red;
               return (
-                <button
-                  key={opt.v}
-                  type="button"
-                  disabled={classifying}
-                  onClick={() => submitOutcome(opt.v)}
-                  className="flex flex-col items-start gap-1 px-3 py-2.5 rounded-lg border text-left transition-opacity hover:opacity-85 disabled:opacity-50"
-                  style={{
-                    backgroundColor: opt.bg,
-                    color: opt.color,
-                    borderColor: `color-mix(in srgb, ${opt.color} 30%, transparent)`,
-                  }}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <OptIcon size={13} />
-                    <span className="text-[12px] font-semibold">{opt.label}</span>
+                <>
+                  <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: accent, letterSpacing: "0.18em" }}>
+                    {isPos ? "Interested" : "Not interested"}
+                  </p>
+                  <p className="text-sm font-semibold mb-3 pr-6" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
+                    Add a note (optional)
+                  </p>
+                  <textarea
+                    autoFocus
+                    value={outcomeNote}
+                    onChange={e => setOutcomeNote(e.target.value)}
+                    placeholder={isPos ? "e.g. Keen — wants a demo next Tuesday, send pricing first." : "e.g. Using a competitor, revisit in Q4."}
+                    rows={4}
+                    className="w-full rounded-lg border px-3 py-2 text-[12px] resize-none outline-none focus:ring-2"
+                    style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary }}
+                  />
+                  <div className="flex items-center gap-2 mt-3">
+                    <button
+                      type="button"
+                      disabled={classifying}
+                      onClick={() => { setPendingOutcome(null); setOutcomeNote(""); }}
+                      className="px-3 py-2 rounded-lg border text-[12px] font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
+                      style={{ borderColor: C.border, color: C.textMuted }}
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      disabled={classifying}
+                      onClick={() => submitOutcome(pendingOutcome, outcomeNote)}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                      style={{ backgroundColor: accent }}
+                    >
+                      {classifying ? <Loader2 size={13} className="animate-spin" /> : null}
+                      {isPos ? "Save — Interested" : "Save — Not interested"}
+                    </button>
                   </div>
-                  <span className="text-[10px] opacity-80">{opt.desc}</span>
-                </button>
+                </>
               );
-            })}
-          </div>
+            })()
+          ) : (
+            <>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.gold, letterSpacing: "0.18em" }}>
+                How did it go?
+              </p>
+              <p className="text-sm font-semibold mb-3 pr-6" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
+                Log the call outcome
+              </p>
+              <p className="text-[11px] mb-4" style={{ color: C.textMuted }}>
+                Interested / Not interested let you add a note — each option moves the lead through its flow correctly.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { v: "interested" as const,     label: "Interested",     desc: "Book meeting",      icon: ThumbsUp,      color: C.green,   bg: `color-mix(in srgb, ${C.green} 12%, transparent)`,  note: true },
+                  { v: "not_interested" as const, label: "Not interested", desc: "Close",             icon: ThumbsDown,    color: C.red,     bg: `color-mix(in srgb, ${C.red} 12%, transparent)`,    note: true },
+                  { v: "bad_timing" as const,     label: "Bad timing",     desc: "Keep campaign going",icon: Calendar,      color: "#D97706", bg: "color-mix(in srgb, #D97706 12%, transparent)",     note: false },
+                  { v: "wrong_number" as const,   label: "Wrong number",   desc: "Skip call channel", icon: PhoneOffIcon,  color: C.textMuted, bg: C.surface,                                        note: false },
+                ]).map(opt => {
+                  const OptIcon = opt.icon;
+                  return (
+                    <button
+                      key={opt.v}
+                      type="button"
+                      disabled={classifying}
+                      onClick={() => {
+                        if (opt.note) setPendingOutcome(opt.v as "interested" | "not_interested");
+                        else submitOutcome(opt.v);
+                      }}
+                      className="flex flex-col items-start gap-1 px-3 py-2.5 rounded-lg border text-left transition-opacity hover:opacity-85 disabled:opacity-50"
+                      style={{
+                        backgroundColor: opt.bg,
+                        color: opt.color,
+                        borderColor: `color-mix(in srgb, ${opt.color} 30%, transparent)`,
+                      }}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <OptIcon size={13} />
+                        <span className="text-[12px] font-semibold">{opt.label}</span>
+                      </div>
+                      <span className="text-[10px] opacity-80">{opt.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
         </div>
       )}
