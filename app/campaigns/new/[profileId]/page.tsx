@@ -1203,9 +1203,9 @@ export default function NewCampaignWizard() {
                   <div className="mb-6">
                     <div className="flex items-center justify-between mb-3">
                       <div>
-                        <label className="text-xs font-semibold uppercase tracking-wider block" style={{ color: C.textMuted }}>Campaign Owner(s)</label>
+                        <label className="text-xs font-semibold uppercase tracking-wider block" style={{ color: C.textMuted }}>Assigned Salesperson(s)</label>
                         <p className="text-xs mt-0.5" style={{ color: C.textDim }}>
-                          {leadsCount > 0 ? `${leadsCount} leads to assign — each owner's LinkedIn sends AND they make the calls` : "Who owns each lead: their LinkedIn sends and they make the calls. Split across owners below."}
+                          {leadsCount > 0 ? `${leadsCount} leads to assign — the salesperson who owns each lead: their LinkedIn sends AND they make the calls` : "The salesperson who owns each lead — their LinkedIn sends and they make the calls. Split across people below."}
                         </p>
                       </div>
                       {sellerQuotas.length < sellers.length && (
