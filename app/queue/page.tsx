@@ -162,15 +162,26 @@ async function getQueueData() {
   if (candidateLeadIds.length > 0) {
     const { data: callRows } = await supabase
       .from("calls")
-      .select("id, lead_id, started_at, classification, created_at")
+      .select("id, lead_id, started_at, classification, aircall_call_id, created_at")
       .in("lead_id", candidateLeadIds)
       .order("created_at", { ascending: false });
     for (const cr of callRows ?? []) {
       const lid = (cr as any).lead_id as string | null;
       if (!lid) continue;
       if ((cr as any).classification === "wrong_number") wrongNumberLeadIds.add(lid);
-      // First entry wins because we ordered by created_at desc.
-      if (!latestCallByLead.has(lid)) {
+      // Only a call Aircall actually PLACED counts toward "Awaiting Outcome".
+      // Clicking Call writes a dial-marker row (status=initiated,
+      // aircall_call_id=null) BEFORE the embed dialer opens — for the
+      // shared-seat busy banner. If the seller opens the dialer but never
+      // presses the green dial, NO Aircall call is created and
+      // aircall_call_id stays null forever. Those phantom markers were
+      // dragging leads into "Awaiting Outcome" even though no call was made
+      // (boss flagged 2026-06-04). A genuinely-dialed call gets its
+      // aircall_call_id from the webhook within seconds, so requiring it (or
+      // an already-logged classification) keeps un-dialed leads in "To Call".
+      const isRealCall = (cr as any).aircall_call_id != null || (cr as any).classification != null;
+      // First REAL entry wins because we ordered by created_at desc.
+      if (isRealCall && !latestCallByLead.has(lid)) {
         latestCallByLead.set(lid, {
           id: (cr as any).id,
           started_at: (cr as any).started_at,
