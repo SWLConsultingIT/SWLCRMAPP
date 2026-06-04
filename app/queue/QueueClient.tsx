@@ -443,6 +443,24 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
       if (raw) setDismissed(new Set(JSON.parse(raw)));
     } catch { /* ignore */ }
   }, []);
+
+  // Unread team-chat count → drives the "new activity" dot on the Team Chat tab.
+  // Refetched on mount, on every tab switch (so it clears after reading), and
+  // polled every 25s so a teammate's message lights the dot without a reload.
+  const [chatUnread, setChatUnread] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    const pull = async () => {
+      try {
+        const r = await fetch("/api/chat/threads", { cache: "no-store" });
+        const d = await r.json();
+        if (!cancelled) setChatUnread((d.threads ?? []).reduce((s: number, t: { unread?: number }) => s + (t.unread ?? 0), 0));
+      } catch { /* ignore */ }
+    };
+    pull();
+    const iv = setInterval(pull, 25000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [tab]);
   const dismiss = (id: string) => {
     setDismissed(prev => {
       const next = new Set(prev);
@@ -526,9 +544,9 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
   // tab===N render blocks and deep links. The array order is just the visual
   // order: conversations first (Replies, Team Chat), call queue last.
   const tabs = [
-    { id: 0, label: "Lead Replies", count: pendingReplyCount,   color: C.blue,    reviewCount: needsReviewCount, dividerBefore: false },
-    { id: 2, label: "Team Chat",    count: 0,                    color: "#7C3AED", reviewCount: 0,                dividerBefore: false },
-    { id: 1, label: "Calls",        count: pendingCalls.length, color: "#F97316", reviewCount: 0,                dividerBefore: true },
+    { id: 0, label: "Lead Replies", count: pendingReplyCount,   color: C.blue,    reviewCount: needsReviewCount, dividerBefore: false, dot: false },
+    { id: 2, label: "Team Chat",    count: 0,                    color: "#7C3AED", reviewCount: 0,                dividerBefore: false, dot: chatUnread > 0 },
+    { id: 1, label: "Calls",        count: pendingCalls.length, color: "#F97316", reviewCount: 0,                dividerBefore: true,  dot: false },
   ];
 
   return (
@@ -558,6 +576,10 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
               className="flex items-center gap-2 px-5 py-3 text-sm font-medium transition-[opacity,transform,box-shadow,background-color,border-color] relative"
               style={{ color: isActive ? t.color : C.textMuted }}>
               {t.label}
+              {t.dot && (
+                <span className="w-2 h-2 rounded-full" title="New activity"
+                  style={{ backgroundColor: t.color, boxShadow: `0 0 0 3px color-mix(in srgb, ${t.color} 22%, transparent)` }} />
+              )}
               {t.count > 0 && (
                 <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
                   style={{ backgroundColor: isActive ? `${t.color}15` : C.surface, color: isActive ? t.color : C.textDim }}>
