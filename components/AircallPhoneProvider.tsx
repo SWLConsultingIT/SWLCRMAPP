@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from "react";
 import { Phone, X } from "lucide-react";
 import { C } from "@/lib/design";
+import CallOutcomePrompt from "./CallOutcomePrompt";
 
 // Aircall Everywhere SDK — embeds the Aircall web phone inside our app via
 // an iframe. The iframe stays mounted at the page root for the entire
@@ -60,6 +61,14 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [currentCall, setCurrentCall] = useState<CallInfo | null>(null);
+  // Lead whose call just ended and still needs an outcome logged. Driven here
+  // (not in CallButton) so the prompt ALWAYS shows when a call ends, on any
+  // page, even if the originating button has unmounted.
+  const [outcomeLeadId, setOutcomeLeadId] = useState<string | null>(null);
+  // Mirror currentCall into a ref so the SDK's call_ended callback (registered
+  // once at mount) can read the live leadId without going stale.
+  const currentCallRef = useRef<CallInfo | null>(null);
+  useEffect(() => { currentCallRef.current = currentCall; }, [currentCall]);
 
   // Initialize the SDK once on mount. The library imports a default class —
   // dynamic import keeps it out of the SSR bundle (it touches `window` in
@@ -99,8 +108,15 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
         });
         sdk!.on("call_ended", (_data: any) => {
           setCurrentCall(c => c ? { ...c, state: "ended" } : null);
-          // Auto-close 3s after the call ends so the seller can read any
-          // post-call screen if they want, then return to the CRM.
+          // Surface the outcome prompt for this call's lead. Read from the
+          // ref so we get the live leadId even though this callback closed
+          // over mount-time state. Only when the dial carried a leadId (calls
+          // placed from the embed keypad with no lead can't be attributed).
+          const endedLeadId = currentCallRef.current?.leadId ?? null;
+          if (endedLeadId) setOutcomeLeadId(endedLeadId);
+          // Auto-close the embed 3s after the call ends so the seller can read
+          // any post-call screen, then return to the CRM. The outcome prompt
+          // persists independently until they log it (or skip).
           window.setTimeout(() => {
             if (!alive) return;
             setIsOpen(false);
@@ -176,6 +192,14 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
   return (
     <AircallContext.Provider value={{ isReady, isLoggedIn, currentCall, dial, openPhone, closePhone }}>
       {children}
+
+      {/* Always-on post-call outcome prompt. Shows whenever a call with a
+          known lead ends, on any page — the reliable replacement for the old
+          per-CallButton popup that only fired if that exact button was still
+          mounted with a matching leadId. */}
+      {outcomeLeadId && (
+        <CallOutcomePrompt leadId={outcomeLeadId} onClose={() => setOutcomeLeadId(null)} />
+      )}
 
       {/* SWL-branded modal shell. The iframe lives INSIDE this DOM target
           (#aircall-iframe-target) for the SDK to mount into. Iframe stays
