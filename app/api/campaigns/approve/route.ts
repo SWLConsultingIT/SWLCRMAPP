@@ -52,13 +52,11 @@ export async function POST(req: NextRequest) {
   const rawMode = (prompts as any).callAdvanceMode;
   const callAdvanceMode: "auto" | "manual" = rawMode === "manual" ? "manual" : "auto";
 
-  // Campaign OWNER — the team member who follows the whole campaign + owns the
-  // calls (a head-of-sales assigning an internal rep). Label-only for now: we
-  // stamp leads.assigned_seller with the owner's name so it shows in the lead
-  // detail + flow card. The LinkedIn SENDING identity is the per-lead seller
-  // (stamped into leads.linkedin_assigned_account below). Wizard ships
-  // ownerName/ownerUserId inside message_prompts.
-  const ownerName: string | null = (prompts as any).ownerName ?? null;
+  // Owner = the assigned SELLER. Per Fran's seller (2026-06-04): the owner, the
+  // LinkedIn sending account, and the caller are ONE person — not separate
+  // picks. So we no longer read a separate ownerName from message_prompts;
+  // each lead's assigned_seller AND linkedin_assigned_account are both stamped
+  // with the per-lead seller's name below.
 
   // When sequence[0] is the LinkedIn day-0 invite, that entry IS the
   // Connection Request — its body lives in channelMessages.connectionRequest
@@ -186,6 +184,15 @@ export async function POST(req: NextRequest) {
     // Any overflow leads (if quotas don't sum to total) → last seller in list.
     for (let i = offset; i < leadIds.length; i++) {
       leadSellerMap.set(leadIds[i], sellerQuotas[sellerQuotas.length - 1].sellerId);
+    }
+  }
+
+  // Explicit per-lead seller map — set by the "Use template" launch flow
+  // (prompts.leadSellers = { leadId: sellerId }) where each lead was assigned a
+  // specific seller. Wins over quota distribution so those assignments survive.
+  if (prompts.leadSellers && typeof prompts.leadSellers === "object") {
+    for (const [lid, sid] of Object.entries(prompts.leadSellers as Record<string, unknown>)) {
+      if (typeof sid === "string" && sid) leadSellerMap.set(lid, sid);
     }
   }
 
@@ -368,17 +375,17 @@ export async function POST(req: NextRequest) {
     // dispatcher will flip the lead to 'contacted' once Unipile confirms the
     // invite was actually sent. (Pre-fix bug: lead was marked contacted before
     // any LinkedIn call, producing 8 ghost-contacted leads on Pathway.)
-    // Stamp the owner (assigned_seller = who follows the campaign) and the
-    // LinkedIn sending account (linkedin_assigned_account = the seller). Both
-    // are display labels for now — they drive the lead detail + flow-card
-    // attribution without changing queue/Aircall routing.
-    const linkedinAccountName = sellerId ? (sellerNameById.get(sellerId) ?? null) : null;
+    // Owner = the assigned seller (one person owns the lead: their LinkedIn
+    // sends AND they make the calls). Stamp BOTH columns with the same seller
+    // name — assigned_seller drives the lead-detail "owner" display, and
+    // linkedin_assigned_account is the explicit LinkedIn-account field. Label
+    // only for now (no queue/Aircall routing change).
+    const ownerSellerName = sellerId ? (sellerNameById.get(sellerId) ?? null) : null;
     await supabase
       .from("leads")
       .update({
         current_channel: primaryChannel,
-        ...(ownerName ? { assigned_seller: ownerName } : {}),
-        ...(linkedinAccountName ? { linkedin_assigned_account: linkedinAccountName } : {}),
+        ...(ownerSellerName ? { assigned_seller: ownerSellerName, linkedin_assigned_account: ownerSellerName } : {}),
       })
       .eq("id", leadId);
 
