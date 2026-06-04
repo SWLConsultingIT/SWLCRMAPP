@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, canViewAdminMenu } from "@/lib/scope";
+import { prettyDisplayName } from "@/lib/display-name";
 
 // List team members of the caller's tenant.
 //
@@ -70,11 +71,10 @@ export async function GET(req: Request) {
     try {
       const { data } = await svc.auth.admin.getUserById(m.user_id);
       email = data?.user?.email ?? null;
-      const meta = data?.user?.user_metadata ?? {};
-      displayName = (meta.full_name as string | undefined)
-        ?? (meta.display_name as string | undefined)
-        ?? (meta.name as string | undefined)
-        ?? null;
+      // Always resolve a friendly name — prettyDisplayName falls back to the
+      // email prefix ("lucia.antel" → "Lucia Antel") so every row shows a
+      // name + email, not a mix of "Name / email" and bare-email rows.
+      displayName = prettyDisplayName(data?.user?.user_metadata as Record<string, unknown> | undefined, email);
     } catch { /* orphan auth row — return minimal row */ }
     const prof = profileById.get(m.user_id);
     const isSuper = prof?.is_super_admin === true || prof?.tier === "super_admin";
