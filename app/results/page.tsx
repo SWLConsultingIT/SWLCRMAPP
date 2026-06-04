@@ -26,25 +26,59 @@ async function getData() {
   const bioId = scope.isScoped ? scope.companyBioId! : null;
   const sellerIds = await getMyAssignedSellerIds();
 
-  let leadsQ = supabase
-    .from("leads")
-    .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at, source, encrypted_payload, company_bio_id, transferred_to_odoo_at")
-    .order("created_at", { ascending: false })
-    .limit(500);
-  if (sellerIds !== null) {
-    const ids = sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"];
-    leadsQ = leadsQ.in("seller_id", ids);
-  }
+  const sellerFilterIds = sellerIds !== null
+    ? (sellerIds.length > 0 ? sellerIds : ["00000000-0000-0000-0000-000000000000"])
+    : null;
 
+  // Outcome-driven lead set — NOT "the 500 newest leads". Won/Lost/Re-nurture
+  // are about OUTCOMES, not recency, so capping at the most recent 500 silently
+  // dropped any older lead the moment a tenant imported a fresh batch. Concrete
+  // incident (2026-06-04): a lead marked Interested on a call vanished from Won
+  // after 600 new leads were imported the same day — it fell past row 500.
+  // Instead, gather the lead_ids that actually carry an outcome signal
+  // (positive/negative reply, finished campaign, or Odoo transfer) and fetch
+  // exactly those, with no recency cap. Tenant scope is enforced on the final
+  // leads fetch (company_bio_id + seller_id), so signal rows that don't belong
+  // to the viewer's scope simply return no lead and drop out.
+  let repSigQ = supabase.from("lead_replies").select("lead_id, leads!inner(company_bio_id)").in("classification", ["positive", "meeting_intent", "negative"]);
+  let campSigQ = supabase.from("campaigns").select("lead_id, leads!inner(company_bio_id)").in("status", ["completed", "failed"]);
+  let odooSigQ = supabase.from("leads").select("id").not("transferred_to_odoo_at", "is", null);
+  if (bioId) {
+    repSigQ = repSigQ.eq("leads.company_bio_id", bioId);
+    campSigQ = campSigQ.eq("leads.company_bio_id", bioId);
+    odooSigQ = odooSigQ.eq("company_bio_id", bioId);
+  }
   const profilesQ = supabase
     .from("icp_profiles")
     .select("id, profile_name")
     .eq("status", "approved");
 
-  const [{ data: rawLeads }, { data: profiles }] = await Promise.all([
-    bioId ? leadsQ.eq("company_bio_id", bioId) : leadsQ,
+  const [repSig, campSig, odooSig, { data: profiles }] = await Promise.all([
+    repSigQ,
+    campSigQ,
+    odooSigQ,
     bioId ? profilesQ.eq("company_bio_id", bioId) : profilesQ,
   ]);
+
+  const outcomeLeadIds = new Set<string>();
+  for (const r of (repSig.data ?? []) as Array<{ lead_id?: string | null }>) if (r.lead_id) outcomeLeadIds.add(r.lead_id);
+  for (const c of (campSig.data ?? []) as Array<{ lead_id?: string | null }>) if (c.lead_id) outcomeLeadIds.add(c.lead_id);
+  for (const l of (odooSig.data ?? []) as Array<{ id?: string | null }>) if (l.id) outcomeLeadIds.add(l.id);
+  const outcomeIds = [...outcomeLeadIds];
+
+  // Fetch exactly the outcome leads (chunked — PostgREST .in lists get unwieldy
+  // past a few hundred). Scope + seller filter applied here.
+  const rawLeads: any[] = [];
+  for (let i = 0; i < outcomeIds.length; i += 300) {
+    let lq = supabase
+      .from("leads")
+      .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at, source, encrypted_payload, company_bio_id, transferred_to_odoo_at")
+      .in("id", outcomeIds.slice(i, i + 300));
+    if (bioId) lq = lq.eq("company_bio_id", bioId);
+    if (sellerFilterIds) lq = lq.in("seller_id", sellerFilterIds);
+    const { data } = await lq;
+    if (data) rawLeads.push(...data);
+  }
 
   // Decrypt the same way /leads does. Without this, client-source tenants
   // (De Vera, Everest, etc) get "Unknown" rows in the Won/Lost cards.
