@@ -72,9 +72,23 @@ type NewReply = {
   reviewStatus?: "pending" | "approved" | "rejected" | null;
 };
 
+type CallHistoryEntry = {
+  id: string;
+  leadId: string | null;
+  leadName: string;
+  company: string | null;
+  classification: "positive" | "negative" | "follow_up" | "wrong_number" | null;
+  status: string | null;
+  durationSec: number | null;
+  startedAt: string | null;
+  sellerName: string | null;
+  hasRecording: boolean;
+};
+
 type Props = {
   pendingCalls: PendingCall[];
   newReplies: NewReply[];
+  callHistory: CallHistoryEntry[];
 };
 
 const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
@@ -235,8 +249,156 @@ function InlineClassifier({ call }: { call: PendingCall }) {
   );
 }
 
+function fmtDuration(s: number | null): string {
+  if (!s || s <= 0) return "—";
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${sec.toString().padStart(2, "0")}`;
+}
+
+function fmtDateTime(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+// History sub-tab inside Calls — every classified call, split into the same 4
+// outcome buckets the post-call popup uses, with a date-range filter and an
+// inline recording player. Read-only review surface so the whole team can see
+// what was dialed and listen back.
+const HIST_TABS: Array<{ key: "positive" | "negative" | "wrong_number" | "follow_up"; label: string; color: string }> = [
+  { key: "positive",     label: "Interested",     color: "#15803D" },
+  { key: "negative",     label: "Not interested", color: "#DC2626" },
+  { key: "follow_up",    label: "Bad timing",     color: "#D97706" },
+  { key: "wrong_number", label: "Wrong number",   color: C.textMuted },
+];
+
+function CallHistoryPanel({
+  entries, search, histClass, setHistClass, histFrom, setHistFrom, histTo, setHistTo,
+}: {
+  entries: CallHistoryEntry[];
+  search: string;
+  histClass: "positive" | "negative" | "wrong_number" | "follow_up";
+  setHistClass: (c: "positive" | "negative" | "wrong_number" | "follow_up") => void;
+  histFrom: string;
+  setHistFrom: (s: string) => void;
+  histTo: string;
+  setHistTo: (s: string) => void;
+}) {
+  const counts: Record<string, number> = { positive: 0, negative: 0, follow_up: 0, wrong_number: 0 };
+  for (const e of entries) if (e.classification && counts[e.classification] !== undefined) counts[e.classification]++;
+
+  const fromMs = histFrom ? new Date(histFrom + "T00:00:00").getTime() : null;
+  const toMs = histTo ? new Date(histTo + "T23:59:59").getTime() : null;
+  const q = search.trim().toLowerCase();
+
+  const rows = entries
+    .filter(e => e.classification === histClass)
+    .filter(e => {
+      if (!fromMs && !toMs) return true;
+      const t = e.startedAt ? new Date(e.startedAt).getTime() : 0;
+      if (fromMs && t < fromMs) return false;
+      if (toMs && t > toMs) return false;
+      return true;
+    })
+    .filter(e => !q || `${e.leadName} ${e.company ?? ""} ${e.sellerName ?? ""}`.toLowerCase().includes(q));
+
+  return (
+    <>
+      {/* Outcome buckets */}
+      <div className="flex items-center gap-1 mb-3 flex-wrap">
+        {HIST_TABS.map(t => {
+          const active = histClass === t.key;
+          return (
+            <button key={t.key} onClick={() => setHistClass(t.key)}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
+              style={{
+                backgroundColor: active ? `color-mix(in srgb, ${t.color} 12%, transparent)` : C.card,
+                color: active ? t.color : C.textMuted,
+                borderColor: active ? `color-mix(in srgb, ${t.color} 35%, transparent)` : C.border,
+              }}>
+              {t.label}
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                style={{ backgroundColor: active ? `color-mix(in srgb, ${t.color} 18%, transparent)` : C.surface, color: active ? t.color : C.textDim }}>
+                {counts[t.key]}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Date range */}
+      <div className="flex items-center gap-2 mb-4 flex-wrap text-xs" style={{ color: C.textMuted }}>
+        <span className="font-semibold">From</span>
+        <input type="date" value={histFrom} onChange={e => setHistFrom(e.target.value)}
+          className="rounded-md border px-2 py-1 outline-none" style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }} />
+        <span className="font-semibold">to</span>
+        <input type="date" value={histTo} onChange={e => setHistTo(e.target.value)}
+          className="rounded-md border px-2 py-1 outline-none" style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }} />
+        {(histFrom || histTo) && (
+          <button onClick={() => { setHistFrom(""); setHistTo(""); }}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md font-semibold" style={{ color: C.textDim }}>
+            <X size={11} /> Clear
+          </button>
+        )}
+        <span className="ml-auto font-semibold">{rows.length} call{rows.length === 1 ? "" : "s"}</span>
+      </div>
+
+      {rows.length === 0 ? (
+        <div className="rounded-2xl border py-12 px-6 text-center max-w-xl mx-auto"
+          style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center" style={{ backgroundColor: C.surface }}>
+            <Phone size={22} style={{ color: C.textDim }} />
+          </div>
+          <p className="text-sm font-bold mb-1.5" style={{ color: C.textPrimary }}>No calls in this view</p>
+          <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
+            No {HIST_TABS.find(t => t.key === histClass)?.label.toLowerCase()} calls{(histFrom || histTo) ? " in this date range" : ""}.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {rows.map(e => (
+            <div key={e.id} className="rounded-xl border px-4 py-3 flex items-center gap-4"
+              style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: "linear-gradient(135deg, #F97316, #FB923C)", color: "#fff" }}>
+                <Phone size={15} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Link href={e.leadId ? `/leads/${e.leadId}` : "#"} className="text-sm font-bold hover:underline" style={{ color: C.textPrimary }}>
+                    {e.leadName}
+                  </Link>
+                  {e.company && <span className="text-xs" style={{ color: C.textMuted }}>· {e.company}</span>}
+                  {e.sellerName && (
+                    <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE" }}>
+                      {e.sellerName}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>
+                  {fmtDateTime(e.startedAt)} · {fmtDuration(e.durationSec)}
+                  {e.status && <> · {e.status}</>}
+                </p>
+              </div>
+              {e.hasRecording ? (
+                <audio controls preload="none" src={`/api/aircall/calls/${e.id}/play`} className="h-8 max-w-[220px]" />
+              ) : (
+                <span className="text-[10px] px-2 py-1 rounded-md" style={{ backgroundColor: C.surface, color: C.textDim }}>
+                  No recording
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── Main ──────────────────────────────────────────────────────────────────────
-export default function QueueClient({ pendingCalls, newReplies }: Props) {
+export default function QueueClient({ pendingCalls, newReplies, callHistory }: Props) {
   const searchParams = useSearchParams();
   // Deep-linked tab via `?tab=calls` / `?tab=inbox` / `?tab=history`. Per
   // boss feedback 2026-05-27, History is now the first tab — that's the
@@ -253,12 +415,16 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
   // Sub-tabs inside "Calls":
   //   0 = To Call (no latestCall — never been dialed for this campaign step)
   //   1 = Awaiting Outcome (latestCall exists, classification null)
-  //   2 = Follow-ups (latestCall.classification === 'follow_up' — seller logged
-  //       intent to call again later; was previously inflating To Call with
-  //       items that don't need attention right now per Pathway feedback
-  //       2026-05-15).
+  //   2 = History (every classified call — Interested / Not interested / Bad
+  //       timing / Wrong number — with date filters + recordings. Renamed from
+  //       "Follow-ups" 2026-06-04 per boss: the team wants to review ALL calls
+  //       made, not just the bad-timing ones queued for a redial.)
   const [callSubTab, setCallSubTab] = useState<0 | 1 | 2>(0);
   const [search, setSearch] = useState("");
+  // History sub-tab: which outcome bucket + the date window.
+  const [histClass, setHistClass] = useState<"positive" | "negative" | "wrong_number" | "follow_up">("positive");
+  const [histFrom, setHistFrom] = useState("");
+  const [histTo, setHistTo] = useState("");
 
   // History tab manages its own date filter inside InboxView now (used to
   // be a toolbar dropdown here but it felt disconnected from the filter
@@ -313,14 +479,6 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
       const bt = b.latestCall?.startedAt ? new Date(b.latestCall.startedAt).getTime() : 0;
       return at - bt;
     });
-  const callsFollowUp = pendingCalls
-    .filter(c => c.latestCall?.classification === "follow_up")
-    .sort((a, b) => {
-      const at = a.latestCall?.startedAt ? new Date(a.latestCall.startedAt).getTime() : 0;
-      const bt = b.latestCall?.startedAt ? new Date(b.latestCall.startedAt).getTime() : 0;
-      return at - bt;
-    });
-
   // Sort replies: positive / meeting_intent first (closing window!), then
   // any human-review-required, then everything else by most recent.
   const replyPriority = (r: NewReply) => {
@@ -354,7 +512,6 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
 
   const filteredCallsToMake = applyCallSearch(callsToMake);
   const filteredCallsAwaiting = applyCallSearch(callsAwaitingOutcome);
-  const filteredCallsFollowUp = applyCallSearch(callsFollowUp);
   // History tab gets the dismissal filter applied here at the QueueClient
   // level. Date + search + campaign/icp/channel filters live inside
   // InboxView so the seller can change them without round-tripping
@@ -448,8 +605,7 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
       {/* ═══ Tab 1: Calls (To Call / Awaiting Outcome / Follow-ups) ═══ */}
       {tab === 1 && (() => {
         const activeList = callSubTab === 0 ? filteredCallsToMake
-          : callSubTab === 1 ? filteredCallsAwaiting
-          : filteredCallsFollowUp;
+          : filteredCallsAwaiting;
         const emptyCopy = callSubTab === 0
           ? {
               title: search ? "No calls match your search" : "No calls due right now",
@@ -484,7 +640,7 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
               {([
                 { idx: 0 as const, label: "To Call",           count: callsToMake.length,           icon: PhoneCall },
                 { idx: 1 as const, label: "Awaiting Outcome",  count: callsAwaitingOutcome.length,  icon: Clock     },
-                { idx: 2 as const, label: "Follow-ups",        count: callsFollowUp.length,         icon: Clock     },
+                { idx: 2 as const, label: "History",           count: callHistory.length,           icon: Phone     },
               ]).map(s => {
                 const active = callSubTab === s.idx;
                 const Icon = s.icon;
@@ -507,7 +663,18 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
               })}
             </div>
 
-            {activeList.length === 0 ? (
+            {callSubTab === 2 ? (
+              <CallHistoryPanel
+                entries={callHistory}
+                search={search}
+                histClass={histClass}
+                setHistClass={setHistClass}
+                histFrom={histFrom}
+                setHistFrom={setHistFrom}
+                histTo={histTo}
+                setHistTo={setHistTo}
+              />
+            ) : activeList.length === 0 ? (
               <div className="rounded-2xl border py-12 px-6 text-center max-w-xl mx-auto"
                 style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
                 <div className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center"
@@ -535,7 +702,6 @@ export default function QueueClient({ pendingCalls, newReplies }: Props) {
                   const UIcon = urgency.icon;
                   const isEscalated = urgency.level === "critical" || urgency.level === "stuck";
                   const awaitingOutcome = callSubTab === 1;
-                  const isFollowUp = callSubTab === 2;
                   return (
                     <div key={call.id} className="rounded-2xl border transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-md" style={{ backgroundColor: C.card, borderColor: isEscalated ? urgency.border : C.border, borderLeftWidth: isEscalated ? 3 : 1, borderLeftColor: isEscalated ? urgency.color : undefined, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
                       <div className="flex items-center gap-4 px-5 py-4">

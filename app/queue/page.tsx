@@ -106,6 +106,17 @@ async function getQueueData() {
     .limit(50);
   if (scopedCompanyBioId) emailIssuesQuery = emailIssuesQuery.eq("company_bio_id", scopedCompanyBioId);
 
+  // Call History — every classified call (Interested / Not interested / Bad
+  // timing / Wrong number) so the team can review what was actually dialed,
+  // filter by date, and replay recordings. Tenant-scoped via leads join; not
+  // seller-filtered on purpose — managers want the whole team's call log.
+  let callHistoryQuery = supabase.from("calls")
+    .select("id, lead_id, classification, status, duration, started_at, recording_url, aircall_call_id, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id), sellers(name)")
+    .in("classification", ["positive", "negative", "follow_up", "wrong_number"])
+    .order("started_at", { ascending: false })
+    .limit(500);
+  if (scopedCompanyBioId) callHistoryQuery = callHistoryQuery.eq("leads.company_bio_id", scopedCompanyBioId);
+
   // (Pending Reviews + Updates tabs were removed from /queue per boss
   // feedback 2026-05-27 — Pending Reviews deleted entirely, Updates moved
   // to Lead Miner. Their data fetches were dropped here too.)
@@ -114,7 +125,8 @@ async function getQueueData() {
     { data: rawRecentReplies },
     { data: rawRecentAccepts },
     { data: rawEmailIssues },
-  ] = await Promise.all([campQuery, replyQuery, acceptQuery, emailIssuesQuery]);
+    { data: rawCallHistory },
+  ] = await Promise.all([campQuery, replyQuery, acceptQuery, emailIssuesQuery, callHistoryQuery]);
 
   // Decrypt client-source leads nested inside the three join queries so
   // sellers see real names instead of "Unknown" for tenants with encrypted
@@ -131,6 +143,29 @@ async function getQueueData() {
     // Same flat-row shape as accepts.
     hydrateClientLeads((rawEmailIssues ?? []) as any[]),
   ]);
+
+  const callHistoryRows = await hydrateNestedLeads((rawCallHistory ?? []) as any[]);
+  const callHistory = callHistoryRows.map((c: any) => {
+    const lead = c.leads;
+    const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
+    // Mirror CallCard's recording heuristic: a real recording_url, OR an
+    // answered call with duration that Aircall will have a recording for
+    // (the /play endpoint lazily archives it on first access).
+    const hasRecording = !!c.recording_url
+      || (c.status === "answered" && (c.duration ?? 0) > 0 && !!c.aircall_call_id);
+    return {
+      id: c.id as string,
+      leadId: (lead?.id ?? c.lead_id ?? null) as string | null,
+      leadName,
+      company: (lead?.company_name ?? null) as string | null,
+      classification: (c.classification ?? null) as string | null,
+      status: (c.status ?? null) as string | null,
+      durationSec: (c.duration ?? null) as number | null,
+      startedAt: (c.started_at ?? null) as string | null,
+      sellerName: ((c.sellers as any)?.name ?? null) as string | null,
+      hasRecording,
+    };
+  });
 
   // Pending Calls — also enrich with the LATEST call per lead so the UI can
   // show inline classification (Positive/Negative/Follow-up) right in the
@@ -376,7 +411,7 @@ async function getQueueData() {
     }),
   ].sort((a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime());
 
-  return { pendingCalls, newReplies };
+  return { pendingCalls, newReplies, callHistory };
 }
 
 export default async function QueuePage() {
