@@ -27,8 +27,8 @@ async function actorName(): Promise<string> {
 }
 
 async function loadLead(svc: ReturnType<typeof getSupabaseService>, id: string) {
-  const { data } = await svc.from("leads").select("company_bio_id, first_name, last_name, company").eq("id", id).maybeSingle();
-  return data as { company_bio_id: string | null; first_name: string | null; last_name: string | null; company: string | null } | null;
+  const { data } = await svc.from("leads").select("company_bio_id, primary_first_name, primary_last_name, company_name").eq("id", id).maybeSingle();
+  return data as { company_bio_id: string | null; primary_first_name: string | null; primary_last_name: string | null; company_name: string | null } | null;
 }
 
 // Find-or-create the single DM thread between two users (one per pair). Repeat
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }, { onConflict: "lead_id,user_id" });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const leadLabel = [lead.first_name, lead.last_name].filter(Boolean).join(" ") || lead.company || "a lead";
+  const leadLabel = [lead.primary_first_name, lead.primary_last_name].filter(Boolean).join(" ") || lead.company_name || "a lead";
   const who = await actorName();
 
   // Open (or reuse) the 1:1 DM with this teammate and drop a message so the

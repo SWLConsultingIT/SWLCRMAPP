@@ -53,7 +53,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const svc = getSupabaseService();
   // Fetch the lead once: scope check + tenant id + label for the @mention ping.
-  const { data: lead } = await svc.from("leads").select("company_bio_id, first_name, last_name, company").eq("id", id).maybeSingle();
+  const { data: lead } = await svc.from("leads").select("company_bio_id, primary_first_name, primary_last_name, company_name").eq("id", id).maybeSingle();
   const leadBio = (lead as { company_bio_id?: string | null } | null)?.company_bio_id ?? null;
   if (scope.isScoped && leadBio !== scope.companyBioId) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
@@ -81,8 +81,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // Notify mentioned teammates (excluding the author).
   if (mentions.length && leadBio) {
-    const l = lead as { first_name?: string | null; last_name?: string | null; company?: string | null };
-    const label = [l.first_name, l.last_name].filter(Boolean).join(" ") || l.company || "a lead";
+    const l = lead as { primary_first_name?: string | null; primary_last_name?: string | null; company_name?: string | null };
+    const label = [l.primary_first_name, l.primary_last_name].filter(Boolean).join(" ") || l.company_name || "a lead";
     await createNotifications({
       companyBioId: leadBio,
       recipientUserIds: mentions,
