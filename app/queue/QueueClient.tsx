@@ -8,7 +8,7 @@ import {
   Phone, Share2, Mail, Megaphone, Target,
   ChevronRight, CheckCircle, Search, X,
   PhoneCall, User, PhoneOff, Bell, AlertTriangle, XCircle, Sparkles,
-  ThumbsUp, ThumbsDown, Clock, Loader2,
+  ThumbsUp, ThumbsDown, Clock, Loader2, Trash2,
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import CallButton from "@/components/CallButton";
@@ -269,7 +269,8 @@ function fmtDateTime(iso: string | null): string {
 // outcome buckets the post-call popup uses, with a date-range filter and an
 // inline recording player. Read-only review surface so the whole team can see
 // what was dialed and listen back.
-const HIST_TABS: Array<{ key: "positive" | "negative" | "wrong_number" | "follow_up"; label: string; color: string }> = [
+const HIST_TABS: Array<{ key: "all" | "positive" | "negative" | "wrong_number" | "follow_up"; label: string; color: string }> = [
+  { key: "all",          label: "All",            color: "#0A66C2" },
   { key: "positive",     label: "Interested",     color: "#15803D" },
   { key: "negative",     label: "Not interested", color: "#DC2626" },
   { key: "follow_up",    label: "Bad timing",     color: "#D97706" },
@@ -284,13 +285,39 @@ function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
   const [expanded, setExpanded] = useState(false);
   const [transcript, setTranscript] = useState(e.transcript);
   const [transcribing, setTranscribing] = useState(false);
-  const [note, setNote] = useState(e.notes ?? "");
+  const [note, setNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
   const [noteSaved, setNoteSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [hidden, setHidden] = useState(false);
+  // Teammate tagging — a saved note becomes a lead note (note_type 'call')
+  // so it shows in the lead detail's Team Notes, and any tagged teammates get
+  // an in-app notification via /api/leads/[id]/notes → createNotifications.
+  const [roster, setRoster] = useState<Array<{ userId: string; name: string }>>([]);
+  const [mentioned, setMentioned] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!expanded || roster.length > 0) return;
+    fetch("/api/team/roster").then(r => r.ok ? r.json() : { roster: [] }).then(d => setRoster(d.roster ?? [])).catch(() => {});
+  }, [expanded, roster.length]);
 
   const meta = e.classification ? classificationMeta[e.classification] : null;
+  const accent = meta?.color ?? C.textMuted;
   const canTranscribe = e.hasRecording && !transcript && !!e.aircallCallId;
+
+  async function remove() {
+    if (deleting) return;
+    if (!confirm("Delete this call from History? This removes the CRM row (a fresh Aircall sync can repull it if it still exists upstream).")) return;
+    setDeleting(true); setErr(null);
+    try {
+      const r = await fetch(`/api/calls/${e.id}`, { method: "DELETE" });
+      if (!r.ok) { const b = await r.json().catch(() => ({})); setErr(b.error ?? "Couldn't delete"); setDeleting(false); return; }
+      setHidden(true);
+    } catch { setErr("Network error"); setDeleting(false); }
+  }
+
+  if (hidden) return null;
 
   async function transcribe() {
     if (transcribing) return;
@@ -309,22 +336,26 @@ function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
   }
 
   async function saveNote() {
-    if (savingNote) return;
+    if (savingNote || !note.trim()) return;
+    if (!e.leadId) { setErr("No lead linked to this call."); return; }
     setSavingNote(true); setErr(null); setNoteSaved(false);
     try {
-      const r = await fetch(`/api/calls/${e.id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notes: note }),
+      // Saved as a LEAD note (type 'call') so it appears in the lead detail's
+      // Team Notes; tagged teammates get notified by the endpoint.
+      const r = await fetch(`/api/leads/${e.leadId}/notes`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content: note.trim(), note_type: "call", mentioned_user_ids: [...mentioned] }),
       });
       if (!r.ok) { const b = await r.json().catch(() => ({})); setErr(b.error ?? "Couldn't save note"); return; }
       setNoteSaved(true);
-      window.setTimeout(() => setNoteSaved(false), 1500);
+      setNote(""); setMentioned(new Set());
+      window.setTimeout(() => setNoteSaved(false), 1800);
     } catch { setErr("Network error"); }
     finally { setSavingNote(false); }
   }
 
   return (
-    <div className="rounded-xl border" style={{ backgroundColor: C.card, borderColor: C.border }}>
+    <div className="rounded-xl border" style={{ backgroundColor: C.card, borderColor: C.border, borderLeftWidth: 3, borderLeftColor: accent }}>
       <div className="px-4 py-3 flex items-center gap-4">
         <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
           style={{ background: "linear-gradient(135deg, #F97316, #FB923C)", color: "#fff" }}>
@@ -353,7 +384,6 @@ function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
             {fmtDateTime(e.startedAt)} · {fmtDuration(e.durationSec)}
             {e.status && <> · {e.status}</>}
             {transcript && <> · transcript ✓</>}
-            {(e.notes) && <> · note ✓</>}
           </p>
         </div>
         {e.hasRecording ? (
@@ -367,6 +397,11 @@ function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
           className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-colors shrink-0"
           style={{ borderColor: C.border, color: C.textMuted, backgroundColor: expanded ? C.surface : "transparent" }}>
           {expanded ? "Hide" : "Transcript & notes"} <ChevronRight size={11} style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform 150ms" }} />
+        </button>
+        <button onClick={remove} disabled={deleting} title="Delete this call from History"
+          className="inline-flex items-center justify-center w-8 h-8 rounded-lg border transition-colors shrink-0 hover:bg-black/[0.03] disabled:opacity-50"
+          style={{ borderColor: C.border, color: C.textMuted }}>
+          {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
         </button>
       </div>
 
@@ -388,21 +423,43 @@ function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
               <p className="text-[11px]" style={{ color: C.textDim }}>No transcript {e.hasRecording ? "yet" : "(no recording)"}.</p>
             )}
           </div>
-          {/* Notes */}
+          {/* Notes — saved to the lead's Team Notes; tag teammates to notify them */}
           <div>
-            <p className="text-[10px] uppercase tracking-wider mb-1.5 font-semibold" style={{ color: C.textDim }}>Notes</p>
+            <p className="text-[10px] uppercase tracking-wider mb-1.5 font-semibold" style={{ color: C.textDim }}>
+              Add note <span style={{ color: C.textDim, fontWeight: 400, textTransform: "none" }}>· saved to the lead's Notes</span>
+            </p>
             <textarea value={note} onChange={ev => setNote(ev.target.value)} rows={2}
               placeholder="Add a note about this call…"
               className="w-full rounded-lg border px-3 py-2 text-[12px] resize-none outline-none focus:ring-2"
               style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary }} />
+            {roster.length > 0 && (
+              <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                <span className="text-[10px] font-semibold" style={{ color: C.textDim }}>Tag:</span>
+                {roster.map(m => {
+                  const on = mentioned.has(m.userId);
+                  return (
+                    <button key={m.userId} type="button"
+                      onClick={() => setMentioned(prev => { const n = new Set(prev); n.has(m.userId) ? n.delete(m.userId) : n.add(m.userId); return n; })}
+                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-colors"
+                      style={{
+                        backgroundColor: on ? "color-mix(in srgb, #0A66C2 14%, transparent)" : C.surface,
+                        color: on ? "#0A66C2" : C.textMuted,
+                        borderColor: on ? "color-mix(in srgb, #0A66C2 35%, transparent)" : C.border,
+                      }}>
+                      @{m.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <div className="flex items-center gap-2 mt-1.5">
-              <button onClick={saveNote} disabled={savingNote || note === (e.notes ?? "")}
+              <button onClick={saveNote} disabled={savingNote || !note.trim() || !e.leadId}
                 className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                 style={{ backgroundColor: "#F97316" }}>
                 {savingNote ? <Loader2 size={11} className="animate-spin" /> : null}
-                Save note
+                Save note{mentioned.size > 0 ? ` & notify ${mentioned.size}` : ""}
               </button>
-              {noteSaved && <span className="text-[11px] font-semibold" style={{ color: C.green }}>Saved ✓</span>}
+              {noteSaved && <span className="text-[11px] font-semibold" style={{ color: C.green }}>Saved to lead ✓</span>}
             </div>
           </div>
           {err && <p className="text-[11px]" style={{ color: C.red }}>{err}</p>}
@@ -417,14 +474,14 @@ function CallHistoryPanel({
 }: {
   entries: CallHistoryEntry[];
   search: string;
-  histClass: "positive" | "negative" | "wrong_number" | "follow_up";
-  setHistClass: (c: "positive" | "negative" | "wrong_number" | "follow_up") => void;
+  histClass: "all" | "positive" | "negative" | "wrong_number" | "follow_up";
+  setHistClass: (c: "all" | "positive" | "negative" | "wrong_number" | "follow_up") => void;
   histFrom: string;
   setHistFrom: (s: string) => void;
   histTo: string;
   setHistTo: (s: string) => void;
 }) {
-  const counts: Record<string, number> = { positive: 0, negative: 0, follow_up: 0, wrong_number: 0 };
+  const counts: Record<string, number> = { all: entries.length, positive: 0, negative: 0, follow_up: 0, wrong_number: 0 };
   for (const e of entries) if (e.classification && counts[e.classification] !== undefined) counts[e.classification]++;
 
   const fromMs = histFrom ? new Date(histFrom + "T00:00:00").getTime() : null;
@@ -432,7 +489,7 @@ function CallHistoryPanel({
   const q = search.trim().toLowerCase();
 
   const rows = entries
-    .filter(e => e.classification === histClass)
+    .filter(e => histClass === "all" || e.classification === histClass)
     .filter(e => {
       if (!fromMs && !toMs) return true;
       const t = e.startedAt ? new Date(e.startedAt).getTime() : 0;
@@ -527,8 +584,8 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
   //       made, not just the bad-timing ones queued for a redial.)
   const [callSubTab, setCallSubTab] = useState<0 | 1 | 2>(0);
   const [search, setSearch] = useState("");
-  // History sub-tab: which outcome bucket + the date window.
-  const [histClass, setHistClass] = useState<"positive" | "negative" | "wrong_number" | "follow_up">("positive");
+  // History sub-tab: which outcome bucket (or "all") + the date window.
+  const [histClass, setHistClass] = useState<"all" | "positive" | "negative" | "wrong_number" | "follow_up">("all");
   const [histFrom, setHistFrom] = useState("");
   const [histTo, setHistTo] = useState("");
 
