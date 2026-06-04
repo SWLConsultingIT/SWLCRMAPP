@@ -97,6 +97,22 @@ function normLI(url: string | null | undefined): string {
 function normEmail(e: string | null | undefined): string {
   return e ? String(e).trim().toLowerCase() : "";
 }
+// Role / generic mailboxes shared by a whole company (info@, contacto@, …).
+// Several DISTINCT people at one firm often list the same generic address, so
+// using "email + company" as a dedup key collapses them into one and silently
+// drops the rest ("duplicate within this upload"). When the local-part is
+// generic we skip the email key and fall back to name+company, which keeps
+// each real person. A genuinely personal address (j.perez@…) still dedups.
+const GENERIC_EMAIL_LOCALPARTS = new Set<string>([
+  "info", "contact", "contacto", "hello", "hola", "sales", "ventas", "admin",
+  "office", "oficina", "mail", "email", "marketing", "hr", "rrhh", "soporte",
+  "support", "ayuda", "help", "contacta", "comercial", "general", "team",
+  "equipo", "no-reply", "noreply", "press", "prensa", "billing", "finanzas",
+]);
+function isGenericEmail(e: string): boolean {
+  const local = e.split("@")[0]?.trim();
+  return !!local && GENERIC_EMAIL_LOCALPARTS.has(local);
+}
 function normPhone(p: string | null | undefined): string {
   if (!p) return "";
   const digits = String(p).replace(/[^0-9]/g, "");
@@ -266,8 +282,8 @@ export async function buildImportPlan(input: {
     const fn = ((mapped.primary_first_name as string | null) || "").trim().toLowerCase();
     const ln = ((mapped.primary_last_name as string | null) || "").trim().toLowerCase();
 
-    const wKey = we && co ? `${we}||${co}` : null;
-    const peKey = pe && co ? `${pe}||${co}` : null;
+    const wKey = we && co && !isGenericEmail(we) ? `${we}||${co}` : null;
+    const peKey = pe && co && !isGenericEmail(pe) ? `${pe}||${co}` : null;
     const lKey = li && co ? `${li}||${co}` : null;
     const nKey = fn && ln && co ? `${fn}|${ln}|${co}` : null;
 
@@ -279,8 +295,8 @@ export async function buildImportPlan(input: {
     let dbMatch: ExistingLead | null = null;
     let matchedBy = "";
     if (li && byLI.has(li))      { dbMatch = byLI.get(li)!;      matchedBy = "LinkedIn URL"; }
-    else if (we && byWE.has(we)) { dbMatch = byWE.get(we)!;      matchedBy = "work email"; }
-    else if (pe && byPE.has(pe)) { dbMatch = byPE.get(pe)!;      matchedBy = "personal email"; }
+    else if (we && !isGenericEmail(we) && byWE.has(we)) { dbMatch = byWE.get(we)!; matchedBy = "work email"; }
+    else if (pe && !isGenericEmail(pe) && byPE.has(pe)) { dbMatch = byPE.get(pe)!; matchedBy = "personal email"; }
     else if (ph && byPh.has(ph)) { dbMatch = byPh.get(ph)!;      matchedBy = "phone"; }
     else if (nKey && byNameCo.has(nKey)) { dbMatch = byNameCo.get(nKey)!; matchedBy = "name + company"; }
 
