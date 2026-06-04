@@ -1,5 +1,6 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { prettyDisplayName } from "@/lib/display-name";
 import { getUserScope, getMyAssignedSellerIds } from "@/lib/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
 import QueueClient from "./QueueClient";
@@ -115,7 +116,7 @@ async function getQueueData() {
   // query and History silently renders 0 calls (caught 2026-06-04). seller_id
   // is resolved to a name in a separate lookup below.
   let callHistoryQuery = supabase.from("calls")
-    .select("id, lead_id, seller_id, classification, status, duration, started_at, recording_url, transcript, notes, aircall_call_id, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id)")
+    .select("id, lead_id, seller_id, dialed_by_user_id, classification, status, duration, started_at, recording_url, transcript, notes, aircall_call_id, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id)")
     .in("classification", ["positive", "negative", "follow_up", "wrong_number"])
     .order("started_at", { ascending: false })
     .limit(500);
@@ -156,6 +157,19 @@ async function getQueueData() {
     const { data: sellerRows } = await supabase.from("sellers").select("id, name").in("id", histSellerIds);
     for (const s of sellerRows ?? []) sellerNameById[(s as any).id] = (s as any).name;
   }
+  // Resolve the dialing teammate's display name (the user who clicked Call),
+  // so History shows "Called by <name>" even when there's no seller binding.
+  const dialerIds = [...new Set(callHistoryRows.map((c: any) => c.dialed_by_user_id).filter(Boolean))] as string[];
+  const dialerNameById: Record<string, string> = {};
+  if (dialerIds.length > 0) {
+    const svc = getSupabaseService();
+    await Promise.all(dialerIds.map(async (uid) => {
+      try {
+        const { data } = await svc.auth.admin.getUserById(uid);
+        dialerNameById[uid] = prettyDisplayName(data?.user?.user_metadata, data?.user?.email);
+      } catch { /* leave unresolved */ }
+    }));
+  }
   const callHistory = callHistoryRows.map((c: any) => {
     const lead = c.leads;
     const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
@@ -174,6 +188,7 @@ async function getQueueData() {
       durationSec: (c.duration ?? null) as number | null,
       startedAt: (c.started_at ?? null) as string | null,
       sellerName: (c.seller_id ? (sellerNameById[c.seller_id] ?? null) : null) as string | null,
+      dialedByName: (c.dialed_by_user_id ? (dialerNameById[c.dialed_by_user_id] ?? null) : null) as string | null,
       hasRecording,
       transcript: (c.transcript ?? null) as string | null,
       notes: (c.notes ?? null) as string | null,

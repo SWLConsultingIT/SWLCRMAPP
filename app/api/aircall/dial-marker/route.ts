@@ -61,6 +61,11 @@ export async function POST(req: NextRequest) {
   const { data: inserted, error } = await svc.from("calls").insert({
     lead_id: leadId ?? null,
     seller_id: seller?.id ?? null,
+    // The actual user who clicked Call — independent of any seller binding, so
+    // History can show "Called by <teammate>" even for admins who aren't a
+    // seller in this tenant. The webhook/sync marker-reconciliation reuses this
+    // row, so the dialer persists onto the answered call too.
+    dialed_by_user_id: scope.userId,
     direction: "outbound",
     status: "initiated",
     phone_number: phone,

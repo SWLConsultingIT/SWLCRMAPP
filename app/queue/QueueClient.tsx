@@ -82,6 +82,7 @@ type CallHistoryEntry = {
   durationSec: number | null;
   startedAt: string | null;
   sellerName: string | null;
+  dialedByName: string | null;
   hasRecording: boolean;
   transcript: string | null;
   notes: string | null;
@@ -373,9 +374,17 @@ function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
                 {meta.label}
               </span>
             )}
-            {e.sellerName && (
+            {e.dialedByName && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE" }}
+                title="Team member who placed the call">
+                <PhoneCall size={9} /> {e.dialedByName}
+              </span>
+            )}
+            {e.sellerName && e.sellerName !== e.dialedByName && (
               <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE" }}>
+                style={{ backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }}
+                title="LinkedIn sending account">
                 {e.sellerName}
               </span>
             )}
