@@ -67,6 +67,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     classification: classificationMap[outcome],
     received_at: now,
     requires_human_review: false,
+    // review_status defaults to 'pending' in the schema — without this the
+    // seller's own call outcome lands back in the Inbox "Pending review" tab
+    // (and the AI even tried to draft a reply to it). It's already actioned by
+    // the seller, so mark it resolved → it shows in History, not Pending.
+    review_status: "approved",
   });
 
   // 1b) Mirror the outcome into the most recent call row so the
@@ -99,10 +104,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // 2) Per-outcome side effects on the lead + its campaigns.
   if (outcome === "interested") {
     await svc.from("leads").update({ status: "qualified", responded: true, response_outcome: "interested", updated_at: now }).eq("id", leadId);
-    await svc.from("campaigns").update({ status: "completed", stop_reason: "call_positive", completed_at: now }).eq("lead_id", leadId).eq("status", "active");
+    // Stop the flow on a positive — covers PAUSED campaigns too. Previously
+    // this only matched status='active', so a positive call on a paused flow
+    // (e.g. Lluís Vinas) left the campaign sitting paused with "next: First
+    // Call ready to fire" instead of completing it.
+    await svc.from("campaigns").update({ status: "completed", stop_reason: "call_positive", completed_at: now }).eq("lead_id", leadId).in("status", ["active", "paused"]);
   } else if (outcome === "not_interested") {
     await svc.from("leads").update({ status: "closed_lost", responded: true, response_outcome: "not_interested", updated_at: now }).eq("id", leadId);
-    await svc.from("campaigns").update({ status: "closed_lost", stop_reason: "call_negative", completed_at: now }).eq("lead_id", leadId).eq("status", "active");
+    await svc.from("campaigns").update({ status: "closed_lost", stop_reason: "call_negative", completed_at: now }).eq("lead_id", leadId).in("status", ["active", "paused"]);
   } else if (outcome === "bad_timing") {
     // Bad timing = follow-up. Do NOT advance the step on the spot — the
     // campaign stays parked on the call step and the lead's call_advance_mode
