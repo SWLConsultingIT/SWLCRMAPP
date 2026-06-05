@@ -297,13 +297,32 @@ function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
   // an in-app notification via /api/leads/[id]/notes → createNotifications.
   const [roster, setRoster] = useState<Array<{ userId: string; name: string }>>([]);
   const [mentioned, setMentioned] = useState<Set<string>>(new Set());
+  // Outcome is settable/changeable on EVERY call in History, not just the
+  // pending ones — sellers need to correct a mis-classification or log an
+  // outcome on a call that never went through the popup.
+  const [cls, setCls] = useState<string | null>(e.classification ?? null);
+  const [classifying, setClassifying] = useState<string | null>(null);
 
   useEffect(() => {
     if (!expanded || roster.length > 0) return;
     fetch("/api/team/roster").then(r => r.ok ? r.json() : { roster: [] }).then(d => setRoster(d.roster ?? [])).catch(() => {});
   }, [expanded, roster.length]);
 
-  const meta = e.classification ? classificationMeta[e.classification] : null;
+  async function classifyOutcome(c: string) {
+    if (classifying) return;
+    setClassifying(c); setErr(null);
+    try {
+      const r = await fetch(`/api/calls/${e.id}/classify`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ classification: c }),
+      });
+      if (!r.ok) { const b = await r.json().catch(() => ({})); setErr(b.error ?? "Couldn't set outcome"); return; }
+      setCls(c);
+    } catch { setErr("Network error"); }
+    finally { setClassifying(null); }
+  }
+
+  const meta = cls ? classificationMeta[cls] : null;
   const accent = meta?.color ?? C.textMuted;
   const canTranscribe = e.hasRecording && !transcript && !!e.aircallCallId;
 
@@ -368,12 +387,28 @@ function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
               {e.leadName}
             </Link>
             {e.company && <span className="text-xs" style={{ color: C.textMuted }}>· {e.company}</span>}
-            {meta && (
-              <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: meta.bg, color: meta.color }}>
-                {meta.label}
-              </span>
-            )}
+            {/* Outcome selector — the 4 options, settable/changeable on ANY
+                call. The active outcome is filled; the rest are outlined. */}
+            <span className="inline-flex items-center gap-1 flex-wrap">
+              {([
+                { key: "positive", label: "Interested", color: C.green },
+                { key: "negative", label: "Not interested", color: C.red },
+                { key: "follow_up", label: "Bad timing", color: "#D97706" },
+                { key: "wrong_number", label: "Wrong number", color: C.textMuted },
+              ] as const).map(o => {
+                const active = cls === o.key;
+                return (
+                  <button key={o.key} onClick={() => classifyOutcome(o.key)} disabled={!!classifying}
+                    title={`Mark as ${o.label}`}
+                    className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-colors disabled:opacity-50"
+                    style={active
+                      ? { backgroundColor: tint(o.color, 14), color: o.color, borderColor: o.color }
+                      : { backgroundColor: "transparent", color: C.textDim, borderColor: C.border }}>
+                    {classifying === o.key ? "…" : o.label}
+                  </button>
+                );
+              })}
+            </span>
             {e.dialedByName && (
               <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
                 style={{ backgroundColor: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE" }}
