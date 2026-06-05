@@ -117,15 +117,22 @@ export async function POST(req: NextRequest) {
     if (!fs.icp_profile_id) {
       return NextResponse.json({ error: "icp_profile_id is required — templates must target a specific ICP" }, { status: 400 });
     }
-    // Verify the ICP belongs to this tenant (defence in depth — RLS would
-    // catch a cross-tenant FK violation but a 400 with a clear message is
-    // friendlier than a 500 from a constraint).
+    // Resolve the ICP's tenant. Super admins (SWL ops) build + save flows for
+    // ANY client, so the ICP can live in a tenant other than the one the
+    // cookie is currently scoped to (e.g. building an Arqy flow while the
+    // switcher shows SWL) — validate the ICP exists and adopt ITS tenant for
+    // the template. Regular users must stay within their own tenant.
+    let templateBioId = scope.companyBioId;
     {
-      const { data: ownIcp } = await svc
-        .from("icp_profiles").select("id").eq("id", fs.icp_profile_id).eq("company_bio_id", scope.companyBioId).maybeSingle();
-      if (!ownIcp) {
+      const { data: icpRow } = await svc
+        .from("icp_profiles").select("id, company_bio_id").eq("id", fs.icp_profile_id).maybeSingle();
+      if (!icpRow) {
+        return NextResponse.json({ error: "icp_profile_id not found" }, { status: 400 });
+      }
+      if (scope.tier !== "super_admin" && icpRow.company_bio_id !== scope.companyBioId) {
         return NextResponse.json({ error: "icp_profile_id not found in this tenant" }, { status: 400 });
       }
+      templateBioId = (icpRow.company_bio_id as string | null) ?? scope.companyBioId;
     }
 
     const channels = Array.isArray(fs.channels) && fs.channels.length > 0
@@ -137,7 +144,7 @@ export async function POST(req: NextRequest) {
     // the DB layer. We only forward them when present so the column defaults
     // ("balanced" / "personalize" / NULL) apply on omit.
     const insertRow: Record<string, unknown> = {
-      company_bio_id: scope.companyBioId,
+      company_bio_id: templateBioId,
       name: fs.name.trim(),
       description: fs.description?.trim() ?? null,
       sequence_steps: fs.sequence_steps,

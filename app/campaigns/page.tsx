@@ -49,7 +49,7 @@ async function getData() {
 
   const icpQ = supabase.from("icp_profiles").select("id, profile_name, target_industries, target_roles").eq("status", "approved");
 
-  const repliesQ = supabase.from("lead_replies").select("lead_id, classification, campaign_id, received_at, leads!inner(company_bio_id)");
+  const repliesQ = supabase.from("lead_replies").select("lead_id, classification, campaign_id, received_at, leads!inner(company_bio_id)").range(0, 9999);
 
   const [
     { data: campaigns },
