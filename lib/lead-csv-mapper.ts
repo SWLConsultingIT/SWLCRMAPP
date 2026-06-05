@@ -351,7 +351,11 @@ export function applyMappingToRow(
   const enrichment: Record<string, string> = {};
 
   for (const m of mapping.mappings) {
-    const value = (row[m.source] ?? "").toString().trim();
+    // Strip a leading apostrophe — Excel/CSV exports force a cell to text by
+    // prefixing "'" (e.g. "'+34 600 11 22 33"). Stored verbatim it broke phone
+    // matching for call recordings and looked wrong everywhere. The guard only
+    // ever appears at the START, so this won't touch names like O'Brien.
+    const value = (row[m.source] ?? "").toString().trim().replace(/^'+/, "");
     if (!value) continue;
 
     if (m.target === "_fullname") {
