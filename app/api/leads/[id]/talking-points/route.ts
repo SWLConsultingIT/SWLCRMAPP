@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
 // GET → return cached talking points (or null if not generated yet).
 // POST → (re)generate and persist. The Pre-Call Brief card calls POST on
@@ -41,15 +42,31 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const svc = getSupabaseService();
 
-  const { data: lead } = await svc.from("leads").select("*").eq("id", id).single();
-  if (!lead) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+  const { data: leadRow } = await svc.from("leads").select("*").eq("id", id).single();
+  if (!leadRow) return NextResponse.json({ error: "Lead not found" }, { status: 404 });
+
+  // Client-source leads keep PII (name, title, company, enrichment) in
+  // encrypted_payload — the plain columns are NULL. Without decrypting, the
+  // prompt had nothing to work with and the model refused ("I don't have
+  // enough information"), so client-source leads never got a brief. Decrypt
+  // and merge so the brief is as good as for any other lead.
+  let lead: Record<string, unknown> = leadRow;
+  if (leadRow.source === "client" && leadRow.encrypted_payload && leadRow.company_bio_id) {
+    try {
+      const { key } = await resolveTenantKey(leadRow.company_bio_id as string);
+      const decrypted = decryptWithResolvedKey(bufferFromSupabaseBytea(leadRow.encrypted_payload), key);
+      lead = { ...leadRow, ...decrypted };
+    } catch (e) {
+      console.error("[talking-points] decrypt failed for lead", id, e);
+    }
+  }
 
   let icpContext: { profile_name?: string; solutions_offered?: string; pain_points?: string } | null = null;
   if (lead.icp_profile_id) {
     const { data: icp } = await svc
       .from("icp_profiles")
       .select("profile_name, solutions_offered, pain_points")
-      .eq("id", lead.icp_profile_id)
+      .eq("id", lead.icp_profile_id as string)
       .single();
     icpContext = icp;
   }
@@ -107,13 +124,15 @@ Rules:
 - Plain text inside the strings (no markdown, no quotes around the values, no leading numbers).
 - Pain must be a problem, not a feature. Fit must be a relevance claim, not a sales pitch. Opener must be something a human would actually say.
 - Use the lead's first name in the opener if you have it.
-- Output ONLY the JSON array. No prose, no fences.`;
+- Output ONLY the JSON array. No prose, no fences.
+- ALWAYS return the three points. NEVER refuse, NEVER ask for more information, NEVER reply in prose. If the lead data is sparse, infer sensible points from whatever you have — the role, the industry, the company name, or what we sell — falling back to solid role-based generics for that seniority. There is always enough to write a useful brief.`;
 
   try {
     const client = new Anthropic({ apiKey });
     const res = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 600,
+      system: "You output ONLY a JSON array of exactly three objects {type, text}. You never refuse, never ask for more information, and never write prose — sparse input still yields a useful role-based brief.",
       messages: [{ role: "user", content: prompt }],
     });
     const text = res.content[0].type === "text" ? res.content[0].text : "";
