@@ -676,15 +676,16 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         />
       </div>
 
-      {/* ═══ PRE-CALL BRIEF — 3 AI talking points, shown only when the lead
-            has a phone number worth dialling. Auto-generates on first view. ═══ */}
-      {lead.primary_phone && (
-        <PreCallBrief
-          leadId={id}
-          initialPoints={(lead as any).call_talking_points ?? null}
-          initialGeneratedAt={(lead as any).call_talking_points_at ?? null}
-        />
-      )}
+      {/* ═══ PRE-CALL BRIEF — 3 AI talking points (Pain / Fit / Opener).
+            ALWAYS rendered (Fran 2026-06-05: "tienen que estar siempre, lo
+            tenemos que ver"). The card self-generates on first view when no
+            brief is cached and exposes a Refresh — no phone gate, since the
+            seller wants the context regardless of whether a number exists. ═══ */}
+      <PreCallBrief
+        leadId={id}
+        initialPoints={(lead as any).call_talking_points ?? null}
+        initialGeneratedAt={(lead as any).call_talking_points_at ?? null}
+      />
 
       {/* ═══ NEXT ACTION CARD — what the user should do or know right now.
             Sits above the stepper so the seller doesn't have to interpret the
