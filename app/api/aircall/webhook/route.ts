@@ -168,17 +168,29 @@ export async function POST(req: NextRequest) {
     && call.direction === "outbound"
     && call.raw_digits
   ) {
-    const sinceIso = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    // Window was 5 min — far too short: a call that lasts a few minutes (or a
+    // delayed webhook) means the dial-marker's started_at is already >5 min
+    // old when call.ended fires, so it fell outside the window → no match →
+    // orphan Aircall row with no lead and the recording stranded. Widen to 6h
+    // and pick the phone-matching marker CLOSEST in time to this call (robust
+    // against the same lead being dialed twice in the window).
+    const sinceIso = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
     const recentRes = await fetch(
-      `${SB_URL}/calls?aircall_call_id=is.null&direction=eq.outbound&started_at=gte.${sinceIso}&select=id,phone_number&order=started_at.desc&limit=20`,
+      `${SB_URL}/calls?aircall_call_id=is.null&direction=eq.outbound&started_at=gte.${sinceIso}&select=id,phone_number,started_at&order=started_at.desc&limit=300`,
       { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
     );
     const candidates = await recentRes.json().catch(() => []);
-    const match = Array.isArray(candidates)
-      ? candidates.find((r: { phone_number?: string | null }) =>
-          phoneSuffixMatch(r.phone_number, call.raw_digits)
-        )
-      : null;
+    const callStartMs = (() => { const iso = tsToIso(call.started_at); return iso ? new Date(iso).getTime() : Date.now(); })();
+    let match: { id?: string; phone_number?: string | null; started_at?: string | null } | null = null;
+    let bestDiff = Infinity;
+    if (Array.isArray(candidates)) {
+      for (const r of candidates as Array<{ id?: string; phone_number?: string | null; started_at?: string | null }>) {
+        if (!phoneSuffixMatch(r.phone_number, call.raw_digits)) continue;
+        const t = r.started_at ? new Date(r.started_at).getTime() : 0;
+        const d = Math.abs(t - callStartMs);
+        if (d < bestDiff) { bestDiff = d; match = r; }
+      }
+    }
     if (match?.id) {
       await fetch(`${SB_URL}/calls?id=eq.${match.id}`, {
         method: "PATCH",
