@@ -418,7 +418,7 @@ export default function FlowEditorPage() {
                       </div>
                       <div>
                         <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{s?.name ?? "Unknown"}</p>
-                        <p className="text-[10px]" style={{ color: C.textDim }}>{s?.linkedin_account_id ?? ""}</p>
+                        <p className="text-[10px]" style={{ color: C.textDim }}>{s?.unipile_account_id ?? s?.linkedin_account_id ?? ""}</p>
                       </div>
                     </div>
                     <button onClick={() => setLinkedinProfiles(prev => prev.filter(p => p !== id))}
