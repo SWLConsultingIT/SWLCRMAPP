@@ -3,28 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { fetchLinkedInProfile, linkedinIdentifier, profileHasSignal, renderLinkedInBlock } from "@/lib/linkedin-profile";
-
-// Picks a connected LinkedIn account to view the profile through. Prefers the
-// seller the lead is assigned to (linkedin_assigned_account holds a name);
-// otherwise any active seller in the tenant with a Unipile account.
-async function resolveUnipileAccount(
-  svc: ReturnType<typeof getSupabaseService>,
-  companyBioId: string,
-  assignedName: string | null,
-): Promise<string | null> {
-  const { data: sellers } = await svc
-    .from("sellers")
-    .select("name, unipile_account_id, company_bio_id, shared_with_company_bio_ids, active")
-    .eq("active", true)
-    .or(`company_bio_id.eq.${companyBioId},shared_with_company_bio_ids.cs.{${companyBioId}}`);
-  const rows = (sellers ?? []).filter((s: any) => s.unipile_account_id);
-  if (rows.length === 0) return null;
-  if (assignedName) {
-    const match = rows.find((s: any) => (s.name ?? "").toLowerCase() === assignedName.toLowerCase());
-    if (match) return match.unipile_account_id as string;
-  }
-  return rows[0].unipile_account_id as string;
-}
+import { resolveUnipileAccount } from "@/lib/unipile-account";
 
 // GET → return cached talking points (or null if not generated yet).
 // POST → (re)generate and persist. The Pre-Call Brief card calls POST on

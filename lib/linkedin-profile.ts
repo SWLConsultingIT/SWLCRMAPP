@@ -1,19 +1,51 @@
-// Fetches a lead's LinkedIn profile via Unipile and renders it for the
-// Pre-Call Brief prompt. The brief used to be generic because most leads
-// carry only a LinkedIn URL/internal-id — the rich profile (headline, About,
-// experience, skills) lives on LinkedIn, not in our DB. Pulling it on demand
-// (when a seller opens the lead) gives the AI real material to work with.
+// Fetches a lead's LinkedIn profile via Unipile. Two consumers:
+//  - the Pre-Call Brief generator (trimmed → prompt block)
+//  - the LinkedIn Enrichment panel in the lead detail (full → rendered for the
+//    seller: About, full work history with dates, education, skills, etc.)
 //
-// LinkedIn-safety note: profile views happen one-at-a-time at human pace as
-// sellers open leads — NOT in bulk. Never loop this over many leads from a
-// single account; a profile-view spike can get the seller's account
-// restricted (see the "extreme caution with LinkedIn automation" rule).
+// LinkedIn-safety note: profile views happen one-at-a-time at human pace —
+// when a seller opens a lead or clicks "LinkedIn Enrichment". NEVER loop this
+// over many leads from a single account; a profile-view spike can get the
+// seller's account restricted ("extreme caution with LinkedIn automation").
 
 const UNIPILE_BASE = process.env.UNIPILE_DSN
   ? `https://${process.env.UNIPILE_DSN}`
   : "https://api21.unipile.com:15107";
 const UNIPILE_KEY = process.env.UNIPILE_API_KEY ?? "";
 
+export type LinkedInExperience = {
+  position: string | null;
+  company: string | null;
+  location: string | null;
+  start: string | null;
+  end: string | null;
+  description: string | null;
+  companyPictureUrl: string | null;
+};
+export type LinkedInEducation = { degree: string | null; school: string | null; start: string | null; end: string | null };
+
+// Full profile — everything the enrichment panel renders.
+export type LinkedInFullProfile = {
+  firstName: string | null;
+  lastName: string | null;
+  headline: string | null;
+  summary: string | null;
+  location: string | null;
+  publicIdentifier: string | null;
+  profileUrl: string | null;
+  profilePictureUrl: string | null;
+  connectionsCount: number | null;
+  followerCount: number | null;
+  isPremium: boolean;
+  networkDistance: string | null;
+  experience: LinkedInExperience[];
+  education: LinkedInEducation[];
+  skills: Array<{ name: string; endorsements: number }>;
+  languages: string[];
+  certifications: string[];
+};
+
+// Trimmed shape the brief prompt reads.
 export type LinkedInProfile = {
   headline: string | null;
   summary: string | null;
@@ -39,43 +71,86 @@ export function linkedinIdentifier(internalId?: string | null, url?: string | nu
   return null;
 }
 
-export async function fetchLinkedInProfile(identifier: string, accountId: string): Promise<LinkedInProfile | null> {
+async function unipileProfileRaw(identifier: string, accountId: string): Promise<any | null> {
   if (!UNIPILE_KEY || !identifier || !accountId) return null;
   try {
     const url = `${UNIPILE_BASE}/api/v1/users/${encodeURIComponent(identifier)}?account_id=${encodeURIComponent(accountId)}&linkedin_sections=*`;
     const res = await fetch(url, { headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" } });
     if (!res.ok) return null;
     const d = await res.json();
-    if (!d || typeof d !== "object") return null;
-    const we: any[] = Array.isArray(d.work_experience) ? d.work_experience : [];
-    const skills: any[] = Array.isArray(d.skills) ? d.skills : [];
-    const edu: any[] = Array.isArray(d.education) ? d.education : [];
-    const cur = we[0];
-    return {
-      headline: clean(d.headline),
-      summary: clean(d.summary),
-      location: clean(d.location),
-      currentRole: cur ? [clean(cur.position), clean(cur.company)].filter(Boolean).join(" @ ") || null : null,
-      experience: we.slice(0, 4).map((e) => ({
-        position: clean(e?.position) ?? undefined,
-        company: clean(e?.company) ?? undefined,
-        description: typeof e?.description === "string" ? e.description.trim().slice(0, 300) : undefined,
-      })),
-      topSkills: skills.map((s) => clean(s?.name)).filter((x): x is string => !!x).slice(0, 10),
-      education: edu.slice(0, 3).map((e) => ({ degree: clean(e?.degree) ?? undefined, school: clean(e?.school) ?? undefined })),
-    };
+    return d && typeof d === "object" ? d : null;
   } catch {
     return null;
   }
 }
 
-// Returns true when the profile actually carries usable signal (some leads
-// resolve but their profile is empty — headline "--", no summary/experience).
+export async function fetchLinkedInProfileFull(identifier: string, accountId: string): Promise<LinkedInFullProfile | null> {
+  const d = await unipileProfileRaw(identifier, accountId);
+  if (!d) return null;
+  const we: any[] = Array.isArray(d.work_experience) ? d.work_experience : [];
+  const skills: any[] = Array.isArray(d.skills) ? d.skills : [];
+  const edu: any[] = Array.isArray(d.education) ? d.education : [];
+  const langs: any[] = Array.isArray(d.languages) ? d.languages : [];
+  const certs: any[] = Array.isArray(d.certifications) ? d.certifications : [];
+  const pub = clean(d.public_identifier);
+  return {
+    firstName: clean(d.first_name),
+    lastName: clean(d.last_name),
+    headline: clean(d.headline),
+    summary: clean(d.summary),
+    location: clean(d.location),
+    publicIdentifier: pub,
+    profileUrl: pub ? `https://www.linkedin.com/in/${pub}` : null,
+    profilePictureUrl: clean(d.profile_picture_url) ?? clean(d.profile_picture_url_large),
+    connectionsCount: typeof d.connections_count === "number" ? d.connections_count : null,
+    followerCount: typeof d.follower_count === "number" ? d.follower_count : null,
+    isPremium: !!d.is_premium,
+    networkDistance: clean(d.network_distance),
+    experience: we.map((e) => ({
+      position: clean(e?.position),
+      company: clean(e?.company),
+      location: clean(e?.location),
+      start: clean(e?.start),
+      end: clean(e?.end),
+      description: typeof e?.description === "string" ? e.description.trim() : null,
+      companyPictureUrl: clean(e?.company_picture_url),
+    })),
+    education: edu.map((e) => ({ degree: clean(e?.degree), school: clean(e?.school), start: clean(e?.start), end: clean(e?.end) })),
+    skills: skills.map((s) => ({ name: clean(s?.name) ?? "", endorsements: typeof s?.endorsement_count === "number" ? s.endorsement_count : 0 })).filter((s) => s.name),
+    languages: langs.map((l) => clean(typeof l === "string" ? l : l?.name)).filter((x): x is string => !!x),
+    certifications: certs.map((c) => clean(typeof c === "string" ? c : c?.name)).filter((x): x is string => !!x),
+  };
+}
+
+// Trims a full profile to the brief shape.
+export function toBriefProfile(p: LinkedInFullProfile): LinkedInProfile {
+  const cur = p.experience[0];
+  return {
+    headline: p.headline,
+    summary: p.summary,
+    location: p.location,
+    currentRole: cur ? [cur.position, cur.company].filter(Boolean).join(" @ ") || null : null,
+    experience: p.experience.slice(0, 4).map((e) => ({
+      position: e.position ?? undefined,
+      company: e.company ?? undefined,
+      description: e.description ? e.description.slice(0, 300) : undefined,
+    })),
+    topSkills: p.skills.slice(0, 10).map((s) => s.name),
+    education: p.education.slice(0, 3).map((e) => ({ degree: e.degree ?? undefined, school: e.school ?? undefined })),
+  };
+}
+
+export async function fetchLinkedInProfile(identifier: string, accountId: string): Promise<LinkedInProfile | null> {
+  const full = await fetchLinkedInProfileFull(identifier, accountId);
+  return full ? toBriefProfile(full) : null;
+}
+
+// True when the profile carries usable signal (some resolve but are empty).
 export function profileHasSignal(p: LinkedInProfile | null): p is LinkedInProfile {
   return !!p && !!(p.headline || p.summary || p.currentRole || p.experience.length || p.topSkills.length);
 }
 
-// Renders the profile into a prompt block the talking-points generator reads.
+// Renders the trimmed profile into a prompt block for the brief generator.
 export function renderLinkedInBlock(p: LinkedInProfile): string {
   const lines: string[] = ["LINKEDIN PROFILE (the lead's own words — anchor the brief on this)"];
   if (p.headline) lines.push(`- Headline: ${p.headline}`);

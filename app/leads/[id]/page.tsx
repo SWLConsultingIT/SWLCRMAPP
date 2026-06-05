@@ -28,6 +28,7 @@ import LeadSummaryTab from "@/components/LeadSummaryTab";
 import LeadStatsBar from "@/components/LeadStatsBar";
 import MoveForwardButton from "@/components/MoveForwardButton";
 import PreCallBrief from "@/components/PreCallBrief";
+import LinkedInEnrichment from "@/components/LinkedInEnrichment";
 import RecentLeadTracker from "@/components/RecentLeadTracker";
 
 // Bypass Next's render cache. Without this, the page snapshots messages +
@@ -686,6 +687,11 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         initialPoints={(lead as any).call_talking_points ?? null}
         initialGeneratedAt={(lead as any).call_talking_points_at ?? null}
       />
+
+      {/* ═══ LINKEDIN ENRICHMENT — full profile (About, work history, skills,
+            education) pulled live from Unipile on demand. Below the brief so
+            the seller can dig into the raw profile after the 30-sec summary. ═══ */}
+      <LinkedInEnrichment leadId={id} />
 
       {/* ═══ NEXT ACTION CARD — what the user should do or know right now.
             Sits above the stepper so the seller doesn't have to interpret the
