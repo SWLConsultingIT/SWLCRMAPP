@@ -212,13 +212,20 @@ async function getData() {
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
   const thirtyDaysISO = thirtyDaysAgo.toISOString();
 
-  const { data: historyMessages } = await supabase
+  // Scoped to the active tenant via the campaigns→leads join — same reason as
+  // the email count above: without it a super_admin's 30-day history table
+  // mixed in every other tenant's sends (they surfaced as "Unknown" seller).
+  let historyQuery = supabase
     .from("campaign_messages")
-    .select("id, channel, sent_at, campaigns(seller_id)")
+    .select("id, channel, sent_at, campaigns!inner(seller_id, leads!inner(company_bio_id))")
     .gte("sent_at", thirtyDaysISO)
     .not("sent_at", "is", null)
     .order("sent_at", { ascending: false })
     .limit(5000);
+  if (userCompanyBioId) {
+    historyQuery = historyQuery.eq("campaigns.leads.company_bio_id", userCompanyBioId);
+  }
+  const { data: historyMessages } = await historyQuery;
 
   const historyMap: Record<string, { date: string; sellerId: string; sellerName: string; channel: string; count: number }> = {};
   const sellerNameMap: Record<string, string> = {};
@@ -259,7 +266,28 @@ async function getData() {
 
   const totalLinkedinSent = sellerCards.reduce((s, c) => s + c.linkedin.sent, 0);
   const totalLinkedinLimit = sellerCards.reduce((s, c) => s + (c.hasLinkedin ? c.linkedin.limit : 0), 0);
-  const totalEmailSent = Object.values(usageToday).reduce((s, u) => s + u.email, 0);
+
+  // Email "sent today" MUST be scoped to the active tenant — the Instantly
+  // pool capacity it's compared against (instantly.totalDailyLimit) is this
+  // tenant's inboxes only. campaign_messages carries no company_bio_id and
+  // RLS gives a super_admin every tenant's rows (is_auth_admin bypass), so
+  // summing the global usageToday here showed Pathway "111 / 60 — Pool at
+  // capacity" when Pathway had only sent 28 (the other 83 were SWL's). Count
+  // through the campaigns→leads join, filtered to the active bio.
+  // LinkedIn stays per-seller-global on purpose: a shared seller's LinkedIn
+  // daily cap is enforced at the account level across every tenant, matching
+  // how dispatch-queue accounts for it.
+  let emailSentQuery = supabase
+    .from("campaign_messages")
+    .select("id, campaigns!inner(leads!inner(company_bio_id))", { count: "exact", head: true })
+    .eq("channel", "email")
+    .gte("sent_at", since24h)
+    .not("sent_at", "is", null);
+  if (userCompanyBioId) {
+    emailSentQuery = emailSentQuery.eq("campaigns.leads.company_bio_id", userCompanyBioId);
+  }
+  const { count: scopedEmailSent } = await emailSentQuery;
+  const totalEmailSent = scopedEmailSent ?? 0;
 
   return {
     sellers: sellerCards,
