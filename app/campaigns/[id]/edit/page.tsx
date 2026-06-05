@@ -35,6 +35,10 @@ type Seller = {
   // every seller with a connected LinkedIn but no legacy id.
   unipile_account_id: string | null;
   whatsapp_account: string | null;
+  // Tenant ownership — the account pickers must only offer sellers that belong
+  // to (or are shared with) the campaign's tenant, never another client's.
+  company_bio_id: string | null;
+  shared_with_company_bio_ids: string[] | null;
 };
 
 type InstantlyAccount = {
@@ -103,7 +107,7 @@ export default function FlowEditorPage() {
       // SELECT returns empty. Fetch via server route which uses service key.
       const [{ data: campaign }, { data: sellersList }, { data: emails }, msgsRes] = await Promise.all([
         supabase.from("campaigns").select("*, leads(allow_linkedin, allow_email, allow_call, allow_whatsapp), sellers(id, name, email_account, linkedin_account_id, unipile_account_id, whatsapp_account)").eq("id", campaignId).single(),
-        supabase.from("sellers").select("id, name, email_account, linkedin_account_id, unipile_account_id, whatsapp_account").eq("active", true).order("name"),
+        supabase.from("sellers").select("id, name, email_account, linkedin_account_id, unipile_account_id, whatsapp_account, company_bio_id, shared_with_company_bio_ids").eq("active", true).order("name"),
         supabase.from("instantly_accounts").select("id, email, name, active").eq("active", true).order("email"),
         fetch(`/api/campaigns/${campaignId}/messages`, { cache: "no-store" }).then(r => r.json()).catch(() => ({ messages: [] })),
       ]);
@@ -191,7 +195,19 @@ export default function FlowEditorPage() {
       setMessages(msgMap);
       setAttachments(attMap);
 
-      setSellers(sellersList ?? []);
+      // Scope the account pickers to the campaign's tenant — own sellers plus
+      // any explicitly shared with it. Without this, a super_admin editing one
+      // client's flow saw every tenant's sellers and could assign another
+      // client's LinkedIn/phone by mistake.
+      {
+        const campBio = (campaign as { company_bio_id?: string | null }).company_bio_id ?? null;
+        const scoped = (sellersList ?? []).filter((s: Seller) =>
+          !campBio
+          || s.company_bio_id === campBio
+          || (Array.isArray(s.shared_with_company_bio_ids) && s.shared_with_company_bio_ids.includes(campBio))
+        );
+        setSellers(scoped);
+      }
       setEmailAccounts(emails ?? []);
       setLoading(false);
     }
