@@ -2,6 +2,29 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
+import { fetchLinkedInProfile, linkedinIdentifier, profileHasSignal, renderLinkedInBlock } from "@/lib/linkedin-profile";
+
+// Picks a connected LinkedIn account to view the profile through. Prefers the
+// seller the lead is assigned to (linkedin_assigned_account holds a name);
+// otherwise any active seller in the tenant with a Unipile account.
+async function resolveUnipileAccount(
+  svc: ReturnType<typeof getSupabaseService>,
+  companyBioId: string,
+  assignedName: string | null,
+): Promise<string | null> {
+  const { data: sellers } = await svc
+    .from("sellers")
+    .select("name, unipile_account_id, company_bio_id, shared_with_company_bio_ids, active")
+    .eq("active", true)
+    .or(`company_bio_id.eq.${companyBioId},shared_with_company_bio_ids.cs.{${companyBioId}}`);
+  const rows = (sellers ?? []).filter((s: any) => s.unipile_account_id);
+  if (rows.length === 0) return null;
+  if (assignedName) {
+    const match = rows.find((s: any) => (s.name ?? "").toLowerCase() === assignedName.toLowerCase());
+    if (match) return match.unipile_account_id as string;
+  }
+  return rows[0].unipile_account_id as string;
+}
 
 // GET → return cached talking points (or null if not generated yet).
 // POST → (re)generate and persist. The Pre-Call Brief card calls POST on
@@ -71,7 +94,22 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     icpContext = icp;
   }
 
-  const points = await generate({ lead, icpContext, apiKey });
+  // Pull the lead's LinkedIn profile so the brief is anchored on their own
+  // headline / About / experience / skills rather than thin CRM columns. One
+  // profile view per brief, at human pace — never batch this (account safety).
+  // Falls back to company info (handled in the prompt) when there's no
+  // LinkedIn handle or the fetch yields nothing.
+  let liBlock: string | null = null;
+  const identifier = linkedinIdentifier(lead.linkedin_internal_id as string | null, lead.primary_linkedin_url as string | null);
+  if (identifier && lead.company_bio_id) {
+    const accountId = await resolveUnipileAccount(svc, lead.company_bio_id as string, lead.linkedin_assigned_account as string | null);
+    if (accountId) {
+      const profile = await fetchLinkedInProfile(identifier, accountId);
+      if (profileHasSignal(profile)) liBlock = renderLinkedInBlock(profile);
+    }
+  }
+
+  const points = await generate({ lead, icpContext, liBlock, apiKey });
   if (!points || points.length === 0) {
     return NextResponse.json({ error: "AI call failed" }, { status: 500 });
   }
@@ -83,9 +121,10 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   return NextResponse.json({ ok: true, points });
 }
 
-async function generate({ lead, icpContext, apiKey }: {
+async function generate({ lead, icpContext, liBlock, apiKey }: {
   lead: Record<string, unknown>;
   icpContext: { profile_name?: string; solutions_offered?: string; pain_points?: string } | null;
+  liBlock: string | null;
   apiKey: string;
 }): Promise<TalkingPoint[] | null> {
   const name = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "the lead";
@@ -95,15 +134,32 @@ async function generate({ lead, icpContext, apiKey }: {
     .map(([k, v]) => `${k}: ${v}`)
     .join("\n");
 
+  // Company fallback — used when there's no LinkedIn profile to anchor on
+  // (Fran 2026-06-05: "si no tiene linkedin, sumar info de la empresa").
+  const companyLines = [
+    lead.company_name ? `- Company: ${lead.company_name}` : "",
+    lead.company_industry ? `- Industry: ${lead.company_industry}` : "",
+    [lead.company_city, lead.company_country].filter(Boolean).length ? `- Location: ${[lead.company_city, lead.company_country].filter(Boolean).join(", ")}` : "",
+    lead.company_linkedin ? `- Company LinkedIn: ${lead.company_linkedin}` : "",
+    lead.website_summary ? `- Website summary: ${String(lead.website_summary).slice(0, 500)}` : "",
+    lead.company_linkedin_post ? `- Recent company post: ${String(lead.company_linkedin_post).slice(0, 300)}` : "",
+    lead.recent_linkedin_post ? `- Recent post: ${String(lead.recent_linkedin_post).slice(0, 300)}` : "",
+  ].filter(Boolean).join("\n");
+
+  const profileSection = liBlock
+    ? liBlock
+    : `COMPANY CONTEXT (no personal LinkedIn available — anchor on the company)
+${companyLines || `- Company: ${lead.company_name ?? "—"}`}`;
+
   const prompt = `You are a senior B2B SDR coach. The seller dials ${name} in 30 seconds. Generate a tight call brief: one likely pain, one fit reason, one opening line. They will literally read your output before pressing dial.
 
 LEAD
 - ${name}${lead.primary_title_role ? `, ${lead.primary_title_role}` : ""}${lead.company_name ? ` at ${lead.company_name}` : ""}
 - Industry: ${lead.company_industry ?? "—"}
 - Location: ${[lead.company_city, lead.company_country].filter(Boolean).join(", ") || "—"}
-${lead.primary_headline ? `- LinkedIn headline: ${lead.primary_headline}` : ""}
-${lead.primary_career ? `- Career: ${lead.primary_career}` : ""}
 ${lead.seller_notes ? `- Notes: ${lead.seller_notes}` : ""}
+
+${profileSection}
 
 ENRICHMENT DATA (use these specific signals)
 ${enrichmentDump || "(none)"}
