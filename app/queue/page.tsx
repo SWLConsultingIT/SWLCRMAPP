@@ -115,11 +115,15 @@ async function getQueueData() {
   // relationship to sellers in the schema, so embedding it 400s the whole
   // query and History silently renders 0 calls (caught 2026-06-04). seller_id
   // is resolved to a name in a separate lookup below.
+  // Fetch ALL calls (not just classified) — a connected call must show in
+  // History even before the seller marks an outcome. We then merge the
+  // two-rows-per-call reality (dial-marker + Aircall record) and drop pure
+  // dial-attempts below. recording_storage_path + phone_number are needed for
+  // the merge + the player.
   let callHistoryQuery = supabase.from("calls")
-    .select("id, lead_id, seller_id, dialed_by_user_id, classification, status, duration, started_at, recording_url, transcript, notes, aircall_call_id, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id)")
-    .in("classification", ["positive", "negative", "follow_up", "wrong_number"])
+    .select("id, lead_id, seller_id, dialed_by_user_id, classification, status, duration, started_at, recording_url, recording_storage_path, transcript, notes, aircall_call_id, phone_number, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id)")
     .order("started_at", { ascending: false })
-    .limit(500);
+    .limit(1000);
   if (scopedCompanyBioId) callHistoryQuery = callHistoryQuery.eq("leads.company_bio_id", scopedCompanyBioId);
 
   // (Pending Reviews + Updates tabs were removed from /queue per boss
@@ -151,47 +155,45 @@ async function getQueueData() {
 
   const callHistoryRows = await hydrateNestedLeads((rawCallHistory ?? []) as any[]);
 
-  // Attribute each call to whoever dialed it. A real call lands as TWO `calls`
-  // rows: a dial-marker (dialed_by_user_id set, no classification — written
-  // when the seller clicks Call) and the Aircall outcome row (classification +
-  // recording, but dialed_by_user_id NULL). History shows the outcome row, so
-  // "Called by" was always blank. Backfill the outcome row's dialer from the
-  // same lead's dial-marker closest in time.
-  {
-    const histLeadIds = [...new Set(callHistoryRows.map((c: any) => c.lead_id).filter(Boolean))] as string[];
-    const needsDialer = callHistoryRows.some((c: any) => !c.dialed_by_user_id);
-    if (histLeadIds.length > 0 && needsDialer) {
-      const { data: markers } = await supabase.from("calls")
-        .select("lead_id, dialed_by_user_id, started_at")
-        .in("lead_id", histLeadIds)
-        .not("dialed_by_user_id", "is", null)
-        .order("started_at", { ascending: false })
-        .limit(2000);
-      const markersByLead = new Map<string, Array<{ uid: string; t: number }>>();
-      for (const m of (markers ?? []) as any[]) {
-        if (!m.dialed_by_user_id) continue;
-        const arr = markersByLead.get(m.lead_id) ?? [];
-        arr.push({ uid: m.dialed_by_user_id, t: m.started_at ? new Date(m.started_at).getTime() : 0 });
-        markersByLead.set(m.lead_id, arr);
+  // MERGE the two-rows-per-call reality into one entry per real call. A call
+  // produces a dial-marker (dialed_by_user_id, no aircall — written when the
+  // seller clicks Call) AND, racing against it, an Aircall webhook record
+  // (aircall_call_id + recording, no dialer). They often don't get linked
+  // server-side, so History showed duplicates / "No recording" / no dialer.
+  // Here we fold each marker into the nearest Aircall record of the same lead,
+  // keep classified manual calls that have no Aircall record, and DROP pure
+  // dial-attempts (no aircall, no classification) so the log only shows real
+  // calls — classified or not — every account, no duplicates.
+  const realCalls = (() => {
+    const rows = callHistoryRows as any[];
+    const aircallRows = rows.filter(c => c.aircall_call_id);
+    const markerRows = rows.filter(c => !c.aircall_call_id);
+    const usedMarker = new Set<string>();
+    for (const a of aircallRows) {
+      const at = a.started_at ? new Date(a.started_at).getTime() : 0;
+      let best: any = null; let bestDiff = Infinity;
+      for (const m of markerRows) {
+        if (usedMarker.has(m.id) || m.lead_id !== a.lead_id) continue;
+        const d = Math.abs((m.started_at ? new Date(m.started_at).getTime() : 0) - at);
+        if (d < 10 * 60 * 1000 && d < bestDiff) { bestDiff = d; best = m; }
       }
-      for (const c of callHistoryRows as any[]) {
-        if (c.dialed_by_user_id) continue;
-        const cand = markersByLead.get(c.lead_id);
-        if (!cand || cand.length === 0) continue;
-        const ct = c.started_at ? new Date(c.started_at).getTime() : 0;
-        let best = cand[0];
-        let bestDiff = Math.abs(cand[0].t - ct);
-        for (const m of cand) {
-          const d = Math.abs(m.t - ct);
-          if (d < bestDiff) { best = m; bestDiff = d; }
-        }
-        c.dialed_by_user_id = best.uid;
+      if (best) {
+        usedMarker.add(best.id);
+        a.dialed_by_user_id = a.dialed_by_user_id ?? best.dialed_by_user_id;
+        a.classification = a.classification ?? best.classification;
+        a.seller_id = a.seller_id ?? best.seller_id;
+        a.notes = a.notes ?? best.notes;
       }
     }
-  }
+    // Manual / non-Aircall calls that were classified but never produced an
+    // Aircall record still belong in the log.
+    const standaloneClassified = markerRows.filter(m => !usedMarker.has(m.id) && m.classification);
+    return [...aircallRows, ...standaloneClassified]
+      .sort((x, y) => (y.started_at ? new Date(y.started_at).getTime() : 0) - (x.started_at ? new Date(x.started_at).getTime() : 0));
+  })();
 
   // Resolve seller names separately (no calls→sellers FK to embed).
-  const histSellerIds = [...new Set(callHistoryRows.map((c: any) => c.seller_id).filter(Boolean))] as string[];
+  const histSellerIds = [...new Set(realCalls.map((c: any) => c.seller_id).filter(Boolean))] as string[];
   const sellerNameById: Record<string, string> = {};
   if (histSellerIds.length > 0) {
     const { data: sellerRows } = await supabase.from("sellers").select("id, name").in("id", histSellerIds);
@@ -199,7 +201,7 @@ async function getQueueData() {
   }
   // Resolve the dialing teammate's display name (the user who clicked Call),
   // so History shows "Called by <name>" even when there's no seller binding.
-  const dialerIds = [...new Set(callHistoryRows.map((c: any) => c.dialed_by_user_id).filter(Boolean))] as string[];
+  const dialerIds = [...new Set(realCalls.map((c: any) => c.dialed_by_user_id).filter(Boolean))] as string[];
   const dialerNameById: Record<string, string> = {};
   if (dialerIds.length > 0) {
     const svc = getSupabaseService();
@@ -210,7 +212,7 @@ async function getQueueData() {
       } catch { /* leave unresolved */ }
     }));
   }
-  const callHistory = callHistoryRows.map((c: any) => {
+  const callHistory = realCalls.map((c: any) => {
     const lead = c.leads;
     const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
     // Mirror CallCard's recording heuristic: a real recording_url, OR an
