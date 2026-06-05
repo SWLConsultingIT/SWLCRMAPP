@@ -150,6 +150,46 @@ async function getQueueData() {
   ]);
 
   const callHistoryRows = await hydrateNestedLeads((rawCallHistory ?? []) as any[]);
+
+  // Attribute each call to whoever dialed it. A real call lands as TWO `calls`
+  // rows: a dial-marker (dialed_by_user_id set, no classification — written
+  // when the seller clicks Call) and the Aircall outcome row (classification +
+  // recording, but dialed_by_user_id NULL). History shows the outcome row, so
+  // "Called by" was always blank. Backfill the outcome row's dialer from the
+  // same lead's dial-marker closest in time.
+  {
+    const histLeadIds = [...new Set(callHistoryRows.map((c: any) => c.lead_id).filter(Boolean))] as string[];
+    const needsDialer = callHistoryRows.some((c: any) => !c.dialed_by_user_id);
+    if (histLeadIds.length > 0 && needsDialer) {
+      const { data: markers } = await supabase.from("calls")
+        .select("lead_id, dialed_by_user_id, started_at")
+        .in("lead_id", histLeadIds)
+        .not("dialed_by_user_id", "is", null)
+        .order("started_at", { ascending: false })
+        .limit(2000);
+      const markersByLead = new Map<string, Array<{ uid: string; t: number }>>();
+      for (const m of (markers ?? []) as any[]) {
+        if (!m.dialed_by_user_id) continue;
+        const arr = markersByLead.get(m.lead_id) ?? [];
+        arr.push({ uid: m.dialed_by_user_id, t: m.started_at ? new Date(m.started_at).getTime() : 0 });
+        markersByLead.set(m.lead_id, arr);
+      }
+      for (const c of callHistoryRows as any[]) {
+        if (c.dialed_by_user_id) continue;
+        const cand = markersByLead.get(c.lead_id);
+        if (!cand || cand.length === 0) continue;
+        const ct = c.started_at ? new Date(c.started_at).getTime() : 0;
+        let best = cand[0];
+        let bestDiff = Math.abs(cand[0].t - ct);
+        for (const m of cand) {
+          const d = Math.abs(m.t - ct);
+          if (d < bestDiff) { best = m; bestDiff = d; }
+        }
+        c.dialed_by_user_id = best.uid;
+      }
+    }
+  }
+
   // Resolve seller names separately (no calls→sellers FK to embed).
   const histSellerIds = [...new Set(callHistoryRows.map((c: any) => c.seller_id).filter(Boolean))] as string[];
   const sellerNameById: Record<string, string> = {};
