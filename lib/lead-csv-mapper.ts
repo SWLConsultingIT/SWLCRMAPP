@@ -310,6 +310,32 @@ export function heuristicLeadMapping(input: {
 //   - canonical fields as direct keys
 //   - extras collected under `enrichment` key (which lives in leads.enrichment JSONB)
 // `_fullname` and `_location` are split into their canonical parts.
+// primary_seniority is a Postgres enum (seniority_level): intern, junior, mid,
+// senior, lead, manager, director, vp, c_level, founder, owner. CSVs (Apollo)
+// ship free-text like "Partner", "Entry", "C suite", "VP" → inserting verbatim
+// throws "invalid input value for enum seniority_level" and the whole batch
+// fails. Normalize to a valid label, or drop the field (null) when unknown.
+const SENIORITY_ENUM = new Set([
+  "intern", "junior", "mid", "senior", "lead", "manager", "director", "vp",
+  "c_level", "founder", "owner",
+]);
+const SENIORITY_MAP: Record<string, string> = {
+  partner: "owner", owner: "owner", founder: "founder", "co-founder": "founder",
+  cofounder: "founder", "c suite": "c_level", "c-suite": "c_level", csuite: "c_level",
+  "c level": "c_level", "c_level": "c_level", chief: "c_level", cxo: "c_level",
+  ceo: "c_level", cto: "c_level", cfo: "c_level", coo: "c_level", cmo: "c_level",
+  executive: "c_level", vp: "vp", "vice president": "vp", svp: "vp", evp: "vp",
+  director: "director", head: "director", manager: "manager", mgr: "manager",
+  senior: "senior", "senior management": "director", entry: "junior",
+  junior: "junior", associate: "junior", staff: "mid", mid: "mid",
+  intern: "intern", trainee: "intern", lead: "lead",
+};
+function normSeniority(v: string): string | null {
+  const k = v.trim().toLowerCase();
+  if (SENIORITY_ENUM.has(k)) return k;
+  return SENIORITY_MAP[k] ?? null;
+}
+
 // Lead columns typed as Postgres text[] (udt _text). A CSV cell for these
 // arrives as a comma-separated string (Apollo's "Technologies" column: "Amazon
 // AWS, Slack, Stripe, …"); written verbatim Postgres throws "malformed array
@@ -348,6 +374,9 @@ export function applyMappingToRow(
       // ignore — never write internal columns from CSV
     } else if (ARRAY_FIELDS.has(m.target)) {
       out[m.target] = value.split(",").map(p => p.trim()).filter(Boolean);
+    } else if (m.target === "primary_seniority") {
+      const s = normSeniority(value);
+      if (s) out.primary_seniority = s; // unknown → leave null, never break the insert
     } else {
       out[m.target] = value;
     }
