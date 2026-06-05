@@ -9,7 +9,7 @@ import {
   Share2, Mail, Phone, MessageCircle, Check, Pencil, X, Save, Copy,
   PlayCircle, Loader2, Pause, Play, Trash2, Send, Paperclip,
   Users, UserPlus, Megaphone, Target, CheckCircle2,
-  MessageSquare, PhoneCall, Clock, AlertTriangle, ChevronRight, LayoutGrid, BarChart3,
+  MessageSquare, PhoneCall, Clock, AlertTriangle, ChevronRight, LayoutGrid, BarChart3, Search,
 } from "lucide-react";
 import CampaignKanban from "@/components/CampaignKanban";
 import FlowMetricsPanel, { type FlowMetrics } from "@/components/FlowMetricsPanel";
@@ -240,6 +240,30 @@ export default function CampaignDetailClient({
 
   const visibleCampaigns = allCampaigns.filter(c => c.status !== "completed" && c.status !== "failed");
 
+  // Leads-tab filters — shared across List + Pipeline.
+  const [leadSearch, setLeadSearch] = useState("");
+  const [leadSeller, setLeadSeller] = useState<string>("all");
+  const [leadStatus, setLeadStatus] = useState<string>("all");
+  const [leadRole, setLeadRole] = useState<string>("all");
+
+  // ── Leads-tab filters (apply to BOTH List and Pipeline views) ──
+  const sellerOptions = Array.from(new Set(visibleCampaigns.map(c => c.sellers?.name).filter(Boolean) as string[])).sort();
+  const roleOptions = Array.from(new Set(visibleCampaigns.map(c => c.leads?.primary_title_role).filter(Boolean) as string[])).sort();
+  const statusOptions = Array.from(new Set(visibleCampaigns.map(c => c.status).filter(Boolean) as string[])).sort();
+  const filteredCampaigns = visibleCampaigns.filter(c => {
+    const l = c.leads;
+    if (leadSeller !== "all" && (c.sellers?.name ?? "") !== leadSeller) return false;
+    if (leadStatus !== "all" && c.status !== leadStatus) return false;
+    if (leadRole !== "all" && (l?.primary_title_role ?? "") !== leadRole) return false;
+    if (leadSearch.trim()) {
+      const q = leadSearch.trim().toLowerCase();
+      const hay = `${l?.primary_first_name ?? ""} ${l?.primary_last_name ?? ""} ${l?.company_name ?? ""} ${l?.primary_title_role ?? ""}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+  const leadFiltersActive = leadSearch.trim() !== "" || leadSeller !== "all" || leadStatus !== "all" || leadRole !== "all";
+
   // ── Next Actions: for every active campaign in the group, compute the next step + urgency ──
   const now = Date.now();
   const nextActions = allCampaigns
@@ -409,21 +433,57 @@ export default function CampaignDetailClient({
             {selected.size > 0 && <button onClick={() => setSelected(new Set())} className="text-xs underline ml-1" style={{ color: C.textMuted }}>Clear</button>}
           </div>
 
+          {/* Filter bar — applies to BOTH List and Pipeline */}
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: C.textMuted }} />
+              <input
+                value={leadSearch}
+                onChange={e => setLeadSearch(e.target.value)}
+                placeholder="Search lead, company, role…"
+                className="pl-8 pr-3 py-1.5 text-xs rounded-lg border w-60"
+                style={{ backgroundColor: C.card, borderColor: C.border, color: C.textPrimary }}
+              />
+            </div>
+            <select value={leadSeller} onChange={e => setLeadSeller(e.target.value)}
+              className="px-2.5 py-1.5 text-xs rounded-lg border" style={{ backgroundColor: C.card, borderColor: C.border, color: leadSeller === "all" ? C.textMuted : C.textPrimary }}>
+              <option value="all">All sellers</option>
+              {sellerOptions.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <select value={leadStatus} onChange={e => setLeadStatus(e.target.value)}
+              className="px-2.5 py-1.5 text-xs rounded-lg border" style={{ backgroundColor: C.card, borderColor: C.border, color: leadStatus === "all" ? C.textMuted : C.textPrimary }}>
+              <option value="all">All statuses</option>
+              {statusOptions.map(s => <option key={s} value={s}>{statusConfig[s]?.label ?? s}</option>)}
+            </select>
+            <select value={leadRole} onChange={e => setLeadRole(e.target.value)}
+              className="px-2.5 py-1.5 text-xs rounded-lg border max-w-[180px]" style={{ backgroundColor: C.card, borderColor: C.border, color: leadRole === "all" ? C.textMuted : C.textPrimary }}>
+              <option value="all">All roles</option>
+              {roleOptions.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+            {leadFiltersActive && (
+              <button onClick={() => { setLeadSearch(""); setLeadSeller("all"); setLeadStatus("all"); setLeadRole("all"); }}
+                className="text-xs underline" style={{ color: C.textMuted }}>Clear filters</button>
+            )}
+            <span className="text-xs tabular-nums ml-auto" style={{ color: C.textMuted }}>
+              {filteredCampaigns.length}{leadFiltersActive ? ` / ${visibleCampaigns.length}` : ""} leads
+            </span>
+          </div>
+
           {leadsView === "kanban" ? (
-            <CampaignKanban sequence={sequence} campaigns={visibleCampaigns as any} />
+            <CampaignKanban sequence={sequence} campaigns={filteredCampaigns as any} />
           ) : (
           <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
             <table className="w-full text-sm">
               <thead>
                 <tr style={{ background: `color-mix(in srgb, var(--brand, #c9a83a) 4%, transparent)` }}>
-                  <th className="w-10 px-4 py-3"><input type="checkbox" checked={selected.size === visibleCampaigns.length && visibleCampaigns.length > 0} onChange={() => selected.size === visibleCampaigns.length ? setSelected(new Set()) : setSelected(new Set(visibleCampaigns.map(c => c.id)))} style={{ accentColor: gold }} /></th>
+                  <th className="w-10 px-4 py-3"><input type="checkbox" checked={selected.size === filteredCampaigns.length && filteredCampaigns.length > 0} onChange={() => selected.size === filteredCampaigns.length ? setSelected(new Set()) : setSelected(new Set(filteredCampaigns.map(c => c.id)))} style={{ accentColor: gold }} /></th>
                   {["Lead", "Company", "Role", "Status", "Progress", "Seller", ""].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted, borderBottom: `1px solid ${C.border}` }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {visibleCampaigns.map(c => {
+                {filteredCampaigns.map(c => {
                   const l = c.leads; if (!l) return null;
                   const nm = `${l.primary_first_name ?? ""} ${l.primary_last_name ?? ""}`.trim() || "Unknown";
                   const cst = statusConfig[c.status] ?? statusConfig.active;
