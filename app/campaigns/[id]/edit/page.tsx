@@ -29,6 +29,11 @@ type Seller = {
   name: string;
   email_account: string | null;
   linkedin_account_id: string | null;
+  // The Unipile account is what the LinkedIn dispatcher actually sends from
+  // (dispatch-queue keys on unipile_account_id). linkedin_account_id is a
+  // legacy field only a few sellers carry, so filtering the picker on it hid
+  // every seller with a connected LinkedIn but no legacy id.
+  unipile_account_id: string | null;
   whatsapp_account: string | null;
 };
 
@@ -97,8 +102,8 @@ export default function FlowEditorPage() {
       // campaign_messages has RLS enabled with no policies → browser-side
       // SELECT returns empty. Fetch via server route which uses service key.
       const [{ data: campaign }, { data: sellersList }, { data: emails }, msgsRes] = await Promise.all([
-        supabase.from("campaigns").select("*, leads(allow_linkedin, allow_email, allow_call, allow_whatsapp), sellers(id, name, email_account, linkedin_account_id, whatsapp_account)").eq("id", campaignId).single(),
-        supabase.from("sellers").select("id, name, email_account, linkedin_account_id, whatsapp_account").eq("active", true).order("name"),
+        supabase.from("campaigns").select("*, leads(allow_linkedin, allow_email, allow_call, allow_whatsapp), sellers(id, name, email_account, linkedin_account_id, unipile_account_id, whatsapp_account)").eq("id", campaignId).single(),
+        supabase.from("sellers").select("id, name, email_account, linkedin_account_id, unipile_account_id, whatsapp_account").eq("active", true).order("name"),
         supabase.from("instantly_accounts").select("id, email, name, active").eq("active", true).order("email"),
         fetch(`/api/campaigns/${campaignId}/messages`, { cache: "no-store" }).then(r => r.json()).catch(() => ({ messages: [] })),
       ]);
@@ -407,9 +412,9 @@ export default function FlowEditorPage() {
                   </div>
                 );
               })}
-              {sellers.filter(s => s.linkedin_account_id && !linkedinProfiles.includes(s.id)).length > 0 && (
+              {sellers.filter(s => s.unipile_account_id && !linkedinProfiles.includes(s.id)).length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
-                  {sellers.filter(s => s.linkedin_account_id && !linkedinProfiles.includes(s.id)).map(s => (
+                  {sellers.filter(s => s.unipile_account_id && !linkedinProfiles.includes(s.id)).map(s => (
                     <button key={s.id} onClick={() => setLinkedinProfiles(prev => [...prev, s.id])}
                       className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium cursor-pointer transition-[opacity,transform,box-shadow,background-color,border-color] hover:shadow-sm"
                       style={{ backgroundColor: C.cardHov, color: C.textMuted, border: `1px solid ${C.border}` }}
