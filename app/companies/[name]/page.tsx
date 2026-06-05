@@ -29,13 +29,27 @@ const goldGlow = "color-mix(in srgb, var(--brand, #c9a83a) 15%, transparent)";
 
 async function getCompanyLeads(companyName: string) {
   const supabase = await getSupabaseServer();
-  const { data } = await supabase
-    .from("leads")
-    .select("*")
-    .order("lead_score", { ascending: false })
-    .limit(5000);
-  const hydrated = await hydrateClientLeads((data ?? []) as Record<string, unknown>[] as Array<{ id?: string; source?: string | null; encrypted_payload?: unknown; company_bio_id?: string | null; company_name?: string | null }>);
-  return hydrated.filter(l => (l as { company_name?: string }).company_name === companyName);
+  // Filter by company at the DB level instead of fetching top-N-by-score and
+  // matching in memory. The old query ordered by lead_score and took the first
+  // page — capped at 1000 rows by PostgREST — so a company whose leads scored
+  // low (e.g. freshly imported leads with score 0) fell outside the page and
+  // its company detail 404'd. Two paths, both RLS-scoped to the tenant:
+  //   1) plaintext company_name (swl-source + any row with the column set)
+  //      filters directly in SQL.
+  //   2) client-source leads keep company_name inside encrypted_payload, so
+  //      they can't be filtered in SQL — fetch the tenant's encrypted rows and
+  //      match after decrypt.
+  const [{ data: plain }, { data: enc }] = await Promise.all([
+    supabase.from("leads").select("*").eq("company_name", companyName).limit(2000),
+    supabase.from("leads").select("*").eq("source", "client").not("encrypted_payload", "is", null).limit(2000),
+  ]);
+  const hydratedEnc = await hydrateClientLeads((enc ?? []) as Record<string, unknown>[] as Array<{ id?: string; source?: string | null; encrypted_payload?: unknown; company_bio_id?: string | null; company_name?: string | null }>);
+  const byId = new Map<string, Record<string, unknown>>();
+  for (const l of (plain ?? []) as Array<Record<string, unknown>>) byId.set(l.id as string, l);
+  for (const l of hydratedEnc as Array<Record<string, unknown>>) {
+    if ((l as { company_name?: string }).company_name === companyName) byId.set(l.id as string, l);
+  }
+  return [...byId.values()];
 }
 
 async function getCampaignStats(leadIds: string[]) {
