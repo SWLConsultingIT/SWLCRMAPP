@@ -317,7 +317,13 @@ export async function POST(req: NextRequest) {
     // always canonical, so the dispatcher never has to fix it.
     const connectionRequestRaw = prompts.channelMessages?.connectionRequest ?? "";
     const connectionRequest = autoNormalizePlaceholders(connectionRequestRaw).normalized;
-    if (connectionRequest && channels.includes("linkedin")) {
+    // Seed the step-0 invite whenever the flow has a LinkedIn day-0 connect
+    // step (hasCR), EVEN IF the note is blank — a blank note ships as a
+    // note-less connection request (dispatcher sends message: undefined), which
+    // accepts at a higher rate and dodges LinkedIn's stricter invite-with-note
+    // limit. Previously a blank CR skipped this insert entirely, so the flow
+    // had no connect step and the first DM fired at a non-connection (failed).
+    if (hasCR && channels.includes("linkedin")) {
       const inviteOffsetDays = Math.max(0, (firstLinkedinCumDay ?? 0) - 1);
       const eligibleAt = inviteOffsetDays > 0
         ? new Date(Date.now() + inviteOffsetDays * 86400000).toISOString()

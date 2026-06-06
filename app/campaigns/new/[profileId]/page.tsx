@@ -1005,8 +1005,8 @@ export default function NewCampaignWizard() {
                                   <select className="rounded-lg border px-2 py-1.5 text-xs font-medium focus:outline-none"
                                     style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg, minWidth: 65 }}
                                     value={s.daysAfter} onChange={e => updateStep(i, "daysAfter", Number(e.target.value))}>
-                                    {[...new Set([s.daysAfter, 1, 2, 3, 4, 5, 7, 10, 14, 21])].sort((a, b) => a - b).map(d => (
-                                      <option key={d} value={d}>{d} {d === 1 ? "day" : "days"}</option>
+                                    {[...new Set([s.daysAfter, 0, 1, 2, 3, 4, 5, 7, 10, 14, 21])].sort((a, b) => a - b).map(d => (
+                                      <option key={d} value={d}>{d === 0 ? "same day" : `${d} ${d === 1 ? "day" : "days"}`}</option>
                                     ))}
                                   </select>
                                   <span className="text-xs tabular-nums" style={{ color: C.textDim }}>
@@ -1063,7 +1063,7 @@ export default function NewCampaignWizard() {
                             {ch.label} — Step {i + 1}
                           </p>
                           <p className="text-xs" style={{ color: C.textMuted }}>
-                            {i === 0 ? "Sent immediately" : `${s.daysAfter} days after previous step`}
+                            {i === 0 ? "Sent immediately" : s.daysAfter === 0 ? "Same day — right after the previous step (a LinkedIn DM fires the moment they accept)" : `${s.daysAfter} days after previous step`}
                           </p>
                         </div>
                         <span className="text-xs font-bold tabular-nums px-2.5 py-1 rounded-full"
