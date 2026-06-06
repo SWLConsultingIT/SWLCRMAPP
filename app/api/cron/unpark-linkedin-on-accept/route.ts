@@ -88,19 +88,37 @@ export async function GET(req: NextRequest) {
   const unparkErrors: Array<{ msgId: string; reason: string }> = [];
   const expireErrors: Array<{ msgId: string; reason: string }> = [];
 
+  // Re-space, don't dump. If a lead has MORE THAN ONE parked LinkedIn DM
+  // (multi-DM sequence, accepted late so several were parked), releasing them
+  // all to now() makes them fire on consecutive ticks — two+ DMs minutes apart
+  // instead of the days the sequence intended (spammy + out of cadence). So we
+  // group by lead, fire ONLY the lowest-step DM now, and stagger the rest
+  // RESPACE_GAP_DAYS apart from the acceptance moment so the cadence resumes.
+  const RESPACE_GAP_DAYS = 2;
+  const byLead = new Map<string, Row[]>();
   for (const r of toUnpark) {
-    const mergedMeta = {
-      ...(r.metadata ?? {}),
-      awaiting_acceptance: false,
-      eligible_at: nowISO,
-      unparked_at: nowISO,
-    };
-    const { error } = await svc
-      .from("campaign_messages")
-      .update({ metadata: mergedMeta })
-      .eq("id", r.id)
-      .eq("status", "queued");
-    if (error) unparkErrors.push({ msgId: r.id, reason: error.message });
+    const arr = byLead.get(r.lead_id) ?? [];
+    arr.push(r);
+    byLead.set(r.lead_id, arr);
+  }
+  for (const group of byLead.values()) {
+    group.sort((a, b) => a.step_number - b.step_number);
+    for (let i = 0; i < group.length; i++) {
+      const r = group[i];
+      const eligible = i === 0 ? nowISO : new Date(nowMs + i * RESPACE_GAP_DAYS * 86400000).toISOString();
+      const mergedMeta = {
+        ...(r.metadata ?? {}),
+        awaiting_acceptance: false,
+        eligible_at: eligible,
+        unparked_at: nowISO,
+      };
+      const { error } = await svc
+        .from("campaign_messages")
+        .update({ metadata: mergedMeta })
+        .eq("id", r.id)
+        .eq("status", "queued");
+      if (error) unparkErrors.push({ msgId: r.id, reason: error.message });
+    }
   }
 
   for (const r of toExpire) {
