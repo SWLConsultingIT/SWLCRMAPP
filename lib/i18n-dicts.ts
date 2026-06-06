@@ -729,6 +729,12 @@ export const en: Dict = {
   "inbox.confirm.followup.body": "This RESUMES the flow for this lead: even though they replied, the sequence runs again and will keep sending the next automatic steps.",
   "inbox.confirm.followup.note": "It's the only classification that resumes a campaign. If the lead writes again, the flow stops on its own.",
   "inbox.confirm.followup.yes": "Yes, resume the flow",
+  // Classification value is `follow_up` (underscore) — the confirm dialog looks
+  // up inbox.confirm.${cls}.* so it needs the underscore keys, not `followup`.
+  "inbox.confirm.follow_up.title": "Mark as Follow-up?",
+  "inbox.confirm.follow_up.body": "This RESUMES the flow for this lead: even though they replied, the sequence runs again and will keep sending the next automatic steps.",
+  "inbox.confirm.follow_up.note": "It's the only classification that resumes a campaign. If the lead writes again, the flow stops on its own.",
+  "inbox.confirm.follow_up.yes": "Yes, resume the flow",
   "inbox.confirm.positive.title": "Mark as Positive?",
   "inbox.confirm.positive.body": "This CLOSES the campaign as won: the lead becomes qualified, the sequence stops, and the lead is pushed to Odoo.",
   "inbox.confirm.positive.note": "No more automatic messages will go out to this lead.",
@@ -2143,6 +2149,10 @@ export const es: Dict = {
   "inbox.confirm.followup.body": "Esto RETOMA el flujo para este lead: aunque ya te respondió, la secuencia vuelve a correr y le va a seguir mandando los próximos pasos automáticos.",
   "inbox.confirm.followup.note": "Es la única clasificación que reanuda una campaña. Si el lead vuelve a escribir, el flujo se frena de nuevo solo.",
   "inbox.confirm.followup.yes": "Sí, retomar el flujo",
+  "inbox.confirm.follow_up.title": "¿Marcar como Follow-up?",
+  "inbox.confirm.follow_up.body": "Esto RETOMA el flujo para este lead: aunque ya te respondió, la secuencia vuelve a correr y le va a seguir mandando los próximos pasos automáticos.",
+  "inbox.confirm.follow_up.note": "Es la única clasificación que reanuda una campaña. Si el lead vuelve a escribir, el flujo se frena de nuevo solo.",
+  "inbox.confirm.follow_up.yes": "Sí, retomar el flujo",
   "inbox.confirm.positive.title": "¿Marcar como Positiva?",
   "inbox.confirm.positive.body": "Esto CIERRA la campaña como ganada: el lead pasa a qualified, la secuencia se frena, y el lead se manda a Odoo.",
   "inbox.confirm.positive.note": "No se le manda ningún mensaje automático más a este lead.",
