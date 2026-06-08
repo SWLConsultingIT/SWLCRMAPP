@@ -29,10 +29,14 @@ export default function ChannelComparison({
   channels,
   t,
   emptyLabel = "No channel activity yet.",
+  linkedinConnections,
 }: {
   channels: Row[];
   t: (k: string) => string;
   emptyLabel?: string;
+  /** LinkedIn invite leg (sent → accepted). Boss 2026-06-08: the head-to-head
+   * was missing LinkedIn connections; surfaced inline on the LinkedIn row. */
+  linkedinConnections?: { sent: number; accepted: number } | null;
 }) {
   if (channels.length === 0) {
     return (
@@ -72,7 +76,18 @@ export default function ChannelComparison({
               >
                 <Icon size={15} />
               </span>
-              <span className="text-[13px] font-medium truncate" style={{ color: C.textPrimary }} title={channelLabel}>{channelLabel}</span>
+              <div className="min-w-0">
+                <span className="text-[13px] font-medium truncate block" style={{ color: C.textPrimary }} title={channelLabel}>{channelLabel}</span>
+                {r.channel === "linkedin" && linkedinConnections && linkedinConnections.sent > 0 && (
+                  <span className="text-[10px] truncate block" style={{ color: C.textDim }}
+                    title={t("dashx.channels.connectionsHint")}>
+                    {t("dashx.channels.connectionsInline")
+                      .replace("{sent}", linkedinConnections.sent.toLocaleString("en-US"))
+                      .replace("{accepted}", linkedinConnections.accepted.toLocaleString("en-US"))
+                      .replace("{pct}", String(linkedinConnections.sent > 0 ? Math.round((linkedinConnections.accepted / linkedinConnections.sent) * 100) : 0))}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Bar */}
@@ -97,8 +112,8 @@ export default function ChannelComparison({
 
             {/* Counts on the right — wider cells so the numbers read at scan distance */}
             <div className="hidden md:grid items-center gap-3 tabular-nums" style={{ gridTemplateColumns: "1fr 1fr 1fr 1fr" }}>
-              <Stat label={t("dashx.channels.sent")} value={r.sent} />
-              <Stat label={t("dashx.channels.contacted")} value={r.contacted} />
+              <Stat label={t("dashx.channels.sent")} value={r.sent} hint={t("dashx.channels.sentHint")} />
+              <Stat label={t("dashx.channels.contacted")} value={r.contacted} hint={t("dashx.channels.contactedHint")} />
               <Stat label={t("dashx.channels.replied")} value={r.replied} />
               <Stat label={t("dashx.channels.positive")} value={r.positive} accent={r.positive > 0 ? C.green : undefined} />
             </div>
@@ -114,10 +129,10 @@ export default function ChannelComparison({
   );
 }
 
-function Stat({ label, value, accent }: { label: string; value: number; accent?: string }) {
+function Stat({ label, value, accent, hint }: { label: string; value: number; accent?: string; hint?: string }) {
   return (
-    <div className="text-right min-w-0">
-      <p className="text-[9.5px] uppercase tracking-wider truncate" style={{ color: C.textDim }} title={label}>{label}</p>
+    <div className="text-right min-w-0" title={hint ?? label}>
+      <p className="text-[9.5px] uppercase tracking-wider truncate" style={{ color: C.textDim }}>{label}{hint && <span className="opacity-60 ml-0.5" style={{ cursor: "help" }}>ⓘ</span>}</p>
       <p className="text-[14px] font-bold tabular-nums" style={{ color: accent ?? C.textPrimary }}>{value.toLocaleString("en-US")}</p>
     </div>
   );

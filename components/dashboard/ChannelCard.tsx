@@ -7,7 +7,6 @@
 // they're universally recognizable, but the *layout* and typography are
 // SWL-cohesive.
 
-import Link from "next/link";
 import { Share2, Mail, Phone, Smartphone, MessageSquare, Trophy } from "lucide-react";
 import { C, N, T } from "@/lib/design";
 
@@ -47,12 +46,11 @@ export default function ChannelCard({
   const channelLabel = t(meta.labelKey);
 
   return (
-    <Link
-      href={`/queue?tab=inbox&channel=${encodeURIComponent(row.channel)}`}
-      // Hover lift + channel-color glow ring + 3px top accent rail in
-      // channel color. Whole card is the link (boss 2026-05-29: clicking
-      // a channel card lands on /queue inbox pre-filtered to that channel).
-      className="group/card relative rounded-2xl border overflow-hidden p-4 sm:p-5 transition-[transform,box-shadow] hover:-translate-y-0.5 hover:shadow-[0_14px_32px_-12px_var(--card-glow)] flex flex-col"
+    // Informational tile — NOT a link. Boss 2026-06-08: clicking a channel
+    // "te lleva a cualquier lado" (the old whole-card link to a channel-filtered
+    // inbox landed somewhere confusing). The card now just reports the channel.
+    <div
+      className="group/card relative rounded-2xl border overflow-hidden p-4 sm:p-5 transition-[box-shadow] hover:shadow-[0_14px_32px_-12px_var(--card-glow)] flex flex-col"
       style={{
         backgroundColor: C.card,
         borderColor: isTop ? `color-mix(in srgb, ${gold} 38%, ${C.border})` : C.border,
@@ -124,19 +122,21 @@ export default function ChannelCard({
       {/* Volume strip — 4 micro-stats now (added contacted so the
           denominator of the reply rate is visible alongside it). */}
       <div className="mt-3 pt-3 grid grid-cols-4 gap-2 relative" style={{ borderTop: `1px dashed ${C.border}` }}>
-        <Mini label={t("dashx.channels.sent")} value={row.sent} />
-        <Mini label={t("dashx.channels.contacted")} value={row.contacted} />
+        <Mini label={t("dashx.channels.sent")} value={row.sent} hint={t("dashx.channels.sentHint")} />
+        <Mini label={t("dashx.channels.contacted")} value={row.contacted} hint={t("dashx.channels.contactedHint")} />
         <Mini label={t("dashx.channels.replied")} value={row.replied} />
         <Mini label={t("dashx.channels.positive")} value={row.positive} accent={row.positive > 0 ? C.green : undefined} />
       </div>
-    </Link>
+    </div>
   );
 }
 
-function Mini({ label, value, accent }: { label: string; value: number; accent?: string }) {
+function Mini({ label, value, accent, hint }: { label: string; value: number; accent?: string; hint?: string }) {
   return (
-    <div>
-      <p className="text-[9px] uppercase tracking-[0.14em] font-semibold" style={{ color: C.textDim }}>{label}</p>
+    <div title={hint}>
+      <p className="text-[9px] uppercase tracking-[0.14em] font-semibold inline-flex items-center gap-0.5" style={{ color: C.textDim }}>
+        {label}{hint && <span className="opacity-60" style={{ cursor: "help" }}>ⓘ</span>}
+      </p>
       <p className="text-[14px] font-bold tabular-nums mt-0.5" style={{ color: accent ?? C.textPrimary }}>
         {value.toLocaleString("en-US")}
       </p>

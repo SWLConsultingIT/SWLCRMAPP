@@ -1609,7 +1609,7 @@ export default async function DashboardPage({
             <p className="text-[9.5px] font-bold uppercase tracking-[0.16em] mb-2.5" style={{ color: C.textMuted }}>
               {t("dashx.channels.bandComparison")}
             </p>
-            <ChannelComparison channels={data.channelBreakdown} t={t} emptyLabel={t("dashx.channels.empty")} />
+            <ChannelComparison channels={data.channelBreakdown} t={t} emptyLabel={t("dashx.channels.empty")} linkedinConnections={data.linkedinConnections} />
           </div>
         )}
       </Panel>
