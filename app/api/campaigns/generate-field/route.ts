@@ -261,3 +261,75 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+// ── Call script generation (Claude) ──────────────────────────────────────────
+// n8n's V7 Pro generator only drafts LinkedIn/Email, so call steps are handled
+// here: pull the lead + ICP context and have Claude write a tight phone script.
+async function generateCallScript(body: LegacyBody): Promise<NextResponse> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return NextResponse.json({ error: "Missing ANTHROPIC_API_KEY" }, { status: 500 });
+  const svc = getSupabaseService();
+
+  // Lead context (optional — drafts a solid generic script if absent).
+  let lead: Record<string, unknown> = {};
+  if (body.leadId) {
+    const { data: leadRow } = await svc.from("leads").select("*").eq("id", body.leadId).maybeSingle();
+    if (leadRow) {
+      lead = leadRow;
+      if (leadRow.source === "client" && leadRow.encrypted_payload && leadRow.company_bio_id) {
+        try {
+          const { key } = await resolveTenantKey(leadRow.company_bio_id as string);
+          lead = { ...leadRow, ...decryptWithResolvedKey(bufferFromSupabaseBytea(leadRow.encrypted_payload), key) };
+        } catch { /* fall back to redacted row */ }
+      }
+    }
+  }
+
+  let icp: { profile_name?: string; solutions_offered?: string; pain_points?: string } | null = null;
+  if (body.icpProfileId) {
+    const { data } = await svc.from("icp_profiles").select("profile_name, solutions_offered, pain_points").eq("id", body.icpProfileId).maybeSingle();
+    icp = data;
+  }
+
+  const isFollowup = body.fieldType === "CALL_FOLLOWUP";
+  const name = `${(lead.primary_first_name as string) ?? ""} ${(lead.primary_last_name as string) ?? ""}`.trim() || "the lead";
+  const lang = body.language === "es" ? "Spanish (rioplatense)" : body.language === "pt" ? "Portuguese" : "English";
+  const enrichment = (lead.enrichment as Record<string, unknown> | null) ?? {};
+  const enrichmentDump = Object.entries(enrichment)
+    .filter(([k, v]) => k !== "source_file" && v != null && v !== "")
+    .map(([k, v]) => `${k}: ${v}`).join("\n");
+
+  const prompt = `You are a senior B2B SDR coach. Write a tight, natural phone CALL SCRIPT a seller will read on a ${isFollowup ? "follow-up" : "first"} call. Output in ${lang}. It must sound like a human talking, not a memo.
+
+LEAD
+- ${name}${lead.primary_title_role ? `, ${lead.primary_title_role}` : ""}${lead.company_name ? ` at ${lead.company_name}` : ""}
+- Industry: ${lead.company_industry ?? "—"}
+${lead.primary_headline ? `- LinkedIn headline: ${lead.primary_headline}` : ""}
+
+ENRICHMENT (use specific signals if useful)
+${enrichmentDump || "(none)"}
+
+${icp ? `WHAT WE SELL
+- Offering: ${icp.solutions_offered ?? ""}
+- Pain we solve: ${icp.pain_points ?? ""}` : ""}
+
+${body.user_prompt ? `SELLER'S INTENT (honor this): ${body.user_prompt}` : ""}
+
+Structure: (1) warm opener using their first name + why you're calling, (2) one open question about their situation, (3) a 2-line value pitch tied to their likely pain, (4) a close proposing a 15-minute follow-up. Keep it ~120-160 words. Use {{first_name}}, {{company}}, {{seller_name}} placeholders where natural. Return ONLY the script text — no headings, no quotes, no commentary.`;
+
+  try {
+    const client = new Anthropic({ apiKey });
+    const res = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 700,
+      system: "You output ONLY the call script text — natural spoken language, no headings or meta-commentary. You never refuse.",
+      messages: [{ role: "user", content: prompt }],
+    });
+    const content = res.content[0]?.type === "text" ? res.content[0].text.trim() : "";
+    if (!content) return NextResponse.json({ error: "AI returned no script" }, { status: 502 });
+    return NextResponse.json({ content });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
