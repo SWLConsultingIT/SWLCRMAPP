@@ -1,0 +1,3307 @@
+{
+  "generatedAt": "2026-06-01T13:46:36.803Z",
+  "arqyBioId": "0902962f-4b15-4810-a5bd-730d4b22a527",
+  "campaignsInScope": [
+    {
+      "id": "6f2427a7-3368-4591-bea2-c896d252aef0",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "0c5e63a5-7bd1-4706-9e39-4ad31a9d9a6c",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "17733142-36e8-48fa-b0f6-e539c7f48dd6",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "74ef7094-e4c3-4339-ab09-d5118a9ef9d3",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "db6b93e9-d382-4e5e-9589-e6d61a6e2395",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "active"
+    },
+    {
+      "id": "73c34e21-cfaf-4cae-bcb6-82b746fc40ca",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "b5a7fed1-3a58-475f-892c-59008a531023",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "726d893e-01da-4bfd-b83c-17621468d20c",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "d11d5e11-aba3-49f0-9709-caae3fd19b29",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "6dc4552e-bbd0-4a4b-bc73-79f881716d08",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "active"
+    },
+    {
+      "id": "d5a1f212-e679-4dfc-9f3e-acec6df039a6",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "3c6e1809-2944-440f-be3b-470eb0c2a75e",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "5e653864-f408-430b-a343-2e242cd7d045",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "b5ebf2c3-5eb5-401e-877b-251b81a2e24c",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "836974a7-5925-422a-9529-dcc6a4037643",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "423be2b6-065d-4a9d-802f-58ec6994bfb5",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "ccd92880-2ab4-4588-82a0-4485d99926c6",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "3a77304e-23b7-4a09-bdda-59a38422af57",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "cd5193b0-a327-47f9-aad8-8464c0a046c5",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "5938b481-01c2-40bc-a87e-99d8388f2e0e",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "5981f1a7-4f8d-41c3-8281-a8d7796f026d",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "active"
+    },
+    {
+      "id": "ec6bd934-d362-4a42-a0ae-c6781fc7ab2a",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "f63c7136-268d-4c5d-9419-d5e57e68c8ee",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "ad3a4861-2cbf-4435-8ede-1716d23be1b4",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "closed_lost"
+    },
+    {
+      "id": "1c3c926b-9f62-41e1-ad68-c4282f87401d",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "83a19317-c0a1-415a-84eb-d64cdcd3ebac",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "2bc571dc-cc32-4693-8c95-32b46df6be51",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "4f6fd9a8-4584-4595-999c-c615144d4751",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "330e565a-6e5c-455e-9f22-1c5162bd0353",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "726e4102-6ec0-4196-874a-7221e9ccab14",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "5b3b9bad-b8c7-47fc-a795-4761e1d3f044",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "4203029e-ea7e-4f3f-a045-86b1d9441345",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "7c60e70a-6b87-45ed-a534-0e073936601b",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "0988803c-af93-404a-acb5-95ab4f331ba7",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "c3c4dc37-8ef1-4927-bf20-1f8aff97fc07",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "06881b34-3603-4efd-a2fa-3abda1b400d0",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "6dfda911-d99e-47c8-b302-b8d816096e5e",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "bf4f1423-e470-4202-a0bb-d17f8657e5ee",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "7726d77c-972f-46e4-a2de-f1a71226e766",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "closed_lost"
+    },
+    {
+      "id": "c4c689c8-f18e-45d2-85ef-0082d35ee1e6",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "5e7e2f25-305b-4c09-835f-800ad27c2626",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "ab13059d-b93c-4a3d-acc9-82ef368b00ea",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "95c684dd-980a-4c8c-9fc6-4d8027569522",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "0c22bb16-cc84-475e-9217-2d9a55811ab0",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "4ba32c1b-db79-4643-bca2-5298ef58c83d",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "4d13341d-30bb-4883-aaf1-5b2bf1a83b35",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "a399306d-6c98-4999-a4ac-f036ebbddada",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "15dd155d-5aaf-47c5-8cf3-ac652b2bffaf",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "5774afd9-7b03-4b95-b4c4-bb90013ab891",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "875d379b-c454-4a76-9aed-71b120cc5c72",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "42722a08-097d-4e3a-9753-9ad2fc256e25",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "26f53d20-43ee-459c-8e9f-aadc04214458",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "76c98fce-ff8f-43b8-9c94-097689864958",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "1202ee90-2a13-4844-bdb3-bb2b57d9998a",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "046cfd30-26a5-4f31-9589-9068c5769f7f",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "closed_lost"
+    },
+    {
+      "id": "25122c8a-4f16-456a-9b7c-c12301d344ae",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "closed_lost"
+    },
+    {
+      "id": "bd3e9f5d-4c2e-418c-888b-1472fe24f93c",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "d1f2eebe-5ad9-4488-8c44-3d7c609b0742",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "5514d3fd-bbbc-4f47-a053-bd0cf02778c7",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "aa0ce650-1527-4970-953f-a056131f8911",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "c77a9668-e3bc-4d3b-8960-4ca82a95fa27",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "d0bd3c1b-115b-4396-b56f-c86b7dabdeb1",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "a59ebe9b-8058-4d95-aa29-8c3b13be3349",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "d84d0ede-1384-4d5a-b230-a1029eb120e5",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "closed_lost"
+    },
+    {
+      "id": "28fef8e9-1aa4-4660-8990-a2053a30c3b7",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "e534a2c5-9dd0-406a-9a6e-78944070a4cf",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "86fa6ec1-9326-4871-b6b1-4088aada52b5",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "1f2a02d4-b3b1-4dee-9e67-b97e22778e22",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "b477d8ce-0d8d-4d67-881a-faf1b69b4734",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "1b468003-1f8b-4465-9389-7291f7fb833b",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "active"
+    },
+    {
+      "id": "82ea3bdd-a49f-4164-b41d-c0b211f6d024",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "a7226323-b970-4778-b6b5-0d49aeba53c5",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "e6abf866-3f35-44f8-85f9-d2608814ffd6",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "active"
+    },
+    {
+      "id": "83c9036b-b8e5-4b15-9e09-abe1b902ef7b",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "40d2bfbc-ce2e-4c66-8a36-b27832f97e03",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "4278f202-56d6-4f40-bf5d-1cca060a35d3",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Architects UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "3306d6f8-a1e1-4b98-be4a-5c43ee40d1ac",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "e58b6b0a-0693-4a10-a229-0db1f501e3cd",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "6e8bc500-ea2b-4676-8e63-a0a61c71b75f",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "dc69ad6e-e268-4eb5-9521-e6c4b20199d0",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "cbce71b6-22d9-432e-9ae4-f47a8c1c8bfe",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "28159896-9fcc-434c-bd36-50ebfc65c3ea",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "5e2b17f7-b0eb-4e83-94e1-84054c602cac",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "79761c91-619c-40c7-b206-587b43c48986",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "894d3f75-72b0-4ad2-833d-867d9255427b",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "0abab79f-2712-40c5-bcf7-88b60ae15ec6",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "0e8bd8e8-cfca-42ed-bb5c-b573f337472a",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "302a49f3-e9ea-4f19-b7e7-007fdba477ba",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "d331c7be-a60b-4606-87d5-3f05f5e19eef",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "25b358b9-9fac-4b41-8e42-bf83b6747969",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "35cb8544-0e2b-455f-a4a3-00ab437a94f5",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "4d166668-e6b2-40b7-80fa-e6395d9a7c0e",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "3772da68-32ce-4b32-8803-62308f28e00d",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "3fe3758f-e5cc-4169-b36a-88129735b8f4",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "b52e1d2b-fac8-47b0-ba4b-5162d0fff59a",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "6c41225f-ce18-4b11-8212-84938fcdcf2c",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "e546e85c-c4a8-4dab-a7eb-b69903849fe8",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "UK Developers - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "a32ccab1-28f0-44ef-be29-ae72cc35dade",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "a472d021-a2e3-4e30-bf6b-f7f2b6fec19f",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "1e7a49ca-c138-4aa1-82b4-bd143c14e276",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "15a842c1-2fe8-460c-93c6-78a150a1817a",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    },
+    {
+      "id": "000e508d-196d-4d7a-909f-2a8ba57d81e6",
+      "company_bio_id": "0902962f-4b15-4810-a5bd-730d4b22a527",
+      "name": "Contractors UK - Multichannel",
+      "status": "completed"
+    }
+  ],
+  "messagesToDelete": [
+    {
+      "id": "82d9634b-fce6-432c-a63d-5083ee5475b0",
+      "campaign_id": "17733142-36e8-48fa-b0f6-e539c7f48dd6",
+      "lead_id": "1d9bd439-8212-417c-993e-3ae01a8187b4",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.508-03:00"
+    },
+    {
+      "id": "10afc11b-cfb7-44d3-9e02-7421f1fcba53",
+      "campaign_id": "17733142-36e8-48fa-b0f6-e539c7f48dd6",
+      "lead_id": "1d9bd439-8212-417c-993e-3ae01a8187b4",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T01:00:22.518Z",
+        "parked_since": "2026-05-30T01:00:22.518Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "OUT_OF_NETWORK",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:05.508-03:00"
+    },
+    {
+      "id": "9940293b-ef28-4f30-b197-ea612d2f6151",
+      "campaign_id": "d5a1f212-e679-4dfc-9f3e-acec6df039a6",
+      "lead_id": "6cf58eb6-0386-4b8a-b1ad-a249d8240635",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.65-03:00"
+    },
+    {
+      "id": "605301fd-53ce-4c04-a297-054865b1710f",
+      "campaign_id": "c4c689c8-f18e-45d2-85ef-0082d35ee1e6",
+      "lead_id": "0b12f214-d1d8-456f-9491-f59de9b7b0ee",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:06.024-03:00"
+    },
+    {
+      "id": "1936aa61-3e80-4e77-ba44-c6873c1bb0ee",
+      "campaign_id": "bf4f1423-e470-4202-a0bb-d17f8657e5ee",
+      "lead_id": "2014b3be-0d8f-4d67-a351-12bbce43db8d",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T04:15:22.573Z",
+        "parked_since": "2026-05-30T04:15:22.573Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "OUT_OF_NETWORK",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:06.446-03:00"
+    },
+    {
+      "id": "ea6c3d87-67b5-41ef-8921-f89cea4b5be3",
+      "campaign_id": "bf4f1423-e470-4202-a0bb-d17f8657e5ee",
+      "lead_id": "2014b3be-0d8f-4d67-a351-12bbce43db8d",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:06.446-03:00"
+    },
+    {
+      "id": "af672f66-65e3-4755-8d5f-284d51afc947",
+      "campaign_id": "0c5e63a5-7bd1-4706-9e39-4ad31a9d9a6c",
+      "lead_id": "5c0f7e24-9e91-49ba-9afc-b11ea03cdc3b",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:06.986-03:00"
+    },
+    {
+      "id": "176ba6b7-6e6c-4b9f-9656-df47bb19e470",
+      "campaign_id": "3c6e1809-2944-440f-be3b-470eb0c2a75e",
+      "lead_id": "e565cc7f-28e6-4963-96eb-6dcd90aaf173",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T01:00:22.958Z",
+        "parked_since": "2026-05-30T01:00:22.958Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:13.737-03:00"
+    },
+    {
+      "id": "41ac1946-0d8a-40d2-bdb3-11d04a5edf67",
+      "campaign_id": "6f2427a7-3368-4591-bea2-c896d252aef0",
+      "lead_id": "959a50f4-dd23-409b-85a0-89ade33e03ab",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T23:00:23.628Z",
+        "parked_since": "2026-05-30T23:00:23.628Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:06.544-03:00"
+    },
+    {
+      "id": "8f3eeb00-9946-42ce-8779-a52520563b2b",
+      "campaign_id": "83a19317-c0a1-415a-84eb-d64cdcd3ebac",
+      "lead_id": "38be80f9-4656-4a66-a15b-0b012eee4994",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T08:00:22.463Z",
+        "parked_since": "2026-05-30T08:00:22.463Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:13.841-03:00"
+    },
+    {
+      "id": "cbf678ed-a864-4d1e-b72a-c8fc2d8b4f10",
+      "campaign_id": "423be2b6-065d-4a9d-802f-58ec6994bfb5",
+      "lead_id": "c45d5b47-b729-49c1-9597-176fe034847c",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:07.131-03:00"
+    },
+    {
+      "id": "632bee03-c6e4-4643-bb24-4a487e03cbcc",
+      "campaign_id": "423be2b6-065d-4a9d-802f-58ec6994bfb5",
+      "lead_id": "c45d5b47-b729-49c1-9597-176fe034847c",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T01:45:22.575Z",
+        "parked_since": "2026-05-30T01:45:22.575Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:07.131-03:00"
+    },
+    {
+      "id": "9b9404d9-8b63-4490-9d9b-7e2fdb158759",
+      "campaign_id": "74ef7094-e4c3-4339-ab09-d5118a9ef9d3",
+      "lead_id": "16f7dd82-b084-4f52-979c-26f6ea83397e",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T08:30:22.321Z",
+        "parked_since": "2026-05-30T08:30:22.321Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:14.213-03:00"
+    },
+    {
+      "id": "7b2742ed-d6d1-4244-85f2-6c0270440fe1",
+      "campaign_id": "cd5193b0-a327-47f9-aad8-8464c0a046c5",
+      "lead_id": "c27e91a4-30c3-40d3-a816-444dffa47e88",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T02:45:23.457Z",
+        "parked_since": "2026-05-30T02:45:23.457Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:15.915-03:00"
+    },
+    {
+      "id": "24497047-d44e-4afc-a83d-9023f28f883e",
+      "campaign_id": "ec6bd934-d362-4a42-a0ae-c6781fc7ab2a",
+      "lead_id": "a1ec5e13-f36a-4759-aabc-a27a9a107694",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-21T01:00:22.511Z",
+        "parked_since": "2026-05-31T01:00:22.511Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:05.39-03:00"
+    },
+    {
+      "id": "8a921ac0-c4b4-4f10-9eaa-8bd2be498a9c",
+      "campaign_id": "6dfda911-d99e-47c8-b302-b8d816096e5e",
+      "lead_id": "bb10ca26-0031-44f4-8306-b8242e853f5f",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T23:30:22.625Z",
+        "parked_since": "2026-05-30T23:30:22.625Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:06.675-03:00"
+    },
+    {
+      "id": "7165d2f1-84ca-47ec-94af-2bb48231a2fe",
+      "campaign_id": "5938b481-01c2-40bc-a87e-99d8388f2e0e",
+      "lead_id": "30fe320b-e3aa-4d03-810e-32a3b8b6da80",
+      "status": "queued",
+      "channel": "email",
+      "step_number": 7,
+      "content": "Hi {{first_name}},\n\nLast note. ARQY is the operational infrastructure connecting capital deployment, physical execution and\nownership into one continuously updated record, built for development teams who are done finding out\nabout problems at reporting milestones.\n\nLet me know if timing works. No issue if not.\n\n{{seller_name}}",
+      "metadata": {
+        "queued_by": "cron-dispatch-queue",
+        "eligible_at": "2026-06-01T23:15:23.349Z"
+      },
+      "created_at": "2026-05-18T19:39:06.192-03:00"
+    },
+    {
+      "id": "a485cdae-8d30-4d33-a16d-d8efb961dbda",
+      "campaign_id": "f63c7136-268d-4c5d-9419-d5e57e68c8ee",
+      "lead_id": "dfdba0ea-caa9-497e-a332-6f4abf704a1b",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T20:30:22.631Z",
+        "parked_since": "2026-05-30T20:30:22.631Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:05.926-03:00"
+    },
+    {
+      "id": "5b7e7974-57bc-4b3c-b997-4b20c341c42d",
+      "campaign_id": "330e565a-6e5c-455e-9f22-1c5162bd0353",
+      "lead_id": "45de1ccb-fa0d-4cd8-b44a-73fa9ec71e99",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-21T00:15:22.494Z",
+        "parked_since": "2026-05-31T00:15:22.494Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:06.252-03:00"
+    },
+    {
+      "id": "51e0c00a-5e46-4941-b0db-92b5b3fc5b6c",
+      "campaign_id": "4203029e-ea7e-4f3f-a045-86b1d9441345",
+      "lead_id": "85cbbcf4-099d-4715-8d16-671bb457427e",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T22:30:24.175Z",
+        "parked_since": "2026-05-30T22:30:24.175Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:06.325-03:00"
+    },
+    {
+      "id": "606cbc7d-145b-4e07-b922-39af7bd3a2fa",
+      "campaign_id": "7726d77c-972f-46e4-a2de-f1a71226e766",
+      "lead_id": "9e682e08-fee6-4ce0-8678-7c0236f6075e",
+      "status": "draft",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-18T19:39:06.4-03:00"
+    },
+    {
+      "id": "1be0a6bc-b632-45a7-aac9-53649a564723",
+      "campaign_id": "7726d77c-972f-46e4-a2de-f1a71226e766",
+      "lead_id": "9e682e08-fee6-4ce0-8678-7c0236f6075e",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 7,
+      "content": "Hi {{first_name}},\n\nLast note. ARQY is the operational infrastructure connecting capital deployment, physical execution and\nownership into one continuously updated record, built for development teams who are done finding out\nabout problems at reporting milestones.\n\nLet me know if timing works. No issue if not.\n\n{{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-18T19:39:06.4-03:00"
+    },
+    {
+      "id": "427b1fda-e6d5-47f0-9a18-ec397c13c7aa",
+      "campaign_id": "7726d77c-972f-46e4-a2de-f1a71226e766",
+      "lead_id": "9e682e08-fee6-4ce0-8678-7c0236f6075e",
+      "status": "queued",
+      "channel": "call",
+      "step_number": 5,
+      "content": "Hi [First Name] — following up on ARQY. We have a reference case from the US where a development\nteam cut their variance detection time from weeks to days. 15 minutes to share the specifics?",
+      "metadata": {
+        "queued_by": "cron-dispatch-email",
+        "eligible_at": "2026-05-26T20:39:47.912Z"
+      },
+      "created_at": "2026-05-18T19:39:06.4-03:00"
+    },
+    {
+      "id": "552f8a45-4f2b-4aff-a19a-60f20f6d4045",
+      "campaign_id": "ad3a4861-2cbf-4435-8ede-1716d23be1b4",
+      "lead_id": "a061960a-3072-47c2-bf28-9c95d18d7143",
+      "status": "queued",
+      "channel": "call",
+      "step_number": 5,
+      "content": "Hi [First Name] — following up on ARQY. We have a reference case from the US where a development\nteam cut their variance detection time from weeks to days. 15 minutes to share the specifics?",
+      "metadata": {
+        "queued_by": "cron-dispatch-email",
+        "eligible_at": "2026-05-26T20:39:47.987Z"
+      },
+      "created_at": "2026-05-18T19:39:06.748-03:00"
+    },
+    {
+      "id": "e08f5b7d-d981-4d93-82ba-364796c550b0",
+      "campaign_id": "ad3a4861-2cbf-4435-8ede-1716d23be1b4",
+      "lead_id": "a061960a-3072-47c2-bf28-9c95d18d7143",
+      "status": "draft",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-18T19:39:06.748-03:00"
+    },
+    {
+      "id": "7183fb41-8b46-4194-99e1-8a55f9e9cdf5",
+      "campaign_id": "ad3a4861-2cbf-4435-8ede-1716d23be1b4",
+      "lead_id": "a061960a-3072-47c2-bf28-9c95d18d7143",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 7,
+      "content": "Hi {{first_name}},\n\nLast note. ARQY is the operational infrastructure connecting capital deployment, physical execution and\nownership into one continuously updated record, built for development teams who are done finding out\nabout problems at reporting milestones.\n\nLet me know if timing works. No issue if not.\n\n{{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-18T19:39:06.748-03:00"
+    },
+    {
+      "id": "4a834f06-b163-4d3e-9400-a344d1d8c7e1",
+      "campaign_id": "5981f1a7-4f8d-41c3-8281-a8d7796f026d",
+      "lead_id": "fa8d05cb-362d-4f4d-ab27-6691c67d8d1f",
+      "status": "queued",
+      "channel": "email",
+      "step_number": 7,
+      "content": "Hi {{first_name}},\n\nLast note. ARQY is the operational infrastructure connecting capital deployment, physical execution and\nownership into one continuously updated record, built for development teams who are done finding out\nabout problems at reporting milestones.\n\nLet me know if timing works. No issue if not.\n\n{{seller_name}}",
+      "metadata": {
+        "queued_by": "cron-dispatch-queue",
+        "eligible_at": "2026-06-01T21:30:23.580Z"
+      },
+      "created_at": "2026-05-18T19:39:07.005-03:00"
+    },
+    {
+      "id": "40337047-cc96-4262-9799-72a6da6de698",
+      "campaign_id": "0988803c-af93-404a-acb5-95ab4f331ba7",
+      "lead_id": "9582d89c-95ed-452b-b6d5-e12a4175e609",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T23:45:22.428Z",
+        "parked_since": "2026-05-30T23:45:22.428Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:06.465-03:00"
+    },
+    {
+      "id": "5f69019f-8ff0-4e71-be01-38f152da8c4f",
+      "campaign_id": "6dc4552e-bbd0-4a4b-bc73-79f881716d08",
+      "lead_id": "fe3bc999-63c1-4ba3-b40c-cb9c952ecdeb",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T03:00:23.792Z",
+        "parked_since": "2026-05-30T03:00:23.792Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:15.842-03:00"
+    },
+    {
+      "id": "7112c1b5-f036-49aa-94e9-55394917d61c",
+      "campaign_id": "73c34e21-cfaf-4cae-bcb6-82b746fc40ca",
+      "lead_id": "a673e16e-dc24-4551-9925-699d015047b0",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T04:45:22.836Z",
+        "parked_since": "2026-05-30T04:45:22.836Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:14.934-03:00"
+    },
+    {
+      "id": "26115fb2-d7bd-4fe7-b6f6-3f70b0638c42",
+      "campaign_id": "c3c4dc37-8ef1-4927-bf20-1f8aff97fc07",
+      "lead_id": "db5e7e2c-7269-47cf-994f-8b3f8605ddad",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T05:45:24.102Z",
+        "parked_since": "2026-05-30T05:45:24.102Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:15.213-03:00"
+    },
+    {
+      "id": "eee77c47-a556-4a89-998b-1c3673753b46",
+      "campaign_id": "5b3b9bad-b8c7-47fc-a795-4761e1d3f044",
+      "lead_id": "06c3fdb1-4f43-4181-8012-01cd2b4ca77a",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T19:30:22.681Z",
+        "parked_since": "2026-05-30T19:30:22.681Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:07.088-03:00"
+    },
+    {
+      "id": "592df7c0-fa05-4fd8-896e-d9d6ccdefe8d",
+      "campaign_id": "726e4102-6ec0-4196-874a-7221e9ccab14",
+      "lead_id": "fb7c5018-ca69-407a-bd02-8a9a231d4f23",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T19:45:22.694Z",
+        "parked_since": "2026-05-30T19:45:22.694Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:07.345-03:00"
+    },
+    {
+      "id": "006e359d-5c50-4739-aa76-e46a885f54c3",
+      "campaign_id": "3a77304e-23b7-4a09-bdda-59a38422af57",
+      "lead_id": "ad651810-cee4-418f-8878-bb29568dc676",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T03:45:24.517Z",
+        "parked_since": "2026-05-30T03:45:24.517Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:15.595-03:00"
+    },
+    {
+      "id": "827293d3-8b92-4c8a-96d1-dd0242a2b2e7",
+      "campaign_id": "b5a7fed1-3a58-475f-892c-59008a531023",
+      "lead_id": "abb6820e-1874-4be2-95d6-6931f7affe4b",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T04:00:23.562Z",
+        "parked_since": "2026-05-30T04:00:23.562Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:15.46-03:00"
+    },
+    {
+      "id": "ffc0e9b3-f729-413d-b6f4-544f81eba9e4",
+      "campaign_id": "db6b93e9-d382-4e5e-9589-e6d61a6e2395",
+      "lead_id": "cdcbb7ac-23b7-479f-948b-91b94cd2fa95",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T03:15:24.355Z",
+        "parked_since": "2026-05-30T03:15:24.355Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:16.046-03:00"
+    },
+    {
+      "id": "017403a7-e289-4546-a1e9-1d3ad99226c1",
+      "campaign_id": "5e653864-f408-430b-a343-2e242cd7d045",
+      "lead_id": "9bf3233f-fab4-49a9-875d-56dfacfc6661",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T05:00:24.103Z",
+        "parked_since": "2026-05-30T05:00:24.103Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "SECOND_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:16.112-03:00"
+    },
+    {
+      "id": "a8430f7f-a110-43dd-be68-993970567f1e",
+      "campaign_id": "c4c689c8-f18e-45d2-85ef-0082d35ee1e6",
+      "lead_id": "0b12f214-d1d8-456f-9491-f59de9b7b0ee",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T06:00:22.547Z",
+        "parked_since": "2026-05-30T06:00:22.547Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "OUT_OF_NETWORK",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:06.024-03:00"
+    },
+    {
+      "id": "b345a39e-2a12-453b-93f7-827f54f2d525",
+      "campaign_id": "836974a7-5925-422a-9529-dcc6a4037643",
+      "lead_id": "48eae0c5-6f91-46e7-aeb6-93e804327478",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T04:30:23.601Z",
+        "parked_since": "2026-05-30T04:30:23.601Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:15-03:00"
+    },
+    {
+      "id": "1995afba-54cd-4ace-a718-543bd36e19c0",
+      "campaign_id": "d5a1f212-e679-4dfc-9f3e-acec6df039a6",
+      "lead_id": "6cf58eb6-0386-4b8a-b1ad-a249d8240635",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T05:30:22.671Z",
+        "parked_since": "2026-05-30T05:30:22.671Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:05.65-03:00"
+    },
+    {
+      "id": "23f7eab0-42c9-4749-aae5-fa4989ec7b51",
+      "campaign_id": "4f6fd9a8-4584-4595-999c-c615144d4751",
+      "lead_id": "bcb4d4da-1e37-4d62-8acb-b68f3129800d",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-21T01:15:22.581Z",
+        "parked_since": "2026-05-31T01:15:22.581Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:05.712-03:00"
+    },
+    {
+      "id": "26b73340-0108-4bdb-9078-48333574edb5",
+      "campaign_id": "7c60e70a-6b87-45ed-a534-0e073936601b",
+      "lead_id": "c3c7d8fb-afcd-40ad-b858-b1fd35555916",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T20:45:23.541Z",
+        "parked_since": "2026-05-30T20:45:23.541Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:06.061-03:00"
+    },
+    {
+      "id": "d8374927-3323-4324-80dd-9a0eef9949fc",
+      "campaign_id": "1c3c926b-9f62-41e1-ad68-c4282f87401d",
+      "lead_id": "e1e28db0-3df1-4a1c-95a6-72766645e6e2",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T21:15:22.685Z",
+        "parked_since": "2026-05-30T21:15:22.685Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:07.28-03:00"
+    },
+    {
+      "id": "f218c2f6-5d0e-4040-a928-bd3c3b7c97bf",
+      "campaign_id": "726d893e-01da-4bfd-b83c-17621468d20c",
+      "lead_id": "84f9b44d-c093-4d2e-a702-f3a499ba5afd",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T06:00:23.771Z",
+        "parked_since": "2026-05-30T06:00:23.771Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:15.727-03:00"
+    },
+    {
+      "id": "73b3df5b-ecb5-45eb-9fcc-e17014a27d04",
+      "campaign_id": "d11d5e11-aba3-49f0-9709-caae3fd19b29",
+      "lead_id": "384086e2-56ea-4311-acd3-37b75d7d612d",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T06:30:24.206Z",
+        "parked_since": "2026-05-30T06:30:24.206Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:14.666-03:00"
+    },
+    {
+      "id": "62fd3d68-e343-47a6-bf70-154538d5a5af",
+      "campaign_id": "0c5e63a5-7bd1-4706-9e39-4ad31a9d9a6c",
+      "lead_id": "5c0f7e24-9e91-49ba-9afc-b11ea03cdc3b",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T01:30:22.449Z",
+        "parked_since": "2026-05-30T01:30:22.449Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:06.986-03:00"
+    },
+    {
+      "id": "bf9b0686-035e-4b03-965f-0ce72fda8cdf",
+      "campaign_id": "06881b34-3603-4efd-a2fa-3abda1b400d0",
+      "lead_id": "2b0b0274-8e15-4d36-aa97-f60563ec1fe8",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T01:30:23.606Z",
+        "parked_since": "2026-05-30T01:30:23.606Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:13.912-03:00"
+    },
+    {
+      "id": "2642e39a-3de4-4b3c-acdb-078db8e863e1",
+      "campaign_id": "2bc571dc-cc32-4693-8c95-32b46df6be51",
+      "lead_id": "8a61d3b2-fb8d-4ea2-b749-bfa17e65ea4b",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T01:45:23.690Z",
+        "parked_since": "2026-05-30T01:45:23.690Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:15.982-03:00"
+    },
+    {
+      "id": "abd695ae-0824-43b6-8442-c80b41a38876",
+      "campaign_id": "ccd92880-2ab4-4588-82a0-4485d99926c6",
+      "lead_id": "33836db6-e4f9-4b6e-a2fc-3d5e14f328a1",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T02:15:23.613Z",
+        "parked_since": "2026-05-30T02:15:23.613Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:15.395-03:00"
+    },
+    {
+      "id": "c508500b-3e43-495a-9845-293b972f77c4",
+      "campaign_id": "b5ebf2c3-5eb5-401e-877b-251b81a2e24c",
+      "lead_id": "0f87d563-7fc4-480b-ad15-1828f28500dd",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T07:45:22.441Z",
+        "parked_since": "2026-05-30T07:45:22.441Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "SECOND_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:14.423-03:00"
+    },
+    {
+      "id": "d4fbf7ad-fdd1-449a-bbdd-9899da3d2c10",
+      "campaign_id": "dc69ad6e-e268-4eb5-9521-e6c4b20199d0",
+      "lead_id": "88d19595-1a34-4c10-8484-198652b66297",
+      "status": "draft",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:04.607-03:00"
+    },
+    {
+      "id": "0a29fdea-1656-4122-a768-132973cd1b03",
+      "campaign_id": "dc69ad6e-e268-4eb5-9521-e6c4b20199d0",
+      "lead_id": "88d19595-1a34-4c10-8484-198652b66297",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 7,
+      "content": "{{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time — no manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n\n— {{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:04.607-03:00"
+    },
+    {
+      "id": "f1c1f5be-bbc8-4356-a436-19769acccfbe",
+      "campaign_id": "dc69ad6e-e268-4eb5-9521-e6c4b20199d0",
+      "lead_id": "88d19595-1a34-4c10-8484-198652b66297",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:04.607-03:00"
+    },
+    {
+      "id": "3ee8a219-d48a-41ca-a8e4-e6fa10f1f175",
+      "campaign_id": "26f53d20-43ee-459c-8e9f-aadc04214458",
+      "lead_id": "ad43ba4e-b134-4fa3-a984-bd8c7521a189",
+      "status": "queued",
+      "channel": "call",
+      "step_number": 5,
+      "content": "Hi {{first_name}},\n\nMost contractor-developer relationships have a reporting layer that doesn't connect to either party's live\nsystems. ARQY removes it. Milestone completions update the developer's financial record in real time,\nwith full traceability.\n\nYour clients get the visibility they want. Your team stops manually bridging the gap. The relationship\ngets cleaner.\n\nWorth 20 minutes to walk through the mechanics?\n\nThanks in advance,\n\n{seller_name}}",
+      "metadata": {
+        "queued_by": "cron-dispatch-email",
+        "eligible_at": "2026-05-26T20:16:04.533Z"
+      },
+      "created_at": "2026-05-18T19:12:04.796-03:00"
+    },
+    {
+      "id": "7214f3d2-9d68-4d17-9e49-2de4dc640da5",
+      "campaign_id": "26f53d20-43ee-459c-8e9f-aadc04214458",
+      "lead_id": "ad43ba4e-b134-4fa3-a984-bd8c7521a189",
+      "status": "draft",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:04.796-03:00"
+    },
+    {
+      "id": "194bd749-8e96-466d-9475-531a6d98f44b",
+      "campaign_id": "26f53d20-43ee-459c-8e9f-aadc04214458",
+      "lead_id": "ad43ba4e-b134-4fa3-a984-bd8c7521a189",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 7,
+      "content": "{{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time — no manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n\n— {{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:04.796-03:00"
+    },
+    {
+      "id": "432e65a2-28bc-40f4-a4d0-a0944f0be8ab",
+      "campaign_id": "26f53d20-43ee-459c-8e9f-aadc04214458",
+      "lead_id": "ad43ba4e-b134-4fa3-a984-bd8c7521a189",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:04.796-03:00"
+    },
+    {
+      "id": "4a235611-5985-4620-87d9-5096e9efa7a5",
+      "campaign_id": "5e7e2f25-305b-4c09-835f-800ad27c2626",
+      "lead_id": "ff07eec8-f74e-451e-b825-2b50ca951d26",
+      "status": "draft",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.033-03:00"
+    },
+    {
+      "id": "5e5847d2-0465-48c6-93a1-b835b05b8cfb",
+      "campaign_id": "5e7e2f25-305b-4c09-835f-800ad27c2626",
+      "lead_id": "ff07eec8-f74e-451e-b825-2b50ca951d26",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 7,
+      "content": "{{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time — no manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n\n— {{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.033-03:00"
+    },
+    {
+      "id": "bdbba79a-f2ee-4ed6-ada8-2dc997d1adf0",
+      "campaign_id": "5e7e2f25-305b-4c09-835f-800ad27c2626",
+      "lead_id": "ff07eec8-f74e-451e-b825-2b50ca951d26",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.033-03:00"
+    },
+    {
+      "id": "a09fdf58-4a82-4548-a6ce-1b35e5f94d22",
+      "campaign_id": "dc69ad6e-e268-4eb5-9521-e6c4b20199d0",
+      "lead_id": "88d19595-1a34-4c10-8484-198652b66297",
+      "status": "queued",
+      "channel": "call",
+      "step_number": 5,
+      "content": "Hi {{first_name}},\n\nMost contractor-developer relationships have a reporting layer that doesn't connect to either party's live\nsystems. ARQY removes it. Milestone completions update the developer's financial record in real time,\nwith full traceability.\n\nYour clients get the visibility they want. Your team stops manually bridging the gap. The relationship\ngets cleaner.\n\nWorth 20 minutes to walk through the mechanics?\n\nThanks in advance,\n\n{seller_name}}",
+      "metadata": {
+        "queued_by": "cron-dispatch-email",
+        "eligible_at": "2026-05-26T20:16:04.626Z"
+      },
+      "created_at": "2026-05-18T19:12:04.607-03:00"
+    },
+    {
+      "id": "f63e0791-e960-43cb-97f6-7f662a5120fd",
+      "campaign_id": "b477d8ce-0d8d-4d67-881a-faf1b69b4734",
+      "lead_id": "30e27f4d-8d4c-4b02-a5cc-8b1936f6d91d",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T22:15:23.549Z",
+        "parked_since": "2026-05-30T22:15:23.549Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:06.941-03:00"
+    },
+    {
+      "id": "24cd3b68-79aa-4f6d-aeb1-daa90ea3f96f",
+      "campaign_id": "3306d6f8-a1e1-4b98-be4a-5c43ee40d1ac",
+      "lead_id": "989f74dc-939e-4c00-81b2-0ef407b97d45",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.869-03:00"
+    },
+    {
+      "id": "96f7eb77-75a2-4c93-a7a2-dcf194e3dde9",
+      "campaign_id": "ab13059d-b93c-4a3d-acc9-82ef368b00ea",
+      "lead_id": "b12f349d-2dcf-4a43-b7f9-20e7e70c6b68",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T01:15:23.563Z",
+        "parked_since": "2026-05-30T01:15:23.563Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:14.284-03:00"
+    },
+    {
+      "id": "2f8a989c-7114-45ad-9b23-9529f858931e",
+      "campaign_id": "15dd155d-5aaf-47c5-8cf3-ac652b2bffaf",
+      "lead_id": "5e9f4ac8-a924-4bd5-bc40-a22abfc187a3",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T05:15:22.540Z",
+        "parked_since": "2026-05-30T05:15:22.540Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "OUT_OF_NETWORK",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:06.522-03:00"
+    },
+    {
+      "id": "6094c9be-c2c9-4151-aa7f-803a10e22b5d",
+      "campaign_id": "4d13341d-30bb-4883-aaf1-5b2bf1a83b35",
+      "lead_id": "bb04aac0-5ffb-4a97-b9a7-556091f34864",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T02:30:23.734Z",
+        "parked_since": "2026-05-30T02:30:23.734Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:14.355-03:00"
+    },
+    {
+      "id": "73ddbd34-fa56-40ee-8019-bcd01e45ec7e",
+      "campaign_id": "a59ebe9b-8058-4d95-aa29-8c3b13be3349",
+      "lead_id": "0bbe7123-6f23-4b49-b780-686285a26a26",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:06.301-03:00"
+    },
+    {
+      "id": "0bfb758f-be3a-4885-8aac-490918a49589",
+      "campaign_id": "a59ebe9b-8058-4d95-aa29-8c3b13be3349",
+      "lead_id": "0bbe7123-6f23-4b49-b780-686285a26a26",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T03:15:23.530Z",
+        "parked_since": "2026-05-30T03:15:23.530Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "OUT_OF_NETWORK",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:06.301-03:00"
+    },
+    {
+      "id": "898243b5-c708-4c6c-8182-f6abc7048c65",
+      "campaign_id": "4ba32c1b-db79-4643-bca2-5298ef58c83d",
+      "lead_id": "6cf00437-0177-4891-b26e-414b3384f79f",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T05:00:22.826Z",
+        "parked_since": "2026-05-30T05:00:22.826Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:06.776-03:00"
+    },
+    {
+      "id": "2838ea1f-513e-4346-86f1-628a2622ed7d",
+      "campaign_id": "4ba32c1b-db79-4643-bca2-5298ef58c83d",
+      "lead_id": "6cf00437-0177-4891-b26e-414b3384f79f",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:06.776-03:00"
+    },
+    {
+      "id": "389a66ec-4fd3-40d2-9565-0f5a708caefb",
+      "campaign_id": "15dd155d-5aaf-47c5-8cf3-ac652b2bffaf",
+      "lead_id": "5e9f4ac8-a924-4bd5-bc40-a22abfc187a3",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:06.522-03:00"
+    },
+    {
+      "id": "1d62601c-0eaf-413b-b485-76b821e2f4ad",
+      "campaign_id": "1b468003-1f8b-4465-9389-7291f7fb833b",
+      "lead_id": "d9eb67c0-cf3d-4d45-8e77-32f6e90d750e",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:06.592-03:00"
+    },
+    {
+      "id": "b239a43a-b491-4dfb-98fa-3d34d690526c",
+      "campaign_id": "d84d0ede-1384-4d5a-b230-a1029eb120e5",
+      "lead_id": "44836700-e8d5-477e-820e-bffb3e5dd30d",
+      "status": "queued",
+      "channel": "call",
+      "step_number": 5,
+      "content": "• Quick follow-up — timing matters, so keep it brief.\n• Mention the peer reference: a US architecture studio running 8+ concurrent developments now has full live visibility for their developer clients.\n• Offer 20 minutes — frame it as enough to know whether it's relevant, nothing more.\n\n— {{seller_name}}",
+      "metadata": {
+        "queued_by": "cron-dispatch-email",
+        "eligible_at": "2026-05-26T20:45:26.897Z"
+      },
+      "created_at": "2026-05-19T15:30:13.996-03:00"
+    },
+    {
+      "id": "72edd18e-24d8-4d6a-9b38-b0641234751f",
+      "campaign_id": "1202ee90-2a13-4844-bdb3-bb2b57d9998a",
+      "lead_id": "2fe61d30-4963-4d50-a2e5-de46f2af8fcd",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:06.913-03:00"
+    },
+    {
+      "id": "514988ac-effd-4674-b47d-12340b749157",
+      "campaign_id": "d84d0ede-1384-4d5a-b230-a1029eb120e5",
+      "lead_id": "44836700-e8d5-477e-820e-bffb3e5dd30d",
+      "status": "draft",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-19T15:30:13.996-03:00"
+    },
+    {
+      "id": "72968fdd-b671-4047-bdc6-74fa088ca1c2",
+      "campaign_id": "d84d0ede-1384-4d5a-b230-a1029eb120e5",
+      "lead_id": "44836700-e8d5-477e-820e-bffb3e5dd30d",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 7,
+      "content": "{{first_name}},\n\nOne final reach-out. ARQY is the operational layer connecting capital, construction progress and ownership records across the full lifecycle of a development — built for how studios and developers actually work, and reducing the manual overhead that eats into every project.\n\nIf it's not the moment, no issue. If you want the 20-minute view, let me know and I'll send an invite.\n\n— {{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-19T15:30:13.996-03:00"
+    },
+    {
+      "id": "ef26365b-2364-4086-a2fc-e2c19266251d",
+      "campaign_id": "4278f202-56d6-4f40-bf5d-1cca060a35d3",
+      "lead_id": "523b0ef6-ec78-4f92-ac47-8cb673becd8d",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T07:30:22.591Z",
+        "parked_since": "2026-05-30T07:30:22.591Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "OUT_OF_NETWORK",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:14.094-03:00"
+    },
+    {
+      "id": "d8401a67-09d5-4f2f-be31-e67817d59441",
+      "campaign_id": "5e7e2f25-305b-4c09-835f-800ad27c2626",
+      "lead_id": "ff07eec8-f74e-451e-b825-2b50ca951d26",
+      "status": "queued",
+      "channel": "call",
+      "step_number": 5,
+      "content": "Hi {{first_name}},\n\nMost contractor-developer relationships have a reporting layer that doesn't connect to either party's live\nsystems. ARQY removes it. Milestone completions update the developer's financial record in real time,\nwith full traceability.\n\nYour clients get the visibility they want. Your team stops manually bridging the gap. The relationship\ngets cleaner.\n\nWorth 20 minutes to walk through the mechanics?\n\nThanks in advance,\n\n{seller_name}}",
+      "metadata": {
+        "queued_by": "cron-dispatch-email",
+        "eligible_at": "2026-05-26T20:16:04.643Z"
+      },
+      "created_at": "2026-05-18T19:12:05.033-03:00"
+    },
+    {
+      "id": "04f271af-cfdd-4513-947d-c83ca5ed3e77",
+      "campaign_id": "6e8bc500-ea2b-4676-8e63-a0a61c71b75f",
+      "lead_id": "0b7667ac-4caa-47d5-aa9b-1714621902ce",
+      "status": "queued",
+      "channel": "email",
+      "step_number": 7,
+      "content": "Hi {{first_name}},\n\nLast note. ARQY is the operational infrastructure connecting capital deployment, physical execution and\nownership into one continuously updated record, built for development teams who are done finding out\nabout problems at reporting milestones.\n\nLet me know if timing works. No issue if not.\n\n{{seller_name}}",
+      "metadata": {
+        "queued_by": "cron-dispatch-queue",
+        "eligible_at": "2026-06-03T01:00:22.810Z"
+      },
+      "created_at": "2026-05-18T19:39:05.046-03:00"
+    },
+    {
+      "id": "b5db8dd7-568a-4d73-9d03-8495a00ee9f3",
+      "campaign_id": "76c98fce-ff8f-43b8-9c94-097689864958",
+      "lead_id": "92f4b462-1db5-4534-b61d-eea416bf157a",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T19:15:23.052Z",
+        "parked_since": "2026-05-30T19:15:23.052Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:05.456-03:00"
+    },
+    {
+      "id": "1398d897-fb41-4732-b71d-b7d70ad5d121",
+      "campaign_id": "82ea3bdd-a49f-4164-b41d-c0b211f6d024",
+      "lead_id": "cd09dd5f-9338-4ec7-b23e-2051fb242ef0",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-21T01:30:22.676Z",
+        "parked_since": "2026-05-31T01:30:22.676Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:05.22-03:00"
+    },
+    {
+      "id": "bdaa02c3-8ae7-4d85-9917-26ec26eb40a4",
+      "campaign_id": "875d379b-c454-4a76-9aed-71b120cc5c72",
+      "lead_id": "49677687-4c58-4d71-a49a-5fcbfc3dd64a",
+      "status": "queued",
+      "channel": "email",
+      "step_number": 7,
+      "content": "Hi {{first_name}},\n\nLast note. ARQY is the operational infrastructure connecting capital deployment, physical execution and\nownership into one continuously updated record, built for development teams who are done finding out\nabout problems at reporting milestones.\n\nLet me know if timing works. No issue if not.\n\n{{seller_name}}",
+      "metadata": {
+        "queued_by": "cron-dispatch-queue",
+        "eligible_at": "2026-06-02T02:00:23.515Z"
+      },
+      "created_at": "2026-05-18T19:39:05.586-03:00"
+    },
+    {
+      "id": "2b106958-5d49-42fb-9cfc-26b3cddf887a",
+      "campaign_id": "bd3e9f5d-4c2e-418c-888b-1472fe24f93c",
+      "lead_id": "62382073-074d-49df-b443-13e3fa05ed49",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-21T02:15:23.560Z",
+        "parked_since": "2026-05-31T02:15:23.560Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:05.323-03:00"
+    },
+    {
+      "id": "69fb61b2-5494-4bb5-9929-828761387655",
+      "campaign_id": "42722a08-097d-4e3a-9753-9ad2fc256e25",
+      "lead_id": "47386268-2588-4323-ac48-c1f904a7ff86",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T19:00:23.533Z",
+        "parked_since": "2026-05-30T19:00:23.533Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:05.147-03:00"
+    },
+    {
+      "id": "b58d0eb6-555a-419a-9bfa-e85e916a26b8",
+      "campaign_id": "86fa6ec1-9326-4871-b6b1-4088aada52b5",
+      "lead_id": "5ef4b78c-c028-4500-a3ee-dd8f65b05e7d",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T22:45:22.880Z",
+        "parked_since": "2026-05-30T22:45:22.880Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:06.611-03:00"
+    },
+    {
+      "id": "892b07a4-444e-473e-8a69-e7685c0f6e04",
+      "campaign_id": "1f2a02d4-b3b1-4dee-9e67-b97e22778e22",
+      "lead_id": "aaf101fd-def0-4448-bf55-2485b18a4e2a",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T22:00:22.651Z",
+        "parked_since": "2026-05-30T22:00:22.651Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:06.807-03:00"
+    },
+    {
+      "id": "7d0b753b-0f4c-4424-829e-5bc7cd1ce5da",
+      "campaign_id": "a399306d-6c98-4999-a4ac-f036ebbddada",
+      "lead_id": "4f5542f4-d1b8-470d-9ac5-ed705df36880",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T07:15:22.280Z",
+        "parked_since": "2026-05-30T07:15:22.280Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:14.595-03:00"
+    },
+    {
+      "id": "8ec0a9b1-b97f-4d75-a5b6-8bccf4f93382",
+      "campaign_id": "0c22bb16-cc84-475e-9217-2d9a55811ab0",
+      "lead_id": "3edd4b2b-e14b-4fbf-8b51-efc9951b4bdc",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-21T00:00:24.017Z",
+        "parked_since": "2026-05-31T00:00:24.017Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:07.216-03:00"
+    },
+    {
+      "id": "f2808fb0-1ae6-4d48-a86d-3e3246bb0546",
+      "campaign_id": "83c9036b-b8e5-4b15-9e09-abe1b902ef7b",
+      "lead_id": "dd42e617-2b07-4dde-a547-bd1137b956ed",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T07:00:23.054Z",
+        "parked_since": "2026-05-30T07:00:23.054Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:14.801-03:00"
+    },
+    {
+      "id": "5146fae3-8c8a-4794-952c-cafaf84093f2",
+      "campaign_id": "046cfd30-26a5-4f31-9589-9068c5769f7f",
+      "lead_id": "354fd834-3fd8-4c61-9819-d845528cf058",
+      "status": "queued",
+      "channel": "call",
+      "step_number": 5,
+      "content": "• Quick follow-up — timing matters, so keep it brief.\n• Mention the peer reference: a US architecture studio running 8+ concurrent developments now has full live visibility for their developer clients.\n• Offer 20 minutes — frame it as enough to know whether it's relevant, nothing more.\n\n— {{seller_name}}",
+      "metadata": {
+        "queued_by": "cron-dispatch-email",
+        "eligible_at": "2026-05-26T21:00:55.203Z"
+      },
+      "created_at": "2026-05-19T15:30:15.128-03:00"
+    },
+    {
+      "id": "08451b58-f8f1-4f88-8cc7-c58cb4aa324d",
+      "campaign_id": "046cfd30-26a5-4f31-9589-9068c5769f7f",
+      "lead_id": "354fd834-3fd8-4c61-9819-d845528cf058",
+      "status": "draft",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-19T15:30:15.128-03:00"
+    },
+    {
+      "id": "990ca13f-ab4f-46fa-a706-a4141ca0289c",
+      "campaign_id": "046cfd30-26a5-4f31-9589-9068c5769f7f",
+      "lead_id": "354fd834-3fd8-4c61-9819-d845528cf058",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 7,
+      "content": "{{first_name}},\n\nOne final reach-out. ARQY is the operational layer connecting capital, construction progress and ownership records across the full lifecycle of a development — built for how studios and developers actually work, and reducing the manual overhead that eats into every project.\n\nIf it's not the moment, no issue. If you want the 20-minute view, let me know and I'll send an invite.\n\n— {{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-19T15:30:15.128-03:00"
+    },
+    {
+      "id": "2bd5b0c5-2e13-483e-b1c5-7a2d9eae4515",
+      "campaign_id": "25122c8a-4f16-456a-9b7c-c12301d344ae",
+      "lead_id": "1c70fce6-0ed0-468f-b073-e4b43bcf0252",
+      "status": "queued",
+      "channel": "call",
+      "step_number": 5,
+      "content": "• Quick follow-up — timing matters, so keep it brief.\n• Mention the peer reference: a US architecture studio running 8+ concurrent developments now has full live visibility for their developer clients.\n• Offer 20 minutes — frame it as enough to know whether it's relevant, nothing more.\n\n— {{seller_name}}",
+      "metadata": {
+        "queued_by": "cron-dispatch-email",
+        "eligible_at": "2026-05-26T21:00:54.321Z"
+      },
+      "created_at": "2026-05-19T15:30:15.529-03:00"
+    },
+    {
+      "id": "835120a3-4199-4c87-a588-9ae8bab0c7de",
+      "campaign_id": "25122c8a-4f16-456a-9b7c-c12301d344ae",
+      "lead_id": "1c70fce6-0ed0-468f-b073-e4b43bcf0252",
+      "status": "draft",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-19T15:30:15.529-03:00"
+    },
+    {
+      "id": "fdc4ca52-c342-4db6-a668-e580050c81ee",
+      "campaign_id": "25122c8a-4f16-456a-9b7c-c12301d344ae",
+      "lead_id": "1c70fce6-0ed0-468f-b073-e4b43bcf0252",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 7,
+      "content": "{{first_name}},\n\nOne final reach-out. ARQY is the operational layer connecting capital, construction progress and ownership records across the full lifecycle of a development — built for how studios and developers actually work, and reducing the manual overhead that eats into every project.\n\nIf it's not the moment, no issue. If you want the 20-minute view, let me know and I'll send an invite.\n\n— {{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-19T15:30:15.529-03:00"
+    },
+    {
+      "id": "6d0a904e-bbed-4fbf-b0eb-1e4a2dfa4d62",
+      "campaign_id": "95c684dd-980a-4c8c-9fc6-4d8027569522",
+      "lead_id": "603f0cf9-d7c6-4e69-b1d9-e6e43839184a",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-21T00:30:22.587Z",
+        "parked_since": "2026-05-31T00:30:22.587Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:05.776-03:00"
+    },
+    {
+      "id": "d41491bb-8a15-47b9-975a-a295d46a10f7",
+      "campaign_id": "d0bd3c1b-115b-4396-b56f-c86b7dabdeb1",
+      "lead_id": "e21a2bea-f5ed-475f-b54c-1f946c9976a6",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T04:15:23.707Z",
+        "parked_since": "2026-05-30T04:15:23.707Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:15.066-03:00"
+    },
+    {
+      "id": "806e985c-be94-4d47-bc87-168adabad4af",
+      "campaign_id": "d1f2eebe-5ad9-4488-8c44-3d7c609b0742",
+      "lead_id": "68263e3f-0a54-4849-a48f-512026588b02",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T20:00:22.922Z",
+        "parked_since": "2026-05-30T20:00:22.922Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:07.151-03:00"
+    },
+    {
+      "id": "a1a9cbae-d271-4801-9920-37873b59af5e",
+      "campaign_id": "5774afd9-7b03-4b95-b4c4-bb90013ab891",
+      "lead_id": "f144159f-741c-4317-8190-deec57c5f526",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-21T00:45:22.595Z",
+        "parked_since": "2026-05-31T00:45:22.595Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:05.65-03:00"
+    },
+    {
+      "id": "2594583a-3d01-4337-a918-e88a4f7f4a2a",
+      "campaign_id": "e6abf866-3f35-44f8-85f9-d2608814ffd6",
+      "lead_id": "5d2dcf2e-fe05-411b-8247-43fcec2cf2c4",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T03:30:24.201Z",
+        "parked_since": "2026-05-30T03:30:24.201Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:15.664-03:00"
+    },
+    {
+      "id": "d2adade5-ae17-4d46-99cb-e0d0fe11d92f",
+      "campaign_id": "c77a9668-e3bc-4d3b-8960-4ca82a95fa27",
+      "lead_id": "06eb92e5-4fe8-43b8-80b6-4bc5584ea82d",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T20:15:22.696Z",
+        "parked_since": "2026-05-30T20:15:22.696Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:06.128-03:00"
+    },
+    {
+      "id": "0c4b04f2-c878-423a-b50c-5e09a190a170",
+      "campaign_id": "e534a2c5-9dd0-406a-9a6e-78944070a4cf",
+      "lead_id": "170d2a7f-28fc-4dc0-9400-56f2b6661bd0",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T05:15:22.923Z",
+        "parked_since": "2026-05-30T05:15:22.923Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:13.651-03:00"
+    },
+    {
+      "id": "67f18d2f-bedb-4467-84bc-70994a76dbf4",
+      "campaign_id": "aa0ce650-1527-4970-953f-a056131f8911",
+      "lead_id": "6fda2b9d-01d8-4b51-a27c-0be255dda28b",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T05:30:23.651Z",
+        "parked_since": "2026-05-30T05:30:23.651Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:13.527-03:00"
+    },
+    {
+      "id": "bc990ce4-07c1-4de7-9631-40948711909f",
+      "campaign_id": "e58b6b0a-0693-4a10-a229-0db1f501e3cd",
+      "lead_id": "13fd3389-4b90-4215-9e36-8b825d728d3a",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T21:45:22.755Z",
+        "parked_since": "2026-05-30T21:45:22.755Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:06.877-03:00"
+    },
+    {
+      "id": "514448f1-aa23-407f-8d41-4ff21fb5948a",
+      "campaign_id": "28fef8e9-1aa4-4660-8990-a2053a30c3b7",
+      "lead_id": "dbdfacea-9e27-43c1-b4d9-d3c3fe9cc72d",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T02:00:23.665Z",
+        "parked_since": "2026-05-30T02:00:23.665Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:15.295-03:00"
+    },
+    {
+      "id": "b480e5e5-6ebc-4aa9-8acd-45716aca51ed",
+      "campaign_id": "1202ee90-2a13-4844-bdb3-bb2b57d9998a",
+      "lead_id": "2fe61d30-4963-4d50-a2e5-de46f2af8fcd",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T02:15:22.490Z",
+        "parked_since": "2026-05-30T02:15:22.490Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:06.913-03:00"
+    },
+    {
+      "id": "26781460-f447-45cd-8ca0-3d58768380c0",
+      "campaign_id": "5514d3fd-bbbc-4f47-a053-bd0cf02778c7",
+      "lead_id": "16676c55-010e-4e16-8532-4ca65a1ea942",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T06:45:24.480Z",
+        "parked_since": "2026-05-30T06:45:24.480Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:14.864-03:00"
+    },
+    {
+      "id": "cf9db39b-168d-451b-a4b8-1d2855c4f313",
+      "campaign_id": "40d2bfbc-ce2e-4c66-8a36-b27832f97e03",
+      "lead_id": "963bc56d-e700-4a13-b907-75e12f02c082",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "{{first_name}} — last note from me. Running a short demo series for UK architecture studios this month. Slot is yours if useful — let me know and I'll send over the invite.\n\n— {{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T08:15:22.376Z",
+        "parked_since": "2026-05-30T08:15:22.376Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-19T15:30:14.506-03:00"
+    },
+    {
+      "id": "a90ca122-ca26-4f88-b329-a31944a4d92f",
+      "campaign_id": "5e2b17f7-b0eb-4e83-94e1-84054c602cac",
+      "lead_id": "04dc71cb-ecef-4dda-8fdc-3d0bd7e79ff2",
+      "status": "queued",
+      "channel": "call",
+      "step_number": 5,
+      "content": "Hi {{first_name}},\n\nMost contractor-developer relationships have a reporting layer that doesn't connect to either party's live\nsystems. ARQY removes it. Milestone completions update the developer's financial record in real time,\nwith full traceability.\n\nYour clients get the visibility they want. Your team stops manually bridging the gap. The relationship\ngets cleaner.\n\nWorth 20 minutes to walk through the mechanics?\n\nThanks in advance,\n\n{seller_name}}",
+      "metadata": {
+        "queued_by": "cron-dispatch-email",
+        "eligible_at": "2026-05-26T20:16:04.645Z"
+      },
+      "created_at": "2026-05-18T19:12:04.724-03:00"
+    },
+    {
+      "id": "a9867315-3687-4e6e-a7ce-1509f1e671f2",
+      "campaign_id": "5e2b17f7-b0eb-4e83-94e1-84054c602cac",
+      "lead_id": "04dc71cb-ecef-4dda-8fdc-3d0bd7e79ff2",
+      "status": "draft",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:04.724-03:00"
+    },
+    {
+      "id": "771d6677-0019-4def-b5f0-b493eaef07e7",
+      "campaign_id": "5e2b17f7-b0eb-4e83-94e1-84054c602cac",
+      "lead_id": "04dc71cb-ecef-4dda-8fdc-3d0bd7e79ff2",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 7,
+      "content": "{{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time — no manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n\n— {{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:04.724-03:00"
+    },
+    {
+      "id": "d3a10d43-7d6d-4225-8145-f46b07020609",
+      "campaign_id": "5e2b17f7-b0eb-4e83-94e1-84054c602cac",
+      "lead_id": "04dc71cb-ecef-4dda-8fdc-3d0bd7e79ff2",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:04.724-03:00"
+    },
+    {
+      "id": "c450571e-af5e-47b3-9d71-dab882d688f9",
+      "campaign_id": "000e508d-196d-4d7a-909f-2a8ba57d81e6",
+      "lead_id": "28da97f7-b70f-40a8-a3da-0471895a4b4c",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T01:15:22.445Z",
+        "parked_since": "2026-05-30T01:15:22.445Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:05.802-03:00"
+    },
+    {
+      "id": "c7b097b3-11cd-4567-8b06-538c750f85fa",
+      "campaign_id": "0abab79f-2712-40c5-bcf7-88b60ae15ec6",
+      "lead_id": "c3ebed68-075a-4d47-8d63-21eea378742f",
+      "status": "draft",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:04.883-03:00"
+    },
+    {
+      "id": "1cf6319d-9222-4783-a466-b21402df5e79",
+      "campaign_id": "0abab79f-2712-40c5-bcf7-88b60ae15ec6",
+      "lead_id": "c3ebed68-075a-4d47-8d63-21eea378742f",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 7,
+      "content": "{{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time — no manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n\n— {{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:04.883-03:00"
+    },
+    {
+      "id": "ae5d70d1-caaf-4586-806f-2a7dfa53b177",
+      "campaign_id": "0abab79f-2712-40c5-bcf7-88b60ae15ec6",
+      "lead_id": "c3ebed68-075a-4d47-8d63-21eea378742f",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:04.883-03:00"
+    },
+    {
+      "id": "9cb5f92f-1328-43ce-b594-705589832dde",
+      "campaign_id": "cbce71b6-22d9-432e-9ae4-f47a8c1c8bfe",
+      "lead_id": "8f12fd83-ff81-4905-a7c9-977701c8701e",
+      "status": "draft",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:04.958-03:00"
+    },
+    {
+      "id": "431aa802-a897-4b7a-b9b5-6c3dd9cb2a5b",
+      "campaign_id": "cbce71b6-22d9-432e-9ae4-f47a8c1c8bfe",
+      "lead_id": "8f12fd83-ff81-4905-a7c9-977701c8701e",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 7,
+      "content": "{{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time — no manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n\n— {{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:04.958-03:00"
+    },
+    {
+      "id": "1785f6eb-9086-46f6-a48a-f37b3aa184eb",
+      "campaign_id": "cbce71b6-22d9-432e-9ae4-f47a8c1c8bfe",
+      "lead_id": "8f12fd83-ff81-4905-a7c9-977701c8701e",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:04.958-03:00"
+    },
+    {
+      "id": "aca0387d-5896-4b74-8a31-7e4c037cbca0",
+      "campaign_id": "302a49f3-e9ea-4f19-b7e7-007fdba477ba",
+      "lead_id": "0549e8eb-1d97-4e0e-9197-13a0288d22ed",
+      "status": "queued",
+      "channel": "call",
+      "step_number": 5,
+      "content": "Hi {{first_name}},\n\nMost contractor-developer relationships have a reporting layer that doesn't connect to either party's live\nsystems. ARQY removes it. Milestone completions update the developer's financial record in real time,\nwith full traceability.\n\nYour clients get the visibility they want. Your team stops manually bridging the gap. The relationship\ngets cleaner.\n\nWorth 20 minutes to walk through the mechanics?\n\nThanks in advance,\n\n{seller_name}}",
+      "metadata": {
+        "queued_by": "cron-dispatch-email",
+        "eligible_at": "2026-05-26T20:16:04.636Z"
+      },
+      "created_at": "2026-05-18T19:12:05.252-03:00"
+    },
+    {
+      "id": "51dddfd6-a827-4916-beb2-57111370b010",
+      "campaign_id": "302a49f3-e9ea-4f19-b7e7-007fdba477ba",
+      "lead_id": "0549e8eb-1d97-4e0e-9197-13a0288d22ed",
+      "status": "draft",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.252-03:00"
+    },
+    {
+      "id": "8726c3ec-e041-4f92-87b3-c083319953ab",
+      "campaign_id": "302a49f3-e9ea-4f19-b7e7-007fdba477ba",
+      "lead_id": "0549e8eb-1d97-4e0e-9197-13a0288d22ed",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 7,
+      "content": "{{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time — no manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n\n— {{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.252-03:00"
+    },
+    {
+      "id": "f90fb6c5-f15c-4680-bf92-15692742bd3c",
+      "campaign_id": "302a49f3-e9ea-4f19-b7e7-007fdba477ba",
+      "lead_id": "0549e8eb-1d97-4e0e-9197-13a0288d22ed",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.252-03:00"
+    },
+    {
+      "id": "2421c764-9fdc-4824-97b8-8f0eeefd5dab",
+      "campaign_id": "a472d021-a2e3-4e30-bf6b-f7f2b6fec19f",
+      "lead_id": "90c89ab0-ae68-42c7-a728-480191e62e77",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T02:30:22.491Z",
+        "parked_since": "2026-05-30T02:30:22.491Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:06.844-03:00"
+    },
+    {
+      "id": "5d7b7e8a-8964-4958-9582-9ff74653eca9",
+      "campaign_id": "3772da68-32ce-4b32-8803-62308f28e00d",
+      "lead_id": "f3c5b594-5a59-491e-bbb7-81c4801476de",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T03:45:23.332Z",
+        "parked_since": "2026-05-30T03:45:23.332Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:06.229-03:00"
+    },
+    {
+      "id": "5001533b-88ef-44f6-a6da-4dec4010abef",
+      "campaign_id": "28159896-9fcc-434c-bd36-50ebfc65c3ea",
+      "lead_id": "97f92a09-af2b-4316-8422-82bece6dd9d5",
+      "status": "draft",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.368-03:00"
+    },
+    {
+      "id": "f1589423-efd5-4cc1-8ddb-78bc9155021d",
+      "campaign_id": "28159896-9fcc-434c-bd36-50ebfc65c3ea",
+      "lead_id": "97f92a09-af2b-4316-8422-82bece6dd9d5",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 7,
+      "content": "{{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time — no manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n\n— {{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.368-03:00"
+    },
+    {
+      "id": "29f39e59-ad03-419d-80bb-5e249ddee59d",
+      "campaign_id": "28159896-9fcc-434c-bd36-50ebfc65c3ea",
+      "lead_id": "97f92a09-af2b-4316-8422-82bece6dd9d5",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.368-03:00"
+    },
+    {
+      "id": "20b4ac8e-ef5f-413f-9aff-631ebe8418f6",
+      "campaign_id": "79761c91-619c-40c7-b206-587b43c48986",
+      "lead_id": "02a00abc-3f21-478b-8fb4-67c81521d881",
+      "status": "draft",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.102-03:00"
+    },
+    {
+      "id": "a4196f00-f218-4b60-ad8c-2020c666d99d",
+      "campaign_id": "79761c91-619c-40c7-b206-587b43c48986",
+      "lead_id": "02a00abc-3f21-478b-8fb4-67c81521d881",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 7,
+      "content": "{{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time — no manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n\n— {{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.102-03:00"
+    },
+    {
+      "id": "aefc283e-87ac-4a2a-ad58-2bcec9d7ac53",
+      "campaign_id": "79761c91-619c-40c7-b206-587b43c48986",
+      "lead_id": "02a00abc-3f21-478b-8fb4-67c81521d881",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.102-03:00"
+    },
+    {
+      "id": "815322a0-9a50-4380-b485-1d498fb14e96",
+      "campaign_id": "894d3f75-72b0-4ad2-833d-867d9255427b",
+      "lead_id": "ef13d0b7-1c92-44b3-ad60-2f801e80525f",
+      "status": "draft",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.439-03:00"
+    },
+    {
+      "id": "6b2277c6-4b8f-4c3e-a6b1-583cda76f19d",
+      "campaign_id": "894d3f75-72b0-4ad2-833d-867d9255427b",
+      "lead_id": "ef13d0b7-1c92-44b3-ad60-2f801e80525f",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 7,
+      "content": "{{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time — no manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n\n— {{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.439-03:00"
+    },
+    {
+      "id": "d2265ae2-a537-4237-9616-050c611b727d",
+      "campaign_id": "894d3f75-72b0-4ad2-833d-867d9255427b",
+      "lead_id": "ef13d0b7-1c92-44b3-ad60-2f801e80525f",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.439-03:00"
+    },
+    {
+      "id": "a703a232-5fc6-4627-9d14-bfe1e0bd377a",
+      "campaign_id": "894d3f75-72b0-4ad2-833d-867d9255427b",
+      "lead_id": "ef13d0b7-1c92-44b3-ad60-2f801e80525f",
+      "status": "queued",
+      "channel": "call",
+      "step_number": 5,
+      "content": "Hi {{first_name}},\n\nMost contractor-developer relationships have a reporting layer that doesn't connect to either party's live\nsystems. ARQY removes it. Milestone completions update the developer's financial record in real time,\nwith full traceability.\n\nYour clients get the visibility they want. Your team stops manually bridging the gap. The relationship\ngets cleaner.\n\nWorth 20 minutes to walk through the mechanics?\n\nThanks in advance,\n\n{seller_name}}",
+      "metadata": {
+        "queued_by": "cron-dispatch-email",
+        "eligible_at": "2026-05-26T20:16:04.639Z"
+      },
+      "created_at": "2026-05-18T19:12:05.439-03:00"
+    },
+    {
+      "id": "8bea746e-91de-42c9-8667-d7f37aa3e0b5",
+      "campaign_id": "79761c91-619c-40c7-b206-587b43c48986",
+      "lead_id": "02a00abc-3f21-478b-8fb4-67c81521d881",
+      "status": "queued",
+      "channel": "call",
+      "step_number": 5,
+      "content": "Hi {{first_name}},\n\nMost contractor-developer relationships have a reporting layer that doesn't connect to either party's live\nsystems. ARQY removes it. Milestone completions update the developer's financial record in real time,\nwith full traceability.\n\nYour clients get the visibility they want. Your team stops manually bridging the gap. The relationship\ngets cleaner.\n\nWorth 20 minutes to walk through the mechanics?\n\nThanks in advance,\n\n{seller_name}}",
+      "metadata": {
+        "queued_by": "cron-dispatch-email",
+        "eligible_at": "2026-05-26T20:16:05.030Z"
+      },
+      "created_at": "2026-05-18T19:12:05.102-03:00"
+    },
+    {
+      "id": "944eba6c-e5e6-4e4a-96e2-a9272e838a44",
+      "campaign_id": "0e8bd8e8-cfca-42ed-bb5c-b573f337472a",
+      "lead_id": "a31009eb-4e99-49b6-99e7-83478944c8c5",
+      "status": "draft",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.186-03:00"
+    },
+    {
+      "id": "f87242c2-2213-4afb-94bd-52e933292993",
+      "campaign_id": "0e8bd8e8-cfca-42ed-bb5c-b573f337472a",
+      "lead_id": "a31009eb-4e99-49b6-99e7-83478944c8c5",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 7,
+      "content": "{{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time — no manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n\n— {{seller_name}}",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.186-03:00"
+    },
+    {
+      "id": "7165015b-cc74-4a65-84d9-6f0eba109cf6",
+      "campaign_id": "0e8bd8e8-cfca-42ed-bb5c-b573f337472a",
+      "lead_id": "a31009eb-4e99-49b6-99e7-83478944c8c5",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.186-03:00"
+    },
+    {
+      "id": "63ea99ff-6a6f-41f8-bbf9-fb0d91382300",
+      "campaign_id": "0e8bd8e8-cfca-42ed-bb5c-b573f337472a",
+      "lead_id": "a31009eb-4e99-49b6-99e7-83478944c8c5",
+      "status": "queued",
+      "channel": "call",
+      "step_number": 5,
+      "content": "Hi {{first_name}},\n\nMost contractor-developer relationships have a reporting layer that doesn't connect to either party's live\nsystems. ARQY removes it. Milestone completions update the developer's financial record in real time,\nwith full traceability.\n\nYour clients get the visibility they want. Your team stops manually bridging the gap. The relationship\ngets cleaner.\n\nWorth 20 minutes to walk through the mechanics?\n\nThanks in advance,\n\n{seller_name}}",
+      "metadata": {
+        "queued_by": "cron-dispatch-email",
+        "eligible_at": "2026-05-26T20:16:04.619Z"
+      },
+      "created_at": "2026-05-18T19:12:05.186-03:00"
+    },
+    {
+      "id": "878cc4e7-3002-469a-a015-21148d4357f8",
+      "campaign_id": "d331c7be-a60b-4606-87d5-3f05f5e19eef",
+      "lead_id": "9bbb357a-8589-4755-a21e-bcd1912235e7",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.581-03:00"
+    },
+    {
+      "id": "c6a6f63b-7168-4523-9bd9-fa8c2f291af8",
+      "campaign_id": "d331c7be-a60b-4606-87d5-3f05f5e19eef",
+      "lead_id": "9bbb357a-8589-4755-a21e-bcd1912235e7",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T06:15:22.520Z",
+        "parked_since": "2026-05-30T06:15:22.520Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:05.581-03:00"
+    },
+    {
+      "id": "0fc17d6b-8b8a-437f-905e-7f5ac2992ef4",
+      "campaign_id": "35cb8544-0e2b-455f-a4a3-00ab437a94f5",
+      "lead_id": "e960d826-6c2a-47e0-bf55-f2e642d74592",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.951-03:00"
+    },
+    {
+      "id": "918e8823-c74c-4b4a-b15a-c279a3860e08",
+      "campaign_id": "35cb8544-0e2b-455f-a4a3-00ab437a94f5",
+      "lead_id": "e960d826-6c2a-47e0-bf55-f2e642d74592",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T06:30:22.575Z",
+        "parked_since": "2026-05-30T06:30:22.575Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:05.951-03:00"
+    },
+    {
+      "id": "8cc1021a-c3bd-44ef-b12a-35919a290ec5",
+      "campaign_id": "cbce71b6-22d9-432e-9ae4-f47a8c1c8bfe",
+      "lead_id": "8f12fd83-ff81-4905-a7c9-977701c8701e",
+      "status": "queued",
+      "channel": "call",
+      "step_number": 5,
+      "content": "Hi {{first_name}},\n\nMost contractor-developer relationships have a reporting layer that doesn't connect to either party's live\nsystems. ARQY removes it. Milestone completions update the developer's financial record in real time,\nwith full traceability.\n\nYour clients get the visibility they want. Your team stops manually bridging the gap. The relationship\ngets cleaner.\n\nWorth 20 minutes to walk through the mechanics?\n\nThanks in advance,\n\n{seller_name}}",
+      "metadata": {
+        "queued_by": "cron-dispatch-email",
+        "eligible_at": "2026-05-26T20:16:04.539Z"
+      },
+      "created_at": "2026-05-18T19:12:04.958-03:00"
+    },
+    {
+      "id": "160f22e0-e86b-4331-bcd1-e884e1b4f981",
+      "campaign_id": "3fe3758f-e5cc-4169-b36a-88129735b8f4",
+      "lead_id": "c135a492-8f22-4c84-9d14-fcea7e15549f",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.735-03:00"
+    },
+    {
+      "id": "e01e03d9-34a8-47e3-bb2f-ab6a74a64d29",
+      "campaign_id": "000e508d-196d-4d7a-909f-2a8ba57d81e6",
+      "lead_id": "28da97f7-b70f-40a8-a3da-0471895a4b4c",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:05.802-03:00"
+    },
+    {
+      "id": "62525de4-8c67-4b28-8fea-d955ac2438f0",
+      "campaign_id": "b52e1d2b-fac8-47b0-ba4b-5162d0fff59a",
+      "lead_id": "10f3e891-9cdb-41f6-b96c-6b91298170d3",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T04:30:22.423Z",
+        "parked_since": "2026-05-30T04:30:22.423Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:06.091-03:00"
+    },
+    {
+      "id": "5a7ae063-c867-48f7-a641-150d5b173303",
+      "campaign_id": "b52e1d2b-fac8-47b0-ba4b-5162d0fff59a",
+      "lead_id": "10f3e891-9cdb-41f6-b96c-6b91298170d3",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:06.091-03:00"
+    },
+    {
+      "id": "7dd32401-2576-4196-abbb-4703f5650e17",
+      "campaign_id": "15a842c1-2fe8-460c-93c6-78a150a1817a",
+      "lead_id": "ac101009-3ee2-4ff8-8e6c-4decb864e99b",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:06.158-03:00"
+    },
+    {
+      "id": "321b9769-1b3b-43f6-89a5-147291552926",
+      "campaign_id": "3772da68-32ce-4b32-8803-62308f28e00d",
+      "lead_id": "f3c5b594-5a59-491e-bbb7-81c4801476de",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:06.229-03:00"
+    },
+    {
+      "id": "40ee70f9-2ea0-4247-b394-412a57e11a3b",
+      "campaign_id": "a32ccab1-28f0-44ef-be29-ae72cc35dade",
+      "lead_id": "bdacdd13-e950-4f67-b908-f9d3fd1445a7",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:06.378-03:00"
+    },
+    {
+      "id": "ad2e2f54-c3d6-42e5-bcce-f5f5e40598e7",
+      "campaign_id": "6c41225f-ce18-4b11-8212-84938fcdcf2c",
+      "lead_id": "85e7d683-c9a7-4641-9033-747c580526c1",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:06.702-03:00"
+    },
+    {
+      "id": "7af1023c-e691-4ba9-b39d-2020e2bd831e",
+      "campaign_id": "0abab79f-2712-40c5-bcf7-88b60ae15ec6",
+      "lead_id": "c3ebed68-075a-4d47-8d63-21eea378742f",
+      "status": "queued",
+      "channel": "call",
+      "step_number": 5,
+      "content": "Hi {{first_name}},\n\nMost contractor-developer relationships have a reporting layer that doesn't connect to either party's live\nsystems. ARQY removes it. Milestone completions update the developer's financial record in real time,\nwith full traceability.\n\nYour clients get the visibility they want. Your team stops manually bridging the gap. The relationship\ngets cleaner.\n\nWorth 20 minutes to walk through the mechanics?\n\nThanks in advance,\n\n{seller_name}}",
+      "metadata": {
+        "queued_by": "cron-dispatch-email",
+        "eligible_at": "2026-05-26T20:16:04.661Z"
+      },
+      "created_at": "2026-05-18T19:12:04.883-03:00"
+    },
+    {
+      "id": "ea38844f-2b43-4878-857c-2fe09adf0f48",
+      "campaign_id": "a472d021-a2e3-4e30-bf6b-f7f2b6fec19f",
+      "lead_id": "90c89ab0-ae68-42c7-a728-480191e62e77",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:06.844-03:00"
+    },
+    {
+      "id": "149a4f89-bd8a-47fb-85af-f1ed59f82701",
+      "campaign_id": "1e7a49ca-c138-4aa1-82b4-bd143c14e276",
+      "lead_id": "2cbb8114-5be2-4988-8c41-6132eb54398a",
+      "status": "draft",
+      "channel": "email",
+      "step_number": 8,
+      "content": "Hi {{first_name}},\n\nOne last note. ARQY connects physical construction progress to developer capital records in real time -\nno manual reporting layer, full shared visibility.\n\nIf the timing or priority isn't right now, no problem. Let me know if it is!\n",
+      "metadata": null,
+      "created_at": "2026-05-18T19:12:07.058-03:00"
+    },
+    {
+      "id": "8bba81a9-ed22-4d23-889c-0471127c0203",
+      "campaign_id": "1e7a49ca-c138-4aa1-82b4-bd143c14e276",
+      "lead_id": "2cbb8114-5be2-4988-8c41-6132eb54398a",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T02:00:22.486Z",
+        "parked_since": "2026-05-30T02:00:22.486Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:07.058-03:00"
+    },
+    {
+      "id": "ae21cf92-25b3-471b-8724-18d7825364cb",
+      "campaign_id": "28159896-9fcc-434c-bd36-50ebfc65c3ea",
+      "lead_id": "97f92a09-af2b-4316-8422-82bece6dd9d5",
+      "status": "queued",
+      "channel": "call",
+      "step_number": 5,
+      "content": "Hi {{first_name}},\n\nMost contractor-developer relationships have a reporting layer that doesn't connect to either party's live\nsystems. ARQY removes it. Milestone completions update the developer's financial record in real time,\nwith full traceability.\n\nYour clients get the visibility they want. Your team stops manually bridging the gap. The relationship\ngets cleaner.\n\nWorth 20 minutes to walk through the mechanics?\n\nThanks in advance,\n\n{seller_name}}",
+      "metadata": {
+        "queued_by": "cron-dispatch-email",
+        "eligible_at": "2026-05-26T20:16:04.657Z"
+      },
+      "created_at": "2026-05-18T19:12:05.368-03:00"
+    },
+    {
+      "id": "d94645cd-b20d-4112-82f5-66e29a122532",
+      "campaign_id": "4d166668-e6b2-40b7-80fa-e6395d9a7c0e",
+      "lead_id": "267ff349-0a10-40fd-b541-1d6d8ecb60bb",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-21T01:45:23.458Z",
+        "parked_since": "2026-05-31T01:45:23.458Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:05.52-03:00"
+    },
+    {
+      "id": "1d87a81a-3bba-4760-9b8b-826b621627ce",
+      "campaign_id": "6c41225f-ce18-4b11-8212-84938fcdcf2c",
+      "lead_id": "85e7d683-c9a7-4641-9033-747c580526c1",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T02:45:22.365Z",
+        "parked_since": "2026-05-30T02:45:22.365Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:06.702-03:00"
+    },
+    {
+      "id": "544496e8-b3a3-44a8-9eda-4a7b3385645a",
+      "campaign_id": "25b358b9-9fac-4b41-8e42-bf83b6747969",
+      "lead_id": "a0d55c86-c327-4550-86e0-110791ed8181",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-20T21:00:23.585Z",
+        "parked_since": "2026-05-30T21:00:23.585Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:05.835-03:00"
+    },
+    {
+      "id": "1707f3d6-e6d9-492c-8564-73680bac0e52",
+      "campaign_id": "a32ccab1-28f0-44ef-be29-ae72cc35dade",
+      "lead_id": "bdacdd13-e950-4f67-b908-f9d3fd1445a7",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T03:00:22.482Z",
+        "parked_since": "2026-05-30T03:00:22.482Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:06.378-03:00"
+    },
+    {
+      "id": "c90b3271-a9f4-4158-8dda-167f44fc3258",
+      "campaign_id": "15a842c1-2fe8-460c-93c6-78a150a1817a",
+      "lead_id": "ac101009-3ee2-4ff8-8e6c-4decb864e99b",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T04:00:23.081Z",
+        "parked_since": "2026-05-30T04:00:23.081Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "OUT_OF_NETWORK",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:06.158-03:00"
+    },
+    {
+      "id": "0938b474-9e70-478f-9aac-79589a6e9c37",
+      "campaign_id": "3fe3758f-e5cc-4169-b36a-88129735b8f4",
+      "lead_id": "c135a492-8f22-4c84-9d14-fcea7e15549f",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi [First Name] — quick follow-up on ARQY. The core question is whether the reporting overhead\nbetween your team and your developer clients is worth solving. We have a reference case from the US.\n15 minutes?",
+      "metadata": {
+        "eligible_at": "2026-06-20T04:45:22.497Z",
+        "parked_since": "2026-05-30T04:45:22.497Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:12:05.735-03:00"
+    },
+    {
+      "id": "b44cf5f0-5c51-4406-af43-542a31860582",
+      "campaign_id": "e546e85c-c4a8-4dab-a7eb-b69903849fe8",
+      "lead_id": "f6c626ed-eb35-4a99-8486-71a5d8016a0e",
+      "status": "queued",
+      "channel": "linkedin",
+      "step_number": 6,
+      "content": "Hi {{first_name}},\n\nrunning a short series of CFO-focused sessions on real-time financial visibility in\ndevelopment. Thought it might be relevant given {{company_name}}'s pipeline. Happy to hold a slot for\nyou.\n\n{{seller_name}}",
+      "metadata": {
+        "eligible_at": "2026-06-21T02:30:23.698Z",
+        "parked_since": "2026-05-31T02:30:23.698Z",
+        "dispatched_by": "cron-dispatch-queue",
+        "network_distance": "THIRD_DEGREE",
+        "awaiting_acceptance": true
+      },
+      "created_at": "2026-05-18T19:39:05.997-03:00"
+    }
+  ],
+  "leadsToReset": [
+    {
+      "id": "ad43ba4e-b134-4fa3-a984-bd8c7521a189",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Pamela",
+      "last_name": "Millar"
+    },
+    {
+      "id": "ac101009-3ee2-4ff8-8e6c-4decb864e99b",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Andrew",
+      "last_name": "Agathangelou"
+    },
+    {
+      "id": "02a00abc-3f21-478b-8fb4-67c81521d881",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Damian",
+      "last_name": "Robinson"
+    },
+    {
+      "id": "0549e8eb-1d97-4e0e-9197-13a0288d22ed",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Karl",
+      "last_name": "McDonald"
+    },
+    {
+      "id": "ff07eec8-f74e-451e-b825-2b50ca951d26",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Christian",
+      "last_name": "McGoldrick"
+    },
+    {
+      "id": "ef13d0b7-1c92-44b3-ad60-2f801e80525f",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Nigel",
+      "last_name": "Stick"
+    },
+    {
+      "id": "5ef4b78c-c028-4500-a3ee-dd8f65b05e7d",
+      "status_was": "closed_lost",
+      "icp_profile_id": "8497d73a-fe85-4c6e-a5fc-0ada190e8039",
+      "first_name": "Andrew",
+      "last_name": "Jarman"
+    },
+    {
+      "id": "30e27f4d-8d4c-4b02-a5cc-8b1936f6d91d",
+      "status_was": "closed_lost",
+      "icp_profile_id": "8497d73a-fe85-4c6e-a5fc-0ada190e8039",
+      "first_name": "Vas",
+      "last_name": "Zographou"
+    },
+    {
+      "id": "97f92a09-af2b-4316-8422-82bece6dd9d5",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Craig",
+      "last_name": "Devenish"
+    },
+    {
+      "id": "a31009eb-4e99-49b6-99e7-83478944c8c5",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Gytis",
+      "last_name": "Matuliauskas"
+    },
+    {
+      "id": "c3ebed68-075a-4d47-8d63-21eea378742f",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Lesley",
+      "last_name": "James"
+    },
+    {
+      "id": "88d19595-1a34-4c10-8484-198652b66297",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Morwenna",
+      "last_name": "Hall"
+    },
+    {
+      "id": "8f12fd83-ff81-4905-a7c9-977701c8701e",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Paul",
+      "last_name": "Boden"
+    },
+    {
+      "id": "04dc71cb-ecef-4dda-8fdc-3d0bd7e79ff2",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Sean",
+      "last_name": "Roberts"
+    },
+    {
+      "id": "f3c5b594-5a59-491e-bbb7-81c4801476de",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Plamen",
+      "last_name": "Valchanov"
+    },
+    {
+      "id": "a1ec5e13-f36a-4759-aabc-a27a9a107694",
+      "status_was": "closed_lost",
+      "icp_profile_id": "8497d73a-fe85-4c6e-a5fc-0ada190e8039",
+      "first_name": "Caroline",
+      "last_name": "Walters"
+    },
+    {
+      "id": "0b7667ac-4caa-47d5-aa9b-1714621902ce",
+      "status_was": "closed_lost",
+      "icp_profile_id": "8497d73a-fe85-4c6e-a5fc-0ada190e8039",
+      "first_name": "Danny",
+      "last_name": "Anaea"
+    },
+    {
+      "id": "1f6ea668-a81c-437c-a5bf-a3175c7aebdd",
+      "status_was": "closed_lost",
+      "icp_profile_id": "e44c1933-9547-43ff-9542-03defe478b39",
+      "first_name": "Claire",
+      "last_name": "Hunt"
+    },
+    {
+      "id": "30fe320b-e3aa-4d03-810e-32a3b8b6da80",
+      "status_was": "closed_lost",
+      "icp_profile_id": "8497d73a-fe85-4c6e-a5fc-0ada190e8039",
+      "first_name": "Ross",
+      "last_name": "Fittall"
+    },
+    {
+      "id": "523b0ef6-ec78-4f92-ac47-8cb673becd8d",
+      "status_was": "closed_lost",
+      "icp_profile_id": "e44c1933-9547-43ff-9542-03defe478b39",
+      "first_name": "Nick",
+      "last_name": "Birchall"
+    },
+    {
+      "id": "6fda2b9d-01d8-4b51-a27c-0be255dda28b",
+      "status_was": "closed_lost",
+      "icp_profile_id": "e44c1933-9547-43ff-9542-03defe478b39",
+      "first_name": "Tania",
+      "last_name": "Baguley"
+    },
+    {
+      "id": "959a50f4-dd23-409b-85a0-89ade33e03ab",
+      "status_was": "closed_lost",
+      "icp_profile_id": "8497d73a-fe85-4c6e-a5fc-0ada190e8039",
+      "first_name": "Edward",
+      "last_name": "Fane"
+    },
+    {
+      "id": "2014b3be-0d8f-4d67-a351-12bbce43db8d",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Gerry",
+      "last_name": "Friel"
+    },
+    {
+      "id": "6cf58eb6-0386-4b8a-b1ad-a249d8240635",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Scott",
+      "last_name": "Cole"
+    },
+    {
+      "id": "963bc56d-e700-4a13-b907-75e12f02c082",
+      "status_was": "closed_lost",
+      "icp_profile_id": "e44c1933-9547-43ff-9542-03defe478b39",
+      "first_name": "Ian",
+      "last_name": "Sarchett"
+    },
+    {
+      "id": "90c89ab0-ae68-42c7-a728-480191e62e77",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Claudiu",
+      "last_name": "Pisica"
+    },
+    {
+      "id": "dbdfacea-9e27-43c1-b4d9-d3c3fe9cc72d",
+      "status_was": "closed_lost",
+      "icp_profile_id": "e44c1933-9547-43ff-9542-03defe478b39",
+      "first_name": "Joanna",
+      "last_name": "Rogers"
+    },
+    {
+      "id": "e21a2bea-f5ed-475f-b54c-1f946c9976a6",
+      "status_was": "closed_lost",
+      "icp_profile_id": "e44c1933-9547-43ff-9542-03defe478b39",
+      "first_name": "Lee",
+      "last_name": "Nightingale"
+    },
+    {
+      "id": "bdacdd13-e950-4f67-b908-f9d3fd1445a7",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "James",
+      "last_name": "Mantle"
+    },
+    {
+      "id": "10f3e891-9cdb-41f6-b96c-6b91298170d3",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Andrew",
+      "last_name": "Thomas"
+    },
+    {
+      "id": "2cbb8114-5be2-4988-8c41-6132eb54398a",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Martin",
+      "last_name": "Guinnane"
+    },
+    {
+      "id": "1d9bd439-8212-417c-993e-3ae01a8187b4",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "David",
+      "last_name": "Furse"
+    },
+    {
+      "id": "2fe61d30-4963-4d50-a2e5-de46f2af8fcd",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Tommy",
+      "last_name": "N"
+    },
+    {
+      "id": "0bbe7123-6f23-4b49-b780-686285a26a26",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Simon",
+      "last_name": "Lycett"
+    },
+    {
+      "id": "5e9f4ac8-a924-4bd5-bc40-a22abfc187a3",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Kevin",
+      "last_name": "Shaw"
+    },
+    {
+      "id": "267ff349-0a10-40fd-b541-1d6d8ecb60bb",
+      "status_was": "closed_lost",
+      "icp_profile_id": "8497d73a-fe85-4c6e-a5fc-0ada190e8039",
+      "first_name": "Paul",
+      "last_name": "Garlick"
+    },
+    {
+      "id": "49677687-4c58-4d71-a49a-5fcbfc3dd64a",
+      "status_was": "closed_lost",
+      "icp_profile_id": "8497d73a-fe85-4c6e-a5fc-0ada190e8039",
+      "first_name": "Nicholas",
+      "last_name": "Lovell"
+    },
+    {
+      "id": "6cf00437-0177-4891-b26e-414b3384f79f",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Nick",
+      "last_name": "Seaward"
+    },
+    {
+      "id": "5c0f7e24-9e91-49ba-9afc-b11ea03cdc3b",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Genna",
+      "last_name": "Tildsley"
+    },
+    {
+      "id": "e960d826-6c2a-47e0-bf55-f2e642d74592",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Russell",
+      "last_name": "Bliss"
+    },
+    {
+      "id": "28da97f7-b70f-40a8-a3da-0471895a4b4c",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Mark",
+      "last_name": "Thackstone"
+    },
+    {
+      "id": "62382073-074d-49df-b443-13e3fa05ed49",
+      "status_was": "closed_lost",
+      "icp_profile_id": "8497d73a-fe85-4c6e-a5fc-0ada190e8039",
+      "first_name": "James",
+      "last_name": "Chester"
+    },
+    {
+      "id": "c135a492-8f22-4c84-9d14-fcea7e15549f",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Chris",
+      "last_name": "Strong"
+    },
+    {
+      "id": "989f74dc-939e-4c00-81b2-0ef407b97d45",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Emma",
+      "last_name": "Ward"
+    },
+    {
+      "id": "0b12f214-d1d8-456f-9491-f59de9b7b0ee",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Toby",
+      "last_name": "Thompson-Potter"
+    },
+    {
+      "id": "85e7d683-c9a7-4641-9033-747c580526c1",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Ben",
+      "last_name": "Allen"
+    },
+    {
+      "id": "9bbb357a-8589-4755-a21e-bcd1912235e7",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Andrew",
+      "last_name": "Sleigh"
+    },
+    {
+      "id": "c45d5b47-b729-49c1-9597-176fe034847c",
+      "status_was": "closed_lost",
+      "icp_profile_id": "11bb30cc-96ad-49d6-8519-b311ab795e1c",
+      "first_name": "Paul",
+      "last_name": "Mc Laughlin"
+    }
+  ]
+}

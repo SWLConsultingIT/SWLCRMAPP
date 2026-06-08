@@ -104,17 +104,14 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
   // a quality signal, not an operational one we fully control).
   const stages: { key: string; label: string; value: number; icon: typeof Mail; color: string; drill: DrillKey | null; conv: number | null; convLabel: string; benchT?: [number, number] }[] = [
     { key: "leads", label: "Leads", value: m.totalLeads, icon: Users, color: gold as string, drill: null, conv: null, convLabel: "" },
-    { key: "invites", label: "Invites", value: m.invitesSent, icon: Send, color: "#0A66C2", drill: null, conv: m.totalLeads ? Math.round((m.invitesSent / m.totalLeads) * 100) : 0, convLabel: "invited" },
-    { key: "accepted", label: "Accepted", value: m.accepted, icon: UserCheck, color: "#16A34A", drill: "accepted", conv: m.acceptRate, convLabel: "of invites", benchT: [30, 15] },
-    { key: "messaged", label: "Messaged", value: m.messaged, icon: MessageSquare, color: "#0EA5E9", drill: "messaged", conv: m.messagedRate, convLabel: "of accepted" },
+    { key: "invites", label: "Conn. sent", value: m.invitesSent, icon: Send, color: "#0A66C2", drill: null, conv: m.totalLeads ? Math.round((m.invitesSent / m.totalLeads) * 100) : 0, convLabel: "connected" },
+    { key: "accepted", label: "Accepted", value: m.accepted, icon: UserCheck, color: "#16A34A", drill: "accepted", conv: m.acceptRate, convLabel: "of connections", benchT: [30, 15] },
+    { key: "messaged", label: "Messages", value: m.messaged, icon: MessageSquare, color: "#0EA5E9", drill: "messaged", conv: m.messagedRate, convLabel: "of accepted" },
     { key: "replied", label: "Replied", value: m.replied, icon: MessageSquare, color: "#8B5CF6", drill: "replied", conv: m.replyRate, convLabel: "of messaged", benchT: [10, 3] },
     { key: "positive", label: "Positive", value: m.positive, icon: Trophy, color: "#D97706", drill: "positive", conv: m.positiveRate, convLabel: "of replied", benchT: [40, 20] },
   ];
   const maxV = Math.max(1, m.totalLeads, m.invitesSent);
   const stepMax = Math.max(1, ...m.steps.map(s => s.sent + s.failed + s.skipped + s.pending));
-
-  const v = m.velocity;
-  const limitPct = v.dailyLimit ? Math.min(100, Math.round((v.sentToday / v.dailyLimit) * 100)) : null;
 
   return (
     <div className="space-y-5">
@@ -128,18 +125,7 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
         </div>
       )}
 
-      {/* ── VELOCITY STRIP ── */}
-      <Section title="Velocity">
-        <div className="flex items-center gap-5 flex-wrap">
-          <VStat label="Sent today" value={v.dailyLimit ? `${v.sentToday}/${v.dailyLimit}` : `${v.sentToday}`} sub={limitPct != null ? `${limitPct}% of daily` : "today"} color={limitPct != null && limitPct >= 90 ? "#D97706" : "#0A66C2"} />
-          <VStat label="Last activity" value={fmtDT(v.lastActivityAt)} sub="last send" color={C.textPrimary} small />
-          <VStat label="Avg to reply" value={v.avgDaysToReply != null ? `${v.avgDaysToReply}d` : "—"} sub="first send → reply" color="#8B5CF6" />
-          <div className="flex-1 min-w-[200px]">
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.textDim }}>Last 14 days</p>
-            <Sparkline data={v.byDay} />
-          </div>
-        </div>
-      </Section>
+      {/* ── VELOCITY STRIP removed (boss 2026-06-08: didn't trust the number). ── */}
 
       {/* ── OUTREACH FUNNEL ── */}
       <Section title="Outreach funnel">
@@ -323,7 +309,7 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
     </th>
   );
   const downloadCsv = () => {
-    const head = ["Lead", "Company", "Channels", "Invite", "Accepted", "Messages", "Replied", "Bounced", "Status", "Step", "Days in flow", "Last activity"];
+    const head = ["Lead", "Company", "Channels", "Conn.", "Accepted", "Messages", "Replied", "Bounced", "Status", "Step", "Days in flow", "Last activity"];
     const esc = (s: string) => `"${String(s ?? "").replace(/"/g, '""')}"`;
     const lines = [head.map(esc).join(",")].concat(sorted.map(r => [
       r.name, r.company ?? "", r.channels.join("|"), r.inviteSent ? "yes" : "no", r.accepted ? "yes" : "no",

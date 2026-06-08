@@ -443,6 +443,17 @@ function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
             sequence sub-cards are hidden. */}
         <div className="flex items-center gap-4 mt-2 text-[11px] tabular-nums" style={{ color: C.textMuted }}>
           <span><span className="font-bold" style={{ color: C.textBody }}>{group.totalLeads}</span> {t("flows.metric.leads").toLowerCase()}</span>
+          {/* Mid-funnel counts surfaced inline (boss 2026-06-08: funnel metrics
+              were hidden behind the expand toggle on the initial tab). Read from
+              the same group.funnel the expanded view uses so the wording +
+              numbers match exactly. */}
+          {(["connSent", "accepted", "msgsSent"] as const).map((k) => {
+            const fs = group.funnel.find((f) => f.key === k);
+            if (!fs) return null;
+            return (
+              <span key={k}><span className="font-bold" style={{ color: fs.count > 0 ? C.textBody : C.textDim }}>{fs.count}</span> {t(`flows.funnel.${k}`).toLowerCase()}</span>
+            );
+          })}
           <span><span className="font-bold" style={{ color: group.totalReplies > 0 ? C.blue : C.textBody }}>{group.totalReplies}</span> {t("flows.metric.replies").toLowerCase()} <span style={{ color: C.textDim }}>({responseRate}%)</span></span>
           <span><span className="font-bold" style={{ color: group.totalPositive > 0 ? C.green : C.textBody }}>{group.totalPositive}</span> {t("flows.metric.positive").toLowerCase()} <span style={{ color: C.textDim }}>({positiveRate}%)</span></span>
           {group.totalSteps > 0 && (

@@ -798,7 +798,7 @@ export const en: Dict = {
   "flows.status.failed": "Failed",
   "flows.activeCount": "{n} active",
   "flows.doneCount": "{n} done",
-  "flows.chip.invites": "Invites",
+  "flows.chip.invites": "Connections",
   "flows.chip.dms": "DMs",
   "flows.chip.emails": "Emails",
   "flows.chip.calls": "Calls",

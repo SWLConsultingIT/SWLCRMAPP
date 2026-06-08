@@ -1,0 +1,2186 @@
+[
+  {
+    "id": "cdc429b4-9806-4f06-a5e8-db81728b4e04",
+    "campaign_id": "e13b056d-3d00-4c1b-9548-84bc16e8e679",
+    "lead_id": "480ca0af-b418-4ed9-872e-092c68dd78b1",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:24.167-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "53d9b062-bcf6-408a-a2aa-787213c6724b",
+    "campaign_id": "6da54629-3de0-426f-b853-7f894da1fa99",
+    "lead_id": "90c07573-4b6e-4436-8370-e43d425b69ac",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:24.927-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "e91d1fe9-a14e-4087-9448-52702aeacc5d",
+    "campaign_id": "9d4a4d1b-91a9-4c25-9613-220154d3f2cf",
+    "lead_id": "40c4c952-91ff-4875-9385-3fc005a54cc3",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:25.243-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "939998fa-6049-4d56-a0f6-9091d6ae030d",
+    "campaign_id": "6fae0a4d-1952-4cbd-9167-754035a21fbc",
+    "lead_id": "28c0b632-f130-4a4c-941a-3c294ba9ea9f",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:25.433-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "ee76a7b5-e360-476c-bbdb-aeb1a91525c8",
+    "campaign_id": "954cf109-df5e-4a4f-8a2c-2de414ec4a74",
+    "lead_id": "2528bb5c-4680-45cd-9033-c662547264bb",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:25.566-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "cd73fb28-b0d6-44e2-b468-7bc645bc4ecb",
+    "campaign_id": "d519816a-0e04-442b-a68f-864922ff160d",
+    "lead_id": "d114c54d-3478-4e59-9f52-5890cf6c9ff2",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:25.697-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "fb19c5bd-3f0d-48f5-a638-b805ec050ebc",
+    "campaign_id": "f85e83b5-5f72-41bd-a1bf-ddda5b6e1874",
+    "lead_id": "b068580b-337e-4b3a-982f-4fc89d87b20d",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:25.802-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "1b5ffdab-1bca-4a64-89a4-314f11d5a463",
+    "campaign_id": "9a6d23df-d611-4d01-a57a-4fbd398c9095",
+    "lead_id": "3bff1b62-322f-4724-aa13-8d43a7a4867d",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:26.686-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "ed8432fe-8223-4ad2-91c2-09f34b1aebbc",
+    "campaign_id": "076672b4-689a-4887-b1b5-dbee123468b5",
+    "lead_id": "c29fbbf2-afcc-43b2-a8e5-9ccf44abc36c",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:36.975-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "2b2f44fd-66d6-42a6-a944-38232692fc68",
+    "campaign_id": "6fe314b7-9766-4c71-ad5b-b16d1e5e1e2e",
+    "lead_id": "38d88391-45db-4019-b8cf-e56060d6538d",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:37.244-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "ee178502-b363-47c2-8527-8620ee2d1554",
+    "campaign_id": "b6e307a4-fbc8-43e4-b913-a682217a297f",
+    "lead_id": "fc60cf6f-1893-44d7-ae67-629c302cb350",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:37.394-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "a05a3f16-0513-403e-ad3b-00a1419880fb",
+    "campaign_id": "78ba355f-b9fe-4ed5-9a88-5fdf04dcd6b8",
+    "lead_id": "622ecbc0-aabb-4679-967d-4831d24a6aea",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:37.503-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "df2ffafc-b387-4856-b978-4905d34eddbd",
+    "campaign_id": "bff9a1d2-648e-4dee-889a-b669d4027a60",
+    "lead_id": "1043a349-af20-4d06-90e9-9bb5e5624bb8",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:37.611-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "c18d0b3c-2d13-46d9-8b16-5494c81f3d6f",
+    "campaign_id": "bbf62ba2-508f-47df-b0c7-2073dff80474",
+    "lead_id": "25c0320d-3fa0-4aa8-8ea2-ffc16b441836",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:37.731-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "5e8a5dea-c283-4e97-856c-062218154db4",
+    "campaign_id": "3bd631de-af33-4e10-9a19-31494dd81ecd",
+    "lead_id": "2188a485-3bcf-4724-90d7-2b9480e6dc6f",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:37.841-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "a300a769-a175-4fc7-aa83-881984296eb9",
+    "campaign_id": "61674401-7664-45b2-9a14-2804001188a4",
+    "lead_id": "a0a835bc-312c-4052-849c-795636e0c4bf",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:37.939-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "c2a91573-e8f5-4c77-a4f7-3fc2264cf136",
+    "campaign_id": "b00268e3-b411-4b71-a0a4-94f0500845a0",
+    "lead_id": "166fcc97-f008-47a8-9ec7-8dd0162fb702",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:38.017-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "7f4fb9b8-71a8-4d02-83e0-dab30cd5535d",
+    "campaign_id": "ac7a0d58-fafb-46fb-a342-039cdff8f549",
+    "lead_id": "aa416734-fa08-4494-b20e-b59120e3338d",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:38.12-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "1afcb747-f428-4a0e-bf7a-3983d0f1185e",
+    "campaign_id": "997403c4-2020-49ee-93ac-162bfced487a",
+    "lead_id": "cb60c221-4767-4b7d-8d01-4a5957b9f322",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T20:52:38.202-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "58a373c3-61cf-44db-9303-4aa47b540b5e",
+    "campaign_id": "eaadb3d6-2bd1-4b20-ad66-be0a3d077152",
+    "lead_id": "280fe4bb-86c9-426c-9123-bd48adbe2024",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T21:15:02.617-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "a0201e43-d424-4f21-ad08-cd6ffe04f2a5",
+    "campaign_id": "4b4d9430-3068-4dc7-93b9-f26edf1f799b",
+    "lead_id": "0f44faaf-6c56-4099-a906-71494630ac1a",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T21:15:03.729-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "98fb4353-5a04-4e04-91d9-89c13cdaf26f",
+    "campaign_id": "89ce3488-a8cd-4f4c-acef-5a836708ad76",
+    "lead_id": "852c7ee4-2083-4cea-95f1-7af66abe37a5",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T21:15:03.996-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "dcc97db9-5893-4e66-8ffd-ebceb1a7404c",
+    "campaign_id": "0ea594d3-a866-435d-88d8-a9f96af9f202",
+    "lead_id": "4632043a-2bcf-4d7b-b840-019ed3fac843",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T21:15:04.268-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "74e87904-3fcf-42cd-804c-069de2d203d4",
+    "campaign_id": "dfc5042f-802f-4f17-98eb-8ce3e74fd475",
+    "lead_id": "465bc4cb-86a1-4820-8683-60eeafe33dcd",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T21:15:04.427-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "be28f49c-ea4b-4f21-9ada-ee36924a6881",
+    "campaign_id": "0afdbf70-97cd-476f-9aa9-725e3f98740f",
+    "lead_id": "3a994a01-aed6-4d13-a1a3-66a50fd699d9",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T21:15:04.561-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "ed415a2f-c3a1-4414-85be-caa75478ddeb",
+    "campaign_id": "50a78ad5-96c3-4547-9d89-c427d0042cf6",
+    "lead_id": "e1a603b7-3f1e-4bcb-a298-54e6c52c074c",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T21:15:04.677-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "f4bd6046-0045-4b23-a3db-c161c34203b1",
+    "campaign_id": "d57ab04b-9db0-4efe-b152-c0e33c6c0273",
+    "lead_id": "7abcd977-af5b-42b0-873d-d45507dc619e",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T21:15:04.787-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "173a894c-d094-45c3-82cc-bb3afa2aeba6",
+    "campaign_id": "bc5e3a96-8ae5-4209-b6f0-04176949bc9c",
+    "lead_id": "a0a0716e-158e-45f7-9f1c-a63817788eb1",
+    "status": "draft",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T21:15:04.876-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "ca7c6b00-97ab-4e86-93c8-ac11a4aad5f6",
+    "campaign_id": "fd075290-fdd5-40e5-8ed1-ed2a1c3f6f0e",
+    "lead_id": "73cc248e-d9e4-44a5-95df-734cf186eb2a",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T21:15:04.971-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "74564936-2b98-42d1-b518-8efe4a9cbdfd",
+    "campaign_id": "286ad0ec-2e70-46d0-be29-a9ba293f9046",
+    "lead_id": "1c6a8a10-cfac-46a5-be77-74dda0fd8dcb",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T21:15:05.059-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "65c87225-b6be-455b-8396-373efa180cdd",
+    "campaign_id": "3291d89f-2be7-45a6-82d5-80b5d421ff68",
+    "lead_id": "04eaf18f-5edf-412e-b04b-0f72c43f84d0",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T21:15:05.149-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "edc5ba11-0614-4382-ae09-4c118b685004",
+    "campaign_id": "dfb86932-19ab-4fcf-ab17-c9beae3e57c2",
+    "lead_id": "8561c62b-346b-437c-ae5f-f4d55ff7b002",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 1,
+    "created_at": "2026-05-13T21:15:05.232-03:00",
+    "body_tokens": [
+      "[pause for response]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "d4fbf7ad-fdd1-449a-bbdd-9899da3d2c10",
+    "campaign_id": "dc69ad6e-e268-4eb5-9521-e6c4b20199d0",
+    "lead_id": "88d19595-1a34-4c10-8484-198652b66297",
+    "status": "draft",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:04.607-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "c0136064-ada0-4020-acbf-4c7f7b76b4f6",
+    "campaign_id": "dc69ad6e-e268-4eb5-9521-e6c4b20199d0",
+    "lead_id": "88d19595-1a34-4c10-8484-198652b66297",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:04.607-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "1e0205ff-7f5a-4aa9-9f8c-551a79c0be81",
+    "campaign_id": "5e2b17f7-b0eb-4e83-94e1-84054c602cac",
+    "lead_id": "04dc71cb-ecef-4dda-8fdc-3d0bd7e79ff2",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:04.724-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "a9867315-3687-4e6e-a7ce-1509f1e671f2",
+    "campaign_id": "5e2b17f7-b0eb-4e83-94e1-84054c602cac",
+    "lead_id": "04dc71cb-ecef-4dda-8fdc-3d0bd7e79ff2",
+    "status": "draft",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:04.724-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "4700f376-3886-4276-95cc-6196d6a9a4d1",
+    "campaign_id": "26f53d20-43ee-459c-8e9f-aadc04214458",
+    "lead_id": "ad43ba4e-b134-4fa3-a984-bd8c7521a189",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:04.796-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "7214f3d2-9d68-4d17-9e49-2de4dc640da5",
+    "campaign_id": "26f53d20-43ee-459c-8e9f-aadc04214458",
+    "lead_id": "ad43ba4e-b134-4fa3-a984-bd8c7521a189",
+    "status": "draft",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:04.796-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "b19250e0-18db-4ea1-b29a-acfe5fa0c7c1",
+    "campaign_id": "0abab79f-2712-40c5-bcf7-88b60ae15ec6",
+    "lead_id": "c3ebed68-075a-4d47-8d63-21eea378742f",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:04.883-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "c7b097b3-11cd-4567-8b06-538c750f85fa",
+    "campaign_id": "0abab79f-2712-40c5-bcf7-88b60ae15ec6",
+    "lead_id": "c3ebed68-075a-4d47-8d63-21eea378742f",
+    "status": "draft",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:04.883-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "9cb5f92f-1328-43ce-b594-705589832dde",
+    "campaign_id": "cbce71b6-22d9-432e-9ae4-f47a8c1c8bfe",
+    "lead_id": "8f12fd83-ff81-4905-a7c9-977701c8701e",
+    "status": "draft",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:04.958-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "1a812bff-c541-4189-ac62-432bd74217bb",
+    "campaign_id": "cbce71b6-22d9-432e-9ae4-f47a8c1c8bfe",
+    "lead_id": "8f12fd83-ff81-4905-a7c9-977701c8701e",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:04.958-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "efe29d62-b45d-479c-82dc-9405dc0ff41f",
+    "campaign_id": "5e7e2f25-305b-4c09-835f-800ad27c2626",
+    "lead_id": "ff07eec8-f74e-451e-b825-2b50ca951d26",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:05.033-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "4a235611-5985-4620-87d9-5096e9efa7a5",
+    "campaign_id": "5e7e2f25-305b-4c09-835f-800ad27c2626",
+    "lead_id": "ff07eec8-f74e-451e-b825-2b50ca951d26",
+    "status": "draft",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:05.033-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "54995554-4263-4750-a8d8-84b5e9bf8759",
+    "campaign_id": "79761c91-619c-40c7-b206-587b43c48986",
+    "lead_id": "02a00abc-3f21-478b-8fb4-67c81521d881",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:05.102-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "20b4ac8e-ef5f-413f-9aff-631ebe8418f6",
+    "campaign_id": "79761c91-619c-40c7-b206-587b43c48986",
+    "lead_id": "02a00abc-3f21-478b-8fb4-67c81521d881",
+    "status": "draft",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:05.102-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "9200f4c5-496c-4ad1-98a1-5358f9269e80",
+    "campaign_id": "0e8bd8e8-cfca-42ed-bb5c-b573f337472a",
+    "lead_id": "a31009eb-4e99-49b6-99e7-83478944c8c5",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:05.186-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "944eba6c-e5e6-4e4a-96e2-a9272e838a44",
+    "campaign_id": "0e8bd8e8-cfca-42ed-bb5c-b573f337472a",
+    "lead_id": "a31009eb-4e99-49b6-99e7-83478944c8c5",
+    "status": "draft",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:05.186-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "51dddfd6-a827-4916-beb2-57111370b010",
+    "campaign_id": "302a49f3-e9ea-4f19-b7e7-007fdba477ba",
+    "lead_id": "0549e8eb-1d97-4e0e-9197-13a0288d22ed",
+    "status": "draft",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:05.252-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "2cfdca5b-f412-4cb9-a128-e4225c9b10ac",
+    "campaign_id": "302a49f3-e9ea-4f19-b7e7-007fdba477ba",
+    "lead_id": "0549e8eb-1d97-4e0e-9197-13a0288d22ed",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:05.252-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "5001533b-88ef-44f6-a6da-4dec4010abef",
+    "campaign_id": "28159896-9fcc-434c-bd36-50ebfc65c3ea",
+    "lead_id": "97f92a09-af2b-4316-8422-82bece6dd9d5",
+    "status": "draft",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:05.368-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "3e79a84d-fdf4-4d28-884b-22d523d3e85a",
+    "campaign_id": "28159896-9fcc-434c-bd36-50ebfc65c3ea",
+    "lead_id": "97f92a09-af2b-4316-8422-82bece6dd9d5",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:05.368-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "317427c7-bec3-4689-a41d-75e0f0cf3e62",
+    "campaign_id": "894d3f75-72b0-4ad2-833d-867d9255427b",
+    "lead_id": "ef13d0b7-1c92-44b3-ad60-2f801e80525f",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:05.439-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "815322a0-9a50-4380-b485-1d498fb14e96",
+    "campaign_id": "894d3f75-72b0-4ad2-833d-867d9255427b",
+    "lead_id": "ef13d0b7-1c92-44b3-ad60-2f801e80525f",
+    "status": "draft",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:05.439-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "19b8dcc4-e68c-4bcf-8ac1-04f11de9aa51",
+    "campaign_id": "17733142-36e8-48fa-b0f6-e539c7f48dd6",
+    "lead_id": "1d9bd439-8212-417c-993e-3ae01a8187b4",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:05.508-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "10afc11b-cfb7-44d3-9e02-7421f1fcba53",
+    "campaign_id": "17733142-36e8-48fa-b0f6-e539c7f48dd6",
+    "lead_id": "1d9bd439-8212-417c-993e-3ae01a8187b4",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:05.508-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "c6a6f63b-7168-4523-9bd9-fa8c2f291af8",
+    "campaign_id": "d331c7be-a60b-4606-87d5-3f05f5e19eef",
+    "lead_id": "9bbb357a-8589-4755-a21e-bcd1912235e7",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:05.581-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "6980d85e-6c93-4a06-be7f-caefe87c360a",
+    "campaign_id": "d331c7be-a60b-4606-87d5-3f05f5e19eef",
+    "lead_id": "9bbb357a-8589-4755-a21e-bcd1912235e7",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:05.581-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "960c8caa-647a-4b86-ac55-5805d348f04c",
+    "campaign_id": "d5a1f212-e679-4dfc-9f3e-acec6df039a6",
+    "lead_id": "6cf58eb6-0386-4b8a-b1ad-a249d8240635",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:05.65-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "1995afba-54cd-4ace-a718-543bd36e19c0",
+    "campaign_id": "d5a1f212-e679-4dfc-9f3e-acec6df039a6",
+    "lead_id": "6cf58eb6-0386-4b8a-b1ad-a249d8240635",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:05.65-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "0938b474-9e70-478f-9aac-79589a6e9c37",
+    "campaign_id": "3fe3758f-e5cc-4169-b36a-88129735b8f4",
+    "lead_id": "c135a492-8f22-4c84-9d14-fcea7e15549f",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:05.735-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "72e39f9b-133a-4cc5-8784-bfcfedddcd62",
+    "campaign_id": "3fe3758f-e5cc-4169-b36a-88129735b8f4",
+    "lead_id": "c135a492-8f22-4c84-9d14-fcea7e15549f",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:05.735-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "c450571e-af5e-47b3-9d71-dab882d688f9",
+    "campaign_id": "000e508d-196d-4d7a-909f-2a8ba57d81e6",
+    "lead_id": "28da97f7-b70f-40a8-a3da-0471895a4b4c",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:05.802-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "7a5c922e-fd00-404d-91a0-b4372879f750",
+    "campaign_id": "000e508d-196d-4d7a-909f-2a8ba57d81e6",
+    "lead_id": "28da97f7-b70f-40a8-a3da-0471895a4b4c",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:05.802-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "5d920132-05ab-492d-b556-0fb682748d45",
+    "campaign_id": "3306d6f8-a1e1-4b98-be4a-5c43ee40d1ac",
+    "lead_id": "989f74dc-939e-4c00-81b2-0ef407b97d45",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:05.869-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "0bbe757f-926c-4a78-bbdc-b31ab8d9bfcc",
+    "campaign_id": "3306d6f8-a1e1-4b98-be4a-5c43ee40d1ac",
+    "lead_id": "989f74dc-939e-4c00-81b2-0ef407b97d45",
+    "status": "sent",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:05.869-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "918e8823-c74c-4b4a-b15a-c279a3860e08",
+    "campaign_id": "35cb8544-0e2b-455f-a4a3-00ab437a94f5",
+    "lead_id": "e960d826-6c2a-47e0-bf55-f2e642d74592",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:05.951-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "6132032b-49e4-4c85-8705-97344e964ecd",
+    "campaign_id": "35cb8544-0e2b-455f-a4a3-00ab437a94f5",
+    "lead_id": "e960d826-6c2a-47e0-bf55-f2e642d74592",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:05.951-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "a8430f7f-a110-43dd-be68-993970567f1e",
+    "campaign_id": "c4c689c8-f18e-45d2-85ef-0082d35ee1e6",
+    "lead_id": "0b12f214-d1d8-456f-9491-f59de9b7b0ee",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:06.024-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "b9482259-75a3-4f06-861c-f733c9b7ea97",
+    "campaign_id": "c4c689c8-f18e-45d2-85ef-0082d35ee1e6",
+    "lead_id": "0b12f214-d1d8-456f-9491-f59de9b7b0ee",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:06.024-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "62525de4-8c67-4b28-8fea-d955ac2438f0",
+    "campaign_id": "b52e1d2b-fac8-47b0-ba4b-5162d0fff59a",
+    "lead_id": "10f3e891-9cdb-41f6-b96c-6b91298170d3",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:06.091-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "8b03ee02-3669-4554-be71-f5c04f9566b7",
+    "campaign_id": "b52e1d2b-fac8-47b0-ba4b-5162d0fff59a",
+    "lead_id": "10f3e891-9cdb-41f6-b96c-6b91298170d3",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:06.091-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "e027af1d-eda6-45bd-8fd1-f4e1c928855c",
+    "campaign_id": "15a842c1-2fe8-460c-93c6-78a150a1817a",
+    "lead_id": "ac101009-3ee2-4ff8-8e6c-4decb864e99b",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:06.158-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "c90b3271-a9f4-4158-8dda-167f44fc3258",
+    "campaign_id": "15a842c1-2fe8-460c-93c6-78a150a1817a",
+    "lead_id": "ac101009-3ee2-4ff8-8e6c-4decb864e99b",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:06.158-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "5d7b7e8a-8964-4958-9582-9ff74653eca9",
+    "campaign_id": "3772da68-32ce-4b32-8803-62308f28e00d",
+    "lead_id": "f3c5b594-5a59-491e-bbb7-81c4801476de",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:06.229-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "69be5274-1e7e-4dd7-9031-0671ffe768e0",
+    "campaign_id": "3772da68-32ce-4b32-8803-62308f28e00d",
+    "lead_id": "f3c5b594-5a59-491e-bbb7-81c4801476de",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:06.229-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "0bfb758f-be3a-4885-8aac-490918a49589",
+    "campaign_id": "a59ebe9b-8058-4d95-aa29-8c3b13be3349",
+    "lead_id": "0bbe7123-6f23-4b49-b780-686285a26a26",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:06.301-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "62355e96-54eb-4a09-a801-52a4fc844db0",
+    "campaign_id": "a59ebe9b-8058-4d95-aa29-8c3b13be3349",
+    "lead_id": "0bbe7123-6f23-4b49-b780-686285a26a26",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:06.301-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "1707f3d6-e6d9-492c-8564-73680bac0e52",
+    "campaign_id": "a32ccab1-28f0-44ef-be29-ae72cc35dade",
+    "lead_id": "bdacdd13-e950-4f67-b908-f9d3fd1445a7",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:06.378-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "a2b3fd55-dbdf-452b-af78-501c3e661d93",
+    "campaign_id": "a32ccab1-28f0-44ef-be29-ae72cc35dade",
+    "lead_id": "bdacdd13-e950-4f67-b908-f9d3fd1445a7",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:06.378-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "1936aa61-3e80-4e77-ba44-c6873c1bb0ee",
+    "campaign_id": "bf4f1423-e470-4202-a0bb-d17f8657e5ee",
+    "lead_id": "2014b3be-0d8f-4d67-a351-12bbce43db8d",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:06.446-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "b0c2e6bf-9141-4cf9-8f7d-76a81093d7a3",
+    "campaign_id": "bf4f1423-e470-4202-a0bb-d17f8657e5ee",
+    "lead_id": "2014b3be-0d8f-4d67-a351-12bbce43db8d",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:06.446-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "2f8a989c-7114-45ad-9b23-9529f858931e",
+    "campaign_id": "15dd155d-5aaf-47c5-8cf3-ac652b2bffaf",
+    "lead_id": "5e9f4ac8-a924-4bd5-bc40-a22abfc187a3",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:06.522-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "e85f5231-ea14-4d8f-b5fe-3fc037dede3b",
+    "campaign_id": "15dd155d-5aaf-47c5-8cf3-ac652b2bffaf",
+    "lead_id": "5e9f4ac8-a924-4bd5-bc40-a22abfc187a3",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:06.522-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "d694aa3a-7120-4f2a-ae74-d3e086c6febf",
+    "campaign_id": "1b468003-1f8b-4465-9389-7291f7fb833b",
+    "lead_id": "d9eb67c0-cf3d-4d45-8e77-32f6e90d750e",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:06.592-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "c56fec25-5fee-4b47-a2e3-28759363bb02",
+    "campaign_id": "1b468003-1f8b-4465-9389-7291f7fb833b",
+    "lead_id": "d9eb67c0-cf3d-4d45-8e77-32f6e90d750e",
+    "status": "sent",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:06.592-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "1d87a81a-3bba-4760-9b8b-826b621627ce",
+    "campaign_id": "6c41225f-ce18-4b11-8212-84938fcdcf2c",
+    "lead_id": "85e7d683-c9a7-4641-9033-747c580526c1",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:06.702-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "e7015baf-3ec7-43e7-a4eb-8d6f449c39df",
+    "campaign_id": "6c41225f-ce18-4b11-8212-84938fcdcf2c",
+    "lead_id": "85e7d683-c9a7-4641-9033-747c580526c1",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:06.702-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "898243b5-c708-4c6c-8182-f6abc7048c65",
+    "campaign_id": "4ba32c1b-db79-4643-bca2-5298ef58c83d",
+    "lead_id": "6cf00437-0177-4891-b26e-414b3384f79f",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:06.776-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "2d65ee94-9896-480a-a33a-6876b05b63f0",
+    "campaign_id": "4ba32c1b-db79-4643-bca2-5298ef58c83d",
+    "lead_id": "6cf00437-0177-4891-b26e-414b3384f79f",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:06.776-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "2421c764-9fdc-4824-97b8-8f0eeefd5dab",
+    "campaign_id": "a472d021-a2e3-4e30-bf6b-f7f2b6fec19f",
+    "lead_id": "90c89ab0-ae68-42c7-a728-480191e62e77",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:06.844-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "80d9eb5c-b3dd-45f2-a05f-14a43ccae093",
+    "campaign_id": "a472d021-a2e3-4e30-bf6b-f7f2b6fec19f",
+    "lead_id": "90c89ab0-ae68-42c7-a728-480191e62e77",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:06.844-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "9d30a2e9-5ae0-4e1d-8d92-61576446ea46",
+    "campaign_id": "1202ee90-2a13-4844-bdb3-bb2b57d9998a",
+    "lead_id": "2fe61d30-4963-4d50-a2e5-de46f2af8fcd",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:06.913-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "b480e5e5-6ebc-4aa9-8acd-45716aca51ed",
+    "campaign_id": "1202ee90-2a13-4844-bdb3-bb2b57d9998a",
+    "lead_id": "2fe61d30-4963-4d50-a2e5-de46f2af8fcd",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:06.913-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "c748f9dd-49c0-4f56-a320-5e4419210932",
+    "campaign_id": "0c5e63a5-7bd1-4706-9e39-4ad31a9d9a6c",
+    "lead_id": "5c0f7e24-9e91-49ba-9afc-b11ea03cdc3b",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:06.986-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "62fd3d68-e343-47a6-bf70-154538d5a5af",
+    "campaign_id": "0c5e63a5-7bd1-4706-9e39-4ad31a9d9a6c",
+    "lead_id": "5c0f7e24-9e91-49ba-9afc-b11ea03cdc3b",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:06.986-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "8bba81a9-ed22-4d23-889c-0471127c0203",
+    "campaign_id": "1e7a49ca-c138-4aa1-82b4-bd143c14e276",
+    "lead_id": "2cbb8114-5be2-4988-8c41-6132eb54398a",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:07.058-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "b3ddb762-a065-4761-a28b-19c39fbc731e",
+    "campaign_id": "1e7a49ca-c138-4aa1-82b4-bd143c14e276",
+    "lead_id": "2cbb8114-5be2-4988-8c41-6132eb54398a",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:07.058-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "0cb81a2b-41d3-45ec-b352-1678b9ca21e4",
+    "campaign_id": "423be2b6-065d-4a9d-802f-58ec6994bfb5",
+    "lead_id": "c45d5b47-b729-49c1-9597-176fe034847c",
+    "status": "skipped",
+    "channel": "linkedin",
+    "step_number": 3,
+    "created_at": "2026-05-18T19:12:07.131-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "632bee03-c6e4-4643-bb24-4a487e03cbcc",
+    "campaign_id": "423be2b6-065d-4a9d-802f-58ec6994bfb5",
+    "lead_id": "c45d5b47-b729-49c1-9597-176fe034847c",
+    "status": "queued",
+    "channel": "linkedin",
+    "step_number": 6,
+    "created_at": "2026-05-18T19:12:07.131-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "cf4476dd-ae8e-4c9b-bf01-bb3143237f1a",
+    "campaign_id": "6e8bc500-ea2b-4676-8e63-a0a61c71b75f",
+    "lead_id": "0b7667ac-4caa-47d5-aa9b-1714621902ce",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:05.046-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "8821ff8f-c1eb-46ad-907e-1d031570b854",
+    "campaign_id": "6e8bc500-ea2b-4676-8e63-a0a61c71b75f",
+    "lead_id": "0b7667ac-4caa-47d5-aa9b-1714621902ce",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:05.046-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "7d652835-c8e2-4d0b-9b45-fcd673962720",
+    "campaign_id": "42722a08-097d-4e3a-9753-9ad2fc256e25",
+    "lead_id": "47386268-2588-4323-ac48-c1f904a7ff86",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:05.147-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "fd60b2fd-00e3-4b34-8511-0350c8e06d0e",
+    "campaign_id": "42722a08-097d-4e3a-9753-9ad2fc256e25",
+    "lead_id": "47386268-2588-4323-ac48-c1f904a7ff86",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:05.147-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "8415f606-ecc7-427d-9ff2-4346ce05dfd5",
+    "campaign_id": "82ea3bdd-a49f-4164-b41d-c0b211f6d024",
+    "lead_id": "cd09dd5f-9338-4ec7-b23e-2051fb242ef0",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:05.22-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "eb05947f-64d1-444f-8f62-78d0db7bdf8c",
+    "campaign_id": "82ea3bdd-a49f-4164-b41d-c0b211f6d024",
+    "lead_id": "cd09dd5f-9338-4ec7-b23e-2051fb242ef0",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:05.22-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "73cb6d1b-9d9e-4079-9aa2-a637d26e4d14",
+    "campaign_id": "bd3e9f5d-4c2e-418c-888b-1472fe24f93c",
+    "lead_id": "62382073-074d-49df-b443-13e3fa05ed49",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:05.323-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "15c6db3f-f3d3-4c95-b668-9c4ac7679278",
+    "campaign_id": "bd3e9f5d-4c2e-418c-888b-1472fe24f93c",
+    "lead_id": "62382073-074d-49df-b443-13e3fa05ed49",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:05.323-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "c660f33c-1942-46df-b6e1-a26a2daa37cf",
+    "campaign_id": "ec6bd934-d362-4a42-a0ae-c6781fc7ab2a",
+    "lead_id": "a1ec5e13-f36a-4759-aabc-a27a9a107694",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:05.39-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "24875031-f7a6-438c-90ec-c67d01895305",
+    "campaign_id": "ec6bd934-d362-4a42-a0ae-c6781fc7ab2a",
+    "lead_id": "a1ec5e13-f36a-4759-aabc-a27a9a107694",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:05.39-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "91697c3f-4c4e-4538-b60b-8ac1fd4341b6",
+    "campaign_id": "76c98fce-ff8f-43b8-9c94-097689864958",
+    "lead_id": "92f4b462-1db5-4534-b61d-eea416bf157a",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:05.456-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "41b63f14-02c8-477f-9784-3de8f67e90ec",
+    "campaign_id": "76c98fce-ff8f-43b8-9c94-097689864958",
+    "lead_id": "92f4b462-1db5-4534-b61d-eea416bf157a",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:05.456-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "faa5de81-a069-44e0-b262-fa005249492e",
+    "campaign_id": "4d166668-e6b2-40b7-80fa-e6395d9a7c0e",
+    "lead_id": "267ff349-0a10-40fd-b541-1d6d8ecb60bb",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:05.52-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "22398184-9c1f-4499-96d2-87b3e10c0308",
+    "campaign_id": "4d166668-e6b2-40b7-80fa-e6395d9a7c0e",
+    "lead_id": "267ff349-0a10-40fd-b541-1d6d8ecb60bb",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:05.52-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "dc2c467b-47d1-4100-91c0-711826fbde7c",
+    "campaign_id": "875d379b-c454-4a76-9aed-71b120cc5c72",
+    "lead_id": "49677687-4c58-4d71-a49a-5fcbfc3dd64a",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:05.586-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "4e3fd251-0620-4de2-a468-8cdbc73089ed",
+    "campaign_id": "875d379b-c454-4a76-9aed-71b120cc5c72",
+    "lead_id": "49677687-4c58-4d71-a49a-5fcbfc3dd64a",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:05.586-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "f0d16dcd-5795-449c-b518-3c1843040f79",
+    "campaign_id": "5774afd9-7b03-4b95-b4c4-bb90013ab891",
+    "lead_id": "f144159f-741c-4317-8190-deec57c5f526",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:05.65-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "066e24d7-c86b-4e99-8733-ba15a6d77c4d",
+    "campaign_id": "5774afd9-7b03-4b95-b4c4-bb90013ab891",
+    "lead_id": "f144159f-741c-4317-8190-deec57c5f526",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:05.65-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "11389894-be43-4294-8255-9695890bea96",
+    "campaign_id": "4f6fd9a8-4584-4595-999c-c615144d4751",
+    "lead_id": "bcb4d4da-1e37-4d62-8acb-b68f3129800d",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:05.712-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "ecd82069-e9ca-413c-be3d-93b38336f82d",
+    "campaign_id": "4f6fd9a8-4584-4595-999c-c615144d4751",
+    "lead_id": "bcb4d4da-1e37-4d62-8acb-b68f3129800d",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:05.712-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "30ac4959-6317-4b64-bfd5-27cf7c0a0905",
+    "campaign_id": "95c684dd-980a-4c8c-9fc6-4d8027569522",
+    "lead_id": "603f0cf9-d7c6-4e69-b1d9-e6e43839184a",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:05.776-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "1db301af-2653-428d-a7a7-e5c48e5302c3",
+    "campaign_id": "95c684dd-980a-4c8c-9fc6-4d8027569522",
+    "lead_id": "603f0cf9-d7c6-4e69-b1d9-e6e43839184a",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:05.776-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "35c03420-8b0a-47b0-8412-3e1d39314d73",
+    "campaign_id": "25b358b9-9fac-4b41-8e42-bf83b6747969",
+    "lead_id": "a0d55c86-c327-4550-86e0-110791ed8181",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:05.835-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "4b9868d4-e952-413c-abac-6c523fbefc67",
+    "campaign_id": "25b358b9-9fac-4b41-8e42-bf83b6747969",
+    "lead_id": "a0d55c86-c327-4550-86e0-110791ed8181",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:05.835-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "e8e54bb0-ebe9-46e9-9ae6-c90fc73e21b4",
+    "campaign_id": "f63c7136-268d-4c5d-9419-d5e57e68c8ee",
+    "lead_id": "dfdba0ea-caa9-497e-a332-6f4abf704a1b",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:05.926-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "55b40397-2b09-4b40-803a-00abed91b016",
+    "campaign_id": "f63c7136-268d-4c5d-9419-d5e57e68c8ee",
+    "lead_id": "dfdba0ea-caa9-497e-a332-6f4abf704a1b",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:05.926-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "b4980fad-df7a-4b3a-9ebb-1a73498c0636",
+    "campaign_id": "e546e85c-c4a8-4dab-a7eb-b69903849fe8",
+    "lead_id": "f6c626ed-eb35-4a99-8486-71a5d8016a0e",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:05.997-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "388c89ce-0522-434f-bf1e-a3efbc07b524",
+    "campaign_id": "e546e85c-c4a8-4dab-a7eb-b69903849fe8",
+    "lead_id": "f6c626ed-eb35-4a99-8486-71a5d8016a0e",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:05.997-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "267965b7-d45a-479b-a4ba-0c5b5a8cb985",
+    "campaign_id": "7c60e70a-6b87-45ed-a534-0e073936601b",
+    "lead_id": "c3c7d8fb-afcd-40ad-b858-b1fd35555916",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:06.061-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "5ac1dd9e-9e70-4220-b313-cd678264836a",
+    "campaign_id": "7c60e70a-6b87-45ed-a534-0e073936601b",
+    "lead_id": "c3c7d8fb-afcd-40ad-b858-b1fd35555916",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:06.061-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "d92e96b4-46fd-4df4-b594-1b7db7ce0124",
+    "campaign_id": "c77a9668-e3bc-4d3b-8960-4ca82a95fa27",
+    "lead_id": "06eb92e5-4fe8-43b8-80b6-4bc5584ea82d",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:06.128-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "3a52620e-1cb7-40da-8d7e-efe6fec5183b",
+    "campaign_id": "c77a9668-e3bc-4d3b-8960-4ca82a95fa27",
+    "lead_id": "06eb92e5-4fe8-43b8-80b6-4bc5584ea82d",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:06.128-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "33955173-7848-4cf7-b262-bf07182e1cd8",
+    "campaign_id": "5938b481-01c2-40bc-a87e-99d8388f2e0e",
+    "lead_id": "30fe320b-e3aa-4d03-810e-32a3b8b6da80",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:06.192-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "6a6af2e6-fb85-4d6e-88c7-cc0523767feb",
+    "campaign_id": "5938b481-01c2-40bc-a87e-99d8388f2e0e",
+    "lead_id": "30fe320b-e3aa-4d03-810e-32a3b8b6da80",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:06.192-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "dba3c6bb-7be4-45ff-8588-e767cd33ac9f",
+    "campaign_id": "330e565a-6e5c-455e-9f22-1c5162bd0353",
+    "lead_id": "45de1ccb-fa0d-4cd8-b44a-73fa9ec71e99",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:06.252-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "5b68363e-b24c-4edb-be3c-b3284ef39e5c",
+    "campaign_id": "330e565a-6e5c-455e-9f22-1c5162bd0353",
+    "lead_id": "45de1ccb-fa0d-4cd8-b44a-73fa9ec71e99",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:06.252-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "2287e257-b69d-4976-8884-936935f1b282",
+    "campaign_id": "4203029e-ea7e-4f3f-a045-86b1d9441345",
+    "lead_id": "85cbbcf4-099d-4715-8d16-671bb457427e",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:06.325-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "0e5a9ef9-59eb-4020-894f-49c8d0f65980",
+    "campaign_id": "4203029e-ea7e-4f3f-a045-86b1d9441345",
+    "lead_id": "85cbbcf4-099d-4715-8d16-671bb457427e",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:06.325-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "8c6f7dbc-464a-40e4-93ce-a79c27d19538",
+    "campaign_id": "7726d77c-972f-46e4-a2de-f1a71226e766",
+    "lead_id": "9e682e08-fee6-4ce0-8678-7c0236f6075e",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:06.4-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "427b1fda-e6d5-47f0-9a18-ec397c13c7aa",
+    "campaign_id": "7726d77c-972f-46e4-a2de-f1a71226e766",
+    "lead_id": "9e682e08-fee6-4ce0-8678-7c0236f6075e",
+    "status": "queued",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:06.4-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "771f5ce0-f2c9-40f5-a51f-312855bfb738",
+    "campaign_id": "0988803c-af93-404a-acb5-95ab4f331ba7",
+    "lead_id": "9582d89c-95ed-452b-b6d5-e12a4175e609",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:06.465-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "0e59ad63-affd-4be0-a9fe-2b14f810fba3",
+    "campaign_id": "0988803c-af93-404a-acb5-95ab4f331ba7",
+    "lead_id": "9582d89c-95ed-452b-b6d5-e12a4175e609",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:06.465-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "bbd97792-01e7-4949-aa2b-74bd40d3e53e",
+    "campaign_id": "6f2427a7-3368-4591-bea2-c896d252aef0",
+    "lead_id": "959a50f4-dd23-409b-85a0-89ade33e03ab",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:06.544-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "217c96db-ad3d-4ae9-af97-0190a6745d9a",
+    "campaign_id": "6f2427a7-3368-4591-bea2-c896d252aef0",
+    "lead_id": "959a50f4-dd23-409b-85a0-89ade33e03ab",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:06.544-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "0cb893ea-6996-4064-8579-1cf5b7ce1175",
+    "campaign_id": "86fa6ec1-9326-4871-b6b1-4088aada52b5",
+    "lead_id": "5ef4b78c-c028-4500-a3ee-dd8f65b05e7d",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:06.611-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "e7ee7641-4b37-4936-adf9-4c1e71a5d590",
+    "campaign_id": "86fa6ec1-9326-4871-b6b1-4088aada52b5",
+    "lead_id": "5ef4b78c-c028-4500-a3ee-dd8f65b05e7d",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:06.611-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "f125fa94-c489-46fe-9ac2-ec0798ab31ee",
+    "campaign_id": "6dfda911-d99e-47c8-b302-b8d816096e5e",
+    "lead_id": "bb10ca26-0031-44f4-8306-b8242e853f5f",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:06.675-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "0188df8a-0162-47ff-972a-710e3cfbc943",
+    "campaign_id": "6dfda911-d99e-47c8-b302-b8d816096e5e",
+    "lead_id": "bb10ca26-0031-44f4-8306-b8242e853f5f",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:06.675-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "15262c68-e195-427e-8204-4ba056ecefa8",
+    "campaign_id": "ad3a4861-2cbf-4435-8ede-1716d23be1b4",
+    "lead_id": "a061960a-3072-47c2-bf28-9c95d18d7143",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:06.748-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "552f8a45-4f2b-4aff-a19a-60f20f6d4045",
+    "campaign_id": "ad3a4861-2cbf-4435-8ede-1716d23be1b4",
+    "lead_id": "a061960a-3072-47c2-bf28-9c95d18d7143",
+    "status": "queued",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:06.748-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "1d87e8f9-bea1-474c-b3ed-3e45ae4b59fb",
+    "campaign_id": "1f2a02d4-b3b1-4dee-9e67-b97e22778e22",
+    "lead_id": "aaf101fd-def0-4448-bf55-2485b18a4e2a",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:06.807-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "f4016310-cabe-46a7-a63f-74af8a0b907b",
+    "campaign_id": "1f2a02d4-b3b1-4dee-9e67-b97e22778e22",
+    "lead_id": "aaf101fd-def0-4448-bf55-2485b18a4e2a",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:06.807-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "7c5fe384-c033-4455-bb26-e6b1533715f2",
+    "campaign_id": "e58b6b0a-0693-4a10-a229-0db1f501e3cd",
+    "lead_id": "13fd3389-4b90-4215-9e36-8b825d728d3a",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:06.877-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "ee78139f-48a9-49f2-a300-3bb2efa62ec1",
+    "campaign_id": "e58b6b0a-0693-4a10-a229-0db1f501e3cd",
+    "lead_id": "13fd3389-4b90-4215-9e36-8b825d728d3a",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:06.877-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "1de07be7-7aa9-45f0-b5ba-f601509b5334",
+    "campaign_id": "b477d8ce-0d8d-4d67-881a-faf1b69b4734",
+    "lead_id": "30e27f4d-8d4c-4b02-a5cc-8b1936f6d91d",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:06.941-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "77819760-7a52-450d-bf71-9f716ee7f31c",
+    "campaign_id": "b477d8ce-0d8d-4d67-881a-faf1b69b4734",
+    "lead_id": "30e27f4d-8d4c-4b02-a5cc-8b1936f6d91d",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:06.941-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "825addf5-400f-4549-a2d5-2dfb07b779b3",
+    "campaign_id": "5981f1a7-4f8d-41c3-8281-a8d7796f026d",
+    "lead_id": "fa8d05cb-362d-4f4d-ab27-6691c67d8d1f",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:07.005-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "abfbdf03-5a9e-4bf8-8a4e-04e1186f972b",
+    "campaign_id": "5981f1a7-4f8d-41c3-8281-a8d7796f026d",
+    "lead_id": "fa8d05cb-362d-4f4d-ab27-6691c67d8d1f",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:07.005-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "01ed860b-b0bd-4459-87f8-de0d9bb0ee01",
+    "campaign_id": "5b3b9bad-b8c7-47fc-a795-4761e1d3f044",
+    "lead_id": "06c3fdb1-4f43-4181-8012-01cd2b4ca77a",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:07.088-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "0aa7cacd-e9cc-4bc9-a46c-4055b3343911",
+    "campaign_id": "5b3b9bad-b8c7-47fc-a795-4761e1d3f044",
+    "lead_id": "06c3fdb1-4f43-4181-8012-01cd2b4ca77a",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:07.088-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "a217bd09-43ae-4ab2-aa33-cd7d5e90bde2",
+    "campaign_id": "d1f2eebe-5ad9-4488-8c44-3d7c609b0742",
+    "lead_id": "68263e3f-0a54-4849-a48f-512026588b02",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:07.151-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "a8c91b3e-342e-4940-af7f-df467379c0ff",
+    "campaign_id": "d1f2eebe-5ad9-4488-8c44-3d7c609b0742",
+    "lead_id": "68263e3f-0a54-4849-a48f-512026588b02",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:07.151-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "c3472115-4456-4b07-a6ef-9eff2092ab85",
+    "campaign_id": "0c22bb16-cc84-475e-9217-2d9a55811ab0",
+    "lead_id": "3edd4b2b-e14b-4fbf-8b51-efc9951b4bdc",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:07.216-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "036f5a1f-1e92-46a4-a947-6b22a0ce5d81",
+    "campaign_id": "0c22bb16-cc84-475e-9217-2d9a55811ab0",
+    "lead_id": "3edd4b2b-e14b-4fbf-8b51-efc9951b4bdc",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:07.216-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "d10aba39-834c-4625-a3bc-9eb8bc302b97",
+    "campaign_id": "1c3c926b-9f62-41e1-ad68-c4282f87401d",
+    "lead_id": "e1e28db0-3df1-4a1c-95a6-72766645e6e2",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:07.28-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "5ce60185-4288-4441-879e-4eada8d51fea",
+    "campaign_id": "1c3c926b-9f62-41e1-ad68-c4282f87401d",
+    "lead_id": "e1e28db0-3df1-4a1c-95a6-72766645e6e2",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:07.28-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "8057ae79-558f-406d-b148-a3f3be8fb1a6",
+    "campaign_id": "726e4102-6ec0-4196-874a-7221e9ccab14",
+    "lead_id": "fb7c5018-ca69-407a-bd02-8a9a231d4f23",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 2,
+    "created_at": "2026-05-18T19:39:07.345-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  },
+  {
+    "id": "afa2272a-247a-43c7-b008-7c8b635fa090",
+    "campaign_id": "726e4102-6ec0-4196-874a-7221e9ccab14",
+    "lead_id": "fb7c5018-ca69-407a-bd02-8a9a231d4f23",
+    "status": "skipped",
+    "channel": "call",
+    "step_number": 5,
+    "created_at": "2026-05-18T19:39:07.345-03:00",
+    "body_tokens": [
+      "[First Name]"
+    ],
+    "subject_tokens": []
+  }
+]
