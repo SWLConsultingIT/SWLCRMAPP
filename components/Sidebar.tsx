@@ -13,7 +13,6 @@ import {
   PanelLeftClose, PanelLeftOpen, Trophy,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { loadRecentLeads, type RecentLead } from "@/lib/recent-leads";
 
 const DARK   = "#060c18";
 const BORDER = "color-mix(in srgb, var(--brand, #c9a83a) 14%, transparent)";
@@ -81,41 +80,9 @@ export default function Sidebar() {
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingRepliesCount, setPendingRepliesCount] = useState(0);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
-  const [recentLeads, setRecentLeads] = useState<RecentLead[]>([]);
-  // Recent leads collapse — persisted per device so sellers who don't use it
-  // can hide it permanently, but defaults to open so the affordance is
-  // discoverable on first visit.
-  const [recentExpanded, setRecentExpanded] = useState(true);
-  useEffect(() => {
-    try {
-      const v = window.localStorage.getItem("sidebar.recent.collapsed");
-      if (v === "1") setRecentExpanded(false);
-    } catch { /* ignore */ }
-  }, []);
-  function toggleRecent() {
-    setRecentExpanded(prev => {
-      const next = !prev;
-      try { window.localStorage.setItem("sidebar.recent.collapsed", next ? "0" : "1"); } catch { /* ignore */ }
-      return next;
-    });
-  }
-  // Subscribe to the recent-leads list. We update on mount + on the custom
-  // event that pushRecentLead dispatches in this tab (the native `storage`
-  // event only fires across tabs, so without this the sidebar wouldn't
-  // refresh after the user opened a new lead in the same tab).
-  // Scope the recent-leads list to the current user. Re-runs whenever the
-  // authenticated user changes (logout/login) so the previous account's
-  // recent items vanish from view immediately. (authUserId declared above.)
-  useEffect(() => {
-    const sync = () => setRecentLeads(loadRecentLeads(authUserId));
-    sync();
-    window.addEventListener("growth:recent-leads-changed", sync);
-    window.addEventListener("storage", sync);
-    return () => {
-      window.removeEventListener("growth:recent-leads-changed", sync);
-      window.removeEventListener("storage", sync);
-    };
-  }, [authUserId]);
+  // "Recent leads" panel removed 2026-06-08 (boss: useless). The
+  // lib/recent-leads tracker + pushRecentLead calls elsewhere are left in
+  // place (harmless) in case we reintroduce a "My pending" panel later.
   // Sidebar collapse — Linear/Vercel pattern: hide labels and shrink width to
   // icon-only mode. State persists per-device via localStorage so power users
   // who prefer a max content area don't need to re-collapse every nav.
@@ -422,57 +389,7 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Recent leads — last 5 leads the user opened, persisted to
-          localStorage so they survive nav. One-click jump-back without
-          re-running search filters. Hidden in rail mode (no room for labels)
-          and when the list is empty. Collapsible header so sellers who don't
-          use this can permanently hide it. */}
-      {!railOnly && recentLeads.length > 0 && (
-        <div className="px-3 pt-1 pb-2 border-t" style={{ borderColor: BORDER }}>
-          <button
-            onClick={toggleRecent}
-            className="flex items-center justify-between w-full px-3 pt-2 pb-1 transition-opacity hover:opacity-80"
-            aria-expanded={recentExpanded}
-          >
-            <span className="text-[9px] font-bold tracking-[0.16em] uppercase" style={{ color: TEXT_MUTED }}>
-              Recent leads
-            </span>
-            <ChevronDown
-              size={11}
-              style={{
-                color: TEXT_MUTED,
-                transform: recentExpanded ? "rotate(0deg)" : "rotate(-90deg)",
-                transition: "transform 0.18s ease",
-              }}
-            />
-          </button>
-          {recentExpanded && (
-          <div className="space-y-0.5">
-            {recentLeads.map((r) => (
-              <Link
-                key={r.id}
-                href={`/leads/${r.id}`}
-                className="flex items-center gap-2 px-3 py-1 rounded-md text-[12px] transition-colors"
-                style={{ color: TEXT_BODY }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; e.currentTarget.style.color = "#fff"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = TEXT_BODY; }}
-              >
-                <div
-                  className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold shrink-0"
-                  style={{ background: `linear-gradient(135deg, ${GOLD}, color-mix(in srgb, ${GOLD} 70%, white))`, color: "#04070d" }}
-                >
-                  {(r.company?.[0] ?? r.name[0] ?? "?").toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium" style={{ color: "inherit" }}>{r.name}</p>
-                  {r.company && <p className="truncate text-[10px]" style={{ color: TEXT_MUTED }}>{r.company}</p>}
-                </div>
-              </Link>
-            ))}
-          </div>
-          )}
-        </div>
-      )}
+      {/* "Recent leads" panel removed 2026-06-08 (boss: useless). */}
 
       {/* AI Status — hidden in rail-collapsed mode to keep the column tight. */}
       {!railOnly && (

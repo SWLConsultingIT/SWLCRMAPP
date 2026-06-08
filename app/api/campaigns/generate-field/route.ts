@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
+import { getSupabaseService } from "@/lib/supabase-service";
+import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
 // Proxies to the n8n workflow "SWL - CRM - Message Generator V7 Pro".
 // Computes step_type_override per idx (the wizard knows which UI step the user clicked
 // — we map that to the planner's internal step type so prompts are honored).
+//
+// EXCEPTION — Call steps: the V7 Pro generator returns empty for call (it only
+// drafts LinkedIn/Email), so the wizard's "AI Draft" did nothing on a Call step
+// (boss 2026-06-08). Call scripts are drafted here with Claude from the lead +
+// ICP context instead.
 
 const N8N_WEBHOOK_URL = "https://n8n.srv949269.hstgr.cloud/webhook/generate-campaign-messages-v3";
 
@@ -85,6 +93,12 @@ function inferSequence(body: LegacyBody): SequenceEntry[] {
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as LegacyBody;
   const autoReplyType = body.fieldType ? AUTO_REPLY_MAP[body.fieldType] : undefined;
+
+  // Call steps are drafted with Claude (n8n's generator returns empty for call).
+  const isCallStep = !autoReplyType && (body.channel === "call" || body.fieldType === "CALL_FIRST" || body.fieldType === "CALL_FOLLOWUP");
+  if (isCallStep) {
+    return await generateCallScript(body);
+  }
 
   const n8nPayload = autoReplyType
     ? {

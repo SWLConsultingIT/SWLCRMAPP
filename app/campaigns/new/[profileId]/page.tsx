@@ -222,6 +222,11 @@ export default function NewCampaignWizard() {
   // Enrichment from a representative lead in this ICP — drives which signal chips render.
   // Each tenant has different enrichment keys; for Pathway they're rfa_*/ch_*, for another client they might be something else.
   const [sampleEnrichment, setSampleEnrichment] = useState<Record<string, unknown> | null>(null);
+  // A representative lead of this ICP — passed to the AI message generator so
+  // it can draft from real lead context. Without it the generator received
+  // lead_id=null and the "AI Draft" button silently produced nothing
+  // (boss 2026-06-08, on a Call-only flow).
+  const [sampleLeadId, setSampleLeadId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -433,13 +438,24 @@ export default function NewCampaignWizard() {
       // another client's leads have whatever vocabulary they use).
       let sampleQuery = supabase
         .from("leads")
-        .select("enrichment")
+        .select("id, enrichment")
         .eq("icp_profile_id", profileId)
         .not("enrichment", "is", null)
         .limit(1);
       if (isPartialSelection) sampleQuery = sampleQuery.in("id", selectedLeadIds);
       const { data: sample } = await sampleQuery.maybeSingle();
       setSampleEnrichment((sample?.enrichment as Record<string, unknown> | null) ?? null);
+      // Lead id for the AI generator. Prefer the enrichment-bearing sample;
+      // otherwise grab any lead of this ICP (selection-scoped) so the draft
+      // still has a real lead to personalize from.
+      if (sample?.id) {
+        setSampleLeadId(sample.id as string);
+      } else {
+        let anyQuery = supabase.from("leads").select("id").eq("icp_profile_id", profileId).limit(1);
+        if (isPartialSelection) anyQuery = anyQuery.in("id", selectedLeadIds);
+        const { data: anyLead } = await anyQuery.maybeSingle();
+        setSampleLeadId((anyLead?.id as string | undefined) ?? null);
+      }
 
       setProfile(p);
       setBio(b);
@@ -1578,6 +1594,7 @@ export default function NewCampaignWizard() {
             sequence={sequence}
             language={language}
             icpProfileId={profileId}
+            leadId={sampleLeadId ?? undefined}
             signals={selectedSignals}
             onAttachmentsChange={(stepIdx, next) => {
               setSequence(seq => seq.map((step, i) => i === stepIdx ? { ...step, attachments: next } : step));
