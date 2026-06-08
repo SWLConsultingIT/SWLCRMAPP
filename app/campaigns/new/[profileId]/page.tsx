@@ -460,6 +460,21 @@ export default function NewCampaignWizard() {
     setSequence(s => s.filter((_, i) => i !== idx));
   }
 
+  // Drop the LinkedIn Connection Request (the day-0 invite at sequence[0]).
+  // For a Call-only / Email-only flow the CR is meaningless and shouldn't be
+  // forced (boss 2026-06-08). The CR occupies sequence[0] AND a placeholder at
+  // channelMessages.steps[0] (steps stay 1:1 with sequence — wizard storage
+  // LAW), with its text in connectionRequest — so remove all three in lockstep.
+  function removeConnectionRequest() {
+    setSequence(s => (s[0]?.channel === "linkedin" && s[0]?.daysAfter === 0 ? s.slice(1) : s));
+    setChannelMessages(m => ({
+      ...m,
+      steps: Array.isArray(m.steps) && m.steps.length > 0 ? m.steps.slice(1) : (m.steps ?? []),
+      connectionRequest: "",
+      connectionRequestPrompt: "",
+    }));
+  }
+
   function updateStep(idx: number, field: keyof SequenceStep, value: any) {
     setSequence(s => s.map((step, i) => i === idx ? { ...step, [field]: value } : step));
   }
@@ -954,6 +969,24 @@ export default function NewCampaignWizard() {
                         <span className="text-[10px] font-semibold px-2.5 py-1 rounded-lg" style={{ backgroundColor: C.greenLight, color: C.green }}>
                           Day 0 · Immediate
                         </span>
+                        {/* The CR is a LinkedIn invite — pointless when the
+                            sequence doesn't message on LinkedIn. So when no
+                            follow-up uses LinkedIn (e.g. a Call-only or
+                            Email-only flow), let the seller drop it instead of
+                            forcing it (boss 2026-06-08). With a LinkedIn step
+                            present the invite is required (you must connect
+                            before you can DM), so no remove is offered. */}
+                        {followups.length > 0 && !followups.some(s => s.channel === "linkedin") && (
+                          <button
+                            type="button"
+                            onClick={removeConnectionRequest}
+                            className="text-[10px] font-semibold px-2.5 py-1 rounded-lg inline-flex items-center gap-1 transition-colors hover:bg-black/[0.04]"
+                            style={{ color: C.textMuted, border: `1px solid ${C.border}` }}
+                            title="This sequence doesn't use LinkedIn — remove the connection request"
+                          >
+                            <Trash2 size={11} /> Remove invite
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
