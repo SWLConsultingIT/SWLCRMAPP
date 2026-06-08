@@ -57,6 +57,8 @@ export default function PickLeadsClient({
       if (!nm.includes(q) && !co.includes(q)) return false;
     }
     if (filters.role.length > 0 && (!l.role || !filters.role.includes(l.role))) return false;
+    // Role exclude (boss 2026-06-08): all roles in by default, untick to drop.
+    if (filters.roleExclude.length > 0 && l.role && filters.roleExclude.includes(l.role)) return false;
     if (filters.industry.length > 0 && (!l.industry || !filters.industry.includes(l.industry))) return false;
     if (filters.country.length > 0 && (!l.country || !filters.country.includes(l.country))) return false;
     if (filters.company.length > 0 && (!l.company_name || !filters.company.includes(l.company_name))) return false;
@@ -170,6 +172,7 @@ export default function PickLeadsClient({
             showCampaignFilter={false}
             showProfileFilter={false}
             showStatusPills={false}
+            roleExcludeMode
           />
 
           <div

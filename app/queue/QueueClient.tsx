@@ -376,77 +376,86 @@ function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
 
   return (
     <div className="rounded-xl border" style={{ backgroundColor: C.card, borderColor: C.border, borderLeftWidth: 3, borderLeftColor: accent }}>
-      <div className="px-4 py-3 flex items-center gap-4">
-        <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
-          style={{ background: "linear-gradient(135deg, #F97316, #FB923C)", color: "#fff" }}>
-          <Phone size={15} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Link href={e.leadId ? `/leads/${e.leadId}` : "#"} className="text-sm font-bold hover:underline" style={{ color: C.textPrimary }}>
-              {e.leadName}
-            </Link>
-            {e.company && <span className="text-xs" style={{ color: C.textMuted }}>· {e.company}</span>}
-            {/* Outcome selector — the 4 options, settable/changeable on ANY
-                call. The active outcome is filled; the rest are outlined. */}
-            <span className="inline-flex items-center gap-1 flex-wrap">
-              {([
-                { key: "positive", label: "Interested", color: C.green },
-                { key: "negative", label: "Not interested", color: C.red },
-                { key: "follow_up", label: "Bad timing", color: "#D97706" },
-                { key: "wrong_number", label: "Wrong number", color: C.textMuted },
-              ] as const).map(o => {
-                const active = cls === o.key;
-                return (
-                  <button key={o.key} onClick={() => classifyOutcome(o.key)} disabled={!!classifying}
-                    title={`Mark as ${o.label}`}
-                    className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-colors disabled:opacity-50"
-                    style={active
-                      ? { backgroundColor: tint(o.color, 14), color: o.color, borderColor: o.color }
-                      : { backgroundColor: "transparent", color: C.textDim, borderColor: C.border }}>
-                    {classifying === o.key ? "…" : o.label}
-                  </button>
-                );
-              })}
-            </span>
-            {e.dialedByName && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE" }}
-                title="Team member who placed the call">
-                <PhoneCall size={9} /> {e.dialedByName}
-              </span>
-            )}
-            {e.sellerName && e.sellerName !== e.dialedByName && (
-              <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }}
-                title="LinkedIn sending account">
-                {e.sellerName}
-              </span>
-            )}
+      <div className="px-4 py-3">
+        {/* Row 1 — identity, outcome pills, seller chips */}
+        <div className="flex items-start gap-4">
+          <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+            style={{ background: "linear-gradient(135deg, #F97316, #FB923C)", color: "#fff" }}>
+            <Phone size={15} />
           </div>
-          <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>
-            {fmtDateTime(e.startedAt)} · {fmtDuration(e.durationSec)}
-            {e.status && <> · {e.status}</>}
-            {transcript && <> · transcript ✓</>}
-          </p>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link href={e.leadId ? `/leads/${e.leadId}` : "#"} className="text-sm font-bold hover:underline" style={{ color: C.textPrimary }}>
+                {e.leadName}
+              </Link>
+              {e.company && <span className="text-xs" style={{ color: C.textMuted }}>· {e.company}</span>}
+              {/* Outcome selector — the 4 options, settable/changeable on ANY
+                  call. The active outcome is filled; the rest are outlined. */}
+              <span className="inline-flex items-center gap-1 flex-wrap">
+                {([
+                  { key: "positive", label: "Interested", color: C.green },
+                  { key: "negative", label: "Not interested", color: C.red },
+                  { key: "follow_up", label: "Bad timing", color: "#D97706" },
+                  { key: "wrong_number", label: "Wrong number", color: C.textMuted },
+                ] as const).map(o => {
+                  const active = cls === o.key;
+                  return (
+                    <button key={o.key} onClick={() => classifyOutcome(o.key)} disabled={!!classifying}
+                      title={`Mark as ${o.label}`}
+                      className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-colors disabled:opacity-50"
+                      style={active
+                        ? { backgroundColor: tint(o.color, 14), color: o.color, borderColor: o.color }
+                        : { backgroundColor: "transparent", color: C.textDim, borderColor: C.border }}>
+                      {classifying === o.key ? "…" : o.label}
+                    </button>
+                  );
+                })}
+              </span>
+              {e.dialedByName && (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE" }}
+                  title="Team member who placed the call">
+                  <PhoneCall size={9} /> {e.dialedByName}
+                </span>
+              )}
+              {e.sellerName && e.sellerName !== e.dialedByName && (
+                <span className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }}
+                  title="LinkedIn sending account">
+                  {e.sellerName}
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] mt-0.5" style={{ color: C.textDim }}>
+              {fmtDateTime(e.startedAt)} · {fmtDuration(e.durationSec)}
+              {e.status && <> · {e.status}</>}
+              {transcript && <> · transcript ✓</>}
+            </p>
+          </div>
         </div>
-        {e.hasRecording ? (
-          <audio controls preload="none" src={`/api/aircall/calls/${e.id}/play`} className="h-8 max-w-[200px]" />
-        ) : (
-          <span className="text-[10px] px-2 py-1 rounded-md" style={{ backgroundColor: C.surface, color: C.textDim }}>
-            No recording
-          </span>
-        )}
-        <button onClick={() => setExpanded(v => !v)}
-          className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-colors shrink-0"
-          style={{ borderColor: C.border, color: C.textMuted, backgroundColor: expanded ? C.surface : "transparent" }}>
-          {expanded ? "Hide" : "Transcript & notes"} <ChevronRight size={11} style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform 150ms" }} />
-        </button>
-        <button onClick={remove} disabled={deleting} title="Delete this call from History"
-          className="inline-flex items-center justify-center w-8 h-8 rounded-lg border transition-colors shrink-0 hover:bg-black/[0.03] disabled:opacity-50"
-          style={{ borderColor: C.border, color: C.textMuted }}>
-          {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-        </button>
+
+        {/* Row 2 — full-width recording player + actions (boss 2026-06-08:
+            move the player under the name and let it span the whole row so the
+            scrubber is clickable end-to-end). */}
+        <div className="flex items-center gap-2 mt-3">
+          {e.hasRecording ? (
+            <audio controls preload="none" src={`/api/aircall/calls/${e.id}/play`} className="flex-1 h-9 min-w-0" />
+          ) : (
+            <span className="flex-1 text-[11px] px-3 py-2 rounded-md text-center" style={{ backgroundColor: C.surface, color: C.textDim }}>
+              No recording
+            </span>
+          )}
+          <button onClick={() => setExpanded(v => !v)}
+            className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-colors shrink-0"
+            style={{ borderColor: C.border, color: C.textMuted, backgroundColor: expanded ? C.surface : "transparent" }}>
+            {expanded ? "Hide" : "Transcript & notes"} <ChevronRight size={11} style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform 150ms" }} />
+          </button>
+          <button onClick={remove} disabled={deleting} title="Delete this call from History"
+            className="inline-flex items-center justify-center w-8 h-8 rounded-lg border transition-colors shrink-0 hover:bg-black/[0.03] disabled:opacity-50"
+            style={{ borderColor: C.border, color: C.textMuted }}>
+            {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+          </button>
+        </div>
       </div>
 
       {expanded && (

@@ -70,6 +70,10 @@ export type LeadFilterState = {
   /** Job role / title. Each entry is a case-insensitive exact match
    *  against the lead's primary_title_role. */
   role: string[];
+  /** Roles to EXCLUDE (boss 2026-06-08). Used only when the bar runs in
+   *  role-exclude mode (the lead picker): all roles included by default,
+   *  the seller unticks the ones to drop. Empty = exclude nothing. */
+  roleExclude: string[];
   /** Company industry. Same shape as role. */
   industry: string[];
   /** Company country. Same shape as role; matches the lead's
@@ -80,7 +84,7 @@ export type LeadFilterState = {
 };
 
 export function emptyLeadFilterState(): LeadFilterState {
-  return { search: "", score: [], campaign: [], results: [], profile: [], role: [], industry: [], country: [], company: [] };
+  return { search: "", score: [], campaign: [], results: [], profile: [], role: [], roleExclude: [], industry: [], country: [], company: [] };
 }
 
 export function LeadFilterBar({
@@ -96,6 +100,7 @@ export function LeadFilterBar({
   showCampaignFilter = true,
   showProfileFilter = true,
   showStatusPills = true,
+  roleExcludeMode = false,
 }: {
   filters: LeadFilterState;
   onChange: (f: LeadFilterState) => void;
@@ -116,6 +121,10 @@ export function LeadFilterBar({
   companyOptions?: string[];
   showCampaignFilter?: boolean;
   showProfileFilter?: boolean;
+  /** Role filter runs in exclude mode (boss 2026-06-08): all roles included
+   *  by default, untick to drop. Writes to filters.roleExclude. Used by the
+   *  lead picker; other surfaces keep the default include behaviour. */
+  roleExcludeMode?: boolean;
   /** Score / Campaign / Reply pill groups. On /leads they duplicate the
    *  Status chip row above the table, so pass `false` there. On surfaces
    *  without a status chip row (Lead Miner ticket) keep the default true
@@ -139,6 +148,7 @@ export function LeadFilterBar({
     filters.results.length +
     filters.profile.length +
     filters.role.length +
+    filters.roleExclude.length +
     filters.industry.length +
     filters.country.length +
     filters.company.length +
@@ -305,10 +315,11 @@ export function LeadFilterBar({
           <FacetDropdown
             icon={<Briefcase size={11} />}
             label={t("leadFilters.role")}
-            selected={filters.role}
-            onToggle={v => toggle("role", v)}
-            onClear={() => onChange({ ...filters, role: [] })}
+            selected={roleExcludeMode ? filters.roleExclude : filters.role}
+            onToggle={v => toggle(roleExcludeMode ? "roleExclude" : "role", v)}
+            onClear={() => onChange({ ...filters, [roleExcludeMode ? "roleExclude" : "role"]: [] })}
             options={roleOptions}
+            excludeMode={roleExcludeMode}
           />
         )}
       </div>
@@ -323,7 +334,7 @@ export function LeadFilterBar({
 // "industry tiene que ser deplegable" + "se tiene que poder seleccionar
 // varias opciones en cada filtro".
 function FacetDropdown({
-  icon, label, selected, onToggle, onClear, options,
+  icon, label, selected, onToggle, onClear, options, excludeMode = false,
 }: {
   icon: ReactNode;
   label: string;
@@ -331,6 +342,10 @@ function FacetDropdown({
   onToggle: (key: string) => void;
   onClear: () => void;
   options: string[];
+  /** Exclude mode (boss 2026-06-08): `selected` is the EXCLUDED set. Every
+   *  option renders checked by default; unticking adds it to the exclusion.
+   *  Empty selection = nothing excluded = show all. */
+  excludeMode?: boolean;
 }) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
@@ -360,9 +375,11 @@ function FacetDropdown({
   // grammatically right in both EN and ES.
   const triggerText = !hasFilter
     ? t("leadFilters.allOf").replace("{label}", label.toLowerCase()).replace("{n}", String(options.length))
-    : selected.length === 1
-      ? selected[0]
-      : `${selected[0]} +${selected.length - 1}`;
+    : excludeMode
+      ? (selected.length === 1 ? `All except ${selected[0]}` : `All except ${selected[0]} +${selected.length - 1}`)
+      : selected.length === 1
+        ? selected[0]
+        : `${selected[0]} +${selected.length - 1}`;
 
   return (
     <div ref={wrapRef} className="relative flex items-center gap-2">
@@ -431,13 +448,15 @@ function FacetDropdown({
             {visibleOptions.length === 0 ? (
               <p className="px-3 py-3 text-[11px] text-center" style={{ color: C.textMuted }}>{t("leadFilters.noMatch")}</p>
             ) : visibleOptions.map(opt => {
-              const isOn = selected.includes(opt);
+              // Exclude mode: checkbox is CHECKED when the option is NOT in the
+              // excluded set (included by default — untick to drop it).
+              const isOn = excludeMode ? !selected.includes(opt) : selected.includes(opt);
               return (
                 <button
                   key={opt}
                   onClick={() => onToggle(opt)}
                   className="w-full text-left px-3 py-1.5 text-[12px] flex items-center gap-2 hover:bg-black/[0.03] transition-colors"
-                  style={{ color: isOn ? goldDark : C.textBody }}
+                  style={{ color: excludeMode ? C.textBody : (isOn ? goldDark : C.textBody) }}
                 >
                   <span
                     className="w-3.5 h-3.5 rounded-sm border flex items-center justify-center shrink-0"
