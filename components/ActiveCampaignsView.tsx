@@ -424,6 +424,23 @@ function FlowRow({ group, t }: { group: CampaignGroup; t: Tr }) {
                 <Clock size={11} /> {ago}
               </span>
             )}
+            {/* Explicit entry buttons (boss 2026-06-08, item 2): open the
+                sequence / metrics via a button instead of clicking the flow
+                name. Neutral styling so Add Leads stays the primary gold CTA. */}
+            <Link
+              href={`/campaigns/${group.firstId}?tab=metrics`}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10.5px] font-semibold transition-colors hover:bg-black/[0.04] pointer-events-auto relative z-10"
+              style={{ color: C.textBody, border: `1px solid ${C.border}` }}
+            >
+              <BarChart3 size={10} /> {t("flows.openMetrics")}
+            </Link>
+            <Link
+              href={`/campaigns/${group.firstId}?tab=sequence`}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10.5px] font-semibold transition-colors hover:bg-black/[0.04] pointer-events-auto relative z-10"
+              style={{ color: C.textBody, border: `1px solid ${C.border}` }}
+            >
+              <ListOrdered size={10} /> {t("flows.openSequence")}
+            </Link>
             <Link
               href={`/campaigns/${group.firstId}?tab=add-leads`}
               className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10.5px] font-semibold transition-opacity hover:opacity-85 pointer-events-auto relative z-10"
