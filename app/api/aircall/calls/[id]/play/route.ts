@@ -34,7 +34,7 @@ export async function GET(
   // Tenant-scope check via the lead's bio. Super-admin sees everything.
   const { data: call } = await svc
     .from("calls")
-    .select("id, recording_storage_path, leads!inner(company_bio_id)")
+    .select("id, recording_storage_path, aircall_call_id, lead_id, started_at, leads!inner(company_bio_id)")
     .eq("id", id)
     .maybeSingle();
   if (!call) return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -44,12 +44,34 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  // Resolve which call row actually carries the Aircall recording. A single
+  // dial creates up to two rows — a dial-marker (no aircall_call_id) + the
+  // Aircall webhook record (has aircall_call_id + recording). If the UI played
+  // the marker row, archiving it fails ("no aircall_call_id"). Fall back to the
+  // sibling Aircall row for the same lead within ±10 min (boss 2026-06-08:
+  // recording not showing). Markers with NO sibling = genuinely no recording.
+  let targetId = call.id as string;
+  let storagePath = call.recording_storage_path as string | null;
+  if (!storagePath && !call.aircall_call_id && call.lead_id && call.started_at) {
+    const t = new Date(call.started_at).getTime();
+    const { data: siblings } = await svc
+      .from("calls")
+      .select("id, recording_storage_path, started_at")
+      .eq("lead_id", call.lead_id)
+      .not("aircall_call_id", "is", null)
+      .gte("started_at", new Date(t - 10 * 60_000).toISOString())
+      .lte("started_at", new Date(t + 10 * 60_000).toISOString())
+      .order("started_at", { ascending: true })
+      .limit(1);
+    const sib = siblings?.[0];
+    if (sib) { targetId = sib.id; storagePath = (sib.recording_storage_path as string | null) ?? null; }
+  }
+
   // Lazy archive on first play. Synchronous because we need the path to
   // mint the signed URL right now. Aircall calls are small (~1-30MB) so
   // this completes within Vercel's serverless timeout.
-  let storagePath = call.recording_storage_path as string | null;
   if (!storagePath) {
-    const result = await archiveCallRecording(id);
+    const result = await archiveCallRecording(targetId);
     if (!result.ok || !result.storage_path) {
       return NextResponse.json({ error: result.reason ?? "Recording unavailable" }, { status: 404 });
     }
