@@ -8,9 +8,28 @@
 // toggle (Fran 2026-06-02).
 
 import { useCallback, useEffect, useState } from "react";
-import { Share2, Mail, Phone, Smartphone, MessageSquare } from "lucide-react";
+import { Share2, Mail, Phone, Smartphone, MessageSquare, PhoneCall, ChevronRight } from "lucide-react";
+import Link from "next/link";
 import { C } from "@/lib/design";
 import InboxComposer from "./InboxComposer";
+
+// Call outcome → compact label + colour (mirrors the post-call popup + Calls
+// History so the wording reads the same across the app).
+function callOutcome(cls: string | null | undefined): { label: string; color: string } {
+  switch (cls) {
+    case "positive": return { label: "Interested", color: C.green };
+    case "negative": return { label: "Not interested", color: C.red };
+    case "follow_up": return { label: "Bad timing", color: "#D97706" };
+    case "wrong_number": return { label: "Wrong number", color: C.textMuted };
+    case "not_now": return { label: "Not now", color: C.textMuted };
+    default: return { label: "Call logged", color: C.textMuted };
+  }
+}
+function fmtDur(s: number | null | undefined): string | null {
+  if (!s || s <= 0) return null;
+  const m = Math.floor(s / 60); const ss = s % 60;
+  return `${m}:${String(ss).padStart(2, "0")}`;
+}
 
 type ThreadEntry = {
   id: string;
@@ -22,6 +41,10 @@ type ThreadEntry = {
   stepNumber?: number | null;
   kind?: string;
   source?: "db" | "unipile";
+  classification?: string | null;
+  callId?: string | null;
+  durationSec?: number | null;
+  hasRecording?: boolean;
 };
 
 function channelIcon(ch: string | null) {
@@ -120,6 +143,48 @@ export default function LeadChatThread({ leadId, leadName }: { leadId?: string; 
         const dKey = new Date(entry.at).toDateString();
         const showDay = dKey !== lastDay;
         lastDay = dKey;
+        const daySep = showDay ? (
+          <div className="flex items-center gap-3 my-4 first:mt-0">
+            <div className="flex-1 h-px" style={{ backgroundColor: C.border }} />
+            <span className="text-[10px] font-bold uppercase tracking-[0.12em] px-2 py-0.5 rounded-full"
+              style={{ color: C.textDim, backgroundColor: C.surface }}>{dayLabel(entry.at)}</span>
+            <div className="flex-1 h-px" style={{ backgroundColor: C.border }} />
+          </div>
+        ) : null;
+
+        // Call → compact, clickable outcome row (no transcript inline; the
+        // recording + transcript + notes live on the lead's Calls tab).
+        if (entry.channel === "call") {
+          const oc = callOutcome(entry.classification);
+          const dur = fmtDur(entry.durationSec);
+          const card = (
+            <div className="flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 transition-colors hover:bg-black/[0.025]"
+              style={{ backgroundColor: C.card, borderColor: C.border, borderLeft: `3px solid ${oc.color}` }}>
+              <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                style={{ backgroundColor: `color-mix(in srgb, ${oc.color} 16%, transparent)`, color: oc.color }}>
+                <PhoneCall size={13} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: oc.color }}>{oc.label}</span>
+                  {dur && <span className="text-[10px]" style={{ color: C.textDim }}>· {dur}</span>}
+                  {entry.hasRecording && <span className="text-[10px]" style={{ color: C.textDim }}>· rec</span>}
+                  <span className="text-[10px] tabular-nums" style={{ color: C.textDim }}>· {timeOnly(entry.at)}</span>
+                </div>
+                {entry.body && <p className="text-xs mt-0.5 truncate" style={{ color: C.textBody }}>{entry.body}</p>}
+              </div>
+              {leadId && <ChevronRight size={14} style={{ color: C.textDim }} className="shrink-0" />}
+            </div>
+          );
+          return (
+            <div key={entry.id}>
+              {daySep}
+              {leadId
+                ? <Link href={`/leads/${leadId}?tab=calls`} title="Ver la llamada (grabación + transcript + notas)">{card}</Link>
+                : card}
+            </div>
+          );
+        }
         const stepLabel = entry.stepNumber === 0 ? "Connection Request"
           : entry.stepNumber != null && entry.stepNumber > 0 ? `Step ${entry.stepNumber}`
           : (entry.kind === "auto_reply" || (entry.source === "unipile" && isOut)) ? "Auto-reply" : null;

@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { C } from "@/lib/design";
+
+const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
 export default function CompanyTabs({
   tabs,
@@ -10,7 +13,12 @@ export default function CompanyTabs({
   tabs: { label: string; count?: number }[];
   children: React.ReactNode[];
 }) {
-  const [active, setActive] = useState(0);
+  // Deep-link a tab via ?tab=<label-slug> (e.g. ?tab=calls) so a call entry in
+  // the Conversation can jump straight to the Calls tab.
+  const params = useSearchParams();
+  const want = params.get("tab");
+  const initial = want ? Math.max(0, tabs.findIndex((t) => slug(t.label) === slug(want))) : 0;
+  const [active, setActive] = useState(initial);
 
   return (
     <>

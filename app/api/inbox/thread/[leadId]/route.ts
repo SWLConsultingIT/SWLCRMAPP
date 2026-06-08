@@ -53,6 +53,10 @@ type ThreadEntry = {
   seen?: boolean;
   seenAt?: string | null;
   delivered?: boolean;
+  // Call entries: link + meta so the UI renders a compact, clickable outcome.
+  callId?: string | null;
+  durationSec?: number | null;
+  hasRecording?: boolean;
 };
 
 function normalizeAttachments(raw: any): ThreadAttachment[] {
@@ -108,8 +112,8 @@ export async function GET(
     }
   }
 
-  // ─── Pull DB-tracked messages (sent only) + replies in parallel ───
-  const [messagesRes, repliesRes] = await Promise.all([
+  // ─── Pull DB-tracked messages (sent only) + replies + calls in parallel ───
+  const [messagesRes, repliesRes, callsRes] = await Promise.all([
     svc
       .from("campaign_messages")
       .select("id, step_number, channel, content, status, sent_at, metadata, provider_message_id")
@@ -121,6 +125,15 @@ export async function GET(
       .select("id, channel, reply_text, received_at, classification, provider_thread_id")
       .eq("lead_id", leadId)
       .order("received_at", { ascending: true }),
+    // Calls show as a COMPACT outcome entry (icon + outcome + 1-line note),
+    // clickable through to the Calls tab — no transcript dumped inline. The
+    // matching channel='call' lead_replies ("Call outcome: …" markers) are
+    // skipped below to avoid a duplicate row.
+    svc
+      .from("calls")
+      .select("id, classification, status, duration, notes, transcript, recording_url, aircall_call_id, started_at")
+      .eq("lead_id", leadId)
+      .order("started_at", { ascending: true }),
   ]);
 
   const entries: ThreadEntry[] = [];
@@ -158,6 +171,9 @@ export async function GET(
     if (!providerThreadId && typeof (r as any).provider_thread_id === "string") {
       providerThreadId = (r as any).provider_thread_id;
     }
+    // Skip call markers — calls render as their own compact outcome entry
+    // (built from the calls table below), not as an inbound text reply.
+    if ((r as any).channel === "call") continue;
     entries.push({
       id: `in-${(r as any).id}`,
       direction: "inbound",
@@ -167,6 +183,38 @@ export async function GET(
       classification: (r as any).classification ?? null,
       source: "db",
     });
+  }
+
+  // Calls → one compact outcome entry each. Dedupe the two-rows-per-call
+  // (dial-marker + Aircall record) by minute, keeping the richest row.
+  {
+    const score = (c: any) => (c.classification ? 1 : 0) + (c.notes ? 1 : 0) + (c.transcript ? 1 : 0) + (c.recording_url ? 1 : 0);
+    const byMinute = new Map<string, any>();
+    for (const c of callsRes.data ?? []) {
+      if (!c.started_at) continue;
+      if (!c.classification && c.status !== "answered") continue; // skip pure dial attempts
+      const key = new Date(c.started_at).toISOString().slice(0, 16);
+      const prev = byMinute.get(key);
+      if (!prev || score(c) > score(prev)) byMinute.set(key, c);
+    }
+    for (const c of byMinute.values()) {
+      const note = (c.notes ?? "").toString().trim();
+      const summary = note ? (note.length > 140 ? note.slice(0, 140) + "…" : note) : "";
+      const hasRec = !!c.recording_url || (c.status === "answered" && (c.duration ?? 0) > 0 && !!c.aircall_call_id);
+      entries.push({
+        id: `call-${c.id}`,
+        direction: "event",
+        channel: "call",
+        body: summary,
+        at: c.started_at,
+        classification: (c.classification as string | null) ?? null,
+        callId: c.id as string,
+        durationSec: (c.duration as number | null) ?? null,
+        hasRecording: hasRec,
+        kind: "call",
+        source: "db",
+      });
+    }
   }
 
   // ─── On-demand Unipile top-up ─────────────────────────────────────────
