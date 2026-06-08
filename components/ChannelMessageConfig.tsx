@@ -9,7 +9,7 @@ import {
   AlertTriangle, Tag,
 } from "lucide-react";
 import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
-import { PLACEHOLDER_GROUPS, unsupportedPlaceholdersIn, findSuspiciousPlaceholders, autoNormalizePlaceholders } from "@/lib/placeholders";
+import { PLACEHOLDER_GROUPS, unsupportedPlaceholdersIn, findSuspiciousPlaceholders, autoFixPlaceholders } from "@/lib/placeholders";
 
 const gold = C.gold;
 
@@ -222,7 +222,9 @@ function PlaceholdersHint({
   const allText = bodies.join("\n");
   const bad = unsupportedPlaceholdersIn(allText);
   const suspicious = findSuspiciousPlaceholders(allText);
-  const fixable = suspicious.filter(s => s.suggested !== null);
+  // How many tokens the one-click fix can resolve (foreign syntax +
+  // valid-but-unsupported {{…}} like {{seller}} → {{seller_name}}).
+  const autoFixable = autoFixPlaceholders(allText).changes.length;
 
   function copy(token: string) {
     try {
@@ -279,18 +281,18 @@ function PlaceholdersHint({
             </>
           )}
         </div>
-        {fixable.length > 0 && onAutoFix && (
+        {autoFixable > 0 && onAutoFix && (
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onAutoFix((body) => autoNormalizePlaceholders(body).normalized);
+              onAutoFix((body) => autoFixPlaceholders(body).normalized);
             }}
             className="shrink-0 text-[10.5px] font-bold uppercase tracking-wider px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-85"
             style={{ backgroundColor: gold, color: "#1A1A2E" }}
-            title={`Rewrite ${fixable.length} token${fixable.length === 1 ? "" : "s"} to {{snake_case}}`}
+            title={`Rewrite ${autoFixable} token${autoFixable === 1 ? "" : "s"} to the correct {{placeholder}}`}
           >
-            Auto-fix ({fixable.length})
+            Fix automatically ({autoFixable})
           </button>
         )}
         {open ? <ChevronUp size={14} style={{ color: C.textMuted }} /> : <ChevronDown size={14} style={{ color: C.textMuted }} />}

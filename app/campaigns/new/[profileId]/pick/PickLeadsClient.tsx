@@ -35,6 +35,9 @@ export default function PickLeadsClient({
   const [filters, setFilters] = useState<LeadFilterState>(emptyLeadFilterState());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showAddToFlow, setShowAddToFlow] = useState(false);
+  // Anchor for shift-click range selection (boss 2026-06-08: "selecting
+  // multiple leads and not all easily"). Indexes into the sorted `filtered`.
+  const [lastIdx, setLastIdx] = useState<number | null>(null);
 
   // Filter options derived from the cohort. Industry / Country / Company
   // / Role read straight off the picker rows so the dropdowns only show
@@ -63,14 +66,30 @@ export default function PickLeadsClient({
       if (!filters.score.includes(band)) return false;
     }
     return true;
-  });
+  })
+    // Alphabetical by name (boss 2026-06-08) so the list is scannable.
+    .sort((a, b) =>
+      `${a.first_name ?? ""} ${a.last_name ?? ""}`.trim().toLowerCase()
+        .localeCompare(`${b.first_name ?? ""} ${b.last_name ?? ""}`.trim().toLowerCase()),
+    );
 
   const allFilteredSelected = filtered.length > 0 && filtered.every(l => selected.has(l.id));
 
-  function toggle(id: string) {
+  // Click toggles one; shift-click selects the contiguous range from the last
+  // clicked row (standard list-multiselect, over the sorted `filtered`).
+  function toggle(id: string, idx?: number, shift?: boolean) {
+    if (shift && lastIdx !== null && idx !== undefined) {
+      const [a, b] = [Math.min(lastIdx, idx), Math.max(lastIdx, idx)];
+      const n = new Set(selected);
+      for (let i = a; i <= b; i++) if (filtered[i]) n.add(filtered[i].id);
+      setSelected(n);
+      setLastIdx(idx);
+      return;
+    }
     const n = new Set(selected);
     if (n.has(id)) n.delete(id); else n.add(id);
     setSelected(n);
+    if (idx !== undefined) setLastIdx(idx);
   }
   function toggleAllFiltered() {
     const n = new Set(selected);
@@ -191,6 +210,9 @@ export default function PickLeadsClient({
                   ({filtered.length === leads.length ? leads.length : `${filtered.length} of ${leads.length}`})
                 </span>
               </button>
+              <span className="hidden lg:inline text-[10.5px]" style={{ color: C.textDim }}>
+                Tip: shift-click to select a range
+              </span>
               <div className="flex items-center gap-3 text-[12px]" style={{ color: C.textBody }}>
                 <span className="inline-flex items-center gap-1.5">
                   <Users size={13} style={{ color: gold }} />
@@ -225,7 +247,7 @@ export default function PickLeadsClient({
                     Clear a facet above to widen the cohort.
                   </p>
                 </div>
-              ) : filtered.map(l => {
+              ) : filtered.map((l, idx) => {
                 const checked = selected.has(l.id);
                 const nm = `${l.first_name ?? ""} ${l.last_name ?? ""}`.trim() || "Unknown";
                 const initials = `${l.first_name?.[0] ?? ""}${l.last_name?.[0] ?? ""}`.toUpperCase() || "··";
@@ -240,7 +262,7 @@ export default function PickLeadsClient({
                   <button
                     key={l.id}
                     type="button"
-                    onClick={() => toggle(l.id)}
+                    onClick={(e) => toggle(l.id, idx, e.shiftKey)}
                     className="w-full flex items-center gap-3.5 px-5 py-3 text-left transition-[background-color,box-shadow,border-color] hover:bg-gray-50 group"
                     style={{
                       backgroundColor: checked ? `color-mix(in srgb, ${gold} 5%, transparent)` : "transparent",

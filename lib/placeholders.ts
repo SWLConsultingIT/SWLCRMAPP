@@ -291,6 +291,8 @@ function suggestCanonical(token: string): string | null {
     seller_name: "{{seller_name}}", sellername: "{{seller_name}}",
     sender_name: "{{seller_name}}", sendername: "{{seller_name}}",
     my_name: "{{seller_name}}", myname: "{{seller_name}}",
+    // Bare forms operators type by hand (boss 2026-06-08: {{seller}}).
+    seller: "{{seller_name}}", sender: "{{seller_name}}", rep: "{{seller_name}}",
   };
   return NORMAL_TO_CANONICAL[inner] ?? null;
 }
@@ -310,6 +312,27 @@ export function autoNormalizePlaceholders(body: string): { normalized: string; c
     // gobbled by a shorter pattern.
     out = out.split(m.token).join(m.suggested);
     changes.push({ from: m.token, to: m.suggested });
+  }
+  return { normalized: out, changes };
+}
+
+/** One-click "fix automatically" for the wizard banner (boss 2026-06-08).
+ *  Covers BOTH problem classes: foreign syntax ([First Name], %X%, …) via
+ *  autoNormalizePlaceholders, AND valid-{{…}}-but-unsupported tokens the
+ *  dispatcher would refuse (e.g. {{seller}} → {{seller_name}}). Tokens we
+ *  can't confidently map are left untouched so the operator still gets a
+ *  warning and decides. Pure — caller persists the rewrite. */
+export function autoFixPlaceholders(body: string): { normalized: string; changes: Array<{ from: string; to: string }> } {
+  if (!body) return { normalized: body ?? "", changes: [] };
+  const first = autoNormalizePlaceholders(body);
+  let out = first.normalized;
+  const changes = [...first.changes];
+  for (const tok of unsupportedPlaceholdersIn(out)) {
+    const suggested = suggestCanonical(tok);
+    if (suggested && suggested !== tok) {
+      out = out.split(tok).join(suggested);
+      changes.push({ from: tok, to: suggested });
+    }
   }
   return { normalized: out, changes };
 }
