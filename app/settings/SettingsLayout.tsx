@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   User, SlidersHorizontal, Link2, Phone, Shield, LogOut,
-  CheckCircle2, Moon, Sun,
+  CheckCircle2, Moon, Sun, Share2, Mail, ChevronRight,
 } from "lucide-react";
 import { C } from "@/lib/design";
 import { useTheme } from "@/lib/theme";
@@ -328,6 +329,41 @@ function OperationsSection({ callMode }: { callMode: "manual" | "auto" }) {
           </p>
         </div>
         <CallClassificationToggle initialValue={callMode} />
+      </div>
+
+      {/* Sending limits (boss 2026-06-08, item 11): the editors live under
+          Accounts (LinkedIn daily invites are per-seller; email volume is
+          per-mailbox/domain in the Instantly pool). Surface them here so they
+          are findable from Settings, where the boss looked first. */}
+      <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+        <div className="mb-3">
+          <h3 className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>Sending limits</h3>
+          <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
+            Daily caps live in Accounts. LinkedIn connection requests are limited per seller; email volume is set per mailbox and rolls up per domain.
+          </p>
+        </div>
+        <div className="space-y-2">
+          <Link href="/accounts"
+            className="flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors hover:bg-black/[0.02]"
+            style={{ borderColor: C.border, backgroundColor: C.bg }}>
+            <Share2 size={15} style={{ color: "#0A66C2" }} />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>LinkedIn — connections/day per seller</p>
+              <p className="text-[11px]" style={{ color: C.textMuted }}>Open a seller → set their daily invite limit</p>
+            </div>
+            <ChevronRight size={14} style={{ color: C.textDim }} />
+          </Link>
+          <Link href="/accounts"
+            className="flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors hover:bg-black/[0.02]"
+            style={{ borderColor: C.border, backgroundColor: C.bg }}>
+            <Mail size={15} style={{ color: "#7C3AED" }} />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>Email — emails/day per mailbox & domain</p>
+              <p className="text-[11px]" style={{ color: C.textMuted }}>Instantly Email Pool → per-mailbox limits + by-domain budget</p>
+            </div>
+            <ChevronRight size={14} style={{ color: C.textDim }} />
+          </Link>
+        </div>
       </div>
 
     </div>

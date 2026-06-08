@@ -1068,8 +1068,9 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                           style={{ backgroundColor: "#0A66C215", color: "#0A66C2", border: "1px solid #0A66C230" }}><Share2 size={10} /> Link existing</button>
                       )}
                       <Link href={`/accounts/linkedin/${seller.id}`}
+                        title="Per-campaign messages sent, replies & positives for this seller"
                         className="inline-flex items-center gap-1 text-[10px] font-medium px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-80 shrink-0 whitespace-nowrap"
-                        style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}><TrendingUp size={10} /> Details</Link>
+                        style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}><TrendingUp size={10} /> Per-campaign</Link>
                       <span className="flex-1" />
                       {!seller.isShared && (
                         <button onClick={() => setEditTarget(seller)}
@@ -1161,6 +1162,43 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                     </>
                   )}
                 </div>
+                {/* Per-domain rollup (boss 2026-06-08, items 9 + 11): the
+                    emails/day budget grouped by sending domain, so you can see
+                    how many mailboxes + how much daily volume each domain
+                    carries. Per-mailbox SENT attribution isn't shown — Instantly
+                    rotates inboxes and campaign_messages never records the
+                    from-address, so real per-mailbox counts need the Instantly
+                    analytics API (deferred). */}
+                {(() => {
+                  const byDomain = new Map<string, { count: number; limit: number; warmup: number }>();
+                  for (const a of instantly.accounts) {
+                    const dom = (a.email.split("@")[1] ?? "—").toLowerCase();
+                    const d = byDomain.get(dom) ?? { count: 0, limit: 0, warmup: 0 };
+                    d.count++; d.limit += a.dailyLimit ?? 0;
+                    if (a.setupPending) d.warmup++;
+                    byDomain.set(dom, d);
+                  }
+                  const rows = Array.from(byDomain.entries()).sort((a, b) => b[1].limit - a[1].limit || a[0].localeCompare(b[0]));
+                  if (rows.length === 0) return null;
+                  return (
+                    <div className="px-5 py-4 border-b" style={{ borderColor: C.border }}>
+                      <p className="text-[10px] font-bold uppercase tracking-wider mb-2.5" style={{ color: C.textMuted }}>By domain · emails/day budget</p>
+                      <div className="space-y-1.5">
+                        {rows.map(([dom, d]) => (
+                          <div key={dom} className="flex items-center justify-between gap-3 text-xs">
+                            <span className="flex items-center gap-2 min-w-0">
+                              <Mail size={11} className="shrink-0" style={{ color: "#7C3AED" }} />
+                              <span className="font-medium truncate" style={{ color: C.textBody }}>{dom}</span>
+                              <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{d.count} mailbox{d.count === 1 ? "" : "es"}</span>
+                              {d.warmup > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0" style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}>{d.warmup} warming</span>}
+                            </span>
+                            <span className="font-mono tabular-nums shrink-0" style={{ color: C.textBody }}>{d.limit}/d</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div className="px-5 py-4">
                   <details className="group">
                     <summary className="text-xs font-semibold cursor-pointer list-none flex items-center gap-2" style={{ color: C.textMuted }}>
