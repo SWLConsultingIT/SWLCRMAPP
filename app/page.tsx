@@ -1661,8 +1661,8 @@ export default async function DashboardPage({
               <tr className="text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
                 <Th align="left" style={{ width: 28 }}>#</Th>
                 <Th align="left">{t("dashx.tbl.col.seller")}</Th>
-                <Th align="right">{t("dashx.tbl.col.active")}</Th>
-                <Th align="right">{t("dashx.tbl.col.contacted")}</Th>
+                <Th align="right"><span title={t("dashx.tbl.col.activeColHint")} style={{ cursor: "help" }}>{t("dashx.tbl.col.active")}</span></Th>
+                <Th align="right"><span title={t("dashx.tbl.col.contactedColHint")} style={{ cursor: "help" }}>{t("dashx.tbl.col.contacted")}</span></Th>
                 <Th align="left">{t("dashx.tbl.col.sentByChannel")}</Th>
                 <Th align="right">{t("dashx.tbl.col.repliedFull")}</Th>
                 <Th align="right">{t("dashx.tbl.col.positiveFull")}</Th>
@@ -1748,25 +1748,37 @@ export default async function DashboardPage({
             subtitle={t("dashx.sellerAvg.subtitle")}
             glow
           >
-            {/* Top strip — team baseline numbers */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-              {[
-                { label: t("dashx.sellerAvg.replyRate"),  value: `${teamReplyRate}%`, color: "#7C3AED" },
-                { label: t("dashx.sellerAvg.conversion"), value: `${teamConvRate}%`,  color: C.green },
-                { label: t("dashx.sellerAvg.contacted"),  value: teamContacted,        color: "#0284C7" },
-                { label: t("dashx.sellerAvg.positives"),  value: teamPositive,         color: gold },
-              ].map(tile => (
-                <div key={tile.label} className="rounded-xl border px-3 py-2.5"
-                  style={{ borderColor: C.border, backgroundColor: C.surface }}>
-                  <p className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textDim }}>
-                    {tile.label}
-                  </p>
-                  <p className="text-[22px] font-bold tabular-nums leading-tight tracking-[-0.02em] mt-0.5"
-                    style={{ color: tile.color, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-                    {tile.value}
-                  </p>
-                </div>
-              ))}
+            {/* Top strip — the TEAM BASELINE (average across all sellers).
+                Wrapped + gold-labeled so it visibly reads as "the team total",
+                distinct from the per-seller cards below (boss 2026-06-08). */}
+            <div className="rounded-2xl border mb-4 overflow-hidden"
+              style={{ borderColor: `color-mix(in srgb, ${gold} 32%, ${C.border})`, background: `color-mix(in srgb, ${gold} 6%, ${C.card})` }}>
+              <div className="flex items-center gap-2 px-3 pt-2.5">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ background: gold }} />
+                <p className="text-[9.5px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
+                  {t("dashx.sellerAvg.teamTotalLabel")}
+                </p>
+                <span className="text-[10px]" style={{ color: C.textDim }}>· {t("dashx.sellerAvg.teamTotalHint", { n: sellers.length })}</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-3">
+                {[
+                  { label: t("dashx.sellerAvg.replyRate"),  value: `${teamReplyRate}%`, color: "#7C3AED" },
+                  { label: t("dashx.sellerAvg.conversion"), value: `${teamConvRate}%`,  color: C.green },
+                  { label: t("dashx.sellerAvg.contacted"),  value: teamContacted,        color: "#0284C7" },
+                  { label: t("dashx.sellerAvg.positives"),  value: teamPositive,         color: gold },
+                ].map(tile => (
+                  <div key={tile.label} className="rounded-xl border px-3 py-2.5"
+                    style={{ borderColor: C.border, backgroundColor: C.card }}>
+                    <p className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textDim }}>
+                      {tile.label}
+                    </p>
+                    <p className="text-[22px] font-bold tabular-nums leading-tight tracking-[-0.02em] mt-0.5"
+                      style={{ color: tile.color, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                      {tile.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {!hasTeam ? (
@@ -1845,7 +1857,12 @@ export default async function DashboardPage({
           const eligible = sellersData.filter(s => s[contactedKey] >= 5);
           if (eligible.length === 0) return null;
           const sorted = [...eligible].sort((a, b) => b[rateKey] - a[rateKey] || b[repliedKey] - a[repliedKey]);
-          return sorted[0];
+          // No champion without PROVEN activity on the channel (boss 2026-06-08:
+          // "no puedo estar primero si no hice ningún llamado"). A seller can be
+          // assigned call-channel leads without ever dialing; requiring ≥1 reply
+          // on the channel ensures the crown reflects real outreach + result.
+          const top = sorted[0];
+          return top && top[repliedKey] > 0 ? top : null;
         };
         const liChamp    = pickChampion("linkedin");
         const emailChamp = pickChampion("email");
@@ -1956,58 +1973,8 @@ export default async function DashboardPage({
         );
       })()}
 
-      {/* Workload distribution — relative active-campaign load per seller.
-          Helps the manager see who's overloaded vs free to take new flows. */}
-      {(() => {
-        const sellersData = data.sellerPerformance as unknown as Array<{ id: string; name: string; active: number; pendingCalls: number }>;
-        const eligible = sellersData.filter(s => s.active > 0 || s.pendingCalls > 0);
-        if (eligible.length < 2) return null;
-        const maxActive = Math.max(1, ...eligible.map(s => s.active));
-        return (
-          <section className="mt-6">
-            <SectionHeader
-              icon={Activity}
-              title={t("dashx.seller.workloadTitle")}
-              subtitle={t("dashx.seller.workloadSubtitle")}
-            />
-            <Panel>
-              <div className="space-y-2.5">
-                {[...eligible].sort((a, b) => b.active - a.active).map(s => {
-                  const pct = Math.max(4, Math.round((s.active / maxActive) * 100));
-                  const overloaded = s.active >= maxActive * 0.85 && eligible.length > 2;
-                  const barColor = overloaded ? "#D97706" : gold;
-                  return (
-                    <div key={s.id} className="grid items-center gap-3" style={{ gridTemplateColumns: "180px 1fr 80px 80px" }}>
-                      <Link href={withFilters(`/dashboard/seller/${s.id}`, filters)} className="text-[12.5px] font-medium truncate hover:underline" style={{ color: C.textPrimary }}>
-                        {s.name}
-                      </Link>
-                      <div className="relative h-6 rounded-md overflow-hidden" style={{ background: C.surface }}>
-                        <div className="absolute inset-y-0 left-0 transition-[width] flex items-center px-2"
-                          style={{
-                            width: `${pct}%`,
-                            background: `linear-gradient(90deg, ${barColor}, color-mix(in srgb, ${barColor} 70%, white))`,
-                            minWidth: 36,
-                          }}>
-                          <span className="text-[11px] font-bold tabular-nums" style={{ color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,0.25)" }}>
-                            {s.active}
-                          </span>
-                        </div>
-                      </div>
-                      <span className="text-[10.5px] tabular-nums text-right" style={{ color: C.textDim }}>
-                        {s.active} {t("dashx.seller.workloadActiveLabel")}
-                      </span>
-                      <span className="text-[10.5px] tabular-nums text-right"
-                        style={{ color: s.pendingCalls > 0 ? "#D97706" : C.textDim }}>
-                        {s.pendingCalls} {t("dashx.seller.workloadPendingLabel")}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </Panel>
-          </section>
-        );
-      })()}
+      {/* Workload Distribution removed (boss 2026-06-08): noise — the active /
+          pending counts already live in the seller leaderboard above. */}
 
       </section>
       )}

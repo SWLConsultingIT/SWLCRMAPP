@@ -526,6 +526,8 @@ export const en: Dict = {
   // Team averages comparison strip (Sellers tab, below leaderboard)
   "dashx.sellerAvg.title": "Team averages · who's above / below",
   "dashx.sellerAvg.subtitle": "Each seller vs the team baseline · click a row for the full breakdown",
+  "dashx.sellerAvg.teamTotalLabel": "Team average",
+  "dashx.sellerAvg.teamTotalHint": "across {n} sellers",
   "dashx.sellerAvg.baseline": "Team baseline",
   "dashx.sellerAvg.replyRate": "Reply rate",
   "dashx.sellerAvg.conversion": "Conversion",
@@ -541,7 +543,8 @@ export const en: Dict = {
   "dashx.tbl.col.sentByChannel": "Sent by channel",
   "dashx.tbl.col.seller": "Seller",
   "dashx.tbl.col.leads": "Leads",
-  "dashx.tbl.col.contacted": "Cont.",
+  "dashx.tbl.col.contacted": "Leads reached",
+  "dashx.tbl.col.contactedColHint": "Unique leads this seller has reached with at least one message.",
   "dashx.tbl.col.sent": "Sent",
   "dashx.tbl.col.replied": "Repl.",
   "dashx.tbl.col.repliedFull": "Replies",
@@ -565,7 +568,8 @@ export const en: Dict = {
   "dashx.tbl.col.status": "Status",
   "dashx.tbl.col.trend14": "14d trend",
   "dashx.tbl.col.velocity": "Velocity",
-  "dashx.tbl.col.active": "Active",
+  "dashx.tbl.col.active": "Active flows",
+  "dashx.tbl.col.activeColHint": "Active or paused campaigns this seller currently owns.",
   "dashx.tbl.icp.unknown": "No ICP",
   // Campaigns-by-ICP accordion (Campaigns tab) — boss 2026-05-28: surface
   // each flow under its Lead Miner Profile, with the step breakdown inline
@@ -1952,6 +1956,8 @@ export const es: Dict = {
   // Team averages comparison strip
   "dashx.sellerAvg.title": "Promedios del equipo · quién está arriba / abajo",
   "dashx.sellerAvg.subtitle": "Cada seller vs el baseline del equipo · clic en una fila para el breakdown completo",
+  "dashx.sellerAvg.teamTotalLabel": "Promedio del equipo",
+  "dashx.sellerAvg.teamTotalHint": "sobre {n} sellers",
   "dashx.sellerAvg.baseline": "Baseline del equipo",
   "dashx.sellerAvg.replyRate": "Tasa de respuesta",
   "dashx.sellerAvg.conversion": "Conversión",
@@ -1967,7 +1973,8 @@ export const es: Dict = {
   "dashx.tbl.col.sentByChannel": "Enviados por canal",
   "dashx.tbl.col.seller": "Seller",
   "dashx.tbl.col.leads": "Leads",
-  "dashx.tbl.col.contacted": "Cont.",
+  "dashx.tbl.col.contacted": "Leads alcanzados",
+  "dashx.tbl.col.contactedColHint": "Leads únicos que este seller alcanzó con al menos un mensaje.",
   "dashx.tbl.col.sent": "Env.",
   "dashx.tbl.col.replied": "Resp.",
   "dashx.tbl.col.repliedFull": "Respuestas",
@@ -1991,7 +1998,8 @@ export const es: Dict = {
   "dashx.tbl.col.status": "Estado",
   "dashx.tbl.col.trend14": "Tendencia 14d",
   "dashx.tbl.col.velocity": "Velocidad",
-  "dashx.tbl.col.active": "Activas",
+  "dashx.tbl.col.active": "Flujos activos",
+  "dashx.tbl.col.activeColHint": "Campañas activas o pausadas que este seller tiene asignadas.",
   "dashx.tbl.icp.unknown": "Sin ICP",
   // Campaigns-by-ICP accordion
   "dashx.campsByIcp.title": "Campañas por ICP",
