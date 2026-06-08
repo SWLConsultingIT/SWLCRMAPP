@@ -1303,6 +1303,15 @@ export default async function DashboardPage({
                 activeCount:    g.flows.filter(f => f.status === "active" || f.status === "paused").length,
               }))
               .sort((a, b) => b.totalPositive - a.totalPositive || b.totalLeads - a.totalLeads);
+            // Same per-ICP metrics shown in the ICPS tab "ICP Comparison"
+            // (boss 2026-06-08: surface them here too). Looked up by ICP id.
+            const icpPerfById = new Map(data.icpPerformance.map((p: any) => [p.id, p]));
+            const campsByIcpTouchLabels = {
+              linkedinSent: t("dashx.touch.linkedinSent"),
+              linkedinMsg: t("dashx.touch.linkedinMsg"),
+              emailTouch: t("dashx.touch.emailTouch"),
+              callTouch: t("dashx.touch.callTouch"),
+            };
             return (
               <div className="icp-acc space-y-3">
                 {sections.map((sec, secIdx) => (
@@ -1346,6 +1355,34 @@ export default async function DashboardPage({
                       <ChevronRight size={16} className="acc-chevron shrink-0" style={{ color: C.textMuted }} />
                     </summary>
                     <div className="p-4 space-y-3 border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+                      {/* ICP-level metrics — mirror the ICPS tab "ICP
+                          Comparison" row (boss 2026-06-08): channel touches +
+                          contacted / replied / positive + response & conversion
+                          rates, so this section carries the same data. */}
+                      {(() => {
+                        const ip: any = sec.icpId ? icpPerfById.get(sec.icpId) : null;
+                        if (!ip) return null;
+                        return (
+                          <div className="rounded-xl border p-3 flex flex-wrap items-center gap-x-5 gap-y-2"
+                            style={{ borderColor: C.border, backgroundColor: C.card }}>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: C.textMuted }}>{t("dashx.tbl.col.sentByChannel")}</span>
+                              <ChannelTouches
+                                linkedinSent={ip.linkedinSent ?? 0}
+                                linkedinMsg={ip.linkedinMsg ?? 0}
+                                emailTouch={ip.emailTouch ?? 0}
+                                callTouch={ip.callTouch ?? 0}
+                                labels={campsByIcpTouchLabels}
+                              />
+                            </div>
+                            <MiniStat label={t("dashx.tbl.col.contacted")} value={ip.contacted ?? 0} />
+                            <MiniStat label={t("dashx.tbl.col.repliedFull")} value={ip.replied ?? 0} />
+                            <MiniStat label={t("dashx.tbl.col.positiveFull")} value={ip.positive ?? 0} accent={(ip.positive ?? 0) > 0 ? C.green : undefined} />
+                            <MiniStat label={t("dashx.sellerAvg.replyRate")} value={`${ip.responseRate ?? 0}%`} accent="#7C3AED" />
+                            <MiniStat label={t("dashx.sellerAvg.conversion")} value={`${ip.conversionRate ?? 0}%`} accent={C.green} />
+                          </div>
+                        );
+                      })()}
                       {/* Dedicated head-to-head comparison section (boss
                           2026-05-28 r4): scorecard-style podium where each
                           flow takes a tall card with rank medal + 4 big
@@ -1984,6 +2021,18 @@ export default async function DashboardPage({
 }
 
 // ─── Local presentation primitives ──────────────────────────────────────
+
+// Compact label + value chip, used in the Campaigns-by-ICP metrics strip.
+function MiniStat({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
+  return (
+    <div className="text-right">
+      <p className="text-[9px] font-bold uppercase tracking-[0.12em]" style={{ color: C.textDim }}>{label}</p>
+      <p className="text-[14px] font-bold tabular-nums leading-none mt-0.5" style={{ color: accent ?? C.textPrimary }}>
+        {typeof value === "number" ? value.toLocaleString("en-US") : value}
+      </p>
+    </div>
+  );
+}
 
 function SectionHeader({ title, subtitle, icon: Icon, action }: { title: string; subtitle: string; icon?: React.ComponentType<{ size?: number; style?: React.CSSProperties }>; action?: React.ReactNode }) {
   return (
