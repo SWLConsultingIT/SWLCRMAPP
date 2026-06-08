@@ -881,22 +881,30 @@ export default async function DashboardPage({
             insight={(() => {
               const sent = data.linkedinConnections?.sent ?? 0;
               const accepted = data.linkedinConnections?.accepted ?? 0;
-              const replied = data.funnel.find(s => s.stage === "replied")?.count ?? 0;
               const won = data.funnel.find(s => s.stage === "won")?.count ?? 0;
               if (sent < 3) return null;
               const acceptPct = sent > 0 ? Math.round((accepted / sent) * 100) : 0;
-              const replyPct = accepted > 0 ? Math.round((replied / accepted) * 100) : 0;
+              // Reply rate MUST match the global "Reply rate" KPI
+              // (headline.responseRate = replied / contacted). Previously this
+              // used replied/accepted → different denominator → didn't match
+              // the headline metric (boss 2026-06-08: "no coincide con la
+              // métrica global").
+              const replyPct = headline.responseRate;
               return t("dashx.funnel.insight", { acceptPct, replyPct, won });
             })()}>
             <Funnel
               {...funnel18n}
-              legendTitle={t("dashx.funnel.legendTitle")}
               stages={data.funnel.map(s => {
                 const key = stageKey(s.stage);
                 const defKey = `dashx.funnel.def.${key}`;
                 const def = t(defKey);
                 return {
                   ...s,
+                  // Drop the period-over-period prior: it drove a vs-prior
+                  // delta column that showed confusing negative %s (boss
+                  // 2026-06-08). The funnel keeps the left "% of previous"
+                  // step-conversion, which is the real funnel story.
+                  prior: null,
                   stage: t(`dashx.funnel.stage.${key}`) || s.stage,
                   definition: def !== defKey ? def : undefined,
                 };

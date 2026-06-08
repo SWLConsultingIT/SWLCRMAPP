@@ -56,14 +56,16 @@ export default function Funnel({
     <div className="space-y-2">
       {stages.map((s, i) => {
         const prev = i > 0 ? stages[i - 1].count : null;
-        const widthPct = visMax > 0 ? Math.max(8, Math.round((s.count / visMax) * 100)) : 8;
+        // Width is the TRUE proportion — no artificial floor — so a 0 count
+        // renders an empty bar (boss 2026-06-08: the Won bar showed full at 0).
+        const widthPct = visMax > 0 ? Math.round((s.count / visMax) * 100) : 0;
         const priorWidthPct = s.prior != null && visMax > 0 ? Math.max(0, Math.round((s.prior / visMax) * 100)) : 0;
         const stepConversion = prev !== null && prev > 0 ? Math.round((s.count / prev) * 100) : null;
-        const dropOff = prev !== null && prev > 0 ? prev - s.count : null;
         const color = colorMap[s.color] ?? colorMap.neutral;
-
-        const periodDelta = s.prior != null && s.prior > 0 ? Math.round(((s.count / s.prior) - 1) * 100) : null;
-        const deltaColor = periodDelta === null ? C.textDim : periodDelta > 0 ? C.green : periodDelta < 0 ? C.red : C.textDim;
+        // Number sits inside the bar only when it's wide enough to hold it;
+        // otherwise it renders just to the right so a small/zero bar stays
+        // readable without faking a filled bar.
+        const labelInside = widthPct >= 14;
 
         return (
           <div key={s.stage} className="flex items-center gap-3">
@@ -133,36 +135,32 @@ export default function Funnel({
                   background: s.color === "brand"
                     ? `linear-gradient(135deg, ${color} 0%, color-mix(in srgb, ${color} 82%, white) 100%)`
                     : `linear-gradient(90deg, ${color}, color-mix(in srgb, ${color} 78%, white))`,
-                  boxShadow: s.color === "brand"
+                  boxShadow: widthPct === 0 ? "none" : s.color === "brand"
                     ? `0 4px 12px color-mix(in srgb, ${color} 32%, transparent), inset 0 1px 0 color-mix(in srgb, ${color} 30%, white)`
                     : `0 2px 6px color-mix(in srgb, ${color} 22%, transparent)`,
-                  minWidth: 80,
+                  minWidth: s.count > 0 ? 4 : 0,
                 }}
               >
+                {labelInside && (
+                  <span
+                    className="text-sm font-bold tabular-nums"
+                    style={{
+                      color: s.color === "brand" ? "#1A1505" : "#fff",
+                      textShadow: s.color === "brand" ? "none" : "0 1px 2px rgba(0,0,0,0.18)",
+                    }}
+                  >
+                    {s.count.toLocaleString("en-US")}
+                  </span>
+                )}
+              </div>
+              {!labelInside && (
                 <span
-                  className="text-sm font-bold tabular-nums"
-                  style={{
-                    color: s.color === "brand" ? "#1A1505" : "#fff",
-                    textShadow: s.color === "brand" ? "none" : "0 1px 2px rgba(0,0,0,0.18)",
-                  }}
+                  className="absolute inset-y-0 flex items-center text-sm font-bold tabular-nums pointer-events-none"
+                  style={{ left: `calc(${widthPct}% + 8px)`, color: C.textBody }}
                 >
                   {s.count.toLocaleString("en-US")}
                 </span>
-              </div>
-            </div>
-            <div className="w-20 shrink-0 text-right">
-              {periodDelta !== null ? (
-                <p className="text-[10.5px] font-semibold tabular-nums" style={{ color: deltaColor }}>
-                  {periodDelta > 0 ? "+" : ""}{periodDelta}%
-                  <span className="block text-[9px] font-medium" style={{ color: C.textDim }}>
-                    {vsPriorLabel}
-                  </span>
-                </p>
-              ) : dropOff !== null && dropOff > 0 ? (
-                <p className="text-[10px] font-medium" style={{ color: C.textDim }}>
-                  −{dropOff.toLocaleString("en-US")}
-                </p>
-              ) : null}
+              )}
             </div>
           </div>
         );

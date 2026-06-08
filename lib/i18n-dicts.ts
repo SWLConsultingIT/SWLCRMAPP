@@ -395,7 +395,7 @@ export const en: Dict = {
   // Funnel + Donut + Insights
   "dashx.funnel.title": "Conversion funnel",
   "dashx.funnel.subtitle": "Drop-off, stage by stage",
-  "dashx.funnel.stage.imported": "Imported",
+  "dashx.funnel.stage.imported": "Total Leads",
   "dashx.funnel.stage.linkedin_sent": "LinkedIn connections sent",
   "dashx.funnel.stage.linkedin_accepted": "LinkedIn accepted",
   "dashx.funnel.stage.linkedin_msg": "Leads with ≥1 LinkedIn msg",
@@ -1819,7 +1819,7 @@ export const es: Dict = {
   // Funnel + Donut + Insights
   "dashx.funnel.title": "Embudo de conversión",
   "dashx.funnel.subtitle": "Drop-off etapa por etapa",
-  "dashx.funnel.stage.imported": "Importados",
+  "dashx.funnel.stage.imported": "Total de Leads",
   "dashx.funnel.stage.linkedin_sent": "Conexiones LinkedIn enviadas",
   "dashx.funnel.stage.linkedin_accepted": "LinkedIn aceptadas",
   "dashx.funnel.stage.linkedin_msg": "Leads con ≥1 msg LinkedIn",
