@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import Anthropic from "@anthropic-ai/sdk";
 
 const LANG_MAP: Record<string, string> = {
   EN: "English", IT: "Italian", ES: "Spanish", FR: "French", DE: "German",
@@ -148,9 +149,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "URL is required" }, { status: 400 });
   }
 
-  const openaiKey = process.env.OPENAI_API_KEY;
-  if (!openaiKey) {
-    return NextResponse.json({ error: "OpenAI API key not configured" }, { status: 500 });
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+  if (!anthropicKey) {
+    return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
   }
 
   try {
@@ -219,7 +220,7 @@ export async function POST(req: NextRequest) {
     const homeText = stripHtml(html);
     const subText = subPages.map(stripHtml).filter(t => t.length > 100).join("\n\n");
 
-    // Larger budget (12k chars) — gpt-4o-mini handles it fine and the extra
+    // Larger budget (12k chars) — Claude Haiku handles it fine and the extra
     // context helps with main_services + value_proposition quality. The AI
     // already had 8k for homepage alone; subpages add ~4k more on average.
     const cleaned = `${homeText}\n\n${subText}`.slice(0, 12000);
@@ -247,23 +248,12 @@ export async function POST(req: NextRequest) {
     const detectedLang = htmlLangCode || ogLocaleCode || "";
     const langForExtraction = language;
 
-    // 2. Call OpenAI to extract structured info. Richer schema (employees
+    // 2. Call Claude Haiku to extract structured info. Richer schema (employees
     //    range, founded year, target_seniority hints) lets the demo data
-    //    generator make more realistic ICPs + leads downstream.
-    const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${openaiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        temperature: 0.2,
-        response_format: { type: "json_object" },
-        messages: [
-          {
-            role: "system",
-            content: `You extract company information from website content (homepage + /about + /services subpages). Return a JSON object with these fields. Leave empty string "" if not clearly stated:
+    //    generator make more realistic ICPs + leads downstream. Migrated from
+    //    OpenAI gpt-4o-mini → Claude Haiku 2026-06-08 (the shared OpenAI key
+    //    hit insufficient_quota and broke every scan).
+    const sysPrompt = `You extract company information from website content (homepage + /about + /services subpages). Return a JSON object with these fields. Leave empty string "" if not clearly stated:
 
 - company_name: string
 - tagline: string (short slogan, max 80 chars)
@@ -282,29 +272,37 @@ export async function POST(req: NextRequest) {
 CRITICAL:
 - Be specific over generic. "Helping businesses grow" is useless — say HOW (e.g. "invoice finance for recruitment agencies funding weekly payroll").
 - Quote them when possible. Don't invent.
-- Output ALL text fields in ${langForExtraction}. If the source website is in a different language than ${langForExtraction}, TRANSLATE the content — do not copy phrases in the source language. Proper nouns (company names, product names, places) stay as-is.`,
-          },
-          {
-            role: "user",
-            content: `Website URL: ${url}
+- Output ALL text fields in ${langForExtraction}. If the source website is in a different language than ${langForExtraction}, TRANSLATE the content — do not copy phrases in the source language. Proper nouns (company names, product names, places) stay as-is.
+- Return ONLY the raw JSON object — no markdown code fences, no prose before or after.`;
+
+    const userPrompt = `Website URL: ${url}
 Title: ${titleMatch?.[1] ?? ogTitle?.[1] ?? ""}
 Meta description: ${metaMatch?.[1] ?? ogDesc?.[1] ?? ""}
 Detected language: ${detectedLang || "(unknown)"}
 
 Combined page content (homepage + /about + /services if available):
-${cleaned}`,
-          },
-        ],
-      }),
-    });
+${cleaned}`;
 
-    if (!aiRes.ok) {
-      const err = await aiRes.text();
-      return NextResponse.json({ error: `OpenAI error: ${err}` }, { status: 502 });
+    let parsed: Record<string, unknown>;
+    try {
+      const anthropic = new Anthropic({ apiKey: anthropicKey });
+      const aiRes = await anthropic.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1500,
+        system: sysPrompt,
+        messages: [{ role: "user", content: userPrompt }],
+      });
+      const raw = aiRes.content[0]?.type === "text" ? aiRes.content[0].text : "";
+      // Anthropic has no json_object mode — strip any fences and grab the
+      // outermost {...} before parsing.
+      const txt = raw.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+      const start = txt.indexOf("{");
+      const end = txt.lastIndexOf("}");
+      if (start === -1 || end === -1) throw new Error("no JSON object in response");
+      parsed = JSON.parse(txt.slice(start, end + 1));
+    } catch (e: unknown) {
+      return NextResponse.json({ error: `Claude error: ${e instanceof Error ? e.message : String(e)}` }, { status: 502 });
     }
-
-    const aiData = await aiRes.json();
-    const parsed = JSON.parse(aiData.choices[0].message.content);
 
     // Whitelist only the columns that exist on company_bios. The AI sometimes
     // hallucinates extra fields (employees_range, target_buyer_seniority, etc.)
