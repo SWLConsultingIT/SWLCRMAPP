@@ -239,11 +239,16 @@ function RenurtureRow({ lead, t }: { lead: RenurturingLead; t: Tr }) {
 // ── Accordion frame ───────────────────────────────────────────────────
 
 function Section<L>({
-  group, renderRow, t,
+  group, renderRow, t, onSelectAll, allSelected, selectAllLabel,
 }: {
   group: { icp: string; total: number; campaigns: Array<{ name: string; leads: L[] }> };
   renderRow: (lead: L) => React.ReactNode;
   t: Tr;
+  /** When provided, renders a "Select all" toggle in the ICP header that
+   * selects/deselects every lead in this ICP group at once (boss 2026-06-08). */
+  onSelectAll?: () => void;
+  allSelected?: boolean;
+  selectAllLabel?: string;
 }) {
   return (
     <details open className="rounded-2xl border overflow-hidden mb-3"
@@ -268,6 +273,17 @@ function Section<L>({
             </span>
           </p>
         </div>
+        {onSelectAll && (
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSelectAll(); }}
+            className="shrink-0 text-[10.5px] font-semibold px-2.5 py-1 rounded-md inline-flex items-center gap-1 transition-colors hover:bg-black/[0.04]"
+            style={{ color: allSelected ? C.red : C.textBody, border: `1px solid ${allSelected ? C.red : C.border}` }}
+          >
+            {allSelected ? <CheckSquare size={12} /> : <Square size={12} />}
+            {selectAllLabel ?? "Select all"}
+          </button>
+        )}
         <ChevronRight size={16} className="acc-chevron shrink-0" style={{ color: C.textMuted }} />
       </summary>
       <div className="p-3 space-y-3 border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
@@ -356,6 +372,18 @@ export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads }:
 
   function selectAllLost() {
     setSelected(new Set(lostAllIds));
+  }
+
+  // Select / deselect every lead of one ICP group at once. If all are already
+  // selected, the toggle clears them; otherwise it adds the whole group.
+  function toggleGroupLost(ids: string[]) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      const allIn = ids.length > 0 && ids.every(id => next.has(id));
+      if (allIn) ids.forEach(id => next.delete(id));
+      else ids.forEach(id => next.add(id));
+      return next;
+    });
   }
 
   function clearLostSelection() {
@@ -480,11 +508,19 @@ export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads }:
         {tab === "lost" && (
           lostGroups.length === 0 ? (
             <EmptyState icon={X} title={t("results.empty.lost.title")} desc={t("results.empty.lost.desc")} />
-          ) : lostGroups.map(g => (
-            <Section key={g.icp} group={g} t={t} renderRow={lead => (
-              <LostRow key={lead.id} lead={lead} t={t} selected={selected.has(lead.id)} onToggle={toggleLostSelect} />
-            )} />
-          ))
+          ) : lostGroups.map(g => {
+            const groupIds = g.campaigns.flatMap(c => c.leads.map(l => l.id));
+            const allSel = groupIds.length > 0 && groupIds.every(id => selected.has(id));
+            return (
+            <Section key={g.icp} group={g} t={t}
+              onSelectAll={() => toggleGroupLost(groupIds)}
+              allSelected={allSel}
+              selectAllLabel={allSel ? t("results.lost.deselectAll") : t("results.lost.selectAllIcp")}
+              renderRow={lead => (
+                <LostRow key={lead.id} lead={lead} t={t} selected={selected.has(lead.id)} onToggle={toggleLostSelect} />
+              )} />
+            );
+          })
         )}
 
         {tab === "renurture" && (
