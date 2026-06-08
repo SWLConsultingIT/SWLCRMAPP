@@ -62,6 +62,10 @@ type MsgRow = {
   step_number: number | null;
   status: string | null;
   sent_at: string | null;
+  /** The message's OWN channel (dispatcher-stamped). Authoritative for
+   * per-channel attribution — a campaign.channel='linkedin' multichannel flow
+   * still stamps email/call on those steps' messages. */
+  channel: string | null;
 };
 
 const POSITIVE_CLASS = new Set(["positive", "meeting_intent"]);
@@ -207,7 +211,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     return bioId ? q.eq("leads.company_bio_id", bioId) : q;
   };
   const makeMsgsQ = () => {
-    const q = supabase.from("campaign_messages").select("id, campaign_id, step_number, status, sent_at, campaigns!inner(leads!inner(company_bio_id))");
+    const q = supabase.from("campaign_messages").select("id, campaign_id, step_number, status, sent_at, channel, campaigns!inner(leads!inner(company_bio_id))");
     return bioId ? q.eq("campaigns.leads.company_bio_id", bioId) : q;
   };
   const makeProfilesQ = () => {
@@ -381,10 +385,15 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   // campaign of channel=X. Computed once for the new funnel.
   // The CR (step 0) counts as a LinkedIn "send" for the LI-Sent stage; for
   // "≥1 LinkedIn message" we want a step >= 1 (post-acceptance reach-out).
-  const linkedinSentLeadIds = new Set<string>();
+  // Per-channel attribution uses the MESSAGE's own channel, not the
+  // campaign's. A multichannel flow is stored as campaign.channel='linkedin'
+  // but each step's sent message carries its real channel (email/call/...),
+  // so keying off campaign.channel made every email/call touch vanish into
+  // "linkedin" — the ICP × Channel matrix and the per-ICP channel columns
+  // both showed 0 emails/calls (boss 2026-06-08). `touchByChannel` is reused
+  // by the matrix below so the two ICP views agree.
+  const touchByChannel = new Map<string, Set<string>>();
   const linkedinMessageLeadIds = new Set<string>();
-  const emailTouchLeadIds = new Set<string>();
-  const callTouchLeadIds = new Set<string>();
   const campaignChannelById = new Map<string, string>();
   const campaignLeadById = new Map<string, string>();
   for (const c of campaigns) {
@@ -393,18 +402,17 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   }
   for (const m of messages) {
     if (m.status !== "sent" || !m.campaign_id) continue;
-    const ch = campaignChannelById.get(m.campaign_id);
     const leadId = campaignLeadById.get(m.campaign_id);
-    if (!ch || !leadId) continue;
-    if (ch === "linkedin") {
-      linkedinSentLeadIds.add(leadId);
-      if ((m.step_number ?? 0) >= 1) linkedinMessageLeadIds.add(leadId);
-    } else if (ch === "email") {
-      emailTouchLeadIds.add(leadId);
-    } else if (ch === "call") {
-      callTouchLeadIds.add(leadId);
-    }
+    if (!leadId) continue;
+    const ch = (m.channel || campaignChannelById.get(m.campaign_id) || "linkedin");
+    let set = touchByChannel.get(ch);
+    if (!set) { set = new Set(); touchByChannel.set(ch, set); }
+    set.add(leadId);
+    if (ch === "linkedin" && (m.step_number ?? 0) >= 1) linkedinMessageLeadIds.add(leadId);
   }
+  const linkedinSentLeadIds = touchByChannel.get("linkedin") ?? new Set<string>();
+  const emailTouchLeadIds = touchByChannel.get("email") ?? new Set<string>();
+  const callTouchLeadIds = touchByChannel.get("call") ?? new Set<string>();
 
   // Lost = explicit negative classification OR lead in closed_lost status.
   // The two overlap in most cases (a negative reply triggers a status flip)
@@ -672,20 +680,27 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const leadIcpMap = new Map<string, string>();
   for (const l of leads) leadIcpMap.set(l.id, l.icp_profile_id ?? "_unknown");
 
-  for (const c of campaigns) {
-    if (!c.lead_id) continue;
-    const icpId = leadIcpMap.get(c.lead_id);
-    if (!icpId) continue; // lead was filtered out
-    const cell = ensureCell(keyOf(icpId, c.channel ?? "linkedin"));
-    cell.contacted.add(c.lead_id);
-    if (repliedLeadIds.has(c.lead_id)) cell.replied.add(c.lead_id);
+  // Cells bucket by the ACTUAL message channel (touchByChannel), not the
+  // campaign's primary channel — so a multichannel flow's email/call sends
+  // land in the right column instead of all under "linkedin".
+  for (const [ch, leadSet] of touchByChannel.entries()) {
+    for (const leadId of leadSet) {
+      const icpId = leadIcpMap.get(leadId);
+      if (!icpId) continue; // lead was filtered out
+      const cell = ensureCell(keyOf(icpId, ch));
+      cell.contacted.add(leadId);
+      if (repliedLeadIds.has(leadId)) cell.replied.add(leadId);
+    }
   }
 
+  // ICP rows must match the "ICP Comparison" leaderboard exactly (boss
+  // 2026-06-08: the two views listed different ICPs). Both derive from the
+  // filtered `leads` set, so build the matrix ICP universe the same way.
   const matrixIcps = new Set<string>();
+  for (const l of leads) matrixIcps.add(l.icp_profile_id ?? "_unknown");
   const matrixChannels = new Set<string>();
   for (const k of matrixGrid.keys()) {
-    const [icp, ch] = k.split("|");
-    matrixIcps.add(icp);
+    const [, ch] = k.split("|");
     matrixChannels.add(ch);
   }
   // Boss-feedback 2026-05-27: matrix must always include email (and the
