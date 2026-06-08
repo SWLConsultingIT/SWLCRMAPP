@@ -18,10 +18,8 @@ import { getUserScope } from "@/lib/scope";
 import { getDashboardData } from "@/lib/dashboard-data";
 import { getT, getServerLocale } from "@/lib/i18n-server";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
-import FiltersBar from "@/components/dashboard/FiltersBar";
 import TabFilterBar from "@/components/dashboard/TabFilterBar";
 import SellerRow from "@/components/dashboard/SellerRowExpand";
-import ChartFilterChips from "@/components/dashboard/ChartFilterChips";
 import { getSupabaseService } from "@/lib/supabase-service";
 import FreshnessChip from "@/components/dashboard/FreshnessChip";
 import DashboardKeyboardShortcuts from "@/components/dashboard/DashboardKeyboardShortcuts";
@@ -580,9 +578,19 @@ export default async function DashboardPage({
           Hidden on Today (boss 2026-05-28): the Today card is the
           "what's on my plate right now" landing surface; a date window
           would just hide work the seller still has to do. */}
+      {/* Unified filter bar — ONE line for every analytics tab: Period ·
+          Campaign · ICPs · Sellers (boss 2026-06-08). URL state is global so
+          the data layer filters every section against it; rendering it once
+          here replaces the old period-only top bar + per-tab dropdown bars. */}
       {filters.tab !== "today" && (
         <Suspense fallback={<div className="h-10" />}>
-          <FiltersBar />
+          <TabFilterBar
+            showPeriod
+            campaigns={filterOptions.campaigns}
+            icps={filterOptions.icps}
+            sellers={filterOptions.sellers}
+            labels={tabFilterLabels}
+          />
         </Suspense>
       )}
 
@@ -655,19 +663,7 @@ export default async function DashboardPage({
           </span>
         </div>
 
-        {/* Per-tab filter bar — sits INSIDE the General Overview card so its
-            scope is visually unambiguous: only the numbers inside this card
-            respond. Boss feedback 2026-05-28: filters outside felt detached
-            from the surface they were filtering. URL state is still shared
-            with other tabs, so navigating preserves the active scope. */}
-        <div className="px-4 pt-3">
-          <TabFilterBar
-            campaigns={filterOptions.campaigns}
-            icps={filterOptions.icps}
-            sellers={filterOptions.sellers}
-            labels={tabFilterLabels}
-          />
-        </div>
+        {/* Filters live in the unified top bar now (one line, all tabs). */}
 
         {/* Band A — Portfolio */}
         <div className="px-4 pt-4">
@@ -919,22 +915,11 @@ export default async function DashboardPage({
               const positivesPct = totalReplies > 0 ? Math.round((positives / totalReplies) * 100) : 0;
               return t("dashx.donut.insight", { positivesPct, positives, total: totalReplies });
             })()}>
-            {/* Per-chart filter chips — customize the donut without going
-                back to the tab filter (none on Overview tab currently). v1
-                writes to global URL params, future v2 = isolated params. */}
-            <div className="mb-3 flex items-center gap-2 text-[10px] uppercase tracking-wider" style={{ color: C.textMuted }}>
-              <span>{t("dashx.filters.applied")}:</span>
-              <ChartFilterChips
-                icps={filterOptions.icps}
-                sellers={filterOptions.sellers}
-                labels={{
-                  campaigns: t("dashx.filters.campaigns"),
-                  icps: t("dashx.filters.icps"),
-                  sellers: t("dashx.filters.sellers"),
-                  empty: t("dashx.filters.noOptions"),
-                }}
-              />
-            </div>
+            {/* Reply classification inherits the unified top filter bar — no
+                per-chart filters (boss 2026-06-08: "no quiero que tenga filtros
+                ahí, que levante los filtros de la hoja general"). donutSlices
+                already comes from data.replyClassCounts, filtered by the global
+                URL params the top bar writes. */}
             <Donut
               data={donutSlices}
               centerLabel={t("dashx.donut.centerReplies")}
@@ -1189,19 +1174,7 @@ export default async function DashboardPage({
       {filters.tab === "campaigns" && (
       <section className="space-y-6 pt-3">
 
-      {/* Per-tab filter bar — Campaign + ICP + Seller. Boss 2026-05-28:
-          the Performance-by-step table needs to scope to a specific flow
-          because the aggregate across every campaign doesn't tell you
-          which step in which flow is leaking. The data layer already
-          honours `campaigns` from the URL, so adding the dropdown here
-          is enough — both the campaigns list above and the step panel
-          below re-scope on every change. */}
-      <TabFilterBar
-        campaigns={filterOptions.campaigns}
-        icps={filterOptions.icps}
-        sellers={filterOptions.sellers}
-        labels={tabFilterLabels}
-      />
+      {/* Filters live in the unified top bar now (one line, all tabs). */}
 
 
       <section>
@@ -1524,14 +1497,7 @@ export default async function DashboardPage({
       {filters.tab === "channels" && (
       <section className="space-y-4 pt-2">
 
-      {/* Per-tab filter bar — Campaign + ICP + Seller. Filters the entire
-          channels chapter (cards + comparison + heatmap). */}
-      <TabFilterBar
-        campaigns={filterOptions.campaigns}
-        icps={filterOptions.icps}
-        sellers={filterOptions.sellers}
-        labels={tabFilterLabels}
-      />
+      {/* Filters live in the unified top bar now (one line, all tabs). */}
 
       {/* Unified Channels Panel — wraps the 4 channel cards + comparison
           bar in ONE container so the chapter reads as a single chapter
@@ -1649,13 +1615,7 @@ export default async function DashboardPage({
       {filters.tab === "sellers" && (
       <section className="space-y-6 pt-3">
 
-      {/* Per-tab filter bar — Campaign + ICP. Seller self-filter would be
-          circular (sellers are the rows) so we omit it. */}
-      <TabFilterBar
-        campaigns={filterOptions.campaigns}
-        icps={filterOptions.icps}
-        labels={tabFilterLabels}
-      />
+      {/* Filters live in the unified top bar now (one line, all tabs). */}
 
       <section>
         {(() => {
