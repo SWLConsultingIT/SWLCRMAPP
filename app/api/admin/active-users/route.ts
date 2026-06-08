@@ -16,7 +16,7 @@ export async function GET() {
   const [{ data: profiles }, { data: { users } }, { data: bios }] = await Promise.all([
     svc.from("user_profiles").select("user_id, role, company_bio_id, last_seen_at"),
     svc.auth.admin.listUsers({ perPage: 200 }),
-    svc.from("company_bios").select("id, company_name"),
+    svc.from("company_bios").select("id, company_name").is("archived_at", null),
   ]);
 
   const profileMap = Object.fromEntries((profiles ?? []).map(p => [p.user_id, p]));

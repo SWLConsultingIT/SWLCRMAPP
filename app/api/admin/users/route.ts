@@ -10,7 +10,9 @@ export async function GET() {
   const [{ data: { users } }, { data: profiles }, { data: bios }] = await Promise.all([
     supabase.auth.admin.listUsers({ perPage: 200 }),
     supabase.from("user_profiles").select("user_id, role, company_bio_id"),
-    supabase.from("company_bios").select("id, company_name").order("company_name"),
+    // Exclude archived tenants so soft-deleted duplicates (e.g. the "GrupoIEB"
+    // dupe) stop showing in the Add-person picker (boss 2026-06-08).
+    supabase.from("company_bios").select("id, company_name").is("archived_at", null).order("company_name"),
   ]);
 
   const profileMap = Object.fromEntries((profiles ?? []).map(p => [p.user_id, p]));

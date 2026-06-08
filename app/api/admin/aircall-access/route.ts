@@ -17,7 +17,7 @@ export async function GET() {
       headers: { Authorization: `Basic ${AIRCALL_AUTH}` },
       next: { revalidate: 300 },
     }),
-    supabase.from("company_bios").select("id, company_name, aircall_number_ids, aircall_user_id").order("company_name"),
+    supabase.from("company_bios").select("id, company_name, aircall_number_ids, aircall_user_id").is("archived_at", null).order("company_name"),
   ]);
   const { numbers = [] } = (await res.json()) as { numbers: AircallNumber[] };
   return NextResponse.json({ numbers, companies: bios ?? [] });

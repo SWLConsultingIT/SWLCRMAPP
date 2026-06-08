@@ -14,6 +14,7 @@ export async function GET() {
     supabase
       .from("company_bios")
       .select("id, company_name")
+      .is("archived_at", null)
       .order("company_name"),
   ]);
 
