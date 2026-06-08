@@ -39,6 +39,7 @@ import MicroKpi from "@/components/dashboard/MicroKpi";
 import RateBar from "@/components/dashboard/RateBar";
 import ChannelCard from "@/components/dashboard/ChannelCard";
 import CallsCard from "@/components/dashboard/CallsCard";
+import CallOutcomesBySeller from "@/components/dashboard/CallOutcomesBySeller";
 import LinkedInConnectionsCard from "@/components/dashboard/LinkedInConnectionsCard";
 import TodayCard from "@/components/dashboard/TodayCard";
 import ChannelTouches from "@/components/dashboard/ChannelTouches";
@@ -1650,6 +1651,13 @@ export default async function DashboardPage({
           </div>
         )}
       </Panel>
+
+      {/* Call outcomes by seller (boss 2026-06-08): per-seller, per-day call
+          monitoring with outcome reasons. Honors the same period + seller
+          filters as the rest of this tab. */}
+      <div className="mt-6">
+        <CallOutcomesBySeller rows={data.callOutcomesBySeller} />
+      </div>
 
       </section>
       )}

@@ -110,6 +110,7 @@ const EMPTY_DASHBOARD = {
   ],
   channelBreakdown: [] as Array<{ channel: string; sent: number; contacted: number; replied: number; positive: number; responseRate: number; conversionRate: number }>,
   callsBreakdown: { pending: 0, made: 0, completed: 0, answered: 0, positive: 0, negative: 0, total: 0 },
+  callOutcomesBySeller: [] as Array<{ sellerId: string; sellerName: string; made: number; answered: number; interested: number; badTiming: number; notInterested: number; wrongNumber: number; byDay: Record<string, { made: number; answered: number; interested: number; badTiming: number; notInterested: number; wrongNumber: number }> }>,
   linkedinConnections: { sent: 0, accepted: 0 },
   icpPerformance: [] as Array<any>,
   campaignPerformance: [] as Array<any>,
@@ -219,7 +220,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     return bioId ? q.eq("company_bio_id", bioId) : q;
   };
   const makeSellersQ = () => {
-    const q = supabase.from("sellers").select("id, name, active, company_bio_id");
+    const q = supabase.from("sellers").select("id, name, active, company_bio_id, user_id");
     return bioId ? q.or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`) : q;
   };
 
@@ -275,7 +276,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const allReplies = (allRepliesRaw ?? []) as ReplyRow[];
   const allMessages = (allMsgsRaw ?? []) as MsgRow[];
   const allProfiles = (allProfilesRaw ?? []) as { id: string; profile_name: string }[];
-  const allSellers = (allSellersRaw ?? []) as { id: string; name: string; active: boolean }[];
+  const allSellers = (allSellersRaw ?? []) as { id: string; name: string; active: boolean; user_id: string | null }[];
 
   // Calls — fetched separately so any failure (RLS / missing column /
   // FK metadata mismatch) doesn't bring the whole dashboard down. Scopes
@@ -284,6 +285,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   type CallRow = {
     id: string; lead_id: string | null; status: string | null;
     duration: number | null; classification: string | null; started_at: string | null;
+    dialed_by_user_id: string | null;
   };
   let allCalls: CallRow[] = [];
   try {
@@ -292,7 +294,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       allCalls = await fetchAllRows<CallRow>(() =>
         supabase
           .from("calls")
-          .select("id, lead_id, status, duration, classification, started_at")
+          .select("id, lead_id, status, duration, classification, started_at, dialed_by_user_id")
           .in("lead_id", cappedLeadIds),
       );
     }
@@ -583,6 +585,59 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     negative:  callsInPeriod.filter(c => NEGATIVE_CLASS.has(c.classification ?? "")).length,
     total:     callsMadeCount,
   };
+
+  // ── Call outcomes by seller (boss 2026-06-08) ─────────────────────────
+  // Per-seller call monitoring with the outcome breakdown the boss asked for
+  // (made / answered / interested / bad timing / not interested / wrong
+  // number), plus a per-day drill. Attribution: a call is attributed to the
+  // seller who OWNS the lead's flow (campaign.seller_id) — that's what the boss
+  // means by "Graeme's calls". calls.seller_id is always null and sellers.user_id
+  // is mostly unset (e.g. Graeme's is null), so dialed_by_user_id → sellers.user_id
+  // is only a fallback. Each call surfaces as up to two rows (dial-marker +
+  // Aircall record); collapse by lead+minute and coalesce the dialer +
+  // classification across both. Respects the period + seller filters.
+  const leadToSellerId = new Map<string, string>();
+  for (const c of allCampaigns) {
+    if (c.lead_id && c.seller_id && !leadToSellerId.has(c.lead_id)) leadToSellerId.set(c.lead_id, c.seller_id);
+  }
+  const userToSeller = new Map<string, { id: string; name: string }>();
+  for (const s of allSellers) if (s.user_id) userToSeller.set(s.user_id, { id: s.id, name: s.name });
+  type CallGroup = { leadId: string | null; dialer: string | null; classification: string | null; answered: boolean; day: string };
+  const callGroups = new Map<string, CallGroup>();
+  for (const c of callsInPeriod) {
+    const key = `${c.lead_id ?? "?"}|${(c.started_at ?? "").slice(0, 16)}`;
+    const g = callGroups.get(key) ?? { leadId: c.lead_id, dialer: null, classification: null, answered: false, day: (c.started_at ?? "").slice(0, 10) };
+    if (!g.dialer && c.dialed_by_user_id) g.dialer = c.dialed_by_user_id;
+    if (!g.classification && c.classification) g.classification = c.classification;
+    if ((c.duration ?? 0) > 0) g.answered = true;
+    if (!g.day && c.started_at) g.day = c.started_at.slice(0, 10);
+    callGroups.set(key, g);
+  }
+  type CallOutcomeCounts = { made: number; answered: number; interested: number; badTiming: number; notInterested: number; wrongNumber: number };
+  type SellerCallStats = CallOutcomeCounts & { sellerId: string; sellerName: string; byDay: Record<string, CallOutcomeCounts> };
+  const blankCounts = (): CallOutcomeCounts => ({ made: 0, answered: 0, interested: 0, badTiming: 0, notInterested: 0, wrongNumber: 0 });
+  const callSellerAgg = new Map<string, SellerCallStats>();
+  for (const g of callGroups.values()) {
+    // Prefer the lead's flow owner; fall back to the dialer's seller mapping.
+    const ownerSellerId = g.leadId ? leadToSellerId.get(g.leadId) : null;
+    const fallback = g.dialer ? userToSeller.get(g.dialer) : null;
+    const sid = ownerSellerId ?? fallback?.id ?? "unassigned";
+    const sname = (ownerSellerId ? sellerMap.get(ownerSellerId) : null) ?? fallback?.name ?? "Unassigned";
+    if (sellerSet && !sellerSet.has(sid)) continue; // seller filter (by sellers.id)
+    let agg = callSellerAgg.get(sid);
+    if (!agg) { agg = { sellerId: sid, sellerName: sname, ...blankCounts(), byDay: {} }; callSellerAgg.set(sid, agg); }
+    const day = agg.byDay[g.day] ?? (agg.byDay[g.day] = blankCounts());
+    const cl = g.classification ?? "";
+    const bump = (k: keyof CallOutcomeCounts) => { agg![k]++; day[k]++; };
+    bump("made");
+    if (g.answered) bump("answered");
+    if (cl === "positive" || cl === "meeting_intent") bump("interested");
+    else if (cl === "follow_up") bump("badTiming");
+    else if (cl === "negative") bump("notInterested");
+    else if (cl === "wrong_number") bump("wrongNumber");
+  }
+  const callOutcomesBySeller = Array.from(callSellerAgg.values())
+    .sort((a, b) => b.made - a.made || a.sellerName.localeCompare(b.sellerName));
 
   // ── Sequence step performance ────────────────────────────────────────
   //
@@ -1508,6 +1563,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     ],
     channelBreakdown,
     callsBreakdown,
+    callOutcomesBySeller,
     // Exposed even after the funnel trim, so the LinkedIn Connections
     // card on the Channels tab can keep showing Sent → Accepted → rate
     // (those stages disappeared from the funnel proper).
