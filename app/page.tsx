@@ -791,7 +791,7 @@ export default async function DashboardPage({
         {(() => {
           const liStats = data.channelBreakdown.find(c => c.channel === "linkedin") ?? { sent: 0, replied: 0 };
           const emailStats = data.channelBreakdown.find(c => c.channel === "email") ?? { sent: 0, replied: 0 };
-          const callsMade = data.callsBreakdown.completed ?? 0;
+          const callsMade = data.callsBreakdown.made ?? 0;
           const callsPending = data.callsBreakdown.pending ?? 0;
           return (
             <div className="grid grid-cols-1 lg:grid-cols-4 divide-y lg:divide-y-0 lg:divide-x rounded-xl border overflow-hidden"

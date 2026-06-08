@@ -127,67 +127,13 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
 
       {/* ── VELOCITY STRIP removed (boss 2026-06-08: didn't trust the number). ── */}
 
-      {/* ── TOTALS (boss 2026-06-08, item 3) ──
-          Left column = the flow's headline totals as a plain, scannable list
-          (the funnel below shows the same drop-off as bars, but mixes channels
-          and never breaks out LinkedIn-msgs vs emails vs calls, nor negatives).
-          Right column = totals per step. */}
-      <Section title="Totals">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4">
-          {/* LEFT — headline totals */}
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>Overall</p>
-            <div className="space-y-1.5">
-              {([
-                { label: "Total leads",       value: m.totalLeads,                color: gold as string },
-                { label: "Connections sent",  value: m.invitesSent,               color: "#0A66C2" },
-                { label: "Accepted",          value: m.accepted,                  color: "#16A34A" },
-                { label: "LinkedIn messages", value: m.linkedin?.dmsSent ?? 0,    color: "#0EA5E9" },
-                { label: "Emails",            value: m.email?.sent ?? 0,          color: "#7C3AED" },
-                { label: "Calls",             value: m.call?.dialed ?? 0,         color: "#F97316" },
-                { label: "Replies",           value: m.replied,                   color: "#8B5CF6" },
-                { label: "Positives",         value: m.positive,                  color: C.green },
-                { label: "Negatives",         value: m.replyBreakdown.negative,   color: C.red },
-              ]).map(row => (
-                <div key={row.label} className="flex items-center justify-between gap-3 py-0.5">
-                  <span className="flex items-center gap-2 text-[13px]" style={{ color: C.textBody }}>
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: row.color }} />
-                    {row.label}
-                  </span>
-                  <span className="text-[17px] font-bold tabular-nums leading-none" style={{ color: row.value ? C.textPrimary : C.textDim, fontFamily: OUTFIT }}>{row.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* RIGHT — totals per step */}
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>Per step</p>
-            {m.steps.length === 0 ? (
-              <p className="text-xs" style={{ color: C.textDim }}>No steps in this flow.</p>
-            ) : (
-              <div className="space-y-1.5">
-                {m.steps.map((s, i) => {
-                  const meta = CH[s.channel] ?? { label: s.channel, color: C.textMuted, Icon: Mail };
-                  return (
-                    <div key={i} className="flex items-center justify-between gap-3 py-0.5">
-                      <span className="flex items-center gap-2 text-[13px] min-w-0" style={{ color: C.textBody }}>
-                        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: meta.color }} />
-                        <span className="truncate">{s.label}</span>
-                        <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{meta.label}</span>
-                      </span>
-                      <span className="text-[17px] font-bold tabular-nums leading-none" style={{ color: s.sent ? C.textPrimary : C.textDim, fontFamily: OUTFIT }}>{s.sent}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </Section>
-
-      {/* ── OUTREACH FUNNEL ── */}
+      {/* ── OUTREACH FUNNEL (Totals merged in — boss 2026-06-08: the standalone
+          Totals block duplicated the funnel, so it now lives inside this one
+          section). LEFT = funnel bars (overall drop-off + conversions); RIGHT =
+          totals per step. The per-channel split + negatives the bars don't
+          break out sit in the chip row below. */}
       <Section title="Outreach funnel">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4">
         <div className="space-y-0.5">
           {stages.map((s, i) => {
             const w = s.value > 0 ? Math.max(4, Math.round((s.value / maxV) * 100)) : 0;
@@ -223,6 +169,30 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
             );
           })}
         </div>
+        {/* RIGHT — totals per step (folded in from the old Totals section) */}
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>Per step</p>
+          {m.steps.length === 0 ? (
+            <p className="text-xs" style={{ color: C.textDim }}>No steps in this flow.</p>
+          ) : (
+            <div className="space-y-1.5">
+              {m.steps.map((s, i) => {
+                const meta = CH[s.channel] ?? { label: s.channel, color: C.textMuted, Icon: Mail };
+                return (
+                  <div key={i} className="flex items-center justify-between gap-3 py-0.5">
+                    <span className="flex items-center gap-2 text-[13px] min-w-0" style={{ color: C.textBody }}>
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: meta.color }} />
+                      <span className="truncate">{s.label}</span>
+                      <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{meta.label}</span>
+                    </span>
+                    <span className="text-[17px] font-bold tabular-nums leading-none" style={{ color: s.sent ? C.textPrimary : C.textDim, fontFamily: OUTFIT }}>{s.sent}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        </div>{/* close 2-col grid */}
 
         {/* drill list (who) — only when opened from the funnel */}
         {openFrom === "funnel" && drillPanel}

@@ -109,7 +109,7 @@ const EMPTY_DASHBOARD = {
     { stage: "won",               count: 0, prior: null as number | null, color: "brand" },
   ],
   channelBreakdown: [] as Array<{ channel: string; sent: number; contacted: number; replied: number; positive: number; responseRate: number; conversionRate: number }>,
-  callsBreakdown: { pending: 0, completed: 0, answered: 0, positive: 0, negative: 0, total: 0 },
+  callsBreakdown: { pending: 0, made: 0, completed: 0, answered: 0, positive: 0, negative: 0, total: 0 },
   linkedinConnections: { sent: 0, accepted: 0 },
   icpPerformance: [] as Array<any>,
   campaignPerformance: [] as Array<any>,
@@ -553,6 +553,19 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     }
     return true;
   });
+  // "Made" = one row per physical dial. Each call can surface as up to TWO
+  // rows — a dial-marker (status 'initiated', no aircall_call_id) plus an
+  // Aircall webhook record once it connects (status 'answered'…). Collapse by
+  // lead + minute so we count each call once. The old `completed` field keyed
+  // off status === 'completed', which the calls table NEVER emits (real
+  // statuses: answered / initiated / missed / voicemail) → it was always 0,
+  // which is why "Phones made" read 0 for Graeme/Pathway (boss 2026-06-08).
+  const madeKeys = new Set<string>();
+  for (const c of callsInPeriod) {
+    const minute = (c.started_at ?? "").slice(0, 16); // yyyy-mm-ddThh:mm
+    madeKeys.add(`${c.lead_id ?? "?"}|${minute}`);
+  }
+  const callsMadeCount = madeKeys.size;
   const callsBreakdown = {
     pending: (() => {
       let n = 0;
@@ -563,11 +576,12 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       }
       return n;
     })(),
-    completed: callsInPeriod.filter(c => c.status === "completed").length,
+    made:      callsMadeCount,
+    completed: callsMadeCount, // repurposed: real dials made (status 'completed' never exists)
     answered:  callsInPeriod.filter(c => (c.duration ?? 0) > 0).length,
     positive:  callsInPeriod.filter(c => POSITIVE_CLASS.has(c.classification ?? "")).length,
     negative:  callsInPeriod.filter(c => NEGATIVE_CLASS.has(c.classification ?? "")).length,
-    total:     callsInPeriod.length,
+    total:     callsMadeCount,
   };
 
   // ── Sequence step performance ────────────────────────────────────────
