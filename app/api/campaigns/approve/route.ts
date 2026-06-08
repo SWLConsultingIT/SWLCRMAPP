@@ -110,7 +110,15 @@ export async function POST(req: NextRequest) {
     const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
     const [activeRes, recentTouchRes] = await Promise.all([
       supabase.from("campaigns").select("lead_id").in("lead_id", ids).in("status", ["active", "paused"]),
-      supabase.from("campaign_messages").select("lead_id").in("lead_id", ids).eq("status", "sent").gte("sent_at", ninetyDaysAgo),
+      // Recent-touch guard IGNORES messages from archived/cancelled campaigns:
+      // recovering a lead archives its finished campaign, and that recovery is a
+      // deliberate "re-contact this lead" decision — so its old sends must stop
+      // blocking re-enrolment (boss 2026-06-08: recovered leads couldn't be
+      // re-campaigned because the 90-day guard still saw the archived sends).
+      supabase.from("campaign_messages")
+        .select("lead_id, campaigns!inner(status)")
+        .in("lead_id", ids).eq("status", "sent").gte("sent_at", ninetyDaysAgo)
+        .not("campaigns.status", "in", "(archived,cancelled)"),
     ]);
     const excluded = new Set<string>();
     for (const c of activeRes.data ?? []) excluded.add((c as any).lead_id);
