@@ -25,7 +25,21 @@ import { useLocale } from "@/lib/i18n";
 import {
   Trophy, X, RefreshCw, Search, ChevronRight, Target,
   Star, CheckSquare, Square, Trash2, Flame, MessageCircle,
+  PhoneCall, MessageSquare,
 } from "lucide-react";
+
+// A win/loss "why" string is either a real text reply or a call outcome the
+// rep logged (persisted as "[Call outcome] <note>"). Split it so the row can
+// show a phone glyph + the clean note instead of the raw bracketed prefix —
+// that's the "see the call comment" the boss asked for, at a glance.
+const CALL_OUTCOME_PREFIX = "[Call outcome]";
+function whyParts(text: string | null | undefined): { isCall: boolean; clean: string } | null {
+  if (!text) return null;
+  const isCall = text.startsWith(CALL_OUTCOME_PREFIX);
+  const clean = (isCall ? text.slice(CALL_OUTCOME_PREFIX.length) : text).trim();
+  if (!clean) return null;
+  return { isCall, clean };
+}
 import type { LostLead, RenurturingLead } from "@/components/LeadsCampaignsClient";
 import type { OpportunityLead } from "@/components/OpportunitiesTable";
 
@@ -102,11 +116,14 @@ function WonRow({ lead, t }: { lead: OpportunityLead; t: Tr }) {
           {lead.role ? `${lead.role} · ` : ""}{lead.company ?? "—"}
         </p>
       </div>
-      {lead.win_text && (
-        <div className="hidden md:block max-w-xs min-w-0">
-          <p className="text-[11px] italic truncate" style={{ color: C.textBody }}>“{lead.win_text}”</p>
+      {(() => { const w = whyParts(lead.win_text); return w ? (
+        <div className="hidden sm:flex items-center gap-1 max-w-xs min-w-0" title={w.clean}>
+          {w.isCall
+            ? <PhoneCall size={11} className="shrink-0" style={{ color: C.green }} />
+            : <MessageSquare size={11} className="shrink-0" style={{ color: C.green }} />}
+          <p className="text-[11px] italic truncate" style={{ color: C.textBody }}>“{w.clean}”</p>
         </div>
-      )}
+      ) : null; })()}
       <div className="flex items-center gap-3 shrink-0 text-right">
         {lead.days_to_convert != null && (
           <span className="text-[10px] tabular-nums px-2 py-0.5 rounded-md" style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold }}>
@@ -163,11 +180,14 @@ function LostRow({ lead, t, selected, onToggle }: {
           {lead.role ? `${lead.role} · ` : ""}{lead.company ?? "—"}
         </p>
       </Link>
-      {lead.reply_text && (
-        <div className="hidden md:block max-w-xs min-w-0">
-          <p className="text-[11px] italic truncate" style={{ color: C.red }}>“{lead.reply_text}”</p>
+      {(() => { const w = whyParts(lead.reply_text); return w ? (
+        <div className="hidden sm:flex items-center gap-1 max-w-xs min-w-0" title={w.clean}>
+          {w.isCall
+            ? <PhoneCall size={11} className="shrink-0" style={{ color: C.red }} />
+            : <MessageSquare size={11} className="shrink-0" style={{ color: C.red }} />}
+          <p className="text-[11px] italic truncate" style={{ color: C.red }}>“{w.clean}”</p>
         </div>
-      )}
+      ) : null; })()}
       <div className="flex items-center gap-3 shrink-0 text-right">
         <span className="text-[10px] tabular-nums" style={{ color: C.textDim }}>
           {t("results.lost.stepsLine", {
