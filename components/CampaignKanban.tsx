@@ -250,6 +250,17 @@ function LeadCard({ camp, isDragging }: { camp: Campaign; isDragging?: boolean }
               {b.label}
             </span>
           ))}
+          {/* Wrong number marker (boss 2026-06-08): phone flagged bad → call
+              steps are skipped, but the lead still flows on other channels. */}
+          {camp.leads?.allow_call === false && (
+            <span
+              className="text-[8.5px] font-bold tracking-wider px-1.5 py-0.5 rounded-full"
+              style={{ backgroundColor: "#FEE2E2", color: "#DC2626", letterSpacing: "0.04em" }}
+              title="Phone marked wrong number — call steps skipped"
+            >
+              WRONG #
+            </span>
+          )}
           {/* Completed/paused now surface via the lifecycle badge in
               deriveCardBadges — no separate inline indicator needed. A green
               check still reads nicely on a won/positive card. */}
@@ -355,6 +366,12 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
       // Column i = cs=i: "i steps done, step i+1 is next".
       // After step 1 fires (cs=1) the lead moves to column 1, not column 0.
       const idx = Math.min(cs, sequence.length - 1);
+      // Wrong number (boss 2026-06-08): a lead whose phone was flagged
+      // (allow_call=false) can't be called, so it's dropped from Call-step
+      // columns. It still flows on LinkedIn/Email and carries a WRONG # badge
+      // there. The classify route already skips its queued call messages, so
+      // the orchestrator advances it past this step on the next run.
+      if (sequence[idx]?.channel === "call" && c.leads?.allow_call === false) continue;
       b[idx].push(c);
     }
     return { stepBuckets: b, done };
