@@ -33,5 +33,32 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       requires_human_review: false,
     });
   }
+
+  // "Won" in Results / Opportunities is signal-driven — a positive lead_reply
+  // OR an Odoo transfer — NOT leads.status (see app/results/page.tsx). So
+  // marking a lead closed_won (e.g. the "Mark as Won" button on a Lost lead)
+  // must emit that positive signal; otherwise the lead stays in Lost (its old
+  // negative reply still wins) and never reaches the Won bucket. Insert a
+  // positive reply once (idempotent — skip if one already exists).
+  if (status === "closed_won") {
+    const { data: existingPositive } = await supabase
+      .from("lead_replies")
+      .select("id")
+      .eq("lead_id", id)
+      .in("classification", ["positive", "meeting_intent"])
+      .limit(1);
+    if (!existingPositive || existingPositive.length === 0) {
+      await supabase.from("lead_replies").insert({
+        lead_id: id,
+        channel: "system",
+        classification: "positive",
+        reply_text: "Manually marked as Won",
+        received_at: new Date().toISOString(),
+        requires_human_review: false,
+        review_status: "approved",
+      });
+    }
+    await supabase.from("leads").update({ responded: true }).eq("id", id);
+  }
   return NextResponse.json({ ok: true });
 }
