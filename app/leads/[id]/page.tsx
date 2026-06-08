@@ -12,6 +12,7 @@ import {
 import { LinkedInIcon } from "@/components/SocialIcons";
 import CompanyTabs from "@/components/CompanyTabs";
 import ActivityTimeline from "@/components/ActivityTimeline";
+import LeadChatThread from "@/components/LeadChatThread";
 import LeadNotes from "@/components/LeadNotes";
 import LeadPinnedNotes from "@/components/LeadPinnedNotes";
 import CampaignJourney from "@/components/CampaignJourney";
@@ -948,7 +949,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         { label: "Campaign" },
         { label: "Calls", count: calls.length || undefined },
         { label: "Summary" },
-        { label: "Recent Activity",  count: activityItems.length },
+        { label: "Conversation" },
         { label: "Notes" },
         { label: "Social & Content" },
       ]}>
@@ -1415,8 +1416,11 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           initialGeneratedAt={lead.ai_summary_at ?? null}
         />
 
-        {/* ── TAB 5: Recent Activity ── */}
-        <ActivityTimeline activities={activityItems as any} notes={teamNotes} leadId={id} />
+        {/* ── TAB 5: Conversation ── the real LinkedIn/email/call thread
+            (sent + received + connection request), replacing the old
+            event-only Recent Activity timeline. Same chat component used in
+            Results/Opportunities so the conversation reads the same everywhere. */}
+        <LeadChatThread leadId={id} leadName={contactName} />
 
         {/* ── TAB 6: Notes ── the lead collaboration hub (notes + @mentions + pin) */}
         <LeadNotes leadId={id} />
