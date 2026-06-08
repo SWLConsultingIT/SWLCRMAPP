@@ -49,7 +49,51 @@ function pickFirst<T>(arr: T[], predicate: (v: T) => boolean): T | null {
   return null;
 }
 
-function extractSocialLinks(html: string): {
+// Social handles baked into popular WordPress themes / page-builders' DEMO
+// content — these are the THEME VENDOR's own accounts, not the client's, but
+// they sit in the markup so the crawler kept grabbing them. Real example:
+// grupoieb.com.ar runs a QodeInteractive theme whose footer links to
+// instagram.com/qodeinteractive, facebook.com/QodeInteractive, etc. Reject them.
+const THEME_VENDOR_HANDLES = new Set([
+  "qodeinteractive", "qode", "selectthemes", "select-themes", "mikadothemes",
+  "mikado-themes", "elementor", "wpbakery", "envato", "themeforest", "themefusion",
+  "wordpressdotcom", "wix", "squarespace", "godaddy",
+]);
+
+// Main label of the site's own domain (e.g. "grupoieb.com.ar" → "grupoieb"),
+// used to PREFER a social link whose handle relates to the company over any
+// leftover vendor/partner link.
+function domainTokensOf(pageUrl: string): string[] {
+  try {
+    const host = new URL(pageUrl).hostname.replace(/^www\./, "");
+    return [host.split(".")[0]].filter(t => t.length >= 4);
+  } catch { return []; }
+}
+
+// Pick the best social link for a network: drop share/widget + theme-vendor
+// accounts, then PREFER one whose handle relates to the company's own domain
+// (so the client's real account wins over a vendor's), else the first valid.
+function bestSocial(
+  candidates: string[],
+  validate: (u: string) => boolean,
+  getHandle: (u: string) => string | null,
+  domainTokens: string[],
+): string | null {
+  const valid = candidates.filter((u) => {
+    if (isShareUrl(u)) return false;
+    const h = getHandle(u);
+    if (h && THEME_VENDOR_HANDLES.has(h.toLowerCase())) return false;
+    return validate(u);
+  });
+  if (valid.length === 0) return null;
+  const related = valid.find((u) => {
+    const h = (getHandle(u) ?? "").toLowerCase();
+    return domainTokens.some((t) => h.includes(t));
+  });
+  return related ?? valid[0];
+}
+
+function extractSocialLinks(html: string, pageUrl: string): {
   linkedin_url: string;
   instagram_url: string;
   twitter_url: string;
@@ -57,78 +101,60 @@ function extractSocialLinks(html: string): {
   youtube_url: string;
   tiktok_url: string;
 } {
+  const tokens = domainTokensOf(pageUrl);
+  const pathOf = (u: string): string => { try { return new URL(u).pathname; } catch { return ""; } };
+
   // LinkedIn — must be /company/<slug> or /in/<slug>. Reject share/widget URLs.
-  const linkedin = pickFirst(
+  const linkedin = bestSocial(
     extractAllHrefs(html, /linkedin\.com/),
-    (u) => {
-      if (isShareUrl(u)) return false;
-      try {
-        const p = new URL(u).pathname.toLowerCase();
-        return /^\/(company|school|in)\/[^/]+/.test(p);
-      } catch { return false; }
-    },
+    (u) => /^\/(company|school|in)\/[^/]+/.test(pathOf(u).toLowerCase()),
+    (u) => pathOf(u).split("/")[2] ?? null, // slug after /company|/in
+    tokens,
   );
 
   // Instagram — must have a non-reserved handle as the first path segment.
-  const instagram = pickFirst(
+  const instagram = bestSocial(
     extractAllHrefs(html, /instagram\.com/),
-    (u) => {
-      if (isShareUrl(u)) return false;
-      try {
-        const handle = firstHandleSegment(new URL(u).pathname);
-        return !!handle && !RESERVED_HANDLES.has(handle) && handle !== "accounts";
-      } catch { return false; }
-    },
+    (u) => { const h = firstHandleSegment(pathOf(u)); return !!h && !RESERVED_HANDLES.has(h) && h !== "accounts"; },
+    (u) => firstHandleSegment(pathOf(u)),
+    tokens,
   );
 
   // Twitter / X — require a real handle (not /intent/tweet, not /share, not just root).
-  const twitter = pickFirst(
+  const twitter = bestSocial(
     extractAllHrefs(html, /(?:twitter|x)\.com/),
-    (u) => {
-      if (isShareUrl(u)) return false;
-      try {
-        const handle = firstHandleSegment(new URL(u).pathname);
-        return !!handle && !RESERVED_HANDLES.has(handle) && handle !== "i";
-      } catch { return false; }
-    },
+    (u) => { const h = firstHandleSegment(pathOf(u)); return !!h && !RESERVED_HANDLES.has(h) && h !== "i"; },
+    (u) => firstHandleSegment(pathOf(u)),
+    tokens,
   );
 
   // Facebook — reject sharer.php, dialog, plugins, tr (pixel), watch, etc.
-  const facebook = pickFirst(
+  const facebook = bestSocial(
     extractAllHrefs(html, /facebook\.com/),
     (u) => {
-      if (isShareUrl(u)) return false;
-      try {
-        const p = new URL(u).pathname.toLowerCase();
-        if (/^\/(sharer|dialog|plugins|tr|watch|events|groups|marketplace)/.test(p)) return false;
-        if (p === "" || p === "/") return false;
-        return /^\/[a-z0-9._-]+/i.test(p);
-      } catch { return false; }
+      const p = pathOf(u).toLowerCase();
+      if (/^\/(sharer|dialog|plugins|tr|watch|events|groups|marketplace)/.test(p)) return false;
+      if (p === "" || p === "/") return false;
+      return /^\/[a-z0-9._-]+/i.test(p);
     },
+    (u) => firstHandleSegment(pathOf(u)),
+    tokens,
   );
 
   // YouTube — only @handle, /channel/<id>, /c/<name>, or /user/<name>.
-  const youtube = pickFirst(
+  const youtube = bestSocial(
     extractAllHrefs(html, /youtube\.com/),
-    (u) => {
-      if (isShareUrl(u)) return false;
-      try {
-        const p = new URL(u).pathname;
-        return /^\/(@[^/]+|channel\/[^/]+|c\/[^/]+|user\/[^/]+)/i.test(p);
-      } catch { return false; }
-    },
+    (u) => /^\/(@[^/]+|channel\/[^/]+|c\/[^/]+|user\/[^/]+)/i.test(pathOf(u)),
+    (u) => pathOf(u).replace(/^\/(channel|c|user)\//i, "").replace(/^\/@/, "").split("/")[0] || null,
+    tokens,
   );
 
   // TikTok — must be /@handle (real account), not /share/, /tag/, etc.
-  const tiktok = pickFirst(
+  const tiktok = bestSocial(
     extractAllHrefs(html, /tiktok\.com/),
-    (u) => {
-      if (isShareUrl(u)) return false;
-      try {
-        const p = new URL(u).pathname;
-        return /^\/@[^/]+/.test(p);
-      } catch { return false; }
-    },
+    (u) => /^\/@[^/]+/.test(pathOf(u)),
+    (u) => pathOf(u).replace(/^\/@/, "").split("/")[0] || null,
+    tokens,
   );
 
   return {
@@ -236,7 +262,7 @@ export async function POST(req: NextRequest) {
     // Extract social links from HTML — collect all candidates, then filter out
     // share/intent/sharer URLs (they're widgets pointing to the social network,
     // not the company's own account) and validate per-platform path shape.
-    const socialLinks = extractSocialLinks(html);
+    const socialLinks = extractSocialLinks(html, url);
 
     // Detect site language so we can pass it as context to the AI (helps it
     // understand source copy), but ALWAYS respect the language the user
