@@ -359,6 +359,21 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   const typeDescriptions = typeDescriptionsByLocale[placeholderLocale];
   const [aiLoading, setAiLoading] = useState<string | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+  // Helper that turns whatever the API returns (string, nested object,
+  // nothing) into a readable message — without this we got
+  // "[object Object]" in the wizard banner when the V8 webhook
+  // returned an error object instead of a string.
+  function readableErr(data: any, status: number): string {
+    if (!data) return `HTTP ${status}`;
+    const raw = data.error ?? data.message ?? data;
+    if (typeof raw === "string") return raw;
+    if (raw && typeof raw === "object") {
+      if (typeof raw.message === "string") return raw.message;
+      if (typeof raw.error === "string") return raw.error;
+      try { return JSON.stringify(raw).slice(0, 300); } catch { return `HTTP ${status}`; }
+    }
+    return `HTTP ${status}`;
+  }
   // Generate All progress — shown in the button while the multi-call loop
   // runs so sellers don't think the page is frozen during the ~20-30s wait.
   const [genProgress, setGenProgress] = useState<{ current: number; total: number; label: string } | null>(null);
@@ -444,7 +459,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const msg = (data && (data.error ?? data.message)) || `HTTP ${res.status}`;
+        const msg = readableErr(data, res.status);
         console.error("[AI generate]", msg, data);
         setAiError(`AI couldn't draft this step: ${msg}`);
         setAiLoading(null);
@@ -529,7 +544,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           const crData = await crRes.json().catch(() => ({}));
           if (!crRes.ok) {
             failedLabel = "Connection request";
-            failedReason = (crData && (crData.error ?? crData.message)) || `HTTP ${crRes.status}`;
+            failedReason = readableErr(crData, crRes.status);
           } else {
             if (crData.content) connRequest = clampToCharBudget(crData.content, 200);
             onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
@@ -560,7 +575,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
             failedLabel = classified[i].label;
-            failedReason = (data && (data.error ?? data.message)) || `HTTP ${res.status}`;
+            failedReason = readableErr(data, res.status);
           } else if (data.content) {
             allSteps[i] = { ...allSteps[i], body: data.content, subject: data.subject || allSteps[i]?.subject };
             onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
@@ -588,7 +603,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           const data = await res.json().catch(() => ({}));
           if (!res.ok) {
             failedLabel = human;
-            failedReason = (data && (data.error ?? data.message)) || `HTTP ${res.status}`;
+            failedReason = readableErr(data, res.status);
           } else if (data.content) {
             const field = replyType === "replyPositive" ? "positive" : "negative";
             replies = { ...replies, [field]: data.content };
