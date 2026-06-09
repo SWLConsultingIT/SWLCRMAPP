@@ -235,11 +235,16 @@ async function getFlowMetrics(
   const replyDates: string[] = [];
   // Bucketing aligned with the inbox classBadge so Metrics + Inbox + lead
   // detail show the SAME label. rank = which wins when a lead has >1 reply.
-  const rank: Record<string, number> = { positive: 5, question: 4, followup: 3, negative: 2, other: 1 };
+  // not_now + voicemail get their OWN buckets so the kanban can badge them
+  // distinctly (boss 2026-06-09), but they still roll into followup/other for
+  // the Metrics reply breakdown (see below) so those counts don't shift.
+  const rank: Record<string, number> = { positive: 5, question: 4, followup: 3, negative: 2, not_now: 1.8, voicemail: 1.3, other: 1 };
   const bucketOf = (c: string) =>
     (c === "positive" || c === "meeting_intent") ? "positive"
     : (c === "question" || c === "needs_info") ? "question"
-    : (c === "follow_up" || c === "nurturing" || c === "not_now") ? "followup"
+    : (c === "follow_up" || c === "nurturing") ? "followup"
+    : (c === "not_now") ? "not_now"
+    : (c === "voicemail") ? "voicemail"
     : (c === "negative") ? "negative"
     : "other";
   for (let i = 0; i < leadIds.length; i += 100) {
@@ -392,8 +397,8 @@ async function getFlowMetrics(
       positive: [...replyClass.values()].filter(b => b === "positive").length,
       negative: [...replyClass.values()].filter(b => b === "negative").length,
       question: [...replyClass.values()].filter(b => b === "question").length,
-      followup: [...replyClass.values()].filter(b => b === "followup").length,
-      other: [...replyClass.values()].filter(b => b === "other").length,
+      followup: [...replyClass.values()].filter(b => b === "followup" || b === "not_now").length,
+      other: [...replyClass.values()].filter(b => b === "other" || b === "voicemail").length,
     },
     drill: {
       accepted: [...connected].map(nameOf),
