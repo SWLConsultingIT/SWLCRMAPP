@@ -11,6 +11,9 @@ import {
 import ChannelMessageConfig, { type ChannelMessages } from "@/components/ChannelMessageConfig";
 import SignalPicker from "@/components/SignalPicker";
 import LogoLoader from "@/components/LogoLoader";
+import FlowTypePicker from "@/components/wizard/FlowTypePicker";
+
+type FlowType = "generic" | "tailored";
 
 const gold = C.gold;
 
@@ -126,6 +129,10 @@ export default function NewCampaignWizard() {
   const isPartialSelection = selectedLeadIds.length > 0;
 
   const [wizardStep, setWizardStep] = useState(0);
+  // null = the seller hasn't chosen yet; FlowTypePicker fronts the wizard
+  // until they pick. Persisted in the draft + sent to campaign_requests
+  // on submit (column added in migration 044).
+  const [flowType, setFlowType] = useState<FlowType | null>(null);
   const [loading, setLoading] = useState(true);
   const [campaignName, setCampaignName] = useState("");
   const [profile, setProfile] = useState<any>(null);
@@ -280,6 +287,7 @@ export default function NewCampaignWizard() {
       if (Array.isArray(d.sellerQuotas) && d.sellerQuotas.length > 0) setSellerQuotas(d.sellerQuotas);
       if (typeof d.selectedAircallNumberId === "number") setSelectedAircallNumberId(d.selectedAircallNumberId);
       if (d.callAdvanceMode === "auto" || d.callAdvanceMode === "manual") setCallAdvanceMode(d.callAdvanceMode);
+      if (d.flowType === "generic" || d.flowType === "tailored") setFlowType(d.flowType);
       setDraftRestored(true);
     } catch { /* corrupt draft — ignore */ }
     draftHydratedRef.current = true;
@@ -302,13 +310,14 @@ export default function NewCampaignWizard() {
           sellerQuotas,
           selectedAircallNumberId,
           callAdvanceMode,
+          flowType,
           savedAt: Date.now(),
         }));
       } catch { /* quota exceeded / private mode — ignore */ }
     }, 400);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaignName, sequence, channelMessages, language, timezone, wizardStep, selectedSignals, sellerQuotas, selectedAircallNumberId, callAdvanceMode]);
+  }, [campaignName, sequence, channelMessages, language, timezone, wizardStep, selectedSignals, sellerQuotas, selectedAircallNumberId, callAdvanceMode, flowType]);
 
   useEffect(() => {
     async function load() {
@@ -619,6 +628,7 @@ export default function NewCampaignWizard() {
       frequency_days: 0,
       target_leads_count: leadsCount,
       message_prompts: { sequence, channelMessages, language, timezone, selectedLeadIds: isPartialSelection ? selectedLeadIds : null, sellerId: sellerQuotas[0]?.sellerId ?? null, sellerQuotas: sellerQuotas.length > 0 ? sellerQuotas : null, aircallNumberId: selectedAircallNumberId, callAdvanceMode },
+      flow_type: flowType ?? "generic",
       status: "pending_review",
     };
     const { error } = await supabase.from("campaign_requests").insert(insertData);
@@ -715,6 +725,22 @@ export default function NewCampaignWizard() {
     return <LogoLoader />;
   }
 
+  // Wizard pre-step: until the seller picks a flow type, front the wizard
+  // with FlowTypePicker. Generic = legacy behavior (default). Tailored =
+  // unlock per-lead AI hooks + new Step 3 review surface.
+  if (flowType === null) {
+    return (
+      <div className="p-6 w-full">
+        <FlowTypePicker
+          profileName={profile?.profile_name ?? null}
+          leadsCount={leadsCount}
+          onChoose={setFlowType}
+          onBack={() => router.push("/campaigns")}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 w-full">
       <button onClick={() => router.push("/campaigns")} className="flex items-center gap-1.5 text-[11px] font-medium mb-3 transition-colors hover:opacity-80" style={{ color: C.textMuted }}>
@@ -760,6 +786,19 @@ export default function NewCampaignWizard() {
                   {" "}{isPartialSelection ? "selected" : ""} lead{leadsCount === 1 ? "" : "s"}
                 </p>
               </div>
+              {/* Flow-type chip — clickable so the seller can switch
+                  Generic ↔ Tailored without discarding their draft. */}
+              <button
+                type="button"
+                onClick={() => setFlowType(null)}
+                className="shrink-0 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full transition-opacity hover:opacity-80"
+                title="Change flow type"
+                style={flowType === "tailored"
+                  ? { background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`, color: "#1A1A2E" }
+                  : { backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }}
+              >
+                {flowType === "tailored" ? "✨ Tailored" : "⚡ Generic"} · Change
+              </button>
             </div>
             {/* Only render the chip strip if we actually have names. For
                 encrypted/client-source leads the plain columns are null and
@@ -809,6 +848,7 @@ export default function NewCampaignWizard() {
               setChannelMessages({ steps: [], autoReplies: { positive: "", negative: "", question: "" } });
               setSelectedSignals([]);
               setWizardStep(0);
+              setFlowType(null);
               setDraftRestored(false);
             }}
             className="ml-auto text-xs font-medium hover:underline"
