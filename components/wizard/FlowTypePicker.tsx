@@ -10,7 +10,7 @@
 // Generic stays exactly as the wizard works today. Tailored unlocks the
 // new Step 3 review (signal coverage banner + samples + tag grid).
 
-import { Sparkles, Zap, ArrowLeft, Users, DollarSign, Clock } from "lucide-react";
+import { Sparkles, Zap, ArrowLeft, Users, Clock } from "lucide-react";
 import { C } from "@/lib/design";
 
 const gold = C.gold;
@@ -23,9 +23,6 @@ type Props = {
 };
 
 export default function FlowTypePicker({ profileName, leadsCount, onChoose, onBack }: Props) {
-  const tailoredCost = leadsCount > 0 ? Math.max(0.01, leadsCount * 0.001) : 0;
-  const tailoredCostLabel = tailoredCost < 1 ? `~$${tailoredCost.toFixed(2)}` : `~$${tailoredCost.toFixed(1)}`;
-
   return (
     <div className="max-w-5xl mx-auto">
       {onBack && (
@@ -81,7 +78,6 @@ export default function FlowTypePicker({ profileName, leadsCount, onChoose, onBa
           </p>
 
           <div className="space-y-2.5 mb-6">
-            <Feature icon={<DollarSign size={12} />} label="No per-lead AI cost" value="$0 extra" />
             <Feature icon={<Clock size={12} />} label="Review time" value="Instant" />
             <Feature icon={<Users size={12} />} label="Best for" value="Pure-volume cold outreach" />
           </div>
@@ -120,7 +116,6 @@ export default function FlowTypePicker({ profileName, leadsCount, onChoose, onBa
           </p>
 
           <div className="space-y-2.5 mb-6">
-            <Feature icon={<DollarSign size={12} />} label="Per-lead AI cost" value={leadsCount > 0 ? `${tailoredCostLabel} for ${leadsCount} leads` : "~$0.001 / lead"} />
             <Feature icon={<Clock size={12} />} label="Generation time" value="~30s in Step 3" />
             <Feature icon={<Users size={12} />} label="Best for" value="Warm or high-value batches" />
           </div>
