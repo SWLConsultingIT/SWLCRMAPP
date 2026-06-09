@@ -7,6 +7,7 @@ import { C } from "@/lib/design";
 import {
   ArrowLeft, ArrowRight, Check, Share2, Mail, Phone, MessageCircle,
   Loader2, Send, Megaphone, Plus, Trash2, Globe, Settings, AlertTriangle,
+  Sparkles,
 } from "lucide-react";
 import ChannelMessageConfig, { type ChannelMessages } from "@/components/ChannelMessageConfig";
 import SignalPicker from "@/components/SignalPicker";
@@ -826,9 +827,11 @@ export default function NewCampaignWizard() {
             <div className="flex items-center gap-3 flex-wrap">
               <div
                 className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}
+                style={flowType === "tailored"
+                  ? { background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`, color: "#1A1A2E", boxShadow: `0 3px 10px color-mix(in srgb, ${gold} 32%, transparent)` }
+                  : { backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}
               >
-                <Megaphone size={16} />
+                {flowType === "tailored" ? <Sparkles size={16} /> : <Megaphone size={16} />}
               </div>
               <div className="min-w-0 flex-1">
                 <h1 className="text-[18px] font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
@@ -915,12 +918,18 @@ export default function NewCampaignWizard() {
       )}
 
       {/* Step indicator — sticky so the seller always knows where they are
-          in the wizard even on the long Sequence + Messages screens. Solid
-          gold-accented background instead of the previous translucent
-          blur, which looked washed-out on light grey page bg. The blur
-          only worked when there was busy content scrolling underneath. */}
+          in the wizard. Background + border subtly differ by flow mode:
+          Tailored has a stronger gold tint to reinforce the AI-per-lead
+          identity throughout the wizard chrome. */}
       <div className="sticky top-2 z-30 mb-5 rounded-2xl border px-5 py-4 relative overflow-hidden"
-        style={{
+        style={flowType === "tailored" ? {
+          background: `
+            radial-gradient(ellipse 80% 110% at 100% 0%, color-mix(in srgb, ${gold} 18%, transparent) 0%, transparent 55%),
+            linear-gradient(135deg, ${C.card} 0%, color-mix(in srgb, ${C.card} 92%, ${gold}) 100%)
+          `,
+          borderColor: `color-mix(in srgb, ${gold} 45%, ${C.border})`,
+          boxShadow: `0 8px 28px -10px color-mix(in srgb, ${gold} 32%, transparent), 0 2px 6px rgba(0,0,0,0.04)`,
+        } : {
           background: `
             radial-gradient(ellipse 70% 100% at 100% 0%, color-mix(in srgb, ${gold} 9%, transparent) 0%, transparent 55%),
             linear-gradient(135deg, ${C.card} 0%, color-mix(in srgb, ${C.card} 97%, ${gold}) 100%)
@@ -928,7 +937,7 @@ export default function NewCampaignWizard() {
           borderColor: `color-mix(in srgb, ${gold} 22%, ${C.border})`,
           boxShadow: "0 6px 22px -10px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.04)",
         }}>
-        {/* Progress fill — visualizes how far into the wizard the seller is */}
+        {/* Progress fill — visualizes how far into the wizard the seller is. */}
         <div className="absolute left-0 bottom-0 h-1" style={{ width: `${((wizardStep + 1) / WIZARD_STEPS.length) * 100}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, ${gold} 60%, white))`, transition: "width 240ms ease" }} />
         <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
           <div className="flex items-center gap-3">
@@ -1984,9 +1993,11 @@ export default function NewCampaignWizard() {
         ) : (
           <button onClick={handleSubmit} disabled={submitting}
             className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50"
-            style={{ backgroundColor: C.green, color: "#fff" }}>
-            {submitting ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-            {submitting ? "Submitting…" : "Launch Flow"}
+            style={flowType === "tailored"
+              ? { background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`, color: "#1A1A2E", boxShadow: `0 4px 14px -4px color-mix(in srgb, ${gold} 50%, transparent)` }
+              : { backgroundColor: C.green, color: "#fff" }}>
+            {submitting ? <Loader2 size={15} className="animate-spin" /> : (flowType === "tailored" ? <Sparkles size={15} /> : <Send size={15} />)}
+            {submitting ? "Submitting…" : (flowType === "tailored" ? "Launch Tailored Flow" : "Launch Flow")}
           </button>
         )}
       </div>

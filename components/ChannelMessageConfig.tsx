@@ -886,12 +886,19 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                 </div>
               </div>
 
-              {/* Content — single-row header, no standalone description, AI
-                  prompt collapsed by default. Bring total card height down
-                  ~40% vs the prior layout without removing any field. */}
-              <div className="flex-1 rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              {/* Content — in tailored mode we add a gold left-edge strip
+                  + warmer card tint so the AI-per-lead identity reads
+                  immediately from the step card, not just from a chip. */}
+              <div className="flex-1 rounded-xl border overflow-hidden relative" style={flowType === "tailored"
+                ? { backgroundColor: C.card, borderColor: `color-mix(in srgb, ${gold} 35%, ${C.border})`, boxShadow: `0 2px 8px -4px color-mix(in srgb, ${gold} 25%, transparent)` }
+                : { backgroundColor: C.card, borderColor: C.border }}>
+                {flowType === "tailored" && (
+                  <div className="absolute left-0 top-0 bottom-0 w-1" style={{ background: `linear-gradient(180deg, ${gold}, color-mix(in srgb, ${gold} 55%, transparent))` }} />
+                )}
                 <div className="px-4 py-2.5 flex items-center gap-2 border-b"
-                  style={{ borderColor: C.border, background: `${meta.color}06` }}>
+                  style={flowType === "tailored"
+                    ? { borderColor: `color-mix(in srgb, ${gold} 22%, ${C.border})`, background: `color-mix(in srgb, ${gold} 4%, ${meta.color}06)` }
+                    : { borderColor: C.border, background: `${meta.color}06` }}>
                   <span className="text-sm font-semibold shrink-0" style={{ color: C.textPrimary }}>Step {displayNum}</span>
                   <span className="text-[11px] font-medium px-1.5 py-0.5 rounded shrink-0" style={{ backgroundColor: `${meta.color}15`, color: meta.color }}>
                     {cls.label}
