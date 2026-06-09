@@ -45,7 +45,7 @@ async function findLeadIdByPhone(raw: string | null): Promise<string | null> {
   const pattern = ilikeDigitPattern(raw);
   if (!pattern) return null;
   const res = await fetch(
-    `${SB_URL}/leads?or=(primary_phone.ilike.${pattern},primary_secondary_phone.ilike.${pattern})&select=id,primary_phone,primary_secondary_phone&limit=200`,
+    `${SB_URL}/leads?or=(primary_phone.ilike.${pattern},primary_secondary_phone.ilike.${pattern})&select=id,primary_phone,primary_secondary_phone&limit=1000`,
     { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
   );
   const rows: Array<{ id: string; primary_phone: string | null; primary_secondary_phone: string | null }> = await res.json().catch(() => []);

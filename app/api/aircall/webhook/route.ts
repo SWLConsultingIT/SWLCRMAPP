@@ -224,7 +224,7 @@ export async function POST(req: NextRequest) {
       // JS phoneSuffixMatch below finalizes strictly.
       const pattern = ilikeDigitPattern(call.raw_digits);
       const lookup = await fetch(
-        `${SB_URL}/leads?or=(primary_phone.ilike.${pattern},primary_secondary_phone.ilike.${pattern})&select=id,primary_phone,primary_secondary_phone&limit=200`,
+        `${SB_URL}/leads?or=(primary_phone.ilike.${pattern},primary_secondary_phone.ilike.${pattern})&select=id,primary_phone,primary_secondary_phone&limit=1000`,
         { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
       );
       const rows: Array<{ id: string; primary_phone: string | null; primary_secondary_phone: string | null }> = await lookup.json().catch(() => []);
@@ -279,7 +279,7 @@ export async function POST(req: NextRequest) {
     // Same space-tolerant prefilter as the outbound branch.
     const pattern = ilikeDigitPattern(call.raw_digits);
     const lookup = await fetch(
-      `${SB_URL}/leads?or=(primary_phone.ilike.${pattern},primary_secondary_phone.ilike.${pattern})&select=id,primary_phone,primary_secondary_phone&limit=200`,
+      `${SB_URL}/leads?or=(primary_phone.ilike.${pattern},primary_secondary_phone.ilike.${pattern})&select=id,primary_phone,primary_secondary_phone&limit=1000`,
       { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
     );
     const rowsList: Array<{ id: string; primary_phone: string | null; primary_secondary_phone: string | null }> = await lookup.json().catch(() => []);

@@ -23,10 +23,12 @@ export function phoneSuffixMatch(a: string | null | undefined, b: string | null 
 // last 4 digits of "...37 32 47" are "3247", but that substring doesn't exist
 // because of the space between "32" and "47". Build a pattern that places a
 // wildcard BETWEEN every digit of the trailing suffix so any spacing/format
-// survives: "3247" → "%3%2%4%7%". Using the last 7 digits keeps the candidate
-// set small (7 specific digits, in order) while tolerating arbitrary spacing;
-// callers still finalize with phoneSuffixMatch in JS to drop loose matches.
-export function ilikeDigitPattern(raw: string | null | undefined, tailLen = 7): string | null {
+// survives: "3247" → "%3%2%4%7%". Using the last 9 digits (was 7) keeps the
+// candidate set TIGHT — a 7-digit subsequence matched >200 leads in +34-heavy
+// tenants, so the real lead fell outside the row cap and the call orphaned
+// (boss 2026-06-09: Carlos's recording + Sara's calls missing). 9 digits mirrors
+// phoneSuffixMatch's comparison length; callers still finalize in JS.
+export function ilikeDigitPattern(raw: string | null | undefined, tailLen = 9): string | null {
   const digits = phoneDigits(raw);
   if (digits.length < 4) return null;
   const tail = digits.slice(-Math.min(tailLen, digits.length));
