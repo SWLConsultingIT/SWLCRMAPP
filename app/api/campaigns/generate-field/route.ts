@@ -10,11 +10,11 @@ import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } fro
 // wizard's "AI Draft" on a Call step is handled here with OpenAI gpt-5-mini
 // directly (call scripts need different structure than DM/email).
 
-// Vercel default is 60s; the V8 Architect + Repair agents can take up to
-// 30-45s together when the prompt is large. Bump to 120s so legitimate
-// long runs don't return a generic "Internal Server Error" while the
-// webhook is still working.
-export const maxDuration = 120;
+// Vercel default is 60s. The V8 workflow (Architect + Repair, both
+// gpt-5-mini) can take 30-45s and we saw it bump to 50+ under load.
+// 300s gives a real safety margin so legitimate long runs never get
+// killed by Vercel returning a generic 500.
+export const maxDuration = 300;
 
 const N8N_WEBHOOK_URL = "https://n8n.srv949269.hstgr.cloud/webhook/generate-campaign-messages-v3";
 
@@ -163,24 +163,24 @@ async function handlePOST(req: NextRequest) {
         };
       })();
 
+  const fetchStart = Date.now();
   try {
-    // 110s timeout — leaves ~10s slack vs the route's 120s maxDuration
-    // so we return a controlled error message instead of Vercel killing
-    // the function.
     const ac = new AbortController();
-    const t = setTimeout(() => ac.abort(), 110_000);
+    const t = setTimeout(() => ac.abort(), 280_000);
     let res: Response;
     try {
+      console.log("[generate-field] V8 fetch start", { fieldType: body.fieldType, idx: body.idx, channel: body.channel, hasLead: !!body.leadId });
       res = await fetch(N8N_WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(n8nPayload),
         signal: ac.signal,
       });
+      console.log("[generate-field] V8 fetch done", { status: res.status, ms: Date.now() - fetchStart });
     } catch (e) {
       const isAbort = e instanceof Error && e.name === "AbortError";
-      const msg = isAbort ? "n8n webhook timed out after 110s" : (e instanceof Error ? e.message : String(e));
-      console.error("[generate-field] V8 fetch failed:", msg);
+      const msg = isAbort ? "n8n webhook timed out after 280s" : (e instanceof Error ? `${e.name}: ${e.message}` : String(e));
+      console.error("[generate-field] V8 fetch failed:", msg, "after", Date.now() - fetchStart, "ms");
       return NextResponse.json({ error: msg }, { status: 504 });
     } finally {
       clearTimeout(t);
