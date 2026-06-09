@@ -861,18 +861,36 @@ export default function NewCampaignWizard() {
                   {" "}{isPartialSelection ? "selected" : ""} lead{leadsCount === 1 ? "" : "s"}
                 </p>
               </div>
-              {/* Flow-type chip — clickable so the seller can switch
-                  Generic ↔ Tailored without discarding their draft. */}
+              {/* Flow-type badge — large, prominent, clickable to switch
+                  Generic ↔ Tailored. Two-line: mode name on top, "Change"
+                  hint below. Much more visible than the small chip we
+                  had before. */}
               <button
                 type="button"
                 onClick={() => setFlowType(null)}
-                className="shrink-0 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full transition-opacity hover:opacity-80"
+                className="shrink-0 flex flex-col items-end gap-0.5 px-4 py-2 rounded-xl transition-opacity hover:opacity-85"
                 title="Change flow type"
                 style={flowType === "tailored"
-                  ? { background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`, color: "#1A1A2E" }
-                  : { backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }}
+                  ? {
+                      background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`,
+                      color: "#1A1A2E",
+                      boxShadow: `0 4px 14px -4px color-mix(in srgb, ${gold} 45%, transparent)`,
+                    }
+                  : {
+                      backgroundColor: `color-mix(in srgb, ${C.green} 12%, ${C.surface})`,
+                      color: C.green,
+                      border: `1.5px solid color-mix(in srgb, ${C.green} 28%, transparent)`,
+                    }}
               >
-                {flowType === "tailored" ? "✨ Tailored" : "⚡ Generic"} · Change
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm">{flowType === "tailored" ? "✨" : "⚡"}</span>
+                  <span className="text-[13px] font-extrabold uppercase tracking-wider" style={{ fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                    {flowType === "tailored" ? "Tailored Flow" : "Generic Flow"}
+                  </span>
+                </div>
+                <span className="text-[9px] font-semibold uppercase tracking-wider opacity-80">
+                  {flowType === "tailored" ? "AI per-lead · click to change" : "One template · click to change"}
+                </span>
               </button>
             </div>
             {/* Only render the chip strip if we actually have names. For

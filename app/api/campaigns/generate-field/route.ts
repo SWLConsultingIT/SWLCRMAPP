@@ -2,14 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
-// Proxies to the n8n workflow "SWL - CRM - Message Generator V7 Pro".
+// Proxies to the n8n workflow "SWL - CRM - Message Generator V8 Native".
 // Computes step_type_override per idx (the wizard knows which UI step the user clicked
 // — we map that to the planner's internal step type so prompts are honored).
 //
-// EXCEPTION — Call steps: the V7 Pro generator returns empty for call (it only
-// drafts LinkedIn/Email), so the wizard's "AI Draft" did nothing on a Call step
-// (boss 2026-06-08). Call scripts are drafted here with Claude from the lead +
-// ICP context instead.
+// EXCEPTION — Call steps: the V8 generator only drafts LinkedIn/Email, so the
+// wizard's "AI Draft" on a Call step is handled here with OpenAI gpt-5-mini
+// directly (call scripts need different structure than DM/email).
+
+// Vercel default is 60s; the V8 Architect + Repair agents can take up to
+// 30-45s together when the prompt is large. Bump to 120s so legitimate
+// long runs don't return a generic "Internal Server Error" while the
+// webhook is still working.
+export const maxDuration = 120;
 
 const N8N_WEBHOOK_URL = "https://n8n.srv949269.hstgr.cloud/webhook/generate-campaign-messages-v3";
 
@@ -94,10 +99,24 @@ function inferSequence(body: LegacyBody): SequenceEntry[] {
 }
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json()) as LegacyBody;
+  // Wrap so ANY runtime crash returns a JSON body the wizard can show —
+  // otherwise Next.js serves its generic HTML error page and the wizard
+  // banner shows the useless "Internal Server Error" instead of the
+  // real cause (timeout, V8 down, etc.).
+  try {
+    return await handlePOST(req);
+  } catch (err) {
+    const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    console.error("[generate-field] UNHANDLED:", msg, err instanceof Error ? err.stack : "");
+    return NextResponse.json({ error: `Server crash: ${msg}` }, { status: 500 });
+  }
+}
+
+async function handlePOST(req: NextRequest) {
+  const body = (await req.json().catch(() => ({}))) as LegacyBody;
   const autoReplyType = body.fieldType ? AUTO_REPLY_MAP[body.fieldType] : undefined;
 
-  // Call steps are drafted with Claude (n8n's generator returns empty for call).
+  // Call steps are drafted with OpenAI (n8n's generator returns empty for call).
   const isCallStep = !autoReplyType && (body.channel === "call" || body.fieldType === "CALL_FIRST" || body.fieldType === "CALL_FOLLOWUP");
   if (isCallStep) {
     return await generateCallScript(body);
@@ -145,16 +164,37 @@ export async function POST(req: NextRequest) {
       })();
 
   try {
-    const res = await fetch(N8N_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(n8nPayload),
-    });
-    if (!res.ok) {
-      const err = await res.text();
-      return NextResponse.json({ error: `n8n error: ${err}` }, { status: 502 });
+    // 110s timeout — leaves ~10s slack vs the route's 120s maxDuration
+    // so we return a controlled error message instead of Vercel killing
+    // the function.
+    const ac = new AbortController();
+    const t = setTimeout(() => ac.abort(), 110_000);
+    let res: Response;
+    try {
+      res = await fetch(N8N_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(n8nPayload),
+        signal: ac.signal,
+      });
+    } catch (e) {
+      const isAbort = e instanceof Error && e.name === "AbortError";
+      const msg = isAbort ? "n8n webhook timed out after 110s" : (e instanceof Error ? e.message : String(e));
+      console.error("[generate-field] V8 fetch failed:", msg);
+      return NextResponse.json({ error: msg }, { status: 504 });
+    } finally {
+      clearTimeout(t);
     }
-    const data = await res.json() as { messages?: { step: number; channel: string; type: string; subject: string | null; body: string }[]; connectionRequest?: string | null };
+    if (!res.ok) {
+      const err = await res.text().catch(() => `HTTP ${res.status}`);
+      console.error("[generate-field] V8 returned non-OK:", res.status, err.slice(0, 500));
+      return NextResponse.json({ error: `n8n error (${res.status}): ${err.slice(0, 300)}` }, { status: 502 });
+    }
+    const data = await res.json().catch((e) => {
+      console.error("[generate-field] V8 response JSON parse failed:", e);
+      return null;
+    }) as { messages?: { step: number; channel: string; type: string; subject: string | null; body: string }[]; connectionRequest?: string | null } | null;
+    if (!data) return NextResponse.json({ error: "n8n returned non-JSON response" }, { status: 502 });
 
     // Workflow Y3gQXLpaWjpP37XP's `fixHallucinatedSignature()` doesn't catch
     // every case — short signatures (just "Fran" / "Juan") on the last line
