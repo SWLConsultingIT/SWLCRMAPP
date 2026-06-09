@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
@@ -262,15 +261,26 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// ── Call script generation (Claude) ──────────────────────────────────────────
-// n8n's V7 Pro generator only drafts LinkedIn/Email, so call steps are handled
-// here: pull the lead + ICP context and have Claude write a tight phone script.
+// ── Call script generation (OpenAI gpt-5-mini) ────────────────────────────
+// The n8n V8 generator only drafts LinkedIn/Email — call steps are handled
+// here (kept on the same OpenAI tier as the workflow now uses, so language
+// behavior is consistent). Defensive coercion + flowType-aware so tailored
+// mode embeds {{tailored:hook}}/{{tailored:fit}} like the workflow does.
 async function generateCallScript(body: LegacyBody): Promise<NextResponse> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return NextResponse.json({ error: "Missing ANTHROPIC_API_KEY" }, { status: 500 });
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) return NextResponse.json({ error: "Missing OPENAI_API_KEY on the server. Add it in Vercel → Settings → Environment Variables." }, { status: 500 });
+
+  const OpenAI = (await import("openai")).default;
   const svc = getSupabaseService();
 
-  // Lead context (optional — drafts a solid generic script if absent).
+  function coerce(v: unknown): string {
+    if (v == null) return "";
+    if (typeof v === "string") return v.trim();
+    if (Array.isArray(v)) return v.filter(Boolean).map(x => typeof x === "string" ? x : JSON.stringify(x)).join(", ");
+    if (typeof v === "object") return JSON.stringify(v);
+    return String(v);
+  }
+
   let lead: Record<string, unknown> = {};
   if (body.leadId) {
     const { data: leadRow } = await svc.from("leads").select("*").eq("id", body.leadId).maybeSingle();
@@ -292,44 +302,71 @@ async function generateCallScript(body: LegacyBody): Promise<NextResponse> {
   }
 
   const isFollowup = body.fieldType === "CALL_FOLLOWUP";
+  const flowType = (body as LegacyBody & { flowType?: string }).flowType === "tailored" ? "tailored" : "generic";
   const name = `${(lead.primary_first_name as string) ?? ""} ${(lead.primary_last_name as string) ?? ""}`.trim() || "the lead";
-  const lang = body.language === "es" ? "Spanish (rioplatense)" : body.language === "pt" ? "Portuguese" : "English";
+
+  const LANG_NAMES: Record<string, string> = {
+    es: "Spanish (Argentine/rioplatense — informal vos, never tú)",
+    en: "English (US business register)",
+    pt: "Brazilian Portuguese",
+    fr: "French",
+    de: "German",
+    it: "Italian",
+  };
+  const lang = LANG_NAMES[body.language ?? "es"] ?? "English";
+
   const enrichment = (lead.enrichment as Record<string, unknown> | null) ?? {};
   const enrichmentDump = Object.entries(enrichment)
     .filter(([k, v]) => k !== "source_file" && v != null && v !== "")
-    .map(([k, v]) => `${k}: ${v}`).join("\n");
+    .map(([k, v]) => `${k}: ${coerce(v).slice(0, 200)}`).join("\n");
 
-  const prompt = `You are a senior B2B SDR coach. Write a tight, natural phone CALL SCRIPT a seller will read on a ${isFollowup ? "follow-up" : "first"} call. Output in ${lang}. It must sound like a human talking, not a memo.
+  const signals: string[] = [];
+  if (lead.recent_linkedin_post) signals.push(`Recent LinkedIn post: ${coerce(lead.recent_linkedin_post).slice(0, 400)}`);
+  if (lead.recent_website_news) signals.push(`Recent company news: ${coerce(lead.recent_website_news).slice(0, 300)}`);
+  if (lead.organization_technologies) signals.push(`Tech stack: ${coerce(lead.organization_technologies).slice(0, 200)}`);
+  if (lead.call_talking_points) signals.push(`Pre-call talking points: ${coerce(lead.call_talking_points).slice(0, 300)}`);
+
+  const tailoredHint = flowType === "tailored"
+    ? `\n\nTAILORED MODE — IMPORTANT: include the literal tokens {{tailored:hook}} at the very start of the opener (before greeting) AND {{tailored:fit}} embedded in the value-pitch line. Do NOT replace them with concrete text — leave them as literal tokens. The send-time renderer fills them per-lead.`
+    : "";
+
+  const prompt = `You are a senior B2B SDR coach. Write a tight, natural phone CALL SCRIPT a seller will read on a ${isFollowup ? "follow-up" : "first"} call.
+
+🌐 LANGUAGE LOCK: Output MUST be in ${lang}. Do NOT switch languages. Mixed-language output is a HARD FAILURE.
 
 LEAD
-- ${name}${lead.primary_title_role ? `, ${lead.primary_title_role}` : ""}${lead.company_name ? ` at ${lead.company_name}` : ""}
-- Industry: ${lead.company_industry ?? "—"}
-${lead.primary_headline ? `- LinkedIn headline: ${lead.primary_headline}` : ""}
+- ${name}${lead.primary_title_role ? `, ${lead.primary_title_role}` : ""}${lead.company_name ? ` at ${coerce(lead.company_name)}` : ""}
+- Industry: ${coerce(lead.company_industry) || "—"}
+${lead.primary_headline ? `- LinkedIn headline: ${coerce(lead.primary_headline).slice(0, 200)}` : ""}
 
-ENRICHMENT (use specific signals if useful)
+${signals.length > 0 ? `SIGNALS (reference at least one of these specifically):\n${signals.join("\n")}\n` : ""}
+ENRICHMENT
 ${enrichmentDump || "(none)"}
 
 ${icp ? `WHAT WE SELL
-- Offering: ${icp.solutions_offered ?? ""}
-- Pain we solve: ${icp.pain_points ?? ""}` : ""}
+- Offering: ${coerce(icp.solutions_offered)}
+- Pain we solve: ${coerce(icp.pain_points)}` : ""}
 
-${body.user_prompt ? `SELLER'S INTENT (honor this): ${body.user_prompt}` : ""}
+${body.user_prompt ? `SELLER'S INTENT (honor this): ${body.user_prompt}` : ""}${tailoredHint}
 
 Structure: (1) warm opener using their first name + why you're calling, (2) one open question about their situation, (3) a 2-line value pitch tied to their likely pain, (4) a close proposing a 15-minute follow-up. Keep it ~120-160 words. Use {{first_name}}, {{company}}, {{seller_name}} placeholders where natural. Return ONLY the script text — no headings, no quotes, no commentary.`;
 
   try {
-    const client = new Anthropic({ apiKey });
-    const res = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 700,
-      system: "You output ONLY the call script text — natural spoken language, no headings or meta-commentary. You never refuse.",
-      messages: [{ role: "user", content: prompt }],
+    const client = new OpenAI({ apiKey });
+    const res = await client.chat.completions.create({
+      model: "gpt-5-mini",
+      max_completion_tokens: 700,
+      messages: [
+        { role: "system", content: `You output ONLY the call script text — natural spoken language in ${lang}, no headings or meta-commentary. You never refuse. You never slip to English when another language is locked.` },
+        { role: "user", content: prompt },
+      ],
     });
-    const content = res.content[0]?.type === "text" ? res.content[0].text.trim() : "";
+    const content = (res.choices[0]?.message?.content ?? "").trim();
     if (!content) return NextResponse.json({ error: "AI returned no script" }, { status: 502 });
     return NextResponse.json({ content });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[generate-field/call] OpenAI error:", msg);
+    return NextResponse.json({ error: `OpenAI call failed: ${msg}` }, { status: 502 });
   }
 }
