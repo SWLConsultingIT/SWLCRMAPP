@@ -359,6 +359,22 @@ function postProcess(stepType: StepType, content: string, subject: string): { co
 }
 
 export async function POST(req: NextRequest) {
+  // Wrapped in a try/catch so ANY runtime crash (missing env var,
+  // module load error, DB outage) returns a JSON body the wizard can
+  // surface instead of the generic Next.js HTML error page that the
+  // front shows as "HTTP 500" with no detail. The wizard reads
+  // res.json().error → seller sees the real cause.
+  try {
+    return await handlePOST(req);
+  } catch (err) {
+    const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
+    console.error("[generate-field] UNHANDLED:", msg, stack);
+    return NextResponse.json({ error: `Server crash: ${msg}` }, { status: 500 });
+  }
+}
+
+async function handlePOST(req: NextRequest) {
   // The legacy n8n-proxy version of this endpoint had no auth gate —
   // the wizard hits it from the browser via fetch on a same-origin URL
   // and only the bio/icp/lead text it sends informs the prompt. Keep
@@ -368,7 +384,7 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     console.error("[generate-field] ANTHROPIC_API_KEY not configured in env");
-    return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured on the server" }, { status: 500 });
+    return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured on the server. Add it in Vercel → Settings → Environment Variables and redeploy." }, { status: 500 });
   }
 
   const body = (await req.json().catch(() => ({}))) as Body;
