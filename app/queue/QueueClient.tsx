@@ -87,7 +87,25 @@ type CallHistoryEntry = {
   transcript: string | null;
   notes: string | null;
   aircallCallId: number | string | null;
+  phoneNumber: string | null;
+  primaryPhone: string | null;
+  secondaryPhone: string | null;
 };
+
+// Which of the lead's two numbers was dialed (boss 2026-06-09). Compares by
+// trailing digits so spacing/format differences don't break the match.
+function dialedNumberLabel(e: CallHistoryEntry): { number: string; which: string | null } | null {
+  if (!e.phoneNumber) return null;
+  const digits = (s: string | null) => (s ?? "").replace(/\D/g, "").slice(-9);
+  const dialed = digits(e.phoneNumber);
+  const hasTwo = !!e.primaryPhone && !!e.secondaryPhone;
+  let which: string | null = null;
+  if (hasTwo && dialed) {
+    if (digits(e.primaryPhone) === dialed) which = "Personal";
+    else if (digits(e.secondaryPhone) === dialed) which = "Company";
+  }
+  return { number: e.phoneNumber, which };
+}
 
 type Props = {
   pendingCalls: PendingCall[];
@@ -443,6 +461,11 @@ function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
               {fmtDateTime(e.startedAt)} · {fmtDuration(e.durationSec)}
               {e.status && <> · {e.status}</>}
               {transcript && <> · transcript ✓</>}
+              {(() => {
+                const d = dialedNumberLabel(e);
+                if (!d) return null;
+                return <> · <span style={{ color: C.textBody, fontWeight: 600 }}>📞 {d.number}</span>{d.which && <span className="ml-1 px-1.5 py-0.5 rounded text-[9px] font-bold" style={{ backgroundColor: C.surface, color: C.textMuted }}>{d.which}</span>}</>;
+              })()}
             </p>
           </div>
         </div>

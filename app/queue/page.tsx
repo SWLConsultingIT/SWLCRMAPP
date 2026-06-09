@@ -121,7 +121,7 @@ async function getQueueData() {
   // dial-attempts below. recording_storage_path + phone_number are needed for
   // the merge + the player.
   let callHistoryQuery = supabase.from("calls")
-    .select("id, lead_id, seller_id, dialed_by_user_id, classification, status, duration, started_at, recording_url, recording_storage_path, transcript, notes, aircall_call_id, phone_number, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id)")
+    .select("id, lead_id, seller_id, dialed_by_user_id, classification, status, duration, started_at, recording_url, recording_storage_path, transcript, notes, aircall_call_id, phone_number, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id, primary_phone, primary_secondary_phone)")
     .order("started_at", { ascending: false })
     .limit(1000);
   if (scopedCompanyBioId) callHistoryQuery = callHistoryQuery.eq("leads.company_bio_id", scopedCompanyBioId);
@@ -235,6 +235,11 @@ async function getQueueData() {
       transcript: (c.transcript ?? null) as string | null,
       notes: (c.notes ?? null) as string | null,
       aircallCallId: (c.aircall_call_id ?? null) as number | string | null,
+      // Which number was actually dialed + the lead's two numbers, so the
+      // History row can label it (Personal / Company) when there are two.
+      phoneNumber: (c.phone_number ?? null) as string | null,
+      primaryPhone: (lead?.primary_phone ?? null) as string | null,
+      secondaryPhone: (lead?.primary_secondary_phone ?? null) as string | null,
     };
   });
 
