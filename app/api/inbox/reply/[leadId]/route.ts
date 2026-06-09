@@ -146,6 +146,30 @@ export async function POST(
           .maybeSingle();
         unipileAccountId = (seller as any)?.unipile_account_id ?? null;
       }
+      // Last-resort: resolve the chat live from Unipile by the lead's LinkedIn
+      // provider id. Handles leads whose chat_id was never persisted (replies
+      // the webhook dropped + recovered by the safety-net cron). Reads the
+      // inbox only — no profile view, so it's ban-safe.
+      if (!chatId) {
+        const { data: leadRow } = await svc.from("leads").select("linkedin_internal_id").eq("id", leadId).maybeSingle();
+        const pid = (leadRow as any)?.linkedin_internal_id as string | null;
+        if (pid) {
+          const accountsToTry: string[] = [];
+          if (unipileAccountId) accountsToTry.push(unipileAccountId);
+          else {
+            const { data: sellers } = await svc.from("sellers").select("unipile_account_id").not("unipile_account_id", "is", null);
+            for (const s of sellers ?? []) accountsToTry.push((s as any).unipile_account_id);
+          }
+          for (const acct of accountsToTry) {
+            try {
+              const r = await fetch(`${UNIPILE_BASE}/api/v1/chats?account_id=${encodeURIComponent(acct)}&limit=200`, { headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" } });
+              const body: any = await r.json().catch(() => ({}));
+              const match = (body?.items ?? []).find((c: any) => c.attendee_provider_id === pid);
+              if (match?.id) { chatId = match.id as string; if (!unipileAccountId) unipileAccountId = acct; break; }
+            } catch { /* try next account */ }
+          }
+        }
+      }
       if (!chatId) {
         return NextResponse.json({ error: "no LinkedIn chat found for this lead" }, { status: 422 });
       }

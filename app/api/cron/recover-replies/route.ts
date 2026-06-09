@@ -37,7 +37,7 @@ async function campaignFor(svc: Svc, leadId: string): Promise<string | null> {
 // filter (a NULL classification is excluded by that SQL predicate) and lands in
 // Pending review for the seller to classify. No AI here — per the
 // always-use-n8n-for-AI law, classification stays manual.
-async function insertIfNew(svc: Svc, leadId: string, channel: string, text: string, receivedAt: string | null): Promise<boolean> {
+async function insertIfNew(svc: Svc, leadId: string, channel: string, text: string, receivedAt: string | null, providerThreadId?: string | null): Promise<boolean> {
   const { data: existing } = await svc.from("lead_replies").select("reply_text").eq("lead_id", leadId).eq("channel", channel).limit(80);
   const seen = new Set((existing ?? []).map(e => (e.reply_text ?? "").slice(0, 60)));
   if (seen.has(text.slice(0, 60))) return false;
@@ -51,6 +51,8 @@ async function insertIfNew(svc: Svc, leadId: string, channel: string, text: stri
     received_at: receivedAt ?? new Date().toISOString(),
     requires_human_review: true,
     review_status: "pending",
+    // Store the chat id so the Inbox composer can reply without a Unipile lookup.
+    ...(providerThreadId ? { provider_thread_id: providerThreadId } : {}),
   });
   return !error;
 }
@@ -104,7 +106,7 @@ export async function GET(req: NextRequest) {
           const inbound = m.is_sender === 0 || m.is_sender === false;
           const text = (m.text ?? "").trim();
           if (!inbound || !text || (m.timestamp ?? "") < cutoff) continue;
-          if (await insertIfNew(svc, leadId, "linkedin", text, m.timestamp ?? null)) linkedinRecovered++;
+          if (await insertIfNew(svc, leadId, "linkedin", text, m.timestamp ?? null, ch.id)) linkedinRecovered++;
         }
         await sleep(120);
       }
