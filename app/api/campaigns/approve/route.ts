@@ -407,18 +407,25 @@ export async function POST(req: NextRequest) {
     createdCampaignIds.push(campaign.id);
   }
 
-  // 4b. Tailor pass — for each newly created campaign, fill the AI slots
-  //     (`{{tailored:hook}}`, `{{tailored:fit}}`) on its first-touch
-  //     messages. Per Fran's spec (2026-06-02): synchronous — block until
-  //     done so the seller sees fully-rendered messages on approve.
-  //     Concurrency-5 here keeps the rate under Anthropic's tier limit
-  //     while still finishing a 100-lead campaign in ~30-60s. The tailor
-  //     route itself is idempotent + no-ops for templates without slots,
-  //     so this is safe to call unconditionally.
-  if (createdCampaignIds.length > 0) {
+  // 4b. Tailor pass — only for tailored-mode requests. Generic mode
+  //     templates don't contain {{tailored:*}} slots so the tailor route
+  //     would no-op, but we skip explicitly anyway to keep approve fast
+  //     for the legacy path.
+  //
+  //     For tailored, we hand the cached per-lead hook+fit that the
+  //     wizard generated in Step 3 down to the tailor route. The tailor
+  //     route reuses these instead of re-calling Haiku, which makes
+  //     approve almost-free when the seller already validated the batch.
+  //     If the wizard skipped the "Validate full batch" step, the tailor
+  //     route falls back to fresh Haiku calls per lead — same behavior
+  //     as before.
+  if (createdCampaignIds.length > 0 && request.flow_type === "tailored") {
     const origin = req.nextUrl.origin;
     const cookieHeader = req.headers.get("cookie") ?? "";
     const TAILOR_CONCURRENCY = 5;
+    const previewOutputs = (prompts.preview_outputs && typeof prompts.preview_outputs === "object")
+      ? prompts.preview_outputs as Record<string, { hook?: string | null; fit?: string | null; manual_edit?: { hook?: string | null; fit?: string | null } }>
+      : undefined;
     let cursor = 0;
     let tailoredCount = 0;
     async function tailorWorker() {
@@ -430,7 +437,7 @@ export async function POST(req: NextRequest) {
           const r = await fetch(`${origin}/api/campaigns/tailor`, {
             method: "POST",
             headers: { "Content-Type": "application/json", cookie: cookieHeader },
-            body: JSON.stringify({ campaignId: cid }),
+            body: JSON.stringify({ campaignId: cid, previewOutputs }),
           });
           if (r.ok) {
             const body = await r.json().catch(() => ({})) as { tailored?: number };

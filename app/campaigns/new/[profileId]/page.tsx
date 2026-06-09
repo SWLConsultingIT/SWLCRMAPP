@@ -12,8 +12,17 @@ import ChannelMessageConfig, { type ChannelMessages } from "@/components/Channel
 import SignalPicker from "@/components/SignalPicker";
 import LogoLoader from "@/components/LogoLoader";
 import FlowTypePicker from "@/components/wizard/FlowTypePicker";
+import SignalCoverageBanner from "@/components/wizard/SignalCoverageBanner";
+import SampleLeadCards from "@/components/wizard/SampleLeadCards";
+import LeadTagGrid from "@/components/wizard/LeadTagGrid";
 
 type FlowType = "generic" | "tailored";
+
+type PreviewOutput = {
+  hook: string | null;
+  fit: string | null;
+  violations: string[];
+};
 
 const gold = C.gold;
 
@@ -258,6 +267,11 @@ export default function NewCampaignWizard() {
   // collide. Cleared on successful submit.
   const draftKey = `swl-wizard-draft:${profileId}`;
   const [draftRestored, setDraftRestored] = useState(false);
+  // Tailored-mode state — populated lazily when the seller lands on
+  // Step 3 in tailored mode so we don't pay query cost for generic.
+  const [tenantBioId, setTenantBioId] = useState<string | null>(null);
+  const [tailoredLeadIds, setTailoredLeadIds] = useState<string[]>([]);
+  const [previewOutputs, setPreviewOutputs] = useState<Record<string, PreviewOutput>>({});
   // Track when state has been hydrated at least once so the save effect
   // doesn't write a half-empty draft on the very first render.
   const draftHydratedRef = useRef(false);
@@ -318,6 +332,47 @@ export default function NewCampaignWizard() {
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignName, sequence, channelMessages, language, timezone, wizardStep, selectedSignals, sellerQuotas, selectedAircallNumberId, callAdvanceMode, flowType]);
+
+  // Lazy load: when the seller lands on Step 3 in tailored mode, resolve
+  // their tenant bio id + the full list of lead ids the batch is going
+  // to target. Skipped for generic mode (no Step 3 review surface).
+  useEffect(() => {
+    if (wizardStep !== 3 || flowType !== "tailored") return;
+    if (tenantBioId && tailoredLeadIds.length > 0) return;
+    (async () => {
+      const supabase = getSupabaseBrowser();
+      if (!tenantBioId) {
+        const { data: bioId } = await supabase.rpc("get_auth_company_bio_id");
+        if (bioId) setTenantBioId(bioId as string);
+      }
+      if (tailoredLeadIds.length === 0) {
+        if (isPartialSelection) {
+          setTailoredLeadIds(selectedLeadIds);
+        } else {
+          // Pull all lead ids for the ICP, paginated in 1000-row pages so
+          // we never hit the default Supabase row cap and miss leads from
+          // the back of large batches.
+          const ids: string[] = [];
+          let from = 0;
+          while (true) {
+            const { data, error } = await supabase
+              .from("leads")
+              .select("id")
+              .eq("icp_profile_id", profileId)
+              .order("id", { ascending: true })
+              .range(from, from + 999);
+            if (error || !data || data.length === 0) break;
+            ids.push(...(data as Array<{ id: string }>).map(r => r.id));
+            if (data.length < 1000) break;
+            from += 1000;
+            if (from > 20000) break; // safety
+          }
+          setTailoredLeadIds(ids);
+        }
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wizardStep, flowType]);
 
   useEffect(() => {
     async function load() {
@@ -627,7 +682,7 @@ export default function NewCampaignWizard() {
       sequence_length: sequence.length,
       frequency_days: 0,
       target_leads_count: leadsCount,
-      message_prompts: { sequence, channelMessages, language, timezone, selectedLeadIds: isPartialSelection ? selectedLeadIds : null, sellerId: sellerQuotas[0]?.sellerId ?? null, sellerQuotas: sellerQuotas.length > 0 ? sellerQuotas : null, aircallNumberId: selectedAircallNumberId, callAdvanceMode },
+      message_prompts: { sequence, channelMessages, language, timezone, selectedLeadIds: isPartialSelection ? selectedLeadIds : null, sellerId: sellerQuotas[0]?.sellerId ?? null, sellerQuotas: sellerQuotas.length > 0 ? sellerQuotas : null, aircallNumberId: selectedAircallNumberId, callAdvanceMode, preview_outputs: flowType === "tailored" && Object.keys(previewOutputs).length > 0 ? previewOutputs : undefined },
       flow_type: flowType ?? "generic",
       status: "pending_review",
     };
@@ -1666,13 +1721,16 @@ export default function NewCampaignWizard() {
         </div>
       )}
 
-      {/* ═══ STEP 3: REVIEW ═══ */}
+      {/* ═══ STEP 3: REVIEW ═══
+          Generic flow → simple Flow Summary card (legacy behavior).
+          Tailored flow → adds three sections: signal coverage banner,
+          3 auto-rendered sample leads, and a tag grid for the whole batch
+          with per-lead expansion. */}
       {wizardStep === 3 && (
         <div className="space-y-5">
           <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
             <h2 className="text-sm font-semibold uppercase tracking-wider mb-5" style={{ color: C.textMuted }}>Flow Summary</h2>
-
-            <div className="grid grid-cols-3 gap-4 mb-5">
+            <div className="grid grid-cols-3 gap-4">
               <div className="rounded-lg border p-4" style={{ borderColor: C.border }}>
                 <p className="text-xs font-medium mb-1" style={{ color: C.textMuted }}>Profile</p>
                 <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{profile?.profile_name}</p>
@@ -1686,8 +1744,47 @@ export default function NewCampaignWizard() {
                 <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{sequence.length} steps · {totalDays} days</p>
               </div>
             </div>
-
           </div>
+
+          {flowType === "tailored" && tenantBioId && tailoredLeadIds.length > 0 && (() => {
+            // Build the steps array for the preview/batch endpoints. CR slot
+            // (channelMessages.connectionRequest) is passed separately because
+            // it's not a numbered step in the sequence — same shape the
+            // preview-tailor + batch-preview endpoints expect.
+            const stepsForPreview = (channelMessages.steps ?? [])
+              .map(s => ({ channel: s?.channel ?? "linkedin", body: s?.body ?? "", subject: s?.subject ?? null }))
+              .filter(s => s.body && s.body.trim().length > 0);
+            const cr = channelMessages.connectionRequest ?? undefined;
+            return (
+              <>
+                <SignalCoverageBanner leadIds={tailoredLeadIds} />
+                <SampleLeadCards
+                  leadIds={tailoredLeadIds}
+                  companyBioId={tenantBioId}
+                  icpProfileId={profileId}
+                  sellerId={sellerQuotas[0]?.sellerId ?? null}
+                  steps={stepsForPreview}
+                  connectionRequest={cr}
+                />
+                <LeadTagGrid
+                  leadIds={tailoredLeadIds}
+                  companyBioId={tenantBioId}
+                  icpProfileId={profileId}
+                  sellerId={sellerQuotas[0]?.sellerId ?? null}
+                  steps={stepsForPreview}
+                  connectionRequest={cr}
+                  onResults={setPreviewOutputs}
+                />
+              </>
+            );
+          })()}
+
+          {flowType === "tailored" && tailoredLeadIds.length === 0 && (
+            <div className="rounded-xl border p-5 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <Loader2 size={16} className="animate-spin inline mr-2" style={{ color: C.textMuted }} />
+              <span className="text-sm" style={{ color: C.textMuted }}>Loading batch…</span>
+            </div>
+          )}
         </div>
       )}
 

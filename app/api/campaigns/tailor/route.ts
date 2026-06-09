@@ -125,8 +125,13 @@ export async function POST(req: NextRequest) {
     campaignId?: string;
     dryRun?: boolean;
     leadIdsLimit?: number;
+    /** Per-lead {hook, fit} cached from a previous wizard-batch-preview
+     *  run. When supplied, the tailor route reuses these slots instead
+     *  of paying for a second Haiku call per lead — exactly the
+     *  hand-off the wizard's Step 3 review surface produces. */
+    previewOutputs?: Record<string, { hook?: string | null; fit?: string | null; manual_edit?: { hook?: string | null; fit?: string | null } }>;
   };
-  const { campaignId, dryRun = false, leadIdsLimit } = body;
+  const { campaignId, dryRun = false, leadIdsLimit, previewOutputs } = body;
   if (!campaignId) return NextResponse.json({ error: "campaignId required" }, { status: 400 });
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -209,10 +214,26 @@ export async function POST(req: NextRequest) {
   // via `stepChannel`.
   const client = new Anthropic({ apiKey });
 
-  type TailorResult = { row: CampaignMessageRow; slots: TailoredSlots | null; renderedContent: string | null };
+  type TailorResult = { row: CampaignMessageRow; slots: TailoredSlots | null; renderedContent: string | null; reused?: boolean };
   const results: TailorResult[] = await bulkParallel(targets, async (row) => {
     const lead = leadById.get(row.lead_id);
     if (!lead) return { row, slots: null, renderedContent: null };
+
+    // Reuse path — if the wizard already generated + (optionally) the
+    // seller edited a hook/fit for this lead in Step 3, use those
+    // instead of paying for another Haiku call.
+    const cached = previewOutputs?.[row.lead_id];
+    if (cached) {
+      const edit = cached.manual_edit;
+      const hook = (edit?.hook && edit.hook.trim()) || (cached.hook && cached.hook.trim()) || "";
+      const fit = (edit?.fit && edit.fit.trim()) || (cached.fit && cached.fit.trim()) || "";
+      if (hook && fit) {
+        const slots: TailoredSlots = { hook, fit };
+        const renderedContent = substituteTailoredSlots(row.content ?? "", slots);
+        return { row, slots, renderedContent, reused: true };
+      }
+    }
+
     const ctx: TailorContext = {
       lead,
       icp,

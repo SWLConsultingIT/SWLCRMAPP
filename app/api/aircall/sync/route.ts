@@ -154,5 +154,58 @@ export async function POST(req: NextRequest) {
     inserted++;
   }
 
-  return NextResponse.json({ ok: true, fetched: calls.length, updated, inserted });
+  // Reconcile the 2-rows-per-call model into ONE row (boss 2026-06-09: "los
+  // fusiono en una sola fila al sincronizar"). A dial can leave a marker
+  // (dialed_by_user_id, no aircall_call_id) AND an Aircall record (aircall_call_id
+  // + recording) when the real-time match raced. For each lead+minute that has
+  // BOTH, fold the marker's dialer/seller/classification/notes into the single
+  // Aircall row (the one with the recording) and delete the marker. Bounded to
+  // the last 7 days, idempotent (no markers left after folding).
+  const merged = await reconcilePairs();
+
+  return NextResponse.json({ ok: true, fetched: calls.length, updated, inserted, merged });
+}
+
+async function reconcilePairs(): Promise<number> {
+  const sinceIso = new Date(Date.now() - 7 * 86400000).toISOString();
+  const res = await fetch(
+    `${SB_URL}/calls?started_at=gte.${sinceIso}&lead_id=not.is.null&select=id,lead_id,started_at,aircall_call_id,dialed_by_user_id,seller_id,classification,notes,recording_url&order=started_at.desc&limit=2000`,
+    { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } },
+  );
+  const rows: Array<Record<string, any>> = await res.json().catch(() => []);
+  if (!Array.isArray(rows)) return 0;
+
+  const groups = new Map<string, Record<string, any>[]>();
+  for (const c of rows) {
+    const key = `${c.lead_id}|${String(c.started_at).slice(0, 16)}`;
+    (groups.get(key) ?? groups.set(key, []).get(key)!).push(c);
+  }
+
+  let merged = 0;
+  for (const g of groups.values()) {
+    const markers = g.filter(c => !c.aircall_call_id);
+    const aircalls = g.filter(c => c.aircall_call_id);
+    if (markers.length === 0 || aircalls.length !== 1) continue; // skip ambiguous / no-pair
+    const a = aircalls[0];
+    const pick = (f: string) => a[f] ?? markers.find(m => m[f])?.[f] ?? null;
+    const upd: Record<string, any> = {};
+    if (!a.dialed_by_user_id) { const v = pick("dialed_by_user_id"); if (v) upd.dialed_by_user_id = v; }
+    if (!a.seller_id)         { const v = pick("seller_id");         if (v) upd.seller_id = v; }
+    if (!a.classification)    { const v = pick("classification");    if (v) { upd.classification = v; upd.ai_confidence = 1; } }
+    if (!a.notes)             { const v = pick("notes");             if (v) upd.notes = v; }
+    if (Object.keys(upd).length) {
+      await fetch(`${SB_URL}/calls?id=eq.${a.id}`, {
+        method: "PATCH",
+        headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify(upd),
+      });
+    }
+    const ids = markers.map(m => m.id).join(",");
+    await fetch(`${SB_URL}/calls?id=in.(${ids})`, {
+      method: "DELETE",
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, Prefer: "return=minimal" },
+    });
+    merged++;
+  }
+  return merged;
 }

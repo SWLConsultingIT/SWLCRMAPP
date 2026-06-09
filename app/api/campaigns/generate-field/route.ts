@@ -276,23 +276,22 @@ Write only what the OUTPUT FORMAT asks for — no preamble, no notes, no fences.
 
 async function loadContext(body: Body, scopeBioId: string | null): Promise<{ lead: Lead; icp: Icp | null; bio: Bio | null }> {
   const svc = getSupabaseService();
-  const tasks: Promise<unknown>[] = [];
 
-  tasks.push(body.leadId
-    ? svc.from("leads").select("primary_first_name, primary_last_name, primary_title_role, primary_headline, company_name, company_industry, company_size, primary_linkedin_url, organization_description, organization_short_desc, organization_technologies, recent_website_news, recent_linkedin_post, company_linkedin_post, industry_trends, website_summary, company_mission, call_talking_points, source, encrypted_payload, company_bio_id").eq("id", body.leadId).maybeSingle()
-    : Promise.resolve({ data: null }));
+  const leadPromise = body.leadId
+    ? svc.from("leads").select("primary_first_name, primary_last_name, primary_title_role, primary_headline, company_name, company_industry, company_size, primary_linkedin_url, organization_description, organization_short_desc, organization_technologies, recent_website_news, recent_linkedin_post, company_linkedin_post, industry_trends, website_summary, company_mission, call_talking_points, source, encrypted_payload, company_bio_id").eq("id", body.leadId).maybeSingle().then(r => ({ data: r.data as unknown }))
+    : Promise.resolve({ data: null as unknown });
 
-  tasks.push(body.icpProfileId
-    ? svc.from("icp_profiles").select("profile_name, pain_points, solutions_offered, target_industries, target_roles, notes").eq("id", body.icpProfileId).maybeSingle()
-    : Promise.resolve({ data: null }));
+  const icpPromise = body.icpProfileId
+    ? svc.from("icp_profiles").select("profile_name, pain_points, solutions_offered, target_industries, target_roles, notes").eq("id", body.icpProfileId).maybeSingle().then(r => ({ data: r.data as unknown }))
+    : Promise.resolve({ data: null as unknown });
 
   // Bio: explicit > resolved from lead > resolved from caller's tenant
   const bioId = body.companyBioId ?? scopeBioId;
-  tasks.push(bioId
-    ? svc.from("company_bios").select("company_name, tagline, value_proposition, differentiators, main_services, tone_of_voice").eq("id", bioId).maybeSingle()
-    : Promise.resolve({ data: null }));
+  const bioPromise = bioId
+    ? svc.from("company_bios").select("company_name, tagline, value_proposition, differentiators, main_services, tone_of_voice").eq("id", bioId).maybeSingle().then(r => ({ data: r.data as unknown }))
+    : Promise.resolve({ data: null as unknown });
 
-  const [leadRes, icpRes, bioRes] = (await Promise.all(tasks)) as Array<{ data: unknown }>;
+  const [leadRes, icpRes, bioRes] = await Promise.all([leadPromise, icpPromise, bioPromise]);
   let lead = (leadRes.data ?? {}) as Lead;
   const icp = (icpRes.data ?? null) as Icp | null;
   let bio = (bioRes.data ?? null) as Bio | null;
