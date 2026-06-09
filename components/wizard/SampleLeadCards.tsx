@@ -1,9 +1,9 @@
 "use client";
 
-// Step 4 (tailored mode) — auto-renders 3 sample leads from the batch
-// with their fully personalized messages (full per-lead generation,
-// not template+slot substitution). Each lead's body, subject, and CR
-// are generated fresh by the V8 workflow using THAT lead's signals.
+// Step 3 (tailored mode) — auto-renders 3 sample leads from the batch
+// with their tailored hook+fit substituted into every step body.
+// Inline version of the TailorPreviewModal grid (same data source —
+// /api/campaigns/preview-tailor) without the modal chrome.
 
 import { useEffect, useState } from "react";
 import { Sparkles, Loader2, Shuffle, AlertCircle, Phone, Mail, Share2, Megaphone } from "lucide-react";
@@ -16,6 +16,7 @@ type Lead = {
   name: string;
   company: string | null;
   role: string | null;
+  slots: { hook: string; fit: string } | null;
   rendered: { connectionRequest?: string; steps: Array<{ channel: string; subject?: string | null; body: string }> };
 };
 
@@ -117,7 +118,7 @@ export default function SampleLeadCards({ leadIds, companyBioId, icpProfileId, s
         {!loading && !err && leads && leads.length === 0 && (
           <div className="text-center py-8">
             <p className="text-sm" style={{ color: C.textMuted }}>
-              No samples returned. Check that the step bodies (or seller prompts) are filled.
+              No <code>{`{{tailored:hook}}`}</code> or <code>{`{{tailored:fit}}`}</code> in your template — add either to a step body so per-lead copy has somewhere to land.
             </p>
           </div>
         )}
@@ -127,17 +128,31 @@ export default function SampleLeadCards({ leadIds, companyBioId, icpProfileId, s
             {leads.map(lead => (
               <div key={lead.leadId} className="rounded-xl border overflow-hidden flex flex-col"
                 style={{ backgroundColor: C.bg, borderColor: C.border }}>
-                <div className="px-3 py-2 border-b flex items-center justify-between gap-2" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${gold} 4%, transparent)` }}>
-                  <div className="min-w-0">
-                    <p className="text-[12px] font-bold truncate" style={{ color: C.textPrimary }}>{lead.name}</p>
-                    <p className="text-[10px] truncate" style={{ color: C.textMuted }}>
-                      {lead.role ? `${lead.role} · ` : ""}{lead.company ?? "—"}
+                <div className="px-3 py-2 border-b" style={{ borderColor: C.border }}>
+                  <p className="text-[12px] font-bold truncate" style={{ color: C.textPrimary }}>{lead.name}</p>
+                  <p className="text-[10px] truncate" style={{ color: C.textMuted }}>
+                    {lead.role ? `${lead.role} · ` : ""}{lead.company ?? "—"}
+                  </p>
+                </div>
+
+                {lead.slots ? (
+                  <div className="px-3 py-2.5 border-b space-y-1.5" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${gold} 4%, transparent)` }}>
+                    <div>
+                      <p className="text-[8.5px] font-bold uppercase tracking-wider" style={{ color: gold }}>Hook</p>
+                      <p className="text-[11px] leading-snug" style={{ color: C.textBody }}>{lead.slots.hook}</p>
+                    </div>
+                    <div>
+                      <p className="text-[8.5px] font-bold uppercase tracking-wider" style={{ color: gold }}>Fit</p>
+                      <p className="text-[11px] leading-snug" style={{ color: C.textBody }}>{lead.slots.fit}</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="px-3 py-2 border-b" style={{ borderColor: C.border, backgroundColor: "color-mix(in srgb, #DC2626 6%, transparent)" }}>
+                    <p className="text-[10px]" style={{ color: "#DC2626" }}>
+                      AI didn&apos;t return tailored slots for this lead — fix enrichment data and retry.
                     </p>
                   </div>
-                  <span className="text-[8.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`, color: "#1A1A2E" }}>
-                    AI per-lead
-                  </span>
-                </div>
+                )}
 
                 <div className="flex-1 px-3 py-2.5 space-y-2.5 overflow-y-auto max-h-[360px]">
                   {lead.rendered.connectionRequest && (
