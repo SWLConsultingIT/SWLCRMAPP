@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
     .from("campaign_messages")
     .select(`
       id, campaign_id, lead_id, sent_at, provider_message_id,
-      campaigns!inner(id, status, stop_reason, seller_id),
+      campaigns!inner(id, status, stop_reason, seller_id, sequence_steps, current_step),
       leads!inner(id, status, linkedin_connected)
     `)
     .eq("step_number", 0)
@@ -180,24 +180,49 @@ export async function GET(req: NextRequest) {
       .eq("id", (row as any).id);
   }
 
-  const campaignIds = [...new Set(expirable.map((r: any) => r.campaign_id))];
-  const leadIds = [...new Set(expirable.map((r: any) => r.lead_id))];
+  // Split: a multichannel flow with remaining NON-LinkedIn steps (call/email at
+  // index >= current_step) must NOT be killed when the LinkedIn invite expires —
+  // the lead can still be called/emailed (boss 2026-06-09: 22 PE-USA leads the
+  // seller wanted to CALL got dumped into Lost because the cron completed the
+  // whole flow on invite_expired). For those, we still withdraw the stale invite
+  // + suppress LinkedIn (done above/below), but keep the campaign active and the
+  // lead open. Only flows with no actionable non-LinkedIn step left get closed.
+  const hasRemainingNonLinkedIn = (row: any): boolean => {
+    const camp = Array.isArray(row.campaigns) ? row.campaigns[0] : row.campaigns;
+    const steps: Array<{ channel?: string }> = Array.isArray(camp?.sequence_steps) ? camp.sequence_steps : [];
+    const cur = camp?.current_step ?? 0;
+    return steps.some((s, i) => i >= cur && s?.channel && s.channel !== "linkedin");
+  };
+  const deadRows = expirable.filter(r => !hasRemainingNonLinkedIn(r));
+  const aliveRows = expirable.filter(hasRemainingNonLinkedIn);
 
-  // 1. Mark campaigns completed with stop_reason. Use IN-clause batch update.
-  await svc
-    .from("campaigns")
-    .update({ status: "completed", stop_reason: "invite_expired", completed_at: nowISO })
-    .in("id", campaignIds);
+  const campaignIds = [...new Set(deadRows.map((r: any) => r.campaign_id))];
+  const leadIds = [...new Set(deadRows.map((r: any) => r.lead_id))];
+  const aliveCount = new Set(aliveRows.map((r: any) => r.campaign_id)).size;
 
-  // 2. Soft-archive the leads. We keep the row for analytics + future recovery.
-  await svc
-    .from("leads")
-    .update({ status: "closed_lost", archived: true })
-    .in("id", leadIds);
+  // 1. Mark only the truly-dead campaigns completed with stop_reason.
+  if (campaignIds.length > 0) {
+    await svc
+      .from("campaigns")
+      .update({ status: "completed", stop_reason: "invite_expired", completed_at: nowISO })
+      .in("id", campaignIds);
+  }
 
-  // 3. Insert suppression rows so the lead can't be re-targeted on LinkedIn
-  //    for 90 days. After that they're eligible again with new copy.
-  const suppressionRows = leadIds.map(leadId => ({
+  // 2. Soft-archive only those leads. Multichannel-alive leads stay open so the
+  //    seller can still call/email them.
+  if (leadIds.length > 0) {
+    await svc
+      .from("leads")
+      .update({ status: "closed_lost", archived: true })
+      .in("id", leadIds);
+  }
+
+  // 3. Suppress LinkedIn for 90 days on EVERY expirable lead (the invite was
+  //    withdrawn regardless), so we don't re-invite — but for multichannel-alive
+  //    leads the call/email steps keep running. Channel-scoped, so it doesn't
+  //    block other channels.
+  const allExpirableLeadIds = [...new Set(expirable.map((r: any) => r.lead_id))];
+  const suppressionRows = allExpirableLeadIds.map(leadId => ({
     lead_id: leadId,
     channel: "linkedin",
     reason: "invite_expired",
@@ -205,7 +230,7 @@ export async function GET(req: NextRequest) {
     active: true,
     expires_at: suppressionExpiresAt,
   }));
-  await svc.from("lead_suppressions").insert(suppressionRows);
+  if (suppressionRows.length > 0) await svc.from("lead_suppressions").insert(suppressionRows);
 
   return NextResponse.json({
     ok: true,
@@ -213,6 +238,7 @@ export async function GET(req: NextRequest) {
     expired: expirable.length,
     campaignsClosed: campaignIds.length,
     leadsArchived: leadIds.length,
+    multichannelKeptAlive: aliveCount,
     withdrawn: withdrawnCount,
     alreadyGone: alreadyGoneCount,
     withdrawFailed: withdrawFailedCount,
