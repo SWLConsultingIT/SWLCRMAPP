@@ -1,50 +1,83 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { getUserScope } from "@/lib/scope";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
-// Proxies to the n8n workflow "SWL - CRM - Message Generator V7 Pro".
-// Computes step_type_override per idx (the wizard knows which UI step the user clicked
-// — we map that to the planner's internal step type so prompts are honored).
+// Wizard "AI draft" endpoint. Used to be a proxy to the n8n V7 Pro
+// generator (workflow Y3gQXLpaWjpP37XP) but it had two persistent
+// problems: it ignored the wizard's `language` (kept slipping into
+// English when the seller picked Spanish) and sometimes returned an
+// empty body for the first step in a sequence.
 //
-// EXCEPTION — Call steps: the V7 Pro generator returns empty for call (it only
-// drafts LinkedIn/Email), so the wizard's "AI Draft" did nothing on a Call step
-// (boss 2026-06-08). Call scripts are drafted here with Claude from the lead +
-// ICP context instead.
+// Both bugs traced back to the same place: n8n's generator was the only
+// thing in the chain that owned the prompt + LLM call, so any drift
+// there hit production. Replaced with a direct Claude Haiku call here
+// — one model per step, language explicitly pinned, retries on empty
+// output, and supports the new `flowType: "tailored"` mode that embeds
+// {{tailored:hook}} + {{tailored:fit}} slots so the post-approve
+// per-lead tailor pass has somewhere to inject the per-lead copy.
 
-const N8N_WEBHOOK_URL = "https://n8n.srv949269.hstgr.cloud/webhook/generate-campaign-messages-v3";
+export const maxDuration = 60;
 
-type SequenceEntry = { channel: string; daysAfter: number; user_prompt?: string; body?: string; step_type_override?: string };
+const MODEL = "claude-haiku-4-5-20251001";
 
-type LegacyBody = {
+type SequenceMeta = { channel: string; daysAfter: number };
+type FlowType = "generic" | "tailored";
+
+type Body = {
   channel?: string;
   fieldType?: string;
   idx?: number;
   leadId?: string;
   icpProfileId?: string;
+  companyBioId?: string;
   language?: string;
   signals?: string[];
-  sequence_id?: string | null;
   user_prompt?: string;
-  /** Optional: the wizard's full sequence (channel + daysAfter per step). When present, used to
-   * compute the correct step_type_override based on idx + position among same-channel steps. */
-  sequence_meta?: { channel: string; daysAfter: number }[];
-  // New shape pieces (preferred when caller already speaks the n8n contract):
-  sequence?: SequenceEntry[];
-  target_step?: number;
+  sequence_meta?: SequenceMeta[];
+  flowType?: FlowType;
 };
 
-const AUTO_REPLY_MAP: Record<string, "positive" | "negative"> = {
-  replyPositive: "positive",
-  replyNegative: "negative",
+type StepType =
+  | "LINKEDIN_CONNECTION_REQUEST"
+  | "LINKEDIN_INTRO_DM"
+  | "LINKEDIN_FOLLOWUP_BUMP"
+  | "LINKEDIN_FOLLOWUP_PROOF"
+  | "LINKEDIN_FOLLOWUP_INTERRUPT"
+  | "LINKEDIN_FOLLOWUP_BREAKUP"
+  | "EMAIL_INTRO"
+  | "EMAIL_FOLLOWUP"
+  | "EMAIL_FOLLOWUP_CROSS"
+  | "CALL_FIRST"
+  | "CALL_FOLLOWUP"
+  | "AUTO_REPLY_POSITIVE"
+  | "AUTO_REPLY_NEGATIVE";
+
+const STEP_LENGTH_HINT: Record<StepType, string> = {
+  LINKEDIN_CONNECTION_REQUEST: "≤195 chars — one warm hook + ask to connect, NO pitch.",
+  LINKEDIN_INTRO_DM: "≤120 words. Open with a specific observation about THEM, then one short value line, then ONE question. Sign off with {{seller_name}}.",
+  LINKEDIN_FOLLOWUP_BUMP: "≤80 words. Light yes/no bump referencing your earlier note. End with a question. Sign off with {{seller_name}}.",
+  LINKEDIN_FOLLOWUP_PROOF: "≤80 words. Concrete proof point or tangible offer (case study, asset, intro). End with a question. Sign off with {{seller_name}}.",
+  LINKEDIN_FOLLOWUP_INTERRUPT: "≤80 words. Curiosity-open with a specific question that interrupts the silence. Sign off with {{seller_name}}.",
+  LINKEDIN_FOLLOWUP_BREAKUP: "≤80 words. Polite breakup — closes the loop, leaves door open. Sign off with {{seller_name}}.",
+  EMAIL_INTRO: "≤200 words body + a SUBJECT line (≤55 chars, no greeting). Opener pegs to the lead specifically, body shows the offer, close with ONE question. Sign off with {{seller_name}}.",
+  EMAIL_FOLLOWUP: "≤150 words body + SUBJECT (≤55 chars). References the previous touch. End with a question. Sign off with {{seller_name}}.",
+  EMAIL_FOLLOWUP_CROSS: "≤150 words body + SUBJECT (≤55 chars). Notes you're swinging to email after LinkedIn silence. End with a question. Sign off with {{seller_name}}.",
+  CALL_FIRST: "120-160 words. Spoken phone script: warm opener using first name + reason for call, one open question, 2-line value pitch tied to their pain, close proposing a 15-min follow-up. Use {{first_name}}, {{company_name}}, {{seller_name}}.",
+  CALL_FOLLOWUP: "120-160 words. Follow-up phone script referencing the prior touch. Use {{first_name}}, {{company_name}}, {{seller_name}}.",
+  AUTO_REPLY_POSITIVE: "≤80 words. Warm, brief reply when the lead says YES / interested. Propose a concrete next step (link, time). Sign off with {{seller_name}}.",
+  AUTO_REPLY_NEGATIVE: "≤60 words. Gracious reply when lead is not interested. Leaves door open, no push. Sign off with {{seller_name}}.",
 };
 
-// Map (fieldType, idx, sequence_meta) → explicit planner step type.
-// This kills the "every LINKEDIN_FOLLOWUP becomes BREAKUP because target_step is last" bug:
-// the wizard tells us which followup position the user clicked, and we name the type explicitly.
-function computeStepTypeOverride(body: LegacyBody): string | null {
+const REPLY_MAP: Record<string, StepType> = {
+  replyPositive: "AUTO_REPLY_POSITIVE",
+  replyNegative: "AUTO_REPLY_NEGATIVE",
+};
+
+function resolveStepType(body: Body): StepType {
   const ft = body.fieldType;
-  if (!ft) return null;
+  if (!ft) return "LINKEDIN_INTRO_DM";
 
   if (ft === "connectionNote" || ft === "LINKEDIN_CONNECTION_REQUEST") return "LINKEDIN_CONNECTION_REQUEST";
   if (ft === "LINKEDIN_INTRO_DM") return "LINKEDIN_INTRO_DM";
@@ -53,283 +86,325 @@ function computeStepTypeOverride(body: LegacyBody): string | null {
   if (ft === "EMAIL_FOLLOWUP") return "EMAIL_FOLLOWUP";
   if (ft === "CALL_FIRST") return "CALL_FIRST";
   if (ft === "CALL_FOLLOWUP") return "CALL_FOLLOWUP";
+  if (REPLY_MAP[ft]) return REPLY_MAP[ft];
 
   if (ft === "LINKEDIN_FOLLOWUP") {
     const seqMeta = Array.isArray(body.sequence_meta) ? body.sequence_meta : [];
     const idx = typeof body.idx === "number" ? body.idx : 0;
-    // Filter to LinkedIn step indexes (in the wizard's UI sequence — connection request is NOT in this array).
-    const linkedinIdxs = seqMeta
-      .map((s, i) => (s.channel === "linkedin" ? i : -1))
-      .filter(i => i >= 0);
-    const myPosition = linkedinIdxs.indexOf(idx); // 0-based among LinkedIn steps
-    const totalLinkedin = linkedinIdxs.length;
-    const isLast = myPosition === totalLinkedin - 1;
-    // Position 0 is the post-connection First DM = INTRO_DM.
-    if (myPosition <= 0) return "LINKEDIN_INTRO_DM";
-    // Position 1 (first followup): always BUMP (yes/no question).
-    if (myPosition === 1) {
-      if (isLast && totalLinkedin >= 4) return "LINKEDIN_FOLLOWUP_BREAKUP";
-      return "LINKEDIN_FOLLOWUP_BUMP";
-    }
-    // Position 2 (second followup): PROOF (tangible offer) unless it's the last in a long sequence.
-    if (myPosition === 2) {
-      if (isLast && totalLinkedin >= 4) return "LINKEDIN_FOLLOWUP_BREAKUP";
-      return "LINKEDIN_FOLLOWUP_PROOF";
-    }
-    // Position 3+: INTERRUPT (curiosity-open) or BREAKUP if last.
-    if (isLast && totalLinkedin >= 4) return "LINKEDIN_FOLLOWUP_BREAKUP";
-    return "LINKEDIN_FOLLOWUP_INTERRUPT";
+    const liIdxs = seqMeta.map((s, i) => (s.channel === "linkedin" ? i : -1)).filter(i => i >= 0);
+    const myPos = liIdxs.indexOf(idx);
+    const totalLi = liIdxs.length;
+    const isLast = myPos === totalLi - 1;
+    if (myPos <= 0) return "LINKEDIN_INTRO_DM";
+    if (myPos === 1) return isLast && totalLi >= 4 ? "LINKEDIN_FOLLOWUP_BREAKUP" : "LINKEDIN_FOLLOWUP_BUMP";
+    if (myPos === 2) return isLast && totalLi >= 4 ? "LINKEDIN_FOLLOWUP_BREAKUP" : "LINKEDIN_FOLLOWUP_PROOF";
+    return isLast && totalLi >= 4 ? "LINKEDIN_FOLLOWUP_BREAKUP" : "LINKEDIN_FOLLOWUP_INTERRUPT";
   }
-  return null;
+
+  return "LINKEDIN_INTRO_DM";
 }
 
-function inferSequence(body: LegacyBody): SequenceEntry[] {
-  if (Array.isArray(body.sequence) && body.sequence.length > 0) return body.sequence;
-  // Single-target field: build a 1-step sequence and let step_type_override drive the type.
-  const channel = body.channel ?? "linkedin";
-  return [{ channel, daysAfter: 0 }];
+// Output language. Default to ES — the user's default UX is rioplatense
+// Spanish; English when explicitly chosen.
+function describeLanguage(code?: string): string {
+  switch ((code ?? "es").toLowerCase()) {
+    case "es": return "Spanish (Argentine/rioplatense register — informal vos, never use tú)";
+    case "en": return "English (US business register, plain, no fluff)";
+    case "pt": return "Brazilian Portuguese (informal you/você, plain)";
+    case "fr": return "French (vouvoiement, plain business)";
+    case "de": return "German (Sie form, plain business)";
+    case "it": return "Italian (Lei form, plain business)";
+    default: return "English";
+  }
+}
+
+type Lead = {
+  primary_first_name?: string | null;
+  primary_last_name?: string | null;
+  primary_title_role?: string | null;
+  primary_headline?: string | null;
+  company_name?: string | null;
+  company_industry?: string | null;
+  company_size?: string | null;
+  primary_linkedin_url?: string | null;
+  organization_description?: string | null;
+  organization_short_desc?: string | null;
+  organization_technologies?: string | null;
+  recent_website_news?: string | null;
+  recent_linkedin_post?: string | null;
+  company_linkedin_post?: string | null;
+  industry_trends?: string | null;
+  website_summary?: string | null;
+  company_mission?: string | null;
+  call_talking_points?: string | null;
+  source?: string | null;
+  encrypted_payload?: unknown;
+  company_bio_id?: string | null;
+};
+
+type Icp = {
+  profile_name?: string | null;
+  pain_points?: string | null;
+  solutions_offered?: string | null;
+  target_industries?: string | null;
+  target_roles?: string | null;
+  notes?: string | null;
+};
+
+type Bio = {
+  company_name?: string | null;
+  tagline?: string | null;
+  value_proposition?: string | null;
+  differentiators?: string | null;
+  main_services?: string | null;
+  tone_of_voice?: string | null;
+};
+
+function clampSig(s: string, max = 280): string {
+  if (!s) return "";
+  const trimmed = s.trim();
+  return trimmed.length > max ? trimmed.slice(0, max).trimEnd() + "…" : trimmed;
+}
+
+function leadBlock(lead: Lead): string {
+  const lines: string[] = [];
+  const name = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim();
+  if (name) lines.push(`Name: ${name}`);
+  if (lead.primary_title_role) lines.push(`Role: ${lead.primary_title_role}`);
+  if (lead.company_name) lines.push(`Company: ${lead.company_name}`);
+  if (lead.company_industry) lines.push(`Industry: ${lead.company_industry}`);
+  if (lead.company_size) lines.push(`Size: ${lead.company_size}`);
+  if (lead.primary_headline) lines.push(`Headline: ${clampSig(lead.primary_headline, 200)}`);
+  if (lead.organization_short_desc || lead.organization_description) lines.push(`What the company does: ${clampSig(lead.organization_short_desc ?? lead.organization_description ?? "", 300)}`);
+  if (lead.website_summary) lines.push(`Website summary: ${clampSig(lead.website_summary, 300)}`);
+  if (lead.company_mission) lines.push(`Mission: ${clampSig(lead.company_mission, 200)}`);
+  if (lead.organization_technologies) lines.push(`Tech stack: ${clampSig(lead.organization_technologies, 250)}`);
+  if (lead.recent_linkedin_post) lines.push(`Recent LinkedIn post (the lead's own): ${clampSig(lead.recent_linkedin_post, 400)}`);
+  if (lead.company_linkedin_post) lines.push(`Recent company LinkedIn post: ${clampSig(lead.company_linkedin_post, 300)}`);
+  if (lead.recent_website_news) lines.push(`Recent news: ${clampSig(lead.recent_website_news, 300)}`);
+  if (lead.industry_trends) lines.push(`Industry trends: ${clampSig(lead.industry_trends, 250)}`);
+  if (lead.call_talking_points) lines.push(`Pre-call talking points: ${clampSig(lead.call_talking_points, 300)}`);
+  return lines.join("\n");
+}
+
+function icpBlock(icp: Icp | null): string {
+  if (!icp) return "(no ICP context)";
+  const lines: string[] = [];
+  if (icp.profile_name) lines.push(`Targeting: ${icp.profile_name}`);
+  if (icp.target_industries) lines.push(`Industries: ${icp.target_industries}`);
+  if (icp.target_roles) lines.push(`Roles: ${icp.target_roles}`);
+  if (icp.pain_points) lines.push(`Pain we solve: ${clampSig(icp.pain_points, 400)}`);
+  if (icp.solutions_offered) lines.push(`What we offer: ${clampSig(icp.solutions_offered, 400)}`);
+  if (icp.notes) lines.push(`Notes: ${clampSig(icp.notes, 200)}`);
+  return lines.join("\n");
+}
+
+function bioBlock(bio: Bio | null): string {
+  if (!bio) return "(no company context)";
+  const lines: string[] = [];
+  if (bio.company_name) lines.push(`Company: ${bio.company_name}`);
+  if (bio.tagline) lines.push(`Tagline: ${bio.tagline}`);
+  if (bio.value_proposition) lines.push(`Value prop: ${clampSig(bio.value_proposition, 300)}`);
+  if (bio.differentiators) lines.push(`Differentiators: ${clampSig(bio.differentiators, 300)}`);
+  if (bio.main_services) lines.push(`Main services: ${clampSig(bio.main_services, 300)}`);
+  if (bio.tone_of_voice) lines.push(`Tone of voice: ${clampSig(bio.tone_of_voice, 200)}`);
+  return lines.join("\n");
+}
+
+const SYSTEM_PROMPT = `You are an elite B2B outreach copywriter. You write outreach messages that sound human — never templated, never hollow. You honor the OUTPUT FORMAT exactly: no headings, no labels, no commentary, just the message text the seller will send.
+
+Hard bans (never use):
+- emojis
+- "hope this finds you well", "just wanted to reach out", "touching base", "circle back"
+- "synergy", "leverage", "cutting-edge", "game-changer", "seamlessly", "best-in-class", "world-class", "state-of-the-art"
+- vague CTAs like "let me know if you're interested"
+- fabricated stats or metrics
+- re-introducing your own company in follow-ups
+
+Always:
+- Sign off DMs/emails with {{seller_name}} on its own line (not the seller's literal name)
+- Use {{first_name}} for the lead and {{company_name}} for their company where natural
+- For LinkedIn follow-ups, never restate sender company
+- Keep one clear question or one clear next-step ask per message
+- Match the requested LANGUAGE exactly — do NOT slip into English when Spanish was requested`;
+
+function buildPrompt(args: {
+  stepType: StepType;
+  lead: Lead;
+  icp: Icp | null;
+  bio: Bio | null;
+  language: string;
+  userPrompt: string;
+  flowType: FlowType;
+}): string {
+  const { stepType, lead, icp, bio, language, userPrompt, flowType } = args;
+  const langDesc = describeLanguage(language);
+  const lengthHint = STEP_LENGTH_HINT[stepType];
+  const needsSubject = stepType === "EMAIL_INTRO" || stepType === "EMAIL_FOLLOWUP" || stepType === "EMAIL_FOLLOWUP_CROSS";
+
+  const tailoredSection = flowType === "tailored"
+    ? `
+
+TAILORED MODE — IMPORTANT:
+The body MUST include the literal token {{tailored:hook}} as the opening line (before any greeting line) AND the literal token {{tailored:fit}} embedded near the end of the body, before any CTA / question line. Write the rest of the body around them — these two slots get filled per-lead at send time with copy that references that lead's recent posts/news/tech stack. Do NOT replace them with concrete text; leave them as the literal tokens.
+Example body opening (Spanish): "{{tailored:hook}}\\n\\nHola {{first_name}}, vimos que ..."
+Example body cue near close: "{{tailored:fit}}\\n\\n¿Tenés 15 min esta semana?"`
+    : "";
+
+  const outputSection = needsSubject
+    ? `\n\nOUTPUT FORMAT (strict, no extra text):\nSUBJECT: <subject line, ≤55 chars, no greeting>\nBODY:\n<message body>`
+    : `\n\nOUTPUT FORMAT (strict, no extra text):\n<just the message body — no SUBJECT line, no headers, nothing else>`;
+
+  return `LANGUAGE: ${langDesc}
+
+STEP TYPE: ${stepType}
+LENGTH / STRUCTURE: ${lengthHint}
+
+OUR COMPANY (the sender):
+${bioBlock(bio)}
+
+OUR ICP (who we sell to and why):
+${icpBlock(icp)}
+
+THE LEAD (who you're writing TO):
+${leadBlock(lead)}
+
+${userPrompt ? `SELLER'S INTENT FOR THIS STEP (honor it):\n${clampSig(userPrompt, 600)}\n\n` : ""}${tailoredSection}${outputSection}
+
+Write only what the OUTPUT FORMAT asks for — no preamble, no notes, no fences.`;
+}
+
+async function loadContext(body: Body, scopeBioId: string | null): Promise<{ lead: Lead; icp: Icp | null; bio: Bio | null }> {
+  const svc = getSupabaseService();
+  const tasks: Promise<unknown>[] = [];
+
+  tasks.push(body.leadId
+    ? svc.from("leads").select("primary_first_name, primary_last_name, primary_title_role, primary_headline, company_name, company_industry, company_size, primary_linkedin_url, organization_description, organization_short_desc, organization_technologies, recent_website_news, recent_linkedin_post, company_linkedin_post, industry_trends, website_summary, company_mission, call_talking_points, source, encrypted_payload, company_bio_id").eq("id", body.leadId).maybeSingle()
+    : Promise.resolve({ data: null }));
+
+  tasks.push(body.icpProfileId
+    ? svc.from("icp_profiles").select("profile_name, pain_points, solutions_offered, target_industries, target_roles, notes").eq("id", body.icpProfileId).maybeSingle()
+    : Promise.resolve({ data: null }));
+
+  // Bio: explicit > resolved from lead > resolved from caller's tenant
+  const bioId = body.companyBioId ?? scopeBioId;
+  tasks.push(bioId
+    ? svc.from("company_bios").select("company_name, tagline, value_proposition, differentiators, main_services, tone_of_voice").eq("id", bioId).maybeSingle()
+    : Promise.resolve({ data: null }));
+
+  const [leadRes, icpRes, bioRes] = (await Promise.all(tasks)) as Array<{ data: unknown }>;
+  let lead = (leadRes.data ?? {}) as Lead;
+  const icp = (icpRes.data ?? null) as Icp | null;
+  let bio = (bioRes.data ?? null) as Bio | null;
+
+  // Decrypt client-source leads so the prompt sees real text.
+  if (lead?.source === "client" && lead.encrypted_payload && lead.company_bio_id) {
+    try {
+      const { key } = await resolveTenantKey(lead.company_bio_id);
+      const decrypted = decryptWithResolvedKey(bufferFromSupabaseBytea(lead.encrypted_payload), key) as Record<string, unknown>;
+      lead = { ...lead, ...(decrypted as Lead) };
+    } catch { /* fall back to redacted row */ }
+  }
+
+  // Fall back to lead's bio if caller didn't pass one.
+  if (!bio && lead?.company_bio_id) {
+    const { data } = await svc.from("company_bios").select("company_name, tagline, value_proposition, differentiators, main_services, tone_of_voice").eq("id", lead.company_bio_id).maybeSingle();
+    bio = (data ?? null) as Bio | null;
+  }
+
+  return { lead, icp, bio };
+}
+
+function parseSubjectAndBody(raw: string, needsSubject: boolean): { content: string; subject: string } {
+  const text = raw.replace(/\r\n/g, "\n").trim();
+  if (!needsSubject) return { content: text, subject: "" };
+  const m = text.match(/^\s*SUBJECT\s*:\s*(.+?)\s*\n+BODY\s*:?\s*\n?([\s\S]+)$/i);
+  if (m) return { subject: m[1].trim().slice(0, 80), content: m[2].trim() };
+  // Fallback: first non-empty line as subject if it looks like one.
+  const lines = text.split("\n").filter(l => l.trim());
+  if (lines.length > 1 && lines[0].length < 80 && !lines[0].endsWith(".")) {
+    return { subject: lines[0].trim(), content: lines.slice(1).join("\n").trim() };
+  }
+  return { subject: "", content: text };
+}
+
+function postProcess(stepType: StepType, content: string, subject: string): { content: string; subject: string } {
+  let body = content;
+
+  // LinkedIn CR cap (200 chars, dispatcher-enforced) — clamp at sentence boundary if needed.
+  if (stepType === "LINKEDIN_CONNECTION_REQUEST" && body.length > 200) {
+    const trimmed = body.slice(0, 200);
+    const lastPunct = Math.max(trimmed.lastIndexOf("."), trimmed.lastIndexOf("?"), trimmed.lastIndexOf("!"));
+    body = lastPunct > 120 ? trimmed.slice(0, lastPunct + 1).trimEnd() : trimmed.trimEnd();
+  }
+
+  // If the model wrote a literal seller name on the last 1-3 token line,
+  // swap it for {{seller_name}} so dispatchers substitute at send time.
+  const lines = body.split("\n");
+  let lastIdx = lines.length - 1;
+  while (lastIdx >= 0 && !lines[lastIdx].trim()) lastIdx -= 1;
+  if (lastIdx >= 0) {
+    const last = lines[lastIdx].trim();
+    const tokens = last.split(/\s+/).filter(Boolean);
+    if (tokens.length >= 1 && tokens.length <= 3 && !/[.?!]$/.test(last) && last.length <= 40 && !last.includes("{{seller_name}}") && !last.match(/^\{\{tailored:/)) {
+      lines[lastIdx] = "{{seller_name}}";
+      body = lines.join("\n");
+    }
+  }
+
+  // Subject cap
+  let subj = subject;
+  if (subj.length > 70) subj = subj.slice(0, 67).trimEnd() + "…";
+
+  return { content: body.trim(), subject: subj };
 }
 
 export async function POST(req: NextRequest) {
-  const body = (await req.json()) as LegacyBody;
-  const autoReplyType = body.fieldType ? AUTO_REPLY_MAP[body.fieldType] : undefined;
+  const scope = await getUserScope();
+  if (!scope.userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  // Call steps are drafted with Claude (n8n's generator returns empty for call).
-  const isCallStep = !autoReplyType && (body.channel === "call" || body.fieldType === "CALL_FIRST" || body.fieldType === "CALL_FOLLOWUP");
-  if (isCallStep) {
-    return await generateCallScript(body);
-  }
-
-  const n8nPayload = autoReplyType
-    ? {
-        auto_reply_type: autoReplyType,
-        lead_id: body.leadId ?? null,
-        icp_profile_id: body.icpProfileId ?? null,
-        language: body.language ?? "en",
-        signals: [],
-        sequence_id: body.sequence_id ?? null,
-        user_prompt: body.user_prompt ?? null,
-      }
-    : (() => {
-        const sequence = inferSequence(body);
-        const stepTypeOverride = computeStepTypeOverride(body);
-        const targetStep = body.target_step ?? (body.sequence ? undefined : 1);
-        const sequenceWithPrompt = sequence.map((s, i) => {
-          const out: SequenceEntry = { ...s };
-          if (s.user_prompt || s.body) {
-            // batch mode keeps per-step prompts; nothing to inject here.
-          } else if (typeof targetStep === "number" && i === targetStep - 1 && body.user_prompt) {
-            out.user_prompt = body.user_prompt;
-          }
-          if (i === (targetStep ? targetStep - 1 : 0) && stepTypeOverride && !s.step_type_override) {
-            out.step_type_override = stepTypeOverride;
-          }
-          return out;
-        });
-        return {
-          sequence: sequenceWithPrompt,
-          lead_id: body.leadId ?? null,
-          icp_profile_id: body.icpProfileId ?? null,
-          language: body.language ?? "en",
-          signals: Array.isArray(body.signals) ? body.signals : [],
-          target_step: targetStep,
-          sequence_id: body.sequence_id ?? null,
-        };
-      })();
-
-  try {
-    const res = await fetch(N8N_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(n8nPayload),
-    });
-    if (!res.ok) {
-      const err = await res.text();
-      return NextResponse.json({ error: `n8n error: ${err}` }, { status: 502 });
-    }
-    const data = await res.json() as { messages?: { step: number; channel: string; type: string; subject: string | null; body: string }[]; connectionRequest?: string | null };
-
-    // Workflow Y3gQXLpaWjpP37XP's `fixHallucinatedSignature()` doesn't catch
-    // every case — short signatures (just "Fran" / "Juan") on the last line
-    // slip through. Rather than baking the seller's literal name into the
-    // saved template (where it'd survive across reassignments), we replace
-    // any 1-3 word last line with the {{seller_name}} placeholder so the
-    // dispatcher can substitute the real name at send time.
-    const replaceTrailingSignature = (rawBody: string): string => {
-      if (!rawBody) return rawBody;
-      const lines = rawBody.replace(/\r\n/g, "\n").split("\n");
-      // Find last non-empty line
-      let lastIdx = lines.length - 1;
-      while (lastIdx >= 0 && !lines[lastIdx].trim()) lastIdx -= 1;
-      if (lastIdx < 0) return rawBody;
-      const last = lines[lastIdx].trim();
-      // Accept signature if:
-      //   - 1 to 3 whitespace-separated tokens
-      //   - Doesn't end in sentence punctuation (. ? !)
-      //   - Total length < 40 chars (avoids killing real sentences)
-      //   - Already contains {{seller_name}} → leave alone
-      if (last.includes("{{seller_name}}")) return rawBody;
-      const tokens = last.split(/\s+/).filter(Boolean);
-      if (tokens.length === 0 || tokens.length > 3) return rawBody;
-      if (/[.?!]$/.test(last)) return rawBody;
-      if (last.length > 40) return rawBody;
-      // Drop common dash prefix used in email signatures ("— Juan")
-      lines[lastIdx] = "{{seller_name}}";
-      // V7 Pro sometimes emits two identical name lines as the signature
-      // ("Fran\nFran"). Once we replace the last one with {{seller_name}},
-      // we end up with "Fran\n{{seller_name}}" — dedupe by also collapsing
-      // a preceding 1-3 token line (with the same shape rules) into nothing.
-      if (lastIdx - 1 >= 0) {
-        const prev = lines[lastIdx - 1].trim();
-        if (prev && prev.length <= 40 && !/[.?!]$/.test(prev)) {
-          const prevTokens = prev.split(/\s+/).filter(Boolean);
-          if (prevTokens.length >= 1 && prevTokens.length <= 3) {
-            lines.splice(lastIdx - 1, 1);
-          }
-        }
-      }
-      return lines.join("\n");
-    };
-
-    // Workflow Y3gQXLpaWjpP37XP currently emits `subject: null` for every email
-    // step (the LLM call only produces body text, no subject generation logic).
-    // Derive a usable subject from the first sentence of the body (≤55 chars,
-    // strip greeting, drop trailing punctuation). Real fix is to make the
-    // workflow emit a subject; this is the safety net so emails are sendable
-    // until that's done.
-    const deriveSubject = (rawBody: string): string => {
-      if (!rawBody) return "";
-      let text = rawBody.replace(/\r\n/g, "\n").trim();
-      // Strip salutation if present
-      text = text.replace(/^(hola|hi|hello|hey|buenas)\s+[^,.\n]+[,.\n]\s*/i, "");
-      // First sentence — period, newline or question mark
-      const firstSentence = text.split(/[\.\?\n]/)[0]?.trim() ?? "";
-      let subject = firstSentence.length > 0 ? firstSentence : text.slice(0, 80);
-      // Cap to 55 chars (Instantly subjects have a 60-char soft limit)
-      if (subject.length > 55) subject = subject.slice(0, 52).trimEnd() + "…";
-      return subject;
-    };
-
-    // LinkedIn connection notes are 200-char capped by the dispatcher. The
-    // V7 Pro Sanitize Output v2 enforces 195 chars projected, but if anything
-    // upstream drifts (manual_override bypass, regression in the workflow,
-    // etc.) we still want this endpoint to never hand the wizard a value
-    // that would later fail the dispatcher. Clamp at last sentence boundary.
-    const clampConnectionRequest = (raw: string | null | undefined): string => {
-      if (!raw) return raw ?? "";
-      if (raw.length <= 200) return raw;
-      const trimmed = raw.slice(0, 200);
-      const lastPunct = Math.max(trimmed.lastIndexOf("."), trimmed.lastIndexOf("?"), trimmed.lastIndexOf("!"));
-      if (lastPunct > 120) return trimmed.slice(0, lastPunct + 1).trimEnd();
-      const lastSpace = trimmed.lastIndexOf(" ");
-      return (lastSpace > 30 ? trimmed.slice(0, lastSpace) : trimmed).trimEnd() + "…";
-    };
-
-    const fixOne = (m: { channel: string; subject: string | null; body: string; type?: string }) => {
-      const fixedBody = m.type === "LINKEDIN_CONNECTION_REQUEST"
-        ? clampConnectionRequest(replaceTrailingSignature(m.body || ""))
-        : replaceTrailingSignature(m.body || "");
-      const subject = m.subject && m.subject.trim().length > 0
-        ? m.subject
-        : (m.channel === "email" ? deriveSubject(fixedBody) : null);
-      return { ...m, body: fixedBody, subject };
-    };
-
-    if (body.sequence && !body.target_step) {
-      return NextResponse.json({
-        ...data,
-        messages: Array.isArray(data.messages) ? data.messages.map(fixOne) : data.messages,
-        connectionRequest: data.connectionRequest ? clampConnectionRequest(replaceTrailingSignature(data.connectionRequest)) : data.connectionRequest,
-      });
-    }
-
-    const msg = Array.isArray(data.messages) && data.messages.length > 0
-      ? data.messages[data.messages.length - 1]
-      : null;
-    if (!msg) return NextResponse.json({ content: "", subject: "" });
-    if (body.fieldType === "connectionNote") {
-      const conn = data.connectionRequest ?? msg.body ?? "";
-      return NextResponse.json({ content: clampConnectionRequest(replaceTrailingSignature(conn)) });
-    }
-    const fixedBody = replaceTrailingSignature(msg.body || "");
-    const subject = msg.subject && msg.subject.trim().length > 0
-      ? msg.subject
-      : (msg.channel === "email" ? deriveSubject(fixedBody) : "");
-    return NextResponse.json({ content: fixedBody, subject });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
-}
-
-// ── Call script generation (Claude) ──────────────────────────────────────────
-// n8n's V7 Pro generator only drafts LinkedIn/Email, so call steps are handled
-// here: pull the lead + ICP context and have Claude write a tight phone script.
-async function generateCallScript(body: LegacyBody): Promise<NextResponse> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return NextResponse.json({ error: "Missing ANTHROPIC_API_KEY" }, { status: 500 });
-  const svc = getSupabaseService();
+  if (!apiKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
 
-  // Lead context (optional — drafts a solid generic script if absent).
-  let lead: Record<string, unknown> = {};
-  if (body.leadId) {
-    const { data: leadRow } = await svc.from("leads").select("*").eq("id", body.leadId).maybeSingle();
-    if (leadRow) {
-      lead = leadRow;
-      if (leadRow.source === "client" && leadRow.encrypted_payload && leadRow.company_bio_id) {
-        try {
-          const { key } = await resolveTenantKey(leadRow.company_bio_id as string);
-          lead = { ...leadRow, ...decryptWithResolvedKey(bufferFromSupabaseBytea(leadRow.encrypted_payload), key) };
-        } catch { /* fall back to redacted row */ }
-      }
+  const body = (await req.json().catch(() => ({}))) as Body;
+  const stepType = resolveStepType(body);
+  const flowType: FlowType = body.flowType === "tailored" ? "tailored" : "generic";
+  const language = body.language ?? "es";
+  const userPrompt = body.user_prompt ?? "";
+
+  const { lead, icp, bio } = await loadContext(body, scope.isScoped ? scope.companyBioId : null);
+
+  const needsSubject = stepType === "EMAIL_INTRO" || stepType === "EMAIL_FOLLOWUP" || stepType === "EMAIL_FOLLOWUP_CROSS";
+  const prompt = buildPrompt({ stepType, lead, icp, bio, language, userPrompt, flowType });
+
+  const client = new Anthropic({ apiKey });
+
+  // One retry on empty — Haiku occasionally returns an empty content array
+  // when the system prompt + user prompt edge into refusal territory.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await client.messages.create({
+        model: MODEL,
+        max_tokens: 900,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: prompt }],
+      });
+      const raw = res.content
+        .filter(c => c.type === "text")
+        .map(c => (c as { type: "text"; text: string }).text)
+        .join("")
+        .trim();
+      if (!raw) continue;
+      const parsed = parseSubjectAndBody(raw, needsSubject);
+      const finalOut = postProcess(stepType, parsed.content, parsed.subject);
+      if (!finalOut.content) continue;
+      // For connectionNote callers, response key is `content` (= the CR text).
+      return NextResponse.json({ content: finalOut.content, subject: finalOut.subject });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (attempt === 1) return NextResponse.json({ error: msg }, { status: 502 });
     }
   }
 
-  let icp: { profile_name?: string; solutions_offered?: string; pain_points?: string } | null = null;
-  if (body.icpProfileId) {
-    const { data } = await svc.from("icp_profiles").select("profile_name, solutions_offered, pain_points").eq("id", body.icpProfileId).maybeSingle();
-    icp = data;
-  }
-
-  const isFollowup = body.fieldType === "CALL_FOLLOWUP";
-  const name = `${(lead.primary_first_name as string) ?? ""} ${(lead.primary_last_name as string) ?? ""}`.trim() || "the lead";
-  const lang = body.language === "es" ? "Spanish (rioplatense)" : body.language === "pt" ? "Portuguese" : "English";
-  const enrichment = (lead.enrichment as Record<string, unknown> | null) ?? {};
-  const enrichmentDump = Object.entries(enrichment)
-    .filter(([k, v]) => k !== "source_file" && v != null && v !== "")
-    .map(([k, v]) => `${k}: ${v}`).join("\n");
-
-  const prompt = `You are a senior B2B SDR coach. Write a tight, natural phone CALL SCRIPT a seller will read on a ${isFollowup ? "follow-up" : "first"} call. Output in ${lang}. It must sound like a human talking, not a memo.
-
-LEAD
-- ${name}${lead.primary_title_role ? `, ${lead.primary_title_role}` : ""}${lead.company_name ? ` at ${lead.company_name}` : ""}
-- Industry: ${lead.company_industry ?? "—"}
-${lead.primary_headline ? `- LinkedIn headline: ${lead.primary_headline}` : ""}
-
-ENRICHMENT (use specific signals if useful)
-${enrichmentDump || "(none)"}
-
-${icp ? `WHAT WE SELL
-- Offering: ${icp.solutions_offered ?? ""}
-- Pain we solve: ${icp.pain_points ?? ""}` : ""}
-
-${body.user_prompt ? `SELLER'S INTENT (honor this): ${body.user_prompt}` : ""}
-
-Structure: (1) warm opener using their first name + why you're calling, (2) one open question about their situation, (3) a 2-line value pitch tied to their likely pain, (4) a close proposing a 15-minute follow-up. Keep it ~120-160 words. Use {{first_name}}, {{company}}, {{seller_name}} placeholders where natural. Return ONLY the script text — no headings, no quotes, no commentary.`;
-
-  try {
-    const client = new Anthropic({ apiKey });
-    const res = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 700,
-      system: "You output ONLY the call script text — natural spoken language, no headings or meta-commentary. You never refuse.",
-      messages: [{ role: "user", content: prompt }],
-    });
-    const content = res.content[0]?.type === "text" ? res.content[0].text.trim() : "";
-    if (!content) return NextResponse.json({ error: "AI returned no script" }, { status: 502 });
-    return NextResponse.json({ content });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
+  return NextResponse.json({ error: "AI returned empty output after retry" }, { status: 502 });
 }

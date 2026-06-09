@@ -59,6 +59,10 @@ type Props = {
   /** Set for ICP-level generation (no specific lead) so the AI writes reusable templates. */
   icpProfileId?: string;
   language: string;
+  /** Wizard flow mode. "tailored" tells the AI to embed {{tailored:hook}}
+   * and {{tailored:fit}} slots in the templates so the post-approve
+   * tailor pass can swap in per-lead copy at send time. */
+  flowType?: "generic" | "tailored";
   /** Enrichment keys the rep ticked in SignalPicker — the AI is told to weave these in. */
   signals?: string[];
   /** Update attachments on sequence[stepIdx]. Optional so the component still
@@ -347,7 +351,7 @@ function PlaceholdersHint({
   );
 }
 
-export default function ChannelMessageConfig({ sequence, channelMessages, onChange, leadId, icpProfileId, language, signals, onAttachmentsChange, onReorderStep }: Props) {
+export default function ChannelMessageConfig({ sequence, channelMessages, onChange, leadId, icpProfileId, language, flowType = "generic", signals, onAttachmentsChange, onReorderStep }: Props) {
   const { locale, t } = useLocale();
   const placeholderLocale: "es" | "en" = locale === "es" ? "es" : "en";
   const typePlaceholders = typePlaceholdersByLocale[placeholderLocale];
@@ -434,7 +438,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
       const res = await fetch("/api/campaigns/generate-field", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ channel: ch || "linkedin", fieldType, idx, leadId, icpProfileId, language, signals, user_prompt: userPrompt, sequence_meta: sequence }),
+        body: JSON.stringify({ channel: ch || "linkedin", fieldType, idx, leadId, icpProfileId, language, flowType, signals, user_prompt: userPrompt, sequence_meta: sequence }),
       });
       const data = await res.json();
       if (data.content) {
@@ -507,7 +511,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           const crRes = await fetch("/api/campaigns/generate-field", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ channel: "linkedin", fieldType: "connectionNote", leadId, icpProfileId, language, signals, sequence_meta: sequence, user_prompt: channelMessages.connectionRequestPrompt ?? "" }),
+            body: JSON.stringify({ channel: "linkedin", fieldType: "connectionNote", leadId, icpProfileId, language, flowType, signals, sequence_meta: sequence, user_prompt: channelMessages.connectionRequestPrompt ?? "" }),
           });
           if (!crRes.ok) throw new Error("Connection request");
           const crData = await crRes.json();
@@ -533,7 +537,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           const res = await fetch("/api/campaigns/generate-field", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ channel: classified[i].channel, fieldType: ft, idx: i, leadId, icpProfileId, language, signals, user_prompt: stepUserPrompt, sequence_meta: sequence }),
+            body: JSON.stringify({ channel: classified[i].channel, fieldType: ft, idx: i, leadId, icpProfileId, language, flowType, signals, user_prompt: stepUserPrompt, sequence_meta: sequence }),
           });
           if (!res.ok) throw new Error(classified[i].label);
           const data = await res.json();
@@ -558,7 +562,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           const res = await fetch("/api/campaigns/generate-field", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ channel: "linkedin", fieldType: replyType, leadId, icpProfileId, language, signals, user_prompt: replyPrompt }),
+            body: JSON.stringify({ channel: "linkedin", fieldType: replyType, leadId, icpProfileId, language, flowType, signals, user_prompt: replyPrompt }),
           });
           if (!res.ok) throw new Error(human);
           const data = await res.json();

@@ -825,6 +825,8 @@ export const en: Dict = {
   // Per-flow row collapse toggle (B)
   "flows.row.showDetails": "Show details",
   "flows.row.hideDetails": "Hide details",
+  "flows.viewFlows": "View flows",
+  "flows.hideFlows": "Hide flows",
   // Within-ICP leaderboard ribbon (C)
   "flows.podium.eyebrow": "Best in this ICP",
   "flows.podium.empty": "No conversion data yet to rank flows",
@@ -2255,6 +2257,8 @@ export const es: Dict = {
   // Per-flow collapse toggle
   "flows.row.showDetails": "Ver detalle",
   "flows.row.hideDetails": "Ocultar detalle",
+  "flows.viewFlows": "Ver flujos",
+  "flows.hideFlows": "Ocultar flujos",
   // Within-ICP leaderboard ribbon
   "flows.podium.eyebrow": "Top del ICP",
   "flows.podium.empty": "Aún no hay datos de conversión para rankear",

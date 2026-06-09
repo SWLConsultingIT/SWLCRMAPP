@@ -816,13 +816,22 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
           </div>
         </div>
 
-        <ChevronDown size={18}
-          className="relative shrink-0 transition-transform duration-200 pointer-events-none"
+        {/* Explicit "View flows" pill (boss 2026-06-09: the bare chevron was
+            too subtle). Visual only — the whole header is the click target via
+            the overlay button above — but it reads as a clear affordance. */}
+        <span
+          className="relative shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-bold whitespace-nowrap pointer-events-none transition-opacity"
           style={{
-            color: "color-mix(in srgb, white 60%, transparent)",
-            transform: open ? "rotate(0deg)" : "rotate(-90deg)",
+            backgroundColor: open ? "color-mix(in srgb, white 8%, transparent)" : `color-mix(in srgb, ${gold} 18%, transparent)`,
+            color: open ? "color-mix(in srgb, white 75%, transparent)" : gold,
+            border: `1px solid color-mix(in srgb, ${gold} ${open ? 22 : 40}%, transparent)`,
             opacity: hydrated ? 1 : 0,
-          }} />
+          }}>
+          {open ? t("flows.hideFlows") : t("flows.viewFlows")}
+          <ChevronDown size={13}
+            className="transition-transform duration-200"
+            style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)" }} />
+        </span>
       </div>
 
       {open && (

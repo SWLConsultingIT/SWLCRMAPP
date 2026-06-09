@@ -1633,6 +1633,7 @@ export default function NewCampaignWizard() {
             onChange={setChannelMessages}
             sequence={sequence}
             language={language}
+            flowType={flowType ?? "generic"}
             icpProfileId={profileId}
             leadId={sampleLeadId ?? undefined}
             signals={selectedSignals}
