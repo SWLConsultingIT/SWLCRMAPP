@@ -184,18 +184,19 @@ const CHIP_STYLE: Record<string, { c: string; bg: string }> = {
   fail:   { c: "#DC2626", bg: "#FEE2E2" },
   none:   { c: "#9CA3AF", bg: "#F3F4F6" },
 };
-type Chip = { channel: string; label: string; tone: keyof typeof CHIP_STYLE };
+type Chip = { channel: string; label: string; tone: keyof typeof CHIP_STYLE; count?: number };
 function channelChips(camp: Campaign): Chip[] {
   const seq = Array.isArray(camp.sequence_steps) ? camp.sequence_steps : [];
   const cur = camp.current_step ?? 0;
   const rc = (camp.reply_class ?? "").toLowerCase();
   const chips: Chip[] = [];
-  const prog = (channel: string): { label: string; tone: keyof typeof CHIP_STYLE } | null => {
+  const prog = (channel: string): { label: string; tone: keyof typeof CHIP_STYLE; count: number } | null => {
     const idxs = seq.map((s, i) => (s.channel === channel ? i : -1)).filter(i => i >= 0);
     if (idxs.length === 0) return null;
-    if (idxs.some(i => i < cur)) return { label: "Sent", tone: "sent" };
-    if (idxs.some(i => i === cur)) return { label: "Queued", tone: "queued" };
-    return { label: "—", tone: "none" };
+    const sent = idxs.filter(i => i < cur).length; // steps of this channel already past the cursor
+    if (sent > 0) return { label: "Sent", tone: "sent", count: sent };
+    if (idxs.some(i => i === cur)) return { label: "Queued", tone: "queued", count: 0 };
+    return { label: "—", tone: "none", count: 0 };
   };
   // CR — only when the flow uses LinkedIn at all.
   if (seq.some(s => s.channel === "linkedin") || camp.step_0) {
@@ -209,16 +210,17 @@ function channelChips(camp: Campaign): Chip[] {
     }
     chips.push({ channel: "CR", label, tone });
   }
-  const li = prog("linkedin"); if (li) chips.push({ channel: "LinkedIn", label: li.label, tone: li.tone });
-  const em = prog("email");    if (em) chips.push({ channel: "Email", label: em.label, tone: em.tone });
+  const li = prog("linkedin"); if (li) chips.push({ channel: "LinkedIn", label: li.label, tone: li.tone, count: li.count });
+  const em = prog("email");    if (em) chips.push({ channel: "Email", label: em.label, tone: em.tone, count: em.count });
   if (seq.some(s => s.channel === "call")) {
-    let label: string, tone: keyof typeof CHIP_STYLE;
-    if (camp.leads?.allow_call === false) { label = "Wrong #"; tone = "fail"; }
+    const c = prog("call");
+    let label: string, tone: keyof typeof CHIP_STYLE, count = c?.count ?? 0;
+    if (camp.leads?.allow_call === false) { label = "Wrong #"; tone = "fail"; count = 0; }
     else if (rc === "not_now") { label = "Not now"; tone = "warn"; }
     else if (rc === "voicemail") { label = "Voicemail"; tone = "info"; }
     else if (rc === "followup") { label = "Bad timing"; tone = "warn"; }
-    else { const c = prog("call"); label = c?.label ?? "—"; tone = c?.tone ?? "none"; }
-    chips.push({ channel: "Call", label, tone });
+    else { label = c?.label ?? "—"; tone = c?.tone ?? "none"; }
+    chips.push({ channel: "Call", label, tone, count });
   }
   return chips;
 }
@@ -323,7 +325,7 @@ function LeadCard({ camp, isDragging }: { camp: Campaign; isDragging?: boolean }
                 style={{ backgroundColor: s.bg, color: s.c }}
                 title={chip.channel === "CR" ? (camp.step_0?.errorDetails ?? undefined) : undefined}>
                 <span style={{ opacity: 0.65 }}>{chip.channel}</span>
-                {chip.label}
+                {chip.label}{chip.count && chip.count > 0 ? ` ${chip.count}` : ""}
               </span>
             );
           })}
