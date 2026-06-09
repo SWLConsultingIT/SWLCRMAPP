@@ -1033,6 +1033,21 @@ export default async function DashboardPage({
         </div>
       </section>
 
+      {/* ─── Calls by user (boss 2026-06-09): per-seller call activity +
+          outcomes for the period, on the Overview at-a-glance. Respects the
+          top filter bar (period/campaign/icp/seller). */}
+      <section>
+        <Panel
+          title={t("dashx.callsByUser.title")}
+          subtitle={withScope(t("dashx.callsByUser.subtitle"))}
+          actionHref="/queue?tab=calls"
+          actionLabel={t("dashx.calls.openQueue")}
+          glow
+        >
+          <CallOutcomesBySeller rows={data.callOutcomesBySeller} />
+        </Panel>
+      </section>
+
       </section>
       )}
       {/* ═══ CHAPTER 2 · ICPs ═══════════════════════════════════════════════
