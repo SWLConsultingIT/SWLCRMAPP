@@ -338,16 +338,28 @@ async function generateCallScript(body: LegacyBody): Promise<NextResponse> {
     ? `\n\nTAILORED MODE — IMPORTANT: include the literal tokens {{tailored:hook}} at the very start of the opener (before greeting) AND {{tailored:fit}} embedded in the value-pitch line. Do NOT replace them with concrete text — leave them as literal tokens. The send-time renderer fills them per-lead.`
     : "";
 
+  // IMPORTANT: pass the lead's CONTEXT to the model (role, industry,
+  // signals) but NOT their literal name or company name — the script
+  // is a TEMPLATE used for many leads, so names MUST stay as
+  // {{first_name}} / {{company}} placeholders. If we hand the model
+  // the literal name in the LEAD block it tends to use it verbatim
+  // ("Hi William") instead of the placeholder.
   const prompt = `You are a senior B2B SDR coach. Write a tight, natural phone CALL SCRIPT a seller will read on a ${isFollowup ? "follow-up" : "first"} call.
 
 🌐 LANGUAGE LOCK: Output MUST be in ${lang}. Do NOT switch languages. Mixed-language output is a HARD FAILURE.
 
-LEAD
-- ${name}${lead.primary_title_role ? `, ${lead.primary_title_role}` : ""}${lead.company_name ? ` at ${coerce(lead.company_name)}` : ""}
+🔒 PLACEHOLDER RULE — STRICT:
+- For the lead's first name use {{first_name}} — NEVER write a literal name.
+- For the lead's company use {{company}} — NEVER write the literal company name.
+- For the seller's name use {{seller_name}} — NEVER write a literal seller name.
+The script is a reusable template for many leads — literal names in the body break it.
+
+LEAD ROLE & INDUSTRY (use for tone/angle — do NOT write the literal name)
+- Role: ${coerce(lead.primary_title_role) || "—"}
 - Industry: ${coerce(lead.company_industry) || "—"}
 ${lead.primary_headline ? `- LinkedIn headline: ${coerce(lead.primary_headline).slice(0, 200)}` : ""}
 
-${signals.length > 0 ? `SIGNALS (reference at least one of these specifically):\n${signals.join("\n")}\n` : ""}
+${signals.length > 0 ? `SIGNALS (reference at least one of these specifically — quote the content, but still call the lead by {{first_name}}):\n${signals.join("\n")}\n` : ""}
 ENRICHMENT
 ${enrichmentDump || "(none)"}
 
@@ -357,7 +369,7 @@ ${icp ? `WHAT WE SELL
 
 ${body.user_prompt ? `SELLER'S INTENT (honor this): ${body.user_prompt}` : ""}${tailoredHint}
 
-Structure: (1) warm opener using their first name + why you're calling, (2) one open question about their situation, (3) a 2-line value pitch tied to their likely pain, (4) a close proposing a 15-minute follow-up. Keep it ~120-160 words. Use {{first_name}}, {{company}}, {{seller_name}} placeholders where natural. Return ONLY the script text — no headings, no quotes, no commentary.`;
+Structure: (1) warm opener using {{first_name}} + why you're calling, (2) one open question about their situation, (3) a 2-line value pitch tied to their likely pain, (4) a close proposing a 15-minute follow-up. Keep it ~120-160 words. Use {{first_name}}, {{company}}, {{seller_name}} placeholders EVERYWHERE a literal name would naturally appear. Return ONLY the script text — no headings, no quotes, no commentary.`;
 
   try {
     const client = new OpenAI({ apiKey });

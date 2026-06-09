@@ -176,23 +176,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, tailored: 0, reason: "no slots in this campaign" });
   }
 
-  // Per the seller spec: only tailor the FIRST occurrence of each
-  // channel per lead. So group by lead → keep min(step_number) per
-  // channel. Follow-up steps that happen to use a slot are skipped on
-  // purpose (the seller assumes the lead already knows the company by
-  // step 2+).
-  const firstTouchKeys = new Set<string>();
-  const firstTouches: CampaignMessageRow[] = [];
-  const byLeadChannelStep = [...slotted].sort((a, b) => a.step_number - b.step_number);
-  for (const m of byLeadChannelStep) {
+  // Fran 2026-06-09: tailored slots now go in EVERY step body, not
+  // just first-touch. So we tailor every campaign_messages row that
+  // contains slots. The Haiku call is one-per-(lead, channel) — the
+  // hook+fit it returns are reused across that lead's follow-ups in
+  // the same channel so the per-lead voice stays coherent across the
+  // sequence (e.g. all 3 LinkedIn DMs to William reference his post
+  // the same way). Email follow-ups get the same hook+fit as the
+  // email intro for the same lead.
+  const tailoringTargets = slotted; // every slotted row gets filled
+  // Cap for the preview UI: when set, slice the unique (lead, channel)
+  // pairs to leadIdsLimit so we don't blow Haiku quota on previews.
+  const uniqueLeadChannels = new Map<string, CampaignMessageRow>();
+  for (const m of [...slotted].sort((a, b) => a.step_number - b.step_number)) {
     const key = `${m.lead_id}:${m.channel}`;
-    if (firstTouchKeys.has(key)) continue;
-    firstTouchKeys.add(key);
-    firstTouches.push(m);
+    if (!uniqueLeadChannels.has(key)) uniqueLeadChannels.set(key, m);
   }
-
-  // Optional cap for the preview UI.
-  const targets = leadIdsLimit && leadIdsLimit > 0 ? firstTouches.slice(0, leadIdsLimit) : firstTouches;
+  const allLeadChannels = Array.from(uniqueLeadChannels.values());
+  const sampledLeadChannels = leadIdsLimit && leadIdsLimit > 0
+    ? allLeadChannels.slice(0, leadIdsLimit)
+    : allLeadChannels;
+  const sampledKeys = new Set(sampledLeadChannels.map(m => `${m.lead_id}:${m.channel}`));
+  // targets = the (lead, channel) pairs we actually call Haiku for.
+  const targets = sampledLeadChannels;
+  // Apply targets = every slotted row whose (lead, channel) is in the sample.
+  const applyTargets = tailoringTargets.filter(m => sampledKeys.has(`${m.lead_id}:${m.channel}`));
 
   // Load the lead rows we need.
   const leadIds = [...new Set(targets.map(t => t.lead_id))];
@@ -214,10 +222,14 @@ export async function POST(req: NextRequest) {
   // via `stepChannel`.
   const client = new Anthropic({ apiKey });
 
-  type TailorResult = { row: CampaignMessageRow; slots: TailoredSlots | null; renderedContent: string | null; reused?: boolean };
-  const results: TailorResult[] = await bulkParallel(targets, async (row) => {
+  // ONE Haiku call per (lead, channel). The hook+fit returned gets
+  // applied to EVERY slotted row in that (lead, channel) so the
+  // sequence stays coherent across follow-ups (same per-lead voice
+  // referenced in step 0, step 1, step 2, etc.).
+  type LeadChannelSlots = { lead_id: string; channel: string; slots: TailoredSlots | null };
+  const perLeadChannel: LeadChannelSlots[] = await bulkParallel(targets, async (row) => {
     const lead = leadById.get(row.lead_id);
-    if (!lead) return { row, slots: null, renderedContent: null };
+    if (!lead) return { lead_id: row.lead_id, channel: row.channel, slots: null };
 
     // Reuse path — if the wizard already generated + (optionally) the
     // seller edited a hook/fit for this lead in Step 3, use those
@@ -228,9 +240,7 @@ export async function POST(req: NextRequest) {
       const hook = (edit?.hook && edit.hook.trim()) || (cached.hook && cached.hook.trim()) || "";
       const fit = (edit?.fit && edit.fit.trim()) || (cached.fit && cached.fit.trim()) || "";
       if (hook && fit) {
-        const slots: TailoredSlots = { hook, fit };
-        const renderedContent = substituteTailoredSlots(row.content ?? "", slots);
-        return { row, slots, renderedContent, reused: true };
+        return { lead_id: row.lead_id, channel: row.channel, slots: { hook, fit } };
       }
     }
 
@@ -242,6 +252,18 @@ export async function POST(req: NextRequest) {
       stepChannel: row.channel,
     };
     const slots = await callHaiku(client, ctx);
+    return { lead_id: row.lead_id, channel: row.channel, slots };
+  });
+
+  // Map (lead, channel) → slots so we can apply to every slotted row.
+  const slotsByKey = new Map<string, TailoredSlots>();
+  for (const x of perLeadChannel) {
+    if (x.slots) slotsByKey.set(`${x.lead_id}:${x.channel}`, x.slots);
+  }
+
+  type TailorResult = { row: CampaignMessageRow; slots: TailoredSlots | null; renderedContent: string | null };
+  const results: TailorResult[] = applyTargets.map(row => {
+    const slots = slotsByKey.get(`${row.lead_id}:${row.channel}`) ?? null;
     if (!slots) return { row, slots: null, renderedContent: null };
     const renderedContent = substituteTailoredSlots(row.content ?? "", slots);
     return { row, slots, renderedContent };
@@ -262,10 +284,6 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Persist. Same row may be touched once (one channel = one tailor
-  // call). Do not touch rows where Haiku failed — they keep the raw
-  // template, and the dispatcher's unresolved-placeholder guard will
-  // mark them needs-attention instead of silently shipping.
   let written = 0;
   for (const r of results) {
     if (!r.slots || !r.renderedContent) continue;
@@ -285,7 +303,8 @@ export async function POST(req: NextRequest) {
     ok: true,
     tailored: written,
     failed: results.length - written,
-    totalCandidates: firstTouches.length,
+    totalCandidates: applyTargets.length,
+    haikuCalls: targets.length,
     processed: results.length,
   });
 }
