@@ -128,6 +128,18 @@ const sequenceTemplates = [
 
 const WIZARD_STEPS = ["Sequence", "Settings", "Messages", "Review"];
 
+// Stable 32-bit-ish hash of a string. Used to scope the wizard's
+// sessionStorage draft by the lead-subset so two campaigns off the
+// same ICP with different leads don't share a draft.
+function hashStr(s: string): string {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) - h) + s.charCodeAt(i);
+    h |= 0;
+  }
+  return (h >>> 0).toString(36);
+}
+
 export default function NewCampaignWizard() {
   const router = useRouter();
   const params = useParams();
@@ -264,9 +276,14 @@ export default function NewCampaignWizard() {
 
   // Wizard draft autosave — persist sequence + channelMessages + the meta
   // settings to sessionStorage so a refresh or accidental nav never wipes
-  // the work-in-progress. Scoped per ICP so different campaigns don't
-  // collide. Cleared on successful submit.
-  const draftKey = `swl-wizard-draft:${profileId}`;
+  // the work-in-progress. Scoped per (ICP, lead-subset) so two campaigns
+  // off the SAME ICP but different leads don't collide on the same key
+  // — Fran 2026-06-09 saw a wizard for Alberto Lupi + Covacig restore a
+  // draft from a previous run on the same ICP. Hash the leads CSV so
+  // the key length stays bounded.
+  const leadsParam = searchParams.get("leads") ?? "";
+  const leadsKeyPart = leadsParam ? `sel-${leadsParam.split(",").length}-${hashStr(leadsParam)}` : "all";
+  const draftKey = `swl-wizard-draft:${profileId}:${leadsKeyPart}`;
   const [draftRestored, setDraftRestored] = useState(false);
   // Tailored-mode state — populated lazily when the seller lands on
   // Step 3 in tailored mode so we don't pay query cost for generic.
