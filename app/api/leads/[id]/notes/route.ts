@@ -91,7 +91,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       type: "mention",
       leadId: id,
       body: `mentioned you on ${label}`,
-      link: `/leads/${id}`,
+      // Deep-link straight to the Notes tab so the recipient lands ON the
+      // @mention, not the Profile tab (boss 2026-06-09: "no me muestra el tag").
+      link: `/leads/${id}?tab=notes`,
     });
   }
   return NextResponse.json({ note: data });
