@@ -1678,6 +1678,40 @@ export default function NewCampaignWizard() {
           <p className="text-xs" style={{ color: C.textMuted }}>
             Variables: {"{{first_name}}, {{last_name}}, {{company}}, {{role}}"} — replaced per lead at send time. Plus any ICP-specific signals you tick below (e.g. credit rating, trade debtors) will be woven in per lead.
           </p>
+
+          {flowType === "tailored" && (
+            <div className="rounded-2xl border p-4 relative overflow-hidden"
+              style={{
+                background: `linear-gradient(135deg, ${C.card} 0%, color-mix(in srgb, ${gold} 7%, ${C.card}) 100%)`,
+                borderColor: `color-mix(in srgb, ${gold} 35%, ${C.border})`,
+                boxShadow: `0 4px 18px -10px color-mix(in srgb, ${gold} 30%, transparent)`,
+              }}>
+              <div className="absolute left-0 top-0 bottom-0 w-1" style={{ background: `linear-gradient(180deg, ${gold}, color-mix(in srgb, ${gold} 50%, transparent))` }} />
+              <div className="flex items-start gap-3 pl-2">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                  style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))` }}>
+                  <span className="text-lg" aria-hidden>✨</span>
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <h3 className="text-sm font-bold" style={{ color: C.textPrimary }}>Tailored mode is on</h3>
+                    <span className="text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                      style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`, color: "#1A1A2E" }}>
+                      AI per-lead
+                    </span>
+                  </div>
+                  <p className="text-[12px] leading-relaxed" style={{ color: C.textBody }}>
+                    When you draft a step, the AI will embed{" "}
+                    <code className="text-[11px] px-1 py-0.5 rounded font-mono" style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}>{"{{tailored:hook}}"}</code>{" "}
+                    and{" "}
+                    <code className="text-[11px] px-1 py-0.5 rounded font-mono" style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}>{"{{tailored:fit}}"}</code>{" "}
+                    in the body. Those tokens get replaced per-lead at send time with copy drawn from each lead&apos;s LinkedIn posts, news, and tech stack. You&apos;ll see and validate them lead-by-lead in the next step.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <SignalPicker
             enrichment={sampleEnrichment}
             selected={selectedSignals}

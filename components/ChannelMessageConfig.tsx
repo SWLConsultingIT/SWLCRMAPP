@@ -9,7 +9,7 @@ import {
   AlertTriangle, Tag,
 } from "lucide-react";
 import StepAttachments, { type StepAttachment } from "@/components/StepAttachments";
-import { PLACEHOLDER_GROUPS, unsupportedPlaceholdersIn, findSuspiciousPlaceholders, autoFixPlaceholders } from "@/lib/placeholders";
+import { PLACEHOLDER_GROUPS, unsupportedPlaceholdersIn, findSuspiciousPlaceholders, autoFixPlaceholders, findTailoredSlots } from "@/lib/placeholders";
 
 const gold = C.gold;
 
@@ -844,6 +844,36 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                     {cls.label}
                   </span>
                   <span className="text-[11px] tabular-nums shrink-0" style={{ color: C.textDim }}>· Day {dayPerStep[i]}</span>
+                  {/* Tailored status chip — shows the seller, at a glance,
+                      whether THIS step body has per-lead AI slots in it.
+                      Gold pill when present (the wizard generation auto-
+                      inserted them). Amber warning when tailored mode is
+                      on but the body has no slots so this step will ship
+                      as a static template (still works, just not tailored). */}
+                  {flowType === "tailored" && (() => {
+                    const body = steps[i]?.body ?? "";
+                    const subject = steps[i]?.subject ?? "";
+                    const slots = [...findTailoredSlots(body), ...findTailoredSlots(subject)];
+                    if (slots.length > 0) {
+                      return (
+                        <span className="text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 flex items-center gap-1"
+                          style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`, color: "#1A1A2E" }}
+                          title={`Per-lead slots in body: ${slots.join(", ")}`}>
+                          ✨ Per-lead AI
+                        </span>
+                      );
+                    }
+                    if (body.trim().length > 0) {
+                      return (
+                        <span className="text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 flex items-center gap-1"
+                          style={{ backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#D97706", border: "1px solid color-mix(in srgb, #D97706 30%, transparent)" }}
+                          title="Tailored mode is on but this step has no {{tailored:hook}} / {{tailored:fit}}. Re-draft with AI to insert them or it'll ship as a generic step.">
+                          ⚠ Generic body
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
                   <div className="ml-auto flex items-center gap-1.5">
                     {onReorderStep && (
                       <div className="flex items-center rounded-md overflow-hidden border" style={{ borderColor: C.border }}>
