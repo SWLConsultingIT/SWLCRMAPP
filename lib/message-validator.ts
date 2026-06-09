@@ -52,21 +52,26 @@ const NO_REINTRO_TYPES = new Set<MessageType>([
   "AUTO_REPLY_POSITIVE", "AUTO_REPLY_NEGATIVE",
 ]);
 
+// Length caps in CHARACTERS (estimated post-substitution). Bumped on
+// 2026-06-09 because the tailored-mode bodies were getting flagged
+// "Too long" when the base template (~ICP context + structure) +
+// hook (~150 chars) + fit (~180 chars) substitution combined exceeded
+// the old caps. New caps give the tailor pass ~300 chars of room.
 const LENGTH_CAP: Record<MessageType, number> = {
   LINKEDIN_CONNECTION_REQUEST: 195,
-  LINKEDIN_INTRO_DM: 400,
-  LINKEDIN_FOLLOWUP_BUMP: 320,
-  LINKEDIN_FOLLOWUP_PROOF: 400,
-  LINKEDIN_FOLLOWUP_INTERRUPT: 300,
-  LINKEDIN_FOLLOWUP_BREAKUP: 240,
-  EMAIL_INTRO: 700,
-  EMAIL_FOLLOWUP_CROSS: 500,
-  EMAIL_FOLLOWUP: 400,
-  CALL_FIRST: 1500,
-  CALL_FOLLOWUP: 800,
-  AUTO_REPLY_POSITIVE: 350,
-  AUTO_REPLY_NEGATIVE: 280,
-  GENERIC: 600,
+  LINKEDIN_INTRO_DM: 600,           // was 400 — fits intro + hook + fit
+  LINKEDIN_FOLLOWUP_BUMP: 500,      // was 320
+  LINKEDIN_FOLLOWUP_PROOF: 550,     // was 400
+  LINKEDIN_FOLLOWUP_INTERRUPT: 450, // was 300
+  LINKEDIN_FOLLOWUP_BREAKUP: 380,   // was 240
+  EMAIL_INTRO: 950,                 // was 700
+  EMAIL_FOLLOWUP_CROSS: 700,        // was 500
+  EMAIL_FOLLOWUP: 600,              // was 400
+  CALL_FIRST: 1800,                 // was 1500
+  CALL_FOLLOWUP: 1000,              // was 800
+  AUTO_REPLY_POSITIVE: 400,
+  AUTO_REPLY_NEGATIVE: 320,
+  GENERIC: 750,
 };
 
 const HEAVY_FLUFF: RegExp[] = [
