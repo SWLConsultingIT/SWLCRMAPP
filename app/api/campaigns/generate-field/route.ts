@@ -31,6 +31,10 @@ type LegacyBody = {
   // New shape pieces (preferred when caller already speaks the n8n contract):
   sequence?: SequenceEntry[];
   target_step?: number;
+  /** "tailored" tells the V8 workflow to embed {{tailored:hook}} +
+   *  {{tailored:fit}} placeholders in every body so the post-approve
+   *  tailor pass can fill them per-lead. Default "generic". */
+  flowType?: "generic" | "tailored";
 };
 
 const AUTO_REPLY_MAP: Record<string, "positive" | "negative"> = {
@@ -99,6 +103,8 @@ export async function POST(req: NextRequest) {
     return await generateCallScript(body);
   }
 
+  const flowTypeForWorkflow = body.flowType === "tailored" ? "tailored" : "generic";
+
   const n8nPayload = autoReplyType
     ? {
         auto_reply_type: autoReplyType,
@@ -108,6 +114,7 @@ export async function POST(req: NextRequest) {
         signals: [],
         sequence_id: body.sequence_id ?? null,
         user_prompt: body.user_prompt ?? null,
+        flow_type: flowTypeForWorkflow,
       }
     : (() => {
         const sequence = inferSequence(body);
@@ -133,6 +140,7 @@ export async function POST(req: NextRequest) {
           signals: Array.isArray(body.signals) ? body.signals : [],
           target_step: targetStep,
           sequence_id: body.sequence_id ?? null,
+          flow_type: flowTypeForWorkflow,
         };
       })();
 
@@ -353,16 +361,30 @@ Structure: (1) warm opener using their first name + why you're calling, (2) one 
 
   try {
     const client = new OpenAI({ apiKey });
-    const res = await client.chat.completions.create({
+    // gpt-5-mini is a reasoning model: max_completion_tokens covers
+    // BOTH reasoning tokens AND visible output. A 700 cap leaves zero
+    // for the visible answer once the model thinks for a few hundred
+    // tokens — we got "AI returned no script". Lift to 4000 and set
+    // reasoning_effort: "minimal" so call scripts don't need much
+    // chain-of-thought (they're short, structured text).
+    // Cast to any: the OpenAI lib's overloaded create() can return a
+    // Stream when stream:true, but we never stream here. Cast keeps TS
+    // happy while we use the non-streaming ChatCompletion shape.
+    const res: any = await client.chat.completions.create({
       model: "gpt-5-mini",
-      max_completion_tokens: 700,
+      max_completion_tokens: 4000,
+      reasoning_effort: "minimal",
       messages: [
         { role: "system", content: `You output ONLY the call script text — natural spoken language in ${lang}, no headings or meta-commentary. You never refuse. You never slip to English when another language is locked.` },
         { role: "user", content: prompt },
       ],
-    });
-    const content = (res.choices[0]?.message?.content ?? "").trim();
-    if (!content) return NextResponse.json({ error: "AI returned no script" }, { status: 502 });
+    } as any);
+    const content = (res.choices?.[0]?.message?.content ?? "").trim();
+    if (!content) {
+      const finishReason = res.choices?.[0]?.finish_reason ?? "unknown";
+      console.error("[generate-field/call] OpenAI empty response. finish_reason:", finishReason, "usage:", JSON.stringify(res.usage));
+      return NextResponse.json({ error: `AI returned no script (finish_reason: ${finishReason})` }, { status: 502 });
+    }
     return NextResponse.json({ content });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
