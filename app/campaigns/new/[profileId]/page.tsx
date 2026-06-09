@@ -1701,11 +1701,10 @@ export default function NewCampaignWizard() {
                     </span>
                   </div>
                   <p className="text-[12px] leading-relaxed" style={{ color: C.textBody }}>
-                    When you draft a step, the AI will embed{" "}
-                    <code className="text-[11px] px-1 py-0.5 rounded font-mono" style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}>{"{{tailored:hook}}"}</code>{" "}
-                    and{" "}
+                    The template you write here is <strong>the same for every lead</strong>. The AI only swaps the two slots —{" "}
+                    <code className="text-[11px] px-1 py-0.5 rounded font-mono" style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}>{"{{tailored:hook}}"}</code>{" "}and{" "}
                     <code className="text-[11px] px-1 py-0.5 rounded font-mono" style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}>{"{{tailored:fit}}"}</code>{" "}
-                    in the body. Those tokens get replaced per-lead at send time with copy drawn from each lead&apos;s LinkedIn posts, news, and tech stack. You&apos;ll see and validate them lead-by-lead in the next step.
+                    — per-lead at send time, drawing from each lead&apos;s LinkedIn posts, news, and tech stack. Click <strong>Preview all</strong> to let the AI draft the templates with the slots embedded, then jump to <strong>Step 4 (Review)</strong> to see the per-lead result lead-by-lead.
                   </p>
                 </div>
               </div>

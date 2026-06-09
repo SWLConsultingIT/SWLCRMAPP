@@ -965,6 +965,24 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
                     title={typeDescriptions[cls.type] || ""}
                   />
 
+                  {/* Tailored-slot reassurance bar — only shown when the
+                      step body actually contains per-lead slots so the
+                      seller doesn't think the textarea is "the message"
+                      that goes literally to every lead. The same chip
+                      logic the header uses, surfaced inline near the body. */}
+                  {flowType === "tailored" && (() => {
+                    const present = findTailoredSlots(step?.body ?? "");
+                    if (present.length === 0) return null;
+                    return (
+                      <div className="mt-1.5 flex items-center gap-2 px-2.5 py-1.5 rounded-md text-[10.5px]"
+                        style={{ background: `color-mix(in srgb, ${gold} 8%, transparent)`, border: `1px solid color-mix(in srgb, ${gold} 25%, transparent)`, color: gold }}>
+                        <Sparkles size={10} />
+                        <span><strong>Per-lead:</strong> {present.map(s => <code key={s} className="px-1 py-0.5 rounded font-mono" style={{ backgroundColor: `color-mix(in srgb, ${gold} 14%, transparent)` }}>{`{{${s}}}`}</code>).reduce((acc, el, idx) => idx === 0 ? [el] : [...acc, " · ", el], [] as React.ReactNode[])}</span>
+                        <span className="ml-auto" style={{ color: C.textMuted }}>The rest of the text is identical for every lead · per-lead result lives in Step 4</span>
+                      </div>
+                    );
+                  })()}
+
                   {/* SECONDARY: AI prompt — collapsed by default. */}
                   {!isAiPromptOpen(`step-${i}`, step?.user_prompt) ? (
                     <button onClick={() => toggleAiPrompt(`step-${i}`)}
