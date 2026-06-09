@@ -61,6 +61,28 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [currentCall, setCurrentCall] = useState<CallInfo | null>(null);
+  // Floating-widget position (boss 2026-06-09: the phone used to take over the
+  // whole screen; now it's a draggable corner widget so you can navigate the
+  // app + read the lead while on the call). null = default bottom-right anchor.
+  const [widgetPos, setWidgetPos] = useState<{ top: number; left: number } | null>(null);
+  const dragOffset = useRef<{ dx: number; dy: number } | null>(null);
+  function startDrag(e: React.MouseEvent) {
+    const card = (e.currentTarget as HTMLElement).closest("[data-aircall-card]") as HTMLElement | null;
+    if (!card) return;
+    const r = card.getBoundingClientRect();
+    dragOffset.current = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+    const move = (ev: MouseEvent) => {
+      if (!dragOffset.current) return;
+      const maxLeft = window.innerWidth - 80, maxTop = window.innerHeight - 60;
+      setWidgetPos({
+        left: Math.min(Math.max(0, ev.clientX - dragOffset.current.dx), maxLeft),
+        top: Math.min(Math.max(0, ev.clientY - dragOffset.current.dy), maxTop),
+      });
+    };
+    const up = () => { dragOffset.current = null; window.removeEventListener("mousemove", move); window.removeEventListener("mouseup", up); };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  }
   // Lead whose call just ended and still needs an outcome logged. Driven here
   // (not in CallButton) so the prompt ALWAYS shows when a call ends, on any
   // page, even if the originating button has unmounted.
@@ -205,36 +227,32 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
           (#aircall-iframe-target) for the SDK to mount into. Iframe stays
           mounted permanently — we toggle visibility on the wrapper so the
           login + warm-up cost only happens once per session. */}
+      {/* Non-blocking wrapper: full-screen but pointer-events:none + no
+          backdrop, so the app behind stays fully clickable/navigable while a
+          call runs. Only the floating card itself captures clicks. */}
       <div
         aria-hidden={!isOpen}
         style={{
           position: "fixed",
           inset: 0,
           zIndex: 9999,
-          pointerEvents: isOpen ? "auto" : "none",
+          pointerEvents: "none",
           opacity: isOpen ? 1 : 0,
           transition: "opacity 200ms cubic-bezier(0.16, 1, 0.3, 1)",
-          background: "rgba(8, 12, 28, 0.55)",
-          backdropFilter: "blur(8px)",
-          WebkitBackdropFilter: "blur(8px)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 24,
-        }}
-        onClick={(e) => {
-          // Close on backdrop click only when not in an active call —
-          // we don't want a stray click to hide the phone mid-conversation.
-          if (e.target === e.currentTarget && currentCall?.state !== "ringing" && currentCall?.state !== "answered") {
-            closePhone();
-          }
         }}
       >
         <div
+          data-aircall-card
           style={{
-            // Sized for the 376x600 'small' Aircall iframe + ~24px side padding
-            width: 440,
-            maxWidth: "100%",
+            // Floating widget — bottom-right by default, draggable via header.
+            position: "fixed",
+            ...(widgetPos
+              ? { top: widgetPos.top, left: widgetPos.left }
+              : { bottom: 20, right: 20 }),
+            pointerEvents: isOpen ? "auto" : "none",
+            // Sized for the 376x600 'small' Aircall iframe.
+            width: 420,
+            maxWidth: "calc(100vw - 32px)",
             maxHeight: "92vh",
             background: "var(--c-card, #ffffff)",
             borderRadius: 20,
@@ -246,13 +264,17 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
             transition: "transform 220ms cubic-bezier(0.16, 1, 0.3, 1)",
           }}
         >
-          {/* SWL branded header — slimmer, more premium */}
+          {/* SWL branded header — also the drag handle (move the widget out of
+              the way to read the lead). */}
           <div
+            onMouseDown={startDrag}
             style={{
               position: "relative",
               padding: "16px 20px",
               background: `linear-gradient(135deg, var(--c-ink, #0d1224) 0%, var(--c-ink2, #161c33) 100%)`,
               overflow: "hidden",
+              cursor: "move",
+              userSelect: "none",
             }}
           >
             {/* Hairline gold accent on the bottom edge — editorial detail */}
@@ -295,6 +317,7 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
               <button
                 type="button"
                 onClick={closePhone}
+                onMouseDown={(e) => e.stopPropagation()}
                 aria-label="Close phone"
                 style={{
                   width: 32, height: 32, borderRadius: 8, border: "none", cursor: "pointer",

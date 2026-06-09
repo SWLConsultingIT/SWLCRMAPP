@@ -358,6 +358,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   const inlinePlaceholders = inlinePlaceholdersByLocale[placeholderLocale];
   const typeDescriptions = typeDescriptionsByLocale[placeholderLocale];
   const [aiLoading, setAiLoading] = useState<string | null>(null);
+  const [aiError, setAiError] = useState<string | null>(null);
   // Generate All progress — shown in the button while the multi-call loop
   // runs so sellers don't think the page is frozen during the ~20-30s wait.
   const [genProgress, setGenProgress] = useState<{ current: number; total: number; label: string } | null>(null);
@@ -423,6 +424,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
   async function generateField(fieldType: string, idx?: number) {
     const key = `${fieldType}:${idx ?? ""}`;
     setAiLoading(key);
+    setAiError(null);
     try {
       const ch = idx !== undefined ? classified[idx]?.channel : "linkedin";
       const userPrompt =
@@ -440,7 +442,14 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ channel: ch || "linkedin", fieldType, idx, leadId, icpProfileId, language, flowType, signals, user_prompt: userPrompt, sequence_meta: sequence }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = (data && (data.error ?? data.message)) || `HTTP ${res.status}`;
+        console.error("[AI generate]", msg, data);
+        setAiError(`AI couldn't draft this step: ${msg}`);
+        setAiLoading(null);
+        return;
+      }
       if (data.content) {
         // Build fresh steps from current channelMessages to avoid stale closures
         const currentSteps = classified.map((cls, i) => channelMessages.steps?.[i] || {
@@ -472,7 +481,9 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         }
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       console.error("AI generation error:", err);
+      setAiError(`Network error reaching AI: ${msg}`);
     }
     setAiLoading(null);
   }

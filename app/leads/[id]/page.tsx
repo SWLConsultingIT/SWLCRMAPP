@@ -694,6 +694,17 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             the seller can dig into the raw profile after the 30-sec summary. ═══ */}
       <LinkedInEnrichment leadId={id} />
 
+      {/* AI Summary — moved out of its own tab into a card right under
+          LinkedIn Enrichment (boss 2026-06-09: "summary debería ser un card
+          abajo de linkedin enrichment y sacar esa view"). */}
+      <div className="mt-6">
+        <LeadSummaryTab
+          leadId={id}
+          initialSummary={lead.ai_summary ?? null}
+          initialGeneratedAt={lead.ai_summary_at ?? null}
+        />
+      </div>
+
       {/* ═══ NEXT ACTION CARD — what the user should do or know right now.
             Sits above the stepper so the seller doesn't have to interpret the
             progress bar to figure out what's pending. */}
@@ -948,7 +959,6 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         { label: "Profile Overview" },
         { label: "Campaign" },
         { label: "Calls", count: calls.length || undefined },
-        { label: "Summary" },
         { label: "Conversation" },
         { label: "Notes" },
         { label: "Social & Content" },
@@ -1409,14 +1419,10 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           )}
         </div>
 
-        {/* ── TAB 4: Summary ── */}
-        <LeadSummaryTab
-          leadId={id}
-          initialSummary={lead.ai_summary ?? null}
-          initialGeneratedAt={lead.ai_summary_at ?? null}
-        />
+        {/* Summary moved out to a card under LinkedIn Enrichment (boss
+            2026-06-09) — no longer a tab. */}
 
-        {/* ── TAB 5: Conversation ── the real LinkedIn/email/call thread
+        {/* ── Conversation ── the real LinkedIn/email/call thread
             (sent + received + connection request), replacing the old
             event-only Recent Activity timeline. Same chat component used in
             Results/Opportunities so the conversation reads the same everywhere. */}

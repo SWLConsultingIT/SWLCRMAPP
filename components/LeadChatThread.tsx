@@ -61,6 +61,14 @@ function channelColor(ch: string | null): string {
   if (ch === "whatsapp") return "#25D366";
   return C.textMuted;
 }
+function channelLabel(ch: string | null): string {
+  if (ch === "linkedin") return "LinkedIn";
+  if (ch === "email") return "Email";
+  if (ch === "call" || ch === "phone") return "Call";
+  if (ch === "whatsapp") return "WhatsApp";
+  if (ch === "sms") return "SMS";
+  return "Message";
+}
 function initials(name: string | null | undefined): string {
   if (!name) return "?";
   return name.trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase() ?? "").join("") || "?";
@@ -222,6 +230,13 @@ export default function LeadChatThread({ leadId, leadName }: { leadId?: string; 
                     : <p className="text-sm" style={{ color: C.textMuted }}>(sin contenido)</p>}
                 </div>
                 <div className="flex items-center gap-1.5 mt-1 text-[10px]" style={{ color: C.textDim }}>
+                  {/* Channel chip — always shown so it's clear which channel
+                      each sent/received message came through (boss 2026-06-09). */}
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-semibold"
+                    style={{ backgroundColor: `color-mix(in srgb, ${channelColor(entry.channel)} 12%, transparent)`, color: channelColor(entry.channel) }}>
+                    <Icon size={9} /> {channelLabel(entry.channel)}
+                  </span>
+                  <span>·</span>
                   <span className="tabular-nums">{timeOnly(entry.at)}</span>
                   {stepLabel && (
                     <>

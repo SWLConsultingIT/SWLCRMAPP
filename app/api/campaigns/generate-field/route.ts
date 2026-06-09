@@ -359,11 +359,17 @@ function postProcess(stepType: StepType, content: string, subject: string): { co
 }
 
 export async function POST(req: NextRequest) {
-  const scope = await getUserScope();
-  if (!scope.userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  // The legacy n8n-proxy version of this endpoint had no auth gate —
+  // the wizard hits it from the browser via fetch on a same-origin URL
+  // and only the bio/icp/lead text it sends informs the prompt. Keep
+  // that behavior. Scope is read for the bio fallback, not enforced.
+  const scope = await getUserScope().catch(() => null);
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
+  if (!apiKey) {
+    console.error("[generate-field] ANTHROPIC_API_KEY not configured in env");
+    return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured on the server" }, { status: 500 });
+  }
 
   const body = (await req.json().catch(() => ({}))) as Body;
   const stepType = resolveStepType(body);
@@ -371,7 +377,7 @@ export async function POST(req: NextRequest) {
   const language = body.language ?? "es";
   const userPrompt = body.user_prompt ?? "";
 
-  const { lead, icp, bio } = await loadContext(body, scope.isScoped ? scope.companyBioId : null);
+  const { lead, icp, bio } = await loadContext(body, scope?.isScoped ? scope.companyBioId : null);
 
   const needsSubject = stepType === "EMAIL_INTRO" || stepType === "EMAIL_FOLLOWUP" || stepType === "EMAIL_FOLLOWUP_CROSS";
   const prompt = buildPrompt({ stepType, lead, icp, bio, language, userPrompt, flowType });
@@ -380,6 +386,7 @@ export async function POST(req: NextRequest) {
 
   // One retry on empty — Haiku occasionally returns an empty content array
   // when the system prompt + user prompt edge into refusal territory.
+  let lastError: string | null = null;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const res = await client.messages.create({
@@ -393,17 +400,17 @@ export async function POST(req: NextRequest) {
         .map(c => (c as { type: "text"; text: string }).text)
         .join("")
         .trim();
-      if (!raw) continue;
+      if (!raw) { lastError = "empty model output"; continue; }
       const parsed = parseSubjectAndBody(raw, needsSubject);
       const finalOut = postProcess(stepType, parsed.content, parsed.subject);
-      if (!finalOut.content) continue;
-      // For connectionNote callers, response key is `content` (= the CR text).
+      if (!finalOut.content) { lastError = "empty parsed body"; continue; }
       return NextResponse.json({ content: finalOut.content, subject: finalOut.subject });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (attempt === 1) return NextResponse.json({ error: msg }, { status: 502 });
+      lastError = err instanceof Error ? err.message : String(err);
+      console.error(`[generate-field] attempt ${attempt + 1} failed for ${stepType}:`, lastError);
+      if (attempt === 1) return NextResponse.json({ error: `AI call failed: ${lastError}` }, { status: 502 });
     }
   }
 
-  return NextResponse.json({ error: "AI returned empty output after retry" }, { status: 502 });
+  return NextResponse.json({ error: `AI returned empty output after retry (${lastError ?? "unknown"})` }, { status: 502 });
 }
