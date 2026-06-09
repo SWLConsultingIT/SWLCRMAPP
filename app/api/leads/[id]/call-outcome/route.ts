@@ -24,9 +24,9 @@ import { getUserScope } from "@/lib/scope";
 // All four log a synthetic lead_replies row with channel='call' so the
 // outcome shows up in the History tab alongside email/LinkedIn replies.
 
-type Outcome = "interested" | "not_interested" | "bad_timing" | "wrong_number";
+type Outcome = "interested" | "not_interested" | "bad_timing" | "voicemail" | "wrong_number";
 
-const VALID: ReadonlySet<Outcome> = new Set(["interested", "not_interested", "bad_timing", "wrong_number"] as const);
+const VALID: ReadonlySet<Outcome> = new Set(["interested", "not_interested", "bad_timing", "voicemail", "wrong_number"] as const);
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const scope = await getUserScope();
@@ -48,7 +48,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const now = new Date().toISOString();
   const summary = outcome === "interested" ? "Call outcome: interested — proceed to book meeting"
     : outcome === "not_interested" ? "Call outcome: not interested"
-    : outcome === "bad_timing"     ? "Call outcome: bad timing — campaign continues normally"
+    : outcome === "bad_timing"     ? "Call outcome: bad timing — answered but can't talk now, campaign continues"
+    : outcome === "voicemail"      ? "Call outcome: voicemail — no answer / left a message, campaign continues"
                                    : "Call outcome: wrong number — call channel disabled for lead";
 
   // 1) Synthetic lead_reply so the outcome appears in /queue History
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     interested: "positive",
     not_interested: "negative",
     bad_timing: "not_now",
+    voicemail: "voicemail",
     wrong_number: "wrong_number",
   };
   await svc.from("lead_replies").insert({
@@ -85,6 +87,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     interested: "positive",
     not_interested: "negative",
     bad_timing: "follow_up",
+    voicemail: "voicemail",
     wrong_number: "wrong_number",
   };
   const { data: recentCalls } = await svc
@@ -112,8 +115,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   } else if (outcome === "not_interested") {
     await svc.from("leads").update({ status: "closed_lost", responded: true, response_outcome: "not_interested", updated_at: now }).eq("id", leadId);
     await svc.from("campaigns").update({ status: "closed_lost", stop_reason: "call_negative", completed_at: now }).eq("lead_id", leadId).in("status", ["active", "paused"]);
-  } else if (outcome === "bad_timing") {
-    // Bad timing = follow-up. Do NOT advance the step on the spot — the
+  } else if (outcome === "bad_timing" || outcome === "voicemail") {
+    // Bad timing / Voicemail = non-terminal follow-up. Do NOT advance the step
+    // on the spot — the
     // campaign stays parked on the call step and the lead's call_advance_mode
     // (chosen in the create flow) decides what happens next, via the
     // skip-stale-calls cron:

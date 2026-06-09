@@ -14,7 +14,7 @@ const headers = {
 // `wrong_number` is the new fourth value — it also flips the lead's
 // allow_call flag off and skips queued call-channel campaign messages,
 // matching what /api/leads/[id]/call-outcome does.
-const VALID = ["positive", "negative", "follow_up", "wrong_number", null] as const;
+const VALID = ["positive", "negative", "follow_up", "voicemail", "wrong_number", null] as const;
 type Classification = typeof VALID[number];
 
 export async function POST(
@@ -115,9 +115,10 @@ export async function POST(
     return NextResponse.json({ ok: true, action: "wrong_number" });
   }
 
-  // 4. If classification is null (undo) or follow_up → don't touch campaign/lead
-  if (!classification || classification === "follow_up") {
-    return NextResponse.json({ ok: true, action: classification === "follow_up" ? "marked_follow_up" : "cleared" });
+  // 4. null (undo) / follow_up / voicemail → non-terminal: just label the call,
+  //    the campaign keeps running (lead can be re-called).
+  if (!classification || classification === "follow_up" || classification === "voicemail") {
+    return NextResponse.json({ ok: true, action: classification ? `marked_${classification}` : "cleared" });
   }
 
   // 4. Positive/Negative → create lead_reply so Response Handler fires

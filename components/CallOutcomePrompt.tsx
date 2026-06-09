@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, X, ThumbsUp, ThumbsDown, Calendar, PhoneOff, Check } from "lucide-react";
+import { Loader2, X, ThumbsUp, ThumbsDown, Calendar, PhoneOff, Check, Voicemail } from "lucide-react";
 import { C } from "@/lib/design";
 
 // Post-call outcome prompt. Lifted OUT of CallButton and driven by
@@ -25,7 +25,7 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  async function submit(outcome: "interested" | "not_interested" | "bad_timing" | "wrong_number", n?: string) {
+  async function submit(outcome: "interested" | "not_interested" | "bad_timing" | "voicemail" | "wrong_number", n?: string) {
     if (classifying) return;
     setClassifying(true);
     setErr(null);
@@ -146,7 +146,8 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
               {([
                 { v: "interested" as const,     label: "Interested",     desc: "Book meeting",       icon: ThumbsUp,   color: C.green,     bg: `color-mix(in srgb, ${C.green} 12%, transparent)`,  note: true },
                 { v: "not_interested" as const, label: "Not interested", desc: "Close",              icon: ThumbsDown, color: C.red,       bg: `color-mix(in srgb, ${C.red} 12%, transparent)`,    note: true },
-                { v: "bad_timing" as const,     label: "Bad timing",     desc: "Keep campaign going", icon: Calendar,  color: "#D97706",   bg: "color-mix(in srgb, #D97706 12%, transparent)",     note: false },
+                { v: "bad_timing" as const,     label: "Bad timing",     desc: "Answered, can't talk now", icon: Calendar,  color: "#D97706",   bg: "color-mix(in srgb, #D97706 12%, transparent)",     note: false },
+                { v: "voicemail" as const,      label: "Voicemail",      desc: "No answer / left message", icon: Voicemail, color: "#0EA5E9",   bg: "color-mix(in srgb, #0EA5E9 12%, transparent)",     note: false },
                 { v: "wrong_number" as const,   label: "Wrong number",   desc: "Skip call channel",  icon: PhoneOff,   color: C.textMuted, bg: C.surface,                                          note: false },
               ]).map(opt => {
                 const OptIcon = opt.icon;

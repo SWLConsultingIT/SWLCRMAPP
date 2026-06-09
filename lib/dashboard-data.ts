@@ -110,7 +110,7 @@ const EMPTY_DASHBOARD = {
   ],
   channelBreakdown: [] as Array<{ channel: string; sent: number; contacted: number; replied: number; positive: number; responseRate: number; conversionRate: number }>,
   callsBreakdown: { pending: 0, made: 0, completed: 0, answered: 0, positive: 0, negative: 0, total: 0 },
-  callOutcomesBySeller: [] as Array<{ sellerId: string; sellerName: string; made: number; answered: number; interested: number; badTiming: number; notInterested: number; wrongNumber: number; byDay: Record<string, { made: number; answered: number; interested: number; badTiming: number; notInterested: number; wrongNumber: number }> }>,
+  callOutcomesBySeller: [] as Array<{ sellerId: string; sellerName: string; made: number; answered: number; interested: number; badTiming: number; voicemail: number; notInterested: number; wrongNumber: number; byDay: Record<string, { made: number; answered: number; interested: number; badTiming: number; voicemail: number; notInterested: number; wrongNumber: number }> }>,
   linkedinConnections: { sent: 0, accepted: 0 },
   icpPerformance: [] as Array<any>,
   campaignPerformance: [] as Array<any>,
@@ -613,9 +613,9 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     if (!g.day && c.started_at) g.day = c.started_at.slice(0, 10);
     callGroups.set(key, g);
   }
-  type CallOutcomeCounts = { made: number; answered: number; interested: number; badTiming: number; notInterested: number; wrongNumber: number };
+  type CallOutcomeCounts = { made: number; answered: number; interested: number; badTiming: number; voicemail: number; notInterested: number; wrongNumber: number };
   type SellerCallStats = CallOutcomeCounts & { sellerId: string; sellerName: string; byDay: Record<string, CallOutcomeCounts> };
-  const blankCounts = (): CallOutcomeCounts => ({ made: 0, answered: 0, interested: 0, badTiming: 0, notInterested: 0, wrongNumber: 0 });
+  const blankCounts = (): CallOutcomeCounts => ({ made: 0, answered: 0, interested: 0, badTiming: 0, voicemail: 0, notInterested: 0, wrongNumber: 0 });
   const callSellerAgg = new Map<string, SellerCallStats>();
   for (const g of callGroups.values()) {
     // Prefer the lead's flow owner; fall back to the dialer's seller mapping.
@@ -633,6 +633,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     if (g.answered) bump("answered");
     if (cl === "positive" || cl === "meeting_intent") bump("interested");
     else if (cl === "follow_up") bump("badTiming");
+    else if (cl === "voicemail") bump("voicemail");
     else if (cl === "negative") bump("notInterested");
     else if (cl === "wrong_number") bump("wrongNumber");
   }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ThumbsUp, ThumbsDown, Clock, PhoneOff, Loader2, Sparkles, X } from "lucide-react";
+import { ThumbsUp, ThumbsDown, Clock, PhoneOff, Loader2, Sparkles, X, Voicemail } from "lucide-react";
 import { C } from "@/lib/design";
 
 // 2026-06-01: aligned with the 4 outcomes exposed by the post-call
@@ -11,7 +11,7 @@ import { C } from "@/lib/design";
 // → 'negative', bad_timing → 'follow_up' — so we don't have to migrate
 // the calls.classification column. Wrong number is a new fourth value
 // that the popup also writes, with side-effects on the lead row.
-type Classification = "positive" | "negative" | "follow_up" | "wrong_number";
+type Classification = "positive" | "negative" | "follow_up" | "voicemail" | "wrong_number";
 
 type Props = {
   callId: string;
@@ -24,6 +24,7 @@ const meta: Record<Classification, { label: string; color: string; bg: string; b
   positive:     { label: "Interested",     color: "#16A34A", bg: "#DCFCE7", border: "#BBF7D0", icon: ThumbsUp },
   negative:     { label: "Not interested", color: C.red,     bg: C.redLight, border: `${C.red}30`, icon: ThumbsDown },
   follow_up:    { label: "Bad timing",     color: "#D97706", bg: "#FEF3C7", border: "#FDE68A", icon: Clock },
+  voicemail:    { label: "Voicemail",      color: "#0EA5E9", bg: "#E0F2FE", border: "#BAE6FD", icon: Voicemail },
   wrong_number: { label: "Wrong number",   color: C.textMuted, bg: C.surface, border: C.border, icon: PhoneOff },
 };
 

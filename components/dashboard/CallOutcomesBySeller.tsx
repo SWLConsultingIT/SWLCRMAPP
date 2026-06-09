@@ -15,7 +15,7 @@ const OUTFIT = "var(--font-outfit), system-ui, sans-serif";
 
 type Counts = {
   made: number; answered: number; interested: number;
-  badTiming: number; notInterested: number; wrongNumber: number;
+  badTiming: number; voicemail: number; notInterested: number; wrongNumber: number;
 };
 type SellerCallStats = Counts & {
   sellerId: string; sellerName: string; byDay: Record<string, Counts>;
@@ -27,6 +27,7 @@ const COLS: { key: keyof Counts; label: string; color: string }[] = [
   { key: "answered",     label: "Answered",       color: "#0EA5E9" },
   { key: "interested",   label: "Interested",     color: C.green },
   { key: "badTiming",    label: "Bad timing",     color: "#D97706" },
+  { key: "voicemail",    label: "Voicemail",      color: "#0EA5E9" },
   { key: "notInterested",label: "Not interested", color: C.red },
   { key: "wrongNumber",  label: "Wrong #",        color: C.textMuted },
 ];

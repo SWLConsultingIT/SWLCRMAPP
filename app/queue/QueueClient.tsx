@@ -8,7 +8,7 @@ import {
   Phone, Share2, Mail, Megaphone, Target,
   ChevronRight, CheckCircle, Search, X,
   PhoneCall, User, PhoneOff, Bell, AlertTriangle, XCircle, Sparkles,
-  ThumbsUp, ThumbsDown, Clock, Loader2, Trash2,
+  ThumbsUp, ThumbsDown, Clock, Loader2, Trash2, Voicemail,
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import CallButton from "@/components/CallButton";
@@ -48,7 +48,7 @@ type PendingCall = {
   latestCall: {
     id: string;
     startedAt: string | null;
-    classification: "positive" | "negative" | "follow_up" | "wrong_number" | null;
+    classification: "positive" | "negative" | "follow_up" | "voicemail" | "wrong_number" | null;
   } | null;
 };
 
@@ -77,7 +77,7 @@ type CallHistoryEntry = {
   leadId: string | null;
   leadName: string;
   company: string | null;
-  classification: "positive" | "negative" | "follow_up" | "wrong_number" | null;
+  classification: "positive" | "negative" | "follow_up" | "voicemail" | "wrong_number" | null;
   status: string | null;
   durationSec: number | null;
   startedAt: string | null;
@@ -115,6 +115,7 @@ const classificationMeta: Record<string, { color: string; bg: string; label: str
   needs_info:          { color: "#D97706",  bg: tint("#D97706", 12), label: "Needs Info" },
   not_now:             { color: C.textMuted, bg: tint(C.textMuted, 10), label: "Not Now" },
   follow_up:           { color: "#D97706",  bg: tint("#D97706", 12), label: "Bad timing" },
+  voicemail:           { color: "#0EA5E9",  bg: tint("#0EA5E9", 12), label: "Voicemail" },
   wrong_number:        { color: C.textMuted, bg: tint(C.textMuted, 10), label: "Wrong number" },
   connection_accepted: { color: "#0A66C2",  bg: tint("#0A66C2", 12), label: "Accepted Connection" },
 };
@@ -143,11 +144,11 @@ function InlineClassifier({ call }: { call: PendingCall }) {
   // the existing classify endpoint + downstream cascades don't need to
   // change. `wrong_number` is the new fourth value — it disables the
   // call channel on the lead and skips queued call steps.
-  const [busy, setBusy] = useState<"positive" | "negative" | "follow_up" | "wrong_number" | null>(null);
+  const [busy, setBusy] = useState<"positive" | "negative" | "follow_up" | "voicemail" | "wrong_number" | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [note, setNote] = useState("");
 
-  async function classify(c: "positive" | "negative" | "follow_up" | "wrong_number") {
+  async function classify(c: "positive" | "negative" | "follow_up" | "voicemail" | "wrong_number") {
     if (!call.latestCall) return;
     setBusy(c);
     setErr(null);
@@ -176,12 +177,14 @@ function InlineClassifier({ call }: { call: PendingCall }) {
   // follow_up renders "Bad timing logged", wrong_number renders "Wrong
   // number logged". Positive/negative don't reach this branch — those
   // collapse the campaign and remove the entry from /queue entirely.
-  if (call.latestCall.classification === "follow_up" || call.latestCall.classification === "wrong_number") {
-    const isFollow = call.latestCall.classification === "follow_up";
-    const color = isFollow ? "#D97706" : C.textMuted;
-    const Icon = isFollow ? Clock : PhoneOff;
-    const label = isFollow ? "Bad timing logged" : "Wrong number logged";
-    const hint = isFollow ? "Call again to update outcome" : "Call channel disabled — update the phone to re-enable";
+  if (call.latestCall.classification === "follow_up" || call.latestCall.classification === "voicemail" || call.latestCall.classification === "wrong_number") {
+    const cls = call.latestCall.classification;
+    const isFollow = cls === "follow_up";
+    const isVoicemail = cls === "voicemail";
+    const color = isFollow ? "#D97706" : isVoicemail ? "#0EA5E9" : C.textMuted;
+    const Icon = isFollow ? Clock : isVoicemail ? Voicemail : PhoneOff;
+    const label = isFollow ? "Bad timing logged" : isVoicemail ? "Voicemail logged" : "Wrong number logged";
+    const hint = cls === "wrong_number" ? "Call channel disabled — update the phone to re-enable" : "Call again to update outcome";
     return (
       <div className="border-t px-5 py-2.5 flex items-center gap-2 text-[11px] flex-wrap"
         style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)` }}>
@@ -229,6 +232,14 @@ function InlineClassifier({ call }: { call: PendingCall }) {
         Bad timing
       </button>
       <button
+        onClick={() => classify("voicemail")}
+        disabled={busy !== null}
+        className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
+        style={{ backgroundColor: "color-mix(in srgb, #0EA5E9 12%, transparent)", borderColor: "color-mix(in srgb, #0EA5E9 35%, transparent)", color: "#0EA5E9" }}>
+        {busy === "voicemail" ? <Loader2 size={10} className="animate-spin" /> : <Voicemail size={10} />}
+        Voicemail
+      </button>
+      <button
         onClick={() => classify("wrong_number")}
         disabled={busy !== null}
         className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
@@ -270,11 +281,12 @@ function fmtDateTime(iso: string | null): string {
 // outcome buckets the post-call popup uses, with a date-range filter and an
 // inline recording player. Read-only review surface so the whole team can see
 // what was dialed and listen back.
-const HIST_TABS: Array<{ key: "all" | "positive" | "negative" | "wrong_number" | "follow_up"; label: string; color: string }> = [
+const HIST_TABS: Array<{ key: "all" | "positive" | "negative" | "wrong_number" | "follow_up" | "voicemail"; label: string; color: string }> = [
   { key: "all",          label: "All",            color: "#0A66C2" },
   { key: "positive",     label: "Interested",     color: "#15803D" },
   { key: "negative",     label: "Not interested", color: "#DC2626" },
   { key: "follow_up",    label: "Bad timing",     color: "#D97706" },
+  { key: "voicemail",    label: "Voicemail",      color: "#0EA5E9" },
   { key: "wrong_number", label: "Wrong number",   color: C.textMuted },
 ];
 
@@ -396,6 +408,7 @@ function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
                   { key: "positive", label: "Interested", color: C.green },
                   { key: "negative", label: "Not interested", color: C.red },
                   { key: "follow_up", label: "Bad timing", color: "#D97706" },
+                  { key: "voicemail", label: "Voicemail", color: "#0EA5E9" },
                   { key: "wrong_number", label: "Wrong number", color: C.textMuted },
                 ] as const).map(o => {
                   const active = cls === o.key;
@@ -527,8 +540,8 @@ function CallHistoryPanel({
 }: {
   entries: CallHistoryEntry[];
   search: string;
-  histClass: "all" | "positive" | "negative" | "wrong_number" | "follow_up";
-  setHistClass: (c: "all" | "positive" | "negative" | "wrong_number" | "follow_up") => void;
+  histClass: "all" | "positive" | "negative" | "wrong_number" | "follow_up" | "voicemail";
+  setHistClass: (c: "all" | "positive" | "negative" | "wrong_number" | "follow_up" | "voicemail") => void;
   histFrom: string;
   setHistFrom: (s: string) => void;
   histTo: string;
@@ -657,7 +670,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
   const [callSubTab, setCallSubTab] = useState<0 | 1 | 2>(0);
   const [search, setSearch] = useState("");
   // History sub-tab: which outcome bucket (or "all") + the date window.
-  const [histClass, setHistClass] = useState<"all" | "positive" | "negative" | "wrong_number" | "follow_up">("all");
+  const [histClass, setHistClass] = useState<"all" | "positive" | "negative" | "wrong_number" | "follow_up" | "voicemail">("all");
   const [histFrom, setHistFrom] = useState("");
   const [histTo, setHistTo] = useState("");
   // Filter History by who placed the call (boss 2026-06-09). "all" = everyone.

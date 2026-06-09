@@ -20,6 +20,7 @@ function callOutcome(cls: string | null | undefined): { label: string; color: st
     case "positive": return { label: "Interested", color: C.green };
     case "negative": return { label: "Not interested", color: C.red };
     case "follow_up": return { label: "Bad timing", color: "#D97706" };
+    case "voicemail": return { label: "Voicemail", color: "#0EA5E9" };
     case "wrong_number": return { label: "Wrong number", color: C.textMuted };
     case "not_now": return { label: "Not now", color: C.textMuted };
     default: return { label: "Call logged", color: C.textMuted };
