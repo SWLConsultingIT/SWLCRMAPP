@@ -45,7 +45,7 @@ const sections: { labelKey: string; items: NavItem[] }[] = [
     items: [
       { href: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
       { href: "/company-bios", labelKey: "nav.companyBio", icon: Building2 },
-      { href: "/queue", labelKey: "nav.queue", icon: Bell, badgeKey: "calls" },
+      { href: "/queue", labelKey: "nav.queue", icon: Bell, badgeKey: "pendingReplies" },
     ],
   },
   {
