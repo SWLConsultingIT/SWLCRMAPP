@@ -170,6 +170,59 @@ function deriveCardBadges(camp: Campaign): CardBadge[] {
   return [step, secondary].filter((b): b is CardBadge => !!b);
 }
 
+// Per-channel status chips (boss 2026-06-09: "4 status, uno por canal — que se
+// entienda"). One chip per channel the flow uses (CR / LinkedIn / Email / Call),
+// each showing that channel's own state, instead of one mixed badge. Derived
+// from the sequence position vs current_step (+ the CR badge for connection
+// state, + the call outcome / wrong-number flag for the call channel).
+const CHIP_STYLE: Record<string, { c: string; bg: string }> = {
+  done:   { c: "#15803D", bg: "#DCFCE7" },
+  sent:   { c: "#0A66C2", bg: "#DBEAFE" },
+  queued: { c: "#B45309", bg: "#FEF3C7" },
+  warn:   { c: "#B45309", bg: "#FEF3C7" },
+  info:   { c: "#0369A1", bg: "#E0F2FE" },
+  fail:   { c: "#DC2626", bg: "#FEE2E2" },
+  none:   { c: "#9CA3AF", bg: "#F3F4F6" },
+};
+type Chip = { channel: string; label: string; tone: keyof typeof CHIP_STYLE };
+function channelChips(camp: Campaign): Chip[] {
+  const seq = Array.isArray(camp.sequence_steps) ? camp.sequence_steps : [];
+  const cur = camp.current_step ?? 0;
+  const rc = (camp.reply_class ?? "").toLowerCase();
+  const chips: Chip[] = [];
+  const prog = (channel: string): { label: string; tone: keyof typeof CHIP_STYLE } | null => {
+    const idxs = seq.map((s, i) => (s.channel === channel ? i : -1)).filter(i => i >= 0);
+    if (idxs.length === 0) return null;
+    if (idxs.some(i => i < cur)) return { label: "Sent", tone: "sent" };
+    if (idxs.some(i => i === cur)) return { label: "Queued", tone: "queued" };
+    return { label: "—", tone: "none" };
+  };
+  // CR — only when the flow uses LinkedIn at all.
+  if (seq.some(s => s.channel === "linkedin") || camp.step_0) {
+    const cr = crBadge(camp);
+    let label = "Pending", tone: keyof typeof CHIP_STYLE = "warn";
+    if (cr) {
+      if (/ACCEPT|CONNECT/i.test(cr.label)) { label = "Accepted"; tone = "done"; }
+      else if (/SENT/i.test(cr.label)) { label = "Sent"; tone = "sent"; }
+      else if (/FAIL/i.test(cr.label)) { label = "Failed"; tone = "fail"; }
+      else if (/PENDING|QUEUED/i.test(cr.label)) { label = "Pending"; tone = "warn"; }
+    }
+    chips.push({ channel: "CR", label, tone });
+  }
+  const li = prog("linkedin"); if (li) chips.push({ channel: "LinkedIn", label: li.label, tone: li.tone });
+  const em = prog("email");    if (em) chips.push({ channel: "Email", label: em.label, tone: em.tone });
+  if (seq.some(s => s.channel === "call")) {
+    let label: string, tone: keyof typeof CHIP_STYLE;
+    if (camp.leads?.allow_call === false) { label = "Wrong #"; tone = "fail"; }
+    else if (rc === "not_now") { label = "Not now"; tone = "warn"; }
+    else if (rc === "voicemail") { label = "Voicemail"; tone = "info"; }
+    else if (rc === "followup") { label = "Bad timing"; tone = "warn"; }
+    else { const c = prog("call"); label = c?.label ?? "—"; tone = c?.tone ?? "none"; }
+    chips.push({ channel: "Call", label, tone });
+  }
+  return chips;
+}
+
 type Props = {
   sequence: SequenceStep[];
   campaigns: Campaign[];
@@ -235,40 +288,45 @@ function LeadCard({ camp, isDragging }: { camp: Campaign; isDragging?: boolean }
         </div>
       </div>
 
-      <div className="flex items-center justify-between mt-2 pt-2 border-t" style={{ borderColor: C.border }}>
-        {camp.sellers?.name ? (
-          <span className="flex items-center gap-1 text-[10px]" style={{ color: C.textMuted }}>
-            <User size={9} /> {camp.sellers.name}
-          </span>
-        ) : <span />}
-        <div className="flex items-center gap-1 flex-wrap justify-end">
-          {deriveCardBadges(camp).map((b, i) => (
-            <span
-              key={i}
-              className="text-[8.5px] font-bold tracking-wider px-1.5 py-0.5 rounded-full"
-              style={{ backgroundColor: b.bg, color: b.color, letterSpacing: "0.04em" }}
-              title={camp.step_0?.errorDetails ?? undefined}
-            >
-              {b.label}
+      <div className="mt-2 pt-2 border-t" style={{ borderColor: C.border }}>
+        {/* Top line: seller + the terminal outcome (reply / paused / done) so
+            the big signal stays prominent above the per-channel detail. */}
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          {camp.sellers?.name ? (
+            <span className="flex items-center gap-1 text-[10px]" style={{ color: C.textMuted }}>
+              <User size={9} /> {camp.sellers.name}
             </span>
-          ))}
-          {/* Wrong number marker (boss 2026-06-08): phone flagged bad → call
-              steps are skipped, but the lead still flows on other channels. */}
-          {camp.leads?.allow_call === false && (
-            <span
-              className="text-[8.5px] font-bold tracking-wider px-1.5 py-0.5 rounded-full"
-              style={{ backgroundColor: "#FEE2E2", color: "#DC2626", letterSpacing: "0.04em" }}
-              title="Phone marked wrong number — call steps skipped"
-            >
-              WRONG #
-            </span>
-          )}
-          {/* Completed/paused now surface via the lifecycle badge in
-              deriveCardBadges — no separate inline indicator needed. A green
-              check still reads nicely on a won/positive card. */}
-          {camp.status === "completed" && (camp.reply_class ?? "").toLowerCase() === "positive" && (
-            <CheckCircle size={11} style={{ color: C.green }} />
-          )}
+          ) : <span />}
+          {(() => {
+            const rc = (camp.reply_class ?? "").toLowerCase();
+            const lc = lifecycleBadge(camp);
+            // Only surface the terminal/important outcomes here — the softer
+            // per-channel states (queued, not-now, voicemail…) live in the chips.
+            const show = lc && (rc === "positive" || rc === "negative" || camp.status === "paused" || camp.status === "completed" || camp.status === "failed");
+            if (!show || !lc) return null;
+            return (
+              <span className="text-[8.5px] font-bold tracking-wider px-1.5 py-0.5 rounded-full shrink-0"
+                style={{ backgroundColor: lc.bg, color: lc.color, letterSpacing: "0.04em" }}>
+                {camp.status === "completed" && rc === "positive" ? <CheckCircle size={9} className="inline mr-0.5" /> : null}
+                {lc.label}
+              </span>
+            );
+          })()}
+        </div>
+        {/* Per-channel status strip — one chip per channel the flow uses. */}
+        <div className="flex items-center gap-1 flex-wrap">
+          {channelChips(camp).map((chip) => {
+            const s = CHIP_STYLE[chip.tone];
+            return (
+              <span key={chip.channel}
+                className="text-[9px] font-semibold px-1.5 py-0.5 rounded inline-flex items-center gap-1"
+                style={{ backgroundColor: s.bg, color: s.c }}
+                title={chip.channel === "CR" ? (camp.step_0?.errorDetails ?? undefined) : undefined}>
+                <span style={{ opacity: 0.65 }}>{chip.channel}</span>
+                {chip.label}
+              </span>
+            );
+          })}
         </div>
       </div>
     </div>
