@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/recover-replies",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}

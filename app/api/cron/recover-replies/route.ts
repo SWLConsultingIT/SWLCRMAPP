@@ -15,6 +15,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 
+export const dynamic = "force-dynamic";
+export const maxDuration = 300; // many Unipile + Instantly calls; needs headroom
+
 const CRON_SECRET = process.env.CRON_SECRET;
 const UNIPILE_BASE = process.env.UNIPILE_DSN ? `https://${process.env.UNIPILE_DSN}` : "https://api21.unipile.com:15107";
 const UNIPILE_KEY = process.env.UNIPILE_API_KEY ?? "";
