@@ -523,7 +523,7 @@ function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
 }
 
 function CallHistoryPanel({
-  entries, search, histClass, setHistClass, histFrom, setHistFrom, histTo, setHistTo,
+  entries, search, histClass, setHistClass, histFrom, setHistFrom, histTo, setHistTo, histDialer, setHistDialer,
 }: {
   entries: CallHistoryEntry[];
   search: string;
@@ -533,9 +533,15 @@ function CallHistoryPanel({
   setHistFrom: (s: string) => void;
   histTo: string;
   setHistTo: (s: string) => void;
+  histDialer: string;
+  setHistDialer: (s: string) => void;
 }) {
   const counts: Record<string, number> = { all: entries.length, positive: 0, negative: 0, follow_up: 0, wrong_number: 0 };
   for (const e of entries) if (e.classification && counts[e.classification] !== undefined) counts[e.classification]++;
+
+  // Distinct people who placed the calls (dialer first, falls back to the
+  // flow's seller) — powers the "who called" filter (boss 2026-06-09).
+  const dialerNames = Array.from(new Set(entries.map(e => e.dialedByName || e.sellerName).filter(Boolean) as string[])).sort();
 
   const fromMs = histFrom ? new Date(histFrom + "T00:00:00").getTime() : null;
   const toMs = histTo ? new Date(histTo + "T23:59:59").getTime() : null;
@@ -543,6 +549,7 @@ function CallHistoryPanel({
 
   const rows = entries
     .filter(e => histClass === "all" || e.classification === histClass)
+    .filter(e => histDialer === "all" || (e.dialedByName || e.sellerName) === histDialer)
     .filter(e => {
       if (!fromMs && !toMs) return true;
       const t = e.startedAt ? new Date(e.startedAt).getTime() : 0;
@@ -550,7 +557,7 @@ function CallHistoryPanel({
       if (toMs && t > toMs) return false;
       return true;
     })
-    .filter(e => !q || `${e.leadName} ${e.company ?? ""} ${e.sellerName ?? ""}`.toLowerCase().includes(q));
+    .filter(e => !q || `${e.leadName} ${e.company ?? ""} ${e.sellerName ?? ""} ${e.dialedByName ?? ""}`.toLowerCase().includes(q));
 
   return (
     <>
@@ -589,6 +596,18 @@ function CallHistoryPanel({
             className="inline-flex items-center gap-1 px-2 py-1 rounded-md font-semibold" style={{ color: C.textDim }}>
             <X size={11} /> Clear
           </button>
+        )}
+        {/* Who placed the call (boss 2026-06-09). */}
+        {dialerNames.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            <PhoneCall size={11} style={{ color: C.textDim }} />
+            <span className="font-semibold">Called by</span>
+            <select value={histDialer} onChange={e => setHistDialer(e.target.value)}
+              className="rounded-md border px-2 py-1 outline-none" style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}>
+              <option value="all">Everyone</option>
+              {dialerNames.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+          </div>
         )}
         <span className="ml-auto font-semibold">{rows.length} call{rows.length === 1 ? "" : "s"}</span>
       </div>
@@ -641,6 +660,8 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
   const [histClass, setHistClass] = useState<"all" | "positive" | "negative" | "wrong_number" | "follow_up">("all");
   const [histFrom, setHistFrom] = useState("");
   const [histTo, setHistTo] = useState("");
+  // Filter History by who placed the call (boss 2026-06-09). "all" = everyone.
+  const [histDialer, setHistDialer] = useState("all");
 
   // History tab manages its own date filter inside InboxView now (used to
   // be a toolbar dropdown here but it felt disconnected from the filter
@@ -911,6 +932,8 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                 setHistFrom={setHistFrom}
                 histTo={histTo}
                 setHistTo={setHistTo}
+                histDialer={histDialer}
+                setHistDialer={setHistDialer}
               />
             ) : activeList.length === 0 ? (
               <div className="rounded-2xl border py-12 px-6 text-center max-w-xl mx-auto"

@@ -320,6 +320,7 @@ export function LeadFilterBar({
             onClear={() => onChange({ ...filters, [roleExcludeMode ? "roleExclude" : "role"]: [] })}
             options={roleOptions}
             excludeMode={roleExcludeMode}
+            onSetSelected={vals => onChange({ ...filters, [roleExcludeMode ? "roleExclude" : "role"]: vals })}
           />
         )}
       </div>
@@ -334,7 +335,7 @@ export function LeadFilterBar({
 // "industry tiene que ser deplegable" + "se tiene que poder seleccionar
 // varias opciones en cada filtro".
 function FacetDropdown({
-  icon, label, selected, onToggle, onClear, options, excludeMode = false,
+  icon, label, selected, onToggle, onClear, options, excludeMode = false, onSetSelected,
 }: {
   icon: ReactNode;
   label: string;
@@ -346,6 +347,9 @@ function FacetDropdown({
    *  option renders checked by default; unticking adds it to the exclusion.
    *  Empty selection = nothing excluded = show all. */
   excludeMode?: boolean;
+  /** Bulk-set the whole selection — powers the Select all / Deselect all
+   *  buttons (boss 2026-06-09). When absent those buttons are hidden. */
+  onSetSelected?: (vals: string[]) => void;
 }) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
@@ -442,6 +446,22 @@ function FacetDropdown({
                 className="bg-transparent text-[11px] outline-none flex-1"
                 style={{ color: C.textPrimary }}
               />
+            </div>
+          )}
+          {onSetSelected && (
+            <div className="px-3 py-1.5 border-b flex items-center gap-3" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+              {/* "Select all" = everything checked; "Deselect all" = everything
+                  unchecked. In exclude mode `selected` is the EXCLUDED set, so
+                  the mapping inverts. */}
+              <button type="button" onClick={() => onSetSelected(excludeMode ? [] : options)}
+                className="text-[11px] font-semibold transition-opacity hover:opacity-70" style={{ color: goldDark }}>
+                Select all
+              </button>
+              <span className="w-px h-3" style={{ backgroundColor: C.border }} />
+              <button type="button" onClick={() => onSetSelected(excludeMode ? options : [])}
+                className="text-[11px] font-semibold transition-opacity hover:opacity-70" style={{ color: C.textMuted }}>
+                Deselect all
+              </button>
             </div>
           )}
           <div className="max-h-64 overflow-y-auto py-1">
