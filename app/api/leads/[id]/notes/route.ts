@@ -14,6 +14,7 @@ import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, canViewAllTenantData } from "@/lib/scope";
 import { createNotifications } from "@/lib/notify";
+import { ensureDm, postDmFromActor } from "@/lib/chat-dm";
 import { NextRequest, NextResponse } from "next/server";
 
 async function authorDisplayName(scope: { userId: string | null }): Promise<string> {
@@ -95,6 +96,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       // @mention, not the Profile tab (boss 2026-06-09: "no me muestra el tag").
       link: `/leads/${id}?tab=notes`,
     });
+
+    // Also drop the @mention into the Team Chat DM with each mentioned
+    // teammate (boss 2026-06-09: mentions should reach the team chat too, like
+    // tags do). One DM thread per pair; excludes the author (no self-DM).
+    const excerpt = content.trim().replace(/\s+/g, " ").slice(0, 140);
+    for (const uid of mentions) {
+      if (uid === scope.userId) continue;
+      const threadId = await ensureDm(svc, leadBio, scope.userId, uid);
+      if (threadId) {
+        await postDmFromActor(svc, threadId, scope.userId, author_name, `💬 Mentioned you on ${label}: "${excerpt}"\n→ /leads/${id}?tab=notes`);
+      }
+    }
   }
   return NextResponse.json({ note: data });
 }
