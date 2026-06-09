@@ -23,7 +23,6 @@ type ResultRow = {
   name: string;
   company: string | null;
   role: string | null;
-  slots: { hook: string; fit: string } | null;
   rendered: { connectionRequest?: string; steps: Array<{ channel: string; subject?: string | null; body: string }> };
   violations: ViolationCode[];
 };
@@ -47,7 +46,7 @@ type Props = {
   /** Wizard hook — invoked when a batch completes so the parent can
    *  persist `preview_outputs` to campaign_requests.message_prompts at
    *  submit time, letting the approve route reuse the work. */
-  onResults?: (outputs: Record<string, { hook: string | null; fit: string | null; violations: string[] }>) => void;
+  onResults?: (outputs: Record<string, { full_messages: Array<{ channel: string; subject?: string | null; body: string }>; connectionRequest: string | null; violations: string[] }>) => void;
 };
 
 const channelIcon: Record<string, typeof Phone> = {
@@ -90,8 +89,14 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
       setResults(fresh);
       setSummary(data.summary ?? null);
       if (onResults && fresh.length > 0) {
-        const out: Record<string, { hook: string | null; fit: string | null; violations: string[] }> = {};
-        for (const r of fresh) out[r.leadId] = { hook: r.slots?.hook ?? null, fit: r.slots?.fit ?? null, violations: r.violations };
+        const out: Record<string, { full_messages: Array<{ channel: string; subject?: string | null; body: string }>; connectionRequest: string | null; violations: string[] }> = {};
+        for (const r of fresh) {
+          out[r.leadId] = {
+            full_messages: r.rendered.steps,
+            connectionRequest: r.rendered.connectionRequest ?? null,
+            violations: r.violations,
+          };
+        }
         onResults(out);
       }
     } catch (e: any) {
@@ -279,18 +284,14 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
                     </div>
                   )}
 
-                  {lead.slots && (
-                    <div className="px-4 py-3 border-b grid grid-cols-1 md:grid-cols-2 gap-3" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${gold} 4%, transparent)` }}>
-                      <div>
-                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: gold }}>Hook (per-lead)</p>
-                        <p className="text-[12px] leading-snug" style={{ color: C.textBody }}>{lead.slots.hook}</p>
-                      </div>
-                      <div>
-                        <p className="text-[9.5px] font-bold uppercase tracking-wider mb-0.5" style={{ color: gold }}>Fit (per-lead)</p>
-                        <p className="text-[12px] leading-snug" style={{ color: C.textBody }}>{lead.slots.fit}</p>
-                      </div>
-                    </div>
-                  )}
+                  <div className="px-4 py-2 border-b flex items-center gap-1.5" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${gold} 4%, transparent)` }}>
+                    <span className="text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`, color: "#1A1A2E" }}>
+                      AI per-lead
+                    </span>
+                    <span className="text-[10.5px]" style={{ color: C.textMuted }}>
+                      Every body below was generated specifically for this lead using their signals.
+                    </span>
+                  </div>
 
                   <div className="px-4 py-3 space-y-2.5">
                     {lead.rendered.connectionRequest && (
