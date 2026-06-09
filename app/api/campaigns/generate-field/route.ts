@@ -160,9 +160,22 @@ type Bio = {
   tone_of_voice?: string | null;
 };
 
-function clampSig(s: string, max = 280): string {
-  if (!s) return "";
-  const trimmed = s.trim();
+// Coerces ANY value into a clean trimmed string. Some lead enrichment
+// columns (organization_technologies, recent_website_news, etc.) are
+// stored as jsonb arrays/objects by ZoomInfo/Apollo ingestion, so a
+// naive .trim() throws "e.trim is not a function". Stringify whatever
+// comes in so the prompt always sees text, never throws.
+function clampSig(s: unknown, max = 280): string {
+  if (s == null) return "";
+  const str = typeof s === "string"
+    ? s
+    : Array.isArray(s)
+      ? s.filter(Boolean).join(", ")
+      : typeof s === "object"
+        ? JSON.stringify(s)
+        : String(s);
+  const trimmed = str.trim();
+  if (!trimmed) return "";
   return trimmed.length > max ? trimmed.slice(0, max).trimEnd() + "…" : trimmed;
 }
 
