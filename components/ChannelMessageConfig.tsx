@@ -502,9 +502,11 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
     let stepIndex = 0;
 
     setAiLoading("all");
+    setAiError(null);
     setGenProgress({ current: 0, total: totalSteps, label: "Starting…" });
 
     let failedLabel: string | null = null;
+    let failedReason: string | null = null;
 
     try {
       // Build working copy of steps
@@ -524,12 +526,17 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ channel: "linkedin", fieldType: "connectionNote", leadId, icpProfileId, language, flowType, signals, sequence_meta: sequence, user_prompt: channelMessages.connectionRequestPrompt ?? "" }),
           });
-          if (!crRes.ok) throw new Error("Connection request");
-          const crData = await crRes.json();
-          if (crData.content) connRequest = clampToCharBudget(crData.content, 200);
-          onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
-        } catch {
+          const crData = await crRes.json().catch(() => ({}));
+          if (!crRes.ok) {
+            failedLabel = "Connection request";
+            failedReason = (crData && (crData.error ?? crData.message)) || `HTTP ${crRes.status}`;
+          } else {
+            if (crData.content) connRequest = clampToCharBudget(crData.content, 200);
+            onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
+          }
+        } catch (e: any) {
           failedLabel = "Connection request";
+          failedReason = e?.message ?? "network error";
         }
       }
 
@@ -550,14 +557,17 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ channel: classified[i].channel, fieldType: ft, idx: i, leadId, icpProfileId, language, flowType, signals, user_prompt: stepUserPrompt, sequence_meta: sequence }),
           });
-          if (!res.ok) throw new Error(classified[i].label);
-          const data = await res.json();
-          if (data.content) {
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            failedLabel = classified[i].label;
+            failedReason = (data && (data.error ?? data.message)) || `HTTP ${res.status}`;
+          } else if (data.content) {
             allSteps[i] = { ...allSteps[i], body: data.content, subject: data.subject || allSteps[i]?.subject };
             onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
           }
-        } catch {
+        } catch (e: any) {
           failedLabel = classified[i].label;
+          failedReason = e?.message ?? "network error";
         }
       }
 
@@ -575,24 +585,29 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ channel: "linkedin", fieldType: replyType, leadId, icpProfileId, language, flowType, signals, user_prompt: replyPrompt }),
           });
-          if (!res.ok) throw new Error(human);
-          const data = await res.json();
-          if (data.content) {
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            failedLabel = human;
+            failedReason = (data && (data.error ?? data.message)) || `HTTP ${res.status}`;
+          } else if (data.content) {
             const field = replyType === "replyPositive" ? "positive" : "negative";
             replies = { ...replies, [field]: data.content };
             onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
           }
-        } catch {
+        } catch (e: any) {
           failedLabel = human;
+          failedReason = e?.message ?? "network error";
         }
       }
     } catch (err) {
       console.error("Generate all error:", err);
+      failedReason = (err as any)?.message ?? "unexpected error";
     }
 
     if (failedLabel) {
-      // eslint-disable-next-line no-alert
-      console.error(`Generation stopped at "${failedLabel}". Partial output kept; edit manually or retry.`);
+      const msg = failedReason ? `Failed at "${failedLabel}": ${failedReason}` : `Generation stopped at "${failedLabel}"`;
+      console.error(msg);
+      setAiError(msg);
     }
     setAiLoading(null);
     setGenProgress(null);
@@ -662,6 +677,18 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
               : t("wiz.gen.previewAll")}
           </button>
         </div>
+        {/* Error banner — without this, when the AI endpoint 500s the
+            button just stops spinning and the seller has no idea what
+            happened. Dismissable on next attempt (setAiError(null) at
+            generateField/generateAll entry). */}
+        {aiError && (
+          <div className="mt-3 px-3 py-2 rounded-lg border flex items-start gap-2 text-[11px]"
+            style={{ backgroundColor: "color-mix(in srgb, #DC2626 8%, transparent)", borderColor: "color-mix(in srgb, #DC2626 30%, transparent)", color: "#DC2626" }}>
+            <AlertTriangle size={12} style={{ marginTop: 1, flexShrink: 0 }} />
+            <span className="flex-1 break-words"><strong>AI generator error:</strong> {aiError}</span>
+            <button onClick={() => setAiError(null)} className="text-[10px] opacity-70 hover:opacity-100">dismiss</button>
+          </div>
+        )}
         {/* Progress bar — surfaces what AI is generating right now so the
             seller sees real movement during the 20-30s loop. Hidden when
             idle. */}
