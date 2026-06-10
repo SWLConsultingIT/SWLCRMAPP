@@ -283,6 +283,17 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
     getCalls(id),
   ]);
 
+  // Hide phantom dial-markers from the call history (boss 2026-06-10: "se
+  // duplican las llamadas?"). Clicking "Call" writes a marker row
+  // (status=initiated, aircall_call_id=null) BEFORE the Aircall dialer opens;
+  // the REAL call then arrives via the webhook with an aircall_call_id. So one
+  // dial can leave 1 real row + 1-2 markers. A row is real iff it has an
+  // aircall_call_id OR a logged outcome (classification); everything else is a
+  // transient marker and shouldn't show as a separate "call".
+  const visibleCalls = ((calls as any[]) ?? []).filter(
+    (c: any) => c.aircall_call_id != null || c.classification != null,
+  );
+
   // Pre-render messages once on the server so every downstream component
   // (Campaign tab, Recent Activity tab, stepper) shows the same actual
   // text the lead received instead of the raw {{first_name}} template.
@@ -958,7 +969,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       <CompanyTabs tabs={[
         { label: "Profile Overview" },
         { label: "Campaign" },
-        { label: "Calls", count: calls.length || undefined },
+        { label: "Calls", count: visibleCalls.length || undefined },
         { label: "Conversation" },
         { label: "Notes" },
         { label: "Social & Content" },
@@ -1369,7 +1380,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         <div className="space-y-3">
           <div className="flex items-center justify-between mb-1">
             <p className="text-xs" style={{ color: C.textMuted }}>
-              {calls.length > 0 ? `${calls.length} call${calls.length === 1 ? "" : "s"} recorded` : "No calls yet"}
+              {visibleCalls.length > 0 ? `${visibleCalls.length} call${visibleCalls.length === 1 ? "" : "s"} recorded` : "No calls yet"}
             </p>
             <div className="flex items-center gap-2">
               {(lead.primary_phone || lead.primary_secondary_phone) && (
@@ -1406,7 +1417,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               <span className="opacity-75">— scroll to the top of the page to replace it and re-enable Call.</span>
             </div>
           )}
-          {calls.length === 0 ? (
+          {visibleCalls.length === 0 ? (
             <div className="rounded-2xl border p-12 text-center" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
               <Phone size={28} className="mx-auto mb-3" style={{ color: C.textDim }} />
               <p className="text-sm font-medium" style={{ color: C.textBody }}>No calls recorded yet</p>
@@ -1415,7 +1426,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               </p>
             </div>
           ) : (
-            calls.map((call: any) => <CallCard key={call.id} call={call} />)
+            visibleCalls.map((call: any) => <CallCard key={call.id} call={call} personalPhone={lead.primary_phone ?? null} companyPhone={lead.primary_secondary_phone ?? null} />)
           )}
         </div>
 

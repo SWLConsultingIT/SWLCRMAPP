@@ -44,7 +44,20 @@ const statusBg: Record<string, string> = {
   voicemail: C.surface,
 };
 
-export default function CallCard({ call, compact = false }: { call: CallRecord; compact?: boolean }) {
+// Normalize a phone for comparison — digits only (tolerates spaces, +, dashes,
+// parentheses) so "+1 202-643-9822" matches "12026439822".
+function digits(p: string | null | undefined): string {
+  return (p ?? "").replace(/\D/g, "");
+}
+
+export default function CallCard({ call, compact = false, personalPhone, companyPhone }: {
+  call: CallRecord;
+  compact?: boolean;
+  /** The lead's two numbers, so the card can show WHICH was dialed
+   * (boss 2026-06-10: "a qué teléfono fue la llamada, privado o público"). */
+  personalPhone?: string | null;
+  companyPhone?: string | null;
+}) {
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -131,8 +144,23 @@ export default function CallCard({ call, compact = false }: { call: CallRecord; 
             <Phone size={16} />
           </div>
           <div>
-            <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>
+            <p className="text-sm font-semibold inline-flex items-center gap-1.5" style={{ color: C.textPrimary }}>
               {call.phone_number ?? "—"}
+              {(() => {
+                const d = digits(call.phone_number);
+                const which = d && digits(personalPhone) === d ? "Personal"
+                  : d && digits(companyPhone) === d ? "Company"
+                  : null;
+                if (!which) return null;
+                const isPersonal = which === "Personal";
+                return (
+                  <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                    style={{ backgroundColor: isPersonal ? "color-mix(in srgb, #7C3AED 14%, transparent)" : C.surface, color: isPersonal ? "#7C3AED" : C.textMuted }}
+                    title={isPersonal ? "Dialed the lead's personal number" : "Dialed the lead's company number"}>
+                    {which}
+                  </span>
+                );
+              })()}
             </p>
             <p className="text-xs" style={{ color: C.textMuted }}>
               {call.direction === "outbound" ? "Outbound" : "Inbound"} call
