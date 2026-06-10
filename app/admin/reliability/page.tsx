@@ -563,9 +563,14 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
   const skippedVisible = showNoise ? fSkippedAll : fSkippedAll.filter((r) => isRecent(r.created_at));
   const skippedHiddenCount = fSkippedAll.length - skippedVisible.length;
 
-  // "Acción requerida" = anything the operator should look at.
+  // "Acción requerida" = things a HUMAN must act on: failed sends + stalled
+  // tenants (nothing shipping). Stuck invites + ghost-sent are reconciliation
+  // artifacts (LinkedIn didn't accept / CRM↔Unipile mismatch) — informational,
+  // NOT actions. Lumping them in is what made this page scream "608 acciones"
+  // when almost nothing needed doing. They live under "Diagnóstico" now.
   const actionRequiredCount =
-    failedVisible.length + fStuck.length + fGhostCount;
+    failedVisible.length + visibleStalls.length;
+  const diagnosticsCount = fStuck.length + fGhostCount;
   // "Pipeline" = work currently flowing through the dispatcher (no action needed).
   const pipelineCount =
     fQueuedReady.length + fQueuedCooldown.length + fQueuedWaiting.length + fDispatching.length;
@@ -619,10 +624,10 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
         status={{ label: actionRequiredCount > 0 ? `${actionRequiredCount} acción${actionRequiredCount === 1 ? "" : "es"} requerida${actionRequiredCount === 1 ? "" : "s"}` : "Healthy", active: actionRequiredCount === 0 }}
         action={<ReliabilityActions />}
         stats={[
-          { label: "Tenants", value: tenants.length, tone: "neutral" },
           { label: "Health", value: globalHealth, tone: globalHealth >= 85 ? "positive" : globalHealth >= 60 ? "warning" : "danger" },
-          { label: "Acción", value: actionRequiredCount, tone: actionRequiredCount > 0 ? "danger" : "neutral" },
-          { label: "Pipeline", value: pipelineCount, tone: pipelineCount > 0 ? "warning" : "neutral" },
+          { label: "Acción", value: actionRequiredCount, tone: actionRequiredCount > 0 ? "danger" : "positive" },
+          { label: "Frenados", value: visibleStalls.length, tone: visibleStalls.length > 0 ? "danger" : "positive" },
+          { label: "Tenants", value: tenants.length, tone: "neutral" },
         ]}
       />
 
@@ -704,12 +709,22 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
         >
           <span className="text-[10px] font-bold uppercase tracking-wider px-2" style={{ color: C.textDim }}>Jump to</span>
           <a href="#health" className="text-[11.5px] font-semibold px-2 py-1 rounded-md transition-colors hover:bg-black/[0.04]" style={{ color: C.textBody }}>Salud</a>
+          {visibleStalls.length > 0 && (
+            <a href="#stalls" className="text-[11.5px] font-semibold px-2 py-1 rounded-md transition-colors hover:bg-black/[0.04]" style={{ color: C.red }}>
+              Frenados <span className="tabular-nums">({visibleStalls.length})</span>
+            </a>
+          )}
+          {failedVisible.length > 0 && (
+            <a href="#action-required" className="text-[11.5px] font-semibold px-2 py-1 rounded-md transition-colors hover:bg-black/[0.04]" style={{ color: C.red }}>
+              Acción <span className="tabular-nums">({failedVisible.length})</span>
+            </a>
+          )}
           {selectedLabel === "All tenants" && tenantHealth.length > 0 && (
             <a href="#tenants" className="text-[11.5px] font-semibold px-2 py-1 rounded-md transition-colors hover:bg-black/[0.04]" style={{ color: C.textBody }}>Tenants</a>
           )}
-          {actionRequiredCount > 0 && (
-            <a href="#action-required" className="text-[11.5px] font-semibold px-2 py-1 rounded-md transition-colors hover:bg-black/[0.04]" style={{ color: C.red }}>
-              Acción <span className="tabular-nums">({actionRequiredCount})</span>
+          {diagnosticsCount > 0 && (
+            <a href="#diagnostico" className="text-[11.5px] font-semibold px-2 py-1 rounded-md transition-colors hover:bg-black/[0.04]" style={{ color: C.textMuted }}>
+              Diagnóstico <span className="tabular-nums">({diagnosticsCount})</span>
             </a>
           )}
           <a href="#sellers" className="text-[11.5px] font-semibold px-2 py-1 rounded-md transition-colors hover:bg-black/[0.04]" style={{ color: C.textBody }}>Sellers</a>
@@ -803,9 +818,9 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
       {/* ────────────────────────────────────────────────────────────
           STATUS · Acción requerida — failed / stuck / ghosts
           ──────────────────────────────────────────────────────────── */}
-      {tab === "status" && actionRequiredCount > 0 && (
+      {tab === "status" && failedVisible.length > 0 && (
         <section id="action-required" className="scroll-mt-24">
-        <SectionGroup title="Acción requerida" subtitle="Cosas que necesitan tu atención — el dispatcher no las va a resolver solo." accent={C.red} count={actionRequiredCount}>
+        <SectionGroup title="Acción requerida" subtitle="Envíos que fallaron — necesitan que los reintentes o revises." accent={C.red} count={failedVisible.length}>
           {/* Failed */}
           {(failedVisible.length > 0 || failedHiddenCount > 0) && (
             <CollapsibleSection
@@ -851,7 +866,16 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
               </Table>
             </CollapsibleSection>
           )}
+        </SectionGroup>
+        </section>
+      )}
 
+      {/* ─── Diagnóstico (no urgente) — reconciliation artifacts, not actions.
+          Stuck invites = LinkedIn never accepted. Ghost-sent = CRM↔Unipile
+          mismatch. Collapsed by default so they don't drown the real signal. */}
+      {tab === "status" && diagnosticsCount > 0 && (
+        <section id="diagnostico" className="scroll-mt-24">
+        <SectionGroup title="Diagnóstico (no urgente)" subtitle="Artefactos de reconciliación — informativo, no requieren acción inmediata." accent={C.textMuted} count={diagnosticsCount}>
           {/* Stuck */}
           {fStuck.length > 0 && (
             <CollapsibleSection
@@ -890,11 +914,11 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
           {/* Ghost-sent — REAL ghosts only (no Unipile match AND no engagement signal) */}
           {fGhostCount > 0 && (
             <CollapsibleSection
-              title={`Ghost-sent — DB dice enviado, Unipile no lo registra y el lead no respondió (${fGhostCount})`}
-              accent={C.red}
+              title="Ghost-sent — DB dice enviado, Unipile no lo registra"
+              accent="#D97706"
               count={fGhostCount}
-              defaultOpen={true}
-              hint="Posible falla del dispatcher: invite nunca salió">
+              defaultOpen={false}
+              hint="Mismatch CRM↔Unipile — revisar si hay tiempo">
               <div className="px-4 py-2.5 text-[11px]" style={{ color: C.textMuted, backgroundColor: C.surface, borderBottom: `1px solid ${C.border}` }}>
                 Filas SIN match en el feed pending de Unipile Y sin señal de engagement (`linkedin_connected=false`, `responded=false`). El invite probablemente nunca salió o falló silenciosamente. Investigar.
               </div>
