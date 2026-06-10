@@ -146,7 +146,13 @@ export async function POST(req: NextRequest) {
     .eq("id", campaignId)
     .maybeSingle();
   if (!campaign) return NextResponse.json({ error: "campaign not found" }, { status: 404 });
-  if (scope.isScoped && campaign.company_bio_id !== scope.companyBioId) {
+  // super_admin operates cross-tenant by design (the /admin Pending-Approvals
+  // flow approves any client's request). Without this bypass, a super_admin
+  // who had switched the tenant cookie to e.g. Arqy got `isScoped=true` +
+  // `companyBioId=Arqy`, so approving an SWL request 403'd every tailor call →
+  // approve returned "Failed to approve" (2026-06-10). owner/manager stay
+  // scoped to their own tenant.
+  if (scope.tier !== "super_admin" && scope.isScoped && campaign.company_bio_id !== scope.companyBioId) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
   const sellerName = (Array.isArray((campaign as { sellers?: unknown }).sellers)
