@@ -455,12 +455,16 @@ async function dispatchOneEmail(
   const nextEligibleAt = nextDaysAfter !== null ? new Date(Date.now() + nextDaysAfter * DAY_MS).toISOString() : null;
 
   const updateOps: Array<PromiseLike<unknown>> = [
+    // Merge with prev metadata so we don't clobber upstream markers
+    // (engaged_at, has_tailored_slots, last_rate_limit_at, etc.).
+    // dispatch-queue (LinkedIn) merges already; keeping email in sync.
     svc.from("campaign_messages").update({
       status: "sent",
       sent_at: now,
       provider_message_id: providerLeadId,
       error_details: null,
       metadata: {
+        ...meta,
         dispatched_by: "cron-dispatch-email",
         subject,
         instantly_campaign_id: instantlyCampaignId,

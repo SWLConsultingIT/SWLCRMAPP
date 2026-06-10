@@ -195,7 +195,36 @@ async function handlePOST(req: NextRequest) {
     if (!res.ok) {
       const err = await res.text().catch(() => `HTTP ${res.status}`);
       console.error("[generate-field] V8 returned non-OK:", res.status, err.slice(0, 500));
-      return NextResponse.json({ error: `n8n error (${res.status}): ${err.slice(0, 300)}` }, { status: 502 });
+      // ONE retry for 502/503/504/500: these are usually transient
+      // n8n / Anthropic / OpenAI rate-limit blips that clear in a
+      // few seconds. 1.5s backoff before the second try. 4xx are NOT
+      // retried (they indicate a payload problem and would just
+      // repeat).
+      if (res.status >= 500 && res.status < 600) {
+        console.log("[generate-field] V8 5xx — retrying once after 1.5s");
+        await new Promise(r => setTimeout(r, 1500));
+        try {
+          const retryRes = await fetch(N8N_WEBHOOK_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(n8nPayload),
+          });
+          if (retryRes.ok) {
+            console.log("[generate-field] V8 retry succeeded", { status: retryRes.status });
+            res = retryRes;
+          } else {
+            const retryErr = await retryRes.text().catch(() => `HTTP ${retryRes.status}`);
+            console.error("[generate-field] V8 retry also failed:", retryRes.status, retryErr.slice(0, 300));
+            return NextResponse.json({ error: `n8n error (${retryRes.status}, retried): ${retryErr.slice(0, 300)}` }, { status: 502 });
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error("[generate-field] V8 retry threw:", msg);
+          return NextResponse.json({ error: `n8n retry failed: ${msg}` }, { status: 502 });
+        }
+      } else {
+        return NextResponse.json({ error: `n8n error (${res.status}): ${err.slice(0, 300)}` }, { status: 502 });
+      }
     }
     const data = await res.json().catch((e) => {
       console.error("[generate-field] V8 response JSON parse failed:", e);

@@ -351,6 +351,18 @@ export default function NewCampaignWizard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [campaignName, sequence, channelMessages, language, timezone, wizardStep, selectedSignals, sellerQuotas, selectedAircallNumberId, callAdvanceMode, flowType]);
 
+  // If the seller goes back to Step 2 (Messages) and edits the
+  // template after having generated tailored preview outputs in
+  // Step 3, those outputs are now stale (the templates they ran
+  // against just changed). Drop them so the submit doesn't ship
+  // stale per-lead slots into a different template.
+  useEffect(() => {
+    if (wizardStep === 2 && Object.keys(previewOutputs).length > 0) {
+      setPreviewOutputs({});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelMessages]);
+
   // Lazy load: when the seller lands on Step 3 in tailored mode, resolve
   // their tenant bio id + the full list of lead ids the batch is going
   // to target. Skipped for generic mode (no Step 3 review surface).
@@ -867,7 +879,14 @@ export default function NewCampaignWizard() {
                   had before. */}
               <button
                 type="button"
-                onClick={() => setFlowType(null)}
+                onClick={() => {
+                  // Switching flow type invalidates the per-lead preview
+                  // outputs (they were generated against the previous mode
+                  // and previous template). Clearing avoids submitting
+                  // stale tailored slots into a generic flow or vice versa.
+                  setPreviewOutputs({});
+                  setFlowType(null);
+                }}
                 className="shrink-0 flex flex-col items-end gap-0.5 px-4 py-2 rounded-xl transition-opacity hover:opacity-85"
                 title="Change flow type"
                 style={flowType === "tailored"
@@ -942,6 +961,7 @@ export default function NewCampaignWizard() {
               setSelectedSignals([]);
               setWizardStep(0);
               setFlowType(null);
+              setPreviewOutputs({});
               setDraftRestored(false);
             }}
             className="ml-auto text-xs font-medium hover:underline"
@@ -1832,6 +1852,28 @@ export default function NewCampaignWizard() {
               .map(s => ({ channel: s?.channel ?? "linkedin", body: s?.body ?? "", subject: s?.subject ?? null }))
               .filter(s => s.body && s.body.trim().length > 0);
             const cr = channelMessages.connectionRequest ?? undefined;
+            // Guard: with no step bodies AND no connection request, the
+            // tailor endpoints have nothing to generate against and
+            // would respond "no tailored slots in template" — surface
+            // a clear nudge to go back to Step 2 instead of three
+            // empty AI panels.
+            if (stepsForPreview.length === 0 && !cr) {
+              return (
+                <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: `color-mix(in srgb, ${gold} 35%, ${C.border})` }}>
+                  <p className="text-sm font-semibold mb-1.5" style={{ color: C.textPrimary }}>No message bodies to preview yet</p>
+                  <p className="text-xs leading-relaxed mb-3" style={{ color: C.textBody }}>
+                    Go back to <strong>Step 3 (Messages)</strong> and click <strong>Preview all</strong> so the AI drafts the templates first. Then jump back here to validate per-lead.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setWizardStep(2)}
+                    className="text-xs font-semibold px-3 py-1.5 rounded-md transition-opacity hover:opacity-85"
+                    style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`, color: "#1A1A2E" }}>
+                    ← Go to Messages
+                  </button>
+                </div>
+              );
+            }
             return (
               <>
                 <SignalCoverageBanner leadIds={tailoredLeadIds} />

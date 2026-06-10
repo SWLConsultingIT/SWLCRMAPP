@@ -524,14 +524,21 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
     let failedReason: string | null = null;
 
     try {
+      // Snapshot channelMessages at the start. The loop runs async
+      // for ~20-40s and each iteration calls onChange — without a
+      // snapshot, every onChange spreads the STALE closure value
+      // overwriting any field the parent updated between iterations
+      // (e.g. connectionRequestPrompt). Snapshot freezes everything
+      // we don't actively update inside the loop.
+      const cmSnapshot = channelMessages;
       // Build working copy of steps
-      const allSteps = classified.map((cls, i) => channelMessages.steps?.[i] || {
+      const allSteps = classified.map((cls, i) => cmSnapshot.steps?.[i] || {
         type: cls.type, channel: cls.channel, label: cls.label, body: "", subject: cls.hasSubject ? "" : undefined,
       });
-      let replies = { ...(channelMessages.autoReplies || { positive: "", negative: "", question: "" }) };
+      let replies = { ...(cmSnapshot.autoReplies || { positive: "", negative: "", question: "" }) };
 
       // Generate connection request if LinkedIn is in sequence
-      let connRequest = channelMessages.connectionRequest || "";
+      let connRequest = cmSnapshot.connectionRequest || "";
       if (hasLinkedin) {
         stepIndex++;
         setGenProgress({ current: stepIndex, total: totalSteps, label: "Connection request" });
@@ -547,7 +554,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
             failedReason = readableErr(crData, crRes.status);
           } else {
             if (crData.content) connRequest = clampToCharBudget(crData.content, 200);
-            onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
+            onChange({ ...cmSnapshot, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
           }
         } catch (e: any) {
           failedLabel = "Connection request";
@@ -578,7 +585,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
             failedReason = readableErr(data, res.status);
           } else if (data.content) {
             allSteps[i] = { ...allSteps[i], body: data.content, subject: data.subject || allSteps[i]?.subject };
-            onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
+            onChange({ ...cmSnapshot, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
           }
         } catch (e: any) {
           failedLabel = classified[i].label;
@@ -593,7 +600,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
         const human = replyType === "replyPositive" ? "Positive auto-reply" : "Negative auto-reply";
         setGenProgress({ current: stepIndex, total: totalSteps, label: human });
         const promptField = replyType === "replyPositive" ? "positivePrompt" : "negativePrompt";
-        const replyPrompt = (channelMessages.autoReplies && (channelMessages.autoReplies as Record<string, string | undefined>)[promptField]) ?? "";
+        const replyPrompt = (cmSnapshot.autoReplies && (cmSnapshot.autoReplies as Record<string, string | undefined>)[promptField]) ?? "";
         try {
           const res = await fetch("/api/campaigns/generate-field", {
             method: "POST",
@@ -607,7 +614,7 @@ export default function ChannelMessageConfig({ sequence, channelMessages, onChan
           } else if (data.content) {
             const field = replyType === "replyPositive" ? "positive" : "negative";
             replies = { ...replies, [field]: data.content };
-            onChange({ ...channelMessages, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
+            onChange({ ...cmSnapshot, connectionRequest: connRequest, steps: [...allSteps], autoReplies: replies });
           }
         } catch (e: any) {
           failedLabel = human;
