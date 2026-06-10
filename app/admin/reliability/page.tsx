@@ -133,6 +133,7 @@ type ReliabilityData = {
     activeCooldownMessages: number;
   };
   tenants: TenantSummary[];
+  stalls: { bioId: string; name: string; due: number; hoursSinceSend: number | null; lastSentAt: string | null }[];
   fetchedAt: string;
 };
 
@@ -148,7 +149,7 @@ async function fetchReliability(): Promise<ReliabilityData> {
   const stuckCutoff = new Date(nowMs - STUCK_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const expiredCutoff = new Date(nowMs - EXPIRED_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
-  const [queuedQ, dispatchingQ, failedQ, skippedQ, sentLedgerQ, sellersQ, stuckExpiredQ, sent7dQ, sent30dQ, replies7dQ, bioQ] = await Promise.all([
+  const [queuedQ, dispatchingQ, failedQ, skippedQ, sentLedgerQ, sellersQ, stuckExpiredQ, sent7dQ, sent30dQ, replies7dQ, bioQ, lastSentQ] = await Promise.all([
     svc.from("campaign_messages").select(queueSelect).eq("status", "queued").order("created_at", { ascending: true }).limit(1000),
     svc.from("campaign_messages").select(queueSelect).eq("status", "dispatching").order("created_at", { ascending: true }).limit(1000),
     svc.from("campaign_messages").select(queueSelect).eq("status", "failed").order("created_at", { ascending: false }).limit(50),
@@ -167,6 +168,12 @@ async function fetchReliability(): Promise<ReliabilityData> {
       .gte("sent_at", since30d),
     svc.from("lead_replies").select("id").gte("received_at", since7d),
     svc.from("company_bios").select("id, company_name"),
+    // Latest sends across all channels/steps — used to detect SILENT STALLS
+    // (a tenant with due work but no send in >24h). The most recent rows give
+    // us last-sent per tenant from the first occurrence per company_bio_id.
+    svc.from("campaign_messages").select("sent_at, leads!inner(company_bio_id)")
+      .eq("status", "sent").not("sent_at", "is", null)
+      .order("sent_at", { ascending: false }).limit(1500),
   ]);
 
   // Decrypt PII on every queue-row's inner `leads` so the table doesn't
@@ -340,6 +347,35 @@ async function fetchReliability(): Promise<ReliabilityData> {
     }
   }
 
+  // SILENT-STALL detection. A tenant looks "healthy" (no failures) yet sends
+  // nothing because automated steps are READY but the dispatcher isn't draining
+  // them (or every lead is parked behind a manual call). This is exactly what
+  // hid the Pathway stall on 2026-06-08. Reason = due automated work + no send
+  // in >24h. Calls are excluded (manual by law — they don't auto-send).
+  const lastSentByTenant = new Map<string, number>();
+  for (const r of ((lastSentQ.data ?? []) as any[])) {
+    const bio = r.leads?.company_bio_id as string | undefined;
+    const t = r.sent_at ? new Date(r.sent_at).getTime() : 0;
+    if (bio && t && !lastSentByTenant.has(bio)) lastSentByTenant.set(bio, t);
+  }
+  const dueAutomatedByTenant = new Map<string, number>();
+  for (const r of queuedReady) {
+    if ((r.channel ?? "") === "call") continue; // manual — never auto-sends
+    const bio = r.leads?.company_bio_id;
+    if (!bio) continue;
+    dueAutomatedByTenant.set(bio, (dueAutomatedByTenant.get(bio) ?? 0) + 1);
+  }
+  const stallNameMap = new Map<string, string>();
+  for (const b of ((bioQ.data ?? []) as any[])) stallNameMap.set(b.id as string, (b.company_name as string | null) ?? "(unnamed)");
+  const stalls = Array.from(dueAutomatedByTenant.entries())
+    .map(([bioId, due]) => {
+      const last = lastSentByTenant.get(bioId) ?? null;
+      const hoursSinceSend = last ? Math.round((nowMs - last) / 3600000) : null;
+      return { bioId, name: stallNameMap.get(bioId) ?? "(unknown)", due, hoursSinceSend, lastSentAt: last ? new Date(last).toISOString() : null };
+    })
+    .filter(s => s.due > 0 && (s.hoursSinceSend === null || s.hoursSinceSend >= 24))
+    .sort((a, b) => (b.hoursSinceSend ?? 1e9) - (a.hoursSinceSend ?? 1e9));
+
   const queuedByCampaign = new Map<string, QueuedClassified[]>();
   for (const r of [...queuedReady, ...queuedCooldown, ...queuedWaiting]) {
     const name = r.campaigns?.name ?? "(no name)";
@@ -440,6 +476,7 @@ async function fetchReliability(): Promise<ReliabilityData> {
       activeCooldownMessages,
     },
     tenants,
+    stalls,
     fetchedAt: new Date().toISOString(),
   };
 }
@@ -496,7 +533,9 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
     : "status";
 
   const data = await fetchReliability();
-  const { queueHealth, sentVsUnipile, sellerHealth, kpis, fetchedAt, tenants } = data;
+  const { queueHealth, sentVsUnipile, sellerHealth, kpis, fetchedAt, tenants, stalls } = data;
+  // Silent-stall list, scoped to the current tenant filter when one is active.
+  const visibleStalls = (stalls ?? []).filter((s: any) => !tenantId || s.bioId === tenantId);
 
   // Resolve selected tenant name for the header.
   const selectedTenant = tenantId ? tenants.find(t => t.bioId === tenantId) : null;
@@ -688,6 +727,51 @@ export default async function ReliabilityPage({ searchParams }: { searchParams: 
             pipeline={pipelineCount}
             scopeLabel={selectedLabel}
           />
+        </section>
+      )}
+
+      {/* SILENT STALLS — the gap the health score misses: tenants with no
+          failures (so they look green) but nothing going out. Surfaces the
+          reason in plain language so you don't have to dig. */}
+      {tab === "status" && visibleStalls.length > 0 && (
+        <section id="stalls" className="mt-4 scroll-mt-24">
+          <div className="rounded-xl border overflow-hidden" style={{ borderColor: C.red + "40", backgroundColor: C.card }}>
+            <div className="px-4 py-3 flex items-center gap-2.5" style={{ backgroundColor: C.red + "0E", borderBottom: `1px solid ${C.red}22` }}>
+              <AlertTriangle size={16} style={{ color: C.red }} />
+              <div>
+                <h2 className="text-[13px] font-bold" style={{ color: C.red, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                  Envío frenado — {visibleStalls.length} tenant{visibleStalls.length === 1 ? "" : "s"}
+                </h2>
+                <p className="text-[10.5px]" style={{ color: C.textMuted }}>
+                  Hay trabajo automático listo para salir pero el dispatcher no está enviando. No genera "failed", por eso el health score no lo marca.
+                </p>
+              </div>
+            </div>
+            <div className="divide-y" style={{ borderColor: C.border }}>
+              {visibleStalls.map((s: any) => (
+                <Link
+                  key={s.bioId}
+                  href={`/admin/reliability?tenant=${encodeURIComponent(s.bioId)}`}
+                  prefetch={false}
+                  className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-black/[0.02]"
+                  style={{ textDecoration: "none", color: "inherit" }}
+                >
+                  <div className="min-w-0">
+                    <p className="text-[12.5px] font-bold truncate" style={{ color: C.textPrimary }}>{s.name}</p>
+                    <p className="text-[11px]" style={{ color: C.textBody }}>
+                      <span className="font-semibold" style={{ color: C.red }}>{s.due}</span> mensaje{s.due === 1 ? "" : "s"} listo{s.due === 1 ? "" : "s"} para enviar ·{" "}
+                      {s.hoursSinceSend === null
+                        ? "nunca envió"
+                        : `sin envíos hace ${s.hoursSinceSend}h`}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full" style={{ backgroundColor: C.red + "14", color: C.red }}>
+                    Revisar
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
         </section>
       )}
 
