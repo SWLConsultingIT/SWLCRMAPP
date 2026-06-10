@@ -918,6 +918,15 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
       .catch(() => { /* non-critical */ });
   }, []);
 
+  // Open support-request count → badge on the Support link.
+  const [openRequests, setOpenRequests] = useState(0);
+  useEffect(() => {
+    fetch("/api/help-requests?status=open")
+      .then(r => r.json())
+      .then(d => setOpenRequests(Array.isArray(d?.requests) ? d.requests.length : 0))
+      .catch(() => { /* non-critical */ });
+  }, []);
+
   const filteredClients = !search
     ? clients
     : clients.filter(c =>
@@ -1038,6 +1047,12 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
         >
           <LifeBuoy size={14} />
           Support
+          {openRequests > 0 && (
+            <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+              style={{ backgroundColor: "color-mix(in srgb, #D97706 15%, transparent)", color: "#D97706" }}>
+              {openRequests}
+            </span>
+          )}
           <ArrowRight size={11} style={{ opacity: 0.5 }} />
         </Link>
 

@@ -183,9 +183,12 @@ async function handlePOST(req: NextRequest) {
       console.log("[generate-field] V8 fetch done", { status: res.status, ms: Date.now() - fetchStart });
     } catch (e) {
       const isAbort = e instanceof Error && e.name === "AbortError";
-      const msg = isAbort ? "n8n webhook timed out after 280s" : (e instanceof Error ? `${e.name}: ${e.message}` : String(e));
-      console.error("[generate-field] V8 fetch failed:", msg, "after", Date.now() - fetchStart, "ms");
-      return NextResponse.json({ error: msg }, { status: 504 });
+      const elapsed = Date.now() - fetchStart;
+      // Distinguish a real timeout from a client/network AbortError
+      // by checking elapsed against our 290s cap.
+      const reason = isAbort && elapsed >= 285_000 ? "n8n webhook timed out after 290s" : (isAbort ? "fetch aborted (likely client cancel)" : (e instanceof Error ? `${e.name}: ${e.message}` : String(e)));
+      console.error("[generate-field] V8 fetch failed:", reason, "after", elapsed, "ms");
+      return NextResponse.json({ error: reason }, { status: 504 });
     } finally {
       clearTimeout(t);
     }

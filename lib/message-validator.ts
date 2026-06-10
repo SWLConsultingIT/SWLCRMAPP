@@ -106,7 +106,11 @@ const PLACEHOLDER_SHAPES: RegExp[] = [
   /\{\{\s*\}\}/,
 ];
 
-// Approximate the rendered length post-substitution. Mirrors the V8 estLen.
+// Approximate the rendered length post-substitution. Mirrors the V8
+// validator-v8 estLen() exactly so wizard preview and workflow agree
+// on what "too long" means. Tailored slots get an ~47-char filler
+// (matches the empirical median hook+fit length in production).
+const TAILORED_SLOT_RE = /\{\{\s*tailored(?:Hook|Fit|:[a-z]+)\s*\}\}/gi;
 export function estLen(body: string | null | undefined): number {
   if (!body) return 0;
   return body
@@ -114,6 +118,7 @@ export function estLen(body: string | null | undefined): number {
     .replace(/\{\{\s*company_name\s*\}\}/g, "OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO")
     .replace(/\{\{\s*seller_name\s*\}\}/g, "__________")
     .replace(/\{\{\s*seller_company\s*\}\}/g, "OOOOOOOOOOOOOOOOOOOOOOO")
+    .replace(TAILORED_SLOT_RE, "_______________________________________________")
     .replace(/\{\{[^}]+\}\}/g, "__________")
     .length;
 }

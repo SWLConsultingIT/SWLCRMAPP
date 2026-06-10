@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { getUserScope, canApproveCampaigns } from "@/lib/scope";
-import { autoNormalizePlaceholders } from "@/lib/placeholders";
+import { autoNormalizePlaceholders, findTailoredSlots } from "@/lib/placeholders";
 
 // Use service key to bypass RLS for admin operations
 const supabase = createClient(
@@ -336,6 +336,15 @@ export async function POST(req: NextRequest) {
       const eligibleAt = inviteOffsetDays > 0
         ? new Date(Date.now() + inviteOffsetDays * 86400000).toISOString()
         : null;
+      // has_tailored_slots flags the row at INSERT time so the tailor
+      // pass can find it even after the slots have been substituted
+      // (without this, a re-run of /api/campaigns/tailor sees a body
+      // with no `{{tailored:*}}` left and skips the row, missing
+      // manual_edits in preview_outputs).
+      const crHasSlots = findTailoredSlots(connectionRequest).length > 0;
+      const crMeta: Record<string, unknown> = {};
+      if (eligibleAt) crMeta.eligible_at = eligibleAt;
+      if (crHasSlots) crMeta.has_tailored_slots = true;
       messageInserts.push({
         campaign_id: campaign.id,
         lead_id: leadId,
@@ -344,7 +353,7 @@ export async function POST(req: NextRequest) {
         content: connectionRequest,
         status: "queued",
         created_at: new Date().toISOString(),
-        metadata: eligibleAt ? { eligible_at: eligibleAt } : null,
+        metadata: Object.keys(crMeta).length > 0 ? crMeta : null,
       });
     }
 
@@ -361,6 +370,15 @@ export async function POST(req: NextRequest) {
       const subjectNormalized = msg.subject
         ? autoNormalizePlaceholders(msg.subject).normalized
         : null;
+      // Stamp `has_tailored_slots` at INSERT so the tailor pass can
+      // identify rows that ORIGINALLY had slots, even after a previous
+      // tailor run substituted them and re-runs would otherwise see
+      // a slot-free body and skip.
+      const hasSlots = findTailoredSlots(bodyNormalized).length > 0
+        || (subjectNormalized ? findTailoredSlots(subjectNormalized).length > 0 : false);
+      const stepMeta: Record<string, unknown> = {};
+      if (subjectNormalized) stepMeta.subject = subjectNormalized;
+      if (hasSlots) stepMeta.has_tailored_slots = true;
       messageInserts.push({
         campaign_id: campaign.id,
         lead_id: leadId,
@@ -369,9 +387,7 @@ export async function POST(req: NextRequest) {
         content: bodyNormalized,
         status: isFirstNonLinkedin ? "queued" : "draft",
         created_at: new Date().toISOString(),
-        // Email subjects live in metadata.subject — normalize there too so
-        // the dispatcher reads a canonical subject at send time.
-        ...(subjectNormalized ? { metadata: { subject: subjectNormalized } } : {}),
+        ...(Object.keys(stepMeta).length > 0 ? { metadata: stepMeta } : {}),
       });
     });
 

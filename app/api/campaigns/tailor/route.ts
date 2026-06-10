@@ -171,7 +171,16 @@ export async function POST(req: NextRequest) {
     .select("id, lead_id, campaign_id, step_number, channel, content, metadata")
     .eq("campaign_id", campaignId);
   const allMsgs = (msgsRaw ?? []) as CampaignMessageRow[];
-  const slotted = allMsgs.filter(m => m.content && findTailoredSlots(m.content).length > 0);
+  // Idempotency: include rows whose content STILL has slots OR whose
+  // metadata.has_tailored_slots was stamped at INSERT time. Without
+  // the metadata fallback, a re-run after a partial tailor would see
+  // already-substituted content (no `{{tailored:*}}` left), skip the
+  // row entirely, and lose any manual_edits the seller made later.
+  const hasSlotMeta = (m: CampaignMessageRow): boolean => {
+    const meta = m.metadata as Record<string, unknown> | null;
+    return !!(meta && meta.has_tailored_slots === true);
+  };
+  const slotted = allMsgs.filter(m => m.content && (findTailoredSlots(m.content).length > 0 || hasSlotMeta(m)));
   if (slotted.length === 0) {
     return NextResponse.json({ ok: true, tailored: 0, reason: "no slots in this campaign" });
   }
