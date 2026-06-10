@@ -3,6 +3,7 @@
 import { useState, Fragment } from "react";
 import Link from "next/link";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 import {
   Users, Send, UserCheck, MessageSquare, Trophy, TrendingUp, AlertTriangle,
   Share2, Mail, Phone, ChevronRight, ChevronDown, XCircle, Hourglass, Search, Download,
@@ -65,6 +66,7 @@ function Section({ title, action, children, pad = true }: { title: string; actio
 }
 
 export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState<DrillKey | null>(null);
   // Which section opened the drill, so the lead list renders RIGHT THERE
   // (under the funnel vs under Issues) instead of always jumping to the top.
@@ -120,7 +122,8 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
         <div className="rounded-xl border px-4 py-2.5 flex items-center gap-2.5" style={{ borderColor: "color-mix(in srgb, #D97706 38%, transparent)", backgroundColor: "color-mix(in srgb, #D97706 8%, transparent)" }}>
           <Hourglass size={15} style={{ color: "#D97706" }} />
           <span className="text-[13px]" style={{ color: C.textBody }}>
-            <strong style={{ color: "#B45309" }}>{m.cooldown.channel === "linkedin" ? "LinkedIn" : m.cooldown.channel} on cooldown</strong> — provider rate limit hit; sending paused until <strong>{fmtDT(m.cooldown.until)}</strong>, then auto-resumes.
+            <strong style={{ color: "#B45309" }}>{m.cooldown.channel === "linkedin" ? "LinkedIn" : m.cooldown.channel}</strong>{" "}
+            {t("metrics.cooldown.body", { until: fmtDT(m.cooldown.until) })}
           </span>
         </div>
       )}

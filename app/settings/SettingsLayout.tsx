@@ -337,9 +337,9 @@ function OperationsSection({ callMode }: { callMode: "manual" | "auto" }) {
           are findable from Settings, where the boss looked first. */}
       <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
         <div className="mb-3">
-          <h3 className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>Sending limits</h3>
+          <h3 className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>{t("set.limits.title")}</h3>
           <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
-            Daily caps live in Accounts. LinkedIn connection requests are limited per seller; email volume is set per mailbox and rolls up per domain.
+            {t("set.limits.desc")}
           </p>
         </div>
         <div className="space-y-2">
@@ -348,8 +348,8 @@ function OperationsSection({ callMode }: { callMode: "manual" | "auto" }) {
             style={{ borderColor: C.border, backgroundColor: C.bg }}>
             <Share2 size={15} style={{ color: "#0A66C2" }} />
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>LinkedIn — connections/day per seller</p>
-              <p className="text-[11px]" style={{ color: C.textMuted }}>Open a seller → set their daily invite limit</p>
+              <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{t("set.limits.li.title")}</p>
+              <p className="text-[11px]" style={{ color: C.textMuted }}>{t("set.limits.li.desc")}</p>
             </div>
             <ChevronRight size={14} style={{ color: C.textDim }} />
           </Link>
@@ -358,8 +358,8 @@ function OperationsSection({ callMode }: { callMode: "manual" | "auto" }) {
             style={{ borderColor: C.border, backgroundColor: C.bg }}>
             <Mail size={15} style={{ color: "#7C3AED" }} />
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>Email — emails/day per mailbox & domain</p>
-              <p className="text-[11px]" style={{ color: C.textMuted }}>Instantly Email Pool → per-mailbox limits + by-domain budget</p>
+              <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{t("set.limits.email.title")}</p>
+              <p className="text-[11px]" style={{ color: C.textMuted }}>{t("set.limits.email.desc")}</p>
             </div>
             <ChevronRight size={14} style={{ color: C.textDim }} />
           </Link>
@@ -374,10 +374,10 @@ function OperationsSection({ callMode }: { callMode: "manual" | "auto" }) {
 function IntegrationsSection() {
   const { t } = useLocale();
   const integrations = [
-    { name: "LinkedIn (Unipile)", icon: "🔗", status: "connected", color: "#0A66C2", description: "Per-seller LinkedIn accounts via Unipile" },
-    { name: "Email (Instantly)",  icon: "✉️", status: "connected", color: "#7C3AED", description: "Shared email pool for outbound campaigns" },
-    { name: "Calls (Aircall)",    icon: "📞", status: "connected", color: "#F97316", description: "Outbound calls + recording + AI transcripts" },
-    { name: "CRM (Odoo)",         icon: "🏢", status: "connected", color: "#16A34A", description: "Lead sync to Odoo CRM on positive reply" },
+    { name: "LinkedIn (Unipile)", icon: "🔗", status: "connected", color: "#0A66C2", description: t("int.linkedin.desc") },
+    { name: "Email (Instantly)",  icon: "✉️", status: "connected", color: "#7C3AED", description: t("int.email.desc") },
+    { name: "Calls (Aircall)",    icon: "📞", status: "connected", color: "#F97316", description: t("int.calls.desc") },
+    { name: "CRM (Odoo)",         icon: "🏢", status: "connected", color: "#16A34A", description: t("int.odoo.desc") },
   ];
 
   return (

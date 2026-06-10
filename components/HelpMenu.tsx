@@ -57,7 +57,7 @@ const GROUPS: ViewGroup[] = [
         desc: "Your home base — KPIs, today's activity, and a 30-day performance overview at a glance." },
       { href: "/company-bios", label: "Company Bio", icon: Building2, color: C.blue,
         desc: "Your company profile and positioning. This is the context the AI uses to write every message." },
-      { href: "/queue", label: "Notifications", icon: Bell, color: "#F97316",
+      { href: "/queue", label: "Inbox", icon: Bell, color: "#F97316",
         desc: "Your daily action list: replies to triage, calls to make, and campaign steps awaiting your approval." },
     ],
   },

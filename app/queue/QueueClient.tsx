@@ -827,7 +827,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
       <PageHero
         icon={Bell}
         section="Operations"
-        title="Notifications"
+        title="Inbox"
         description="Review pending calls, new replies, and campaigns awaiting action."
         accentColor={C.orange}
         status={{ label: totalCount > 0 ? `${totalCount} pending` : "All Clear", active: totalCount > 0 }}
