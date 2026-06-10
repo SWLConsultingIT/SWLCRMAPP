@@ -139,16 +139,8 @@ export default function TopHeader() {
         </button>
       </div>
 
-      {/* Right: capacity chip + actions + user */}
+      {/* Right: actions + user */}
       <div className="flex items-center gap-2 w-56 justify-end">
-        {/* Capacity indicator (#11) */}
-        <div
-          className="hidden sm:flex items-center gap-1 px-2 py-1 rounded text-[10px] font-semibold"
-          style={{ backgroundColor: C.bg, color: C.textDim }}
-          title={t("capacity.poolUsage")}
-        >
-          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: C.gold }} />
-        </div>
         <HelpMenu />
         <NotificationBell />
         <Link

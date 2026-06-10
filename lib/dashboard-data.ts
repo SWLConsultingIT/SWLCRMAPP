@@ -280,8 +280,16 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
 
   // Calls — fetched separately so any failure (RLS / missing column /
   // FK metadata mismatch) doesn't bring the whole dashboard down. Scopes
-  // by lead_id IN(...) instead of relying on PostgREST relationship
-  // inference; the leads list is already bio-scoped above.
+  // through the `leads!inner(company_bio_id)` embed instead of a
+  // `lead_id=in.(…)` filter.
+  //
+  // The old `.in("lead_id", cappedLeadIds)` approach broke silently for any
+  // large tenant: SWL has 1264 leads, so the generated PostgREST URL was
+  // ~47 KB of comma-joined UUIDs → the server rejected it with HTTP 400 →
+  // the catch below swallowed it → `allCalls = []` → the "Calls by user"
+  // panel rendered "No calls yet" even though 361 SWL calls existed. The
+  // embed join is bio-scoped server-side, so the URL stays tiny regardless
+  // of lead count (verified 2026-06-10).
   type CallRow = {
     id: string; lead_id: string | null; status: string | null;
     duration: number | null; classification: string | null; started_at: string | null;
@@ -289,18 +297,14 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   };
   let allCalls: CallRow[] = [];
   try {
-    const cappedLeadIds = allLeads.map(l => l.id).slice(0, 5000);
-    if (cappedLeadIds.length > 0) {
-      allCalls = await fetchAllRows<CallRow>(() =>
-        supabase
-          .from("calls")
-          .select("id, lead_id, status, duration, classification, started_at, dialed_by_user_id")
-          .in("lead_id", cappedLeadIds),
-      );
-      console.log(`[dashboard-data] loaded ${allCalls.length} calls for ${cappedLeadIds.length} leads`);
-    } else {
-      console.log("[dashboard-data] no leads found — skipping calls fetch");
-    }
+    const makeCallsQ = () => {
+      const q = supabase
+        .from("calls")
+        .select("id, lead_id, status, duration, classification, started_at, dialed_by_user_id, leads!inner(company_bio_id)");
+      return bioId ? q.eq("leads.company_bio_id", bioId) : q;
+    };
+    allCalls = await fetchAllRows<CallRow>(makeCallsQ);
+    console.log(`[dashboard-data] loaded ${allCalls.length} calls (bio: ${bioId ?? "all"})`);
   } catch (e) {
     console.warn("[dashboard-data] calls fetch failed — degrading to empty breakdown:", e);
     allCalls = [];

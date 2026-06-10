@@ -621,29 +621,69 @@ export default async function DashboardPage({
         counts={data.todayLists.counts}
       />
 
-      {/* Mis números (#14) — 4 big metrics + team avg */}
-      <div className="rounded-2xl border p-6" style={{ borderColor: C.border, backgroundColor: C.card }}>
-        <h3 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>{t("dashboard.myMetrics.title")}</h3>
-        <div className="grid grid-cols-4 gap-3">
-          <div className="text-center">
-            <p className="text-2xl font-bold" style={{ color: C.gold }}>{data.headline?.contactedLeads ?? 0}</p>
-            <p className="text-xs mt-1" style={{ color: C.textMuted }}>{t("dashboard.myMetrics.leadsReached")}</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold" style={{ color: C.gold }}>{data.headline?.repliedCount ?? 0}</p>
-            <p className="text-xs mt-1" style={{ color: C.textMuted }}>{t("dashboard.myMetrics.replies")}</p>
-          </div>
-          <div className="text-center">
-            <p className="text-2xl font-bold" style={{ color: C.green }}>{data.headline?.positiveCount ?? 0}</p>
-            <p className="text-xs mt-1" style={{ color: C.textMuted }}>{t("dashboard.myMetrics.positive")}</p>
-          </div>
-          <div className="text-center border-l" style={{ borderColor: C.border }}>
-            <p className="text-xs font-semibold mb-1" style={{ color: C.textPrimary }}>You vs Team</p>
-            <p className="text-lg font-bold" style={{ color: C.gold }}>+{Math.abs(data.deltas?.replied ?? 0)}%</p>
-            <p className="text-[9px] mt-0.5" style={{ color: C.textMuted }}>{t("dashboard.myMetrics.teamAverage")}</p>
+      {/* Mis números (#14) — period KPIs, premium-styled to match TodayCard.
+          Deltas are real % change vs the prior equal-length window
+          (data.deltas); the 4th tile is response rate, a derived metric
+          that's actually meaningful (replaced a bogus "+100% You vs Team"). */}
+      <section
+        className="rounded-2xl border overflow-hidden"
+        style={{
+          backgroundColor: C.card,
+          borderColor: `color-mix(in srgb, ${gold} 28%, ${C.border})`,
+          boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 18%, transparent), 0 8px 24px -12px ${N.ink}`,
+        }}
+      >
+        <div
+          className="relative px-5 py-3.5 flex items-center gap-3 overflow-hidden"
+          style={{
+            background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`,
+            borderBottom: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
+          }}
+        >
+          <span aria-hidden className="absolute -top-16 -left-12 w-48 h-48 rounded-full pointer-events-none"
+            style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 18%, transparent) 0%, transparent 65%)` }} />
+          <span className="relative w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+            style={{ background: `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 78%, white) 100%)`, color: N.ink }}>
+            <Activity size={14} />
+          </span>
+          <div className="relative min-w-0">
+            <h3 className="text-[14px] font-semibold tracking-[-0.005em]" style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+              {t("dashboard.myMetrics.title")}
+            </h3>
+            <p className="text-[11px] mt-0.5 truncate" style={{ color: "color-mix(in srgb, white 60%, transparent)" }}>
+              {periodLabel}
+            </p>
           </div>
         </div>
-      </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-px" style={{ backgroundColor: C.border }}>
+          {[
+            { label: t("dashboard.myMetrics.leadsReached"), value: data.headline?.contactedLeads ?? 0, delta: data.deltas?.contacted ?? null, Icon: Users,          color: gold },
+            { label: t("dashboard.myMetrics.replies"),      value: data.headline?.repliedCount ?? 0,    delta: data.deltas?.replied ?? null,   Icon: MessageSquare, color: C.blue },
+            { label: t("dashboard.myMetrics.positive"),     value: data.headline?.positiveCount ?? 0,    delta: data.deltas?.positive ?? null,  Icon: ThumbsUp,      color: C.green },
+            { label: t("dashboard.responseRate"),           value: `${data.headline?.responseRate ?? 0}%`, delta: null,                         Icon: Target,        color: gold },
+          ].map((m) => (
+            <div key={m.label} className="px-5 py-4 flex flex-col gap-2" style={{ backgroundColor: C.card }}>
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: `color-mix(in srgb, ${m.color} 12%, transparent)`, color: m.color }}>
+                  <m.Icon size={12} />
+                </span>
+                <span className="text-[11px] font-medium leading-tight" style={{ color: C.textMuted }}>{m.label}</span>
+              </div>
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <span className="text-[26px] font-bold leading-none tabular-nums" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                  {m.value}
+                </span>
+                {m.delta != null && m.delta !== 0 && (
+                  <span className="text-[11px] font-bold tabular-nums" style={{ color: m.delta >= 0 ? C.green : C.red }}>
+                    {m.delta >= 0 ? "+" : "−"}{Math.abs(m.delta)}%
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
       </section>
       )}
 

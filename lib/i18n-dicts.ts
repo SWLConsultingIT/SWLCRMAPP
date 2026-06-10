@@ -1489,6 +1489,7 @@ export const en: Dict = {
   "dashboard.myMetrics.positive": "Positive",
   "dashboard.myMetrics.teamAverage": "Team average",
   "dashboard.myMetrics.youVsTeam": "you vs team",
+  "dashboard.responseRate": "Response rate",
   // Realtime updates (#15)
   "realtime.updatingNow": "Updating…",
   "realtime.justUpdated": "Just updated",
@@ -2974,6 +2975,7 @@ export const es: Dict = {
   "dashboard.myMetrics.positive": "Positivas",
   "dashboard.myMetrics.teamAverage": "Promedio equipo",
   "dashboard.myMetrics.youVsTeam": "tú vs equipo",
+  "dashboard.responseRate": "Tasa de respuesta",
   // Realtime updates (#15)
   "realtime.updatingNow": "Actualizando…",
   "realtime.justUpdated": "Actualizado",
