@@ -1450,6 +1450,48 @@ export const en: Dict = {
   "dashx.trend.priorPeriod": "Prior period",
   "dashx.trend.resetZoom": "Reset zoom",
   "dashx.trend.total": "total",
+  // Error messages (#10 block-message clarity)
+  "error.campaignInactive": "Campaign is paused or stopped",
+  "error.leadTerminal": "Lead already closed (won/lost)",
+  "error.leadReplied": "Lead already replied — flow auto-stops",
+  "error.capacityFull": "Pool at capacity — add mailbox or seller in Accounts",
+  "error.invalidPlaceholder": "Invalid placeholder in template",
+  "error.templateRequired": "Message template is required",
+  // Placeholder validation (#9)
+  "wizard.validation.title": "Message validation",
+  "wizard.validation.invalidFound": "Found invalid tokens: {list}",
+  "wizard.validation.supported": "Supported: {{first_name}}, {{company_name}}, {{seller_name}}",
+  "wizard.validation.blockCreate": "Fix placeholders before creating campaign",
+  // Capacity visibility (#11)
+  "capacity.linkedinDaily": "LinkedIn/day",
+  "capacity.emailDaily": "Email/day",
+  "capacity.poolUsage": "{used}/{total} capacity",
+  // Onboarding (#3 new users only)
+  "onboarding.welcome": "Welcome to GrowthAI!",
+  "onboarding.step1": "Connect LinkedIn",
+  "onboarding.step1Desc": "Link your LinkedIn account to start outreach",
+  "onboarding.step2": "Create first campaign",
+  "onboarding.step2Desc": "Set up your first Lead Miner flow",
+  "onboarding.step3": "Make first call",
+  "onboarding.step3Desc": "Dial from the Inbox when replies arrive",
+  "onboarding.nextStep": "Next step",
+  "onboarding.done": "All set!",
+  // Call classification (#6 calls stuck)
+  "calls.unclassified": "Awaiting outcome",
+  "calls.needsReview": "Needs manual classification",
+  "calls.good": "Positive call",
+  "calls.bad": "Negative call",
+  "calls.noAnswer": "No answer",
+  // Dashboard "Mis números" (#14)
+  "dashboard.myMetrics.title": "My metrics",
+  "dashboard.myMetrics.leadsReached": "Leads reached",
+  "dashboard.myMetrics.replies": "Replies",
+  "dashboard.myMetrics.positive": "Positive",
+  "dashboard.myMetrics.teamAverage": "Team average",
+  "dashboard.myMetrics.youVsTeam": "you vs team",
+  // Realtime updates (#15)
+  "realtime.updatingNow": "Updating…",
+  "realtime.justUpdated": "Just updated",
 };
 
 export const es: Dict = {
@@ -2893,6 +2935,48 @@ export const es: Dict = {
   "dashx.trend.priorPeriod": "Período anterior",
   "dashx.trend.resetZoom": "Reset zoom",
   "dashx.trend.total": "total",
+  // Error messages (#10)
+  "error.campaignInactive": "Campaña pausada o detenida",
+  "error.leadTerminal": "Lead ya cerrado (ganado/perdido)",
+  "error.leadReplied": "Lead ya respondió — flujo se detiene",
+  "error.capacityFull": "Pool lleno — agrega buzón o vendedor en Cuentas",
+  "error.invalidPlaceholder": "Placeholder inválido en plantilla",
+  "error.templateRequired": "Se requiere plantilla de mensaje",
+  // Placeholder validation (#9)
+  "wizard.validation.title": "Validación de mensaje",
+  "wizard.validation.invalidFound": "Tokens inválidos encontrados: {list}",
+  "wizard.validation.supported": "Soportados: {{first_name}}, {{company_name}}, {{seller_name}}",
+  "wizard.validation.blockCreate": "Fija los placeholders antes de crear campaña",
+  // Capacity visibility (#11)
+  "capacity.linkedinDaily": "LinkedIn/día",
+  "capacity.emailDaily": "Email/día",
+  "capacity.poolUsage": "{used}/{total} capacidad",
+  // Onboarding (#3)
+  "onboarding.welcome": "¡Bienvenido a GrowthAI!",
+  "onboarding.step1": "Conecta LinkedIn",
+  "onboarding.step1Desc": "Vincula tu cuenta de LinkedIn para comenzar outreach",
+  "onboarding.step2": "Crea tu primer campaña",
+  "onboarding.step2Desc": "Configura tu primer flujo de Lead Miner",
+  "onboarding.step3": "Haz tu primer llamado",
+  "onboarding.step3Desc": "Marca desde Inbox cuando lleguen respuestas",
+  "onboarding.nextStep": "Siguiente paso",
+  "onboarding.done": "¡Todo listo!",
+  // Call classification (#6)
+  "calls.unclassified": "Esperando resultado",
+  "calls.needsReview": "Requiere clasificación manual",
+  "calls.good": "Llamado positivo",
+  "calls.bad": "Llamado negativo",
+  "calls.noAnswer": "Sin respuesta",
+  // Dashboard "Mis números" (#14)
+  "dashboard.myMetrics.title": "Mis métricas",
+  "dashboard.myMetrics.leadsReached": "Leads alcanzados",
+  "dashboard.myMetrics.replies": "Respuestas",
+  "dashboard.myMetrics.positive": "Positivas",
+  "dashboard.myMetrics.teamAverage": "Promedio equipo",
+  "dashboard.myMetrics.youVsTeam": "tú vs equipo",
+  // Realtime updates (#15)
+  "realtime.updatingNow": "Actualizando…",
+  "realtime.justUpdated": "Actualizado",
 };
 
 export const dicts: Record<Locale, Dict> = { en, es };
