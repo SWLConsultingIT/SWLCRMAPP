@@ -182,8 +182,8 @@ export default function CallCard({ call, compact = false, personalPhone, company
             <span className="text-xs font-bold px-2.5 py-0.5 rounded animate-pulse"
               style={{ backgroundColor: C.redLight, color: C.red }}>
               Needs review
-
-          </span>
+            </span>
+          )}
           <button
             type="button"
             onClick={handleDelete}
