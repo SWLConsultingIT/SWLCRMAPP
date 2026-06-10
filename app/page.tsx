@@ -626,20 +626,20 @@ export default async function DashboardPage({
         <h3 className="text-sm font-bold mb-4" style={{ color: C.textPrimary }}>{t("dashboard.myMetrics.title")}</h3>
         <div className="grid grid-cols-4 gap-3">
           <div className="text-center">
-            <p className="text-2xl font-bold" style={{ color: C.gold }}>{data.todayLists.counts?.leadsReached ?? 0}</p>
+            <p className="text-2xl font-bold" style={{ color: C.gold }}>{data.headline?.contactedLeads ?? 0}</p>
             <p className="text-xs mt-1" style={{ color: C.textMuted }}>{t("dashboard.myMetrics.leadsReached")}</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl font-bold" style={{ color: C.gold }}>{data.todayLists.counts?.replies ?? 0}</p>
+            <p className="text-2xl font-bold" style={{ color: C.gold }}>{data.headline?.repliedCount ?? 0}</p>
             <p className="text-xs mt-1" style={{ color: C.textMuted }}>{t("dashboard.myMetrics.replies")}</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl font-bold" style={{ color: C.green }}>{data.todayLists.counts?.positive ?? 0}</p>
+            <p className="text-2xl font-bold" style={{ color: C.green }}>{data.headline?.positiveCount ?? 0}</p>
             <p className="text-xs mt-1" style={{ color: C.textMuted }}>{t("dashboard.myMetrics.positive")}</p>
           </div>
           <div className="text-center border-l" style={{ borderColor: C.border }}>
             <p className="text-xs font-semibold mb-1" style={{ color: C.textPrimary }}>You vs Team</p>
-            <p className="text-lg font-bold" style={{ color: C.gold }}>+{Math.random() > 0.5 ? 5 : -3}%</p>
+            <p className="text-lg font-bold" style={{ color: C.gold }}>+{Math.abs(data.deltas?.replied ?? 0)}%</p>
             <p className="text-[9px] mt-0.5" style={{ color: C.textMuted }}>{t("dashboard.myMetrics.teamAverage")}</p>
           </div>
         </div>

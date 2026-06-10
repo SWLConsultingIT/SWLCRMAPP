@@ -148,7 +148,6 @@ export default function TopHeader() {
           title={t("capacity.poolUsage")}
         >
           <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: C.gold }} />
-          <span>●</span>
         </div>
         <HelpMenu />
         <NotificationBell />
