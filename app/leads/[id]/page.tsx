@@ -370,6 +370,12 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
     return 'Unknown';
   });
   const currentStep = campaign?.current_step ?? 0;
+  // Find which step is a call step (for validation)
+  const callStepIndex = rawSteps.findIndex((s: any) => {
+    const ch = typeof s === 'string' ? s : s?.channel;
+    return ch && ch.toLowerCase() === 'call';
+  }) + 1; // Convert to 1-indexed
+  const isCallStep = callStepIndex > 0 && currentStep === callStepIndex;
   const campDone = campaign?.status === 'completed' || campaign?.status === 'failed';
   const campMsgsForStepper = campaign
     ? messages.filter((m: any) => m.campaign_id === campaign.id).sort((a: any, b: any) => (a.step_number ?? 0) - (b.step_number ?? 0))
@@ -607,6 +613,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                         ...(lead.primary_phone ? [{ label: "Personal", value: lead.primary_phone }] : []),
                         ...(lead.primary_secondary_phone ? [{ label: "Company", value: lead.primary_secondary_phone }] : []),
                       ]}
+                      isCallStep={isCallStep}
+                      nextStepName={callStepIndex > 0 && callStepIndex < steps.length ? steps[callStepIndex] : undefined}
                     />
                   )}
                 </div>
@@ -1456,6 +1464,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                     ...(lead.primary_phone ? [{ label: "Personal", value: lead.primary_phone }] : []),
                     ...(lead.primary_secondary_phone ? [{ label: "Company", value: lead.primary_secondary_phone }] : []),
                   ]}
+                  isCallStep={isCallStep}
+                  nextStepName={callStepIndex > 0 && callStepIndex < steps.length ? steps[callStepIndex] : undefined}
                 />
               )}
               <SyncAircallButton />

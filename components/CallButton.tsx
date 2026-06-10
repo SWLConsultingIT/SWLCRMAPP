@@ -51,9 +51,13 @@ type Props = {
   // only one valid number exists or the prop is omitted, behaviour falls back
   // to the `phone` prop and the picker stays hidden.
   phones?: PhoneOption[];
+  // Optional: whether the lead is currently in a call step (for validation)
+  isCallStep?: boolean;
+  // Optional: next expected step name (shown in validation dialog)
+  nextStepName?: string;
 };
 
-export default function CallButton({ phone, leadId, size = "md", variant = "solid", label, defaultNumberId, phones }: Props) {
+export default function CallButton({ phone, leadId, size = "md", variant = "solid", label, defaultNumberId, phones, isCallStep, nextStepName }: Props) {
   const router = useRouter();
   const toast = useToast();
   // Aircall Everywhere SDK provider — gives us in-app calling (no desktop
@@ -172,6 +176,13 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
         description: `${busy.byName} is currently on a call. Wait for it to end and try again.`,
       });
       return;
+    }
+    // Validate if the lead is in a call step
+    if (isCallStep === false) {
+      const confirmed = confirm(
+        `This lead is not yet in the call step (${nextStepName ? `next: ${nextStepName}` : "another step is next"}). Are you sure you want to call anyway?`
+      );
+      if (!confirmed) return;
     }
     const dialingPhone = selectedPhone || phoneOptions[0]?.value;
     if (!dialingPhone) return;
