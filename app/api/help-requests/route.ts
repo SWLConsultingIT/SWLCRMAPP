@@ -85,13 +85,33 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true, id: (inserted as any)?.id });
 }
 
-// GET — list requests (super_admin only). ?status=open|in_progress|resolved|all
+const CLOSED_STATUSES = ["resolved", "rejected"];
+const ALL_STATUSES = ["open", "in_progress", "resolved", "rejected"];
+
+// GET — ?mine=1 → the caller's own requests (any signed-in user, for the Help
+// menu "Your requests" list). Otherwise super_admin only:
+// ?status=open|in_progress|resolved|rejected|all
 export async function GET(req: NextRequest) {
+  const url = new URL(req.url);
+  const svc = getSupabaseService();
+
+  if (url.searchParams.get("mine") === "1") {
+    const scope = await getUserScope();
+    if (!scope.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { data, error } = await svc
+      .from("help_requests")
+      .select("id, category, subject, body, status, admin_notes, created_at, resolved_at")
+      .eq("created_by", scope.userId)
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ requests: data ?? [] });
+  }
+
   const guard = await requireAdminApi();
   if (guard instanceof NextResponse) return guard;
 
-  const status = new URL(req.url).searchParams.get("status") ?? "all";
-  const svc = getSupabaseService();
+  const status = url.searchParams.get("status") ?? "all";
   let q = svc
     .from("help_requests")
     .select("id, company_name, company_bio_id, author_name, author_email, author_tier, category, subject, body, status, admin_notes, created_at, resolved_at")
@@ -103,7 +123,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ requests: data ?? [] });
 }
 
-// PATCH — update status / admin notes (super_admin only).
+// PATCH — update status / admin notes (super_admin only). The admin_notes double
+// as the reply/rejection reason the requester sees in their "Your requests" list.
 export async function PATCH(req: NextRequest) {
   const guard = await requireAdminApi();
   if (guard instanceof NextResponse) return guard;
@@ -113,10 +134,11 @@ export async function PATCH(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
   const update: Record<string, unknown> = {};
-  if (typeof b?.status === "string" && ["open", "in_progress", "resolved"].includes(b.status)) {
+  if (typeof b?.status === "string" && ALL_STATUSES.includes(b.status)) {
+    const closed = CLOSED_STATUSES.includes(b.status);
     update.status = b.status;
-    update.resolved_at = b.status === "resolved" ? new Date().toISOString() : null;
-    update.resolved_by = b.status === "resolved" ? (guard as { user: { id: string } }).user.id : null;
+    update.resolved_at = closed ? new Date().toISOString() : null;
+    update.resolved_by = closed ? (guard as { user: { id: string } }).user.id : null;
   }
   if (typeof b?.admin_notes === "string") update.admin_notes = b.admin_notes.slice(0, 4000);
   if (Object.keys(update).length === 0) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });

@@ -203,22 +203,34 @@ export async function POST(req: NextRequest) {
   });
 
   // Persist for the approve hand-off if this is bound to a campaign_request.
+  // Round 3 fix #19: MERGE per-lead instead of overwriting the whole
+  // preview_outputs map. If the seller re-runs the batch after editing
+  // a single lead's hook/fit, we want to preserve their manual_edit on
+  // the leads they didn't touch.
   if (campaignRequestId) {
-    const previewOutputs: Record<string, unknown> = {};
+    const { data: existing } = await svc.from("campaign_requests")
+      .select("message_prompts")
+      .eq("id", campaignRequestId)
+      .maybeSingle();
+    const currentMessagePrompts = ((existing?.message_prompts as Record<string, unknown> | null) ?? {});
+    const existingPreviewOutputs = (currentMessagePrompts.preview_outputs && typeof currentMessagePrompts.preview_outputs === "object")
+      ? currentMessagePrompts.preview_outputs as Record<string, Record<string, unknown>>
+      : {};
+
+    const mergedPreviewOutputs: Record<string, unknown> = { ...existingPreviewOutputs };
     for (const r of results) {
-      previewOutputs[r.leadId] = {
+      const prev = (existingPreviewOutputs[r.leadId] ?? {}) as Record<string, unknown>;
+      mergedPreviewOutputs[r.leadId] = {
+        // Preserve any prior manual_edit so a re-run doesn't wipe
+        // a seller's hand-tuned hook/fit.
+        ...(prev.manual_edit ? { manual_edit: prev.manual_edit } : {}),
         hook: r.slots?.hook ?? null,
         fit: r.slots?.fit ?? null,
         violations: r.violations,
         generated_at: "wizard-batch-preview",
       };
     }
-    const { data: existing } = await svc.from("campaign_requests")
-      .select("message_prompts")
-      .eq("id", campaignRequestId)
-      .maybeSingle();
-    const currentMessagePrompts = ((existing?.message_prompts as Record<string, unknown> | null) ?? {});
-    const next = { ...currentMessagePrompts, preview_outputs: previewOutputs };
+    const next = { ...currentMessagePrompts, preview_outputs: mergedPreviewOutputs };
     await svc.from("campaign_requests").update({ message_prompts: next }).eq("id", campaignRequestId);
   }
 

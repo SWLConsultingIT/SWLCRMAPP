@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
@@ -21,6 +21,23 @@ const REQUEST_CATEGORIES: { value: string; label: string }[] = [
   { value: "question", label: "Question" },
   { value: "billing", label: "Billing" },
 ];
+
+type MyRequest = {
+  id: string;
+  category: string;
+  subject: string;
+  status: "open" | "in_progress" | "resolved" | "rejected";
+  admin_notes: string | null;
+  created_at: string;
+};
+
+// Status pill colors for the requester's "Your requests" list.
+const STATUS_PILL: Record<string, { bg: string; fg: string; label: string }> = {
+  open: { bg: "#FEF3C7", fg: "#B45309", label: "Open" },
+  in_progress: { bg: "#DBEAFE", fg: "#1D4ED8", label: "In progress" },
+  resolved: { bg: "#D1FAE5", fg: "#047857", label: "Resolved" },
+  rejected: { bg: "#FEE2E2", fg: "#B91C1C", label: "Rejected" },
+};
 
 type ViewItem = {
   href: string;
@@ -81,6 +98,15 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [myRequests, setMyRequests] = useState<MyRequest[]>([]);
+
+  const loadMine = useCallback(async () => {
+    try {
+      const r = await fetch("/api/help-requests?mine=1", { cache: "no-store" });
+      const j = await r.json().catch(() => ({}));
+      setMyRequests(Array.isArray(j?.requests) ? j.requests : []);
+    } catch { /* non-critical */ }
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -96,6 +122,9 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
     setCategory("general"); setSubject(""); setMessage("");
   }, [open]);
 
+  // Load the caller's own requests when the menu opens.
+  useEffect(() => { if (open) loadMine(); }, [open, loadMine]);
+
   async function submitRequest() {
     if (!subject.trim() || !message.trim() || sending) return;
     setSending(true); setErr(null);
@@ -108,6 +137,7 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
       const j = await r.json().catch(() => ({}));
       if (!r.ok) { setErr(j?.error ?? "Something went wrong"); return; }
       setSent(true); setSubject(""); setMessage(""); setCategory("general");
+      loadMine();
     } catch {
       setErr("Network error — please try again");
     } finally {
@@ -238,6 +268,32 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
               )}
             </div>
           </div>
+
+          {/* Your requests — status of what this user has submitted */}
+          {myRequests.length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.textDim }}>Your requests</p>
+              <div className="space-y-1.5">
+                {myRequests.map(rq => {
+                  const pill = STATUS_PILL[rq.status] ?? STATUS_PILL.open;
+                  return (
+                    <div key={rq.id} className="rounded-xl border px-3 py-2.5" style={{ borderColor: C.border }}>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold truncate" style={{ color: C.textPrimary }}>{rq.subject}</p>
+                        <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5"
+                          style={{ backgroundColor: pill.bg, color: pill.fg }}>{pill.label}</span>
+                      </div>
+                      {rq.admin_notes && (
+                        <p className="text-[11px] mt-1.5 rounded-lg px-2 py-1.5" style={{ backgroundColor: C.bg, color: C.textMuted }}>
+                          <span className="font-semibold" style={{ color: C.textBody }}>SWL team:</span> {rq.admin_notes}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Views */}
           {GROUPS.map(group => (

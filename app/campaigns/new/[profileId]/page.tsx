@@ -744,33 +744,37 @@ export default function NewCampaignWizard() {
       // dropped its inbox-handling content even though the template-apply
       // path supports them. Generates only what's missing, in parallel.
       const ar = channelMessages.autoReplies || { positive: "", negative: "", question: "" };
-      const hasLinkedin = sequence.some(s => s.channel === "linkedin");
+      // Always backfill empty auto-replies, regardless of whether THIS
+      // wizard run used LinkedIn — the template is reusable and may
+      // get applied later to a sequence that does include LinkedIn,
+      // and the auto-reply slot expects content to be present.
+      // (Round 3 fix #15: was gated on hasLinkedin only, which left
+      // email/call-only templates without inbox-handling content when
+      // they got later re-applied to a multichannel campaign.)
       let filledAutoReplies = ar;
-      if (hasLinkedin) {
-        const needPos = !ar.positive || !ar.positive.trim();
-        const needNeg = !ar.negative || !ar.negative.trim();
-        if (needPos || needNeg) {
-          const language = "es";
-          const calls: Array<Promise<{ key: "positive" | "negative"; content: string }>> = [];
-          const fetchReply = async (fieldType: "replyPositive" | "replyNegative", key: "positive" | "negative") => {
-            try {
-              const r = await fetch("/api/campaigns/generate-field", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ channel: "linkedin", fieldType, icpProfileId: profileId, language, sequence_meta: sequence, user_prompt: "" }),
-              });
-              if (!r.ok) return { key, content: "" };
-              const d = await r.json().catch(() => ({}));
-              return { key, content: (d?.content as string) ?? "" };
-            } catch { return { key, content: "" }; }
-          };
-          if (needPos) calls.push(fetchReply("replyPositive", "positive"));
-          if (needNeg) calls.push(fetchReply("replyNegative", "negative"));
-          const results = await Promise.all(calls);
-          filledAutoReplies = { ...ar };
-          for (const r of results) {
-            if (r.content) (filledAutoReplies as Record<string, string>)[r.key] = r.content;
-          }
+      const needPos = !ar.positive || !ar.positive.trim();
+      const needNeg = !ar.negative || !ar.negative.trim();
+      if (needPos || needNeg) {
+        const language = "es";
+        const calls: Array<Promise<{ key: "positive" | "negative"; content: string }>> = [];
+        const fetchReply = async (fieldType: "replyPositive" | "replyNegative", key: "positive" | "negative") => {
+          try {
+            const r = await fetch("/api/campaigns/generate-field", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ channel: "linkedin", fieldType, icpProfileId: profileId, language, sequence_meta: sequence, user_prompt: "" }),
+            });
+            if (!r.ok) return { key, content: "" };
+            const d = await r.json().catch(() => ({}));
+            return { key, content: (d?.content as string) ?? "" };
+          } catch { return { key, content: "" }; }
+        };
+        if (needPos) calls.push(fetchReply("replyPositive", "positive"));
+        if (needNeg) calls.push(fetchReply("replyNegative", "negative"));
+        const results = await Promise.all(calls);
+        filledAutoReplies = { ...ar };
+        for (const r of results) {
+          if (r.content) (filledAutoReplies as Record<string, string>)[r.key] = r.content;
         }
       }
       const body: Record<string, unknown> = {

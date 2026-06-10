@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, LifeBuoy, Loader2, RefreshCw, CheckCircle2, Clock, CircleDot } from "lucide-react";
+import { ArrowLeft, LifeBuoy, Loader2, RefreshCw, CheckCircle2, Clock, CircleDot, Ban, User } from "lucide-react";
 import { C } from "@/lib/design";
+
+type Status = "open" | "in_progress" | "resolved" | "rejected";
 
 type HelpRequest = {
   id: string;
@@ -14,7 +16,7 @@ type HelpRequest = {
   category: string;
   subject: string;
   body: string;
-  status: "open" | "in_progress" | "resolved";
+  status: Status;
   admin_notes: string | null;
   created_at: string;
   resolved_at: string | null;
@@ -24,13 +26,23 @@ const STATUS_TABS = [
   { value: "open", label: "Open" },
   { value: "in_progress", label: "In progress" },
   { value: "resolved", label: "Resolved" },
+  { value: "rejected", label: "Rejected" },
   { value: "all", label: "All" },
+];
+
+// Action buttons shown on a card (verb the admin clicks).
+const ACTIONS: { value: Status; label: string }[] = [
+  { value: "in_progress", label: "Mark in progress" },
+  { value: "resolved", label: "Mark resolved" },
+  { value: "rejected", label: "Reject" },
+  { value: "open", label: "Reopen" },
 ];
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string; Icon: typeof CircleDot }> = {
   open: { bg: "#FEF3C7", fg: "#B45309", label: "Open", Icon: CircleDot },
   in_progress: { bg: "#DBEAFE", fg: "#1D4ED8", label: "In progress", Icon: Clock },
   resolved: { bg: "#D1FAE5", fg: "#047857", label: "Resolved", Icon: CheckCircle2 },
+  rejected: { bg: "#FEE2E2", fg: "#B91C1C", label: "Rejected", Icon: Ban },
 };
 
 const CAT_LABEL: Record<string, string> = {
@@ -47,6 +59,7 @@ export default function SupportInbox() {
   const [loading, setLoading] = useState(true);
   const [openId, setOpenId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,13 +74,15 @@ export default function SupportInbox() {
 
   useEffect(() => { load(); }, [load]);
 
-  async function setStatus(id: string, status: HelpRequest["status"]) {
+  // Sends the status change together with whatever note the admin typed, so the
+  // reason/reply is saved in the same action (the requester sees admin_notes).
+  async function patch(id: string, body: Record<string, unknown>) {
     setBusyId(id);
     try {
       await fetch("/api/help-requests", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ id, status }),
+        body: JSON.stringify({ id, ...body }),
       });
       await load();
     } finally {
@@ -134,7 +149,10 @@ export default function SupportInbox() {
             return (
               <div key={it.id} className="rounded-xl border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.card }}>
                 <button
-                  onClick={() => setOpenId(expanded ? null : it.id)}
+                  onClick={() => {
+                    setOpenId(expanded ? null : it.id);
+                    if (!expanded) setNotesDraft(d => ({ ...d, [it.id]: it.admin_notes ?? "" }));
+                  }}
                   className="w-full text-left px-4 py-3 flex items-start justify-between gap-3 hover:bg-black/[0.02]"
                 >
                   <div className="min-w-0">
@@ -143,9 +161,14 @@ export default function SupportInbox() {
                         style={{ backgroundColor: C.bg, color: C.textMuted }}>{CAT_LABEL[it.category] ?? it.category}</span>
                       <span className="text-sm font-semibold" style={{ color: C.textPrimary }}>{it.subject}</span>
                     </div>
-                    <p className="text-[11px] mt-1" style={{ color: C.textMuted }}>
-                      {it.company_name ?? "—"} · {it.author_name ?? it.author_email ?? "Unknown"}
-                      {it.author_tier ? ` (${it.author_tier})` : ""} · {fmt(it.created_at)}
+                    <p className="text-[11px] mt-1 flex items-center gap-1.5 flex-wrap" style={{ color: C.textMuted }}>
+                      <User size={11} />
+                      <span className="font-semibold" style={{ color: C.textBody }}>
+                        {it.author_name ?? it.author_email ?? "Unknown"}
+                      </span>
+                      {it.author_tier ? `· ${it.author_tier}` : ""}
+                      {it.company_name ? `· ${it.company_name}` : ""}
+                      <span style={{ color: C.textDim }}>· {fmt(it.created_at)}</span>
                     </p>
                   </div>
                   <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-1"
@@ -162,20 +185,53 @@ export default function SupportInbox() {
                         Reply to: <a href={`mailto:${it.author_email}`} className="font-semibold" style={{ color: C.aiAccent }}>{it.author_email}</a>
                       </p>
                     )}
-                    <div className="flex items-center gap-2 mt-4">
-                      {(["open", "in_progress", "resolved"] as const).map(s => (
+
+                    {/* Reason / reply the requester will see in "Your requests" */}
+                    <div className="mt-4">
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-1.5" style={{ color: C.textDim }}>
+                        Note to requester <span style={{ fontWeight: 400 }}>(optional — shown to them; use it for a rejection reason)</span>
+                      </p>
+                      <textarea
+                        value={notesDraft[it.id] ?? ""}
+                        onChange={e => setNotesDraft(d => ({ ...d, [it.id]: e.target.value }))}
+                        rows={2}
+                        maxLength={4000}
+                        placeholder="e.g. Why you're rejecting, or how it was resolved…"
+                        className="w-full text-xs rounded-lg border px-3 py-2 outline-none resize-none"
+                        style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
+                      />
+                      <div className="flex justify-end mt-1.5">
                         <button
-                          key={s}
-                          onClick={() => setStatus(it.id, s)}
-                          disabled={busyId === it.id || it.status === s}
-                          className="text-[11px] font-semibold rounded-lg px-2.5 py-1.5 border disabled:opacity-40"
-                          style={it.status === s
-                            ? { borderColor: C.aiAccent, color: C.aiAccent }
-                            : { borderColor: C.border, color: C.textMuted }}
+                          onClick={() => patch(it.id, { admin_notes: notesDraft[it.id] ?? "" })}
+                          disabled={busyId === it.id || (notesDraft[it.id] ?? "") === (it.admin_notes ?? "")}
+                          className="text-[11px] font-semibold px-2.5 py-1 disabled:opacity-40"
+                          style={{ color: C.aiAccent }}
                         >
-                          {busyId === it.id ? "…" : `Mark ${STATUS_STYLE[s].label.toLowerCase()}`}
+                          Save note
                         </button>
-                      ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      {ACTIONS.map(a => {
+                        const isCurrent = it.status === a.value;
+                        const reject = a.value === "rejected";
+                        return (
+                          <button
+                            key={a.value}
+                            onClick={() => patch(it.id, { status: a.value, admin_notes: notesDraft[it.id] ?? it.admin_notes ?? "" })}
+                            disabled={busyId === it.id || isCurrent}
+                            className="text-[11px] font-semibold rounded-lg px-2.5 py-1.5 border disabled:opacity-40"
+                            style={isCurrent
+                              ? { borderColor: C.aiAccent, color: C.aiAccent }
+                              : reject
+                                ? { borderColor: "#FCA5A5", color: "#B91C1C" }
+                                : { borderColor: C.border, color: C.textMuted }}
+                          >
+                            {busyId === it.id ? "…" : a.label}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}

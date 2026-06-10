@@ -229,6 +229,14 @@ export async function POST(req: NextRequest) {
       fallbackSellerId = firstSeller?.id ?? null;
     }
   }
+  // Log warning when we end up with NO seller — the campaigns will be
+  // created with seller_id=null and dispatch-queue still runs them,
+  // but lead.assigned_seller / linkedin_assigned_account never get
+  // stamped and the Queue UI shows "—" for owner. Used to fail silently;
+  // now operators see it in logs.
+  if (!fallbackSellerId && leadIds.length > 0) {
+    console.warn("[approve] no seller resolved for request", requestId, "— campaigns will land sellerless. Check seller table for the tenant + active=true.");
+  }
 
   // Resolve seller (LinkedIn account) names for the leads.linkedin_assigned_account
   // stamp. Covers every seller referenced by the quota map + the fallback.
