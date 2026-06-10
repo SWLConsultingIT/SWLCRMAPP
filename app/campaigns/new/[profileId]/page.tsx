@@ -1888,6 +1888,7 @@ export default function NewCampaignWizard() {
                   sellerId={sellerQuotas[0]?.sellerId ?? null}
                   steps={stepsForPreview}
                   connectionRequest={cr}
+                  language={language}
                 />
                 <LeadTagGrid
                   leadIds={tailoredLeadIds}
@@ -1896,6 +1897,7 @@ export default function NewCampaignWizard() {
                   sellerId={sellerQuotas[0]?.sellerId ?? null}
                   steps={stepsForPreview}
                   connectionRequest={cr}
+                  language={language}
                   onResults={setPreviewOutputs}
                 />
               </>

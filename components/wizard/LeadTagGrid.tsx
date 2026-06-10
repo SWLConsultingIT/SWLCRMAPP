@@ -44,6 +44,7 @@ type Props = {
   steps: Array<{ channel: string; body: string; subject?: string | null }>;
   connectionRequest?: string;
   campaignRequestId?: string | null;
+  language?: string;
   /** Wizard hook — invoked when a batch completes so the parent can
    *  persist `preview_outputs` to campaign_requests.message_prompts at
    *  submit time, letting the approve route reuse the work. */
@@ -64,7 +65,7 @@ function initialsOf(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, sellerId, steps, connectionRequest, campaignRequestId, onResults }: Props) {
+export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, sellerId, steps, connectionRequest, campaignRequestId, language, onResults }: Props) {
   const [results, setResults] = useState<ResultRow[] | null>(null);
   const [summary, setSummary] = useState<BatchResponse["summary"] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -81,7 +82,7 @@ export default function LeadTagGrid({ leadIds, companyBioId, icpProfileId, selle
       const r = await fetch("/api/campaigns/wizard-batch-preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ campaignRequestId: campaignRequestId ?? undefined, leadIds, companyBioId, icpProfileId: icpProfileId ?? undefined, sellerId: sellerId ?? undefined, steps, connectionRequest }),
+        body: JSON.stringify({ campaignRequestId: campaignRequestId ?? undefined, leadIds, companyBioId, icpProfileId: icpProfileId ?? undefined, sellerId: sellerId ?? undefined, steps, connectionRequest, language }),
       });
       const data = (await r.json().catch(() => ({}))) as BatchResponse;
       if (!r.ok) { setErr(data.error ?? `HTTP ${r.status}`); return; }

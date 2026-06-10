@@ -111,6 +111,9 @@ Your output goes into a templated message that already has structure (greeting, 
    - "We built ARQY for exactly that — your client sees the project live, no PDF in the middle."
    - "We automate the first three layers of sourcing so your team only touches qualified leads."
 
+## 🌐 LANGUAGE LOCK (CRITICAL — OVERRIDES EVERYTHING ELSE)
+The OUTPUT LANGUAGE is declared at the top of the user prompt as "## 🌐 OUTPUT LANGUAGE". BOTH the hook AND the fit MUST be written in that exact language. If Spanish (rioplatense) is declared, write in Spanish using "vos" — NEVER mix languages, NEVER default to English. Mixed-language output is a HARD FAILURE. The outer template already uses that language; your hook+fit must match so the substituted message reads as one coherent piece.
+
 ## Rules
 - Length: hook ≤25 words, fit ≤30 words. Hard caps.
 - No buzzwords: synergies, leverage, disruptive, cutting-edge, world-class, best-in-class, seamlessly, game-changer.
@@ -118,17 +121,39 @@ Your output goes into a templated message that already has structure (greeting, 
 - No emojis.
 - DO NOT include placeholders like {{first_name}} or {{company}}. The outer template handles those. You write CONTENT.
 - Adapt tone to the company's tone_of_voice if provided.
-- Match the language of the prospect's geography (default English).
 
 ## Output — strict JSON only, no markdown, no prose:
 {"hook": "...", "fit": "..."}
 
 If the research is too thin to support a specific hook (only generic data), still try — pick the best angle from what you have. Empty strings are NEVER acceptable.`;
 
+// Resolve a language code to a human-readable name + register hint
+// so the Haiku call gets unambiguous instructions about which
+// language to write in (and which register/dialect).
+function describeLanguage(code?: string): string {
+  switch ((code ?? "en").toLowerCase()) {
+    case "es": return "Spanish (Argentine / rioplatense register — use \"vos\", NEVER \"tú\")";
+    case "en": return "English (US business register, plain, no fluff)";
+    case "pt": return "Brazilian Portuguese (informal você, plain)";
+    case "fr": return "French (vouvoiement, plain business)";
+    case "de": return "German (Sie form, plain business)";
+    case "it": return "Italian (Lei form, plain business)";
+    default: return "English";
+  }
+}
+
 /** Build the user-message portion of the Haiku call. */
 export function buildTailorUserPrompt(ctx: TailorContext): string {
   const { lead, icp, companyBio, seller, stepChannel, language } = ctx;
   const lines: string[] = [];
+
+  // 🌐 LANGUAGE FIRST — at the top so the model sees it before any
+  // other content. Bug 2026-06-10: hooks/fits came back in English
+  // when the rest of the message was in Spanish because the language
+  // hint was buried at the bottom of the prompt and the model
+  // defaulted to English from the prevalent English example
+  // sentences in the SYSTEM_PROMPT.
+  lines.push(`## 🌐 OUTPUT LANGUAGE — STRICT\n**${describeLanguage(language)}**\nBoth the hook and the fit MUST be written in this language. Do NOT switch to English. Mixed-language is a HARD FAILURE.\n`);
 
   lines.push("## THE PROSPECT");
   const firstName = lead.primary_first_name ?? "Prospect";

@@ -44,6 +44,7 @@ export const maxDuration = 120;
 import {
   findTailoredSlots,
   substituteTailoredSlots,
+  renderPlaceholders,
   type TailoredSlots,
 } from "@/lib/placeholders";
 import {
@@ -119,9 +120,10 @@ export async function POST(req: NextRequest) {
     sellerId?: string;
     steps?: Array<{ channel: string; body: string; subject?: string | null }>;
     connectionRequest?: string;
+    language?: string;
   };
   const body = (await req.json().catch(() => ({}))) as Body;
-  const { leadIds, icpProfileId, companyBioId, sellerId, steps, connectionRequest } = body;
+  const { leadIds, icpProfileId, companyBioId, sellerId, steps, connectionRequest, language } = body;
   if (!Array.isArray(leadIds) || leadIds.length === 0) return NextResponse.json({ error: "leadIds required" }, { status: 400 });
   if (!companyBioId) return NextResponse.json({ error: "companyBioId required" }, { status: 400 });
   if (!Array.isArray(steps)) return NextResponse.json({ error: "steps required" }, { status: 400 });
@@ -187,14 +189,24 @@ export async function POST(req: NextRequest) {
       companyBio,
       seller: { name: sellerName },
       stepChannel: firstChannel,
+      language,
     };
     const slots = await callHaiku(client, ctx);
-    const renderedSteps = (steps ?? []).map(s => ({
-      channel: s.channel,
-      subject: s.subject ? substituteTailoredSlots(s.subject, slots ?? {}) : s.subject,
-      body: substituteTailoredSlots(s.body ?? "", slots ?? {}),
-    }));
-    const renderedCR = connectionRequest ? substituteTailoredSlots(connectionRequest, slots ?? {}) : undefined;
+    // Two-pass render: tailored slots first, then standard
+    // placeholders ({{first_name}}, {{company}}, {{seller_name}}).
+    // The seller sees the message exactly as the lead will receive
+    // it, not the half-rendered template with raw placeholders.
+    const renderedSteps = (steps ?? []).map(s => {
+      const subjAfter = s.subject ? substituteTailoredSlots(s.subject, slots ?? {}) : s.subject;
+      const bodyAfter = substituteTailoredSlots(s.body ?? "", slots ?? {});
+      return {
+        channel: s.channel,
+        subject: subjAfter ? renderPlaceholders(subjAfter, lead, { name: sellerName }) : subjAfter,
+        body: renderPlaceholders(bodyAfter, lead, { name: sellerName }),
+      };
+    });
+    const crAfter = connectionRequest ? substituteTailoredSlots(connectionRequest, slots ?? {}) : undefined;
+    const renderedCR = crAfter ? renderPlaceholders(crAfter, lead, { name: sellerName }) : undefined;
     return {
       leadId: lead.id,
       name: `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "(unnamed)",

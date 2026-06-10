@@ -32,7 +32,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
-import { findTailoredSlots, substituteTailoredSlots } from "@/lib/placeholders";
+import { findTailoredSlots, substituteTailoredSlots, renderPlaceholders } from "@/lib/placeholders";
 import { buildTailorUserPrompt, TAILOR_SYSTEM_PROMPT, type TailorContext, type TailorLead, type TailorIcp, type TailorCompanyBio } from "@/lib/tailor-prompt";
 import { validateMessage, type Violation, type ViolationCode } from "@/lib/message-validator";
 
@@ -120,9 +120,10 @@ export async function POST(req: NextRequest) {
     sellerId?: string;
     steps?: StepIn[];
     connectionRequest?: string;
+    language?: string;
   };
   const body = (await req.json().catch(() => ({}))) as Body;
-  const { campaignRequestId, leadIds, companyBioId, icpProfileId, sellerId, steps, connectionRequest } = body;
+  const { campaignRequestId, leadIds, companyBioId, icpProfileId, sellerId, steps, connectionRequest, language } = body;
 
   if (!Array.isArray(leadIds) || leadIds.length === 0) return NextResponse.json({ error: "leadIds required" }, { status: 400 });
   if (!companyBioId) return NextResponse.json({ error: "companyBioId required" }, { status: 400 });
@@ -166,38 +167,68 @@ export async function POST(req: NextRequest) {
 
   const client = new Anthropic({ apiKey });
 
+  // Infer the step type from (channel, idx-among-same-channel) so the
+  // validator picks the right length cap (EMAIL_INTRO=950, INTRO_DM=600,
+  // etc.) instead of falling back to GENERIC=750 — that was why the
+  // "Too long" flag fired for every lead in this batch.
+  function inferStepType(channel: string, stepIdx: number, allSteps: StepIn[]): string {
+    const c = (channel || "linkedin").toLowerCase();
+    const sameChannelIdxs = allSteps.map((s, i) => (s.channel?.toLowerCase() === c ? i : -1)).filter(i => i >= 0);
+    const myPos = sameChannelIdxs.indexOf(stepIdx);
+    const total = sameChannelIdxs.length;
+    const isLast = myPos === total - 1;
+    if (c === "call") return myPos === 0 ? "CALL_FIRST" : "CALL_FOLLOWUP";
+    if (c === "email") return myPos === 0 ? "EMAIL_INTRO" : (myPos === 1 ? "EMAIL_FOLLOWUP_CROSS" : "EMAIL_FOLLOWUP");
+    if (myPos <= 0) return "LINKEDIN_INTRO_DM";
+    if (myPos === 1) return isLast && total >= 4 ? "LINKEDIN_FOLLOWUP_BREAKUP" : "LINKEDIN_FOLLOWUP_BUMP";
+    if (myPos === 2) return isLast && total >= 4 ? "LINKEDIN_FOLLOWUP_BREAKUP" : "LINKEDIN_FOLLOWUP_PROOF";
+    return isLast && total >= 4 ? "LINKEDIN_FOLLOWUP_BREAKUP" : "LINKEDIN_FOLLOWUP_INTERRUPT";
+  }
+
   const results: ResultRow[] = await bulkParallel(leadsRaw, async (lead) => {
     const channel = steps[0]?.channel ?? "linkedin";
-    const ctx: TailorContext = { lead, icp, companyBio: bio, seller: { name: sellerName }, stepChannel: channel };
+    const ctx: TailorContext = { lead, icp, companyBio: bio, seller: { name: sellerName }, stepChannel: channel, language };
     const slots = await callHaiku(client, ctx);
-    const renderedSteps = steps.map(s => {
-      const subject = s.subject ? substituteTailoredSlots(s.subject, slots ?? {}) : s.subject;
-      const subBody = substituteTailoredSlots(s.body ?? "", slots ?? {});
-      return { channel: s.channel, subject, body: subBody };
+    // Render in two passes: first substitute tailored slots, then
+    // substitute standard placeholders ({{first_name}}, {{company}},
+    // {{seller_name}}). The seller sees the FINAL body as the lead
+    // will receive it, not a half-rendered template with raw
+    // placeholders sitting next to filled hooks.
+    const renderedSteps = steps.map((s, i) => {
+      const subjectAfterSlots = s.subject ? substituteTailoredSlots(s.subject, slots ?? {}) : s.subject;
+      const bodyAfterSlots = substituteTailoredSlots(s.body ?? "", slots ?? {});
+      const subject = subjectAfterSlots ? renderPlaceholders(subjectAfterSlots, lead, { name: sellerName }) : subjectAfterSlots;
+      const body = renderPlaceholders(bodyAfterSlots, lead, { name: sellerName });
+      const type = inferStepType(s.channel, i, steps);
+      return { channel: s.channel, subject, body, _type: type };
     });
-    const renderedCR = connectionRequest ? substituteTailoredSlots(connectionRequest, slots ?? {}) : undefined;
+    const crAfterSlots = connectionRequest ? substituteTailoredSlots(connectionRequest, slots ?? {}) : undefined;
+    const renderedCR = crAfterSlots ? renderPlaceholders(crAfterSlots, lead, { name: sellerName }) : undefined;
 
-    // Validate the substituted output (where the body finally sits).
+    // Validate the SUBSTITUTED output with the inferred step type so
+    // the length cap matches (was passing type:undefined → GENERIC).
     const allViolations: Violation[] = [];
     if (renderedCR) {
       const r = validateMessage({ type: "LINKEDIN_CONNECTION_REQUEST", body: renderedCR }, bio.company_name);
       allViolations.push(...r.violations);
     }
     for (const s of renderedSteps) {
-      const r = validateMessage({ type: undefined, body: s.body }, bio.company_name);
+      const r = validateMessage({ type: s._type, body: s.body }, bio.company_name);
       allViolations.push(...r.violations);
     }
     // De-dupe codes — the seller only cares which categories of issue exist on this lead, not per-step duplicates.
     const codes = Array.from(new Set(allViolations.map(v => v.code)));
 
     const name = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "(unnamed)";
+    // Strip the internal _type field before returning to the front.
+    const stepsForUi = renderedSteps.map(s => ({ channel: s.channel, subject: s.subject, body: s.body }));
     return {
       leadId: lead.id,
       name,
       company: lead.company_name ?? null,
       role: lead.primary_title_role ?? null,
       slots,
-      rendered: { ...(renderedCR ? { connectionRequest: renderedCR } : {}), steps: renderedSteps },
+      rendered: { ...(renderedCR ? { connectionRequest: renderedCR } : {}), steps: stepsForUi },
       violations: codes,
     };
   });

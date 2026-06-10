@@ -27,6 +27,7 @@ type Props = {
   sellerId?: string | null;
   steps: Array<{ channel: string; body: string; subject?: string | null }>;
   connectionRequest?: string;
+  language?: string;
 };
 
 const channelIcon: Record<string, typeof Phone> = {
@@ -45,7 +46,7 @@ function pickRandom<T>(arr: T[], n: number): T[] {
   return copy.slice(0, n);
 }
 
-export default function SampleLeadCards({ leadIds, companyBioId, icpProfileId, sellerId, steps, connectionRequest }: Props) {
+export default function SampleLeadCards({ leadIds, companyBioId, icpProfileId, sellerId, steps, connectionRequest, language }: Props) {
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -59,7 +60,7 @@ export default function SampleLeadCards({ leadIds, companyBioId, icpProfileId, s
       const r = await fetch("/api/campaigns/preview-tailor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leadIds: sample, companyBioId, icpProfileId: icpProfileId ?? undefined, sellerId: sellerId ?? undefined, steps, connectionRequest }),
+        body: JSON.stringify({ leadIds: sample, companyBioId, icpProfileId: icpProfileId ?? undefined, sellerId: sellerId ?? undefined, steps, connectionRequest, language }),
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) { setErr(data.error ?? `HTTP ${r.status}`); setLeads(null); return; }
