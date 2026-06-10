@@ -7,7 +7,7 @@ import Link from "next/link";
 import {
   Mail, Phone, Building2,
   ExternalLink, CheckCircle2, AlertTriangle,
-  Megaphone,
+  Megaphone, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
 import CompanyTabs from "@/components/CompanyTabs";
@@ -107,6 +107,39 @@ async function getMessages(leadId: string) {
     .eq("lead_id", leadId)
     .order("step_number", { ascending: true });
   return data ?? [];
+}
+
+// Prev/next navigation within the same flow (boss 2026-06-10: arrows to move
+// between leads in the same sequence). "Same flow" = leads whose campaign
+// shares this lead's campaign name (the flow groups per-lead campaign rows by
+// name), within the same tenant, ordered stably by the lead's created_at.
+async function getSequenceNav(leadId: string, campaignName: string | null, bioId: string | null) {
+  if (!campaignName) return null;
+  const supabase = await getSupabaseServer();
+  let qy = supabase
+    .from("campaigns")
+    .select("lead_id, leads!inner(id, company_bio_id, created_at, primary_first_name, primary_last_name)")
+    .eq("name", campaignName)
+    .not("status", "in", "(archived,cancelled)");
+  if (bioId) qy = qy.eq("leads.company_bio_id", bioId);
+  const { data } = await qy;
+  const rows = ((data ?? []) as any[])
+    .map(r => r.leads)
+    .filter(Boolean)
+    .sort((a, b) =>
+      (a.created_at ?? "").localeCompare(b.created_at ?? "") ||
+      `${a.primary_first_name ?? ""} ${a.primary_last_name ?? ""}`.localeCompare(`${b.primary_first_name ?? ""} ${b.primary_last_name ?? ""}`));
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const l of rows) { if (l?.id && !seen.has(l.id)) { seen.add(l.id); ordered.push(l.id); } }
+  const idx = ordered.indexOf(leadId);
+  if (idx === -1 || ordered.length <= 1) return null;
+  return {
+    prevId: idx > 0 ? ordered[idx - 1] : null,
+    nextId: idx < ordered.length - 1 ? ordered[idx + 1] : null,
+    index: idx + 1,
+    total: ordered.length,
+  };
 }
 
 async function getReplies(leadId: string) {
@@ -293,6 +326,9 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   const visibleCalls = ((calls as any[]) ?? []).filter(
     (c: any) => c.aircall_call_id != null || c.classification != null,
   );
+
+  // Prev/next navigation between leads of the same flow (boss 2026-06-10).
+  const seqNav = await getSequenceNav(id, (campaign as any)?.name ?? null, (lead as any)?.company_bio_id ?? null);
 
   // Pre-render messages once on the server so every downstream component
   // (Campaign tab, Recent Activity tab, stepper) shows the same actual
@@ -596,6 +632,33 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 </Link>
               )}
               <DeleteLeadButton leadId={id} leadName={contactName} />
+
+              {/* Prev/next within the same flow (boss 2026-06-10) — two arrows
+                  to move between leads of the same sequence without going back
+                  to the list. Hidden when the lead isn't in a multi-lead flow. */}
+              {seqNav && (
+                <div className="inline-flex items-center rounded-lg border overflow-hidden" style={{ borderColor: C.border }}>
+                  {seqNav.prevId ? (
+                    <Link href={`/leads/${seqNav.prevId}`} title="Previous lead in this flow"
+                      className="inline-flex items-center px-2 py-2 transition-colors hover:bg-black/[0.04]" style={{ color: C.textBody }}>
+                      <ChevronLeft size={15} />
+                    </Link>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-2" style={{ color: C.textDim, opacity: 0.4 }}><ChevronLeft size={15} /></span>
+                  )}
+                  <span className="px-2 text-[11px] font-semibold tabular-nums border-x" style={{ color: C.textMuted, borderColor: C.border }}>
+                    {seqNav.index}/{seqNav.total}
+                  </span>
+                  {seqNav.nextId ? (
+                    <Link href={`/leads/${seqNav.nextId}`} title="Next lead in this flow"
+                      className="inline-flex items-center px-2 py-2 transition-colors hover:bg-black/[0.04]" style={{ color: C.textBody }}>
+                      <ChevronRight size={15} />
+                    </Link>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-2" style={{ color: C.textDim, opacity: 0.4 }}><ChevronRight size={15} /></span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Indicators: channel chips + score ring */}
