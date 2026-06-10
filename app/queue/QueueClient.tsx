@@ -8,7 +8,7 @@ import {
   Phone, Share2, Mail, Megaphone, Target,
   ChevronRight, CheckCircle, Search, X,
   PhoneCall, User, PhoneOff, Bell, AlertTriangle, XCircle, Sparkles,
-  ThumbsUp, ThumbsDown, Clock, Loader2, Trash2, Voicemail,
+  ThumbsUp, ThumbsDown, Clock, Loader2, Trash2, Voicemail, Calendar,
 } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import CallButton from "@/components/CallButton";
@@ -299,13 +299,16 @@ function fmtDateTime(iso: string | null): string {
 // outcome buckets the post-call popup uses, with a date-range filter and an
 // inline recording player. Read-only review surface so the whole team can see
 // what was dialed and listen back.
-const HIST_TABS: Array<{ key: "all" | "positive" | "negative" | "wrong_number" | "follow_up" | "voicemail"; label: string; color: string }> = [
+type HistClass = "all" | "positive" | "negative" | "wrong_number" | "follow_up" | "voicemail" | "unclassified";
+
+const HIST_TABS: Array<{ key: HistClass; label: string; color: string }> = [
   { key: "all",          label: "All",            color: "#0A66C2" },
   { key: "positive",     label: "Interested",     color: "#15803D" },
   { key: "negative",     label: "Not interested", color: "#DC2626" },
   { key: "follow_up",    label: "Bad timing",     color: "#D97706" },
   { key: "voicemail",    label: "Voicemail",      color: "#0EA5E9" },
   { key: "wrong_number", label: "Wrong number",   color: C.textMuted },
+  { key: "unclassified", label: "Sin clasificar", color: "#DC2626" },
 ];
 
 // One reviewable call in the History list: recording player, transcript
@@ -332,6 +335,9 @@ function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
   // outcome on a call that never went through the popup.
   const [cls, setCls] = useState<string | null>(e.classification ?? null);
   const [classifying, setClassifying] = useState<string | null>(null);
+  // When a call IS classified we show just the badge; "Cambiar" reveals the
+  // full option set so the row stays compact unless you want to correct it.
+  const [editOutcome, setEditOutcome] = useState(false);
 
   useEffect(() => {
     if (!expanded || roster.length > 0) return;
@@ -419,29 +425,55 @@ function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
                 {e.leadName}
               </Link>
               {e.company && <span className="text-xs" style={{ color: C.textMuted }}>· {e.company}</span>}
-              {/* Outcome selector — the 4 options, settable/changeable on ANY
-                  call. The active outcome is filled; the rest are outlined. */}
-              <span className="inline-flex items-center gap-1 flex-wrap">
-                {([
-                  { key: "positive", label: "Interested", color: C.green },
-                  { key: "negative", label: "Not interested", color: C.red },
-                  { key: "follow_up", label: "Bad timing", color: "#D97706" },
-                  { key: "voicemail", label: "Voicemail", color: "#0EA5E9" },
-                  { key: "wrong_number", label: "Wrong number", color: C.textMuted },
-                ] as const).map(o => {
-                  const active = cls === o.key;
-                  return (
-                    <button key={o.key} onClick={() => classifyOutcome(o.key)} disabled={!!classifying}
-                      title={`Mark as ${o.label}`}
-                      className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-colors disabled:opacity-50"
-                      style={active
-                        ? { backgroundColor: tint(o.color, 14), color: o.color, borderColor: o.color }
-                        : { backgroundColor: "transparent", color: C.textDim, borderColor: C.border }}>
-                      {classifying === o.key ? "…" : o.label}
+              {/* Outcome — compact. Classified → one filled badge + "Cambiar".
+                  Unclassified → a red "Sin clasificar" cue + the quick buttons
+                  so it's resolved in one tap. Keeps the row clean (no more 5
+                  grey pills on every line). */}
+              {cls && !editOutcome ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full"
+                    style={{ backgroundColor: tint(accent, 14), color: accent, border: `1px solid ${tint(accent, 35)}` }}>
+                    {meta?.label ?? cls}
+                  </span>
+                  <button onClick={() => setEditOutcome(true)}
+                    className="text-[10px] font-semibold transition-opacity hover:opacity-70" style={{ color: C.textDim }}>
+                    Cambiar
+                  </button>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 flex-wrap">
+                  {!cls && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      style={{ backgroundColor: tint(C.red, 12), color: C.red, border: `1px solid ${tint(C.red, 30)}` }}>
+                      <AlertTriangle size={9} /> Sin clasificar
+                    </span>
+                  )}
+                  {([
+                    { key: "positive", label: "Interested", color: C.green },
+                    { key: "negative", label: "Not interested", color: C.red },
+                    { key: "follow_up", label: "Bad timing", color: "#D97706" },
+                    { key: "voicemail", label: "Voicemail", color: "#0EA5E9" },
+                    { key: "wrong_number", label: "Wrong number", color: C.textMuted },
+                  ] as const).map(o => {
+                    const active = cls === o.key;
+                    return (
+                      <button key={o.key} onClick={() => { classifyOutcome(o.key); setEditOutcome(false); }} disabled={!!classifying}
+                        title={`Mark as ${o.label}`}
+                        className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-colors disabled:opacity-50"
+                        style={active
+                          ? { backgroundColor: tint(o.color, 14), color: o.color, borderColor: o.color }
+                          : { backgroundColor: "transparent", color: C.textBody, borderColor: C.border }}>
+                        {classifying === o.key ? "…" : o.label}
+                      </button>
+                    );
+                  })}
+                  {cls && (
+                    <button onClick={() => setEditOutcome(false)} className="text-[10px] font-semibold transition-opacity hover:opacity-70" style={{ color: C.textDim }}>
+                      Cancelar
                     </button>
-                  );
-                })}
-              </span>
+                  )}
+                </span>
+              )}
               {e.dialedByName && (
                 <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
                   style={{ backgroundColor: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE" }}
@@ -563,8 +595,8 @@ function CallHistoryPanel({
 }: {
   entries: CallHistoryEntry[];
   search: string;
-  histClass: "all" | "positive" | "negative" | "wrong_number" | "follow_up" | "voicemail";
-  setHistClass: (c: "all" | "positive" | "negative" | "wrong_number" | "follow_up" | "voicemail") => void;
+  histClass: HistClass;
+  setHistClass: (c: HistClass) => void;
   histFrom: string;
   setHistFrom: (s: string) => void;
   histTo: string;
@@ -572,8 +604,11 @@ function CallHistoryPanel({
   histDialer: string;
   setHistDialer: (s: string) => void;
 }) {
-  const counts: Record<string, number> = { all: entries.length, positive: 0, negative: 0, follow_up: 0, wrong_number: 0 };
-  for (const e of entries) if (e.classification && counts[e.classification] !== undefined) counts[e.classification]++;
+  const counts: Record<string, number> = { all: entries.length, positive: 0, negative: 0, follow_up: 0, voicemail: 0, wrong_number: 0, unclassified: 0 };
+  for (const e of entries) {
+    if (e.classification && counts[e.classification] !== undefined) counts[e.classification]++;
+    else if (!e.classification) counts.unclassified++;
+  }
 
   // Distinct people who placed the calls (dialer first, falls back to the
   // flow's seller) — powers the "who called" filter (boss 2026-06-09).
@@ -584,7 +619,7 @@ function CallHistoryPanel({
   const q = search.trim().toLowerCase();
 
   const rows = entries
-    .filter(e => histClass === "all" || e.classification === histClass)
+    .filter(e => histClass === "all" || (histClass === "unclassified" ? !e.classification : e.classification === histClass))
     .filter(e => histDialer === "all" || (e.dialedByName || e.sellerName) === histDialer)
     .filter(e => {
       if (!fromMs && !toMs) return true;
@@ -597,55 +632,61 @@ function CallHistoryPanel({
 
   return (
     <>
-      {/* Outcome buckets */}
-      <div className="flex items-center gap-1 mb-3 flex-wrap">
-        {HIST_TABS.map(t => {
-          const active = histClass === t.key;
-          return (
-            <button key={t.key} onClick={() => setHistClass(t.key)}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
-              style={{
-                backgroundColor: active ? `color-mix(in srgb, ${t.color} 12%, transparent)` : C.card,
-                color: active ? t.color : C.textMuted,
-                borderColor: active ? `color-mix(in srgb, ${t.color} 35%, transparent)` : C.border,
-              }}>
-              {t.label}
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                style={{ backgroundColor: active ? `color-mix(in srgb, ${t.color} 18%, transparent)` : C.surface, color: active ? t.color : C.textDim }}>
-                {counts[t.key]}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Date range */}
-      <div className="flex items-center gap-2 mb-4 flex-wrap text-xs" style={{ color: C.textMuted }}>
-        <span className="font-semibold">From</span>
-        <input type="date" value={histFrom} onChange={e => setHistFrom(e.target.value)}
-          className="rounded-md border px-2 py-1 outline-none" style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }} />
-        <span className="font-semibold">to</span>
-        <input type="date" value={histTo} onChange={e => setHistTo(e.target.value)}
-          className="rounded-md border px-2 py-1 outline-none" style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }} />
-        {(histFrom || histTo) && (
-          <button onClick={() => { setHistFrom(""); setHistTo(""); }}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-md font-semibold" style={{ color: C.textDim }}>
-            <X size={11} /> Clear
-          </button>
-        )}
-        {/* Who placed the call (boss 2026-06-09). */}
-        {dialerNames.length > 0 && (
-          <div className="flex items-center gap-1.5">
-            <PhoneCall size={11} style={{ color: C.textDim }} />
-            <span className="font-semibold">Called by</span>
-            <select value={histDialer} onChange={e => setHistDialer(e.target.value)}
-              className="rounded-md border px-2 py-1 outline-none" style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}>
-              <option value="all">Everyone</option>
-              {dialerNames.map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
+      {/* ─── Filter toolbar — one unified bar instead of scattered controls.
+          Top: outcome buckets (segmented). Bottom: date range · called-by ·
+          live count. "Sin clasificar" only appears when there are unclassified
+          calls, and reads red so pending work is obvious. */}
+      <div className="rounded-xl border mb-4 overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.card }}>
+        <div className="flex items-center gap-1.5 px-3 py-2.5 flex-wrap" style={{ borderBottom: `1px solid ${C.border}` }}>
+          {HIST_TABS.map(t => {
+            const active = histClass === t.key;
+            const count = counts[t.key] ?? 0;
+            const isUnc = t.key === "unclassified";
+            if (isUnc && count === 0) return null; // nothing pending → hide bucket
+            const idle = isUnc ? t.color : C.textMuted;
+            return (
+              <button key={t.key} onClick={() => setHistClass(t.key)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
+                style={active
+                  ? { backgroundColor: tint(t.color, 12), color: t.color, borderColor: tint(t.color, 40) }
+                  : { backgroundColor: "transparent", color: idle, borderColor: isUnc ? tint(t.color, 30) : C.border }}>
+                {t.label}
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full tabular-nums"
+                  style={{ backgroundColor: active ? tint(t.color, 18) : (isUnc ? tint(t.color, 14) : C.surface), color: active || isUnc ? t.color : C.textDim }}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex items-center gap-3 px-3 py-2 text-xs flex-wrap" style={{ backgroundColor: C.surface }}>
+          <div className="inline-flex items-center gap-1.5">
+            <Calendar size={13} style={{ color: C.textDim }} />
+            <input type="date" value={histFrom} onChange={e => setHistFrom(e.target.value)}
+              className="rounded-md border px-2 py-1 outline-none" style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }} />
+            <span style={{ color: C.textDim }}>→</span>
+            <input type="date" value={histTo} onChange={e => setHistTo(e.target.value)}
+              className="rounded-md border px-2 py-1 outline-none" style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }} />
+            {(histFrom || histTo) && (
+              <button onClick={() => { setHistFrom(""); setHistTo(""); }}
+                className="inline-flex items-center gap-1 px-1.5 py-1 rounded-md font-semibold transition-colors hover:bg-black/[0.04]" style={{ color: C.textDim }}>
+                <X size={11} /> Clear
+              </button>
+            )}
           </div>
-        )}
-        <span className="ml-auto font-semibold">{rows.length} call{rows.length === 1 ? "" : "s"}</span>
+          {dialerNames.length > 0 && (
+            <div className="inline-flex items-center gap-1.5">
+              <span className="w-px h-4" style={{ backgroundColor: C.border }} />
+              <PhoneCall size={12} style={{ color: C.textDim }} />
+              <select value={histDialer} onChange={e => setHistDialer(e.target.value)}
+                className="rounded-md border px-2 py-1 outline-none font-medium" style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}>
+                <option value="all">Everyone</option>
+                {dialerNames.map(n => <option key={n} value={n}>{n}</option>)}
+              </select>
+            </div>
+          )}
+          <span className="ml-auto font-bold tabular-nums" style={{ color: C.textBody }}>{rows.length} call{rows.length === 1 ? "" : "s"}</span>
+        </div>
       </div>
 
       {rows.length === 0 ? (
@@ -693,7 +734,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
   const [callSubTab, setCallSubTab] = useState<0 | 1 | 2>(0);
   const [search, setSearch] = useState("");
   // History sub-tab: which outcome bucket (or "all") + the date window.
-  const [histClass, setHistClass] = useState<"all" | "positive" | "negative" | "wrong_number" | "follow_up" | "voicemail">("all");
+  const [histClass, setHistClass] = useState<HistClass>("all");
   const [histFrom, setHistFrom] = useState("");
   const [histTo, setHistTo] = useState("");
   // Filter History by who placed the call (boss 2026-06-09). "all" = everyone.
