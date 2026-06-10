@@ -72,8 +72,25 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
   const phoneOptions: PhoneOption[] = (phones && phones.length > 0)
     ? phones.filter(p => p.value && p.value.trim().length > 0)
     : (phone ? [{ label: "Personal", value: phone }] : []);
-  const [selectedPhone, setSelectedPhone] = useState<string | null>(phoneOptions[0]?.value ?? null);
+  const [selectedPhone, setSelectedPhone] = useState<string | null>(() => {
+    if (typeof window === "undefined") return phoneOptions[0]?.value ?? null;
+    try {
+      const saved = window.localStorage.getItem("swl-last-phone");
+      if (saved && phoneOptions.some(p => p.value === saved)) return saved;
+    } catch { /* ignore */ }
+    return phoneOptions[0]?.value ?? null;
+  });
   const [phonePicker, setPhonePicker] = useState(false);
+
+  // Save phone preference (#15)
+  useEffect(() => {
+    if (selectedPhone && typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem("swl-last-phone", selectedPhone);
+      } catch { /* ignore */ }
+    }
+  }, [selectedPhone]);
+
   // The post-call outcome prompt now lives in AircallPhoneProvider (always
   // mounted) so it shows reliably on any page when a call ends — see
   // components/CallOutcomePrompt.tsx. CallButton no longer owns it.
@@ -243,7 +260,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
         onClick={handleDial}
         disabled={state === "calling" || !selectedNumberId || !!busy}
         title={busy ? `Aircall in use by ${busy.byName} — wait for it to free up.` : undefined}
-        className={`flex items-center gap-1.5 rounded-lg ${padding} ${text} font-semibold transition-opacity hover:opacity-85 disabled:opacity-60`}
+        className={`flex items-center gap-1.5 rounded-lg ${padding} ${text} font-semibold transition-opacity hover:opacity-85 disabled:opacity-60 ${state === "idle" && variant === "solid" ? "animate-pulse" : ""}`}
         style={{
           ...baseStyle,
           ...(state === "called" ? { backgroundColor: "#DCFCE7", color: "#16A34A", border: "1px solid #BBF7D0" } : {}),

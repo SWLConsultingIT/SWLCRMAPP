@@ -176,7 +176,7 @@ export default function Sidebar() {
 
   return (
     <aside
-      className={`${railOnly ? "w-[64px]" : "w-60"} flex flex-col shrink-0 border-r relative transition-[width] duration-200`}
+      className={`${railOnly ? "w-[64px]" : "w-60"} hidden md:flex flex-col shrink-0 border-r relative transition-[width] duration-200`}
       style={{
         backgroundColor: DARK,
         borderColor: BORDER,

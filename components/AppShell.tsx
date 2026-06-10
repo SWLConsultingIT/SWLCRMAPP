@@ -10,6 +10,7 @@ import NavigationProgress from "@/components/NavigationProgress";
 import NavigationLoader from "@/components/NavigationLoader";
 import DemoBanner from "@/components/DemoBanner";
 import KeyboardCheatsheet from "@/components/KeyboardCheatsheet";
+import OnboardingChecklist from "@/components/OnboardingChecklist";
 import { ToastProvider } from "@/lib/toast";
 
 // LogoLoader is the global route-transition loader (gold SWL mark). It
@@ -50,6 +51,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <NavigationLoader>{children}</NavigationLoader>
           </main>
         </div>
+        <OnboardingChecklist />
         <PositiveReplyBanner />
         <RealtimeRefresh />
         <CommandPalette />

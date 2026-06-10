@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Search, ChevronRight, LogOut, Settings } from "lucide-react";
+import { Search, ChevronRight, LogOut, Settings, Menu } from "lucide-react";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
@@ -91,8 +91,23 @@ export default function TopHeader() {
         boxShadow: "0 1px 0 rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.03)",
       }}
     >
+      {/* Mobile hamburger (#8) */}
+      <button
+        className="md:hidden p-2 rounded-lg transition-colors hover:bg-gray-100"
+        style={{ color: C.textMuted }}
+        title="Menu"
+        onClick={() => {
+          const sidebar = document.querySelector("aside");
+          if (sidebar) {
+            sidebar.classList.toggle("hidden");
+          }
+        }}
+      >
+        <Menu size={18} />
+      </button>
+
       {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-sm w-56 min-w-0">
+      <div className="flex items-center gap-1.5 text-sm w-56 min-w-0 hidden sm:flex">
         <span className="font-semibold" style={{ color: C.textMuted }}>GrowthAI</span>
         {pageName && (
           <>

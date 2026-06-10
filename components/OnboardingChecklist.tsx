@@ -1,178 +1,106 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { CheckCircle2, ArrowRight, X, Share2, Target, Upload, Megaphone } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, CheckCircle2, Circle } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
-// First-run checklist that lives at the top of the dashboard until the tenant
-// has connected LinkedIn, defined an ICP, imported leads, and created their
-// first campaign. After all 4 are true the checklist disappears entirely.
-// Dismiss-for-now is per-browser (localStorage) — re-opens after 7 days so
-// users who forget about a step get a nudge eventually.
-
-type Status = {
-  hasSellerLinkedin: boolean;
-  hasIcpApproved: boolean;
-  hasLeads: boolean;
-  hasCampaign: boolean;
-};
-
-const STORAGE_KEY = "growth-onboarding-dismissed-at";
-const DISMISS_TTL_DAYS = 7;
-
-export default function OnboardingChecklist({ status }: { status: Status }) {
-  const [hidden, setHidden] = useState(true); // hidden until we read localStorage
-  const [hydrated, setHydrated] = useState(false);
-
-  const steps = [
-    {
-      id: "linkedin",
-      label: "Connect LinkedIn",
-      description: "Link a seller's LinkedIn via Unipile so outreach can dispatch.",
-      icon: Share2,
-      href: "/accounts",
-      done: status.hasSellerLinkedin,
-    },
-    {
-      id: "icp",
-      label: "Define your first ICP",
-      description: "Tell GrowthAI who your ideal customer is — industry, role, geography.",
-      icon: Target,
-      href: "/icp",
-      done: status.hasIcpApproved,
-    },
-    {
-      id: "leads",
-      label: "Import leads",
-      description: "Upload a CSV or XLSX. AI maps the columns automatically.",
-      icon: Upload,
-      href: "/leads/import",
-      done: status.hasLeads,
-    },
-    {
-      id: "campaign",
-      label: "Launch your first campaign",
-      description: "Pick channels + cadence and let AI draft the messages.",
-      icon: Megaphone,
-      href: "/campaigns?tab=new",
-      done: status.hasCampaign,
-    },
-  ];
-
-  const doneCount = steps.filter(s => s.done).length;
-  const allDone = doneCount === steps.length;
+export default function OnboardingChecklist() {
+  const { t } = useLocale();
+  const [shown, setShown] = useState(false);
+  const [completed, setCompleted] = useState<Set<number>>(new Set());
 
   useEffect(() => {
-    setHydrated(true);
-    if (allDone) { setHidden(true); return; }
+    // Show only once per user (localStorage)
+    if (typeof window === "undefined") return;
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (!raw) { setHidden(false); return; }
-      const dismissedAt = parseInt(raw, 10);
-      const expired = Date.now() - dismissedAt > DISMISS_TTL_DAYS * 86400_000;
-      setHidden(!expired);
-    } catch { setHidden(false); }
-  }, [allDone]);
+      const seen = localStorage.getItem("swl-onboarding-checklist-seen");
+      if (!seen) {
+        setShown(true);
+        localStorage.setItem("swl-onboarding-checklist-seen", "1");
+      }
+    } catch { /* ignore */ }
+  }, []);
 
-  function dismiss() {
-    try { window.localStorage.setItem(STORAGE_KEY, String(Date.now())); } catch { /* ignore */ }
-    setHidden(true);
-  }
+  if (!shown) return null;
 
-  if (!hydrated || hidden || allDone) return null;
+  const steps = [
+    { id: 1, label: t("onboarding.step1"), desc: t("onboarding.step1Desc") },
+    { id: 2, label: t("onboarding.step2"), desc: t("onboarding.step2Desc") },
+    { id: 3, label: t("onboarding.step3"), desc: t("onboarding.step3Desc") },
+  ];
+
+  const allCompleted = completed.size === steps.length;
 
   return (
-    <div
-      className="rounded-2xl border mb-5 overflow-hidden"
-      style={{
-        background: `linear-gradient(135deg, color-mix(in srgb, var(--brand, #c9a83a) 8%, var(--c-card)) 0%, var(--c-card) 60%)`,
-        borderColor: `color-mix(in srgb, var(--brand, #c9a83a) 30%, var(--c-border))`,
-        boxShadow: `0 8px 28px -10px color-mix(in srgb, var(--brand, #c9a83a) 28%, transparent)`,
-      }}
-    >
-      <div className="px-5 py-4 flex items-start justify-between gap-4 border-b" style={{ borderColor: `color-mix(in srgb, var(--brand, #c9a83a) 15%, var(--c-border))` }}>
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: "var(--brand, #c9a83a)" }}>
-            Get started
-          </p>
-          <h2
-            className="text-lg sm:text-xl font-bold leading-tight mt-1"
-            style={{
-              color: C.textPrimary,
-              fontFamily: "var(--font-outfit), system-ui, sans-serif",
-              letterSpacing: "-0.02em",
-            }}
-          >
-            Finish setup ({doneCount}/{steps.length})
-          </h2>
-          <p className="text-xs sm:text-sm mt-0.5" style={{ color: C.textMuted }}>
-            Four quick steps to start sending. You can revisit anything from the sidebar.
+    <div className="fixed bottom-6 right-6 w-80 rounded-2xl border p-4 z-40 shadow-lg"
+      style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <h3 className="font-bold text-sm" style={{ color: C.textPrimary }}>
+            {t("onboarding.welcome")}
+          </h3>
+          <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
+            {completed.size}/{steps.length} {t("onboarding.done")}
           </p>
         </div>
         <button
-          onClick={dismiss}
-          aria-label="Dismiss setup checklist (re-opens in 7 days)"
-          title="Dismiss for now"
-          className="rounded-md p-1 transition-opacity hover:opacity-70 shrink-0"
+          onClick={() => setShown(false)}
+          className="p-1 rounded hover:bg-gray-100"
           style={{ color: C.textMuted }}
         >
-          <X size={15} />
+          <X size={14} />
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 p-3 sm:p-4">
-        {steps.map((s, i) => {
-          const Icon = s.icon;
-          return (
-            <Link
-              key={s.id}
-              href={s.done ? "#" : s.href}
-              onClick={(e) => { if (s.done) e.preventDefault(); }}
-              className="group rounded-xl border p-3 flex items-start gap-2.5 transition-[transform,box-shadow,border-color] hover:-translate-y-px"
-              style={{
-                backgroundColor: s.done ? `color-mix(in srgb, ${C.green} 7%, var(--c-card))` : "var(--c-card)",
-                borderColor: s.done
-                  ? `color-mix(in srgb, ${C.green} 30%, var(--c-border))`
-                  : "var(--c-border)",
-                cursor: s.done ? "default" : "pointer",
-              }}
-            >
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                style={{
-                  backgroundColor: s.done
-                    ? `color-mix(in srgb, ${C.green} 18%, transparent)`
-                    : `color-mix(in srgb, var(--brand, #c9a83a) 14%, transparent)`,
-                  color: s.done ? C.green : "var(--brand, #c9a83a)",
-                }}
-              >
-                {s.done ? <CheckCircle2 size={14} /> : <Icon size={14} />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="text-[10px] font-bold tabular-nums" style={{ color: C.textDim }}>
-                    {i + 1}.
-                  </span>
-                  <p className="text-xs font-bold truncate" style={{ color: C.textPrimary }}>
-                    {s.label}
-                  </p>
-                </div>
-                <p className="text-[11px] leading-snug" style={{ color: C.textMuted }}>
-                  {s.done ? "Done ✓" : s.description}
+      <div className="space-y-2.5">
+        {steps.map((step) => (
+          <button
+            key={step.id}
+            onClick={() => {
+              setCompleted((prev) => {
+                const next = new Set(prev);
+                if (next.has(step.id)) next.delete(step.id);
+                else next.add(step.id);
+                return next;
+              });
+            }}
+            className="w-full text-left p-2.5 rounded-lg border transition-colors"
+            style={{
+              backgroundColor: completed.has(step.id) ? `${C.green}14` : C.bg,
+              borderColor: completed.has(step.id) ? C.green : C.border,
+            }}
+          >
+            <div className="flex items-start gap-2.5">
+              {completed.has(step.id) ? (
+                <CheckCircle2 size={16} className="mt-0.5 shrink-0" style={{ color: C.green }} />
+              ) : (
+                <Circle size={16} className="mt-0.5 shrink-0" style={{ color: C.textDim }} />
+              )}
+              <div className="min-w-0">
+                <p
+                  className="text-xs font-semibold"
+                  style={{ color: completed.has(step.id) ? C.green : C.textPrimary }}
+                >
+                  {step.label}
+                </p>
+                <p className="text-[10px] mt-0.5 leading-tight" style={{ color: C.textMuted }}>
+                  {step.desc}
                 </p>
               </div>
-              {!s.done && (
-                <ArrowRight
-                  size={12}
-                  className="shrink-0 mt-1 transition-transform group-hover:translate-x-0.5"
-                  style={{ color: "var(--brand, #c9a83a)" }}
-                />
-              )}
-            </Link>
-          );
-        })}
+            </div>
+          </button>
+        ))}
       </div>
+
+      {allCompleted && (
+        <div className="mt-3 p-2.5 rounded-lg text-center"
+          style={{ backgroundColor: `${C.green}14` }}>
+          <p className="text-[11px] font-semibold" style={{ color: C.green }}>
+            ✓ {t("onboarding.done")}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
