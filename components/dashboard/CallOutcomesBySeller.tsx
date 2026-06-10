@@ -83,8 +83,14 @@ function SellerRow({ s }: { s: SellerCallStats }) {
 export default function CallOutcomesBySeller({ rows }: { rows: SellerCallStats[] }) {
   if (!rows || rows.length === 0) {
     return (
-      <div className="rounded-xl border px-4 py-6 text-center" style={{ backgroundColor: C.card, borderColor: C.border }}>
-        <p className="text-xs" style={{ color: C.textMuted }}>No calls in this period.</p>
+      <div className="rounded-xl border px-4 py-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="flex items-start gap-3">
+          <PhoneCall size={16} style={{ color: C.textMuted, marginTop: "2px", flexShrink: 0 }} />
+          <div>
+            <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>No calls yet</p>
+            <p className="text-xs mt-1" style={{ color: C.textMuted }}>Calls you dial will appear here with outcomes (interested, bad timing, wrong number, etc.)</p>
+          </div>
+        </div>
       </div>
     );
   }

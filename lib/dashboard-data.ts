@@ -297,6 +297,9 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
           .select("id, lead_id, status, duration, classification, started_at, dialed_by_user_id")
           .in("lead_id", cappedLeadIds),
       );
+      console.log(`[dashboard-data] loaded ${allCalls.length} calls for ${cappedLeadIds.length} leads`);
+    } else {
+      console.log("[dashboard-data] no leads found — skipping calls fetch");
     }
   } catch (e) {
     console.warn("[dashboard-data] calls fetch failed — degrading to empty breakdown:", e);
@@ -555,6 +558,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     }
     return true;
   });
+  console.log(`[dashboard-data] filtered to ${callsInPeriod.length} calls in period (from: ${filters.from}, to: ${filters.to})`);
   // "Made" = one row per physical dial. Each call can surface as up to TWO
   // rows — a dial-marker (status 'initiated', no aircall_call_id) plus an
   // Aircall webhook record once it connects (status 'answered'…). Collapse by
