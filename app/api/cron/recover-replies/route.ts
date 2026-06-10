@@ -60,6 +60,38 @@ async function insertIfNew(svc: Svc, leadId: string, channel: string, text: stri
   return !error;
 }
 
+// Re-injection target: the live LinkedIn Response Handler webhook. Posting the
+// same payload Unipile sends (see `Code - Parse & Validate` in h2uBZscVnZy0utLD)
+// makes the handler run its FULL path — classify (Haiku) → auto-reply on
+// positive/negative → persist + close-campaign side effects — even when Unipile
+// never delivered the original event (the #1 drop cause). Only used for RECENT
+// replies; stale ones go to manual review so we never auto-reply hours late.
+const N8N_BASE = (process.env.N8N_API_BASE_URL ?? "https://n8n.srv949269.hstgr.cloud").replace(/\/+$/, "");
+const LINKEDIN_HANDLER_WEBHOOK = `${N8N_BASE}/webhook/linkedin-response-handler`;
+const REINJECT_MAX_AGE_MIN = 45;
+
+async function replyExists(svc: Svc, leadId: string, channel: string, text: string): Promise<boolean> {
+  const { data } = await svc.from("lead_replies").select("reply_text").eq("lead_id", leadId).eq("channel", channel).limit(80);
+  return new Set((data ?? []).map(e => (e.reply_text ?? "").slice(0, 60))).has(text.slice(0, 60));
+}
+
+async function reinjectLinkedIn(acct: string, chatId: string, senderProviderId: string, senderName: string, text: string): Promise<boolean> {
+  try {
+    const r = await fetch(LINKEDIN_HANDLER_WEBHOOK, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        account_id: acct,
+        chat_id: chatId,
+        text,
+        sender: { attendee_provider_id: senderProviderId, attendee_name: senderName },
+        is_sender: false,
+      }),
+    });
+    return r.ok;
+  } catch { return false; }
+}
+
 async function uni(path: string): Promise<any> {
   try {
     const r = await fetch(`${UNIPILE_BASE}${path}`, { headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" } });
@@ -92,6 +124,7 @@ export async function GET(req: NextRequest) {
   }
 
   let linkedinRecovered = 0;
+  let linkedinReinjected = 0;
   let emailRecovered = 0;
 
   // ── LinkedIn: poll each seller account's recent chats ──────────────
@@ -109,7 +142,23 @@ export async function GET(req: NextRequest) {
           const inbound = m.is_sender === 0 || m.is_sender === false;
           const text = (m.text ?? "").trim();
           if (!inbound || !text || (m.timestamp ?? "") < cutoff) continue;
-          if (await insertIfNew(svc, leadId, "linkedin", text, m.timestamp ?? null, ch.id)) linkedinRecovered++;
+          if (await replyExists(svc, leadId, "linkedin", text)) continue; // already captured
+          const ageMin = m.timestamp ? (Date.now() - Date.parse(m.timestamp)) / 60000 : Infinity;
+          if (ageMin <= REINJECT_MAX_AGE_MIN && await reinjectLinkedIn(acct, ch.id, ch.attendee_provider_id, m.sender_name ?? ch.name ?? "", text)) {
+            // Handler inserts the lead_reply (with real classification) BEFORE its
+            // 2-5min send-delay → poll briefly. If it lands, the handler owns it
+            // (classified + auto-replied). If not, the handler dropped it (terminal
+            // lead / no matching campaign) → fall back to manual-review recovery.
+            let handled = false;
+            for (const w of [4000, 4000, 4000, 3000]) {
+              await sleep(w);
+              if (await replyExists(svc, leadId, "linkedin", text)) { handled = true; break; }
+            }
+            if (handled) linkedinReinjected++;
+            else if (await insertIfNew(svc, leadId, "linkedin", text, m.timestamp ?? null, ch.id)) linkedinRecovered++;
+          } else if (await insertIfNew(svc, leadId, "linkedin", text, m.timestamp ?? null, ch.id)) {
+            linkedinRecovered++; // stale (no late auto-reply) or handler unreachable
+          }
         }
         await sleep(120);
       }
@@ -124,7 +173,7 @@ export async function GET(req: NextRequest) {
       const url = `https://api.instantly.ai/api/v2/emails?limit=100&email_type=received${cursor ? `&starting_after=${cursor}` : ""}`;
       for (let t = 0; t < 5; t++) {
         try {
-          const r = await fetch(url, { headers: { Authorization: `Bearer ${INSTANTLY_KEY}`, accept: "application/json" } });
+          const r = await fetch(url, { headers: { Authorization: `Bearer ${INSTANTLY_KEY}`, accept: "application/json", "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36" } });
           if (r.status === 403 || r.status === 429) { await sleep(5000); continue; }
           body = await r.json(); break;
         } catch { await sleep(3000); }
@@ -147,5 +196,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, windowDays: days, linkedinRecovered, emailRecovered });
+  return NextResponse.json({ ok: true, windowDays: days, linkedinRecovered, linkedinReinjected, emailRecovered });
 }
