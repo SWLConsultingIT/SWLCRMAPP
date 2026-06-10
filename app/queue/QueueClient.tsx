@@ -1080,6 +1080,18 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                               <User size={11} /> Open lead
                             </Link>
                           )}
+                          {/* Open flow — jump straight to this call's campaign,
+                              next to Open lead (boss 2026-06-10). */}
+                          {call.campaignId && (
+                            <Link
+                              href={`/campaigns/${call.campaignId}`}
+                              className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-opacity hover:opacity-80"
+                              style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textBody }}
+                              title="Open the flow this call belongs to"
+                            >
+                              <Megaphone size={11} /> Open flow
+                            </Link>
+                          )}
                           {call.leadId ? (() => {
                             // Build phones array so the seller can pick Mobile vs Work
                             // when the lead has both. Single-phone leads fall back to
