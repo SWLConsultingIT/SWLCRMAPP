@@ -163,8 +163,8 @@ export function buildTailorUserPrompt(ctx: TailorContext): string {
     if (icp.notes) lines.push(`ICP notes: ${icp.notes}`);
   }
 
-  lines.push("\n## OUR COMPANY (the sender)");
-  if (companyBio.company_name) lines.push(`Name: ${companyBio.company_name}`);
+  lines.push("\n## OUR COMPANY (the sender — you can mention by name in the fit sentence, in plain text, NO placeholder)");
+  if (companyBio.company_name) lines.push(`Name (use as plain text in the fit if needed, NEVER write {{seller_company}} — it's not a supported placeholder): ${companyBio.company_name}`);
   if (companyBio.tagline) lines.push(`Tagline: ${companyBio.tagline}`);
   if (companyBio.value_proposition) lines.push(`Value prop: ${companyBio.value_proposition}`);
   const services = joinList(companyBio.main_services, ", ");
