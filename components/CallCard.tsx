@@ -178,6 +178,12 @@ export default function CallCard({ call, compact = false, personalPhone, company
             style={{ backgroundColor: statusBg[sc] ?? C.surface, color: statusColor[sc] ?? C.textMuted }}>
             {sc}
           </span>
+          {!call.classification && (
+            <span className="text-xs font-bold px-2.5 py-0.5 rounded animate-pulse"
+              style={{ backgroundColor: C.redLight, color: C.red }}>
+              Needs review
+
+          </span>
           <button
             type="button"
             onClick={handleDelete}
