@@ -435,6 +435,7 @@ export async function POST(req: NextRequest) {
   //     If the wizard skipped the "Validate full batch" step, the tailor
   //     route falls back to fresh Haiku calls per lead — same behavior
   //     as before.
+  let tailorReport: { attempted: number; succeeded: number; failed: number; tailoredCount: number; failures: string[] } | null = null;
   if (createdCampaignIds.length > 0 && request.flow_type === "tailored") {
     const origin = req.nextUrl.origin;
     const cookieHeader = req.headers.get("cookie") ?? "";
@@ -444,6 +445,9 @@ export async function POST(req: NextRequest) {
       : undefined;
     let cursor = 0;
     let tailoredCount = 0;
+    let succeeded = 0;
+    let failed = 0;
+    const failures: string[] = [];
     async function tailorWorker() {
       while (true) {
         const idx = cursor++;
@@ -458,12 +462,39 @@ export async function POST(req: NextRequest) {
           if (r.ok) {
             const body = await r.json().catch(() => ({})) as { tailored?: number };
             tailoredCount += body.tailored ?? 0;
+            succeeded += 1;
+          } else {
+            failed += 1;
+            const text = await r.text().catch(() => `HTTP ${r.status}`);
+            failures.push(`campaign ${cid}: ${text.slice(0, 200)}`);
+            console.error("[approve] tailor pass returned non-OK", cid, r.status, text.slice(0, 300));
           }
-        } catch { /* swallow — campaign is still usable without tailoring */ }
+        } catch (e) {
+          failed += 1;
+          const msg = e instanceof Error ? e.message : String(e);
+          failures.push(`campaign ${cid}: ${msg}`);
+          console.error("[approve] tailor pass threw", cid, msg);
+        }
       }
     }
     await Promise.all(Array.from({ length: Math.min(TAILOR_CONCURRENCY, createdCampaignIds.length) }, () => tailorWorker()));
-    void tailoredCount; // reserved — could surface in the response if the UI wants to show "AI-tailored X messages"
+    tailorReport = { attempted: createdCampaignIds.length, succeeded, failed, tailoredCount, failures: failures.slice(0, 10) };
+
+    // Critical-failure guard: if the tailor pass failed for >50% of
+    // the campaigns we created, the bodies still have {{tailored:*}}
+    // tokens in them — dispatchers will refuse to send. Surface this
+    // as an approve-level error so the seller sees it (vs marking
+    // the request 'approved' and silently letting nothing go out).
+    if (failed > 0 && failed >= Math.ceil(createdCampaignIds.length / 2)) {
+      console.error("[approve] tailor pass failure rate too high — NOT marking request as approved", tailorReport);
+      return NextResponse.json({
+        approved: false,
+        campaignsCreated,
+        totalLeads: leadIds.length,
+        errors: ["Tailor pass failed for most campaigns — messages would ship with unfilled {{tailored:*}} tokens. Fix the AI generator and retry approve.", ...failures.slice(0, 5)],
+        tailorReport,
+      }, { status: 502 });
+    }
   }
 
   // 5. Mark the request as approved
@@ -477,5 +508,6 @@ export async function POST(req: NextRequest) {
     campaignsCreated,
     totalLeads: leadIds.length,
     errors: errors.length > 0 ? errors : undefined,
+    tailorReport,
   });
 }
