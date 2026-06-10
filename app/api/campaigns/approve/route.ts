@@ -3,6 +3,17 @@ import { createClient } from "@supabase/supabase-js";
 import { getUserScope, canApproveCampaigns } from "@/lib/scope";
 import { autoNormalizePlaceholders, findTailoredSlots } from "@/lib/placeholders";
 
+// Approving a tailored request creates N campaigns + 8N messages and then
+// runs a per-lead AI tailor pass (one Haiku call per campaign when the
+// wizard didn't pre-cache previews). For a 50-lead request that's well past
+// the Hobby-plan default function budget, so the function got killed AFTER
+// the campaigns + tailor completed but BEFORE the final
+// `update status=approved` — leaving 50 live campaigns + a request stuck on
+// "pending_review" and a "Failed to approve" toast (Italy Growth Engine,
+// 2026-06-10). 60s is the Hobby-plan ceiling and is enough for ~50 leads.
+export const maxDuration = 60;
+export const runtime = "nodejs";
+
 // Use service key to bypass RLS for admin operations
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
