@@ -4,7 +4,7 @@ import { getSupabaseService } from "@/lib/supabase-service";
 // flows (and later chat). Dedupes recipients and never notifies the actor about
 // their own action. All writes are service-role (the table's RLS only grants
 // recipients SELECT, for Realtime delivery).
-export type NotifyType = "mention" | "tag" | "note" | "message";
+export type NotifyType = "mention" | "tag" | "note" | "message" | "request";
 
 export async function createNotifications(input: {
   companyBioId: string;

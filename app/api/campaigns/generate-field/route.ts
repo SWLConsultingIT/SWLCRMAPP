@@ -165,8 +165,12 @@ async function handlePOST(req: NextRequest) {
 
   const fetchStart = Date.now();
   try {
+    // 290s — 10s slack vs the route's 300s maxDuration. If the V8
+    // takes 280-300s, Vercel would kill the function silently with
+    // a generic 504 while our AbortController abort already returned
+    // a controlled JSON error. Aligning them keeps the gap tight.
     const ac = new AbortController();
-    const t = setTimeout(() => ac.abort(), 280_000);
+    const t = setTimeout(() => ac.abort(), 290_000);
     let res: Response;
     try {
       console.log("[generate-field] V8 fetch start", { fieldType: body.fieldType, idx: body.idx, channel: body.channel, hasLead: !!body.leadId });

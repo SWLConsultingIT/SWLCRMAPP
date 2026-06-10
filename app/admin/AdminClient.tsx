@@ -7,7 +7,7 @@ import {
   Building2, Users, Clock, ChevronRight,
   Target, Search, X, CheckCircle, ArrowRight, Shield,
   Trash2, Loader2, Share2, AlertTriangle, Phone, Mail,
-  Activity, Theater, Zap, Plus, Edit3, Megaphone,
+  Activity, Theater, Zap, Plus, Edit3, Megaphone, LifeBuoy,
 } from "lucide-react";
 import AdminActions from "./AdminActions";
 import PageHero from "@/components/PageHero";
@@ -1027,6 +1027,17 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
         >
           <Zap size={14} />
           Reliability
+          <ArrowRight size={11} style={{ opacity: 0.5 }} />
+        </Link>
+
+        {/* Support: help requests sellers/companies send from the Help menu. */}
+        <Link
+          href="/admin/support"
+          className="flex items-center gap-2 px-5 py-3 text-sm font-semibold transition-[color,background-color] duration-150 relative"
+          style={{ color: C.textMuted }}
+        >
+          <LifeBuoy size={14} />
+          Support
           <ArrowRight size={11} style={{ opacity: 0.5 }} />
         </Link>
 
