@@ -832,6 +832,9 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
   const [histTo, setHistTo] = useState("");
   // Filter History by who placed the call (boss 2026-06-09). "all" = everyone.
   const [histDialer, setHistDialer] = useState("all");
+  // Filter To Call + Awaiting Outcome by the lead's owner seller (boss
+  // 2026-06-11: "ver solo las calls de tal seller"). "all" = everyone.
+  const [callSeller, setCallSeller] = useState("all");
 
   // Multi-select for bulk-deleting calls (boss 2026-06-11). Shared across the
   // Awaiting Outcome + History lists (both render CallHistoryRow). Selecting a
@@ -970,10 +973,19 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
   const applyCallSearch = (list: PendingCall[]) => !search ? list
     : list.filter(c => `${c.leadName} ${c.company} ${c.campaignName}`.toLowerCase().includes(search.toLowerCase()));
 
-  const filteredCallsToMake = applyCallSearch(callsToMake);
+  // Seller universe for the To Call / Awaiting filter dropdown — union of
+  // owners across both lists.
+  const callSellerNames = Array.from(new Set([
+    ...callsToMake.map(c => c.sellerName),
+    ...callsAwaitingOutcome.map(e => e.sellerName || e.dialedByName),
+  ].filter(Boolean) as string[])).sort();
+
+  const filteredCallsToMake = applyCallSearch(callsToMake)
+    .filter(c => callSeller === "all" || c.sellerName === callSeller);
   // Awaiting now holds CallHistoryEntry rows → its own search predicate.
-  const filteredCallsAwaiting = !search ? callsAwaitingOutcome
-    : callsAwaitingOutcome.filter(e => `${e.leadName} ${e.company ?? ""} ${e.sellerName ?? ""} ${e.dialedByName ?? ""}`.toLowerCase().includes(search.toLowerCase()));
+  const filteredCallsAwaiting = (!search ? callsAwaitingOutcome
+    : callsAwaitingOutcome.filter(e => `${e.leadName} ${e.company ?? ""} ${e.sellerName ?? ""} ${e.dialedByName ?? ""}`.toLowerCase().includes(search.toLowerCase())))
+    .filter(e => callSeller === "all" || (e.sellerName || e.dialedByName) === callSeller);
   // History tab gets the dismissal filter applied here at the QueueClient
   // level. Date + search + campaign/icp/channel filters live inside
   // InboxView so the seller can change them without round-tripping
@@ -1132,6 +1144,25 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                 );
               })}
             </div>
+
+            {/* Seller filter — To Call + Awaiting (History has its own
+                "Called by"). Lets a manager see just one rep's queue. */}
+            {callSubTab !== 2 && callSellerNames.length > 1 && (
+              <div className="flex items-center gap-1.5 mb-3 text-xs">
+                <PhoneCall size={12} style={{ color: C.textDim }} />
+                <span style={{ color: C.textMuted }}>Seller:</span>
+                <select value={callSeller} onChange={e => setCallSeller(e.target.value)}
+                  className="rounded-md border px-2 py-1 outline-none font-medium" style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}>
+                  <option value="all">Everyone</option>
+                  {callSellerNames.map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
+                {callSeller !== "all" && (
+                  <button onClick={() => setCallSeller("all")} className="inline-flex items-center gap-1 px-1.5 py-1 rounded-md font-semibold transition-colors hover:bg-black/[0.04]" style={{ color: C.textDim }}>
+                    <X size={11} /> Clear
+                  </button>
+                )}
+              </div>
+            )}
 
             {callSubTab === 2 ? (
               <CallHistoryPanel
