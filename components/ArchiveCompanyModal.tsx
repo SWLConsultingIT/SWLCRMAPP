@@ -81,6 +81,16 @@ export default function ArchiveCompanyModal({
           </div>
         ) : counts ? (
           <>
+            {/* System-impact warning — archiving the Company Bio is what the AI
+                uses to write messages, score ICPs and suggest replies, and it
+                anchors every active campaign for this tenant. Make that explicit. */}
+            <div className="rounded-xl border p-3.5 mb-4 flex items-start gap-2.5" style={{ borderColor: `${C.red}55`, backgroundColor: `${C.red}12` }}>
+              <AlertTriangle size={16} style={{ color: C.red, flexShrink: 0, marginTop: 1 }} />
+              <p className="text-[11.5px] leading-relaxed" style={{ color: C.textBody }}>
+                <strong style={{ color: C.red }}>This breaks the whole system for this tenant.</strong> Active campaigns stop sending, the AI loses the context it uses to write messages / score ICPs / suggest replies, and the team loses access. Don't archive unless you're certain.
+              </p>
+            </div>
+
             {/* Impact summary */}
             <div className="rounded-xl border p-4 mb-4" style={{ borderColor: `${C.red}30`, background: `linear-gradient(135deg, ${C.red}08 0%, ${C.red}14 100%)` }}>
               <p className="text-xs font-semibold mb-2" style={{ color: C.red }}>This will archive:</p>

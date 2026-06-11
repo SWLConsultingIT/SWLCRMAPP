@@ -10,6 +10,7 @@ import {
   Building2, Save, AlertCircle, Plus, X, Pencil, Globe, Loader2,
   MapPin, Award, Briefcase, Trash2, Upload, Image as ImageIcon,
   FileText, Download, File, ChevronDown,
+  Target, MessageSquare, Trophy, FolderOpen, Sparkles, CheckCircle2,
 } from "lucide-react";
 
 const gold = C.gold;
@@ -840,12 +841,119 @@ const languageOptions = ["Spanish", "English", "Portuguese", "French", "German",
 
 import ArchiveCompanyModal from "@/components/ArchiveCompanyModal";
 
+// Icon + accent header for each form section (replaces the gray uppercase h2s).
+function SectionHeader({ icon: Icon, title, color = gold }: { icon: React.ComponentType<{ size?: number; style?: React.CSSProperties }>; title: string; color?: string }) {
+  return (
+    <h2 className="flex items-center gap-2.5 mb-4">
+      <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+        style={{ backgroundColor: `color-mix(in srgb, ${color} 12%, transparent)`, color }}>
+        <Icon size={15} />
+      </span>
+      <span className="text-[13px] font-bold uppercase tracking-wider" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{title}</span>
+    </h2>
+  );
+}
+
+// Which fields meaningfully feed the AI. Drives the "AI Readiness" meter so the
+// user knows how complete the bio is (it grounds messages, ICPs, suggestions).
+function bioReadiness(f: CompanyBio): { pct: number; filled: number; total: number; missing: string[] } {
+  const checks: Array<[string, boolean]> = [
+    ["Industry", !!f.industry?.trim()],
+    ["Description", !!f.description?.trim()],
+    ["Value proposition", !!f.value_proposition?.trim()],
+    ["Differentiators", !!f.differentiators?.trim()],
+    ["Main services", (f.main_services?.length ?? 0) > 0],
+    ["Target market", !!f.target_market?.trim()],
+    ["Languages", (f.languages?.length ?? 0) > 0],
+    ["Logo", !!f.logo_url],
+    ["Proof (clients / cases)", (f.key_clients?.length ?? 0) > 0 || (f.case_studies?.length ?? 0) > 0],
+  ];
+  const filled = checks.filter(([, ok]) => ok).length;
+  const total = checks.length;
+  return { pct: Math.round((filled / total) * 100), filled, total, missing: checks.filter(([, ok]) => !ok).map(([l]) => l) };
+}
+
+function ReadinessPanel({ form }: { form: CompanyBio }) {
+  const r = bioReadiness(form);
+  const tone = r.pct >= 85 ? C.green : r.pct >= 50 ? "#D97706" : C.red;
+  return (
+    <div className="rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${tone}` }}>
+      <div className="flex items-center gap-2 mb-2.5">
+        <Sparkles size={14} style={{ color: tone }} />
+        <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: C.textBody }}>AI Readiness</p>
+        <span className="ml-auto text-[18px] font-bold tabular-nums" style={{ color: tone, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{r.pct}%</span>
+      </div>
+      <div className="h-2 rounded-full overflow-hidden mb-1" style={{ backgroundColor: C.border }}>
+        <div className="h-2 rounded-full transition-all" style={{ width: `${r.pct}%`, backgroundColor: tone }} />
+      </div>
+      <p className="text-[10.5px] mb-2.5" style={{ color: C.textDim }}>{r.filled} of {r.total} key fields · this is what the AI uses to write your outreach.</p>
+      {r.missing.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {r.missing.map(m => (
+            <span key={m} className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: C.surface, color: C.textMuted, border: `1px solid ${C.border}` }}>{m}</span>
+          ))}
+        </div>
+      ) : (
+        <p className="text-[11px] font-semibold flex items-center gap-1" style={{ color: C.green }}><CheckCircle2 size={12} /> Complete — your AI context is fully loaded.</p>
+      )}
+    </div>
+  );
+}
+
+// Live brand card — updates as the user types so the page feels purposeful.
+function BrandPreview({ form }: { form: CompanyBio }) {
+  return (
+    <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="px-4 py-2.5 border-b" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>Live preview</p>
+      </div>
+      <div className="p-4">
+        <div className="flex items-center gap-3 mb-3">
+          {form.logo_url ? (
+            <img src={form.logo_url} alt="" className="w-12 h-12 rounded-xl object-contain border p-1" style={{ borderColor: C.border, backgroundColor: "#fff" }} />
+          ) : (
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#04070d" }}>
+              <Building2 size={20} />
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="text-sm font-bold truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{form.company_name || "Your company"}</p>
+            {form.tagline && <p className="text-[11px] truncate" style={{ color: C.textMuted }}>{form.tagline}</p>}
+          </div>
+        </div>
+        {form.value_proposition && (
+          <p className="text-[12px] leading-relaxed mb-3" style={{ color: C.textBody }}>
+            {form.value_proposition.length > 160 ? form.value_proposition.slice(0, 158) + "…" : form.value_proposition}
+          </p>
+        )}
+        {(form.main_services?.length ?? 0) > 0 && (
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {form.main_services.slice(0, 4).map((s, i) => (
+              <span key={i} className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: goldLight, color: gold }}>{s}</span>
+            ))}
+            {form.main_services.length > 4 && <span className="text-[10px]" style={{ color: C.textDim }}>+{form.main_services.length - 4}</span>}
+          </div>
+        )}
+        {(form.industry || form.location) && (
+          <div className="flex items-center gap-3 text-[10.5px]" style={{ color: C.textDim }}>
+            {form.industry && <span className="inline-flex items-center gap-1"><Briefcase size={10} /> {form.industry}</span>}
+            {form.location && <span className="inline-flex items-center gap-1"><MapPin size={10} /> {form.location}</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; onSave: (b: CompanyBio) => void; onCancel: () => void; onDelete?: () => void; isNew: boolean }) {
   const [form, setForm] = useState<CompanyBio>(bio);
   const [saving, setSaving] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newService, setNewService] = useState("");
+  // Unsaved-changes flag for the sticky save bar.
+  const dirty = JSON.stringify(form) !== JSON.stringify(bio);
 
   function addService() {
     const s = newService.trim();
@@ -921,10 +1029,11 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
   }
 
   return (
-    <div className="space-y-6">
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_330px] gap-6 items-start">
+      <div className="space-y-6 min-w-0">
       {/* 1. Company info */}
       <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Company Information</h2>
+        <SectionHeader icon={Building2} title="Company Information" color={gold} />
         <div className="grid grid-cols-2 gap-4">
           {/* Logo upload */}
           <div className="col-span-2 flex items-center gap-5 pb-4 mb-2 border-b" style={{ borderColor: C.border }}>
@@ -1025,7 +1134,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
 
       {/* 2. Services */}
       <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Main Services</h2>
+        <SectionHeader icon={Briefcase} title="Main Services" color="#0EA5E9" />
         <div className="flex flex-wrap gap-2 mb-3">
           {(form.main_services ?? []).map((s, i) => (
             <span key={i} className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
@@ -1051,7 +1160,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
 
       {/* 3. Online — Links (moved before pitch) */}
       <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Links & Social Media</h2>
+        <SectionHeader icon={Globe} title="Links & Social Media" color="#0A66C2" />
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
             <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Website</label>
@@ -1076,7 +1185,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
 
       {/* 4. Your pitch */}
       <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Value Proposition</h2>
+        <SectionHeader icon={Target} title="Value Proposition" color={C.green} />
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Company Description</label>
@@ -1104,7 +1213,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
 
       {/* 5. Target audience & communication */}
       <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Target Audience & Communication</h2>
+        <SectionHeader icon={MessageSquare} title="Target Audience & Communication" color="#8B5CF6" />
         <div className="space-y-4">
           <ToneSelector
             value={form.tone_by_channel ?? DEFAULT_TONE_BY_CHANNEL}
@@ -1149,7 +1258,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
 
       {/* 6. Track Record (clients + certs + cases) */}
       <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
-        <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Track Record</h2>
+        <SectionHeader icon={Trophy} title="Track Record" color="#D97706" />
         <div className="space-y-5">
           <div>
             <label className="block text-xs font-medium mb-1.5" style={{ color: C.textBody }}>Key Clients</label>
@@ -1240,7 +1349,10 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
       {/* 7. Resources */}
       <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Resources</h2>
+          <span className="flex items-center gap-2.5">
+            <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold }}><FolderOpen size={15} /></span>
+            <span className="text-[13px] font-bold uppercase tracking-wider" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>Resources</span>
+          </span>
           <label className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium cursor-pointer transition-opacity hover:opacity-80"
             style={{ backgroundColor: goldLight, color: gold, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 25%, transparent)` }}>
             <Upload size={12} /> Upload file
@@ -1292,36 +1404,55 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
         )}
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button onClick={handleSave} disabled={saving || !form.company_name}
-            className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50"
-            style={{ backgroundColor: gold, color: "#04070d" }}>
-            {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-            {saving ? "Saving…" : "Save"}
-          </button>
-          {!isNew && (
-            <button onClick={onCancel}
-              className="rounded-lg px-5 py-2.5 text-sm font-medium"
-              style={{ color: C.textMuted, backgroundColor: C.surface }}>
-              Cancel
+      </div>{/* end left column */}
+
+      {/* Right rail — AI readiness meter + live brand preview (sticky). */}
+      <aside className="lg:sticky lg:top-4 space-y-4">
+        <ReadinessPanel form={form} />
+        <BrandPreview form={form} />
+      </aside>
+
+      {/* Sticky save bar — spans both columns, always reachable. */}
+      <div className="lg:col-span-2 sticky bottom-3 z-20">
+        <div className="flex items-center justify-between gap-3 rounded-2xl border px-4 py-3"
+          style={{ borderColor: C.border, backgroundColor: "color-mix(in srgb, var(--c-card, #ffffff) 94%, transparent)", backdropFilter: "blur(8px)", boxShadow: "0 10px 34px -10px rgba(0,0,0,0.3)" }}>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button onClick={handleSave} disabled={saving || !form.company_name || (!dirty && !isNew)}
+              className="flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-opacity disabled:opacity-50"
+              style={{ backgroundColor: gold, color: "#04070d" }}>
+              {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+              {saving ? "Saving…" : "Save"}
+            </button>
+            {!isNew && (
+              <button onClick={onCancel}
+                className="rounded-lg px-5 py-2.5 text-sm font-medium"
+                style={{ color: C.textMuted, backgroundColor: C.surface }}>
+                Cancel
+              </button>
+            )}
+            {error ? (
+              <span className="flex items-center gap-1.5 text-sm" style={{ color: C.red }}>
+                <AlertCircle size={15} /> {error}
+              </span>
+            ) : dirty && !saving ? (
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#D97706" }} /> Unsaved changes
+              </span>
+            ) : !isNew && !saving ? (
+              <span className="flex items-center gap-1 text-[11px] font-semibold" style={{ color: C.green }}>
+                <CheckCircle2 size={13} /> All changes saved
+              </span>
+            ) : null}
+          </div>
+
+          {!isNew && onDelete && form.id && (
+            <button onClick={() => setShowArchiveModal(true)}
+              className="flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-xs font-medium transition-opacity hover:opacity-80"
+              style={{ color: C.red }}>
+              <Trash2 size={13} /> Archive company
             </button>
           )}
-          {error && (
-            <span className="flex items-center gap-1.5 text-sm" style={{ color: C.red }}>
-              <AlertCircle size={15} /> {error}
-            </span>
-          )}
         </div>
-
-        {!isNew && onDelete && form.id && (
-          <button onClick={() => setShowArchiveModal(true)}
-            className="flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-xs font-medium transition-opacity hover:opacity-80"
-            style={{ color: C.red }}>
-            <Trash2 size={13} /> Archive company
-          </button>
-        )}
       </div>
 
       {showArchiveModal && form.id && (
