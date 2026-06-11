@@ -165,6 +165,9 @@ function InlineClassifier({ call }: { call: PendingCall }) {
   const [busy, setBusy] = useState<"positive" | "negative" | "follow_up" | "voicemail" | "wrong_number" | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  // Secondary outcomes (voicemail / wrong number) tuck behind a "···" toggle —
+  // sellers reach for Interested / Not interested / Bad timing 90% of the time.
+  const [showMore, setShowMore] = useState(false);
 
   async function classify(c: "positive" | "negative" | "follow_up" | "voicemail" | "wrong_number") {
     if (!call.latestCall) return;
@@ -249,22 +252,35 @@ function InlineClassifier({ call }: { call: PendingCall }) {
         {busy === "follow_up" ? <Loader2 size={10} className="animate-spin" /> : <Clock size={10} />}
         Bad timing
       </button>
-      <button
-        onClick={() => classify("voicemail")}
-        disabled={busy !== null}
-        className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
-        style={{ backgroundColor: "color-mix(in srgb, #0EA5E9 12%, transparent)", borderColor: "color-mix(in srgb, #0EA5E9 35%, transparent)", color: "#0EA5E9" }}>
-        {busy === "voicemail" ? <Loader2 size={10} className="animate-spin" /> : <Voicemail size={10} />}
-        Voicemail
-      </button>
-      <button
-        onClick={() => classify("wrong_number")}
-        disabled={busy !== null}
-        className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
-        style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textMuted }}>
-        {busy === "wrong_number" ? <Loader2 size={10} className="animate-spin" /> : <PhoneOff size={10} />}
-        Wrong number
-      </button>
+      {showMore ? (
+        <>
+          <button
+            onClick={() => classify("voicemail")}
+            disabled={busy !== null}
+            className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
+            style={{ backgroundColor: "color-mix(in srgb, #0EA5E9 12%, transparent)", borderColor: "color-mix(in srgb, #0EA5E9 35%, transparent)", color: "#0EA5E9" }}>
+            {busy === "voicemail" ? <Loader2 size={10} className="animate-spin" /> : <Voicemail size={10} />}
+            Voicemail
+          </button>
+          <button
+            onClick={() => classify("wrong_number")}
+            disabled={busy !== null}
+            className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
+            style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textMuted }}>
+            {busy === "wrong_number" ? <Loader2 size={10} className="animate-spin" /> : <PhoneOff size={10} />}
+            Wrong number
+          </button>
+        </>
+      ) : (
+        <button
+          onClick={() => setShowMore(true)}
+          disabled={busy !== null}
+          title="More outcomes (voicemail / wrong number)"
+          className="text-[11px] font-medium px-2 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
+          style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textMuted }}>
+          ···
+        </button>
+      )}
       {err && <span className="text-[11px]" style={{ color: C.red }}>{err}</span>}
     </div>
     {/* Optional after-call note — saved to the lead's Notes (as a Call note)
@@ -338,6 +354,7 @@ function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
   // When a call IS classified we show just the badge; "Cambiar" reveals the
   // full option set so the row stays compact unless you want to correct it.
   const [editOutcome, setEditOutcome] = useState(false);
+  const [moreOutcomes, setMoreOutcomes] = useState(false);
 
   useEffect(() => {
     if (!expanded || roster.length > 0) return;
@@ -448,25 +465,44 @@ function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
                       <AlertTriangle size={9} /> Sin clasificar
                     </span>
                   )}
-                  {([
-                    { key: "positive", label: "Interested", color: C.green },
-                    { key: "negative", label: "Not interested", color: C.red },
-                    { key: "follow_up", label: "Bad timing", color: "#D97706" },
-                    { key: "voicemail", label: "Voicemail", color: "#0EA5E9" },
-                    { key: "wrong_number", label: "Wrong number", color: C.textMuted },
-                  ] as const).map(o => {
-                    const active = cls === o.key;
+                  {(() => {
+                    const ALL = [
+                      { key: "positive", label: "Interested", color: C.green },
+                      { key: "negative", label: "Not interested", color: C.red },
+                      { key: "follow_up", label: "Bad timing", color: "#D97706" },
+                      { key: "voicemail", label: "Voicemail", color: "#0EA5E9" },
+                      { key: "wrong_number", label: "Wrong number", color: C.textMuted },
+                    ] as const;
+                    // 3 primary outcomes always; voicemail/wrong-number tuck
+                    // behind "···" (also auto-shown if one of them is active).
+                    const secondaryActive = cls === "voicemail" || cls === "wrong_number";
+                    const visible = moreOutcomes || secondaryActive ? ALL : ALL.slice(0, 3);
                     return (
-                      <button key={o.key} onClick={() => { classifyOutcome(o.key); setEditOutcome(false); }} disabled={!!classifying}
-                        title={`Mark as ${o.label}`}
-                        className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-colors disabled:opacity-50"
-                        style={active
-                          ? { backgroundColor: tint(o.color, 14), color: o.color, borderColor: o.color }
-                          : { backgroundColor: "transparent", color: C.textBody, borderColor: C.border }}>
-                        {classifying === o.key ? "…" : o.label}
-                      </button>
+                      <>
+                        {visible.map(o => {
+                          const active = cls === o.key;
+                          return (
+                            <button key={o.key} onClick={() => { classifyOutcome(o.key); setEditOutcome(false); }} disabled={!!classifying}
+                              title={`Mark as ${o.label}`}
+                              className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-colors disabled:opacity-50"
+                              style={active
+                                ? { backgroundColor: tint(o.color, 14), color: o.color, borderColor: o.color }
+                                : { backgroundColor: "transparent", color: C.textBody, borderColor: C.border }}>
+                              {classifying === o.key ? "…" : o.label}
+                            </button>
+                          );
+                        })}
+                        {!moreOutcomes && !secondaryActive && (
+                          <button onClick={() => setMoreOutcomes(true)} disabled={!!classifying}
+                            title="More outcomes (voicemail / wrong number)"
+                            className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-colors disabled:opacity-50"
+                            style={{ backgroundColor: "transparent", color: C.textDim, borderColor: C.border }}>
+                            ···
+                          </button>
+                        )}
+                      </>
                     );
-                  })}
+                  })()}
                   {cls && (
                     <button onClick={() => setEditOutcome(false)} className="text-[10px] font-semibold transition-opacity hover:opacity-70" style={{ color: C.textDim }}>
                       Cancelar
@@ -901,16 +937,17 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                 <span className="w-2 h-2 rounded-full" title="New activity"
                   style={{ backgroundColor: t.color, boxShadow: `0 0 0 3px color-mix(in srgb, ${t.color} 22%, transparent)` }} />
               )}
-              {t.count > 0 && (
-                <span className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+              {/* One badge: count + (if any) a ⚠N suffix for items needing
+                  review — instead of two stacked pills competing per tab. */}
+              {(t.count > 0 || t.reviewCount > 0) && (
+                <span className="inline-flex items-center gap-1 text-xs font-bold px-1.5 py-0.5 rounded-full"
                   style={{ backgroundColor: isActive ? `${t.color}15` : C.surface, color: isActive ? t.color : C.textDim }}>
                   {t.count}
-                </span>
-              )}
-              {t.reviewCount > 0 && (
-                <span className="flex items-center gap-0.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                  style={{ backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#D97706" }}>
-                  <AlertTriangle size={9} /> {t.reviewCount}
+                  {t.reviewCount > 0 && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px]" style={{ color: "#D97706" }}>
+                      <AlertTriangle size={9} /> {t.reviewCount}
+                    </span>
+                  )}
                 </span>
               )}
               {isActive && <div className="absolute bottom-0 left-0 right-0 h-0.5" style={{ backgroundColor: t.color }} />}
