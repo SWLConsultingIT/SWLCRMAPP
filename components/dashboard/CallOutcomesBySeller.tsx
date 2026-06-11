@@ -129,6 +129,27 @@ export default function CallOutcomesBySeller({ rows }: { rows: SellerCallStats[]
           <tbody>
             {rows.map(s => <SellerRow key={s.sellerId} s={s} />)}
           </tbody>
+          {rows.length > 1 && (() => {
+            // Column totals across every seller — so the panel reconciles at a
+            // glance (Total calls = sum of the outcome columns, all sellers).
+            const totals = rows.reduce((acc, s) => {
+              acc.made += s.made; acc.interested += s.interested; acc.badTiming += s.badTiming;
+              acc.voicemail += s.voicemail; acc.notInterested += s.notInterested; acc.wrongNumber += s.wrongNumber;
+              return acc;
+            }, { made: 0, answered: 0, interested: 0, badTiming: 0, voicemail: 0, notInterested: 0, wrongNumber: 0 } as Counts);
+            return (
+              <tfoot>
+                <tr style={{ borderTop: `2px solid ${C.border}`, backgroundColor: C.bg }}>
+                  <td className="px-3 py-2.5 text-[12px] font-bold" style={{ color: C.textPrimary, fontFamily: OUTFIT }}>Total · {rows.length} sellers</td>
+                  {COLS.map(c => (
+                    <td key={c.key} className="text-center px-2 py-2.5 tabular-nums">
+                      <span className="text-[13px] font-bold" style={{ color: valueOf(totals, c.key) > 0 ? c.color : C.textDim, fontFamily: OUTFIT }}>{valueOf(totals, c.key)}</span>
+                    </td>
+                  ))}
+                </tr>
+              </tfoot>
+            );
+          })()}
         </table>
       </div>
     </div>
