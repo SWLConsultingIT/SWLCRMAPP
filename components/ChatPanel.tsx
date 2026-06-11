@@ -40,8 +40,21 @@ const EMOJIS = ["😀","😅","😂","🤣","😊","😍","😘","😎","🤔","
 // (RLS scopes delivery to the participant). All reads/writes go through the
 // service-role /api/chat routes.
 
-type Member = { userId: string; name: string };
-type Thread = { id: string; kind: "dm" | "channel"; title: string; members: Member[]; lastMessage: { body: string; created_at: string } | null; unread: number };
+type Member = { userId: string; name: string; company?: string | null };
+type Thread = { id: string; kind: "dm" | "channel"; title: string; members: Member[]; otherCompany?: string | null; lastMessage: { body: string; created_at: string } | null; unread: number };
+
+// Small "· Company" tag shown next to a DM partner's name so cross-tenant
+// conversations are obvious (boss 2026-06-11). Rendered in teal to read as
+// metadata, not a person.
+function CompanyTag({ company }: { company?: string | null }) {
+  if (!company) return null;
+  return (
+    <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded shrink-0 whitespace-nowrap"
+      style={{ backgroundColor: "color-mix(in srgb, #1A7F74 14%, transparent)", color: "#1A7F74" }}>
+      {company}
+    </span>
+  );
+}
 type Msg = { id: string; sender_id: string; sender_name: string | null; body: string; created_at: string };
 
 function ago(iso: string) {
@@ -152,7 +165,10 @@ export default function ChatPanel({ initialThreadId }: { initialThreadId?: strin
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold truncate" style={{ color: C.textPrimary }}>{t.title}</p>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <p className="text-sm font-semibold truncate" style={{ color: C.textPrimary }}>{t.title}</p>
+                    <CompanyTag company={t.otherCompany} />
+                  </div>
                   {t.lastMessage && <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{ago(t.lastMessage.created_at)}</span>}
                 </div>
                 <p className="text-[11px] truncate" style={{ color: C.textMuted }}>{t.lastMessage?.body ?? "No messages yet"}</p>
@@ -175,6 +191,7 @@ export default function ChatPanel({ initialThreadId }: { initialThreadId?: strin
             <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: C.border }}>
               {active.kind === "channel" ? <Hash size={14} style={{ color: "#7C3AED" }} /> : <User size={14} style={{ color: C.gold }} />}
               <p className="text-sm font-bold" style={{ color: C.textPrimary }}>{active.title}</p>
+              <CompanyTag company={active.otherCompany} />
               <span className="text-[11px]" style={{ color: C.textDim }}>· {active.members.length} {active.members.length === 1 ? "member" : "members"}</span>
               <button onClick={() => delThread(active.id)} disabled={deleting} title="Delete conversation"
                 className="ml-auto p-1.5 rounded-lg transition-colors hover:bg-black/[0.04] disabled:opacity-50" style={{ color: C.textMuted }}>

@@ -35,6 +35,23 @@ export async function GET() {
   const nameMap = new Map<string, string>();
   await Promise.all(userIds.map(async uid => { nameMap.set(uid, await nameOf(svc, uid)); }));
 
+  // Resolve each participant's home company so the UI can label cross-tenant
+  // people (a super_admin DMing Pathway's owner sees "Samantha · Pathway").
+  // Boss 2026-06-11: "debería decir de qué company es al lado del nombre".
+  const companyMap = new Map<string, string>();
+  {
+    const { data: profs } = await svc.from("user_profiles").select("user_id, company_bio_id").in("user_id", userIds);
+    const bioIds = Array.from(new Set((profs ?? []).map((p: any) => p.company_bio_id).filter(Boolean) as string[]));
+    const bioNames = new Map<string, string>();
+    if (bioIds.length) {
+      const { data: bios } = await svc.from("company_bios").select("id, company_name").in("id", bioIds);
+      for (const b of (bios ?? []) as any[]) bioNames.set(b.id, b.company_name);
+    }
+    for (const p of (profs ?? []) as any[]) {
+      if (p.company_bio_id) companyMap.set(p.user_id, bioNames.get(p.company_bio_id) ?? "");
+    }
+  }
+
   const partsByThread = new Map<string, string[]>();
   (allParts ?? []).forEach(p => { const a = partsByThread.get(p.thread_id) ?? []; a.push(p.user_id); partsByThread.set(p.thread_id, a); });
 
@@ -48,11 +65,14 @@ export async function GET() {
   });
 
   const out = (threads ?? []).map(t => {
-    const members = (partsByThread.get(t.id) ?? []).map(uid => ({ userId: uid, name: nameMap.get(uid) ?? "Teammate" }));
+    const members = (partsByThread.get(t.id) ?? []).map(uid => ({ userId: uid, name: nameMap.get(uid) ?? "Teammate", company: companyMap.get(uid) || null }));
     const others = members.filter(m => m.userId !== scope.userId);
     const title = t.kind === "dm" ? (others[0]?.name ?? "Direct message") : (t.title ?? "Channel");
+    // For a DM, surface the other person's home company so the UI can tag
+    // cross-tenant conversations (e.g. "Samantha · Pathway").
+    const otherCompany = t.kind === "dm" ? (others[0]?.company ?? null) : null;
     return {
-      id: t.id, kind: t.kind, title, members,
+      id: t.id, kind: t.kind, title, members, otherCompany,
       lastMessage: lastByThread.get(t.id) ?? null,
       unread: unreadByThread.get(t.id) ?? 0,
     };
