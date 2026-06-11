@@ -95,10 +95,13 @@ function SellerRow({ s }: { s: SellerCallStats }) {
   );
 }
 
-export default function CallOutcomesBySeller({ rows }: { rows: SellerCallStats[] }) {
+// `bare` = render just the table (no card chrome / header), for when the
+// caller wraps it in a <Panel> — so it matches the other dashboard tables
+// (dark Panel header + flush table) instead of a card-in-a-card.
+export default function CallOutcomesBySeller({ rows, bare = false }: { rows: SellerCallStats[]; bare?: boolean }) {
   if (!rows || rows.length === 0) {
     return (
-      <div className="rounded-xl border px-4 py-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className={bare ? "px-4 py-6" : "rounded-xl border px-4 py-6"} style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="flex items-start gap-3">
           <PhoneCall size={16} style={{ color: C.textMuted, marginTop: "2px", flexShrink: 0 }} />
           <div>
@@ -109,13 +112,7 @@ export default function CallOutcomesBySeller({ rows }: { rows: SellerCallStats[]
       </div>
     );
   }
-  return (
-    <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
-      <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-        <PhoneCall size={13} style={{ color: "#F97316" }} />
-        <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: C.textBody }}>Call outcomes by seller</p>
-        <span className="text-[10px]" style={{ color: C.textDim }}>click a seller for the day-by-day split</span>
-      </div>
+  const tableEl = (
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
@@ -152,6 +149,17 @@ export default function CallOutcomesBySeller({ rows }: { rows: SellerCallStats[]
           })()}
         </table>
       </div>
+  );
+  // Bare = flush table for a <Panel> wrapper (matches the other tables).
+  if (bare) return tableEl;
+  return (
+    <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+      <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+        <PhoneCall size={13} style={{ color: "#F97316" }} />
+        <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: C.textBody }}>Call outcomes by seller</p>
+        <span className="text-[10px]" style={{ color: C.textDim }}>click a seller for the day-by-day split</span>
+      </div>
+      {tableEl}
     </div>
   );
 }

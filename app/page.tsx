@@ -1108,7 +1108,7 @@ export default async function DashboardPage({
           actionLabel={t("dashx.calls.openQueue")}
           glow
         >
-          <CallOutcomesBySeller rows={data.callOutcomesBySeller} />
+          <CallOutcomesBySeller rows={data.callOutcomesBySeller} bare />
         </Panel>
       </section>
 
@@ -1744,9 +1744,18 @@ export default async function DashboardPage({
 
       {/* Call outcomes by seller — per-seller, per-day call monitoring with
           outcome reasons. Moved here from Channels (Fran 2026-06-11): it's a
-          seller metric, not a channel one. */}
+          seller metric, not a channel one. Wrapped in Panel + bare so it
+          matches the rest of the dashboard tables (dark header + flush table). */}
       <section>
-        <CallOutcomesBySeller rows={data.callOutcomesBySeller} />
+        <Panel
+          title={t("dashx.callsByUser.title")}
+          subtitle={withScope(t("dashx.callsByUser.subtitle"))}
+          actionHref="/queue?tab=calls"
+          actionLabel={t("dashx.calls.openQueue")}
+          glow
+        >
+          <CallOutcomesBySeller rows={data.callOutcomesBySeller} bare />
+        </Panel>
       </section>
 
       <section>
