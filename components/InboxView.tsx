@@ -7,7 +7,7 @@ import {
   Search, CheckCircle2, XCircle, MessageSquare, ExternalLink,
   ThumbsUp, ThumbsDown, HelpCircle, Inbox as InboxIcon, Share2, Mail, Phone, Smartphone,
   Check, X as XIcon, ChevronRight, ChevronLeft, PanelLeftClose, PanelLeftOpen,
-  ChevronDown, Megaphone, Target, Radio, Calendar, Maximize2, Minimize2,
+  ChevronDown, Megaphone, Target, Radio, Calendar, Maximize2, Minimize2, AlertCircle,
 } from "lucide-react";
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
@@ -252,6 +252,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
   const initialChannel = searchParams?.get("channel") ?? "all";
   const [tab, setTab] = useState<Tab>(initialChannel !== "all" ? "history" : "pending");
   const [search, setSearch] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
   const [campaignFilter, setCampaignFilter] = useState<string>("all");
   const [icpFilter, setIcpFilter] = useState<string>("all");
   const [channelFilter, setChannelFilter] = useState<string>(initialChannel);
@@ -608,17 +609,52 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
           {/* Search + filters (Campaign / ICP / Channel — added 2026-05-27
               per boss feedback so sellers can slice History before triaging) */}
           <div className="px-3 py-2 border-b space-y-2" style={{ borderColor: C.border }}>
-            <div className="relative">
-              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: C.textMuted }} />
-              <input
-                type="text"
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder={t("inbox.search.placeholder")}
-                className="w-full pl-7 pr-3 py-1.5 rounded-lg border text-xs focus:outline-none"
-                style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
-              />
-            </div>
+            {/* Search stays visible; the 4 filter pills collapse behind a
+                "Filtros" button with an active-count badge, so the bar is one
+                line and never wraps. */}
+            {(() => {
+              const activeFilters =
+                (campaignFilter !== "all" ? 1 : 0) +
+                (icpFilter !== "all" ? 1 : 0) +
+                (channelFilter !== "all" ? 1 : 0) +
+                (dateRange !== "30d" ? 1 : 0);
+              return (
+                <div className="flex items-center gap-1.5">
+                  <div className="relative flex-1">
+                    <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2" style={{ color: C.textMuted }} />
+                    <input
+                      type="text"
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      placeholder={t("inbox.search.placeholder")}
+                      className="w-full pl-7 pr-3 py-1.5 rounded-lg border text-xs focus:outline-none"
+                      style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textPrimary }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowFilters(v => !v)}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border shrink-0 transition-opacity hover:opacity-85"
+                    style={{
+                      borderColor: activeFilters > 0 || showFilters ? "color-mix(in srgb, var(--brand, #c9a83a) 45%, transparent)" : C.border,
+                      backgroundColor: activeFilters > 0 ? "color-mix(in srgb, var(--brand, #c9a83a) 10%, transparent)" : C.bg,
+                      color: activeFilters > 0 ? "var(--brand, #c9a83a)" : C.textMuted,
+                    }}
+                    title={t("inbox.filter.clearAll")}
+                  >
+                    <Radio size={12} />
+                    {locale === "es" ? "Filtros" : "Filters"}
+                    {activeFilters > 0 && (
+                      <span className="inline-flex items-center justify-center text-[9px] font-bold rounded-full w-4 h-4" style={{ backgroundColor: "var(--brand, #c9a83a)", color: "#04070d" }}>
+                        {activeFilters}
+                      </span>
+                    )}
+                    <ChevronDown size={11} style={{ transform: showFilters ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+                  </button>
+                </div>
+              );
+            })()}
+            {showFilters && (
             <div className="flex items-center gap-1.5 flex-wrap">
               <FilterPill
                 icon={<Calendar size={11} />}
@@ -674,6 +710,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                 </button>
               )}
             </div>
+            )}
           </div>
 
           <div className="overflow-y-auto flex-1 px-2 py-2" style={{ backgroundColor: `color-mix(in srgb, ${C.surface} 35%, ${C.bg})` }}>
@@ -765,53 +802,39 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                             <Icon size={11} />
                           </div>
                           <div className="flex-1 min-w-0">
+                            {/* Name + company on ONE line (channel is already
+                                the left rail + icon). Date + a single review
+                                glyph sit right; both fade on hover so the
+                                quick-classify buttons don't collide. */}
                             <div className="flex items-center justify-between gap-2">
-                              <p className="text-xs font-bold truncate" style={{ color: C.textPrimary }}>
-                                {r.leadName}
+                              <p className="text-xs truncate" style={{ color: C.textPrimary }}>
+                                <span className="font-bold">{r.leadName}</span>
+                                {r.company && <span style={{ color: C.textMuted }}> · {r.company}</span>}
                               </p>
-                              {/* Date hides on hover so the quick-classify
-                                  buttons (positioned absolute top-right of
-                                  the row) don't collide with it. The space
-                                  is preserved via opacity (not display:none)
-                                  so the row height stays stable. */}
-                              <span className="text-[10px] tabular-nums shrink-0 transition-opacity group-hover/ix:opacity-0" style={{ color: C.textDim }}>
-                                {relativeTime(r.receivedAt)}
+                              <span className="flex items-center gap-1 shrink-0 transition-opacity group-hover/ix:opacity-0">
+                                {r.requiresHumanReview && (
+                                  <span title={locale === "es" ? "Necesita revisión" : "Needs review"} style={{ color: "#D97706" }}>
+                                    <AlertCircle size={11} />
+                                  </span>
+                                )}
+                                <span className="text-[10px] tabular-nums" style={{ color: C.textDim }}>
+                                  {relativeTime(r.receivedAt)}
+                                </span>
                               </span>
                             </div>
-                            {r.company && (
-                              <p className="text-[11px] truncate" style={{ color: C.textMuted }}>
-                                {r.company}
-                              </p>
-                            )}
                             <p className="text-[11px] mt-0.5 line-clamp-2" style={{ color: C.textBody }}>
                               {r.classification === "connection_accepted"
                                 ? "🤝 Aceptó la solicitud de conexión"
                                 : (r.replyText && r.replyText.trim() ? r.replyText : "(sin texto)")}
                             </p>
-                            <div className="flex items-center gap-1 mt-1 flex-wrap">
-                              {/* Channel pill — first so it always shows even
-                                  when no classification badge yet. Color-coded
-                                  to match the row's left rail + icon. */}
-                              <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color: chColor, backgroundColor: `color-mix(in srgb, ${chColor} 14%, transparent)` }}>
-                                <Icon size={9} />
-                                {channelLabel(r.channel, t)}
+                            {/* Only the classification badge — channel lives in
+                                the rail/icon, campaign in the top filter, review
+                                in the glyph above. One signal, not five. */}
+                            {badge && (
+                              <span className="inline-block text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded mt-1" style={{ color: badge.color, backgroundColor: badge.bg }}>
+                                {badge.label}
                               </span>
-                              {badge && (
-                                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color: badge.color, backgroundColor: badge.bg }}>
-                                  {badge.label}
-                                </span>
-                              )}
-                              {r.requiresHumanReview && (
-                                <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ color: "#D97706", backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)" }}>
-                                  Needs review
-                                </span>
-                              )}
-                              {r.campaignName && (
-                                <span className="text-[10px] truncate max-w-[120px]" style={{ color: C.textDim }}>
-                                  · {r.campaignName}
-                                </span>
-                              )}
-                            </div>
+                            )}
                           </div>
                         </div>
                       </button>
@@ -918,76 +941,53 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                       ) : null;
                     })()}
                   </div>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap text-xs" style={{ color: C.textMuted }}>
+                  {/* ONE context line: company · campaign · time · stage.
+                      The channel pill is gone (the thread bubbles already show
+                      the channel); campaign stage is folded inline instead of
+                      its own strip, so the header is 2 rows not 3. */}
+                  <div className="flex items-center gap-x-2 gap-y-1 mt-1 flex-wrap text-xs" style={{ color: C.textMuted }}>
                     <span>{selected.company ?? "—"}</span>
                     {selected.campaignName && <span>· {selected.campaignName}</span>}
                     <span>· {relativeTime(selected.receivedAt)}</span>
-                    {/* Channel pill — explicit so when we add WhatsApp/Email/
-                        Telegram threads later, the seller knows at a glance
-                        which inbox they're reading. */}
-                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider"
-                      style={{ backgroundColor: `color-mix(in srgb, ${channelColor(selected.channel)} 14%, transparent)`, color: channelColor(selected.channel) }}>
-                      {(() => { const Ic = channelIcon(selected.channel); return <Ic size={9} />; })()}
-                      {channelLabel(selected.channel, t)}
-                    </span>
+                    {stage && (
+                      <>
+                        <span style={{ color: C.textDim }}>·</span>
+                        {stage.status === "completed" ? (
+                          <span className="inline-flex items-center gap-1 font-semibold"
+                            style={{ color: stage.stopReason?.includes("positive") ? C.green : C.red }}>
+                            {stage.stopReason?.includes("positive") ? "● Cerrada · ganado"
+                              : stage.stopReason?.includes("negative") ? "● Cerrada · perdido"
+                              : "● Cerrada"}
+                          </span>
+                        ) : stage.status === "paused" ? (
+                          <span className="font-semibold" style={{ color: "#D97706" }}>● Pausada</span>
+                        ) : stage.haltedByReply ? (
+                          <span className="font-semibold" style={{ color: "#D97706" }}>● Frenada — respondió</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 font-semibold" style={{ color: C.green }}>
+                            <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: C.green }} />
+                            Activa
+                          </span>
+                        )}
+                        {stage.currentStep != null && stage.totalSteps != null && stage.totalSteps > 0 && (
+                          <span>· Paso {stage.currentStep}/{stage.totalSteps}</span>
+                        )}
+                        {stage.nextStepLabel && stage.status !== "completed" && (
+                          <span>
+                            → <span className="font-medium" style={{ color: channelColor(stage.nextStepChannel) }}>{stage.nextStepLabel}</span>
+                            {stage.haltedByReply ? (
+                              <span style={{ color: "#D97706" }}> (en espera)</span>
+                            ) : stage.nextStepDueAt && (() => {
+                              const ms = new Date(stage.nextStepDueAt).getTime() - Date.now();
+                              const days = Math.ceil(ms / 86_400_000);
+                              if (ms <= 0) return <span style={{ color: C.textDim }}> (listo)</span>;
+                              return <span style={{ color: C.textDim }}> ({days}{days === 1 ? "d" : "d"})</span>;
+                            })()}
+                          </span>
+                        )}
+                      </>
+                    )}
                   </div>
-                  {/* Campaign stage strip — quick "where in the flow" so the
-                      seller doesn't open another tab to check. Reads from the
-                      thread API's stage block (current_step + totalSteps,
-                      next step label/channel, days-until-next, terminal
-                      reason). */}
-                  {stage && (
-                    <div className="flex items-center gap-2 mt-2 flex-wrap text-[11px]">
-                      {stage.status === "completed" ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold"
-                          style={{
-                            backgroundColor: stage.stopReason?.includes("positive")
-                              ? `color-mix(in srgb, ${C.green} 14%, transparent)`
-                              : `color-mix(in srgb, ${C.red} 14%, transparent)`,
-                            color: stage.stopReason?.includes("positive") ? C.green : C.red,
-                          }}>
-                          Campaña cerrada
-                          {stage.stopReason?.includes("positive") && " · lead qualified"}
-                          {stage.stopReason?.includes("negative") && " · lead closed_lost"}
-                        </span>
-                      ) : stage.status === "paused" ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold"
-                          style={{ backgroundColor: `color-mix(in srgb, #D97706 14%, transparent)`, color: "#D97706" }}>
-                          Campaña pausada
-                        </span>
-                      ) : stage.haltedByReply ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold"
-                          style={{ backgroundColor: `color-mix(in srgb, #D97706 14%, transparent)`, color: "#D97706" }}>
-                          Frenada — el lead respondió
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold"
-                          style={{ backgroundColor: `color-mix(in srgb, ${C.green} 14%, transparent)`, color: C.green }}>
-                          <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: C.green }} />
-                          Campaña activa
-                        </span>
-                      )}
-                      {stage.currentStep != null && stage.totalSteps != null && stage.totalSteps > 0 && (
-                        <span style={{ color: C.textMuted }}>
-                          Paso {stage.currentStep} de {stage.totalSteps}
-                        </span>
-                      )}
-                      {stage.nextStepLabel && stage.status !== "completed" && (
-                        <span style={{ color: C.textMuted }}>
-                          · Próximo: <span className="font-medium" style={{ color: channelColor(stage.nextStepChannel) }}>{stage.nextStepLabel}</span>
-                          {stage.haltedByReply ? (
-                            <span style={{ color: "#D97706" }}> · en espera — respondé para continuar</span>
-                          ) : stage.nextStepDueAt && (() => {
-                            const when = new Date(stage.nextStepDueAt);
-                            const ms = when.getTime() - Date.now();
-                            const days = Math.ceil(ms / 86_400_000);
-                            if (ms <= 0) return <span style={{ color: C.textDim }}> · listo para disparar</span>;
-                            return <span style={{ color: C.textDim }}> · en {days} {days === 1 ? "día" : "días"}</span>;
-                          })()}
-                        </span>
-                      )}
-                    </div>
-                  )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -1114,15 +1114,15 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
                     return visibleThread.map((entry, idx) => {
                       const isOut = entry.direction === "outbound";
                       const Icon = channelIcon(entry.channel);
-                      const stepLabel = entry.stepNumber === 0
-                        ? "Connection Request"
-                        : entry.stepNumber != null && entry.stepNumber > 0
-                          ? `Step ${entry.stepNumber}`
-                          : entry.kind === "auto_reply" || entry.stepNumber === -1
-                            ? "Auto-reply"
-                            : (entry.source === "unipile" && isOut)
-                              ? "Seller reply"
-                              : null;
+                      // Only label what tells the seller WHO sent it (bot vs
+                      // human). The "Connection Request" / "Step N" sequence
+                      // labels were repeated on every bubble = noise; the day
+                      // separators already anchor timing.
+                      const stepLabel = entry.kind === "auto_reply" || entry.stepNumber === -1
+                        ? "Auto-reply"
+                        : (entry.source === "unipile" && isOut)
+                          ? "Seller reply"
+                          : null;
                       const time = formatTimeOnly(entry.at);
                       const dayDate = new Date(entry.at);
                       const dayKey = `${dayDate.getFullYear()}-${dayDate.getMonth()}-${dayDate.getDate()}`;
