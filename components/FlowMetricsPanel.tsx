@@ -382,25 +382,23 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
         </div>
       </div>
       <div className="overflow-x-auto">
-        <div className="max-h-[440px] overflow-y-auto min-w-[860px]">
+        <div className="max-h-[440px] overflow-y-auto min-w-[680px]">
           <table className="w-full text-sm border-collapse">
             <thead className="sticky top-0 z-10" style={{ backgroundColor: C.bg, boxShadow: `inset 0 -1px 0 ${C.border}` }}>
               <tr className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>
                 <Sortable k="name" label="Lead" />
                 <th className="text-left px-2 py-2.5">Channels</th>
-                <th className="text-center px-2 py-2.5">Invite</th>
-                <th className="text-center px-2 py-2.5">Accepted</th>
+                <th className="text-left px-2 py-2.5">LinkedIn</th>
                 <Sortable k="messaged" label="Msgs" align="center" />
                 <th className="text-left px-2 py-2.5">Replied</th>
                 <Sortable k="currentStep" label="Step" align="center" />
-                <Sortable k="daysInFlow" label="Days" align="center" />
                 <th className="text-left px-2 py-2.5">Status</th>
                 <Sortable k="lastActivity" label="Last activity" />
               </tr>
             </thead>
             <tbody>
               {sorted.length === 0 ? (
-                <tr><td colSpan={10} className="px-4 py-8 text-center text-xs" style={{ color: C.textDim }}>No leads match this filter.</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-xs" style={{ color: C.textDim }}>No leads match this filter.</td></tr>
               ) : sorted.map(r => {
                 const rc = r.replied ? (replyColor[r.replied] ?? C.textMuted) : C.textMuted;
                 const rlabel = r.replied === "followup" ? "follow-up" : r.replied;
@@ -415,8 +413,13 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
                       <td className="px-2 py-2">
                         <div className="flex gap-1">{r.channels.map(c => { const meta = CH[c]; return meta ? <meta.Icon key={c} size={12} style={{ color: meta.color }} /> : null; })}</div>
                       </td>
-                      <td className="text-center px-2 py-2" style={{ color: r.inviteSent ? C.green : C.textDim }}>{r.inviteSent ? "✓" : "—"}</td>
-                      <td className="text-center px-2 py-2" style={{ color: r.accepted ? C.green : C.textDim }}>{r.accepted ? "✓" : "—"}</td>
+                      <td className="px-2 py-2 text-[11px] font-semibold">
+                        {r.accepted
+                          ? <span style={{ color: C.green }}>Accepted</span>
+                          : r.inviteSent
+                            ? <span style={{ color: "#0A66C2" }}>Invited</span>
+                            : <span style={{ color: C.textDim }}>—</span>}
+                      </td>
                       <td className="text-center px-2 py-2 tabular-nums" style={{ color: r.messaged ? C.textBody : C.textDim }}>{r.messaged || "—"}</td>
                       <td className="px-2 py-2">
                         {r.replied
@@ -431,13 +434,15 @@ function LeadsActivityTable({ rows }: { rows: LeadActivity[] }) {
                         {r.bounced && <span className="text-[11px] font-semibold ml-1" style={{ color: C.red }}>bounced</span>}
                       </td>
                       <td className="text-center px-2 py-2 tabular-nums text-xs" style={{ color: r.currentStep != null ? C.textBody : C.textDim }}>{r.currentStep != null ? (r.currentStep === 0 ? "CR" : r.currentStep) : "—"}</td>
-                      <td className="text-center px-2 py-2 tabular-nums text-xs" style={{ color: C.textMuted }}>{r.daysInFlow != null ? `${r.daysInFlow}d` : "—"}</td>
                       <td className="px-2 py-2 text-xs capitalize" style={{ color: C.textMuted }}>{r.status}</td>
-                      <td className="px-3 py-2 text-xs whitespace-nowrap" style={{ color: C.textMuted }}>{fmt(r.lastActivity)}</td>
+                      <td className="px-3 py-2 text-xs whitespace-nowrap" style={{ color: C.textMuted }}>
+                        {fmt(r.lastActivity)}
+                        {r.daysInFlow != null && <span style={{ color: C.textDim }}> · {r.daysInFlow}d en flujo</span>}
+                      </td>
                     </tr>
                     {expanded && r.replyText && (
                       <tr style={{ backgroundColor: C.bg }}>
-                        <td colSpan={10} className="px-4 py-2.5">
+                        <td colSpan={8} className="px-4 py-2.5">
                           <div className="rounded-lg border px-3 py-2" style={{ borderColor: `color-mix(in srgb, ${rc} 30%, ${C.border})`, backgroundColor: C.card }}>
                             <div className="flex items-center gap-1.5 mb-1">
                               <MessageSquare size={11} style={{ color: rc }} />
