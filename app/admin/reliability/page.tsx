@@ -1,5 +1,6 @@
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
+import { unstable_cache } from "next/cache";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import Breadcrumb from "@/components/Breadcrumb";
@@ -137,6 +138,41 @@ type ReliabilityData = {
   fetchedAt: string;
 };
 
+// Unipile invite-feed fetch — the slowest part of the page by far. There are
+// ~11 active sellers with a Unipile account, so an un-cached load fires 11
+// external API calls (each with an 8s timeout) on EVERY render — and every
+// tab switch / 30s auto-refresh re-runs the whole server component. The
+// invite feed barely changes minute-to-minute, so we cache the batch for 60s
+// keyed on the sorted account-id list. First hit pays the cost; tab switches
+// and refreshes within the window are instant. Returns plain objects (no Map)
+// so it survives unstable_cache's serialization. (perf 2026-06-10)
+const getUnipileInvitesCached = unstable_cache(
+  async (accountIds: string[]): Promise<{ byAccount: Record<string, UnipileSentInvite[]>; errorsByAccount: Record<string, string> }> => {
+    const byAccount: Record<string, UnipileSentInvite[]> = {};
+    const errorsByAccount: Record<string, string> = {};
+    if (!UNIPILE_KEY || accountIds.length === 0) return { byAccount, errorsByAccount };
+    await Promise.all(accountIds.map(async (accountId) => {
+      try {
+        const res = await fetch(
+          `${UNIPILE_BASE}/api/v1/users/invite/sent?account_id=${encodeURIComponent(accountId)}&limit=100`,
+          { headers: { "X-API-KEY": UNIPILE_KEY!, accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(8000) },
+        );
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          errorsByAccount[accountId] = body?.detail || body?.message || `HTTP ${res.status}`;
+          return;
+        }
+        byAccount[accountId] = (body?.items ?? []) as UnipileSentInvite[];
+      } catch (e: unknown) {
+        errorsByAccount[accountId] = e instanceof Error ? e.message : String(e);
+      }
+    }));
+    return { byAccount, errorsByAccount };
+  },
+  ["reliability-unipile-invites"],
+  { revalidate: 60 },
+);
+
 async function fetchReliability(): Promise<ReliabilityData> {
   const svc = getSupabaseService();
 
@@ -191,14 +227,16 @@ async function fetchReliability(): Promise<ReliabilityData> {
         .map(r => r.leads.company_bio_id as string)
     ));
     const keys = new Map<string, Buffer>();
-    for (const bioId of tenantIds) {
+    // Resolve all tenant keys in parallel — was a serial await-in-loop that
+    // added one round-trip per client-source tenant to every page load.
+    await Promise.all(tenantIds.map(async (bioId) => {
       try {
         const { key } = await resolveTenantKey(bioId);
         keys.set(bioId, key);
       } catch (err) {
         console.error("[reliability] tenant key resolution failed for", bioId, err);
       }
-    }
+    }));
     for (const r of rowsWithLeads) {
       const l = r.leads;
       if (l?.source !== "client" || !l.encrypted_payload || !l.company_bio_id) continue;
@@ -214,32 +252,23 @@ async function fetchReliability(): Promise<ReliabilityData> {
     }
   }
 
-  // Pull Unipile sent invites per active seller (last 100 each).
+  // Pull Unipile sent invites per active seller (last 100 each), via the 60s
+  // cache above so tab switches + auto-refresh don't re-hammer the API. We
+  // fetch per ACCOUNT (the cache key) then fan the result back out per SELLER.
   const unipileBySeller = new Map<string, UnipileSentInvite[]>();
   const sellerErrors = new Map<string, string>();
-  if (UNIPILE_KEY && sellersQ.data) {
-    await Promise.all(sellersQ.data.map(async (s: any) => {
-      if (!s.unipile_account_id) return;
-      try {
-        const res = await fetch(
-          `${UNIPILE_BASE}/api/v1/users/invite/sent?account_id=${encodeURIComponent(s.unipile_account_id)}&limit=100`,
-          // 8s hard timeout per seller. Without it a single hung Unipile call
-          // makes Promise.all never resolve → the server component hangs until
-          // the serverless function times out → client gets "Connection
-          // closed". The catch below turns an abort into a per-seller error so
-          // the rest of the page still renders.
-          { headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" }, cache: "no-store", signal: AbortSignal.timeout(8000) },
-        );
-        const body = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          sellerErrors.set(s.id, body?.detail || body?.message || `HTTP ${res.status}`);
-          return;
-        }
-        unipileBySeller.set(s.id, (body?.items ?? []) as UnipileSentInvite[]);
-      } catch (e: any) {
-        sellerErrors.set(s.id, e?.message ?? String(e));
-      }
-    }));
+  {
+    const accountIds = Array.from(new Set(
+      (sellersQ.data ?? []).map((s: any) => s.unipile_account_id).filter(Boolean) as string[],
+    )).sort();
+    const { byAccount, errorsByAccount } = await getUnipileInvitesCached(accountIds);
+    for (const s of (sellersQ.data ?? []) as any[]) {
+      if (!s.unipile_account_id) continue;
+      const invites = byAccount[s.unipile_account_id];
+      if (invites) unipileBySeller.set(s.id, invites);
+      const err = errorsByAccount[s.unipile_account_id];
+      if (err) sellerErrors.set(s.id, err);
+    }
   }
 
   // Reconcile sent rows against Unipile.
