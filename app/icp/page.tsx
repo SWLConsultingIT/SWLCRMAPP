@@ -161,14 +161,13 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
   // AI generator (create flow only) — drafts the whole form from a short brief.
   const [genOpen, setGenOpen] = useState(false);
   const [genPrompt, setGenPrompt] = useState("");
-  const [genUrl, setGenUrl] = useState("");
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
   const [genDone, setGenDone] = useState(false);
 
   async function handleGenerate() {
-    if (!genPrompt.trim() && !genUrl.trim()) {
-      setGenError("Write a short brief or paste a company URL.");
+    if (!genPrompt.trim()) {
+      setGenError("Describe who you want to reach (a short brief).");
       return;
     }
     setGenerating(true);
@@ -178,7 +177,7 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
       const res = await fetch("/api/icp/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: genPrompt, url: genUrl }),
+        body: JSON.stringify({ prompt: genPrompt }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error ?? "Generation failed");
@@ -237,20 +236,32 @@ function ProfileForm({ initial, onSave, onCancel, isNew }: {
               className="w-full flex items-center justify-between px-4 py-3 text-left">
               <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: C.aiAccent }}>
                 <Sparkles size={15} /> Generate with AI
-                <span className="text-[11px] font-normal" style={{ color: C.textDim }}>— describe it or paste a URL and we draft the whole profile</span>
+                <span className="text-[11px] font-normal" style={{ color: C.textDim }}>— describe who you want to reach and we draft the whole profile</span>
               </span>
               <ChevronRight size={16} style={{ color: C.textDim, transform: genOpen ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
             </button>
             {genOpen && (
               <div className="px-4 pb-4 space-y-2.5">
-                <textarea rows={2} className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
+                <textarea rows={3} className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none resize-none"
                   style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
                   value={genPrompt} onChange={e => setGenPrompt(e.target.value)}
-                  placeholder="E.g.: construction companies in Argentina and Chile still running projects on Excel, that would buy project-management software" />
-                <input className="w-full rounded-lg border px-3 py-2 text-sm focus:outline-none"
-                  style={{ borderColor: C.border, color: C.textPrimary, backgroundColor: C.bg }}
-                  value={genUrl} onChange={e => setGenUrl(e.target.value)}
-                  placeholder="Optional — a target/example company URL (https://…)" />
+                  placeholder="Describe your ideal customer: who they are, where, and what problem they have. E.g.: construction companies in Argentina and Chile still running projects on Excel, that would buy project-management software" />
+                {/* Example briefs — click to fill. Teaches the shape of a good
+                    brief (who · where · trigger) far better than a URL did. */}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] font-semibold" style={{ color: C.textDim }}>Examples:</span>
+                  {[
+                    "B2B SaaS companies, 50–200 staff, in LATAM scaling their outbound sales team",
+                    "Manufacturing SMEs in Spain still running operations on spreadsheets",
+                    "Marketing agencies in the US that want to automate client reporting",
+                  ].map((ex, i) => (
+                    <button key={i} type="button" onClick={() => setGenPrompt(ex)}
+                      className="text-[11px] px-2.5 py-1 rounded-full border transition-colors hover:bg-black/[0.03]"
+                      style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.card }}>
+                      {ex.length > 46 ? ex.slice(0, 44) + "…" : ex}
+                    </button>
+                  ))}
+                </div>
                 <div className="flex items-center gap-3">
                   <button type="button" onClick={handleGenerate} disabled={generating}
                     className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-opacity disabled:opacity-40"
