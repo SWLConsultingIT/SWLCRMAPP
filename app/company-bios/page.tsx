@@ -469,20 +469,6 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
           </button>
         </div>
 
-        {/* Value proposition — the single most important line, elevated to a
-            pull-quote right under the name instead of buried in a text block. */}
-        {bio.value_proposition && (
-          <div className="px-7 pb-6 -mt-1">
-            <div className="relative rounded-2xl px-5 py-4"
-              style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 9%, var(--c-card)) 0%, var(--c-card) 100%)`, border: `1px solid color-mix(in srgb, ${gold} 22%, transparent)` }}>
-              <span className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ background: `linear-gradient(180deg, ${gold}, color-mix(in srgb, ${gold} 55%, white))` }} />
-              <p className="text-[16px] leading-snug font-semibold pl-2" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-                &ldquo;{bio.value_proposition}&rdquo;
-              </p>
-            </div>
-          </div>
-        )}
-
         <div className="border-t" style={{ borderColor: C.border }} />
 
         {/* Metrics row */}
