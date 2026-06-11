@@ -21,16 +21,27 @@ type SellerCallStats = Counts & {
   sellerId: string; sellerName: string; byDay: Record<string, Counts>;
 };
 
-// Column definitions — label + the Counts key + accent colour.
-// "Answered" dropped 2026-06-11 (Fran): duration-based answered count isn't
-// reliable, so we show Total calls + the 5 real outcome categories only.
-const COLS: { key: keyof Counts; label: string; color: string }[] = [
+// Column key = a Counts field OR the derived "unclassified" (made minus the
+// five logged outcomes), so Total calls always reconciles with the columns.
+type ColKey = keyof Counts | "unclassified";
+
+// Unclassified = calls made but with no outcome logged yet. Clamped at 0 in
+// case of any data skew. This is what makes the row add up: Total calls =
+// Interested + Bad timing + Voicemail + Not interested + Wrong # + Sin clasificar.
+const unclassifiedOf = (c: Counts) =>
+  Math.max(0, c.made - c.interested - c.badTiming - c.voicemail - c.notInterested - c.wrongNumber);
+const valueOf = (c: Counts, key: ColKey): number => key === "unclassified" ? unclassifiedOf(c) : c[key];
+
+// Column definitions — label + key + accent colour. "Answered" dropped
+// 2026-06-11 (Fran, unreliable). "Sin clasificar" added so the math closes.
+const COLS: { key: ColKey; label: string; color: string }[] = [
   { key: "made",         label: "Total calls",    color: C.textPrimary },
   { key: "interested",   label: "Interested",     color: C.green },
   { key: "badTiming",    label: "Bad timing",     color: "#D97706" },
   { key: "voicemail",    label: "Voicemail",      color: "#0EA5E9" },
   { key: "notInterested",label: "Not interested", color: C.red },
   { key: "wrongNumber",  label: "Wrong #",        color: C.textMuted },
+  { key: "unclassified", label: "Sin clasificar", color: C.red },
 ];
 
 function fmtDay(iso: string): string {
@@ -63,18 +74,21 @@ function SellerRow({ s }: { s: SellerCallStats }) {
             <span className="text-[13px] font-semibold truncate" style={{ color: C.textPrimary }}>{s.sellerName}</span>
           </span>
         </td>
-        {COLS.map(c => <Cell key={c.key} n={s[c.key]} color={c.color} />)}
+        {COLS.map(c => <Cell key={c.key} n={valueOf(s, c.key)} color={c.color} />)}
       </tr>
       {open && days.map(([day, counts]) => (
         <tr key={day} className="border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
           <td className="px-3 py-1.5 pl-12">
             <span className="text-[11px]" style={{ color: C.textMuted }}>{fmtDay(day)}</span>
           </td>
-          {COLS.map(c => (
-            <td key={c.key} className="text-center px-2 py-1.5 tabular-nums">
-              <span className="text-[12px]" style={{ color: counts[c.key] > 0 ? C.textBody : C.textDim }}>{counts[c.key]}</span>
-            </td>
-          ))}
+          {COLS.map(c => {
+            const v = valueOf(counts, c.key);
+            return (
+              <td key={c.key} className="text-center px-2 py-1.5 tabular-nums">
+                <span className="text-[12px]" style={{ color: v > 0 ? C.textBody : C.textDim }}>{v}</span>
+              </td>
+            );
+          })}
         </tr>
       ))}
     </>
