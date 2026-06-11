@@ -24,6 +24,7 @@ export type FlowMetrics = {
   cooldown: { until: string; channel: string } | null;
   totalLeads: number;
   invitesSent: number; accepted: number; messaged: number; replied: number; positive: number;
+  contacted: number; contactedRate: number; contactedReplyRate: number;
   acceptRate: number; messagedRate: number; replyRate: number; positiveRate: number; progressPct: number;
   pendingAccept: number; lost: number;
   statusDist: { active: number; paused: number; completed: number; cancelled: number };
@@ -36,7 +37,7 @@ export type FlowMetrics = {
   call: { dialed: number } | null;
   failureReasons: { reason: string; count: number }[];
   replyBreakdown: { positive: number; negative: number; question: number; followup: number; other: number };
-  drill: { accepted: DrillLead[]; messaged: DrillLead[]; pendingAccept: DrillLead[]; replied: DrillLead[]; positive: DrillLead[]; bounced: DrillLead[]; failed: DrillLead[] };
+  drill: { contacted: DrillLead[]; accepted: DrillLead[]; messaged: DrillLead[]; pendingAccept: DrillLead[]; replied: DrillLead[]; positive: DrillLead[]; bounced: DrillLead[]; failed: DrillLead[] };
 };
 type DrillKey = keyof FlowMetrics["drill"];
 
@@ -104,15 +105,19 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
   // Funnel stages (top → bottom), with the conversion vs the previous stage.
   // benchT = [good, ok] thresholds for the conversion INTO this stage (when it's
   // a quality signal, not an operational one we fully control).
+  // Channel-agnostic funnel (boss 2026-06-11): Leads → Contacted → Replied →
+  // Positive. Works for any channel mix and stays monotonic. The LinkedIn-only
+  // mechanics (invites sent / accepted) and the email mechanics live in the
+  // "By channel" section below, where an accept-rate actually makes sense — in
+  // a multichannel flow they don't belong in the headline funnel (that's what
+  // produced "Messages 800% of accepted").
   const stages: { key: string; label: string; value: number; icon: typeof Mail; color: string; drill: DrillKey | null; conv: number | null; convLabel: string; benchT?: [number, number] }[] = [
     { key: "leads", label: "Leads", value: m.totalLeads, icon: Users, color: gold as string, drill: null, conv: null, convLabel: "" },
-    { key: "invites", label: "Conn. sent", value: m.invitesSent, icon: Send, color: "#0A66C2", drill: null, conv: m.totalLeads ? Math.round((m.invitesSent / m.totalLeads) * 100) : 0, convLabel: "connected" },
-    { key: "accepted", label: "Accepted", value: m.accepted, icon: UserCheck, color: "#16A34A", drill: "accepted", conv: m.acceptRate, convLabel: "of connections", benchT: [30, 15] },
-    { key: "messaged", label: "Messages", value: m.messaged, icon: MessageSquare, color: "#0EA5E9", drill: "messaged", conv: m.messagedRate, convLabel: "of accepted" },
-    { key: "replied", label: "Replied", value: m.replied, icon: MessageSquare, color: "#8B5CF6", drill: "replied", conv: m.replyRate, convLabel: "of messaged", benchT: [10, 3] },
+    { key: "contacted", label: "Contacted", value: m.contacted, icon: Send, color: "#0EA5E9", drill: "contacted", conv: m.contactedRate, convLabel: "of leads" },
+    { key: "replied", label: "Replied", value: m.replied, icon: MessageSquare, color: "#8B5CF6", drill: "replied", conv: m.contactedReplyRate, convLabel: "of contacted", benchT: [10, 3] },
     { key: "positive", label: "Positive", value: m.positive, icon: Trophy, color: "#D97706", drill: "positive", conv: m.positiveRate, convLabel: "of replied", benchT: [40, 20] },
   ];
-  const maxV = Math.max(1, m.totalLeads, m.invitesSent);
+  const maxV = Math.max(1, m.totalLeads, m.contacted);
   const stepMax = Math.max(1, ...m.steps.map(s => s.sent + s.failed + s.skipped + s.pending));
 
   return (

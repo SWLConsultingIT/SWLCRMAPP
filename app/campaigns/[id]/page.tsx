@@ -273,6 +273,12 @@ async function getFlowMetrics(
   const accepted = connected.size;
   const totalLeads = leadIds.length;
   const messagedSet = new Set(sent.filter(m => m.step_number > 0).map(m => m.lead_id));
+  // Channel-agnostic "contacted" = a lead that received ANY sent message on ANY
+  // channel (LinkedIn invite/DM, email, etc.). This is the funnel stage that
+  // works for multichannel flows — unlike "accepted" (LinkedIn-only), which
+  // made the funnel non-monotonic (email-heavy flows showed Messages 40 >
+  // Accepted 5 → "800% of accepted"). Boss 2026-06-11.
+  const contactedSet = new Set(sent.map(m => m.lead_id));
   const pendingAcceptSet = new Set([...step0SentLeads].filter(id => !connected.has(id) && !lostSet.has(id)));
 
   // Per-step breakdown (CR = step 0, then sequence steps).
@@ -384,13 +390,20 @@ async function getFlowMetrics(
     };
   }).sort((a, b) => (b.lastActivity ?? "").localeCompare(a.lastActivity ?? ""));
 
+  // Clamp every rate to 100% — a denominator/numerator mismatch (stale data,
+  // dedup edge) must never render a >100% funnel ("800% of accepted").
+  const pct = (num: number, den: number) => den > 0 ? Math.min(100, Math.round((num / den) * 100)) : 0;
   return {
     leadsActivity, velocity, cooldown,
     totalLeads, invitesSent: requestsSent, accepted, messaged: messagedSet.size, replied: repliedSet.size, positive: positiveSet.size,
-    acceptRate: requestsSent ? Math.round((accepted / requestsSent) * 100) : 0,
-    messagedRate: accepted ? Math.round((messagedSet.size / accepted) * 100) : 0,
-    replyRate: messagedSet.size ? Math.round((repliedSet.size / messagedSet.size) * 100) : 0,
-    positiveRate: repliedSet.size ? Math.round((positiveSet.size / repliedSet.size) * 100) : 0,
+    // Channel-agnostic funnel: Leads → Contacted → Replied → Positive.
+    contacted: contactedSet.size,
+    contactedRate: pct(contactedSet.size, totalLeads),
+    contactedReplyRate: pct(repliedSet.size, contactedSet.size),
+    acceptRate: pct(accepted, requestsSent),
+    messagedRate: pct(messagedSet.size, accepted),
+    replyRate: pct(repliedSet.size, messagedSet.size),
+    positiveRate: pct(positiveSet.size, repliedSet.size),
     progressPct, pendingAccept: pendingAcceptSet.size, lost: lostSet.size,
     statusDist, steps, linkedin, email, call, failureReasons,
     replyBreakdown: {
@@ -401,6 +414,7 @@ async function getFlowMetrics(
       other: [...replyClass.values()].filter(b => b === "other" || b === "voicemail").length,
     },
     drill: {
+      contacted: [...contactedSet].map(nameOf),
       accepted: [...connected].map(nameOf),
       messaged: [...messagedSet].map(nameOf),
       pendingAccept: [...pendingAcceptSet].map(nameOf),
