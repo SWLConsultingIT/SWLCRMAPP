@@ -24,11 +24,22 @@ export async function GET() {
   if (threadIds.length === 0) return NextResponse.json({ threads: [] });
   const lastReadByThread = new Map((myParts ?? []).map(p => [p.thread_id, p.last_read_at as string | null]));
 
-  const [{ data: threads }, { data: allParts }, { data: msgs }] = await Promise.all([
-    svc.from("chat_threads").select("id, kind, title, created_at").in("id", threadIds),
+  const [{ data: threadsRaw }, { data: allParts }, { data: msgs }] = await Promise.all([
+    svc.from("chat_threads").select("id, kind, title, created_at, company_bio_id").in("id", threadIds),
     svc.from("chat_participants").select("thread_id, user_id").in("thread_id", threadIds),
     svc.from("chat_messages").select("thread_id, sender_id, sender_name, body, created_at").in("thread_id", threadIds).order("created_at", { ascending: false }).limit(500),
   ]);
+
+  // Scope chat to the ACTIVE tenant. A super_admin (or anyone in >1 company)
+  // accumulates DMs across tenants; without this filter every cross-tenant
+  // chat showed in every company's inbox (boss 2026-06-11: in Pathway he saw
+  // DMs with SWL people). A thread's company_bio_id is the company it was
+  // created in = the company the two participants share, so we only surface
+  // threads belonging to the company you're currently viewing. (Normal
+  // members are single-tenant, so this never hides anything from them.)
+  const threads = (threadsRaw ?? []).filter(
+    (t: any) => !scope.companyBioId || !t.company_bio_id || t.company_bio_id === scope.companyBioId,
+  );
 
   // Resolve names for all distinct participant users once.
   const userIds = Array.from(new Set((allParts ?? []).map(p => p.user_id)));
