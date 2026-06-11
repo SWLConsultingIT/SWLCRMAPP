@@ -20,12 +20,13 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 import {
   Trophy, X, RefreshCw, Search, ChevronRight, Target,
   Star, CheckSquare, Square, Trash2, Flame, MessageCircle,
-  PhoneCall, MessageSquare,
+  PhoneCall, MessageSquare, RotateCcw, Loader2,
 } from "lucide-react";
 
 // A win/loss "why" string is either a real text reply or a call outcome the
@@ -101,10 +102,25 @@ function Avatar({ name, color, company }: { name: string; color: string; company
 }
 
 function WonRow({ lead, t }: { lead: OpportunityLead; t: Tr }) {
+  const router = useRouter();
+  const [removing, setRemoving] = useState(false);
   const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || t("results.row.unknown");
+
+  async function removeFromWon(e: React.MouseEvent) {
+    e.preventDefault(); e.stopPropagation();
+    if (removing) return;
+    if (!confirm(`Remove ${name} from Won? This undoes the positive outcome (you can re-mark it later). It won't delete the lead.`)) return;
+    setRemoving(true);
+    try {
+      const res = await fetch(`/api/leads/${lead.id}/unwin`, { method: "POST" });
+      if (!res.ok) { alert("Couldn't remove from Won."); setRemoving(false); return; }
+      router.refresh();
+    } catch { alert("Network error."); setRemoving(false); }
+  }
+
   return (
     <Link href={`/opportunities/${lead.id}`}
-      className="flex items-center gap-3 px-4 py-2.5 rounded-lg border transition-[transform,box-shadow] hover:-translate-y-px hover:shadow-md"
+      className="group flex items-center gap-3 px-4 py-2.5 rounded-lg border transition-[transform,box-shadow] hover:-translate-y-px hover:shadow-md"
       style={{ backgroundColor: C.card, borderColor: C.border, borderLeftWidth: 3, borderLeftColor: C.green }}>
       <Avatar name={name} color={C.green} company={lead.company} />
       <div className="flex-1 min-w-0">
@@ -139,6 +155,14 @@ function WonRow({ lead, t }: { lead: OpportunityLead; t: Tr }) {
             {t("results.won.pendingTransfer")}
           </span>
         )}
+        {/* Undo Won — for a mistaken positive outcome. Hover-revealed so it
+            doesn't clutter, doesn't navigate (stops the Link). */}
+        <button onClick={removeFromWon} disabled={removing}
+          title="Remove from Won"
+          className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center justify-center w-6 h-6 rounded-md disabled:opacity-100"
+          style={{ color: C.red, backgroundColor: C.redLight }}>
+          {removing ? <Loader2 size={11} className="animate-spin" /> : <RotateCcw size={11} />}
+        </button>
         <ChevronRight size={14} style={{ color: C.textDim }} />
       </div>
     </Link>
