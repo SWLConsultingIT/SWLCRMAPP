@@ -15,6 +15,7 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope, canViewAllTenantData } from "@/lib/scope";
 import { createNotifications } from "@/lib/notify";
 import { ensureDm, postDmFromActor } from "@/lib/chat-dm";
+import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 async function authorDisplayName(scope: { userId: string | null }): Promise<string> {
@@ -54,7 +55,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const svc = getSupabaseService();
   // Fetch the lead once: scope check + tenant id + label for the @mention ping.
-  const { data: lead } = await svc.from("leads").select("company_bio_id, primary_first_name, primary_last_name, company_name").eq("id", id).maybeSingle();
+  // source + encrypted_payload so we can decrypt the name for client-source
+  // leads (their plain primary_*/company_name columns are NULL — without the
+  // decrypt the @mention ping read "on a lead" instead of "on Skanska", boss
+  // 2026-06-11 "me debería aparecer en qué lead me tagueó").
+  const { data: lead } = await svc.from("leads").select("company_bio_id, source, encrypted_payload, primary_first_name, primary_last_name, company_name").eq("id", id).maybeSingle();
   const leadBio = (lead as { company_bio_id?: string | null } | null)?.company_bio_id ?? null;
   if (scope.isScoped && leadBio !== scope.companyBioId) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
@@ -82,7 +87,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // Notify mentioned teammates (excluding the author).
   if (mentions.length && leadBio) {
-    const l = lead as { primary_first_name?: string | null; primary_last_name?: string | null; company_name?: string | null };
+    let l = lead as { source?: string | null; encrypted_payload?: unknown; primary_first_name?: string | null; primary_last_name?: string | null; company_name?: string | null };
+    // Client-source leads keep PII (name + company) encrypted; decrypt so the
+    // ping names the actual lead instead of falling back to "a lead".
+    if (l?.source === "client" && l?.encrypted_payload) {
+      try {
+        const { key } = await resolveTenantKey(leadBio);
+        const decrypted = decryptWithResolvedKey(bufferFromSupabaseBytea(l.encrypted_payload), key);
+        l = { ...l, ...decrypted };
+      } catch (err) {
+        console.error("[notes] decrypt failed for mention label, lead", id, err);
+      }
+    }
     const label = [l.primary_first_name, l.primary_last_name].filter(Boolean).join(" ") || l.company_name || "a lead";
     await createNotifications({
       companyBioId: leadBio,
