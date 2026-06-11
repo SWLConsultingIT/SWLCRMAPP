@@ -8,6 +8,22 @@ export const dynamic = "force-dynamic";
 
 const supabase = getSupabaseService();
 
+// PostgREST caps a single response at 1000 rows. Per-tenant counts on this
+// page were tallied from a bare select() → silently truncated once the table
+// passed 1000 rows (e.g. 3.6k leads showed wrong counts). Paginate fully so
+// every count is real. Returns ALL rows for the given builder factory.
+async function fetchAllCol<T = Record<string, unknown>>(build: () => any): Promise<T[]> {
+  const PAGE = 1000;
+  const out: T[] = [];
+  for (let from = 0; from < 500000; from += PAGE) {
+    const { data, error } = await build().range(from, from + PAGE - 1);
+    if (error || !data || data.length === 0) break;
+    out.push(...(data as T[]));
+    if (data.length < PAGE) break;
+  }
+  return out;
+}
+
 export type ClientData = {
   id: string;
   company_name: string;
@@ -71,16 +87,12 @@ async function getData() {
       .select("id, name, target_leads_count, created_at, company_bio_id, status")
       .eq("status", "pending_review")
       .order("created_at", { ascending: true }),
-    // 4) Leads count per client
-    supabase.from("leads").select("company_bio_id"),
-    // 5) Active campaigns count per client
-    supabase.from("campaigns").select("lead_id, status").eq("status", "active"),
+    // 4) Leads count per client — paginated (was capped at 1000).
+    fetchAllCol<{ company_bio_id: string | null }>(() => supabase.from("leads").select("company_bio_id")).then(data => ({ data })),
+    // 5) Active campaigns per client — paginated + uses campaigns.company_bio_id
+    //    directly (no leads round-trip, which also capped at 1000).
+    fetchAllCol<{ company_bio_id: string | null }>(() => supabase.from("campaigns").select("company_bio_id").eq("status", "active")).then(data => ({ data })),
   ]);
-
-  // 6) campaignLeads depends on (5) so runs after — can't parallelize this one.
-  const { data: campaignLeads } = activeCampaigns && activeCampaigns.length > 0
-    ? await supabase.from("leads").select("id, company_bio_id").in("id", activeCampaigns.map(c => c.lead_id).filter(Boolean))
-    : { data: [] };
 
   // Build lookups
   const bioMap: Record<string, string> = {};
@@ -92,7 +104,7 @@ async function getData() {
   }
 
   const campaignsPerClient: Record<string, number> = {};
-  for (const cl of campaignLeads ?? []) {
+  for (const cl of activeCampaigns ?? []) {
     if (cl.company_bio_id) campaignsPerClient[cl.company_bio_id] = (campaignsPerClient[cl.company_bio_id] ?? 0) + 1;
   }
 
