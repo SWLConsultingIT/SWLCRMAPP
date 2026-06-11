@@ -804,11 +804,16 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
   const callsToMake = pendingCalls
     .filter(c => !c.latestCall)
     .sort((a, b) => overduenessRank(b) - overduenessRank(a));
-  const callsAwaitingOutcome = pendingCalls
-    .filter(c => c.latestCall && c.latestCall.classification === null)
+  // Awaiting Outcome = every call that was MADE but has no outcome logged yet
+  // (Fran 2026-06-11). Sourced from the real call log (callHistory), not from
+  // pendingCalls — a call needs classifying whether or not its campaign is still
+  // parked at the call step. Same set as the History "Sin clasificar" bucket,
+  // so the two always agree. Oldest first (longest waiting).
+  const callsAwaitingOutcome = callHistory
+    .filter(e => !e.classification)
     .sort((a, b) => {
-      const at = a.latestCall?.startedAt ? new Date(a.latestCall.startedAt).getTime() : 0;
-      const bt = b.latestCall?.startedAt ? new Date(b.latestCall.startedAt).getTime() : 0;
+      const at = a.startedAt ? new Date(a.startedAt).getTime() : 0;
+      const bt = b.startedAt ? new Date(b.startedAt).getTime() : 0;
       return at - bt;
     });
   // Sort replies: positive / meeting_intent first (closing window!), then
@@ -843,7 +848,9 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
     : list.filter(c => `${c.leadName} ${c.company} ${c.campaignName}`.toLowerCase().includes(search.toLowerCase()));
 
   const filteredCallsToMake = applyCallSearch(callsToMake);
-  const filteredCallsAwaiting = applyCallSearch(callsAwaitingOutcome);
+  // Awaiting now holds CallHistoryEntry rows → its own search predicate.
+  const filteredCallsAwaiting = !search ? callsAwaitingOutcome
+    : callsAwaitingOutcome.filter(e => `${e.leadName} ${e.company ?? ""} ${e.sellerName ?? ""} ${e.dialedByName ?? ""}`.toLowerCase().includes(search.toLowerCase()));
   // History tab gets the dismissal filter applied here at the QueueClient
   // level. Date + search + campaign/icp/channel filters live inside
   // InboxView so the seller can change them without round-tripping
@@ -940,8 +947,9 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
 
       {/* ═══ Tab 1: Calls (To Call / Awaiting Outcome / Follow-ups) ═══ */}
       {tab === 1 && (() => {
-        const activeList = callSubTab === 0 ? filteredCallsToMake
-          : filteredCallsAwaiting;
+        // To Call uses the pendingCalls cards; Awaiting Outcome (subtab 1) now
+        // renders the unclassified call-log rows in its own branch below.
+        const activeList = filteredCallsToMake;
         const emptyCopy = callSubTab === 0
           ? {
               title: search ? "No calls match your search" : "No calls due right now",
@@ -977,6 +985,8 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                 { idx: 0 as const, label: "To Call",           count: callsToMake.length,           icon: PhoneCall },
                 { idx: 1 as const, label: "Awaiting Outcome",  count: callsAwaitingOutcome.length,  icon: Clock     },
                 { idx: 2 as const, label: "History",           count: callHistory.length,           icon: Phone     },
+                // Awaiting Outcome count = unclassified calls in the log (same
+                // as History's "Sin clasificar" bucket). Boss 2026-06-11.
               ]).map(s => {
                 const active = callSubTab === s.idx;
                 const Icon = s.icon;
@@ -1012,6 +1022,27 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                 histDialer={histDialer}
                 setHistDialer={setHistDialer}
               />
+            ) : callSubTab === 1 ? (
+              // Awaiting Outcome — every made-but-unclassified call, rich rows
+              // (recording + transcript + classify) so the seller clears them
+              // from one place. Once classified, the row drops out on next load.
+              filteredCallsAwaiting.length === 0 ? (
+                <div className="rounded-2xl border py-12 px-6 text-center max-w-xl mx-auto"
+                  style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+                  <div className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center"
+                    style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)` }}>
+                    <CheckCircle size={22} style={{ color: C.green }} />
+                  </div>
+                  <p className="text-sm font-bold mb-1.5" style={{ color: C.textPrimary }}>{search ? "No calls match your search" : "Todo clasificado"}</p>
+                  <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
+                    {search ? "Probá limpiar la búsqueda." : "Cada llamada que hagas cae acá hasta que registres el outcome (Interested / Bad timing / etc.). Clasificar mantiene los resultados y el matching de la IA correctos."}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredCallsAwaiting.map(e => <CallHistoryRow key={e.id} e={e} />)}
+                </div>
+              )
             ) : activeList.length === 0 ? (
               <div className="rounded-2xl border py-12 px-6 text-center max-w-xl mx-auto"
                 style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
@@ -1039,7 +1070,9 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                   const urgency = classifyUrgency(call.isOverdue ? call.overdueDays ?? 0 : null);
                   const UIcon = urgency.icon;
                   const isEscalated = urgency.level === "critical" || urgency.level === "stuck";
-                  const awaitingOutcome = callSubTab === 1;
+                  // This card list now only renders for To Call (subtab 0);
+                  // Awaiting Outcome has its own CallHistoryRow branch above.
+                  const awaitingOutcome = false;
                   return (
                     <div key={call.id} className="rounded-2xl border transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-md" style={{ backgroundColor: C.card, borderColor: isEscalated ? urgency.border : C.border, borderLeftWidth: isEscalated ? 3 : 1, borderLeftColor: isEscalated ? urgency.color : undefined, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
                       <div className="flex items-center gap-4 px-5 py-4">
