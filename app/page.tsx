@@ -1731,13 +1731,6 @@ export default async function DashboardPage({
         )}
       </Panel>
 
-      {/* Call outcomes by seller (boss 2026-06-08): per-seller, per-day call
-          monitoring with outcome reasons. Honors the same period + seller
-          filters as the rest of this tab. */}
-      <div className="mt-6">
-        <CallOutcomesBySeller rows={data.callOutcomesBySeller} />
-      </div>
-
       </section>
       )}
       {/* ═══ CHAPTER 5 · SELLERS ═══════════════════════════════════════════
@@ -1748,6 +1741,13 @@ export default async function DashboardPage({
       <section className="space-y-6 pt-3">
 
       {/* Filters live in the unified top bar now (one line, all tabs). */}
+
+      {/* Call outcomes by seller — per-seller, per-day call monitoring with
+          outcome reasons. Moved here from Channels (Fran 2026-06-11): it's a
+          seller metric, not a channel one. */}
+      <section>
+        <CallOutcomesBySeller rows={data.callOutcomesBySeller} />
+      </section>
 
       <section>
         {(() => {
