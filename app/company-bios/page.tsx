@@ -360,7 +360,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
         style={{ borderColor: `color-mix(in srgb, ${C.aiAccent} 28%, transparent)`, background: `linear-gradient(135deg, color-mix(in srgb, ${C.aiAccent} 6%, var(--c-card)) 0%, var(--c-card) 100%)` }}>
         <Sparkles size={14} style={{ color: C.aiAccent, flexShrink: 0 }} />
         <p className="text-[11.5px]" style={{ color: C.textBody }}>
-          This profile is your AI's source of truth — it grounds every <strong>outreach message</strong>, <strong>ICP score</strong> and <strong>reply suggestion</strong>. The more complete it is, the sharper the AI.
+          This profile is your AI's source of truth — it grounds every <strong>outreach message</strong> and <strong>reply suggestion</strong>. The more complete it is, the sharper the AI.
         </p>
       </div>
 
@@ -449,31 +449,24 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               </div>
             </div>
           </div>
-          <div className="flex flex-col items-end gap-2 shrink-0">
-            <button
-              onClick={() => goEdit()}
-              className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-semibold transition-[opacity,transform,box-shadow] duration-150 hover:opacity-90 hover:shadow-md"
-              style={{
-                background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`,
-                color: "#04070d",
-                boxShadow: `0 2px 12px color-mix(in srgb, ${gold} 28%, transparent)`,
-              }}
-            >
-              <Pencil size={12} /> {t("bio.edit")}
-            </button>
-            {/* AI Readiness — at-a-glance, no need to enter edit mode. */}
-            {(() => {
-              const tone = readiness.pct >= 85 ? C.green : readiness.pct >= 50 ? "#D97706" : C.red;
-              return (
-                <button onClick={() => goEdit()} title={readiness.missing.length ? `Missing: ${readiness.missing.join(", ")}` : "Profile complete"}
-                  className="inline-flex items-center gap-1.5 text-[10.5px] font-semibold px-2.5 py-1 rounded-full transition-opacity hover:opacity-80"
-                  style={{ backgroundColor: `color-mix(in srgb, ${tone} 12%, transparent)`, color: tone, border: `1px solid color-mix(in srgb, ${tone} 30%, transparent)` }}>
-                  <Sparkles size={11} /> AI context {readiness.pct}%
-                  {readiness.pct < 100 && <span style={{ opacity: 0.85 }}>· complete →</span>}
-                </button>
-              );
-            })()}
-          </div>
+          {/* Single Edit button — carries the AI-readiness % inline so there's
+              one clear action instead of a button + a separate badge. */}
+          <button
+            onClick={() => goEdit()}
+            title={readiness.missing.length ? `${readiness.pct}% complete · missing: ${readiness.missing.join(", ")}` : "Profile complete"}
+            className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-semibold transition-[opacity,transform,box-shadow] duration-150 hover:opacity-90 hover:shadow-md shrink-0"
+            style={{
+              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`,
+              color: "#04070d",
+              boxShadow: `0 2px 12px color-mix(in srgb, ${gold} 28%, transparent)`,
+            }}
+          >
+            <Pencil size={12} /> {t("bio.edit")}
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+              style={{ backgroundColor: "rgba(4,7,13,0.14)", color: "#04070d" }}>
+              <Sparkles size={9} /> {readiness.pct}%
+            </span>
+          </button>
         </div>
 
         {/* Value proposition — the single most important line, elevated to a
@@ -597,7 +590,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
           style={{
             backgroundColor: C.card,
             borderColor: C.border,
-            boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+            boxShadow: `0 0 0 1px color-mix(in srgb, ${gold} 13%, transparent), 0 1px 0 rgba(255,255,255,0.6) inset, 0 10px 30px -12px rgba(0,0,0,0.14)`,
           }}
         >
           <div className="flex items-center justify-between mb-4">
@@ -630,7 +623,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               style={{
                 backgroundColor: C.card,
                 borderColor: C.border,
-                boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+                boxShadow: `0 0 0 1px color-mix(in srgb, ${gold} 13%, transparent), 0 1px 0 rgba(255,255,255,0.6) inset, 0 10px 30px -12px rgba(0,0,0,0.14)`,
               }}
             >
               <div className="flex items-center justify-between mb-3">
@@ -668,7 +661,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               style={{
                 backgroundColor: C.card,
                 borderColor: C.border,
-                boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+                boxShadow: `0 0 0 1px color-mix(in srgb, ${gold} 13%, transparent), 0 1px 0 rgba(255,255,255,0.6) inset, 0 10px 30px -12px rgba(0,0,0,0.14)`,
               }}
             >
               {bio.target_market && (
@@ -727,7 +720,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
           style={{
             backgroundColor: C.card,
             borderColor: C.border,
-            boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+            boxShadow: `0 0 0 1px color-mix(in srgb, ${gold} 13%, transparent), 0 1px 0 rgba(255,255,255,0.6) inset, 0 10px 30px -12px rgba(0,0,0,0.14)`,
           }}
         >
           <div className="flex items-center justify-between mb-5">
@@ -854,7 +847,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
           style={{
             backgroundColor: C.card,
             borderColor: C.border,
-            boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
+            boxShadow: `0 0 0 1px color-mix(in srgb, ${gold} 13%, transparent), 0 1px 0 rgba(255,255,255,0.6) inset, 0 10px 30px -12px rgba(0,0,0,0.14)`,
           }}
         >
           <div className="flex items-center justify-between mb-4">
