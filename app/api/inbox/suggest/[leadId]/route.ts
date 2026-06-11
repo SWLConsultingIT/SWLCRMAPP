@@ -63,6 +63,30 @@ export async function POST(
     return NextResponse.json({ error: "no lead message to answer" }, { status: 422 });
   }
 
+  // Our last OUTBOUND message to this lead. A short reply like "Mucho gusto"
+  // doesn't give Haiku enough to lock the language (it was defaulting to
+  // English inside an English prompt). Our own message carries the real
+  // conversation language, so we feed it in + detect the language explicitly.
+  const { data: lastOutbound } = await svc
+    .from("campaign_messages")
+    .select("content, sent_at")
+    .eq("lead_id", leadId)
+    .eq("status", "sent")
+    .order("sent_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const outboundText = ((lastOutbound as any)?.content as string | null)?.trim() || "";
+
+  // Lightweight Spanish detector over the whole conversation (our msg + theirs)
+  // — accents/ñ/¿¡ or common ES words. Gives Haiku a hard, unambiguous directive
+  // instead of relying on it to infer from a 3-word reply.
+  const convoText = `${outboundText} ${leadMessage}`.toLowerCase();
+  const esMarkers = /[ñáéíóú¿¡]|\b(hola|gracias|gusto|usted|trabajo|ventas|empresa|necesito|conectar|reunión|cómo|qué|para|porque|cuál|saludos|estimad|buenas|buenos d[ií]as)\b/;
+  const looksSpanish = esMarkers.test(convoText);
+  const langDirective = looksSpanish
+    ? "The conversation is in SPANISH — write your entire reply in natural Spanish (match the lead's regional tone). Do NOT reply in English."
+    : "Write the ENTIRE reply in the SAME language the lead used. Match their language exactly — never switch languages.";
+
   // Tenant brand voice.
   let bio: any = null;
   if ((lead as any).company_bio_id) {
@@ -114,7 +138,7 @@ THE LEAD'S ICP — ${icp?.profile_name || ""}:
 
   const system = `You are ${leadName ? "" : ""}drafting a sales reply on behalf of ${sellerCompany} to a B2B lead${leadCompany ? ` from ${leadCompany}` : ""}.
 
-🔴 LANGUAGE — TOP PRIORITY: Write the ENTIRE reply in the SAME LANGUAGE the lead used in their message. If the lead wrote in Spanish, reply in Spanish. If in English, English. Match their language exactly — never switch languages.
+🔴 LANGUAGE — TOP PRIORITY: ${langDirective}
 
 ${contextBlock}
 
@@ -131,7 +155,7 @@ FORMAT: same language as the lead, no greeting line, no subject, no signature bl
       max_tokens: 400,
       temperature: 0.5,
       system,
-      messages: [{ role: "user", content: `Lead's message:\n${leadMessage}` }],
+      messages: [{ role: "user", content: `${outboundText ? `Your last message to the lead (this sets the conversation language — reply in this same language):\n${outboundText}\n\n` : ""}Lead's reply (answer THIS):\n${leadMessage}` }],
     });
     const draft = (res.content[0]?.type === "text" ? res.content[0].text : "").trim();
     if (!draft) return NextResponse.json({ error: "empty draft" }, { status: 502 });
