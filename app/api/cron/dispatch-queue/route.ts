@@ -1112,13 +1112,21 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ ok: true, processed: 0, sellers: [], reason: "no active sellers" });
   }
 
-  // 2. Pre-compute 24h sent counts per seller in one query.
+  // 2. Pre-compute 24h INVITE counts per seller in one query.
+  //    linkedin_daily_limit is a CONNECTION-REQUEST cap (that's what LinkedIn
+  //    rate-limits), so we count ONLY step_number=0 (the invite), NOT the
+  //    follow-up DMs (step 1+) which go to already-accepted 1st-degree
+  //    connections and aren't invite-limited. Counting DMs here used to make
+  //    the cap mean "invites + DMs", so the number set in /accounts never
+  //    matched the invites actually sent (boss 2026-06-11: "no se respetan
+  //    los topes"). Now the /accounts number == invites/day, exactly.
   const sellerIds = activeSellers.map((s) => s.id);
   const { data: sentRows } = await svc
     .from("campaign_messages")
     .select("id, campaigns!inner(seller_id)")
     .eq("status", "sent")
     .eq("channel", "linkedin")
+    .eq("step_number", 0)
     .gte("sent_at", since24h)
     .in("campaigns.seller_id", sellerIds);
   const sentCounts: Record<string, number> = {};
