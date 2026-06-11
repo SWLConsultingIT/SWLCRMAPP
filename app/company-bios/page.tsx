@@ -309,8 +309,26 @@ function TagList({ values, onChange, placeholder }: { values: string[]; onChange
 // listings live in /leads, the duplicate surface confused the page's job
 // (which is editing bio config).
 
+// Hover-reveal pencil for a read-view section → jumps into edit mode at that
+// section (sets the hash that BioForm scrolls to on mount).
+function EditPencil({ onClick }: { onClick: () => void }) {
+  return (
+    <button onClick={onClick} title="Edit this section"
+      className="opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md"
+      style={{ color: C.textMuted, backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
+      <Pencil size={10} /> Edit
+    </button>
+  );
+}
+
 function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
   const { t } = useLocale();
+
+  const readiness = bioReadiness(bio);
+  const goEdit = (sec?: string) => {
+    if (sec && typeof window !== "undefined") window.location.hash = sec;
+    onEdit();
+  };
 
   const activeSocials = socialLinks.filter(s => bio[s.key]);
   const metricItems = [
@@ -336,6 +354,16 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
 
   return (
     <div className="space-y-6">
+      {/* How the AI uses this — most people don't realize the bio powers every
+          generated message, ICP score and reply suggestion. Make it explicit. */}
+      <div className="flex items-center gap-2.5 rounded-xl border px-4 py-2.5"
+        style={{ borderColor: `color-mix(in srgb, ${C.aiAccent} 28%, transparent)`, background: `linear-gradient(135deg, color-mix(in srgb, ${C.aiAccent} 6%, var(--c-card)) 0%, var(--c-card) 100%)` }}>
+        <Sparkles size={14} style={{ color: C.aiAccent, flexShrink: 0 }} />
+        <p className="text-[11.5px]" style={{ color: C.textBody }}>
+          This profile is your AI's source of truth — it grounds every <strong>outreach message</strong>, <strong>ICP score</strong> and <strong>reply suggestion</strong>. The more complete it is, the sharper the AI.
+        </p>
+      </div>
+
       {/* ═══ MAIN CARD ═══ */}
       <div
         className="rounded-2xl border overflow-hidden relative"
@@ -421,18 +449,46 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               </div>
             </div>
           </div>
-          <button
-            onClick={onEdit}
-            className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-semibold transition-[opacity,transform,box-shadow] duration-150 hover:opacity-90 hover:shadow-md shrink-0"
-            style={{
-              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`,
-              color: "#04070d",
-              boxShadow: `0 2px 12px color-mix(in srgb, ${gold} 28%, transparent)`,
-            }}
-          >
-            <Pencil size={12} /> {t("bio.edit")}
-          </button>
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            <button
+              onClick={() => goEdit()}
+              className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-xs font-semibold transition-[opacity,transform,box-shadow] duration-150 hover:opacity-90 hover:shadow-md"
+              style={{
+                background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 80%, white))`,
+                color: "#04070d",
+                boxShadow: `0 2px 12px color-mix(in srgb, ${gold} 28%, transparent)`,
+              }}
+            >
+              <Pencil size={12} /> {t("bio.edit")}
+            </button>
+            {/* AI Readiness — at-a-glance, no need to enter edit mode. */}
+            {(() => {
+              const tone = readiness.pct >= 85 ? C.green : readiness.pct >= 50 ? "#D97706" : C.red;
+              return (
+                <button onClick={() => goEdit()} title={readiness.missing.length ? `Missing: ${readiness.missing.join(", ")}` : "Profile complete"}
+                  className="inline-flex items-center gap-1.5 text-[10.5px] font-semibold px-2.5 py-1 rounded-full transition-opacity hover:opacity-80"
+                  style={{ backgroundColor: `color-mix(in srgb, ${tone} 12%, transparent)`, color: tone, border: `1px solid color-mix(in srgb, ${tone} 30%, transparent)` }}>
+                  <Sparkles size={11} /> AI context {readiness.pct}%
+                  {readiness.pct < 100 && <span style={{ opacity: 0.85 }}>· complete →</span>}
+                </button>
+              );
+            })()}
+          </div>
         </div>
+
+        {/* Value proposition — the single most important line, elevated to a
+            pull-quote right under the name instead of buried in a text block. */}
+        {bio.value_proposition && (
+          <div className="px-7 pb-6 -mt-1">
+            <div className="relative rounded-2xl px-5 py-4"
+              style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 9%, var(--c-card)) 0%, var(--c-card) 100%)`, border: `1px solid color-mix(in srgb, ${gold} 22%, transparent)` }}>
+              <span className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ background: `linear-gradient(180deg, ${gold}, color-mix(in srgb, ${gold} 55%, white))` }} />
+              <p className="text-[16px] leading-snug font-semibold pl-2" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                &ldquo;{bio.value_proposition}&rdquo;
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="border-t" style={{ borderColor: C.border }} />
 
@@ -535,46 +591,29 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
       </div>
 
       {/* ═══ ROW 1: About the Company (full width) ═══ */}
-      {(bio.description || bio.value_proposition) && (
+      {bio.description && (
         <div
-          className="rounded-2xl border p-7"
+          className="group rounded-2xl border p-7"
           style={{
             backgroundColor: C.card,
             borderColor: C.border,
             boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
           }}
         >
-          <h3
-            className="text-base font-bold mb-4"
-            style={{
-              color: C.textPrimary,
-              fontFamily: "var(--font-outfit), system-ui, sans-serif",
-              letterSpacing: "-0.01em",
-            }}
-          >
-            {t("bio.aboutCompany")}
-          </h3>
-          {bio.description && (
-            <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{bio.description}</p>
-          )}
-          {bio.value_proposition && (
-            <div
-              className="rounded-xl border p-4 mt-5 relative overflow-hidden"
+          <div className="flex items-center justify-between mb-4">
+            <h3
+              className="text-base font-bold"
               style={{
-                borderColor: `color-mix(in srgb, ${gold} 22%, transparent)`,
-                background: `linear-gradient(135deg, color-mix(in srgb, ${gold} 6%, var(--c-card)) 0%, var(--c-card) 100%)`,
+                color: C.textPrimary,
+                fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                letterSpacing: "-0.01em",
               }}
             >
-              <div
-                className="absolute left-0 top-0 bottom-0 w-1"
-                style={{ background: `linear-gradient(180deg, ${gold}, color-mix(in srgb, ${gold} 60%, white))` }}
-              />
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-1.5 pl-2" style={{ color: gold }}>
-                {t("bio.valueProposition")}
-              </p>
-              <p className="text-sm italic pl-2" style={{ color: C.textBody }}>&ldquo;{bio.value_proposition}&rdquo;</p>
-            </div>
-          )}
+              {t("bio.aboutCompany")}
+            </h3>
+            <EditPencil onClick={() => goEdit("#bsec-pitch")} />
+          </div>
+          <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{bio.description}</p>
         </div>
       )}
 
@@ -587,17 +626,40 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
         <div className="grid grid-cols-5 gap-6">
           {bio.differentiators && (
             <div
-              className="col-span-3 rounded-2xl border p-7"
+              className="group col-span-3 rounded-2xl border p-7"
               style={{
                 backgroundColor: C.card,
                 borderColor: C.border,
                 boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
               }}
             >
-              <h3 className="text-[10px] font-bold uppercase tracking-[0.16em] mb-3" style={{ color: gold }}>
-                {t("bio.differentiators")}
-              </h3>
-              <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{bio.differentiators}</p>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-[10px] font-bold uppercase tracking-[0.16em]" style={{ color: gold }}>
+                  {t("bio.differentiators")}
+                </h3>
+                <EditPencil onClick={() => goEdit("#bsec-pitch")} />
+              </div>
+              {(() => {
+                // Render as a scannable checklist. Split on newlines, bullets,
+                // or sentence breaks; fall back to a single styled line.
+                const items = bio.differentiators
+                  .split(/\n+|^\s*[-•*]\s*|(?<=\.)\s+(?=[A-ZÁÉÍÓÚ¿])/m)
+                  .map(s => s.replace(/^[-•*]\s*/, "").trim())
+                  .filter(Boolean);
+                if (items.length <= 1) {
+                  return <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: C.textBody }}>{bio.differentiators}</p>;
+                }
+                return (
+                  <ul className="space-y-2.5">
+                    {items.map((it, i) => (
+                      <li key={i} className="flex items-start gap-2.5 text-sm leading-relaxed" style={{ color: C.textBody }}>
+                        <CheckCircle2 size={15} style={{ color: C.green, flexShrink: 0, marginTop: 2 }} />
+                        <span>{it}</span>
+                      </li>
+                    ))}
+                  </ul>
+                );
+              })()}
             </div>
           )}
           {(bio.target_market || hasTone) && (
@@ -661,23 +723,26 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
       {/* ═══ Track Record (clients + certs + cases unified) ═══ */}
       {(bio.key_clients?.length > 0 || bio.certifications?.length > 0 || bio.case_studies?.length > 0) && (
         <div
-          className="rounded-2xl border p-7"
+          className="group rounded-2xl border p-7"
           style={{
             backgroundColor: C.card,
             borderColor: C.border,
             boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
           }}
         >
-          <h3
-            className="text-base font-bold mb-5"
-            style={{
-              color: C.textPrimary,
-              fontFamily: "var(--font-outfit), system-ui, sans-serif",
-              letterSpacing: "-0.01em",
-            }}
-          >
-            {t("bio.trackRecord")}
-          </h3>
+          <div className="flex items-center justify-between mb-5">
+            <h3
+              className="text-base font-bold"
+              style={{
+                color: C.textPrimary,
+                fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {t("bio.trackRecord")}
+            </h3>
+            <EditPencil onClick={() => goEdit("#bsec-track")} />
+          </div>
 
           <div className="space-y-5">
             {/* Clients */}
@@ -785,23 +850,26 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
       {/* ═══ Resources ═══ */}
       {bio.resources?.length > 0 && (
         <div
-          className="rounded-2xl border p-7"
+          className="group rounded-2xl border p-7"
           style={{
             backgroundColor: C.card,
             borderColor: C.border,
             boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
           }}
         >
-          <h3
-            className="text-base font-bold mb-4"
-            style={{
-              color: C.textPrimary,
-              fontFamily: "var(--font-outfit), system-ui, sans-serif",
-              letterSpacing: "-0.01em",
-            }}
-          >
-            {t("bio.resources")}
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3
+              className="text-base font-bold"
+              style={{
+                color: C.textPrimary,
+                fontFamily: "var(--font-outfit), system-ui, sans-serif",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {t("bio.resources")}
+            </h3>
+            <EditPencil onClick={() => goEdit("#bsec-resources")} />
+          </div>
           <div className="grid grid-cols-4 gap-3">
             {bio.resources.map((r, i) => {
               const Icon = fileIcon(r.file_url);
@@ -955,6 +1023,21 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
   // Unsaved-changes flag for the sticky save bar.
   const dirty = JSON.stringify(form) !== JSON.stringify(bio);
 
+  // Quick-edit from the read view: a section pencil sets the hash, we enter
+  // edit mode, then scroll that section into view.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const h = window.location.hash;
+    if (!h || !h.startsWith("#bsec-")) return;
+    const el = document.querySelector(h);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      (el as HTMLElement).style.transition = "box-shadow .4s";
+      (el as HTMLElement).style.boxShadow = `0 0 0 2px ${gold}`;
+      window.setTimeout(() => { (el as HTMLElement).style.boxShadow = ""; }, 1400);
+    }
+  }, []);
+
   function addService() {
     const s = newService.trim();
     if (!s) return;
@@ -1032,7 +1115,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_330px] gap-6 items-start">
       <div className="space-y-6 min-w-0">
       {/* 1. Company info */}
-      <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+      <div id="bsec-company" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
         <SectionHeader icon={Building2} title="Company Information" color={gold} />
         <div className="grid grid-cols-2 gap-4">
           {/* Logo upload */}
@@ -1133,7 +1216,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
       </div>
 
       {/* 2. Services */}
-      <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+      <div id="bsec-services" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
         <SectionHeader icon={Briefcase} title="Main Services" color="#0EA5E9" />
         <div className="flex flex-wrap gap-2 mb-3">
           {(form.main_services ?? []).map((s, i) => (
@@ -1159,7 +1242,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
       </div>
 
       {/* 3. Online — Links (moved before pitch) */}
-      <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+      <div id="bsec-links" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
         <SectionHeader icon={Globe} title="Links & Social Media" color="#0A66C2" />
         <div className="grid grid-cols-2 gap-4">
           <div className="col-span-2">
@@ -1184,7 +1267,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
       </div>
 
       {/* 4. Your pitch */}
-      <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+      <div id="bsec-pitch" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
         <SectionHeader icon={Target} title="Value Proposition" color={C.green} />
         <div className="space-y-4">
           <div>
@@ -1212,7 +1295,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
       </div>
 
       {/* 5. Target audience & communication */}
-      <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+      <div id="bsec-audience" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
         <SectionHeader icon={MessageSquare} title="Target Audience & Communication" color="#8B5CF6" />
         <div className="space-y-4">
           <ToneSelector
@@ -1257,7 +1340,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
       </div>
 
       {/* 6. Track Record (clients + certs + cases) */}
-      <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+      <div id="bsec-track" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
         <SectionHeader icon={Trophy} title="Track Record" color="#D97706" />
         <div className="space-y-5">
           <div>
@@ -1347,7 +1430,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
       </div>
 
       {/* 7. Resources */}
-      <div className="rounded-xl border p-6" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
+      <div id="bsec-resources" className="rounded-xl border p-6 scroll-mt-4" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid ${gold}` }}>
         <div className="flex items-center justify-between mb-4">
           <span className="flex items-center gap-2.5">
             <span className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold }}><FolderOpen size={15} /></span>
