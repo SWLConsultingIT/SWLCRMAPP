@@ -1,9 +1,36 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, type ReactNode } from "react";
+import Link from "next/link";
 import { C } from "@/lib/design";
 import { Send, Plus, Hash, User, X, Loader2, MessageSquare, Smile, Trash2 } from "lucide-react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
+
+// System @mention pings embed a "→ /leads/<uuid>?tab=notes" deep link as plain
+// text. Render those (and any /leads/<id> path) as a clickable link so the
+// reader can jump to the lead — works for old messages too, no DB backfill
+// needed. The optional leading "→ " + spaces are folded into the link so we
+// don't end up with a doubled arrow.
+const LEAD_LINK_RE = /(?:→\s*)?\/leads\/[0-9a-fA-F-]{36}(?:\?[^\s]*)?/g;
+function renderBody(body: string, mine: boolean): ReactNode {
+  LEAD_LINK_RE.lastIndex = 0;
+  const out: ReactNode[] = [];
+  let last = 0, key = 0, m: RegExpExecArray | null;
+  while ((m = LEAD_LINK_RE.exec(body)) !== null) {
+    if (m.index > last) out.push(body.slice(last, m.index));
+    const href = m[0].replace(/^→\s*/, "");
+    out.push(
+      <Link key={key++} href={href} className="underline font-semibold whitespace-nowrap"
+        style={{ color: mine ? "#04070d" : "var(--brand, #c9a83a)" }}>
+        Open lead →
+      </Link>,
+    );
+    last = m.index + m[0].length;
+  }
+  if (out.length === 0) return body;
+  if (last < body.length) out.push(body.slice(last));
+  return out;
+}
 
 // Lightweight emoji palette for the composer (no external dep).
 const EMOJIS = ["😀","😅","😂","🤣","😊","😍","😘","😎","🤔","😉","🙌","👍","👎","👏","🙏","💪","🔥","✨","🎉","✅","❌","⚠️","💯","👀","🚀","💼","📈","📞","📧","💰","🤝","👋","😇","😮","😢","😡","❤️","💛","💚","💙","⭐","💡","⏰","📌","🎯","🥳"];
@@ -162,7 +189,7 @@ export default function ChatPanel({ initialThreadId }: { initialThreadId?: strin
                     <div className="max-w-[75%]">
                       {!mine && <p className="text-[10px] mb-0.5 ml-1" style={{ color: C.textDim }}>{m.sender_name}</p>}
                       <div className="px-3 py-2 rounded-2xl text-sm" style={{ backgroundColor: mine ? "var(--brand, #c9a83a)" : C.bg, color: mine ? "#04070d" : C.textBody, borderTopRightRadius: mine ? 4 : undefined, borderTopLeftRadius: mine ? undefined : 4 }}>
-                        <span className="whitespace-pre-wrap break-words">{m.body}</span>
+                        <span className="whitespace-pre-wrap break-words">{renderBody(m.body, mine)}</span>
                       </div>
                       <p className="text-[9px] mt-0.5" style={{ color: C.textDim, textAlign: mine ? "right" : "left" }}>{ago(m.created_at)} ago</p>
                     </div>
