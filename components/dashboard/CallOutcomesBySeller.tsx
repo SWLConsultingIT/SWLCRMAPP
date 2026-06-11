@@ -22,9 +22,10 @@ type SellerCallStats = Counts & {
 };
 
 // Column definitions — label + the Counts key + accent colour.
+// "Answered" dropped 2026-06-11 (Fran): duration-based answered count isn't
+// reliable, so we show Total calls + the 5 real outcome categories only.
 const COLS: { key: keyof Counts; label: string; color: string }[] = [
-  { key: "made",         label: "Made",           color: C.textPrimary },
-  { key: "answered",     label: "Answered",       color: "#0EA5E9" },
+  { key: "made",         label: "Total calls",    color: C.textPrimary },
   { key: "interested",   label: "Interested",     color: C.green },
   { key: "badTiming",    label: "Bad timing",     color: "#D97706" },
   { key: "voicemail",    label: "Voicemail",      color: "#0EA5E9" },
