@@ -330,7 +330,7 @@ const HIST_TABS: Array<{ key: HistClass; label: string; color: string }> = [
 // One reviewable call in the History list: recording player, transcript
 // (view / generate), and an editable note. Self-contained so each row owns
 // its own expand + save state.
-function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
+function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; selected?: boolean; onToggleSelect?: (id: string) => void }) {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const [transcript, setTranscript] = useState(e.transcript);
@@ -428,10 +428,25 @@ function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
   }
 
   return (
-    <div className="rounded-xl border" style={{ backgroundColor: C.card, borderColor: C.border, borderLeftWidth: 3, borderLeftColor: accent }}>
+    <div className="rounded-xl border" style={{
+      backgroundColor: selected ? "color-mix(in srgb, #F97316 8%, " + C.card + ")" : C.card,
+      borderColor: selected ? "color-mix(in srgb, #F97316 45%, transparent)" : C.border,
+      borderLeftWidth: 3, borderLeftColor: accent,
+    }}>
       <div className="px-4 py-3">
         {/* Row 1 — identity, outcome pills, seller chips */}
         <div className="flex items-start gap-4">
+          {/* Bulk-select checkbox (only when the parent passes a handler). */}
+          {onToggleSelect && (
+            <input
+              type="checkbox"
+              checked={!!selected}
+              onChange={() => onToggleSelect(e.id)}
+              onClick={(ev) => ev.stopPropagation()}
+              title="Select for bulk delete"
+              className="mt-2.5 cursor-pointer shrink-0"
+            />
+          )}
           <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
             style={{ background: "linear-gradient(135deg, #F97316, #FB923C)", color: "#fff" }}>
             <Phone size={15} />
@@ -626,8 +641,36 @@ function CallHistoryRow({ e }: { e: CallHistoryEntry }) {
   );
 }
 
+// Bulk action bar — appears above a call list once ≥1 card is selected.
+function CallBulkBar({ count, allSelected, onSelectAll, onClear, onDelete, deleting }: {
+  count: number; allSelected: boolean; onSelectAll: () => void; onClear: () => void; onDelete: () => void; deleting: boolean;
+}) {
+  if (count === 0) return null;
+  return (
+    <div className="sticky top-0 z-20 mb-2 flex items-center gap-2 px-3 py-2 rounded-lg border"
+      style={{ backgroundColor: "color-mix(in srgb, #F97316 8%, " + C.card + ")", borderColor: "color-mix(in srgb, #F97316 40%, transparent)" }}>
+      <span className="text-xs font-bold" style={{ color: "#F97316" }}>{count} seleccionada{count === 1 ? "" : "s"}</span>
+      <button onClick={onSelectAll} className="text-[11px] font-semibold transition-opacity hover:opacity-70" style={{ color: C.textMuted }}>
+        {allSelected ? "Deseleccionar todo" : "Seleccionar todo"}
+      </button>
+      <div className="flex-1" />
+      <button onClick={onClear} className="text-[11px] font-semibold px-2.5 py-1 rounded-md border transition-opacity hover:opacity-80"
+        style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.card }}>
+        Cancelar
+      </button>
+      <button onClick={onDelete} disabled={deleting}
+        className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-md transition-opacity hover:opacity-90 disabled:opacity-50"
+        style={{ backgroundColor: C.red, color: "#fff" }}>
+        {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+        Borrar {count}
+      </button>
+    </div>
+  );
+}
+
 function CallHistoryPanel({
   entries, search, histClass, setHistClass, histFrom, setHistFrom, histTo, setHistTo, histDialer, setHistDialer,
+  selectedCalls, onToggleSelect, onBulkDelete, bulkDeleting, onClearSelection, onSelectAll,
 }: {
   entries: CallHistoryEntry[];
   search: string;
@@ -639,6 +682,12 @@ function CallHistoryPanel({
   setHistTo: (s: string) => void;
   histDialer: string;
   setHistDialer: (s: string) => void;
+  selectedCalls: Set<string>;
+  onToggleSelect: (id: string) => void;
+  onBulkDelete: () => void;
+  bulkDeleting: boolean;
+  onClearSelection: () => void;
+  onSelectAll: (ids: string[]) => void;
 }) {
   const counts: Record<string, number> = { all: entries.length, positive: 0, negative: 0, follow_up: 0, voicemail: 0, wrong_number: 0, unclassified: 0 };
   for (const e of entries) {
@@ -738,7 +787,15 @@ function CallHistoryPanel({
         </div>
       ) : (
         <div className="space-y-2">
-          {rows.map(e => <CallHistoryRow key={e.id} e={e} />)}
+          <CallBulkBar
+            count={selectedCalls.size}
+            allSelected={rows.length > 0 && rows.every(e => selectedCalls.has(e.id))}
+            onSelectAll={() => onSelectAll(rows.map(e => e.id))}
+            onClear={onClearSelection}
+            onDelete={onBulkDelete}
+            deleting={bulkDeleting}
+          />
+          {rows.map(e => <CallHistoryRow key={e.id} e={e} selected={selectedCalls.has(e.id)} onToggleSelect={onToggleSelect} />)}
         </div>
       )}
     </>
@@ -775,6 +832,36 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
   const [histTo, setHistTo] = useState("");
   // Filter History by who placed the call (boss 2026-06-09). "all" = everyone.
   const [histDialer, setHistDialer] = useState("all");
+
+  // Multi-select for bulk-deleting calls (boss 2026-06-11). Shared across the
+  // Awaiting Outcome + History lists (both render CallHistoryRow). Selecting a
+  // card shows a bulk action bar; "Delete" fires DELETE /api/calls/[id] for
+  // each selected id in parallel.
+  const router = useRouter();
+  const [selectedCalls, setSelectedCalls] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const toggleCallSelect = (id: string) => setSelectedCalls(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+  const clearCallSelection = () => setSelectedCalls(new Set());
+  const selectAllCalls = (ids: string[]) => setSelectedCalls(prev => {
+    const allSel = ids.length > 0 && ids.every(id => prev.has(id));
+    const next = new Set(prev);
+    if (allSel) ids.forEach(id => next.delete(id));
+    else ids.forEach(id => next.add(id));
+    return next;
+  });
+  async function bulkDeleteSelectedCalls() {
+    if (selectedCalls.size === 0 || bulkDeleting) return;
+    setBulkDeleting(true);
+    const ids = [...selectedCalls];
+    await Promise.allSettled(ids.map(id => fetch(`/api/calls/${id}`, { method: "DELETE" })));
+    setBulkDeleting(false);
+    clearCallSelection();
+    router.refresh();
+  }
 
   // History tab manages its own date filter inside InboxView now (used to
   // be a toolbar dropdown here but it felt disconnected from the filter
@@ -1058,6 +1145,12 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                 setHistTo={setHistTo}
                 histDialer={histDialer}
                 setHistDialer={setHistDialer}
+                selectedCalls={selectedCalls}
+                onToggleSelect={toggleCallSelect}
+                onBulkDelete={bulkDeleteSelectedCalls}
+                bulkDeleting={bulkDeleting}
+                onClearSelection={clearCallSelection}
+                onSelectAll={selectAllCalls}
               />
             ) : callSubTab === 1 ? (
               // Awaiting Outcome — every made-but-unclassified call, rich rows
@@ -1077,7 +1170,15 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {filteredCallsAwaiting.map(e => <CallHistoryRow key={e.id} e={e} />)}
+                  <CallBulkBar
+                    count={selectedCalls.size}
+                    allSelected={filteredCallsAwaiting.length > 0 && filteredCallsAwaiting.every(e => selectedCalls.has(e.id))}
+                    onSelectAll={() => selectAllCalls(filteredCallsAwaiting.map(e => e.id))}
+                    onClear={clearCallSelection}
+                    onDelete={bulkDeleteSelectedCalls}
+                    deleting={bulkDeleting}
+                  />
+                  {filteredCallsAwaiting.map(e => <CallHistoryRow key={e.id} e={e} selected={selectedCalls.has(e.id)} onToggleSelect={toggleCallSelect} />)}
                 </div>
               )
             ) : activeList.length === 0 ? (
