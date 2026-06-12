@@ -35,6 +35,9 @@ export default function CampaignCallsTab({ leads }: { leads: LeadRef[] }) {
   const [calls, setCalls] = useState<CallWithLead[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  // Paginate so a 200+ lead flow doesn't render one giant scroll (boss
+  // 2026-06-11). Show 30, "load more" reveals the next batch.
+  const [visibleCount, setVisibleCount] = useState(30);
 
   useEffect(() => {
     const ids = leads.map(l => l.id).filter(Boolean);
@@ -101,7 +104,7 @@ export default function CampaignCallsTab({ leads }: { leads: LeadRef[] }) {
         </p>
       </div>
       <div>
-        {leads.map(l => {
+        {leads.slice(0, visibleCount).map(l => {
           const leadCalls = byLead.get(l.id) ?? [];
           const latest = leadCalls[0];
           const hasCalls = leadCalls.length > 0;
@@ -168,6 +171,13 @@ export default function CampaignCallsTab({ leads }: { leads: LeadRef[] }) {
             </div>
           );
         })}
+        {leads.length > visibleCount && (
+          <button onClick={() => setVisibleCount(c => c + 30)}
+            className="w-full px-5 py-3 text-xs font-semibold transition-colors hover:bg-black/[0.02]"
+            style={{ color: C.gold }}>
+            Mostrar más ({leads.length - visibleCount} restantes)
+          </button>
+        )}
       </div>
     </div>
   );

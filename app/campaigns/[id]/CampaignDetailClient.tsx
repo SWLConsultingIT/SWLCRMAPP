@@ -477,7 +477,7 @@ export default function CampaignDetailClient({
               <thead>
                 <tr style={{ background: `color-mix(in srgb, var(--brand, #c9a83a) 4%, transparent)` }}>
                   <th className="w-10 px-4 py-3"><input type="checkbox" checked={selected.size === filteredCampaigns.length && filteredCampaigns.length > 0} onChange={() => selected.size === filteredCampaigns.length ? setSelected(new Set()) : setSelected(new Set(filteredCampaigns.map(c => c.id)))} style={{ accentColor: gold }} /></th>
-                  {["Lead", "Company", "Role", "Status", "Progress", "Seller", ""].map(h => (
+                  {["Lead", "Status", "Progress", "Seller", ""].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted, borderBottom: `1px solid ${C.border}` }}>{h}</th>
                   ))}
                 </tr>
@@ -493,9 +493,14 @@ export default function CampaignDetailClient({
                   return (
                     <tr key={c.id} className="table-row-hover" style={{ borderBottom: `1px solid ${C.border}`, backgroundColor: ck ? `color-mix(in srgb, ${gold} 2%, transparent)` : "transparent" }}>
                       <td className="px-4 py-3"><input type="checkbox" checked={ck} onChange={() => { const n = new Set(selected); ck ? n.delete(c.id) : n.add(c.id); setSelected(n); }} style={{ accentColor: gold }} /></td>
-                      <td className="px-4 py-3"><Link href={`/leads/${l.id}`} className="hover:underline"><p className="font-medium" style={{ color: C.textPrimary }}>{nm}</p></Link></td>
-                      <td className="px-4 py-3 text-xs" style={{ color: C.textBody }}>{l.company_name ?? "—"}</td>
-                      <td className="px-4 py-3 text-xs" style={{ color: C.textMuted }}>{l.primary_title_role ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        <Link href={`/leads/${l.id}`} className="hover:underline"><p className="font-medium" style={{ color: C.textPrimary }}>{nm}</p></Link>
+                        {(l.company_name || l.primary_title_role) && (
+                          <p className="text-[11px] truncate max-w-[260px]" style={{ color: C.textMuted }}>
+                            {l.company_name ?? ""}{l.company_name && l.primary_title_role ? " · " : ""}{l.primary_title_role ?? ""}
+                          </p>
+                        )}
+                      </td>
                       <td className="px-4 py-3"><span className="rounded-md px-2 py-0.5 text-xs font-semibold" style={{ backgroundColor: cst.bg, color: cst.color }}>{cst.label}</span></td>
                       <td className="px-4 py-3"><div className="flex items-center gap-2"><div className="w-16 h-1.5 rounded-full" style={{ backgroundColor: C.border }}><div className="h-1.5 rounded-full" style={{ width: `${p}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} /></div><span className="text-xs tabular-nums" style={{ color: C.textMuted }}>{c.current_step}/{ts}</span></div></td>
                       <td className="px-4 py-3 text-xs" style={{ color: C.textBody }}>{c.sellers?.name ?? "—"}</td>
