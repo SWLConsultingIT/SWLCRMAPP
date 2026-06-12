@@ -585,6 +585,16 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const activeInGroup = allGroupCampaigns.filter(c => c.status === "active").length;
   const pausedInGroup = allGroupCampaigns.filter(c => c.status === "paused").length;
   const completedInGroup = allGroupCampaigns.filter(c => c.status === "completed").length;
+  // Header KPIs the user actually cares about (boss 2026-06-12: "info que
+  // realmente importe"): how far the flow has run + who's running it, instead
+  // of paused/completed counts.
+  const totalStepsInFlow = sequence.length;
+  const avgFlowPct = totalStepsInFlow > 0 && totalLeadsInGroup > 0
+    ? Math.round((allGroupCampaigns.reduce((s, c) => s + Math.min(1, (c.current_step ?? 0) / totalStepsInFlow), 0) / totalLeadsInGroup) * 100)
+    : 0;
+  const flowSellers = Array.from(new Set(
+    allGroupCampaigns.map(c => (c as any).sellers?.name).filter(Boolean) as string[],
+  ));
 
   // Channel breakdown of where active+paused leads currently sit. Reading
   // sequence_steps[current_step] tells us what channel each lead is waiting
@@ -749,17 +759,16 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
 
         <div className="border-t" style={{ borderColor: "color-mix(in srgb, #c9a83a 18%, #1d1f29)" }} />
 
-        {/* Stats grid — five tiles each with a top-border KPI accent +
-            inset halo so the bar reads like premium gauges, not plain
-            text rows. Active In replaces the redundant "Active" stat. */}
-        {/* Slim hero stats: cross-tab context only (Total / Paused / Completed).
-            Progress + "Active In" moved out — the Metrics tab's funnel + per-channel
-            cards now own progress and channel activity (no duplication). */}
-        <div className="px-2 py-2 grid grid-cols-3 gap-2 relative">
+        {/* Header KPIs — the stuff that matters at a glance (boss 2026-06-12):
+            total leads · how far the flow has run · who's active · who runs it.
+            Channels live in the chips above; paused/completed live in the
+            Metrics tab status breakdown. */}
+        <div className="px-2 py-2 grid grid-cols-2 sm:grid-cols-4 gap-2 relative">
           {[
-            { label: t("campaignDetail.metric.totalLeads"), value: totalLeadsInGroup,                                color: gold },
-            { label: t("campaignDetail.metric.paused"),     value: pausedInGroup,                                    color: "#D97706" },
-            { label: t("campaignDetail.metric.completed"),  value: completedInGroup,                                 color: "color-mix(in srgb, #F5F2E8 65%, transparent)" },
+            { label: t("campaignDetail.metric.totalLeads"), value: totalLeadsInGroup, color: gold, small: false },
+            { label: "Flow corrido",                        value: `${avgFlowPct}%`,  color: "#0EA5E9", small: false },
+            { label: "Activos",                             value: activeInGroup,     color: "#16A34A", small: false },
+            { label: flowSellers.length === 1 ? "Seller" : "Sellers", value: flowSellers.length === 0 ? "—" : flowSellers.length <= 2 ? flowSellers.join(" · ") : `${flowSellers.length}`, color: "#7C3AED", small: flowSellers.length >= 1 && flowSellers.length <= 2 },
           ].map(s => (
             <div
               key={s.label}
@@ -777,7 +786,8 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
                 {s.label}
               </p>
               <p
-                className="text-[22px] font-bold leading-none tabular-nums"
+                className={`${s.small ? "text-sm leading-tight truncate" : "text-[22px] leading-none tabular-nums"} font-bold`}
+                title={s.small ? String(s.value) : undefined}
                 style={{
                   color: s.color,
                   fontFamily: "var(--font-outfit), system-ui, sans-serif",

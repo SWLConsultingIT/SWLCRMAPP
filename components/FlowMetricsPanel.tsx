@@ -142,7 +142,7 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
           break out sit in the chip row below. */}
       <Section title="Outreach funnel">
         <div>
-        <div className="space-y-0.5 max-w-2xl">
+        <div className="space-y-0.5">
           {stages.map((s, i) => {
             const w = s.value > 0 ? Math.max(4, Math.round((s.value / maxV) * 100)) : 0;
             const Icon = s.icon;
