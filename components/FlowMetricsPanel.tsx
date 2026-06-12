@@ -189,20 +189,6 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
         </div>
       </Section>
 
-      {/* ── ACTIVITY OVER TIME ── shows the campaign's RHYTHM (sends + replies
-          per day), the trend competitors surface up top. This is the daily
-          series, NOT the sentToday/limit number the boss didn't trust. */}
-      {m.velocity.byDay.some(d => d.sent > 0 || d.replies > 0) && (
-        <Section title="Activity over time" action={<span className="text-[10px]" style={{ color: C.textDim }}>last {m.velocity.byDay.length} days</span>}>
-          <Sparkline data={m.velocity.byDay} />
-          <div className="flex items-center gap-4 mt-2 text-[10px]" style={{ color: C.textDim }}>
-            <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2 rounded-sm" style={{ backgroundColor: "color-mix(in srgb, #0A66C2 70%, transparent)" }} /> sends/day</span>
-            <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: C.green }} /> got a reply</span>
-            {m.velocity.avgDaysToReply != null && <span className="ml-auto">avg {m.velocity.avgDaysToReply}d to first reply</span>}
-          </div>
-        </Section>
-      )}
-
       {/* ── BY CHANNEL ── */}
       <Section title="By channel" pad>
         <div className="flex flex-wrap gap-3">
@@ -226,7 +212,13 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
       </Section>
 
       {/* ── STEP-BY-STEP ── */}
-      <Section title="Step-by-step" action={<span className="text-[10px]" style={{ color: C.textDim }}>click a step → leads</span>}>
+      <Section title="Step-by-step" action={
+        <div className="flex items-center gap-2.5 text-[10px]" style={{ color: C.textDim }}>
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: C.green }} />enviado</span>
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: C.textDim }} />saltado</span>
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: "#0A66C2" }} />pendiente</span>
+        </div>
+      }>
         <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 text-[10px] font-bold uppercase tracking-wider pb-1.5 mb-1 border-b" style={{ color: C.textDim, borderColor: C.border }}>
           <span>Step</span><span className="text-right w-10">Sent</span><span className="text-right w-14">Reply</span><span className="text-right w-10">Fail</span><span className="text-right w-10">Skip</span><span className="text-right w-12">Pend.</span>
         </div>
