@@ -206,8 +206,8 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
       {/* ── BY CHANNEL ── */}
       <Section title="By channel" pad>
         <div className="flex flex-wrap gap-3">
-          {m.linkedin && <ChannelCard ch="linkedin" stats={[["invites", m.linkedin.invitesSent], ["accepted", m.linkedin.accepted], ["accept rate", `${m.linkedin.acceptRate}%`], ["pending", m.linkedin.pendingAccept], ["DMs", m.linkedin.dmsSent], ["replies", m.linkedin.replies], ["failed", m.linkedin.failed]]} danger={m.linkedin.failed > 0} />}
-          {m.email && <ChannelCard ch="email" stats={[["sent", m.email.sent], ["bounced", m.email.bounced], ["bounce rate", `${m.email.bounceRate}%`], ["replies", m.email.replies]]} danger={m.email.bounceRate > 5} />}
+          {m.linkedin && <ChannelCard ch="linkedin" stats={[["invites", m.linkedin.invitesSent], ["accepted", m.linkedin.accepted], ["accept rate", `${m.linkedin.acceptRate}%`, m.linkedin.invitesSent > 0 ? bench(m.linkedin.acceptRate, 30, 15) : undefined], ["pending", m.linkedin.pendingAccept], ["DMs", m.linkedin.dmsSent], ["replies", m.linkedin.replies], ["failed", m.linkedin.failed]]} danger={m.linkedin.failed > 0} />}
+          {m.email && <ChannelCard ch="email" stats={[["sent", m.email.sent], ["bounced", m.email.bounced], ["bounce rate", `${m.email.bounceRate}%`, m.email.sent > 0 ? (m.email.bounceRate <= 2 ? "#16A34A" : m.email.bounceRate <= 5 ? "#D97706" : C.red) : undefined], ["replies", m.email.replies]]} danger={m.email.bounceRate > 5} />}
           {m.call && <ChannelCard ch="call" stats={[["dialed", m.call.dialed]]} />}
         </div>
         <div className="mt-3 pt-3 border-t flex flex-wrap items-center gap-1.5" style={{ borderColor: C.border }}>
@@ -487,7 +487,7 @@ function StepBucket({ label, leads, color, showDetail }: { label: string; leads:
   );
 }
 
-function ChannelCard({ ch, stats, danger }: { ch: string; stats: [string, string | number][]; danger?: boolean }) {
+function ChannelCard({ ch, stats, danger }: { ch: string; stats: [string, string | number, string?][]; danger?: boolean }) {
   const meta = CH[ch] ?? { label: ch, color: "#888", Icon: Mail };
   const Icon = meta.Icon;
   return (
@@ -499,9 +499,9 @@ function ChannelCard({ ch, stats, danger }: { ch: string; stats: [string, string
           <span className="text-xs font-bold" style={{ color: C.textPrimary }}>{meta.label}</span>
         </div>
         <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-          {stats.map(([k, v]) => (
+          {stats.map(([k, v, color]) => (
             <div key={k} className="flex items-baseline gap-1">
-              <span className="text-[15px] font-bold tabular-nums" style={{ color: C.textPrimary, fontFamily: OUTFIT }}>{v}</span>
+              <span className="text-[15px] font-bold tabular-nums" style={{ color: color ?? C.textPrimary, fontFamily: OUTFIT }}>{v}</span>
               <span className="text-[10px]" style={{ color: C.textMuted }}>{k}</span>
             </div>
           ))}
