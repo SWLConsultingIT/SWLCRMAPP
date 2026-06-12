@@ -141,8 +141,8 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
           totals per step. The per-channel split + negatives the bars don't
           break out sit in the chip row below. */}
       <Section title="Outreach funnel">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-4">
-        <div className="space-y-0.5">
+        <div>
+        <div className="space-y-0.5 max-w-2xl">
           {stages.map((s, i) => {
             const w = s.value > 0 ? Math.max(4, Math.round((s.value / maxV) * 100)) : 0;
             const Icon = s.icon;
@@ -177,30 +177,7 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
             );
           })}
         </div>
-        {/* RIGHT — totals per step (folded in from the old Totals section) */}
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>Per step</p>
-          {m.steps.length === 0 ? (
-            <p className="text-xs" style={{ color: C.textDim }}>No steps in this flow.</p>
-          ) : (
-            <div className="space-y-1.5">
-              {m.steps.map((s, i) => {
-                const meta = CH[s.channel] ?? { label: s.channel, color: C.textMuted, Icon: Mail };
-                return (
-                  <div key={i} className="flex items-center justify-between gap-3 py-0.5">
-                    <span className="flex items-center gap-2 text-[13px] min-w-0" style={{ color: C.textBody }}>
-                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: meta.color }} />
-                      <span className="truncate">{s.label}</span>
-                      <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{meta.label}</span>
-                    </span>
-                    <span className="text-[17px] font-bold tabular-nums leading-none" style={{ color: s.sent ? C.textPrimary : C.textDim, fontFamily: OUTFIT }}>{s.sent}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-        </div>{/* close 2-col grid */}
+        </div>{/* close funnel wrapper — per-step totals now live only in the Step-by-step section below (was duplicated here) */}
 
         {/* drill list (who) — only when opened from the funnel */}
         {openFrom === "funnel" && drillPanel}
@@ -208,7 +185,6 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
         {/* secondary chips */}
         <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
           <MiniChip icon={Hourglass} label="awaiting acceptance" n={m.pendingAccept} color="#D97706" active={open === "pendingAccept" && openFrom === "funnel"} onClick={() => has("pendingAccept") && toggle("pendingAccept", "funnel")} clickable={has("pendingAccept")} />
-          <MiniChip icon={TrendingUp} label="progress" n={`${m.progressPct}%`} color={gold as string} />
           <MiniChip icon={XCircle} label="lost" n={m.lost} color={C.red} />
         </div>
       </Section>
@@ -216,8 +192,8 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
       {/* ── BY CHANNEL ── */}
       <Section title="By channel" pad>
         <div className="flex flex-wrap gap-3">
-          {m.linkedin && <ChannelCard ch="linkedin" stats={[["invites", m.linkedin.invitesSent], ["accepted", `${m.linkedin.accepted} · ${m.linkedin.acceptRate}%`], ["pending", m.linkedin.pendingAccept], ["DMs", m.linkedin.dmsSent], ["replies", m.linkedin.replies], ["failed", m.linkedin.failed]]} danger={m.linkedin.failed > 0} />}
-          {m.email && <ChannelCard ch="email" stats={[["sent", m.email.sent], ["bounced", `${m.email.bounced} · ${m.email.bounceRate}%`], ["replies", m.email.replies]]} danger={m.email.bounceRate > 5} />}
+          {m.linkedin && <ChannelCard ch="linkedin" stats={[["invites", m.linkedin.invitesSent], ["accepted", m.linkedin.accepted], ["accept rate", `${m.linkedin.acceptRate}%`], ["pending", m.linkedin.pendingAccept], ["DMs", m.linkedin.dmsSent], ["replies", m.linkedin.replies], ["failed", m.linkedin.failed]]} danger={m.linkedin.failed > 0} />}
+          {m.email && <ChannelCard ch="email" stats={[["sent", m.email.sent], ["bounced", m.email.bounced], ["bounce rate", `${m.email.bounceRate}%`], ["replies", m.email.replies]]} danger={m.email.bounceRate > 5} />}
           {m.call && <ChannelCard ch="call" stats={[["dialed", m.call.dialed]]} />}
         </div>
         <div className="mt-3 pt-3 border-t flex flex-wrap items-center gap-1.5" style={{ borderColor: C.border }}>
@@ -255,8 +231,15 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
                     <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: meta.color }} />
                     <span className="font-medium truncate" style={{ color: C.textBody }}>{s.label}</span>
                     <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{meta.label}</span>
-                    <div className="flex-1 h-1.5 rounded ml-1" style={{ backgroundColor: `color-mix(in srgb, ${C.border} 70%, transparent)` }}>
-                      <div className="h-1.5 rounded" style={{ width: `${(total / stepMax) * 100}%`, backgroundColor: meta.color }} />
+                    {/* Segmented bar — shows the step's real composition
+                        (sent / skipped / pending) so you see at a glance where
+                        leads pile up, instead of a decorative full-width bar. */}
+                    <div className="flex-1 h-1.5 rounded ml-1 flex overflow-hidden" style={{ backgroundColor: `color-mix(in srgb, ${C.border} 70%, transparent)` }} title={`${s.sent} sent · ${s.skipped} skipped · ${s.pending} pending`}>
+                      {total > 0 && <>
+                        <div className="h-1.5" style={{ width: `${(s.sent / total) * 100}%`, backgroundColor: C.green }} />
+                        <div className="h-1.5" style={{ width: `${(s.skipped / total) * 100}%`, backgroundColor: C.textDim }} />
+                        <div className="h-1.5" style={{ width: `${(s.pending / total) * 100}%`, backgroundColor: "#0A66C2" }} />
+                      </>}
                     </div>
                   </div>
                   <span className="text-right w-10 tabular-nums font-semibold" style={{ color: C.textPrimary, fontFamily: OUTFIT }}>{s.sent}</span>
