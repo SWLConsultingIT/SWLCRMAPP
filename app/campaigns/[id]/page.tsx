@@ -766,9 +766,9 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         <div className="px-2 py-2 grid grid-cols-2 sm:grid-cols-4 gap-2 relative">
           {[
             { label: t("campaignDetail.metric.totalLeads"), value: totalLeadsInGroup, color: gold, small: false },
-            { label: "Flow corrido",                        value: `${avgFlowPct}%`,  color: "#0EA5E9", small: false },
-            { label: "Activos",                             value: activeInGroup,     color: "#16A34A", small: false },
-            { label: flowSellers.length === 1 ? "Seller" : "Sellers", value: flowSellers.length === 0 ? "—" : flowSellers.length <= 2 ? flowSellers.join(" · ") : `${flowSellers.length}`, color: "#7C3AED", small: flowSellers.length >= 1 && flowSellers.length <= 2 },
+            { label: t("campaignDetail.metric.progress"),   value: `${avgFlowPct}%`,  color: "#0EA5E9", small: false },
+            { label: t("campaignDetail.metric.active"),     value: activeInGroup,     color: "#16A34A", small: false },
+            { label: flowSellers.length === 1 ? t("campaignDetail.metric.seller") : t("campaignDetail.metric.sellers"), value: flowSellers.length === 0 ? "—" : flowSellers.length <= 2 ? flowSellers.join(" · ") : `${flowSellers.length}`, color: "#7C3AED", small: flowSellers.length >= 1 && flowSellers.length <= 2 },
           ].map(s => (
             <div
               key={s.label}

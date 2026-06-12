@@ -214,9 +214,9 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
       {/* ── STEP-BY-STEP ── */}
       <Section title="Step-by-step" action={
         <div className="flex items-center gap-2.5 text-[10px]" style={{ color: C.textDim }}>
-          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: C.green }} />enviado</span>
-          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: C.textDim }} />saltado</span>
-          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: "#0A66C2" }} />pendiente</span>
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: C.green }} />sent</span>
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: C.textDim }} />skipped</span>
+          <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm" style={{ backgroundColor: "#0A66C2" }} />pending</span>
         </div>
       }>
         <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 text-[10px] font-bold uppercase tracking-wider pb-1.5 mb-1 border-b" style={{ color: C.textDim, borderColor: C.border }}>
