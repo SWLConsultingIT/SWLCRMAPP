@@ -922,7 +922,6 @@ async function dispatchOneMessage(
   }
   updateOps.push(
     svc.from("campaigns").update({
-      current_step: candidate.step_number,
       last_step_at: now,
       // Mirror the eligible_at of the next queued step onto the campaign so
       // the UI ("Next step: ..." label in CampaignJourney + inbox stage) has
@@ -931,6 +930,18 @@ async function dispatchOneMessage(
       next_step_due_at: nextEligibleAt,
       ...(nextEligibleAt === null ? { status: "completed" } : {}),
     }).eq("id", candidate.campaign_id),
+  );
+  // current_step only ADVANCES — never let a late lower-step send drag the
+  // cursor backwards. A step-0 CR dispatched AFTER the step-1 email (multi-
+  // channel flows that start with email but still carry a LinkedIn CR) used
+  // to reset current_step 1→0, which froze the whole flow: skip-stale-calls
+  // keys off current_step+1, so it looked for the call at step 1 (email) and
+  // never advanced. Pathway had 342 campaigns frozen at current_step=0 with
+  // step 1 already sent (2026-06-12). The `.lt` guard makes the write a no-op
+  // when the cursor is already at/past this step.
+  updateOps.push(
+    svc.from("campaigns").update({ current_step: candidate.step_number })
+      .eq("id", candidate.campaign_id).lt("current_step", candidate.step_number),
   );
   // Boss 2026-05-29: ALWAYS queue the next step, regardless of channel and
   // regardless of whether this was step 0 or a later step. The previous

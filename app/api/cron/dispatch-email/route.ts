@@ -473,13 +473,16 @@ async function dispatchOneEmail(
       },
     }).eq("id", candidate.id),
     svc.from("campaigns").update({
-      current_step: candidate.step_number,
       last_step_at: now,
       // See dispatch-queue/route.ts — mirror eligible_at onto the campaign so
       // the "Next step: ..." UI label has a date to render.
       next_step_due_at: nextEligibleAt,
       ...(nextEligibleAt === null ? { status: "completed" } : {}),
     }).eq("id", candidate.campaign_id),
+    // current_step only ADVANCES — never retreats. See dispatch-queue: a late
+    // step-0 CR after a step-1 email reset the cursor 1→0 and froze the flow.
+    svc.from("campaigns").update({ current_step: candidate.step_number })
+      .eq("id", candidate.campaign_id).lt("current_step", candidate.step_number),
   ];
 
   // Boss 2026-05-29: queue the next step regardless of channel. The
