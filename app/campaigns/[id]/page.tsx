@@ -285,12 +285,29 @@ async function getFlowMetrics(
   const nameOfEarly = (id: string): DrillLead => ({ id, name: leadInfo.get(id)?.name ?? "Unknown", company: leadInfo.get(id)?.company ?? null });
   const withDetail = (id: string, detail: string): DrillLead => ({ ...nameOfEarly(id), detail });
   const isPending = (s: string) => s === "queued" || s === "draft" || s === "dispatching";
+  // Per-step reply attribution: each lead's FIRST reply is credited to the
+  // highest step_number that lead had SENT at/before the reply timestamp —
+  // i.e. the message that earned the response. This is the per-step reply
+  // rate competitors (Lemlist/Smartlead) lead with: it shows WHICH step's
+  // copy converts, so you know what to rewrite.
+  const repliesByStep: Record<number, number> = {};
+  for (const [leadId, replyAt] of firstReplyAt) {
+    let respStep = -1;
+    for (const m of msgs) {
+      if (m.lead_id === leadId && m.status === "sent" && m.sent_at && m.sent_at <= replyAt && m.step_number > respStep) respStep = m.step_number;
+    }
+    if (respStep >= 0) repliesByStep[respStep] = (repliesByStep[respStep] ?? 0) + 1;
+  }
   const stepNums = [...(channelsUsed.includes("linkedin") ? [0] : []), ...Array.from({ length: sequence.length }, (_, i) => i + 1)];
   const steps = stepNums.map(n => {
     const at = msgs.filter(m => m.step_number === n);
     const ch = n === 0 ? "linkedin" : (sequence[n - 1]?.channel ?? "linkedin");
+    const sentN = at.filter(m => m.status === "sent").length;
+    const repliesN = repliesByStep[n] ?? 0;
     return {
       label: n === 0 ? "Invite" : `Step ${n}`, channel: ch,
+      replies: repliesN,
+      replyRate: sentN > 0 ? Math.min(100, Math.round((repliesN / sentN) * 100)) : 0,
       sent: at.filter(m => m.status === "sent").length,
       failed: at.filter(m => m.status === "failed").length,
       skipped: at.filter(m => m.status === "skipped").length,

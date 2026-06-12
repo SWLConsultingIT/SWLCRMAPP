@@ -29,7 +29,7 @@ export type FlowMetrics = {
   pendingAccept: number; lost: number;
   statusDist: { active: number; paused: number; completed: number; cancelled: number };
   steps: {
-    label: string; channel: string; sent: number; failed: number; skipped: number; pending: number;
+    label: string; channel: string; replies: number; replyRate: number; sent: number; failed: number; skipped: number; pending: number;
     leads: { sent: DrillLead[]; failed: DrillLead[]; skipped: DrillLead[]; pending: DrillLead[] };
   }[];
   linkedin: { invitesSent: number; accepted: number; acceptRate: number; pendingAccept: number; dmsSent: number; replies: number; failed: number } | null;
@@ -189,6 +189,20 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
         </div>
       </Section>
 
+      {/* ── ACTIVITY OVER TIME ── shows the campaign's RHYTHM (sends + replies
+          per day), the trend competitors surface up top. This is the daily
+          series, NOT the sentToday/limit number the boss didn't trust. */}
+      {m.velocity.byDay.some(d => d.sent > 0 || d.replies > 0) && (
+        <Section title="Activity over time" action={<span className="text-[10px]" style={{ color: C.textDim }}>last {m.velocity.byDay.length} days</span>}>
+          <Sparkline data={m.velocity.byDay} />
+          <div className="flex items-center gap-4 mt-2 text-[10px]" style={{ color: C.textDim }}>
+            <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2 rounded-sm" style={{ backgroundColor: "color-mix(in srgb, #0A66C2 70%, transparent)" }} /> sends/day</span>
+            <span className="inline-flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: C.green }} /> got a reply</span>
+            {m.velocity.avgDaysToReply != null && <span className="ml-auto">avg {m.velocity.avgDaysToReply}d to first reply</span>}
+          </div>
+        </Section>
+      )}
+
       {/* ── BY CHANNEL ── */}
       <Section title="By channel" pad>
         <div className="flex flex-wrap gap-3">
@@ -213,8 +227,8 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
 
       {/* ── STEP-BY-STEP ── */}
       <Section title="Step-by-step" action={<span className="text-[10px]" style={{ color: C.textDim }}>click a step → leads</span>}>
-        <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 text-[10px] font-bold uppercase tracking-wider pb-1.5 mb-1 border-b" style={{ color: C.textDim, borderColor: C.border }}>
-          <span>Step</span><span className="text-right w-10">Sent</span><span className="text-right w-10">Fail</span><span className="text-right w-10">Skip</span><span className="text-right w-12">Pend.</span>
+        <div className="grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 text-[10px] font-bold uppercase tracking-wider pb-1.5 mb-1 border-b" style={{ color: C.textDim, borderColor: C.border }}>
+          <span>Step</span><span className="text-right w-10">Sent</span><span className="text-right w-14">Reply</span><span className="text-right w-10">Fail</span><span className="text-right w-10">Skip</span><span className="text-right w-12">Pend.</span>
         </div>
         <div className="space-y-0.5">
           {m.steps.map((s, i) => {
@@ -224,7 +238,7 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
             return (
               <div key={i}>
                 <button type="button" onClick={() => setStepOpen(o => (o === i ? null : i))}
-                  className="w-full grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center text-sm py-1.5 rounded-lg px-1 transition-colors"
+                  className="w-full grid grid-cols-[1fr_auto_auto_auto_auto_auto] gap-2 items-center text-sm py-1.5 rounded-lg px-1 transition-colors"
                   style={{ backgroundColor: expanded ? `color-mix(in srgb, ${meta.color} 7%, transparent)` : "transparent" }}>
                   <div className="flex items-center gap-1.5 min-w-0">
                     <ChevronRight size={12} style={{ color: C.textDim, transform: expanded ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
@@ -243,6 +257,9 @@ export default function FlowMetricsPanel({ metrics: m }: { metrics: FlowMetrics 
                     </div>
                   </div>
                   <span className="text-right w-10 tabular-nums font-semibold" style={{ color: C.textPrimary, fontFamily: OUTFIT }}>{s.sent}</span>
+                  <span className="text-right w-14 tabular-nums text-[12px]" style={{ color: s.replies ? bench(s.replyRate, 10, 3) : C.textDim }}>
+                    {s.replies ? `${s.replies}·${s.replyRate}%` : "—"}
+                  </span>
                   <span className="text-right w-10 tabular-nums" style={{ color: s.failed ? C.red : C.textDim }}>{s.failed}</span>
                   <span className="text-right w-10 tabular-nums" style={{ color: C.textDim }}>{s.skipped}</span>
                   <span className="text-right w-12 tabular-nums" style={{ color: s.pending ? "#0A66C2" : C.textDim }}>{s.pending}</span>
