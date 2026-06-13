@@ -240,11 +240,34 @@ function FilterPill({
   );
 }
 
-export default function InboxView({ replies }: { replies: InboxReply[] }) {
+export default function InboxView({ replies: rawReplies }: { replies: InboxReply[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
   const { t, locale } = useLocale();
+
+  // ONE row per LEAD, not per reply. A lead who sends two messages in a row
+  // (e.g. "Hola" then "Mucho gusto!") used to show as TWO separate cards in
+  // the inbox (boss 2026-06-12, De Vera Grill). Collapse to one conversation:
+  // keep the lead's PENDING reply if any (so triage work is never hidden),
+  // else the most recent. Opening the row still shows every message — the
+  // thread is fetched by leadId.
+  const EVENT_CLASS = new Set(["connection_accepted", "email_bounced", "email_invalid"]);
+  const isEvent = (r: InboxReply) => EVENT_CLASS.has(r.classification ?? "");
+  const isPending = (r: InboxReply) =>
+    !isEvent(r) && (r.requiresHumanReview || r.reviewStatus === "pending");
+  const replies = useMemo(() => {
+    const byLead = new Map<string, InboxReply>();
+    for (const r of rawReplies) {
+      const prev = byLead.get(r.leadId);
+      if (!prev) { byLead.set(r.leadId, r); continue; }
+      const rP = isPending(r), pP = isPending(prev);
+      if (rP !== pP) { if (rP) byLead.set(r.leadId, r); continue; }
+      if ((r.receivedAt ?? "") > (prev.receivedAt ?? "")) byLead.set(r.leadId, r);
+    }
+    return [...byLead.values()].sort((a, b) => (b.receivedAt ?? "").localeCompare(a.receivedAt ?? ""));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawReplies]);
   // Boss 2026-05-29: dashboard Channels cards link here with `?channel=<x>`
   // so the inbox lands pre-filtered to that channel. Also default to the
   // History tab (was Pending Review) when a channel filter is passed —
@@ -331,14 +354,7 @@ export default function InboxView({ replies }: { replies: InboxReply[] }) {
   // a reply that's never been touched (review_status pending). The moment the
   // seller hits any classify button, the API flips status→approved and
   // requires_human_review→false, so the row drops out of this tab into All.
-  // Events (connection accepted, email bounced/invalid) are NOT replies that
-  // need an answer — they're activity notifications, surfaced elsewhere (accepts
-  // in the queue, bounces on the lead's email-health badge). They're kept OUT of
-  // the inbox entirely so it stays a clean list of real lead messages.
-  const EVENT_CLASS = new Set(["connection_accepted", "email_bounced", "email_invalid"]);
-  const isEvent = (r: InboxReply) => EVENT_CLASS.has(r.classification ?? "");
-  const isPending = (r: InboxReply) =>
-    !isEvent(r) && (r.requiresHumanReview || r.reviewStatus === "pending");
+  // (isEvent / isPending defined above, alongside the per-lead dedupe.)
   // Two mutually-exclusive tabs over replies only — pending (needs triage) and
   // history (already triaged). A reply is in exactly one; events are in neither.
   const counts = useMemo(() => ({
