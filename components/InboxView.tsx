@@ -99,6 +99,7 @@ type ThreadEntry = {
   stepNumber?: number | null;
   kind?: string;
   source?: "db" | "unipile";
+  senderName?: string | null;
   attachments?: ThreadAttachment[];
   seen?: boolean;
   seenAt?: string | null;
@@ -1156,11 +1157,15 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                       // human). The "Connection Request" / "Step N" sequence
                       // labels were repeated on every bubble = noise; the day
                       // separators already anchor timing.
-                      const stepLabel = entry.kind === "auto_reply" || entry.stepNumber === -1
-                        ? "Auto-reply"
-                        : (entry.source === "unipile" && isOut)
-                          ? "Seller reply"
-                          : null;
+                      // A manual seller reply also lives at step -1, so check
+                      // kind first: only a real bot auto-reply gets "Auto-reply".
+                      const stepLabel = entry.kind === "manual_seller_reply"
+                        ? "Seller reply"
+                        : (entry.kind === "auto_reply" || entry.stepNumber === -1)
+                          ? "Auto-reply"
+                          : (entry.source === "unipile" && isOut)
+                            ? "Seller reply"
+                            : null;
                       const time = formatTimeOnly(entry.at);
                       const dayDate = new Date(entry.at);
                       const dayKey = `${dayDate.getFullYear()}-${dayDate.getMonth()}-${dayDate.getDate()}`;
@@ -1359,13 +1364,15 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                               </div>
                               <div className="flex items-center gap-1.5 mt-1 text-[10px]" style={{ color: C.textDim }}>
                                 <span className="tabular-nums">{time}</span>
-                                {/* WHO sent it — the seller who owns this lead's
-                                    outreach (boss 2026-06-16: "quién se hace
-                                    cargo"). Shown on every outbound message. */}
-                                {isOut && selected.sellerName && (
+                                {/* WHO sent it — the seller / LinkedIn account
+                                    this touch went out from (boss 2026-06-16:
+                                    "quién se hace cargo"). Per-message senderName
+                                    from the thread route is authoritative; fall
+                                    back to the lead-level seller. */}
+                                {isOut && (entry.senderName || selected.sellerName) && (
                                   <>
                                     <span>·</span>
-                                    <span className="font-semibold" style={{ color: channelColor(entry.channel) }}>{selected.sellerName}</span>
+                                    <span className="font-semibold" style={{ color: channelColor(entry.channel) }}>{entry.senderName || selected.sellerName}</span>
                                   </>
                                 )}
                                 {stepLabel && (

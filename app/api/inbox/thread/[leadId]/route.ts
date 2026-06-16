@@ -46,6 +46,9 @@ type ThreadEntry = {
   kind?: string;
   providerMessageId?: string | null;
   source?: "db" | "unipile";
+  // Which seller / LinkedIn account this outbound message was sent from, so
+  // the seller can see "who's responsible" for each touch (Fran 2026-06-16).
+  senderName?: string | null;
   attachments?: ThreadAttachment[];
   // Delivery / read receipts from Unipile (LinkedIn shows "Seen" with a
   // timestamp once the recipient opens the chat). seenAt = ISO when the
@@ -143,6 +146,19 @@ export async function GET(
   let chatIdFromDb: string | null = null;
   let providerThreadId: string | null = null;
 
+  // Resolve the seller who owns this flow ONCE, up-front: their name labels
+  // every outbound bubble ("who's responsible"), and their Unipile account id
+  // tells the live-chat fetch below which messages are "ours".
+  const { data: campSeller } = await svc
+    .from("campaigns")
+    .select("seller_id, sellers(name, unipile_account_id)")
+    .eq("lead_id", leadId)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const sellerName: string | null = (campSeller as any)?.sellers?.name ?? null;
+  const unipileAccountId: string | null = (campSeller as any)?.sellers?.unipile_account_id ?? null;
+
   for (const m of messagesRes.data ?? []) {
     const sentAt = (m as any).sent_at;
     if (!sentAt) continue; // defensive — status=sent without sent_at shouldn't happen
@@ -153,17 +169,28 @@ export async function GET(
     if (provId) seenProviderIds.add(provId);
     if (!chatIdFromDb && typeof meta.chat_id === "string") chatIdFromDb = meta.chat_id as string;
     const subject = typeof meta.subject === "string" ? (meta.subject as string) : null;
+    // Distinguish a manual seller reply from a bot auto-reply: both live at
+    // step -1 (off-sequence), but metadata.manual_seller_reply flags the human
+    // one. Without this a seller's own reply got mislabeled "Auto-reply".
+    const stepNum = (m as any).step_number ?? null;
+    const kind = meta.manual_seller_reply === true
+      ? "manual_seller_reply"
+      : stepNum === -1
+        ? "auto_reply"
+        : "sent";
+    const channel = (m as any).channel ?? null;
     entries.push({
       id: `out-${(m as any).id}`,
       direction: "outbound",
-      channel: (m as any).channel ?? null,
+      channel,
       body,
       subject,
       at: sentAt,
-      stepNumber: (m as any).step_number ?? null,
-      kind: "sent",
+      stepNumber: stepNum,
+      kind,
       providerMessageId: provId,
       source: "db",
+      senderName: channel === "linkedin" ? sellerName : null,
     });
   }
 
@@ -225,24 +252,6 @@ export async function GET(
   // campaign_messages.
   const chatId = chatIdFromDb || providerThreadId;
   if (chatId) {
-    // Find the seller's Unipile account so we know which message is "ours".
-    const { data: camp } = await svc
-      .from("campaigns")
-      .select("seller_id")
-      .eq("lead_id", leadId)
-      .limit(1)
-      .maybeSingle();
-    const sellerId = (camp as any)?.seller_id ?? null;
-    let unipileAccountId: string | null = null;
-    if (sellerId) {
-      const { data: seller } = await svc
-        .from("sellers")
-        .select("unipile_account_id")
-        .eq("id", sellerId)
-        .maybeSingle();
-      unipileAccountId = (seller as any)?.unipile_account_id ?? null;
-    }
-
     if (unipileAccountId) {
       const url = `${UNIPILE_BASE}/api/v1/chats/${encodeURIComponent(chatId)}/messages?account_id=${encodeURIComponent(unipileAccountId)}&limit=50`;
       const data = await unipileGet(url);
@@ -250,6 +259,11 @@ export async function GET(
       // Track which message ids the live chat still has + the oldest one we
       // fetched — used below to detect messages deleted on LinkedIn's side.
       const liveUnipileIds = new Set<string>();
+      // Messages the seller DELETED on LinkedIn: Unipile keeps the row but
+      // flags `deleted: 1` and nulls the text. We must drop our matching DB
+      // copy so the app mirrors LinkedIn (Fran 2026-06-16 deleted an auto-reply
+      // on Luciano's LinkedIn; the app kept showing it).
+      const deletedUnipileIds = new Set<string>();
       let oldestUnipileMs = Number.POSITIVE_INFINITY;
       for (const msg of items) {
         const provId = (msg?.id as string | undefined) ?? null;
@@ -258,6 +272,12 @@ export async function GET(
         if (!at) continue;
         if (provId) liveUnipileIds.add(provId);
         { const tms = new Date(at).getTime(); if (Number.isFinite(tms) && tms < oldestUnipileMs) oldestUnipileMs = tms; }
+        // Deleted-on-LinkedIn: record the id and skip entirely (no enrich, no
+        // push). The DB-copy removal happens after the loop.
+        if (provId && (msg?.deleted === 1 || msg?.deleted === true)) {
+          deletedUnipileIds.add(provId);
+          continue;
+        }
         // Compute receipt flags up-front so we can enrich an already-merged
         // DB entry OR attach to a new Unipile-sourced entry.
         const seenInt = msg?.seen;
@@ -318,6 +338,7 @@ export async function GET(
           providerMessageId: provId,
           source: "unipile",
           kind: isFromUs ? "auto_reply_or_manual" : undefined,
+          senderName: isFromUs ? sellerName : null,
           attachments: normalizeAttachments(msg?.attachments),
           seen,
           seenAt,
@@ -325,22 +346,23 @@ export async function GET(
         });
       }
 
-      // Reflect LinkedIn-side DELETIONS: an outbound LinkedIn message we have
-      // in the DB (with a provider id) that is NO LONGER in the live chat was
-      // retracted/deleted there — drop it so the app matches LinkedIn (boss
-      // 2026-06-16: deleted an auto-reply on LinkedIn, the app still showed
-      // it). Guards against false positives: only when the fetch returned
-      // messages, and only for entries newer than the oldest one we fetched
-      // (older messages may be beyond the 50-message window, not deleted).
-      if (liveUnipileIds.size > 0) {
-        for (let i = entries.length - 1; i >= 0; i--) {
-          const e = entries[i];
-          if (e.source === "db" && e.direction === "outbound" && e.channel === "linkedin"
-              && e.providerMessageId && !liveUnipileIds.has(e.providerMessageId)
-              && new Date(e.at).getTime() >= oldestUnipileMs) {
-            entries.splice(i, 1);
-          }
-        }
+      // Reflect LinkedIn-side DELETIONS. Two cases, both mean "drop our copy so
+      // the app matches LinkedIn" (Fran 2026-06-16 deleted an auto-reply on
+      // Luciano's LinkedIn; the app kept showing it):
+      //   (a) Unipile returns the message with `deleted: 1` (the common case —
+      //       the id stays in the chat, just flagged + text nulled).
+      //   (b) The message is GONE from the live chat entirely (rarer). Guarded
+      //       to entries newer than the oldest fetched, so messages beyond the
+      //       50-message window aren't mistaken for deletions.
+      for (let i = entries.length - 1; i >= 0; i--) {
+        const e = entries[i];
+        if (!(e.direction === "outbound" && e.channel === "linkedin" && e.providerMessageId)) continue;
+        const flaggedDeleted = deletedUnipileIds.has(e.providerMessageId);
+        const goneFromChat = liveUnipileIds.size > 0
+          && e.source === "db"
+          && !liveUnipileIds.has(e.providerMessageId)
+          && new Date(e.at).getTime() >= oldestUnipileMs;
+        if (flaggedDeleted || goneFromChat) entries.splice(i, 1);
       }
     }
   }
