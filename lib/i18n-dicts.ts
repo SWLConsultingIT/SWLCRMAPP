@@ -1572,6 +1572,36 @@ export const en: Dict = {
   "rel.stuck.reason.noSeller": "Flow without an assigned seller",
   "rel.stuck.reason.cronLag": "Dispatcher cron hasn't picked this message up yet",
   "rel.stuck.reason.other": "Other",
+  // Silent-stall banner
+  "rel.stall.title": "Silent stall detected",
+  "rel.stall.subtitle": "This tenant looks healthy but hasn't sent anything in {hours}h despite {due} due messages.",
+  "rel.stall.reason.failures": "Failures are blocking sends — clear them in the cards below.",
+  "rel.stall.reason.allSellersCooldown": "All sellers are on rate-limit cooldown.",
+  "rel.stall.reason.noSellers": "No sellers configured for this tenant.",
+  "rel.stall.reason.dispatcherIdle": "The dispatcher cron isn't picking up these messages — check n8n.",
+  // Failure breakdown inside a flow card
+  "rel.flows.cards.failedTitle": "Failed",
+  "rel.flows.cards.leads": "leads",
+  // n8n workflow status section
+  "rel.workflows.title": "n8n workflows",
+  "rel.workflows.subtitle": "Status of the SWL-CRM workflows that power dispatch, reply ingestion and crons.",
+  "rel.workflows.empty": "Couldn't fetch n8n workflows (check N8N_API_BASE_URL + token).",
+  "rel.workflows.state.active": "active",
+  "rel.workflows.state.inactive": "inactive",
+  "rel.workflows.lastRun": "last run: {when}",
+  "rel.workflows.lastRun.empty": "never run",
+  "rel.workflows.lastRun.failed": "last run FAILED: {when}",
+  // Q&A bot widget
+  "rel.qa.title": "Ask about this tenant",
+  "rel.qa.subtitle": "Ask anything about the active tenant. Runs through an n8n workflow.",
+  "rel.qa.placeholder": "Why didn't any emails go out today?",
+  "rel.qa.send": "Ask",
+  "rel.qa.sending": "Thinking…",
+  "rel.qa.error": "Could not answer: {err}",
+  // History per tenant
+  "rel.history.title": "History",
+  "rel.history.subtitle": "Recent reliability events for this tenant (last 50).",
+  "rel.history.empty": "No events recorded yet for this tenant.",
 };
 
 export const es: Dict = {
@@ -3136,6 +3166,36 @@ export const es: Dict = {
   "rel.stuck.reason.noSeller": "Flow sin seller asignado",
   "rel.stuck.reason.cronLag": "Cron del dispatcher no levantó este mensaje todavía",
   "rel.stuck.reason.other": "Otro",
+  // Silent-stall banner
+  "rel.stall.title": "Stall silencioso detectado",
+  "rel.stall.subtitle": "Este tenant parece sano pero no mandó nada en {hours}h y hay {due} mensajes due.",
+  "rel.stall.reason.failures": "Los fallos están bloqueando los envíos — resolvelos en las cards de abajo.",
+  "rel.stall.reason.allSellersCooldown": "Todos los sellers están en cooldown por rate-limit.",
+  "rel.stall.reason.noSellers": "No hay sellers configurados para este tenant.",
+  "rel.stall.reason.dispatcherIdle": "El cron del dispatcher no está levantando estos mensajes — revisar n8n.",
+  // Failure breakdown inside a flow card
+  "rel.flows.cards.failedTitle": "Fallaron",
+  "rel.flows.cards.leads": "leads",
+  // n8n workflow status section
+  "rel.workflows.title": "Workflows n8n",
+  "rel.workflows.subtitle": "Estado de los workflows SWL-CRM que mueven dispatch, reply ingestion y crons.",
+  "rel.workflows.empty": "No se pudieron traer los workflows de n8n (revisar N8N_API_BASE_URL + token).",
+  "rel.workflows.state.active": "activo",
+  "rel.workflows.state.inactive": "inactivo",
+  "rel.workflows.lastRun": "última corrida: {when}",
+  "rel.workflows.lastRun.empty": "nunca corrió",
+  "rel.workflows.lastRun.failed": "última corrida FALLÓ: {when}",
+  // Q&A bot widget
+  "rel.qa.title": "Preguntale al sistema",
+  "rel.qa.subtitle": "Preguntá cualquier cosa sobre el estado del tenant activo. Va por un workflow de n8n.",
+  "rel.qa.placeholder": "Por qué no salieron emails hoy?",
+  "rel.qa.send": "Preguntar",
+  "rel.qa.sending": "Pensando…",
+  "rel.qa.error": "No se pudo responder: {err}",
+  // History per tenant
+  "rel.history.title": "Historial",
+  "rel.history.subtitle": "Eventos recientes de reliability para este tenant (últimos 50).",
+  "rel.history.empty": "Todavía no hay eventos registrados para este tenant.",
 };
 
 export const dicts: Record<Locale, Dict> = { en, es };

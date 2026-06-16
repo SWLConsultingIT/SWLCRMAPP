@@ -28,6 +28,17 @@ export type TenantSummary = {
   general: GeneralStats;
   campaigns: CampaignsStats;
   accounts: AccountsStats;
+  // SILENT STALL — a tenant looks healthy (no failures, OK pill) yet
+  // nothing is going out because automated steps are READY but the
+  // dispatcher isn't draining them (or every lead is parked behind a
+  // manual call). This is exactly what hid the Pathway stall on
+  // 2026-06-08. Surfaces in a red banner above the executive summary.
+  silentStall: {
+    isStalled: boolean;
+    hoursSinceLastSend: number | null;
+    dueWork: number; // queued msgs with eligible_at < now
+    reason: string;  // i18n key
+  };
 };
 
 type GeneralStats = {
@@ -59,12 +70,14 @@ type CampaignsStats = {
 };
 
 export type CampaignSummary = {
+  // For grouped flows (1 card per `name`) the "representative" campaign
+  // id used for drill-in — the most recent active row in the group.
   campaignId: string;
   campaignName: string;
   status: string;
   channels: string[];
   totalSteps: number;
-  totalLeads: number;
+  totalLeads: number; // number of campaign rows in this flow (1 per lead)
   messagesSent: number;
   messagesQueued: number;
   messagesStuck: number;
@@ -73,12 +86,20 @@ export type CampaignSummary = {
   positiveReplies: number;
   lastActivityAt: string | null;
   health: "healthy" | "warning" | "critical";
-  // Per-card stuck breakdown — Fran wants the "where are they stuck?"
-  // detail rendered INSIDE each flow card, not in a global block above.
+  // Per-card stuck breakdown — the "where are they stuck?" lives inside
+  // each flow card, not in a global block above.
   stuckBuckets: Array<{
     reason: string; // i18n key (e.g. "rel.stuck.reason.cooldown")
     count: number;
     samples: Array<{ leadName: string; channel: string; stepNumber: number; ageDays: number }>;
+  }>;
+  // Per-card failed breakdown — error_details grouped + sampled, with
+  // messageId so the UI can render a Retry button per sample (server
+  // endpoint already exists at /api/admin/reliability/retry).
+  failureBuckets: Array<{
+    reason: string;
+    count: number;
+    samples: Array<{ leadName: string; channel: string; stepNumber: number; ageDays: number; messageId: string; errorSnippet: string }>;
   }>;
 };
 
@@ -481,6 +502,34 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
     },
   };
 
+  // SILENT-STALL detection — automated work is sitting in the queue
+  // (queued + eligible_at past) but nothing has been sent in >24h.
+  // Skipped when failures explain the gap or when there's literally no
+  // active work to dispatch.
+  const lastSendMs = lastSendAt ? Date.parse(lastSendAt) : null;
+  const hoursSinceLastSend = lastSendMs && !isNaN(lastSendMs)
+    ? Math.round((Date.now() - lastSendMs) / 3600_000)
+    : null;
+  const dueWorkCount = queuedMsgs.filter(m => {
+    const eligibleAt = (m.metadata?.eligible_at as string | undefined) ?? null;
+    if (eligibleAt) {
+      const t = Date.parse(eligibleAt);
+      return !isNaN(t) && t < Date.now() - 60_000;
+    }
+    return false;
+  }).length;
+  const stallReason = (() => {
+    if (dueWorkCount === 0) return ""; // no work to do — not a stall
+    if (campaignsStats.failed > 0) return "rel.stall.reason.failures"; // failures explain it
+    if (sellers.every(s => cooldownSellerIds.has(s.id))) return "rel.stall.reason.allSellersCooldown";
+    if (sellers.length === 0) return "rel.stall.reason.noSellers";
+    return "rel.stall.reason.dispatcherIdle";
+  })();
+  const isStalled = !!stallReason
+    && hoursSinceLastSend !== null
+    && hoursSinceLastSend >= 24
+    && dueWorkCount > 0;
+
   const partial: TenantSummary = {
     bioId,
     bioName,
@@ -488,6 +537,12 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
     general: generalWithHealth,
     campaigns: campaignsStats,
     accounts: accountsStats,
+    silentStall: {
+      isStalled,
+      hoursSinceLastSend,
+      dueWork: dueWorkCount,
+      reason: stallReason,
+    },
   };
   partial.paragraph = buildParagraph(partial);
   return partial;
@@ -561,15 +616,17 @@ export async function getTenantCampaigns(bioId: string): Promise<CampaignSummary
   // Messages for those campaigns, joined to leads (status / linkedin_connected)
   // so we can classify WHY each queued row is stuck, with the same logic
   // as the global breakdown — but scoped per-campaign so each card carries
-  // its own buckets.
+  // its own buckets. Also pull `error_details` so the failure breakdown
+  // inside each card can name the actual error.
   const { data: msgsRaw } = await svc
     .from("campaign_messages")
-    .select("id, campaign_id, status, channel, step_number, sent_at, created_at, metadata, lead_id, leads(primary_first_name, primary_last_name, company_name, linkedin_connected, status)")
+    .select("id, campaign_id, status, channel, step_number, sent_at, created_at, metadata, lead_id, error_details, leads(primary_first_name, primary_last_name, company_name, linkedin_connected, status)")
     .in("campaign_id", campaignIds)
     .limit(50000);
   const msgs = ((msgsRaw ?? []) as unknown) as Array<{
     id: string; campaign_id: string; status: string | null; channel: string | null; step_number: number | null;
     sent_at: string | null; created_at: string | null; metadata: Record<string, unknown> | null; lead_id: string | null;
+    error_details: string | null;
     leads: { primary_first_name: string | null; primary_last_name: string | null; company_name: string | null; linkedin_connected: boolean | null; status: string | null } | null;
   }>;
 
@@ -615,12 +672,46 @@ export async function getTenantCampaigns(bioId: string): Promise<CampaignSummary
 
   const stuckBefore = new Date(nowMs - STUCK_DAYS * 86400000).toISOString();
 
-  const summaries: CampaignSummary[] = campaigns.map(c => {
-    const cm = msgs.filter(m => m.campaign_id === c.id);
+  // Group campaign rows by name — `campaigns` is per-lead, but a "flow"
+  // is the set of rows that share the same `name`. /campaigns/page.tsx
+  // (ActiveCampaignsView.groupCampaigns) does the same grouping, so one
+  // card here matches one row in /campaigns.
+  const groupsByName = new Map<string, typeof campaigns>();
+  for (const c of campaigns) {
+    const key = c.name?.trim() || `__no-name-${c.id}`;
+    const arr = groupsByName.get(key) ?? [];
+    arr.push(c);
+    groupsByName.set(key, arr);
+  }
+
+  // Buckets normalisation for the failure reasons — same shape as the
+  // global `groupFailureReasons` but scoped to one flow.
+  function bucketizeError(raw: string): string {
+    const lower = raw.toLowerCase();
+    if (lower.includes("rate") || lower.includes("limit") || lower.includes("429")) return "Rate limit";
+    if (lower.includes("network") || lower.includes("timeout") || lower.includes("etimedout")) return "Network / timeout";
+    if (lower.includes("unauthorized") || lower.includes("401") || lower.includes("token")) return "Credenciales (token expirado)";
+    if (lower.includes("not found") || lower.includes("404")) return "Recurso no encontrado";
+    if (lower.includes("placeholder") || lower.includes("unsupported")) return "Placeholder no soportado";
+    if (lower.includes("invalid") || lower.includes("bad request") || lower.includes("400")) return "Payload inválido";
+    if (lower.includes("banned") || lower.includes("disabled")) return "Cuenta deshabilitada / baneada";
+    if (lower.includes("no linkedin") || lower.includes("missing url")) return "Lead sin URL de LinkedIn";
+    if (lower.includes("no email") || lower.includes("missing email")) return "Lead sin email";
+    if (lower.includes("already sent") || lower.includes("duplicate")) return "Mensaje duplicado (ya enviado antes)";
+    return raw.length > 60 ? raw.slice(0, 60) + "…" : raw;
+  }
+
+  const summaries: CampaignSummary[] = Array.from(groupsByName.entries()).map(([key, group]) => {
+    // Pick a representative campaign for drill-in — most recently active.
+    const rep = [...group].sort((a, b) => (b.last_step_at ?? b.created_at ?? "").localeCompare(a.last_step_at ?? a.created_at ?? ""))[0];
+    const groupIds = new Set(group.map(c => c.id));
+    const groupSellerIds = new Set(group.map(c => c.seller_id).filter((x): x is string => !!x));
+    const cm = msgs.filter(m => groupIds.has(m.campaign_id));
     const channels = new Set<string>();
     let sent = 0, queued = 0, failed = 0;
-    let lastActivityAt: string | null = c.last_step_at ?? null;
+    let lastActivityAt: string | null = rep.last_step_at ?? null;
     const stuckRows: typeof msgs = [];
+    const failedRows: typeof msgs = [];
     for (const m of cm) {
       const s = m.status ?? "";
       if (m.channel) channels.add(m.channel);
@@ -640,14 +731,18 @@ export async function getTenantCampaigns(bioId: string): Promise<CampaignSummary
         if (isStuck) stuckRows.push(m);
       } else if (s === "failed") {
         failed++;
+        failedRows.push(m);
       }
     }
 
-    // Build per-card stuck buckets.
-    const buckets = new Map<string, CampaignSummary["stuckBuckets"][number]>();
+    // Per-card stuck buckets.
+    const stuckBucketMap = new Map<string, CampaignSummary["stuckBuckets"][number]>();
     for (const m of stuckRows) {
-      const reason = classifyStuckReason(m, c.seller_id ?? null);
-      const cur = buckets.get(reason) ?? { reason, count: 0, samples: [] };
+      // Use ANY seller from the group for cooldown lookup (the group may
+      // span multiple sellers, but they're rare in practice).
+      const sellerId = groupSellerIds.size > 0 ? Array.from(groupSellerIds)[0] : null;
+      const reason = classifyStuckReason(m, sellerId);
+      const cur = stuckBucketMap.get(reason) ?? { reason, count: 0, samples: [] };
       cur.count++;
       if (cur.samples.length < 2) {
         const first = m.leads?.primary_first_name ?? "";
@@ -657,29 +752,59 @@ export async function getTenantCampaigns(bioId: string): Promise<CampaignSummary
         const ageDays = Math.max(0, Math.round((nowMs - created) / 86400000));
         cur.samples.push({ leadName, channel: m.channel ?? "?", stepNumber: m.step_number ?? 0, ageDays });
       }
-      buckets.set(reason, cur);
+      stuckBucketMap.set(reason, cur);
     }
-    const stuckBuckets = Array.from(buckets.values()).sort((a, b) => b.count - a.count);
+    const stuckBuckets = Array.from(stuckBucketMap.values()).sort((a, b) => b.count - a.count);
 
-    const repliesData = c.lead_id ? repliesByLeadMap.get(c.lead_id) ?? { total: 0, positive: 0 } : { total: 0, positive: 0 };
+    // Per-card failure buckets (NEW — was missing in v2, Fran asked to
+    // surface the old "failed messages with error_details + retry" inside
+    // each flow card).
+    const failureBucketMap = new Map<string, CampaignSummary["failureBuckets"][number]>();
+    for (const m of failedRows) {
+      const reason = bucketizeError(m.error_details ?? "Sin detalle");
+      const cur = failureBucketMap.get(reason) ?? { reason, count: 0, samples: [] };
+      cur.count++;
+      if (cur.samples.length < 3) {
+        const first = m.leads?.primary_first_name ?? "";
+        const last = m.leads?.primary_last_name ?? "";
+        const leadName = (first + " " + last).trim() || (m.leads?.company_name ?? "(lead sin nombre)");
+        const created = m.created_at ? Date.parse(m.created_at) : nowMs;
+        const ageDays = Math.max(0, Math.round((nowMs - created) / 86400000));
+        const errorSnippet = (m.error_details ?? "").slice(0, 120);
+        cur.samples.push({ leadName, channel: m.channel ?? "?", stepNumber: m.step_number ?? 0, ageDays, messageId: m.id, errorSnippet });
+      }
+      failureBucketMap.set(reason, cur);
+    }
+    const failureBuckets = Array.from(failureBucketMap.values()).sort((a, b) => b.count - a.count);
+
+    // Replies aggregated across the group.
+    let replies = 0, positiveReplies = 0;
+    for (const c of group) {
+      if (!c.lead_id) continue;
+      const r = repliesByLeadMap.get(c.lead_id);
+      if (r) { replies += r.total; positiveReplies += r.positive; }
+    }
+
     const base: CampaignSummary = {
-      campaignId: c.id,
-      campaignName: c.name ?? "(sin nombre)",
-      status: c.status ?? "unknown",
+      campaignId: rep.id,
+      campaignName: rep.name ?? "(sin nombre)",
+      status: group.some(g => g.status === "active") ? "active" : (rep.status ?? "unknown"),
       channels: Array.from(channels),
-      totalSteps: Array.isArray(c.sequence_steps) ? (c.sequence_steps as unknown[]).length : 0,
-      totalLeads: 1,
+      totalSteps: Array.isArray(rep.sequence_steps) ? (rep.sequence_steps as unknown[]).length : 0,
+      totalLeads: group.length,
       messagesSent: sent,
       messagesQueued: queued,
       messagesStuck: stuckRows.length,
       messagesFailed: failed,
-      replies: repliesData.total,
-      positiveReplies: repliesData.positive,
+      replies,
+      positiveReplies,
       lastActivityAt,
       health: "healthy",
       stuckBuckets,
+      failureBuckets,
     };
     base.health = campaignHealth(base);
+    void key;
     return base;
   });
 
@@ -842,6 +967,7 @@ export async function getCampaignDetail(campaignId: string): Promise<CampaignDet
     lastActivityAt,
     health: "healthy",
     stuckBuckets: [], // detail view has its own (richer) stuckBreakdown
+    failureBuckets: [],
     bioId,
     bioName,
     stuckBreakdown,

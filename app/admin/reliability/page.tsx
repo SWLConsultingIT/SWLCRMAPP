@@ -21,6 +21,10 @@ import StatusGeneralSection from "./StatusGeneralSection";
 import FlowsInFlightSection from "./FlowsInFlightSection";
 import StatusAccountsSection from "./StatusAccountsSection";
 import CampaignDetailSection from "./CampaignDetailSection";
+import SilentStallBanner from "./SilentStallBanner";
+import WorkflowsSection from "./WorkflowsSection";
+import HistorySection from "./HistorySection";
+import QABot from "./QABot";
 import AutoRefresh from "./AutoRefresh";
 
 export const dynamic = "force-dynamic";
@@ -146,9 +150,13 @@ export default async function ReliabilityPage({
           <CampaignDetailSection detail={campaignDetail} />
         ) : (
           <>
+            <SilentStallBanner summary={activeTenant} />
             <StatusGeneralSection summary={activeTenant} />
             <FlowsInFlightSection summary={activeTenant} campaigns={tenantCampaigns} />
             <StatusAccountsSection summary={activeTenant} />
+            <WorkflowsSection />
+            <HistorySection bioId={activeTenant.bioId} />
+            <QABot bioId={activeTenant.bioId} bioName={activeTenant.bioName} />
           </>
         )}
       </div>
