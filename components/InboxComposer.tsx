@@ -36,6 +36,7 @@ export default function InboxComposer({
 }) {
   const [text, setText] = useState("");
   const [subject, setSubject] = useState("");
+  const [lang, setLang] = useState("auto");
   const [suggesting, setSuggesting] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,11 +45,16 @@ export default function InboxComposer({
     channel === "email" ? "Email" : channel === "linkedin" ? "LinkedIn" : null;
   const isEmail = channel === "email";
 
-  const suggest = useCallback(async () => {
+  const suggest = useCallback(async (langOverride?: string) => {
     setError(null);
     setSuggesting(true);
     try {
-      const r = await fetch(`/api/inbox/suggest/${leadId}`, { method: "POST" });
+      const chosen = langOverride ?? lang;
+      const r = await fetch(`/api/inbox/suggest/${leadId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(chosen && chosen !== "auto" ? { lang: chosen } : {}),
+      });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) { setError(data?.error || "No se pudo generar el borrador"); return; }
       if (data?.draft) setText(data.draft);
@@ -57,7 +63,7 @@ export default function InboxComposer({
     } finally {
       setSuggesting(false);
     }
-  }, [leadId]);
+  }, [leadId, lang]);
 
   // Reset on lead change so a draft never leaks across leads. When autoSuggest
   // is on, kick off a fresh draft for the newly-opened question.
@@ -137,16 +143,41 @@ export default function InboxComposer({
         <p className="text-[11px] px-1 mb-1" style={{ color: "#dc2626" }}>{error}</p>
       )}
       <div className="flex items-center justify-between gap-2 mt-1">
-        <button
-          type="button"
-          onClick={suggest}
-          disabled={busy}
-          className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition disabled:opacity-50"
-          style={{ color: "var(--brand, #c9a83a)", backgroundColor: `color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)` }}
-        >
-          {suggesting ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-          Sugerir respuesta
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => suggest()}
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition disabled:opacity-50"
+            style={{ color: "var(--brand, #c9a83a)", backgroundColor: `color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)` }}
+          >
+            {suggesting ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+            Sugerir respuesta
+          </button>
+          {/* Language picker — forces the draft language. "auto" detects from the
+              conversation (default). Switching while a draft exists regenerates it. */}
+          <select
+            value={lang}
+            disabled={busy}
+            onChange={(e) => {
+              const v = e.target.value;
+              setLang(v);
+              if (text.trim()) void suggest(v); // regenerate the existing draft in the new language
+            }}
+            title="Idioma de la respuesta"
+            className="text-xs font-medium px-1.5 py-1.5 rounded-lg outline-none cursor-pointer disabled:opacity-50"
+            style={{ color: C.textBody, backgroundColor: C.surface, border: `1px solid ${C.border}` }}
+          >
+            <option value="auto">🌐 Auto</option>
+            <option value="en">English</option>
+            <option value="es">Español</option>
+            <option value="it">Italiano</option>
+            <option value="pt">Português</option>
+            <option value="fr">Français</option>
+            <option value="de">Deutsch</option>
+            <option value="nl">Nederlands</option>
+          </select>
+        </div>
         <div className="flex items-center gap-2">
           {channelLabel && (
             <span className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: C.textDim }}>

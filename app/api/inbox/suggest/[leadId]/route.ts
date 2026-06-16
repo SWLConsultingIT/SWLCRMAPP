@@ -25,8 +25,20 @@ function joinList(v: unknown): string {
   return typeof v === "string" ? v : "";
 }
 
+// Languages the composer picker can force. "auto" (or absent) = detect from the
+// conversation, the original behaviour.
+const LANG_NAMES: Record<string, string> = {
+  en: "English",
+  es: "Spanish",
+  it: "Italian",
+  pt: "Portuguese",
+  fr: "French",
+  de: "German",
+  nl: "Dutch",
+};
+
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ leadId: string }> },
 ) {
   const scope = await getUserScope();
@@ -34,6 +46,10 @@ export async function POST(
 
   const { leadId } = await params;
   const svc = getSupabaseService();
+
+  // Optional explicit language from the composer picker. Falls back to auto.
+  const body = await req.json().catch(() => ({} as Record<string, unknown>));
+  const forcedLang = typeof (body as any)?.lang === "string" ? ((body as any).lang as string).toLowerCase() : "";
 
   // Hydrate the lead (+ tenant + ICP) and enforce scope.
   const { data: lead } = await svc
@@ -83,7 +99,10 @@ export async function POST(
   const convoText = `${outboundText} ${leadMessage}`.toLowerCase();
   const esMarkers = /[ñáéíóú¿¡]|\b(hola|gracias|gusto|usted|trabajo|ventas|empresa|necesito|conectar|reunión|cómo|qué|para|porque|cuál|saludos|estimad|buenas|buenos d[ií]as)\b/;
   const looksSpanish = esMarkers.test(convoText);
-  const langDirective = looksSpanish
+  const forcedLangName = LANG_NAMES[forcedLang];
+  const langDirective = forcedLangName
+    ? `Write the ENTIRE reply in ${forcedLangName}, no matter what language the conversation has been in so far. Use natural, native ${forcedLangName} — never switch to another language.`
+    : looksSpanish
     ? "The conversation is in SPANISH — write your entire reply in natural Spanish (match the lead's regional tone). Do NOT reply in English."
     : "Write the ENTIRE reply in the SAME language the lead used. Match their language exactly — never switch languages.";
 
@@ -155,7 +174,7 @@ FORMAT: same language as the lead, no greeting line, no subject, no signature bl
       max_tokens: 400,
       temperature: 0.5,
       system,
-      messages: [{ role: "user", content: `${outboundText ? `Your last message to the lead (this sets the conversation language — reply in this same language):\n${outboundText}\n\n` : ""}Lead's reply (answer THIS):\n${leadMessage}` }],
+      messages: [{ role: "user", content: `${outboundText ? `Your last message to the lead${forcedLangName ? "" : " (this sets the conversation language — reply in this same language)"}:\n${outboundText}\n\n` : ""}Lead's reply (answer THIS):\n${leadMessage}` }],
     });
     const draft = (res.content[0]?.type === "text" ? res.content[0].text : "").trim();
     if (!draft) return NextResponse.json({ error: "empty draft" }, { status: 502 });
