@@ -115,6 +115,47 @@ export type CampaignSummary = {
   }>;
 };
 
+// GlobalSummary — cross-tenant overview shown in the "General" tab.
+// All counters are sums across every tenant in `getAllTenantSummaries`.
+export type GlobalSummary = {
+  tenantCount: number;
+  windowDays: number;
+  totalActiveLeads: number;
+  totalActiveFlows: number;
+  totalMessagesSent: number;
+  totalReplies: number;
+  positiveReplies: number;
+  replyRatePct: number; // 0-100
+  totalStuck: number;
+  totalFailed: number;
+  lastSendAt: string | null;
+  healthyCount: number;
+  warningCount: number;
+  criticalCount: number;
+  // Per-tenant mini-cards for the health grid.
+  tenants: Array<{
+    bioId: string;
+    bioName: string;
+    health: "healthy" | "warning" | "critical";
+    activeLeads: number;
+    activeFlows: number;
+    stuckQueued: number;
+    failed: number;
+    lastSendAt: string | null;
+  }>;
+  // Every active seller across every tenant (deduped by id).
+  sellers: Array<{
+    id: string;
+    name: string;
+    active: boolean;
+    unipileAccountId: string | null;
+    dailySentLast24h: number;
+    dailyLimit: number | null;
+    onRateLimitCooldown: boolean;
+    tenantNames: string[]; // which tenants surface this seller
+  }>;
+};
+
 export type CampaignDetail = CampaignSummary & {
   bioId: string;
   bioName: string;
@@ -569,6 +610,85 @@ export async function getAllTenantSummaries(): Promise<TenantSummary[]> {
     .order("company_name", { ascending: true });
   const list = (bios ?? []) as Array<{ id: string; company_name: string | null }>;
   return await Promise.all(list.map(b => getTenantSummary(b.id, b.company_name ?? "Unnamed tenant")));
+}
+
+// Roll all per-tenant summaries up into a single global view for the
+// "General" tab. Pure aggregation — does NOT re-query the DB.
+export function buildGlobalSummary(all: TenantSummary[]): GlobalSummary {
+  let totalActiveLeads = 0, totalActiveFlows = 0, totalMessagesSent = 0;
+  let totalReplies = 0, positiveReplies = 0, totalStuck = 0, totalFailed = 0;
+  let lastSendAt: string | null = null;
+  let healthyCount = 0, warningCount = 0, criticalCount = 0;
+  const sellerMap = new Map<string, GlobalSummary["sellers"][number]>();
+
+  for (const t of all) {
+    totalActiveLeads += t.general.activeLeads;
+    totalActiveFlows += t.general.activeCampaigns;
+    totalMessagesSent += t.general.totalMessagesSent;
+    totalReplies += t.general.totalReplies;
+    positiveReplies += t.general.positiveReplies;
+    totalStuck += t.campaigns.stuckQueued;
+    totalFailed += t.campaigns.failed;
+    if (t.general.lastSendAt && (!lastSendAt || t.general.lastSendAt > lastSendAt)) {
+      lastSendAt = t.general.lastSendAt;
+    }
+    if (t.general.health === "critical") criticalCount++;
+    else if (t.general.health === "warning") warningCount++;
+    else healthyCount++;
+
+    for (const s of t.accounts.sellers) {
+      const cur = sellerMap.get(s.id);
+      if (cur) {
+        if (!cur.tenantNames.includes(t.bioName)) cur.tenantNames.push(t.bioName);
+      } else {
+        sellerMap.set(s.id, {
+          id: s.id,
+          name: s.name,
+          active: s.active,
+          unipileAccountId: s.unipileAccountId,
+          dailySentLast24h: s.dailySentLast24h,
+          dailyLimit: s.dailyLimit,
+          onRateLimitCooldown: s.onRateLimitCooldown,
+          tenantNames: [t.bioName],
+        });
+      }
+    }
+  }
+
+  const replyRatePct = totalMessagesSent > 0 ? Math.round((totalReplies / totalMessagesSent) * 1000) / 10 : 0;
+
+  return {
+    tenantCount: all.length,
+    windowDays: WINDOW_DAYS,
+    totalActiveLeads,
+    totalActiveFlows,
+    totalMessagesSent,
+    totalReplies,
+    positiveReplies,
+    replyRatePct,
+    totalStuck,
+    totalFailed,
+    lastSendAt,
+    healthyCount,
+    warningCount,
+    criticalCount,
+    tenants: all.map(t => ({
+      bioId: t.bioId,
+      bioName: t.bioName,
+      health: t.general.health,
+      activeLeads: t.general.activeLeads,
+      activeFlows: t.general.activeCampaigns,
+      stuckQueued: t.campaigns.stuckQueued,
+      failed: t.campaigns.failed,
+      lastSendAt: t.general.lastSendAt,
+    })).sort((a, b) => {
+      // Critical first → warning → healthy; alphabetical within.
+      const ord = (h: GlobalSummary["tenants"][number]["health"]) => h === "critical" ? 0 : h === "warning" ? 1 : 2;
+      if (ord(a.health) !== ord(b.health)) return ord(a.health) - ord(b.health);
+      return a.bioName.localeCompare(b.bioName);
+    }),
+    sellers: Array.from(sellerMap.values()).sort((a, b) => a.name.localeCompare(b.name)),
+  };
 }
 
 // ── Per-campaign data ─────────────────────────────────────────────────

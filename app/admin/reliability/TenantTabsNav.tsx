@@ -7,7 +7,8 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { C } from "@/lib/design";
-import { AlertTriangle, AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, AlertCircle, CheckCircle2, Globe } from "lucide-react";
+import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -17,6 +18,8 @@ export type TenantTab = {
   health: "healthy" | "warning" | "critical";
 };
 
+export const GENERAL_TAB_ID = "general";
+
 export default function TenantTabsNav({
   tabs,
   activeBioId,
@@ -24,6 +27,7 @@ export default function TenantTabsNav({
   tabs: TenantTab[];
   activeBioId: string;
 }) {
+  const { t } = useLocale();
   const pathname = usePathname();
   const params = useSearchParams();
 
@@ -51,14 +55,41 @@ export default function TenantTabsNav({
       WebkitBackdropFilter: "blur(12px)",
     }}>
       <div className="px-6 lg:px-10 py-3 flex items-center gap-2 overflow-x-auto">
-        {tabs.map(t => {
-          const isActive = t.bioId === activeBioId;
-          const T = tone(t.health);
+        {/* General tab — first, always present. The default landing. */}
+        {(() => {
+          const isActive = activeBioId === GENERAL_TAB_ID;
+          return (
+            <Link
+              href={buildHref(GENERAL_TAB_ID)}
+              className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl transition-all"
+              style={isActive ? {
+                background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`,
+                color: "#1A1A2E",
+                boxShadow: `0 4px 14px -4px color-mix(in srgb, ${gold} 45%, transparent), 0 1px 3px rgba(0,0,0,0.06)`,
+                border: `1px solid color-mix(in srgb, ${gold} 50%, transparent)`,
+              } : {
+                backgroundColor: C.card,
+                color: C.textBody,
+                border: `1px solid ${C.border}`,
+              }}
+            >
+              <Globe size={13} style={{ color: isActive ? "#1A1A2E" : gold }} />
+              <span className="text-[13px] font-semibold whitespace-nowrap" style={{ fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+                {t("rel.tabs.general")}
+              </span>
+            </Link>
+          );
+        })()}
+        {/* Divider */}
+        <div className="shrink-0 w-px h-8 mx-1" style={{ backgroundColor: C.border }} />
+        {tabs.map(tab => {
+          const isActive = tab.bioId === activeBioId;
+          const T = tone(tab.health);
           const Icon = T.icon;
           return (
             <Link
-              key={t.bioId}
-              href={buildHref(t.bioId)}
+              key={tab.bioId}
+              href={buildHref(tab.bioId)}
               className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl transition-all"
               style={isActive ? {
                 background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`,
@@ -73,7 +104,7 @@ export default function TenantTabsNav({
             >
               <Icon size={13} style={{ color: isActive ? "#1A1A2E" : T.fg }} />
               <span className="text-[13px] font-semibold whitespace-nowrap" style={{ fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-                {t.bioName}
+                {tab.bioName}
               </span>
               <span className="text-[9px] font-bold uppercase tracking-[0.08em] px-1.5 py-0.5 rounded-full"
                 style={isActive ? {
@@ -84,7 +115,7 @@ export default function TenantTabsNav({
                   color: T.fg,
                   border: `1px solid ${T.border}`,
                 }}>
-                {t.health === "healthy" ? "ok" : t.health === "warning" ? "atención" : "crítico"}
+                {tab.health === "healthy" ? "ok" : tab.health === "warning" ? "atención" : "crítico"}
               </span>
             </Link>
           );

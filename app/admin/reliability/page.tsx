@@ -14,17 +14,19 @@ import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
 import { redirect } from "next/navigation";
 import { C } from "@/lib/design";
 import { ShieldCheck, RefreshCw } from "lucide-react";
-import { getAllTenantSummaries, getTenantCampaigns } from "@/lib/reliability-summary";
+import { getAllTenantSummaries, getTenantCampaigns, buildGlobalSummary } from "@/lib/reliability-summary";
 import { getT, getServerLocale } from "@/lib/i18n-server";
 import TenantTabsNav from "./TenantTabsNav";
 import StatusGeneralSection from "./StatusGeneralSection";
 import FlowsInFlightSection from "./FlowsInFlightSection";
 import StatusAccountsSection from "./StatusAccountsSection";
 import SilentStallBanner from "./SilentStallBanner";
-import WorkflowsSection from "./WorkflowsSection";
+import GeneralOverview from "./GeneralOverview";
 import HistorySection from "./HistorySection";
 import QABot from "./QABot";
 import AutoRefresh from "./AutoRefresh";
+
+const GENERAL_TAB_ID = "general";
 
 export const dynamic = "force-dynamic";
 
@@ -52,29 +54,27 @@ export default async function ReliabilityPage({
     );
   }
 
-  // Resolve active tenant from URL — default to the first critical/
-  // warning tenant so issues bubble up; otherwise the first tab.
+  // The "General" tab (cross-tenant overview) is the default landing.
+  // A specific tenant tab is shown when ?tenant=<bioId> matches a known
+  // company_bio; ?tenant=general (or anything else) → General.
   const requestedTenant = typeof sp.tenant === "string" ? sp.tenant : undefined;
   const requestedCampaign = typeof sp.campaign === "string" ? sp.campaign : undefined;
 
-  const activeTenant = (() => {
-    if (requestedTenant) {
-      const match = all.find(s => s.bioId === requestedTenant);
-      if (match) return match;
-    }
-    return all.find(s => s.general.health === "critical")
-        ?? all.find(s => s.general.health === "warning")
-        ?? all[0];
-  })();
+  const activeTenant = requestedTenant && requestedTenant !== GENERAL_TAB_ID
+    ? all.find(s => s.bioId === requestedTenant) ?? null
+    : null;
+  const isGeneral = !activeTenant;
+  const activeBioId = activeTenant?.bioId ?? GENERAL_TAB_ID;
 
   const tabs = all.map(s => ({ bioId: s.bioId, bioName: s.bioName, health: s.general.health }));
 
-  // The old `?campaign=Y` drill-in was retired 2026-06-16 — flow cards
-  // now expand INLINE inside FlowsInFlightSection (FlowCard.tsx) so the
-  // operator never leaves the page. We still read the param for
-  // backward-compatible deep-links but it no longer changes the layout.
+  // The old `?campaign=Y` drill-in was retired 2026-06-16. Flow cards
+  // expand INLINE so the operator never leaves the page.
   void requestedCampaign;
-  const tenantCampaigns = await getTenantCampaigns(activeTenant.bioId);
+
+  // Per-tenant campaigns fetched only when on a tenant tab.
+  const tenantCampaigns = activeTenant ? await getTenantCampaigns(activeTenant.bioId) : [];
+  const globalSummary = isGeneral ? buildGlobalSummary(all) : null;
 
   return (
     <div className="w-full">
@@ -130,21 +130,26 @@ export default async function ReliabilityPage({
           style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 30%, ${gold} 70%, transparent 100%)`, opacity: 0.4 }} />
       </div>
 
-      {/* Tenant tabs — sticky, full width */}
-      <TenantTabsNav tabs={tabs} activeBioId={activeTenant.bioId} />
+      {/* Tenant tabs — sticky, full width. First tab is "General". */}
+      <TenantTabsNav tabs={tabs} activeBioId={activeBioId} />
 
       {/* Body: either single-campaign drill-in OR tenant overview.
           Generous outer padding + tall vertical spacing — Fran asked for
           breathing room between sections (previously space-y-5 + py was
           too dense and sections felt crammed). */}
       <div className="px-6 lg:px-10 pt-8 pb-16 space-y-4">
-        <SilentStallBanner summary={activeTenant} />
-        <StatusGeneralSection summary={activeTenant} />
-        <FlowsInFlightSection summary={activeTenant} campaigns={tenantCampaigns} />
-        <StatusAccountsSection summary={activeTenant} />
-        <WorkflowsSection />
-        <HistorySection bioId={activeTenant.bioId} />
-        <QABot bioId={activeTenant.bioId} bioName={activeTenant.bioName} />
+        {isGeneral && globalSummary ? (
+          <GeneralOverview global={globalSummary} />
+        ) : activeTenant ? (
+          <>
+            <SilentStallBanner summary={activeTenant} />
+            <StatusGeneralSection summary={activeTenant} />
+            <FlowsInFlightSection summary={activeTenant} campaigns={tenantCampaigns} />
+            <StatusAccountsSection summary={activeTenant} />
+            <HistorySection bioId={activeTenant.bioId} />
+            <QABot bioId={activeTenant.bioId} bioName={activeTenant.bioName} />
+          </>
+        ) : null}
       </div>
 
       <AutoRefresh />

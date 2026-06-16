@@ -1602,6 +1602,25 @@ export const en: Dict = {
   "rel.history.title": "History",
   "rel.history.subtitle": "Recent reliability events for this tenant (last 50).",
   "rel.history.empty": "No events recorded yet for this tenant.",
+  // General tab (cross-tenant overview)
+  "rel.tabs.general": "General",
+  "rel.global.summary.title": "Global summary",
+  "rel.global.summary.subtitle": "Across all {count} tenants · last {days} days",
+  "rel.global.kpi.activeLeads": "Active leads",
+  "rel.global.kpi.activeFlows": "Active flows",
+  "rel.global.kpi.messagesSent": "Messages sent",
+  "rel.global.kpi.replyRate": "Reply rate",
+  "rel.global.kpi.stuck": "Stuck in queue",
+  "rel.global.kpi.failed": "Failed",
+  "rel.global.kpi.lastSend": "Last send",
+  "rel.global.health.title": "Tenant health",
+  "rel.global.health.subtitle": "One card per company · click to open its detail tab",
+  "rel.global.health.healthy": "{n} healthy",
+  "rel.global.health.warning": "{n} warning",
+  "rel.global.health.critical": "{n} critical",
+  "rel.global.sellers.title": "All sellers",
+  "rel.global.sellers.subtitle": "Every active seller across all tenants",
+  "rel.global.sellers.empty": "No active sellers configured.",
 };
 
 export const es: Dict = {
@@ -3196,6 +3215,25 @@ export const es: Dict = {
   "rel.history.title": "Historial",
   "rel.history.subtitle": "Eventos recientes de reliability para este tenant (últimos 50).",
   "rel.history.empty": "Todavía no hay eventos registrados para este tenant.",
+  // General tab (cross-tenant overview)
+  "rel.tabs.general": "General",
+  "rel.global.summary.title": "Resumen global",
+  "rel.global.summary.subtitle": "Todos los {count} tenants · últimos {days} días",
+  "rel.global.kpi.activeLeads": "Leads activos",
+  "rel.global.kpi.activeFlows": "Flows activos",
+  "rel.global.kpi.messagesSent": "Mensajes enviados",
+  "rel.global.kpi.replyRate": "Reply rate",
+  "rel.global.kpi.stuck": "Trabados en cola",
+  "rel.global.kpi.failed": "Fallidos",
+  "rel.global.kpi.lastSend": "Último envío",
+  "rel.global.health.title": "Salud por tenant",
+  "rel.global.health.subtitle": "Una card por empresa · click para abrir su detalle",
+  "rel.global.health.healthy": "{n} sanos",
+  "rel.global.health.warning": "{n} con atención",
+  "rel.global.health.critical": "{n} críticos",
+  "rel.global.sellers.title": "Todos los sellers",
+  "rel.global.sellers.subtitle": "Todos los sellers activos en todos los tenants",
+  "rel.global.sellers.empty": "No hay sellers activos configurados.",
 };
 
 export const dicts: Record<Locale, Dict> = { en, es };

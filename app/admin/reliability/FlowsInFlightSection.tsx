@@ -7,39 +7,11 @@
 import { getT } from "@/lib/i18n-server";
 import { C } from "@/lib/design";
 import { Send, AlertOctagon, PauseCircle, Mail, Phone, Share2, CheckCircle2, Workflow } from "lucide-react";
-import type { TenantSummary } from "@/lib/reliability-summary";
+import type { TenantSummary, CampaignSummary } from "@/lib/reliability-summary";
 import FoldableSection from "./FoldableSection";
 import FlowCard from "./FlowCard";
 
 const gold = "var(--brand, #c9a83a)";
-
-function iconForReason(reason: string): React.ReactNode {
-  // Either an i18n key (stuck buckets) or a free-text label (failure
-  // reasons from error_details) — match both shapes.
-  const r = reason.toLowerCase();
-  if (r.endsWith(".cooldown") || r.includes("rate limit") || r.includes("cooldown")) return <PauseCircle size={14} />;
-  if (r.endsWith(".terminal") || r.includes("terminal")) return <Ban size={14} />;
-  if (r.endsWith(".notaccepted") || r.includes("aceptar la conexión") || r.includes("accept the linkedin")) return <LinkIcon size={14} />;
-  if (r.endsWith(".manualcall") || r.includes("llamada manual") || r.includes("manual call")) return <Phone size={14} />;
-  if (r.endsWith(".noseller") || r.includes("sin seller") || r.includes("without an assigned")) return <Workflow size={14} />;
-  if (r.endsWith(".cronlag") || r.includes("dispatcher")) return <Workflow size={14} />;
-  if (r.includes("network") || r.includes("timeout")) return <Wifi size={14} />;
-  if (r.includes("credencial") || r.includes("token")) return <Key size={14} />;
-  if (r.includes("placeholder")) return <FileWarning size={14} />;
-  if (r.includes("payload") || r.includes("inválido")) return <AlertCircle size={14} />;
-  if (r.includes("baneada") || r.includes("deshabilitada")) return <Ban size={14} />;
-  if (r.includes("linkedin")) return <LinkIcon size={14} />;
-  if (r.includes("email")) return <MailX size={14} />;
-  return <HelpCircle size={14} />;
-}
-
-// Stuck reasons come back as i18n keys (e.g. "rel.stuck.reason.cooldown")
-// — translate them when rendering. Failure reasons are free text from
-// error_details, so they pass through unchanged.
-function renderReason(reason: string, t: (k: string, vars?: Record<string, string | number>) => string): string {
-  if (reason.startsWith("rel.stuck.reason.")) return t(reason);
-  return reason;
-}
 
 export default async function FlowsInFlightSection({
   summary,
