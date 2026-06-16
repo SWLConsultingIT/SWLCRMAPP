@@ -103,6 +103,10 @@ type IcpSection = {
   totalActive: number;
   totalReplies: number;
   totalPositive: number;
+  /** Eligible leads in this ICP with no active/paused/completed campaign — i.e.
+   *  ready to start a new flow. Distinct from totalLeads (leads already in this
+   *  ICP's flows). Surfaced next to the Create button. */
+  availableToLaunch: number;
   groups: CampaignGroup[];
 };
 
@@ -279,7 +283,7 @@ function groupCampaigns(campaigns: Campaign[]): CampaignGroup[] {
   }).sort((a, b) => b.active - a.active || b.totalLeads - a.totalLeads);
 }
 
-function buildIcpSections(groups: CampaignGroup[], icpMap: Record<string, IcpProfile>): IcpSection[] {
+function buildIcpSections(groups: CampaignGroup[], icpMap: Record<string, IcpProfile>, availableByIcp: Record<string, number>): IcpSection[] {
   const byIcp: Record<string, CampaignGroup[]> = {};
   for (const g of groups) {
     const key = g.icpProfileId ?? "__none";
@@ -310,6 +314,7 @@ function buildIcpSections(groups: CampaignGroup[], icpMap: Record<string, IcpPro
       totalActive: gs.reduce((s, g) => s + g.active, 0),
       totalReplies: gs.reduce((s, g) => s + g.totalReplies, 0),
       totalPositive: gs.reduce((s, g) => s + g.totalPositive, 0),
+      availableToLaunch: id !== "__none" ? (availableByIcp[id] ?? 0) : 0,
       groups: gs,
     };
   });
@@ -773,18 +778,33 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
             izquierda en el medio"). Bigger pill so it reads as the
             primary action of the section. */}
         {section.id && (
-          <Link
-            href={`/campaigns/new/${section.id}/pick`}
-            onClick={(e) => e.stopPropagation()}
-            className="relative inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-bold whitespace-nowrap transition-[opacity,transform] hover:opacity-90 hover:-translate-y-0.5 shrink-0"
-            style={{
-              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
-              color: N.ink,
-              boxShadow: `0 6px 20px color-mix(in srgb, ${gold} 38%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
-            }}
-          >
-            <Plus size={15} strokeWidth={2.8} /> {t("flows.createNew")}
-          </Link>
+          <div className="relative flex flex-col items-end gap-1 shrink-0">
+            <Link
+              href={`/campaigns/new/${section.id}/pick`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-bold whitespace-nowrap transition-[opacity,transform] hover:opacity-90 hover:-translate-y-0.5"
+              style={{
+                background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
+                color: N.ink,
+                boxShadow: `0 6px 20px color-mix(in srgb, ${gold} 38%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
+              }}
+            >
+              <Plus size={15} strokeWidth={2.8} /> {t("flows.createNew")}
+            </Link>
+            {/* Eligible leads waiting to be launched in this ICP — the count
+                that makes the Create button meaningful (vs the flow-perf
+                metrics on the right, which are 0 when there are no flows). */}
+            <span
+              className="inline-flex items-center gap-1 text-[10.5px] font-semibold whitespace-nowrap"
+              title="Eligible leads in this ICP with no active flow yet — available to start a new outreach flow."
+              style={{ color: section.availableToLaunch > 0 ? "color-mix(in srgb, white 78%, transparent)" : "color-mix(in srgb, white 42%, transparent)" }}
+            >
+              <UserPlus size={11} strokeWidth={2.4} style={{ color: section.availableToLaunch > 0 ? gold : "currentColor" }} />
+              {section.availableToLaunch > 0
+                ? `${section.availableToLaunch} ${section.availableToLaunch === 1 ? "lead" : "leads"} ready to launch`
+                : "No leads waiting"}
+            </span>
+          </div>
         )}
 
         {/* Rolled-up metrics — on the dark surface, white numbers with
@@ -848,13 +868,13 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
   );
 }
 
-export default function ActiveCampaignsView({ campaigns, icpMap }: { campaigns: Campaign[]; icpMap: Record<string, IcpProfile> }) {
+export default function ActiveCampaignsView({ campaigns, icpMap, availableByIcp = {} }: { campaigns: Campaign[]; icpMap: Record<string, IcpProfile>; availableByIcp?: Record<string, number> }) {
   const { t } = useLocale();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "paused">("all");
 
   const allGroups = useMemo(() => groupCampaigns(campaigns), [campaigns]);
-  const allSections = useMemo(() => buildIcpSections(allGroups, icpMap), [allGroups, icpMap]);
+  const allSections = useMemo(() => buildIcpSections(allGroups, icpMap, availableByIcp), [allGroups, icpMap, availableByIcp]);
 
   // Client-side filter pass — search matches against flow name + ICP name +
   // seller name; status chip filters the flow row's rolled-up status.

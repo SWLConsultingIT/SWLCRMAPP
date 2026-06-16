@@ -1,7 +1,7 @@
 import { getSupabaseServer } from "@/lib/supabase-server";
 import { getUserScope } from "@/lib/scope";
 import { C } from "@/lib/design";
-import { Megaphone, Send, MessageSquare, ThumbsUp, Sparkles, UserPlus } from "lucide-react";
+import { Megaphone, Send, MessageSquare, ThumbsUp, Sparkles } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import CampaignTabs from "./CampaignTabs";
 import TemplatesView from "./TemplatesView";
@@ -33,7 +33,11 @@ async function getData() {
     .order("created_at", { ascending: false })
     .range(0, 9999);
 
-  const campLeadsQ = supabase.from("campaigns").select("lead_id, leads!inner(company_bio_id)").in("status", ["active", "paused", "completed"]);
+  // .range needed — a plain select caps at 1000 rows, so tenants with >1000
+  // active/paused/completed campaigns had an INCOMPLETE "leads already in a
+  // flow" set, which inflated the "ready to launch" / uncampaigned count
+  // (leads that DO have a flow were counted as available). 2026-06-16.
+  const campLeadsQ = supabase.from("campaigns").select("lead_id, leads!inner(company_bio_id)").in("status", ["active", "paused", "completed"]).range(0, 99999);
 
   // Archived leads must not appear in the New Campaign picker. They were
   // showing up because the only filter was status; an admin operation that
@@ -45,7 +49,11 @@ async function getData() {
     .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, icp_profile_id, company_bio_id, created_at, source, encrypted_payload")
     .not("status", "in", "(closed_lost,qualified)")
     .neq("archived", true)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    // .range needed — plain select caps at 1000; a tenant with >1000 eligible
+    // leads (SWL has 1215) had its universe clipped, undercounting "ready to
+    // launch" (showed 633 vs the real ~734). 2026-06-16.
+    .range(0, 99999);
 
   const icpQ = supabase.from("icp_profiles").select("id, profile_name, target_industries, target_roles").eq("status", "approved");
 
@@ -244,7 +252,14 @@ export default async function CampaignsPage() {
     getData(),
     getT(),
   ]);
-  const hasPulse = stats.messagesSentToday > 0 || stats.repliesToday > 0 || stats.readyToLaunch > 0;
+  const hasPulse = stats.messagesSentToday > 0 || stats.repliesToday > 0;
+  // Per-ICP "available to launch" counts (eligible leads with no active/paused/
+  // completed campaign), surfaced on each ICP card instead of one global chip.
+  const availableByIcp: Record<string, number> = {};
+  for (const [key, grp] of Object.entries(uncampaignedGroups)) {
+    if (key === "__none") continue;
+    availableByIcp[key] = (grp as { leads: unknown[] }).leads.length;
+  }
 
   return (
     <div className="p-6 w-full">
@@ -293,16 +308,9 @@ export default async function CampaignsPage() {
         <PulseStat icon={MessageSquare} label={t("flows.pulse.repliesToday",   { n: stats.repliesToday })}         color="#7C3AED"
           sub={stats.positiveRepliesToday > 0 ? t("flows.pulse.positiveToday", { n: stats.positiveRepliesToday }) : undefined} />
 
-        {stats.readyToLaunch > 0 && (
-          <a href="/campaigns#ready" className="ml-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] font-bold transition-opacity hover:opacity-90"
-            style={{
-              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 75%, white))`,
-              color: "#1A1505",
-              boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 38%, transparent)`,
-            }}>
-            <UserPlus size={13} strokeWidth={2.4} /> {t("flows.pulse.readyToLaunch", { n: stats.readyToLaunch })}
-          </a>
-        )}
+        {/* "Ready to launch" chip removed 2026-06-16 — it summed leads that
+            don't surface on any ICP card (read as "a lie"). The available-lead
+            count now lives ON each ICP card, where you actually launch from. */}
         {!hasPulse && (
           <span className="text-[12px] italic" style={{ color: C.textMuted }}>{t("flows.pulse.noPulse")}</span>
         )}
@@ -319,6 +327,7 @@ export default async function CampaignsPage() {
         <ActiveCampaignsView
           campaigns={JSON.parse(JSON.stringify(campaigns.filter((c: any) => c.status === "active" || c.status === "paused")))}
           icpMap={JSON.parse(JSON.stringify(icpMap))}
+          availableByIcp={availableByIcp}
         />
 
         {/* ═══ TAB 1: TEMPLATES ═══ */}

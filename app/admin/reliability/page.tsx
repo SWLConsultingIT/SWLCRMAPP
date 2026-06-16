@@ -15,11 +15,11 @@ import { redirect } from "next/navigation";
 import { C } from "@/lib/design";
 import { ShieldCheck, RefreshCw } from "lucide-react";
 import { getAllTenantSummaries, getTenantCampaigns, getCampaignDetail } from "@/lib/reliability-summary";
+import { getT, getServerLocale } from "@/lib/i18n-server";
 import TenantTabsNav from "./TenantTabsNav";
 import StatusGeneralSection from "./StatusGeneralSection";
-import StatusCampaignsSection from "./StatusCampaignsSection";
+import FlowsInFlightSection from "./FlowsInFlightSection";
 import StatusAccountsSection from "./StatusAccountsSection";
-import CampaignsListSection from "./CampaignsListSection";
 import CampaignDetailSection from "./CampaignDetailSection";
 import AutoRefresh from "./AutoRefresh";
 
@@ -38,6 +38,8 @@ export default async function ReliabilityPage({
     redirect("/");
   }
 
+  const t = await getT();
+  const locale = await getServerLocale();
   const all = await getAllTenantSummaries();
   if (all.length === 0) {
     return (
@@ -104,18 +106,18 @@ export default async function ReliabilityPage({
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: gold }}>
-                  Mission Control
+                  {t("rel.hero.eyebrow1")}
                 </p>
                 <span className="w-1 h-1 rounded-full" style={{ backgroundColor: gold }} />
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: C.textMuted }}>
-                  Super Admin
+                  {t("rel.hero.eyebrow2")}
                 </p>
               </div>
               <h1 className="text-[28px] font-bold leading-none mb-1.5" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}>
-                Reliability
+                {t("rel.hero.title")}
               </h1>
               <p className="text-[12.5px] leading-relaxed" style={{ color: C.textBody }}>
-                Salud del sistema por tenant · <strong>{all.length} tenant{all.length === 1 ? "" : "s"}</strong> monitoreado{all.length === 1 ? "" : "s"} · auto-refresh cada 60s
+                {all.length === 1 ? t("rel.hero.subtitle.one") : t("rel.hero.subtitle", { count: all.length })}
               </p>
             </div>
           </div>
@@ -123,7 +125,7 @@ export default async function ReliabilityPage({
             style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${gold} 28%, transparent)`, color: gold }}>
             <RefreshCw size={11} />
             <span className="text-[11px] font-semibold tabular-nums">
-              actualizado: {new Date().toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" })}
+              {t("rel.hero.lastUpdated", { when: new Date().toLocaleString(locale === "es" ? "es-AR" : "en-US", { dateStyle: "short", timeStyle: "short" }) })}
             </span>
           </div>
         </div>
@@ -142,8 +144,7 @@ export default async function ReliabilityPage({
         ) : (
           <>
             <StatusGeneralSection summary={activeTenant} />
-            <StatusCampaignsSection summary={activeTenant} />
-            <CampaignsListSection campaigns={tenantCampaigns} bioId={activeTenant.bioId} />
+            <FlowsInFlightSection summary={activeTenant} campaigns={tenantCampaigns} />
             <StatusAccountsSection summary={activeTenant} />
           </>
         )}

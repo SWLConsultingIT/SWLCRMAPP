@@ -4,6 +4,7 @@
 import { C } from "@/lib/design";
 import { Users, Mail, Share2, Pause, Power, Plug } from "lucide-react";
 import type { TenantSummary } from "@/lib/reliability-summary";
+import { getT } from "@/lib/i18n-server";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -14,7 +15,8 @@ function initialsOf(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export default function StatusAccountsSection({ summary }: { summary: TenantSummary }) {
+export default async function StatusAccountsSection({ summary }: { summary: TenantSummary }) {
+  const t = await getT();
   const { accounts } = summary;
 
   // Accent: amber if any seller is on cooldown OR Instantly missing, green otherwise.
@@ -44,8 +46,8 @@ export default function StatusAccountsSection({ summary }: { summary: TenantSumm
             <Plug size={15} />
           </div>
           <div>
-            <h2 className="text-[17px] font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>Cuentas conectadas</h2>
-            <p className="text-[11.5px] mt-0.5" style={{ color: C.textMuted }}>Sellers (LinkedIn vía Unipile) + workspace de Instantly. Si algo está en cooldown o desconectado, se ve acá.</p>
+            <h2 className="text-[17px] font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>{t("rel.accounts.title")}</h2>
+            <p className="text-[11.5px] mt-0.5" style={{ color: C.textMuted }}>{t("rel.accounts.subtitle")}</p>
           </div>
         </div>
       </header>
@@ -55,17 +57,17 @@ export default function StatusAccountsSection({ summary }: { summary: TenantSumm
         <div className="p-6" style={{ backgroundColor: C.card }}>
           <div className="flex items-center gap-2 mb-4">
             <Share2 size={15} style={{ color: C.linkedin }} />
-            <h3 className="text-[12px] font-bold uppercase tracking-[0.08em]" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>Sellers · LinkedIn</h3>
+            <h3 className="text-[12px] font-bold uppercase tracking-[0.08em]" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{t("rel.accounts.sellers")}</h3>
             <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ml-auto"
               style={{ backgroundColor: C.surface, color: C.textMuted }}>
-              {accounts.sellers.length} totales
+              {t("rel.accounts.sellers.total", { count: accounts.sellers.length })}
             </span>
           </div>
 
           {accounts.sellers.length === 0 ? (
             <div className="rounded-xl p-5 text-center" style={{ backgroundColor: C.bg, border: `1px dashed ${C.border}` }}>
               <Users size={20} style={{ color: C.textMuted, margin: "0 auto 8px" }} />
-              <p className="text-[12px]" style={{ color: C.textMuted }}>No hay sellers configurados para este tenant.</p>
+              <p className="text-[12px]" style={{ color: C.textMuted }}>{t("rel.accounts.sellers.empty")}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -106,15 +108,15 @@ export default function StatusAccountsSection({ summary }: { summary: TenantSumm
                         <p className="text-[13px] font-semibold truncate" style={{ color: C.textPrimary }}>{s.name}</p>
                         <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
                           style={{ backgroundColor: toneBg, color: toneFg, border: `1px solid color-mix(in srgb, ${toneFg} 30%, transparent)` }}>
-                          {inactive ? "inactivo" : onCooldown ? "cooldown" : "operativo"}
+                          {inactive ? t("rel.accounts.sellers.state.inactive") : onCooldown ? t("rel.accounts.sellers.state.cooldown") : t("rel.accounts.sellers.state.operational")}
                         </span>
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 text-[11px]" style={{ color: C.textMuted }}>
                         <span>
-                          <strong className="tabular-nums" style={{ color: C.textBody }}>{s.dailySentLast24h}</strong> enviados últ. 24h
+                          <strong className="tabular-nums" style={{ color: C.textBody }}>{s.dailySentLast24h}</strong> {t("rel.accounts.sellers.sent24h")}
                           {s.dailyLimit ? ` / ${s.dailyLimit}` : ""}
                         </span>
-                        {!s.unipileAccountId && <span style={{ color: "#DC2626" }}>· sin unipile_account_id</span>}
+                        {!s.unipileAccountId && <span style={{ color: "#DC2626" }}>{t("rel.accounts.sellers.noUnipile")}</span>}
                       </div>
                     </div>
 

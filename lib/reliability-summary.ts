@@ -249,12 +249,18 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
     svc.from("campaign_messages").select("id, channel, error_details, created_at, leads!inner(company_bio_id)").eq("status", "failed").gte("created_at", since).eq("leads.company_bio_id", bioId).limit(500),
     svc.from("campaign_messages").select("id, channel, step_number, created_at, metadata, lead_id, campaign_id, leads!inner(company_bio_id, primary_first_name, primary_last_name, company_name, linkedin_connected, status), campaigns(name, seller_id, sellers(name))").eq("status", "queued").eq("leads.company_bio_id", bioId).limit(2000),
     svc.from("lead_replies").select("id, classification, received_at, leads!inner(company_bio_id)").gte("received_at", since).eq("leads.company_bio_id", bioId).limit(1000),
-    // Sellers can be either primary-tenant'd via `company_bio_id` OR
-    // shared into this tenant via `shared_with_company_bio_ids` (array).
-    // Mirror the OR pattern used by /api/campaigns/approve — without it
-    // tenants that piggy-back on a parent's sellers (e.g. Arqy reusing
-    // SWL sellers) showed only their own row and looked under-staffed.
-    svc.from("sellers").select("id, name, active, unipile_account_id, linkedin_daily_limit, company_bio_id, shared_with_company_bio_ids").or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`),
+    // Mirror EXACTLY the query in /app/accounts/page.tsx so the
+    // reliability page shows the same seller set the operator sees
+    // in the LinkedIn Accounts UI — sellers primary-tenant'd via
+    // `company_bio_id` OR shared into this tenant via
+    // `shared_with_company_bio_ids`. Active-only, ordered by name.
+    // (Was: missing the `.eq('active', true)` + order, and not
+    //  guaranteeing the OR was applied identically.)
+    svc.from("sellers")
+      .select("id, name, unipile_account_id, linkedin_daily_limit, active, company_bio_id, shared_with_company_bio_ids")
+      .eq("active", true)
+      .or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`)
+      .order("name"),
     svc.from("company_bios").select("instantly_campaign_id, instantly_workspace_id").eq("id", bioId).maybeSingle(),
   ]);
 
@@ -302,6 +308,9 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
   });
   const stuckQueued = stuckRows.length;
 
+  // Returns an i18n key — the UI translates it via t(). Lets the
+  // Reliability page render in EN or ES without us having to fork
+  // strings in the data layer.
   function classifyStuckReason(m: typeof queuedMsgs[number]): string {
     const channel = (m.channel ?? "linkedin").toLowerCase();
     const step = m.step_number ?? 0;
@@ -312,26 +321,14 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
     const sellerId = m.campaigns?.seller_id ?? null;
     if (lastRateLimit) {
       const t = Date.parse(lastRateLimit);
-      if (!isNaN(t) && t > nowMs - RATE_LIMIT_COOLDOWN_MS) {
-        return "Seller en cooldown por rate-limit";
-      }
+      if (!isNaN(t) && t > nowMs - RATE_LIMIT_COOLDOWN_MS) return "rel.stuck.reason.cooldown";
     }
-    if (sellerId && sellerOnCooldownIds.has(sellerId)) {
-      return "Seller en cooldown por rate-limit";
-    }
-    if (leadStatus && ["closed_won", "closed_lost", "qualified"].includes(leadStatus)) {
-      return "Lead en estado terminal (no debería enviarse)";
-    }
-    if (channel === "linkedin" && step > 0 && !linkedinConnected) {
-      return "Esperando que el lead acepte la conexión de LinkedIn";
-    }
-    if (channel === "call") {
-      return "Llamada manual pendiente (sellers tienen que dialar)";
-    }
-    if (!m.campaigns?.seller_id) {
-      return "Campaña sin seller asignado";
-    }
-    return "Cron del dispatcher no levantó este mensaje todavía";
+    if (sellerId && sellerOnCooldownIds.has(sellerId)) return "rel.stuck.reason.cooldown";
+    if (leadStatus && ["closed_won", "closed_lost", "qualified"].includes(leadStatus)) return "rel.stuck.reason.terminal";
+    if (channel === "linkedin" && step > 0 && !linkedinConnected) return "rel.stuck.reason.notAccepted";
+    if (channel === "call") return "rel.stuck.reason.manualCall";
+    if (!m.campaigns?.seller_id) return "rel.stuck.reason.noSeller";
+    return "rel.stuck.reason.cronLag";
   }
 
   function buildStuckBreakdown(): CampaignsStats["stuckBreakdown"] {
@@ -495,17 +492,44 @@ function campaignHealth(s: CampaignSummary): "healthy" | "warning" | "critical" 
 export async function getTenantCampaigns(bioId: string): Promise<CampaignSummary[]> {
   const svc = getSupabaseService();
 
-  const { data: campaignsRaw } = await svc
-    .from("campaigns")
-    .select("id, name, status, sequence_length, lead_id, last_step_at, created_at, leads!inner(company_bio_id)")
-    .eq("leads.company_bio_id", bioId)
-    .order("created_at", { ascending: false })
-    .limit(500);
+  // 2-step query — was: `.from('campaigns').select('...leads!inner(...)').eq('leads.company_bio_id', bioId)`.
+  // The embedded FK traversal silently returned 0 rows on Supabase REST for
+  // this dataset (Arqy had visible stuck campaigns in the StatusCampaigns
+  // section but the list rendered "no hay campañas"). Paginate lead IDs by
+  // bio first, then `lead_id IN (...)` — bulletproof and FK-agnostic.
+  const leadIds: string[] = [];
+  {
+    const pageSize = 1000;
+    for (let from = 0; from < 50000; from += pageSize) {
+      const { data: leadsPage } = await svc
+        .from("leads")
+        .select("id")
+        .eq("company_bio_id", bioId)
+        .range(from, from + pageSize - 1);
+      const batch = (leadsPage ?? []) as Array<{ id: string }>;
+      if (batch.length === 0) break;
+      for (const r of batch) leadIds.push(r.id);
+      if (batch.length < pageSize) break;
+    }
+  }
+  if (leadIds.length === 0) return [];
 
-  const campaigns = ((campaignsRaw ?? []) as unknown) as Array<{
-    id: string; name: string | null; status: string | null; sequence_length: number | null;
-    lead_id: string | null; last_step_at: string | null; created_at: string | null;
-  }>;
+  // Campaigns by lead_id IN — chunk to avoid PostgREST `in` URL limits.
+  const chunk = <T,>(arr: T[], n: number) => Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, (i + 1) * n));
+  type CampaignRow = { id: string; name: string | null; status: string | null; sequence_length: number | null; lead_id: string | null; last_step_at: string | null; created_at: string | null };
+  const campaignsAcc: CampaignRow[] = [];
+  for (const ids of chunk(leadIds, 500)) {
+    const { data: campaignsRaw } = await svc
+      .from("campaigns")
+      .select("id, name, status, sequence_length, lead_id, last_step_at, created_at")
+      .in("lead_id", ids)
+      .order("created_at", { ascending: false })
+      .limit(2000);
+    campaignsAcc.push(...((campaignsRaw ?? []) as CampaignRow[]));
+  }
+  const campaignsRaw = campaignsAcc;
+
+  const campaigns = campaignsRaw;
   if (campaigns.length === 0) return [];
 
   const campaignIds = campaigns.map(c => c.id);
@@ -519,13 +543,13 @@ export async function getTenantCampaigns(bioId: string): Promise<CampaignSummary
   const msgs = (msgsRaw ?? []) as Array<{ campaign_id: string; status: string | null; sent_at: string | null; created_at: string | null; metadata: Record<string, unknown> | null }>;
 
   // Group replies by lead_id for fast lookup.
-  const leadIds = Array.from(new Set(campaigns.map(c => c.lead_id).filter((x): x is string => !!x)));
+  const campaignLeadIds = Array.from(new Set(campaigns.map(c => c.lead_id).filter((x): x is string => !!x)));
   const repliesByLeadMap = new Map<string, { total: number; positive: number }>();
-  if (leadIds.length > 0) {
+  if (campaignLeadIds.length > 0) {
     const { data: repliesRaw } = await svc
       .from("lead_replies")
       .select("lead_id, classification")
-      .in("lead_id", leadIds)
+      .in("lead_id", campaignLeadIds)
       .limit(5000);
     for (const r of (repliesRaw ?? []) as Array<{ lead_id: string | null; classification: string | null }>) {
       if (!r.lead_id) continue;

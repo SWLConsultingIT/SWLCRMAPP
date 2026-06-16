@@ -5,17 +5,19 @@
 import { C } from "@/lib/design";
 import { CheckCircle2, AlertTriangle, AlertCircle, Users, Send, MessageSquare, Clock, Sparkles } from "lucide-react";
 import type { TenantSummary } from "@/lib/reliability-summary";
+import { getT } from "@/lib/i18n-server";
 
 const gold = "var(--brand, #c9a83a)";
 
-export default function StatusGeneralSection({ summary }: { summary: TenantSummary }) {
+export default async function StatusGeneralSection({ summary }: { summary: TenantSummary }) {
+  const t = await getT();
   const { paragraph, general } = summary;
 
   const verdict = general.health === "critical"
-    ? { fg: "#DC2626", bg: "color-mix(in srgb, #DC2626 8%, transparent)", border: "color-mix(in srgb, #DC2626 32%, transparent)", icon: AlertTriangle, label: "Crítico" }
+    ? { fg: "#DC2626", bg: "color-mix(in srgb, #DC2626 8%, transparent)", border: "color-mix(in srgb, #DC2626 32%, transparent)", icon: AlertTriangle, label: t("rel.general.verdict.critical") }
     : general.health === "warning"
-      ? { fg: "#D97706", bg: "color-mix(in srgb, #D97706 8%, transparent)", border: "color-mix(in srgb, #D97706 32%, transparent)", icon: AlertCircle, label: "Atención" }
-      : { fg: C.green, bg: `color-mix(in srgb, ${C.green} 8%, transparent)`, border: `color-mix(in srgb, ${C.green} 32%, transparent)`, icon: CheckCircle2, label: "Saludable" };
+      ? { fg: "#D97706", bg: "color-mix(in srgb, #D97706 8%, transparent)", border: "color-mix(in srgb, #D97706 32%, transparent)", icon: AlertCircle, label: t("rel.general.verdict.warning") }
+      : { fg: C.green, bg: `color-mix(in srgb, ${C.green} 8%, transparent)`, border: `color-mix(in srgb, ${C.green} 32%, transparent)`, icon: CheckCircle2, label: t("rel.general.verdict.healthy") };
   const Icon = verdict.icon;
 
   // Map verdict to a left-edge accent color so the section reads as
@@ -44,8 +46,8 @@ export default function StatusGeneralSection({ summary }: { summary: TenantSumma
             <Sparkles size={15} />
           </div>
           <div>
-            <h2 className="text-[17px] font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>Resumen ejecutivo</h2>
-            <p className="text-[11.5px] mt-0.5" style={{ color: C.textMuted }}>Últimos {general.windowDays} días</p>
+            <h2 className="text-[17px] font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>{t("rel.general.title")}</h2>
+            <p className="text-[11.5px] mt-0.5" style={{ color: C.textMuted }}>{t("rel.general.windowDays", { days: general.windowDays })}</p>
           </div>
         </div>
         <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full"
@@ -80,10 +82,10 @@ export default function StatusGeneralSection({ summary }: { summary: TenantSumma
 
       {/* Supporting KPIs (small bullets under the paragraph) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-px" style={{ backgroundColor: C.border }}>
-        <KpiCell icon={<Users size={15} />} label="Leads activos" value={general.activeLeads.toLocaleString()} hint={`${general.activeCampaigns.toLocaleString()} flows activos`} />
-        <KpiCell icon={<Send size={15} />} label="Mensajes enviados" value={general.totalMessagesSent.toLocaleString()} hint={`en ${general.windowDays}d`} />
-        <KpiCell icon={<MessageSquare size={15} />} label="Reply rate" value={`${general.replyRatePct}%`} hint={`${general.totalReplies} respuestas · ${general.positiveReplies} positivas`} accent={general.replyRatePct >= 5} />
-        <KpiCell icon={<Clock size={15} />} label="Último envío" value={formatRelative(general.lastSendAt)} hint={general.lastSendAt ? new Date(general.lastSendAt).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" }) : "sin envíos"} />
+        <KpiCell icon={<Users size={15} />} label={t("rel.general.kpi.activeLeads")} value={general.activeLeads.toLocaleString()} hint={t("rel.general.kpi.activeLeads.hint", { count: general.activeCampaigns.toLocaleString() })} />
+        <KpiCell icon={<Send size={15} />} label={t("rel.general.kpi.messagesSent")} value={general.totalMessagesSent.toLocaleString()} hint={t("rel.general.kpi.messagesSent.hint", { days: general.windowDays })} />
+        <KpiCell icon={<MessageSquare size={15} />} label={t("rel.general.kpi.replyRate")} value={`${general.replyRatePct}%`} hint={t("rel.general.kpi.replyRate.hint", { total: general.totalReplies, positive: general.positiveReplies })} accent={general.replyRatePct >= 5} />
+        <KpiCell icon={<Clock size={15} />} label={t("rel.general.kpi.lastSend")} value={formatRelative(general.lastSendAt)} hint={general.lastSendAt ? new Date(general.lastSendAt).toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" }) : t("rel.general.kpi.lastSend.empty")} />
       </div>
     </section>
   );
