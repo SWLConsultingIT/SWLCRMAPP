@@ -65,6 +65,23 @@ export default function CampaignCallsTab({ leads }: { leads: LeadRef[] }) {
     return m;
   }, [calls]);
 
+  // Outcome summary across all calls in this flow (boss 2026-06-12: a quick
+  // read of how the calling is going, not just the lead list). Maps the raw
+  // classification to the seller-facing buckets.
+  const outcomes = useMemo(() => {
+    const o = { interested: 0, badTiming: 0, notInterested: 0, voicemail: 0, wrongNumber: 0, unclassified: 0 };
+    for (const c of calls ?? []) {
+      const cl = c.classification ?? "";
+      if (cl === "positive" || cl === "meeting_intent") o.interested++;
+      else if (cl === "follow_up" || cl === "not_now") o.badTiming++;
+      else if (cl === "negative") o.notInterested++;
+      else if (cl === "voicemail") o.voicemail++;
+      else if (cl === "wrong_number") o.wrongNumber++;
+      else o.unclassified++;
+    }
+    return o;
+  }, [calls]);
+
   // Show every lead in the campaign — distinguish "has calls" vs "no calls".
   // The previous design only listed leads with existing calls, leaving no
   // entry point to dial leads who hadn't been called yet. Surface every lead
@@ -102,6 +119,24 @@ export default function CampaignCallsTab({ leads }: { leads: LeadRef[] }) {
         <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
           {leads.length} lead{leads.length === 1 ? "" : "s"} · {leadsWithCallsCount} called · {totalCalls} total calls
         </p>
+        {/* Outcome summary — only once at least one call has an outcome. */}
+        {totalCalls > 0 && (outcomes.interested + outcomes.badTiming + outcomes.notInterested + outcomes.voicemail + outcomes.wrongNumber) > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+            {([
+              ["Interested", outcomes.interested, "#16A34A"],
+              ["Bad timing", outcomes.badTiming, "#D97706"],
+              ["Not interested", outcomes.notInterested, C.red],
+              ["Voicemail", outcomes.voicemail, "#0EA5E9"],
+              ["Wrong #", outcomes.wrongNumber, C.textMuted],
+              ["Unclassified", outcomes.unclassified, C.textMuted],
+            ] as [string, number, string][]).filter(([, n]) => n > 0).map(([label, n, color]) => (
+              <span key={label} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold border"
+                style={{ borderColor: `color-mix(in srgb, ${color} 40%, transparent)`, color, backgroundColor: `color-mix(in srgb, ${color} 8%, transparent)` }}>
+                <span className="font-bold tabular-nums">{n}</span> {label}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
       <div>
         {leads.slice(0, visibleCount).map(l => {
