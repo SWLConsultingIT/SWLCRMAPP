@@ -40,6 +40,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 
+// This cron scans every active campaign + their call messages. With 1500+
+// active campaigns the per-campaign round-trips overran the default function
+// budget and the run never completed (stale calls then piled up for weeks).
+// Give it the full window.
+export const maxDuration = 60;
+
 const CRON_SECRET = process.env.CRON_SECRET;
 // Stale thresholds per mode. The two modes share an end behavior (skip +
 // advance) but `manual` gives the seller a longer window because the user
@@ -77,16 +83,57 @@ export async function GET(req: NextRequest) {
   const nowMs = Date.now();
   const nowISO = new Date().toISOString();
 
-  // 1. Pull every active, non-archived campaign whose current step is a call.
-  //    We re-check the channel against sequence_steps[current_step] in JS
-  //    because the channel of the current step lives in jsonb.
-  const { data: campaigns, error: fetchErr } = await svc
-    .from("campaigns")
-    .select("id, lead_id, current_step, call_advance_mode, sequence_steps")
-    .eq("status", "active")
-    .is("archived_at", null);
-  if (fetchErr) {
-    return NextResponse.json({ error: fetchErr.message }, { status: 500 });
+  // 1. Pull EVERY active, non-archived campaign — paginated. PostgREST caps a
+  //    plain select at 1000 rows, so a single .select() silently dropped the
+  //    ~500 campaigns past the cap (they were never evaluated). Loop in pages.
+  const campaigns: CampaignRow[] = [];
+  {
+    const PAGE = 1000;
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await svc
+        .from("campaigns")
+        .select("id, lead_id, current_step, call_advance_mode, sequence_steps")
+        .eq("status", "active")
+        .is("archived_at", null)
+        .range(from, from + PAGE - 1);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      const rows = (data ?? []) as CampaignRow[];
+      campaigns.push(...rows);
+      if (rows.length < PAGE) break;
+    }
+  }
+
+  // 2. Keep only campaigns sitting ON a call step (channel lives in jsonb, so
+  //    we resolve it in JS). This is cheap and prunes the set before any DB
+  //    round-trips.
+  const onCall = campaigns.filter(c => {
+    const steps = Array.isArray(c.sequence_steps) ? c.sequence_steps : [];
+    return steps[c.current_step ?? 0]?.channel === "call";
+  });
+
+  // Small helper: chunk an id list so the `in.(…)` query strings stay short.
+  const chunk = <T,>(arr: T[], n: number): T[][] => {
+    const out: T[][] = [];
+    for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+    return out;
+  };
+
+  // 3. BULK-fetch the queued call messages for those campaigns in a handful of
+  //    chunked queries instead of one query PER campaign (the old hot loop did
+  //    ~900 sequential round-trips and timed out). Index by campaign_id.
+  const callMsgByCampaign = new Map<string, MessageRow>();
+  for (const ids of chunk(onCall.map(c => c.id), 100)) {
+    const { data } = await svc
+      .from("campaign_messages")
+      .select("id, campaign_id, step_number, channel, status, metadata, created_at")
+      .in("campaign_id", ids)
+      .eq("channel", "call")
+      .eq("status", "queued");
+    for (const m of (data ?? []) as (MessageRow & { campaign_id: string })[]) {
+      // Keep the lowest step_number queued call per campaign (the current one).
+      const prev = callMsgByCampaign.get(m.campaign_id);
+      if (!prev || m.step_number < prev.step_number) callMsgByCampaign.set(m.campaign_id, m);
+    }
   }
 
   type Candidate = {
@@ -98,35 +145,22 @@ export async function GET(req: NextRequest) {
     mode: "auto" | "manual";
   };
 
-  const candidates: Candidate[] = [];
-
-  for (const campRaw of (campaigns ?? []) as CampaignRow[]) {
+  // 4. Build stale candidates (still no per-campaign DB calls). For each, note
+  //    the next step number we'd want to advance to.
+  const prelim: Array<{ c: Candidate; nextStepNumber: number | null }> = [];
+  for (const campRaw of onCall) {
     const steps = Array.isArray(campRaw.sequence_steps) ? campRaw.sequence_steps : [];
     const curIdx = campRaw.current_step ?? 0;
-    if (steps[curIdx]?.channel !== "call") continue;
+    const stepNumber = curIdx + 1; // step_number is 1-indexed in campaign_messages
+    const callMsg = callMsgByCampaign.get(campRaw.id);
+    if (!callMsg || callMsg.step_number !== stepNumber) continue;
 
     const mode = (campRaw.call_advance_mode ?? "auto") as "auto" | "manual";
     const staleDays = mode === "manual" ? STALE_DAYS_MANUAL : STALE_DAYS_AUTO;
     const cutoffMs = nowMs - staleDays * 86400000;
 
-    // Fetch the call message at the current step. We want queued (the seller
-    // never dialed — or dispatch-call couldn't auto-dial) AND old enough.
-    // Skip rows whose eligible_at is still in the future — they're not
-    // "stale" yet, they're scheduled.
-    const stepNumber = curIdx + 1; // step_number is 1-indexed in campaign_messages
-    const { data: msgRows } = await svc
-      .from("campaign_messages")
-      .select("id, step_number, channel, status, metadata, created_at")
-      .eq("campaign_id", campRaw.id)
-      .eq("step_number", stepNumber)
-      .eq("channel", "call")
-      .eq("status", "queued");
-    const callMsg = (msgRows ?? [])[0] as MessageRow | undefined;
-    if (!callMsg) continue;
-
-    // Use the LATER of created_at and metadata.eligible_at when computing
-    // age — a row that was rescheduled forward by deferred_by="business-hours"
-    // shouldn't be considered stale before its eligible_at even fires.
+    // Use the LATER of created_at and metadata.eligible_at — a row rescheduled
+    // forward by deferred_by="business-hours" isn't stale before its eligible_at.
     const eligibleAt = (callMsg.metadata as { eligible_at?: string } | null)?.eligible_at;
     const startMs = Math.max(
       new Date(callMsg.created_at).getTime(),
@@ -135,23 +169,33 @@ export async function GET(req: NextRequest) {
     if (startMs > cutoffMs) continue;
     const ageDays = Math.floor((nowMs - startMs) / 86400000);
 
-    // Find the next-step message to advance to. If the call is the last step,
-    // there's nothing to advance to — let the campaign complete naturally.
-    const nextStepNumber = stepNumber + 1;
-    let nextMsgId: string | null = null;
-    if (nextStepNumber <= steps.length) {
-      const { data: nextRows } = await svc
-        .from("campaign_messages")
-        .select("id, status")
-        .eq("campaign_id", campRaw.id)
-        .eq("step_number", nextStepNumber)
-        .in("status", ["draft", "queued"])
-        .limit(1);
-      nextMsgId = (nextRows ?? [])[0]?.id ?? null;
-    }
-
-    candidates.push({ campaign: campRaw, callMsg, nextMsgId, staleDays, ageDays, mode });
+    const nextStepNumber = stepNumber + 1 <= steps.length ? stepNumber + 1 : null;
+    prelim.push({
+      c: { campaign: campRaw, callMsg, nextMsgId: null, staleDays, ageDays, mode },
+      nextStepNumber,
+    });
   }
+
+  // 5. BULK-resolve the next-step message id for all candidates at once. Fetch
+  //    every draft/queued message for the candidate campaigns, index by
+  //    (campaign_id, step_number), then attach.
+  const advanceable = prelim.filter(p => p.nextStepNumber !== null);
+  const nextMsgByKey = new Map<string, string>();
+  for (const ids of chunk(advanceable.map(p => p.c.campaign.id), 100)) {
+    const { data } = await svc
+      .from("campaign_messages")
+      .select("id, campaign_id, step_number, status")
+      .in("campaign_id", ids)
+      .in("status", ["draft", "queued"]);
+    for (const m of (data ?? []) as { id: string; campaign_id: string; step_number: number }[]) {
+      nextMsgByKey.set(`${m.campaign_id}:${m.step_number}`, m.id);
+    }
+  }
+
+  const candidates: Candidate[] = prelim.map(({ c, nextStepNumber }) => ({
+    ...c,
+    nextMsgId: nextStepNumber !== null ? nextMsgByKey.get(`${c.campaign.id}:${nextStepNumber}`) ?? null : null,
+  }));
 
   // 2. DRY-RUN: report what we'd advance.
   if (!execute) {
