@@ -64,6 +64,14 @@ export default function FlowCard({ campaign }: { campaign: CampaignSummary }) {
   const { t } = useLocale();
   const [open, setOpen] = useState(false);
 
+  // Defensive: tolerate older cached payloads where these optional fields
+  // weren't yet populated by the server (caused a runtime crash when the
+  // page rendered with stale RSC data on first deploy).
+  const stuckBuckets = campaign.stuckBuckets ?? [];
+  const failureBuckets = campaign.failureBuckets ?? [];
+  const stepBreakdown = campaign.stepBreakdown ?? [];
+  const channels = campaign.channels ?? [];
+
   const tone = campaign.health === "critical"
     ? { fg: "#DC2626", bgSoft: "color-mix(in srgb, #DC2626 6%, transparent)", border: "color-mix(in srgb, #DC2626 35%, transparent)", icon: AlertTriangle, label: t("rel.flows.cards.health.critical") }
     : campaign.health === "warning"
@@ -109,11 +117,11 @@ export default function FlowCard({ campaign }: { campaign: CampaignSummary }) {
             <span>·</span>
             <span className="inline-flex items-center gap-1"><Users size={9} /> {campaign.totalLeads.toLocaleString()} {t("rel.flows.cards.leads")}</span>
             {campaign.lastActivityAt && <><span>·</span><span>{formatRelative(campaign.lastActivityAt)}</span></>}
-            {campaign.channels.length > 0 && (
+            {channels.length > 0 && (
               <>
                 <span>·</span>
                 <span className="inline-flex items-center gap-1">
-                  {campaign.channels.map(c => <span key={c} className="inline-flex items-center gap-0.5">{channelIcon(c)}</span>)}
+                  {channels.map(c => <span key={c} className="inline-flex items-center gap-0.5">{channelIcon(c)}</span>)}
                 </span>
               </>
             )}
@@ -132,7 +140,7 @@ export default function FlowCard({ campaign }: { campaign: CampaignSummary }) {
       {open && (
         <div className="border-t" style={{ borderColor: tone.border, backgroundColor: C.card }}>
           {/* Step-by-step status */}
-          {campaign.stepBreakdown.length > 0 && (
+          {stepBreakdown.length > 0 && (
             <div className="px-4 py-3 border-b" style={{ borderColor: C.border }}>
               <div className="flex items-center gap-1.5 mb-2">
                 <Workflow size={11} style={{ color: gold }} />
@@ -152,7 +160,7 @@ export default function FlowCard({ campaign }: { campaign: CampaignSummary }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {campaign.stepBreakdown.map(s => (
+                    {stepBreakdown.map(s => (
                       <tr key={s.stepNumber} style={{ borderBottom: `1px solid ${C.border}` }}>
                         <td className="py-1.5 font-bold tabular-nums" style={{ color: C.textPrimary }}>{s.stepNumber === 0 ? "CR" : s.stepNumber}</td>
                         <td>
@@ -174,7 +182,7 @@ export default function FlowCard({ campaign }: { campaign: CampaignSummary }) {
           )}
 
           {/* Stuck breakdown */}
-          {campaign.stuckBuckets.length > 0 && (
+          {stuckBuckets.length > 0 && (
             <div className="px-4 py-3 border-b" style={{ borderColor: C.border, backgroundColor: "color-mix(in srgb, #D97706 3%, transparent)" }}>
               <div className="flex items-center gap-1.5 mb-2">
                 <PauseCircle size={11} style={{ color: "#D97706" }} />
@@ -183,7 +191,7 @@ export default function FlowCard({ campaign }: { campaign: CampaignSummary }) {
                 </span>
               </div>
               <div className="space-y-1.5">
-                {campaign.stuckBuckets.map((b, i) => (
+                {stuckBuckets.map((b, i) => (
                   <div key={i} className="rounded-lg p-2.5"
                     style={{ backgroundColor: C.card, border: "1px solid color-mix(in srgb, #D97706 18%, transparent)" }}>
                     <div className="flex items-center gap-2 mb-1">
@@ -220,7 +228,7 @@ export default function FlowCard({ campaign }: { campaign: CampaignSummary }) {
           )}
 
           {/* Failed breakdown + retry */}
-          {campaign.failureBuckets.length > 0 && (
+          {failureBuckets.length > 0 && (
             <div className="px-4 py-3" style={{ backgroundColor: "color-mix(in srgb, #DC2626 3%, transparent)" }}>
               <div className="flex items-center gap-1.5 mb-2">
                 <AlertOctagon size={11} style={{ color: "#DC2626" }} />
@@ -229,7 +237,7 @@ export default function FlowCard({ campaign }: { campaign: CampaignSummary }) {
                 </span>
               </div>
               <div className="space-y-1.5">
-                {campaign.failureBuckets.map((b, i) => (
+                {failureBuckets.map((b, i) => (
                   <div key={i} className="rounded-lg p-2.5"
                     style={{ backgroundColor: C.card, border: "1px solid color-mix(in srgb, #DC2626 18%, transparent)" }}>
                     <div className="flex items-center gap-2 mb-1">
@@ -265,7 +273,7 @@ export default function FlowCard({ campaign }: { campaign: CampaignSummary }) {
           )}
 
           {/* All-clear footer if nothing's wrong */}
-          {campaign.stuckBuckets.length === 0 && campaign.failureBuckets.length === 0 && (
+          {stuckBuckets.length === 0 && failureBuckets.length === 0 && (
             <div className="px-4 py-3 flex items-center gap-2 text-[11.5px]" style={{ color: C.green }}>
               <CheckCircle2 size={13} />
               <span>{t("rel.flows.stuck.empty")}</span>

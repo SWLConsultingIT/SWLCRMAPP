@@ -835,6 +835,7 @@ export async function getTenantCampaigns(bioId: string): Promise<CampaignSummary
       health: "healthy",
       stuckBuckets,
       failureBuckets,
+      stepBreakdown,
     };
     base.health = campaignHealth(base);
     void key;
@@ -1001,6 +1002,7 @@ export async function getCampaignDetail(campaignId: string): Promise<CampaignDet
     health: "healthy",
     stuckBuckets: [], // detail view has its own (richer) stuckBreakdown
     failureBuckets: [],
+    stepBreakdown: [],
     bioId,
     bioName,
     stuckBreakdown,
