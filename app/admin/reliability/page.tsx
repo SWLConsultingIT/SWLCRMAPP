@@ -23,7 +23,6 @@ import StatusAccountsSection from "./StatusAccountsSection";
 import SilentStallBanner from "./SilentStallBanner";
 import GeneralOverview from "./GeneralOverview";
 import HistorySection from "./HistorySection";
-import QABot from "./QABot";
 import AutoRefresh from "./AutoRefresh";
 
 const GENERAL_TAB_ID = "general";
@@ -144,7 +143,6 @@ export default async function ReliabilityPage({
             <FlowsInFlightSection summary={activeTenant} campaigns={tenantCampaigns} />
             <StatusAccountsSection summary={activeTenant} />
             <HistorySection bioId={activeTenant.bioId} />
-            <QABot bioId={activeTenant.bioId} bioName={activeTenant.bioName} />
           </>
         ) : null}
       </div>

@@ -12,7 +12,7 @@
 
 import { NextResponse } from "next/server";
 import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
-import { getTenantSummary } from "@/lib/reliability-summary";
+import { getTenantSummary, getAllTenantSummaries, buildGlobalSummary } from "@/lib/reliability-summary";
 import { getTenantHistory } from "@/lib/reliability-history";
 import { getSupabaseService } from "@/lib/supabase-service";
 
@@ -33,24 +33,43 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "RELIABILITY_QA_WEBHOOK_URL not set — create the n8n workflow first" }, { status: 503 });
   }
 
-  // Look up tenant name (for the LLM context).
-  const svc = getSupabaseService();
-  const { data: bioRow } = await svc.from("company_bios").select("company_name").eq("id", body.bioId).maybeSingle();
-  const bioName = (bioRow as { company_name: string | null } | null)?.company_name ?? "Unknown";
-
-  // Collect the grounded context — same data the page already renders.
-  const [summary, history] = await Promise.all([
-    getTenantSummary(body.bioId, bioName),
-    getTenantHistory(body.bioId),
-  ]);
-
-  const payload = {
-    bio_id: body.bioId,
-    bio_name: bioName,
-    question: body.question.trim(),
-    summary, // full TenantSummary
-    history, // last 50 events
-  };
+  // 'general' = ask about the whole org (all tenants). Otherwise scoped
+  // to one tenant.
+  let payload: Record<string, unknown>;
+  if (body.bioId === "general") {
+    const all = await getAllTenantSummaries();
+    const global = buildGlobalSummary(all);
+    // Per-tenant histories sampled (top 10 each) to keep the payload small.
+    const histories = await Promise.all(all.map(async t => {
+      const h = await getTenantHistory(t.bioId);
+      return { bioId: t.bioId, bioName: t.bioName, events: h.slice(0, 10) };
+    }));
+    payload = {
+      bio_id: "general",
+      bio_name: "Todos los tenants",
+      question: body.question.trim(),
+      scope: "global",
+      global,         // GlobalSummary (KPIs + tenant verdicts + sellers)
+      tenants: all,   // full per-tenant summaries
+      histories,      // per-tenant top-10 events
+    };
+  } else {
+    const svc = getSupabaseService();
+    const { data: bioRow } = await svc.from("company_bios").select("company_name").eq("id", body.bioId).maybeSingle();
+    const bioName = (bioRow as { company_name: string | null } | null)?.company_name ?? "Unknown";
+    const [summary, history] = await Promise.all([
+      getTenantSummary(body.bioId, bioName),
+      getTenantHistory(body.bioId),
+    ]);
+    payload = {
+      bio_id: body.bioId,
+      bio_name: bioName,
+      question: body.question.trim(),
+      scope: "tenant",
+      summary, // full TenantSummary
+      history, // last 50 events
+    };
+  }
 
   try {
     const r = await fetch(url, {

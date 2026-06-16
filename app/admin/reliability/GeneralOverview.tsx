@@ -13,6 +13,7 @@ import { C } from "@/lib/design";
 import type { GlobalSummary } from "@/lib/reliability-summary";
 import FoldableSection from "./FoldableSection";
 import WorkflowsSection from "./WorkflowsSection";
+import QABot from "./QABot";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -238,6 +239,7 @@ export default async function GeneralOverview({ global }: { global: GlobalSummar
       {healthGrid}
       <WorkflowsSection />
       {sellersList}
+      <QABot bioId="general" bioName="Todos los tenants" />
     </>
   );
 }
