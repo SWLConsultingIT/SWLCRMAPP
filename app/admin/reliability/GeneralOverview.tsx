@@ -159,52 +159,70 @@ export default async function GeneralOverview({ global }: { global: GlobalSummar
       )}
     >
       {global.sellers.length === 0 ? (
-        <div className="px-6 py-5 text-[12.5px]" style={{ color: C.textMuted }}>
+        <div className="px-7 py-6 text-[12.5px]" style={{ color: C.textMuted }}>
           {t("rel.global.sellers.empty")}
         </div>
       ) : (
-        <div className="divide-y" style={{ borderColor: C.border }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-px p-px" style={{ backgroundColor: C.border }}>
           {global.sellers.map(s => {
             const onCooldown = s.onRateLimitCooldown;
+            const missingUnipile = !s.unipileAccountId;
             const pct = s.dailyLimit ? Math.min(100, Math.round((s.dailySentLast24h / s.dailyLimit) * 100)) : null;
             const barColor = pct !== null && pct >= 90 ? "#DC2626" : pct !== null && pct >= 75 ? "#D97706" : gold;
+            const stateLabel = missingUnipile ? "sin unipile" : onCooldown ? "cooldown" : "operativo";
+            const stateColor = missingUnipile ? "#DC2626" : onCooldown ? "#D97706" : C.green;
+            const stateBg = `color-mix(in srgb, ${stateColor} 10%, transparent)`;
             return (
-              <div key={s.id} className="px-6 py-3.5 flex items-center gap-3" style={{ borderColor: C.border }}>
-                <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 font-bold text-[12px]"
-                  style={{
-                    background: onCooldown
-                      ? "linear-gradient(135deg, color-mix(in srgb, #D97706 25%, transparent), color-mix(in srgb, #D97706 8%, transparent))"
-                      : `linear-gradient(135deg, color-mix(in srgb, ${gold} 25%, transparent), color-mix(in srgb, ${gold} 8%, transparent))`,
-                    color: onCooldown ? "#D97706" : gold,
-                  }}>
-                  {initialsOf(s.name)}
+              <div key={s.id} className="px-6 py-5" style={{ backgroundColor: C.card }}>
+                {/* Header row: avatar + name + state pill */}
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0 font-bold text-[13px]"
+                    style={{
+                      background: `linear-gradient(135deg, color-mix(in srgb, ${stateColor} 25%, transparent), color-mix(in srgb, ${stateColor} 8%, transparent))`,
+                      color: stateColor,
+                      border: `1px solid color-mix(in srgb, ${stateColor} 22%, transparent)`,
+                    }}>
+                    {initialsOf(s.name)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[14px] font-bold leading-tight truncate" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }} title={s.name}>
+                      {s.name}
+                    </p>
+                    <p className="text-[10.5px] mt-0.5 truncate" style={{ color: C.textMuted }} title={s.tenantNames.join(" · ")}>
+                      {s.tenantNames.join(" · ")}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-[9.5px] font-bold uppercase tracking-[0.08em] px-2 py-1 rounded-full"
+                    style={{ backgroundColor: stateBg, color: stateColor, border: `1px solid color-mix(in srgb, ${stateColor} 28%, transparent)` }}>
+                    {stateLabel}
+                  </span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-[13px] font-semibold" style={{ color: C.textPrimary }}>{s.name}</p>
-                    {onCooldown && (
-                      <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
-                        style={{ backgroundColor: "color-mix(in srgb, #D97706 10%, transparent)", color: "#D97706", border: "1px solid color-mix(in srgb, #D97706 30%, transparent)" }}>
-                        cooldown
+
+                {/* Daily-cap progress bar — full width, large number on the left */}
+                {pct !== null ? (
+                  <div className="space-y-1.5">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-[20px] font-bold tabular-nums leading-none"
+                          style={{ color: pct >= 90 ? "#DC2626" : pct >= 75 ? "#D97706" : C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}>
+                          {s.dailySentLast24h}
+                        </span>
+                        <span className="text-[11px] tabular-nums" style={{ color: C.textMuted }}>
+                          / {s.dailyLimit} sent 24h
+                        </span>
+                      </div>
+                      <span className="text-[11px] font-bold tabular-nums"
+                        style={{ color: pct >= 90 ? "#DC2626" : pct >= 75 ? "#D97706" : C.textMuted }}>
+                        {pct}%
                       </span>
-                    )}
-                    {!s.unipileAccountId && (
-                      <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "#DC2626" }}>· sin unipile_account_id</span>
-                    )}
-                  </div>
-                  <div className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
-                    {s.tenantNames.join(" · ")}
-                  </div>
-                </div>
-                {pct !== null && (
-                  <div className="w-28 shrink-0">
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: C.surface }}>
-                      <div className="h-full transition-[width] duration-300" style={{ width: `${pct}%`, backgroundColor: barColor }} />
                     </div>
-                    <div className="text-[10px] mt-1 text-right tabular-nums font-semibold" style={{ color: pct >= 90 ? "#DC2626" : C.textMuted }}>
-                      <strong style={{ color: C.textBody }}>{s.dailySentLast24h}</strong>/{s.dailyLimit} · {pct}%
+                    <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: C.surface }}>
+                      <div className="h-full transition-[width] duration-300 rounded-full"
+                        style={{ width: `${Math.max(2, pct)}%`, background: `linear-gradient(90deg, ${barColor}, color-mix(in srgb, ${barColor} 75%, white))` }} />
                     </div>
                   </div>
+                ) : (
+                  <p className="text-[11px]" style={{ color: C.textMuted }}>Sin límite diario configurado.</p>
                 )}
               </div>
             );

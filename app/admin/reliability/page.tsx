@@ -13,7 +13,7 @@
 import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
 import { redirect } from "next/navigation";
 import { C } from "@/lib/design";
-import { ShieldCheck, RefreshCw } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { getAllTenantSummaries, getTenantCampaigns, buildGlobalSummary } from "@/lib/reliability-summary";
 import { getT, getServerLocale } from "@/lib/i18n-server";
 import TenantTabsNav from "./TenantTabsNav";
@@ -117,13 +117,10 @@ export default async function ReliabilityPage({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-            style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${gold} 28%, transparent)`, color: gold }}>
-            <RefreshCw size={11} />
-            <span className="text-[11px] font-semibold tabular-nums">
-              {t("rel.hero.lastUpdated", { when: new Date().toLocaleString(locale === "es" ? "es-AR" : "en-US", { dateStyle: "short", timeStyle: "short" }) })}
-            </span>
-          </div>
+          {/* Hero controls — Updated/Refresh/Auto. Moved here from the
+              page bottom 2026-06-16 so the operator finds them where
+              mission-control style chrome lives (top-right). */}
+          <AutoRefresh />
         </div>
         {/* Decorative bottom accent bar */}
         <div className="absolute left-0 right-0 bottom-0 h-[2px]"
@@ -151,8 +148,6 @@ export default async function ReliabilityPage({
           </>
         ) : null}
       </div>
-
-      <AutoRefresh />
     </div>
   );
 }
