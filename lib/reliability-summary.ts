@@ -49,8 +49,50 @@ type CampaignsStats = {
   emailsSent: number;
   callsAttempted: number;
   stuckQueued: number; // queued + eligible_at < now() OR no eligible_at AND created_at > STUCK_DAYS
+  stuckBreakdown: Array<{
+    reason: string;
+    count: number;
+    samples: Array<{ campaignName: string; leadName: string; channel: string; stepNumber: number; ageDays: number; messageId: string; campaignId: string }>;
+  }>;
   failed: number;
   failureReasons: Array<{ reason: string; count: number; sample?: string }>;
+};
+
+export type CampaignSummary = {
+  campaignId: string;
+  campaignName: string;
+  status: string;
+  channels: string[];
+  totalSteps: number;
+  totalLeads: number;
+  messagesSent: number;
+  messagesQueued: number;
+  messagesStuck: number;
+  messagesFailed: number;
+  replies: number;
+  positiveReplies: number;
+  lastActivityAt: string | null;
+  health: "healthy" | "warning" | "critical";
+};
+
+export type CampaignDetail = CampaignSummary & {
+  bioId: string;
+  bioName: string;
+  stuckBreakdown: Array<{
+    reason: string;
+    count: number;
+    samples: Array<{ leadName: string; channel: string; stepNumber: number; ageDays: number; messageId: string }>;
+  }>;
+  failureReasons: Array<{ reason: string; count: number; sample?: string }>;
+  steps: Array<{
+    stepNumber: number;
+    channel: string;
+    sent: number;
+    queued: number;
+    stuck: number;
+    failed: number;
+    draft: number;
+  }>;
 };
 
 type AccountsStats = {
@@ -205,7 +247,7 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
     svc.from("campaigns").select("id, lead_id, leads!inner(company_bio_id)", { count: "exact", head: true }).eq("status", "active").eq("leads.company_bio_id", bioId),
     svc.from("campaign_messages").select("id, channel, step_number, sent_at, leads!inner(company_bio_id, linkedin_connected)").eq("status", "sent").gte("sent_at", since).eq("leads.company_bio_id", bioId).limit(2000),
     svc.from("campaign_messages").select("id, channel, error_details, created_at, leads!inner(company_bio_id)").eq("status", "failed").gte("created_at", since).eq("leads.company_bio_id", bioId).limit(500),
-    svc.from("campaign_messages").select("id, channel, created_at, metadata, leads!inner(company_bio_id)").eq("status", "queued").eq("leads.company_bio_id", bioId).limit(1000),
+    svc.from("campaign_messages").select("id, channel, step_number, created_at, metadata, lead_id, campaign_id, leads!inner(company_bio_id, primary_first_name, primary_last_name, company_name, linkedin_connected, status), campaigns(name, seller_id, sellers(name))").eq("status", "queued").eq("leads.company_bio_id", bioId).limit(2000),
     svc.from("lead_replies").select("id, classification, received_at, leads!inner(company_bio_id)").gte("received_at", since).eq("leads.company_bio_id", bioId).limit(1000),
     svc.from("sellers").select("id, name, active, unipile_account_id, linkedin_daily_limit, company_bio_id").eq("company_bio_id", bioId),
     svc.from("company_bios").select("instantly_campaign_id, instantly_workspace_id").eq("id", bioId).maybeSingle(),
@@ -216,7 +258,17 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
   // the single-object shape we actually want by going through unknown.
   const sentMsgs = ((sentMessagesRes.data ?? []) as unknown) as Array<{ channel: string | null; step_number: number | null; sent_at: string | null; leads: { linkedin_connected: boolean | null } | null }>;
   const failedMsgs = ((failedMessagesRes.data ?? []) as unknown) as Array<{ channel: string | null; error_details: string | null; created_at: string | null }>;
-  const queuedMsgs = ((queuedMessagesRes.data ?? []) as unknown) as Array<{ id: string; channel: string | null; created_at: string | null; metadata: Record<string, unknown> | null }>;
+  const queuedMsgs = ((queuedMessagesRes.data ?? []) as unknown) as Array<{
+    id: string;
+    channel: string | null;
+    step_number: number | null;
+    created_at: string | null;
+    metadata: Record<string, unknown> | null;
+    lead_id: string | null;
+    campaign_id: string | null;
+    leads: { primary_first_name: string | null; primary_last_name: string | null; company_name: string | null; linkedin_connected: boolean | null; status: string | null } | null;
+    campaigns: { name: string | null; seller_id: string | null; sellers: { name: string | null } | null } | null;
+  }>;
   const replies = ((repliesRes.data ?? []) as unknown) as Array<{ classification: string | null; received_at: string | null }>;
   const sellers = (sellersRes.data ?? []) as Array<{ id: string; name: string; active: boolean; unipile_account_id: string | null; linkedin_daily_limit: number | null }>;
   const bio = (bioRes.data ?? null) as { instantly_campaign_id: string | null; instantly_workspace_id: string | null } | null;
@@ -229,16 +281,99 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
   const callsAttempted = sentMsgs.filter(m => m.channel === "call").length;
   const linkedinDMs = sentMsgs.filter(m => m.channel === "linkedin" && (m.step_number ?? 0) > 0).length;
 
-  // Stuck queued = either eligible_at is past OR no eligible_at AND created_at is older than STUCK_DAYS.
+  // Stuck queued = either eligible_at is past OR no eligible_at AND
+  // created_at is older than STUCK_DAYS. We also classify the LIKELY
+  // REASON each stuck row is stuck for so the operator can see WHY,
+  // not just a count.
   const nowMs = Date.now();
-  const stuckQueued = queuedMsgs.filter(m => {
+  const sellerOnCooldownIds = new Set<string>(); // populated below from cooldownRows
+  const stuckRows = queuedMsgs.filter(m => {
     const eligibleAt = (m.metadata?.eligible_at as string | undefined) ?? null;
     if (eligibleAt) {
       const t = Date.parse(eligibleAt);
       return !isNaN(t) && t < nowMs - 60_000;
     }
     return m.created_at !== null && m.created_at < stuckBefore;
-  }).length;
+  });
+  const stuckQueued = stuckRows.length;
+
+  function classifyStuckReason(m: typeof queuedMsgs[number]): string {
+    const channel = (m.channel ?? "linkedin").toLowerCase();
+    const step = m.step_number ?? 0;
+    const leadStatus = m.leads?.status ?? null;
+    const linkedinConnected = m.leads?.linkedin_connected === true;
+    const meta = m.metadata ?? {};
+    const lastRateLimit = (meta.last_rate_limit_at as string | undefined) ?? null;
+    const sellerId = m.campaigns?.seller_id ?? null;
+    if (lastRateLimit) {
+      const t = Date.parse(lastRateLimit);
+      if (!isNaN(t) && t > nowMs - RATE_LIMIT_COOLDOWN_MS) {
+        return "Seller en cooldown por rate-limit";
+      }
+    }
+    if (sellerId && sellerOnCooldownIds.has(sellerId)) {
+      return "Seller en cooldown por rate-limit";
+    }
+    if (leadStatus && ["closed_won", "closed_lost", "qualified"].includes(leadStatus)) {
+      return "Lead en estado terminal (no debería enviarse)";
+    }
+    if (channel === "linkedin" && step > 0 && !linkedinConnected) {
+      return "Esperando que el lead acepte la conexión de LinkedIn";
+    }
+    if (channel === "call") {
+      return "Llamada manual pendiente (sellers tienen que dialar)";
+    }
+    if (!m.campaigns?.seller_id) {
+      return "Campaña sin seller asignado";
+    }
+    return "Cron del dispatcher no levantó este mensaje todavía";
+  }
+
+  function buildStuckBreakdown(): CampaignsStats["stuckBreakdown"] {
+    const buckets = new Map<string, CampaignsStats["stuckBreakdown"][number]>();
+    for (const m of stuckRows) {
+      const reason = classifyStuckReason(m);
+      const cur = buckets.get(reason) ?? { reason, count: 0, samples: [] };
+      cur.count++;
+      if (cur.samples.length < 3) {
+        const first = m.leads?.primary_first_name ?? "";
+        const last = m.leads?.primary_last_name ?? "";
+        const leadName = (first + " " + last).trim() || (m.leads?.company_name ?? "(lead sin nombre)");
+        const created = m.created_at ? Date.parse(m.created_at) : nowMs;
+        const ageDays = Math.max(0, Math.round((nowMs - created) / 86400000));
+        cur.samples.push({
+          campaignName: m.campaigns?.name ?? "(sin nombre)",
+          leadName,
+          channel: m.channel ?? "?",
+          stepNumber: m.step_number ?? 0,
+          ageDays,
+          messageId: m.id,
+          campaignId: m.campaign_id ?? "",
+        });
+      }
+      buckets.set(reason, cur);
+    }
+    return Array.from(buckets.values()).sort((a, b) => b.count - a.count);
+  }
+
+  // Cooldown sellers query — runs BEFORE the stuck breakdown so the
+  // classifier knows which sellers are currently rate-limited.
+  const { data: cooldownRows } = await svc
+    .from("campaign_messages")
+    .select("id, metadata, campaigns!inner(seller_id, leads!inner(company_bio_id))")
+    .eq("status", "queued")
+    .eq("campaigns.leads.company_bio_id", bioId)
+    .not("metadata->last_rate_limit_at", "is", null)
+    .gte("metadata->>last_rate_limit_at", cooldownThreshold)
+    .limit(500);
+  for (const r of ((cooldownRows ?? []) as unknown) as Array<{ campaigns: { seller_id: string | null } | null }>) {
+    const sid = r.campaigns?.seller_id;
+    if (sid) sellerOnCooldownIds.add(sid);
+  }
+  const cooldownSellerIds = sellerOnCooldownIds; // alias for the accounts section below
+
+  // Now we can build the stuck breakdown (uses sellerOnCooldownIds).
+  const stuckBreakdown = buildStuckBreakdown();
 
   // Replies
   const totalReplies = replies.length;
@@ -255,25 +390,6 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
     .filter((x): x is string => !!x)
     .sort()
     .pop() ?? null;
-
-  // Sellers + cooldown check
-  // A seller is "on cooldown" when any of their queued messages have a
-  // last_rate_limit_at metadata stamp within the last RATE_LIMIT_COOLDOWN_MS.
-  const cooldownSellerIds = new Set<string>();
-  // The queue rows don't include seller_id directly; do a quick second fetch
-  // for queued rows that have a cooldown stamp.
-  const { data: cooldownRows } = await svc
-    .from("campaign_messages")
-    .select("id, metadata, campaigns!inner(seller_id, leads!inner(company_bio_id))")
-    .eq("status", "queued")
-    .eq("campaigns.leads.company_bio_id", bioId)
-    .not("metadata->last_rate_limit_at", "is", null)
-    .gte("metadata->>last_rate_limit_at", cooldownThreshold)
-    .limit(500);
-  for (const r of ((cooldownRows ?? []) as unknown) as Array<{ campaigns: { seller_id: string | null } | null }>) {
-    const sid = r.campaigns?.seller_id;
-    if (sid) cooldownSellerIds.add(sid);
-  }
 
   // Per-seller sent-last-24h
   const sellerDailyMap = new Map<string, number>();
@@ -310,6 +426,7 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
     emailsSent,
     callsAttempted,
     stuckQueued,
+    stuckBreakdown,
     failed: failedMsgs.length,
     failureReasons,
   };
@@ -357,4 +474,273 @@ export async function getAllTenantSummaries(): Promise<TenantSummary[]> {
     .order("company_name", { ascending: true });
   const list = (bios ?? []) as Array<{ id: string; company_name: string | null }>;
   return await Promise.all(list.map(b => getTenantSummary(b.id, b.company_name ?? "Unnamed tenant")));
+}
+
+// ── Per-campaign data ─────────────────────────────────────────────────
+
+function campaignHealth(s: CampaignSummary): "healthy" | "warning" | "critical" {
+  if (s.messagesFailed >= 10 || (s.messagesStuck >= 50 && s.messagesSent === 0)) return "critical";
+  if (s.messagesFailed > 0 || s.messagesStuck > 10) return "warning";
+  return "healthy";
+}
+
+// List every campaign of a tenant with high-level stats. Used by the
+// per-tenant CampaignsListSection so the operator can drill down to a
+// specific campaign that's misbehaving.
+export async function getTenantCampaigns(bioId: string): Promise<CampaignSummary[]> {
+  const svc = getSupabaseService();
+
+  const { data: campaignsRaw } = await svc
+    .from("campaigns")
+    .select("id, name, status, sequence_length, lead_id, last_step_at, created_at, leads!inner(company_bio_id)")
+    .eq("leads.company_bio_id", bioId)
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  const campaigns = ((campaignsRaw ?? []) as unknown) as Array<{
+    id: string; name: string | null; status: string | null; sequence_length: number | null;
+    lead_id: string | null; last_step_at: string | null; created_at: string | null;
+  }>;
+  if (campaigns.length === 0) return [];
+
+  const campaignIds = campaigns.map(c => c.id);
+
+  // Group messages by campaign_id, then by status.
+  const { data: msgsRaw } = await svc
+    .from("campaign_messages")
+    .select("id, campaign_id, status, sent_at, created_at, metadata")
+    .in("campaign_id", campaignIds)
+    .limit(20000);
+  const msgs = (msgsRaw ?? []) as Array<{ campaign_id: string; status: string | null; sent_at: string | null; created_at: string | null; metadata: Record<string, unknown> | null }>;
+
+  // Group replies by lead_id for fast lookup.
+  const leadIds = Array.from(new Set(campaigns.map(c => c.lead_id).filter((x): x is string => !!x)));
+  const repliesByLeadMap = new Map<string, { total: number; positive: number }>();
+  if (leadIds.length > 0) {
+    const { data: repliesRaw } = await svc
+      .from("lead_replies")
+      .select("lead_id, classification")
+      .in("lead_id", leadIds)
+      .limit(5000);
+    for (const r of (repliesRaw ?? []) as Array<{ lead_id: string | null; classification: string | null }>) {
+      if (!r.lead_id) continue;
+      const cur = repliesByLeadMap.get(r.lead_id) ?? { total: 0, positive: 0 };
+      cur.total++;
+      if (r.classification === "positive") cur.positive++;
+      repliesByLeadMap.set(r.lead_id, cur);
+    }
+  }
+
+  const nowMs = Date.now();
+  const stuckBefore = new Date(Date.now() - STUCK_DAYS * 86400000).toISOString();
+  const summaries: CampaignSummary[] = campaigns.map(c => {
+    const cm = msgs.filter(m => m.campaign_id === c.id);
+    const channels = new Set<string>();
+    let sent = 0, queued = 0, failed = 0, stuck = 0;
+    let lastActivityAt: string | null = c.last_step_at ?? null;
+    for (const m of cm) {
+      const s = m.status ?? "";
+      if (s === "sent") {
+        sent++;
+        if (m.sent_at && (!lastActivityAt || m.sent_at > lastActivityAt)) lastActivityAt = m.sent_at;
+      } else if (s === "queued") {
+        queued++;
+        const eligibleAt = (m.metadata?.eligible_at as string | undefined) ?? null;
+        if (eligibleAt) {
+          const t = Date.parse(eligibleAt);
+          if (!isNaN(t) && t < nowMs - 60_000) stuck++;
+        } else if (m.created_at && m.created_at < stuckBefore) {
+          stuck++;
+        }
+      } else if (s === "failed") {
+        failed++;
+      }
+    }
+    const repliesData = c.lead_id ? repliesByLeadMap.get(c.lead_id) ?? { total: 0, positive: 0 } : { total: 0, positive: 0 };
+    const base: CampaignSummary = {
+      campaignId: c.id,
+      campaignName: c.name ?? "(sin nombre)",
+      status: c.status ?? "unknown",
+      channels: Array.from(channels),
+      totalSteps: c.sequence_length ?? 0,
+      totalLeads: 1, // each campaign row is per lead in this schema
+      messagesSent: sent,
+      messagesQueued: queued,
+      messagesStuck: stuck,
+      messagesFailed: failed,
+      replies: repliesData.total,
+      positiveReplies: repliesData.positive,
+      lastActivityAt,
+      health: "healthy",
+    };
+    base.health = campaignHealth(base);
+    return base;
+  });
+
+  // Sort: critical first, then warning, then by lastActivityAt desc, then name.
+  const ord = (h: CampaignSummary["health"]) => h === "critical" ? 0 : h === "warning" ? 1 : 2;
+  summaries.sort((a, b) => {
+    if (ord(a.health) !== ord(b.health)) return ord(a.health) - ord(b.health);
+    if (a.lastActivityAt && b.lastActivityAt) return b.lastActivityAt.localeCompare(a.lastActivityAt);
+    if (a.lastActivityAt) return -1;
+    if (b.lastActivityAt) return 1;
+    return a.campaignName.localeCompare(b.campaignName);
+  });
+  return summaries;
+}
+
+// Drill-in for ONE campaign: stuck breakdown + failure reasons + per-step
+// counts. Used by /admin/reliability?tenant=X&campaign=Y.
+export async function getCampaignDetail(campaignId: string): Promise<CampaignDetail | null> {
+  const svc = getSupabaseService();
+
+  const { data: cRaw } = await svc
+    .from("campaigns")
+    .select("id, name, status, sequence_length, lead_id, last_step_at, created_at, leads!inner(company_bio_id)")
+    .eq("id", campaignId)
+    .maybeSingle();
+  if (!cRaw) return null;
+  const c = (cRaw as unknown) as { id: string; name: string | null; status: string | null; sequence_length: number | null; lead_id: string | null; last_step_at: string | null; created_at: string | null; leads: { company_bio_id: string | null } | null };
+
+  const bioId = c.leads?.company_bio_id ?? null;
+  if (!bioId) return null;
+
+  const { data: bioRow } = await svc.from("company_bios").select("company_name").eq("id", bioId).maybeSingle();
+  const bioName = (bioRow as { company_name: string | null } | null)?.company_name ?? "Unnamed";
+
+  const { data: msgsRaw } = await svc
+    .from("campaign_messages")
+    .select("id, channel, step_number, status, sent_at, error_details, created_at, metadata, lead_id, leads(primary_first_name, primary_last_name, company_name, linkedin_connected, status), campaigns(seller_id)")
+    .eq("campaign_id", campaignId)
+    .limit(2000);
+  const msgs = ((msgsRaw ?? []) as unknown) as Array<{
+    id: string;
+    channel: string | null;
+    step_number: number | null;
+    status: string | null;
+    sent_at: string | null;
+    error_details: string | null;
+    created_at: string | null;
+    metadata: Record<string, unknown> | null;
+    lead_id: string | null;
+    leads: { primary_first_name: string | null; primary_last_name: string | null; company_name: string | null; linkedin_connected: boolean | null; status: string | null } | null;
+    campaigns: { seller_id: string | null } | null;
+  }>;
+
+  const nowMs = Date.now();
+  const stuckBefore = new Date(Date.now() - STUCK_DAYS * 86400000).toISOString();
+  let sent = 0, queued = 0, failed = 0, stuck = 0;
+  const stuckRows: typeof msgs = [];
+  const failedRows: Array<{ error_details: string | null }> = [];
+  const stepBuckets = new Map<number, { sent: number; queued: number; stuck: number; failed: number; draft: number; channel: string }>();
+  let lastActivityAt: string | null = c.last_step_at ?? null;
+  const channels = new Set<string>();
+
+  for (const m of msgs) {
+    const ch = m.channel ?? "?";
+    channels.add(ch);
+    const step = m.step_number ?? 0;
+    const b = stepBuckets.get(step) ?? { sent: 0, queued: 0, stuck: 0, failed: 0, draft: 0, channel: ch };
+    const s = m.status ?? "";
+    if (s === "sent") {
+      sent++;
+      b.sent++;
+      if (m.sent_at && (!lastActivityAt || m.sent_at > lastActivityAt)) lastActivityAt = m.sent_at;
+    } else if (s === "queued") {
+      queued++;
+      b.queued++;
+      const eligibleAt = (m.metadata?.eligible_at as string | undefined) ?? null;
+      const isStuck = eligibleAt
+        ? (() => { const t = Date.parse(eligibleAt); return !isNaN(t) && t < nowMs - 60_000; })()
+        : (m.created_at !== null && m.created_at < stuckBefore);
+      if (isStuck) {
+        stuck++;
+        b.stuck++;
+        stuckRows.push(m);
+      }
+    } else if (s === "failed") {
+      failed++;
+      b.failed++;
+      failedRows.push({ error_details: m.error_details });
+    } else if (s === "draft") {
+      b.draft++;
+    }
+    stepBuckets.set(step, b);
+  }
+
+  const repliesData = c.lead_id ? await svc.from("lead_replies").select("classification").eq("lead_id", c.lead_id).limit(50) : { data: null };
+  const replyRows = (repliesData.data ?? []) as Array<{ classification: string | null }>;
+  const totalReplies = replyRows.length;
+  const positiveReplies = replyRows.filter(r => r.classification === "positive").length;
+
+  function classifyForDetail(m: typeof msgs[number]): string {
+    const channel = (m.channel ?? "linkedin").toLowerCase();
+    const step = m.step_number ?? 0;
+    const leadStatus = m.leads?.status ?? null;
+    const linkedinConnected = m.leads?.linkedin_connected === true;
+    const meta = m.metadata ?? {};
+    const lastRateLimit = (meta.last_rate_limit_at as string | undefined) ?? null;
+    if (lastRateLimit) {
+      const t = Date.parse(lastRateLimit);
+      if (!isNaN(t) && t > nowMs - RATE_LIMIT_COOLDOWN_MS) return "Seller en cooldown por rate-limit";
+    }
+    if (leadStatus && ["closed_won", "closed_lost", "qualified"].includes(leadStatus)) {
+      return "Lead en estado terminal";
+    }
+    if (channel === "linkedin" && step > 0 && !linkedinConnected) {
+      return "Esperando que el lead acepte la conexión de LinkedIn";
+    }
+    if (channel === "call") return "Llamada manual pendiente";
+    if (!m.campaigns?.seller_id) return "Campaña sin seller asignado";
+    return "Cron del dispatcher no levantó este mensaje todavía";
+  }
+
+  const stuckBreakdown: CampaignDetail["stuckBreakdown"] = (() => {
+    const buckets = new Map<string, CampaignDetail["stuckBreakdown"][number]>();
+    for (const m of stuckRows) {
+      const reason = classifyForDetail(m);
+      const cur = buckets.get(reason) ?? { reason, count: 0, samples: [] };
+      cur.count++;
+      if (cur.samples.length < 5) {
+        const first = m.leads?.primary_first_name ?? "";
+        const last = m.leads?.primary_last_name ?? "";
+        const leadName = (first + " " + last).trim() || (m.leads?.company_name ?? "(lead sin nombre)");
+        const created = m.created_at ? Date.parse(m.created_at) : nowMs;
+        const ageDays = Math.max(0, Math.round((nowMs - created) / 86400000));
+        cur.samples.push({ leadName, channel: m.channel ?? "?", stepNumber: m.step_number ?? 0, ageDays, messageId: m.id });
+      }
+      buckets.set(reason, cur);
+    }
+    return Array.from(buckets.values()).sort((a, b) => b.count - a.count);
+  })();
+
+  const failureReasons = groupFailureReasons(failedRows);
+
+  const steps = Array.from(stepBuckets.entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([stepNumber, v]) => ({ stepNumber, channel: v.channel, sent: v.sent, queued: v.queued, stuck: v.stuck, failed: v.failed, draft: v.draft }));
+
+  const base: CampaignDetail = {
+    campaignId: c.id,
+    campaignName: c.name ?? "(sin nombre)",
+    status: c.status ?? "unknown",
+    channels: Array.from(channels),
+    totalSteps: c.sequence_length ?? 0,
+    totalLeads: 1,
+    messagesSent: sent,
+    messagesQueued: queued,
+    messagesStuck: stuck,
+    messagesFailed: failed,
+    replies: totalReplies,
+    positiveReplies,
+    lastActivityAt,
+    health: "healthy",
+    bioId,
+    bioName,
+    stuckBreakdown,
+    failureReasons,
+    steps,
+  };
+  base.health = campaignHealth(base);
+  return base;
 }

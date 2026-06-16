@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   ArrowLeft, Share2, Mail, Phone, PlayCircle, PauseCircle, CheckCircle, XCircle,
-  Users, Clock, Settings,
+  Users, Clock, Settings, Zap,
 } from "lucide-react";
 import CampaignDetailClient from "./CampaignDetailClient";
 import { type FlowMetrics, type DrillLead } from "@/components/FlowMetricsPanel";
@@ -479,6 +479,13 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
 
   const sequence: { channel: string; daysAfter: number }[] = campaign.sequence_steps ?? [];
   const channels = [...new Set(sequence.map((s: any) => s.channel))];
+  // Call-advance mode (only meaningful when the flow has a call step). 'manual'
+  // = the sequence WAITS at the call step for the seller to dial (so a lead
+  // parked there isn't "stuck", it's by design). 'auto' = the cron skips the
+  // call and advances after ~3 days. Surfacing this so a paused-looking flow
+  // reads correctly. (Fran 2026-06-16)
+  const hasCallStep = sequence.some((s: any) => s.channel === "call");
+  const advanceMode: "auto" | "manual" = (campaign.call_advance_mode ?? "auto") === "manual" ? "manual" : "auto";
   const totalSteps = sequence.length;
   const pct = totalSteps > 0 ? Math.round((campaign.current_step / totalSteps) * 100) : 0;
   const st = statusMeta[campaign.status] ?? statusMeta.active;
@@ -731,6 +738,22 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
                   </span>
                 );
               })}
+              {/* Call-advance mode — only when the flow actually has a call step.
+                  Tells the seller whether a lead sitting on the call step is
+                  WAITING for them (manual) or will auto-advance (auto). */}
+              {hasCallStep && (() => {
+                const m = advanceMode === "manual"
+                  ? { color: "#D97706", Icon: Phone, label: "Manual calls", hint: "waits for the seller to dial" }
+                  : { color: "#0EA5E9", Icon: Zap,   label: "Auto-advance", hint: "skips the call after 3 days" };
+                return (
+                  <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full"
+                    title={`Call step is ${advanceMode === "manual" ? "MANUAL — the sequence pauses here until a seller calls the lead." : "AUTO — if no one calls within 3 days the call step is skipped and the flow continues."}`}
+                    style={{ backgroundColor: `color-mix(in srgb, ${m.color} 16%, rgba(255,255,255,0.02))`, color: m.color, border: `1px solid color-mix(in srgb, ${m.color} 32%, transparent)` }}>
+                    <m.Icon size={11} /> {m.label}
+                    <span style={{ opacity: 0.7, fontWeight: 500 }}>· {m.hint}</span>
+                  </span>
+                );
+              })()}
               {campaign.started_at && (
                 <span className="text-[11px] inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full"
                   style={{ color: "color-mix(in srgb, #F5F2E8 62%, transparent)", border: "1px solid color-mix(in srgb, #F5F2E8 10%, transparent)", backgroundColor: "rgba(255,255,255,0.02)" }}>
