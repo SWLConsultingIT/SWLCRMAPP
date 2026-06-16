@@ -6,6 +6,7 @@ import { Workflow, CheckCircle2, XCircle, AlertCircle, Power, ExternalLink } fro
 import { getT } from "@/lib/i18n-server";
 import { C } from "@/lib/design";
 import { getSwlWorkflowStatuses } from "@/lib/n8n-workflows-status";
+import FoldableSection from "./FoldableSection";
 
 const gold = "var(--brand, #c9a83a)";
 const N8N_BASE = (process.env.N8N_API_BASE_URL ?? "https://n8n.srv949269.hstgr.cloud").replace(/\/+$/, "");
@@ -30,34 +31,21 @@ export default async function WorkflowsSection() {
   const hasIssues = workflows?.some(w => w.lastExecutionStatus === "error" || !w.active);
   const accentColor = hasIssues ? "#D97706" : C.green;
 
-  return (
-    <section className="rounded-2xl border overflow-hidden" style={{
-      backgroundColor: C.card,
-      borderColor: C.border,
-      borderLeftWidth: 4,
-      borderLeftColor: accentColor,
-      boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 6px 18px -8px rgba(0,0,0,0.06)",
-    }}>
-      <header className="px-7 py-6 border-b flex items-center gap-3" style={{
-        borderColor: C.border,
-        background: `linear-gradient(135deg, ${C.card} 0%, color-mix(in srgb, ${accentColor} 3%, ${C.card}) 100%)`,
-      }}>
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-          style={{
-            background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`,
-            color: "#1A1A2E",
-            boxShadow: `0 3px 8px -2px color-mix(in srgb, ${gold} 30%, transparent)`,
-          }}>
-          <Workflow size={16} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-[17px] font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
-            {t("rel.workflows.title")}
-          </h2>
-          <p className="text-[11.5px] mt-0.5" style={{ color: C.textMuted }}>{t("rel.workflows.subtitle")}</p>
-        </div>
-      </header>
+  const badge = workflows && workflows.length > 0 ? (
+    <span className="text-[10.5px] font-bold uppercase tracking-[0.08em] px-2.5 py-1 rounded-full"
+      style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 30%, transparent)` }}>
+      {workflows.length} total
+    </span>
+  ) : null;
 
+  return (
+    <FoldableSection
+      title={t("rel.workflows.title")}
+      subtitle={t("rel.workflows.subtitle")}
+      icon={<Workflow size={16} />}
+      accentColor={accentColor}
+      badge={badge}
+    >
       {workflows === null ? (
         <div className="px-7 py-5 text-[12.5px]" style={{ color: C.textMuted }}>
           {t("rel.workflows.empty")}
@@ -107,6 +95,6 @@ export default async function WorkflowsSection() {
           })}
         </div>
       )}
-    </section>
+    </FoldableSection>
   );
 }

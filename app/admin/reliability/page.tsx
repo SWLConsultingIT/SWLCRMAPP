@@ -14,13 +14,12 @@ import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
 import { redirect } from "next/navigation";
 import { C } from "@/lib/design";
 import { ShieldCheck, RefreshCw } from "lucide-react";
-import { getAllTenantSummaries, getTenantCampaigns, getCampaignDetail } from "@/lib/reliability-summary";
+import { getAllTenantSummaries, getTenantCampaigns } from "@/lib/reliability-summary";
 import { getT, getServerLocale } from "@/lib/i18n-server";
 import TenantTabsNav from "./TenantTabsNav";
 import StatusGeneralSection from "./StatusGeneralSection";
 import FlowsInFlightSection from "./FlowsInFlightSection";
 import StatusAccountsSection from "./StatusAccountsSection";
-import CampaignDetailSection from "./CampaignDetailSection";
 import SilentStallBanner from "./SilentStallBanner";
 import WorkflowsSection from "./WorkflowsSection";
 import HistorySection from "./HistorySection";
@@ -70,19 +69,12 @@ export default async function ReliabilityPage({
 
   const tabs = all.map(s => ({ bioId: s.bioId, bioName: s.bioName, health: s.general.health }));
 
-  // Drill-in path: ?tenant=X&campaign=Y → fetch the single campaign's
-  // detail and replace the per-tenant body with CampaignDetailSection.
-  let campaignDetail = null;
-  if (requestedCampaign) {
-    campaignDetail = await getCampaignDetail(requestedCampaign);
-    // If the campaign doesn't belong to the active tenant, ignore.
-    if (campaignDetail && campaignDetail.bioId !== activeTenant.bioId) {
-      campaignDetail = null;
-    }
-  }
-
-  // For the campaigns list, fetch only when we're NOT in drill-in.
-  const tenantCampaigns = campaignDetail ? [] : await getTenantCampaigns(activeTenant.bioId);
+  // The old `?campaign=Y` drill-in was retired 2026-06-16 — flow cards
+  // now expand INLINE inside FlowsInFlightSection (FlowCard.tsx) so the
+  // operator never leaves the page. We still read the param for
+  // backward-compatible deep-links but it no longer changes the layout.
+  void requestedCampaign;
+  const tenantCampaigns = await getTenantCampaigns(activeTenant.bioId);
 
   return (
     <div className="w-full">
@@ -145,20 +137,14 @@ export default async function ReliabilityPage({
           Generous outer padding + tall vertical spacing — Fran asked for
           breathing room between sections (previously space-y-5 + py was
           too dense and sections felt crammed). */}
-      <div className="px-6 lg:px-10 pt-8 pb-16 space-y-8">
-        {campaignDetail ? (
-          <CampaignDetailSection detail={campaignDetail} />
-        ) : (
-          <>
-            <SilentStallBanner summary={activeTenant} />
-            <StatusGeneralSection summary={activeTenant} />
-            <FlowsInFlightSection summary={activeTenant} campaigns={tenantCampaigns} />
-            <StatusAccountsSection summary={activeTenant} />
-            <WorkflowsSection />
-            <HistorySection bioId={activeTenant.bioId} />
-            <QABot bioId={activeTenant.bioId} bioName={activeTenant.bioName} />
-          </>
-        )}
+      <div className="px-6 lg:px-10 pt-8 pb-16 space-y-4">
+        <SilentStallBanner summary={activeTenant} />
+        <StatusGeneralSection summary={activeTenant} />
+        <FlowsInFlightSection summary={activeTenant} campaigns={tenantCampaigns} />
+        <StatusAccountsSection summary={activeTenant} />
+        <WorkflowsSection />
+        <HistorySection bioId={activeTenant.bioId} />
+        <QABot bioId={activeTenant.bioId} bioName={activeTenant.bioName} />
       </div>
 
       <AutoRefresh />

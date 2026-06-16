@@ -101,6 +101,18 @@ export type CampaignSummary = {
     count: number;
     samples: Array<{ leadName: string; channel: string; stepNumber: number; ageDays: number; messageId: string; errorSnippet: string }>;
   }>;
+  // Per-step status table — used by the inline expandable card section
+  // so the operator gets the same per-step breakdown the old drill-in
+  // page used to show, without leaving the page.
+  stepBreakdown: Array<{
+    stepNumber: number;
+    channels: string[];
+    sent: number;
+    queued: number;
+    stuck: number;
+    failed: number;
+    draft: number;
+  }>;
 };
 
 export type CampaignDetail = CampaignSummary & {
@@ -784,6 +796,27 @@ export async function getTenantCampaigns(bioId: string): Promise<CampaignSummary
       const r = repliesByLeadMap.get(c.lead_id);
       if (r) { replies += r.total; positiveReplies += r.positive; }
     }
+
+    // Per-step status — group every message by step_number, count by
+    // status (sent / queued / stuck / failed / draft). This is what the
+    // expandable card body shows so the operator sees where each step
+    // of the sequence sits.
+    const stepMap = new Map<number, { stepNumber: number; channels: Set<string>; sent: number; queued: number; stuck: number; failed: number; draft: number }>();
+    const stuckIds = new Set(stuckRows.map(m => m.id));
+    for (const m of cm) {
+      const step = m.step_number ?? 0;
+      const cur = stepMap.get(step) ?? { stepNumber: step, channels: new Set<string>(), sent: 0, queued: 0, stuck: 0, failed: 0, draft: 0 };
+      if (m.channel) cur.channels.add(m.channel);
+      const s = m.status ?? "";
+      if (s === "sent") cur.sent++;
+      else if (s === "queued") { cur.queued++; if (stuckIds.has(m.id)) cur.stuck++; }
+      else if (s === "failed") cur.failed++;
+      else if (s === "draft") cur.draft++;
+      stepMap.set(step, cur);
+    }
+    const stepBreakdown = Array.from(stepMap.values())
+      .sort((a, b) => a.stepNumber - b.stepNumber)
+      .map(s => ({ stepNumber: s.stepNumber, channels: Array.from(s.channels), sent: s.sent, queued: s.queued, stuck: s.stuck, failed: s.failed, draft: s.draft }));
 
     const base: CampaignSummary = {
       campaignId: rep.id,

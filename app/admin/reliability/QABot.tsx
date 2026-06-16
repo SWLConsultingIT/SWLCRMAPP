@@ -8,7 +8,7 @@
 // directly (LAW: all AI calls go through n8n workflows).
 
 import { useState } from "react";
-import { Bot, Send, Loader2 } from "lucide-react";
+import { Bot, Send, Loader2, ChevronDown } from "lucide-react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 
@@ -16,6 +16,7 @@ const gold = "var(--brand, #c9a83a)";
 
 export default function QABot({ bioId, bioName }: { bioId: string; bioName: string }) {
   const { t } = useLocale();
+  const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
   const [answer, setAnswer] = useState<string | null>(null);
@@ -51,10 +52,12 @@ export default function QABot({ bioId, bioName }: { bioId: string; bioName: stri
       borderLeftColor: gold,
       boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 6px 18px -8px rgba(0,0,0,0.06)",
     }}>
-      <header className="px-7 py-6 border-b flex items-center gap-3" style={{
-        borderColor: C.border,
-        background: `linear-gradient(135deg, ${C.card} 0%, color-mix(in srgb, ${gold} 3%, ${C.card}) 100%)`,
-      }}>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        className="w-full px-7 py-6 flex items-center gap-3 text-left transition-colors hover:bg-[color-mix(in_srgb,var(--brand,_#c9a83a)_2%,transparent)]"
+        style={{
+          background: `linear-gradient(135deg, ${C.card} 0%, color-mix(in srgb, ${gold} 3%, ${C.card}) 100%)`,
+          borderBottom: open ? `1px solid ${C.border}` : "none",
+        }}>
         <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
           style={{
             background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`,
@@ -73,9 +76,11 @@ export default function QABot({ bioId, bioName }: { bioId: string; bioName: stri
           style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 30%, transparent)` }}>
           {bioName}
         </span>
-      </header>
+        <ChevronDown size={18} className="transition-transform shrink-0"
+          style={{ color: C.textMuted, transform: open ? "rotate(0deg)" : "rotate(-90deg)" }} />
+      </button>
 
-      <div className="px-7 py-6 space-y-4">
+      {open && <div className="px-7 py-6 space-y-4">
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -126,7 +131,7 @@ export default function QABot({ bioId, bioName }: { bioId: string; bioName: stri
             {t("rel.qa.error", { err })}
           </div>
         )}
-      </div>
+      </div>}
     </section>
   );
 }
