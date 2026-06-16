@@ -814,9 +814,6 @@ function IcpSectionBlock({ section, defaultOpen, t }: { section: IcpSection; def
             <p className="text-[9px] font-bold uppercase tracking-[0.1em]" style={{ color: "color-mix(in srgb, white 50%, transparent)" }}>{t("flows.metric.leads")}</p>
             <p className="text-base font-bold tabular-nums leading-none mt-0.5" style={{ color: "white" }}>
               {section.totalLeads}
-              {section.totalActive > 0 && (
-                <span className="ml-1 text-[10px]" style={{ color: "#34D399" }}>({t("flows.activeCount").replace("{n}", String(section.totalActive))})</span>
-              )}
             </p>
           </div>
           <div className="text-right">

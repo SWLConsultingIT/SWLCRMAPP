@@ -129,7 +129,7 @@ export default async function StatusAccountsSection({ summary }: { summary: Tena
                           }} />
                         </div>
                         <div className="text-[10px] mt-1 text-right tabular-nums font-semibold" style={{ color: dailyPct >= 90 ? "#DC2626" : C.textMuted }}>
-                          {dailyPct}% del cap
+                          {t("rel.accounts.sellers.capPct", { pct: dailyPct })}
                         </div>
                       </div>
                     )}
@@ -144,32 +144,32 @@ export default async function StatusAccountsSection({ summary }: { summary: Tena
         <div className="p-6" style={{ backgroundColor: C.card }}>
           <div className="flex items-center gap-2 mb-4">
             <Mail size={15} style={{ color: C.email }} />
-            <h3 className="text-[12px] font-bold uppercase tracking-[0.08em]" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>Instantly · Mailboxes</h3>
+            <h3 className="text-[12px] font-bold uppercase tracking-[0.08em]" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{t("rel.accounts.instantly")}</h3>
             <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded ml-auto"
               style={{
                 backgroundColor: accounts.instantlyWorkspace.configured ? `color-mix(in srgb, ${C.green} 12%, transparent)` : "color-mix(in srgb, #D97706 12%, transparent)",
                 color: accounts.instantlyWorkspace.configured ? C.green : "#D97706",
               }}>
-              {accounts.instantlyWorkspace.configured ? "configurado" : "sin configurar"}
+              {accounts.instantlyWorkspace.configured ? t("rel.accounts.instantly.configured") : t("rel.accounts.instantly.missing")}
             </span>
           </div>
 
           {accounts.instantlyWorkspace.configured ? (
             <div className="space-y-2.5">
               <div className="rounded-xl p-3.5" style={{ backgroundColor: `color-mix(in srgb, ${C.email} 5%, transparent)`, border: `1px solid color-mix(in srgb, ${C.email} 22%, transparent)` }}>
-                <p className="text-[10px] font-bold uppercase tracking-[0.08em] mb-1.5" style={{ color: C.email }}>Workspace</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.08em] mb-1.5" style={{ color: C.email }}>{t("rel.accounts.instantly.workspace")}</p>
                 <p className="text-[12px] font-mono break-all" style={{ color: C.textBody }}>
                   {accounts.instantlyWorkspace.workspaceId ?? "—"}
                 </p>
               </div>
               <div className="rounded-xl p-3.5" style={{ backgroundColor: `color-mix(in srgb, ${C.email} 5%, transparent)`, border: `1px solid color-mix(in srgb, ${C.email} 22%, transparent)` }}>
-                <p className="text-[10px] font-bold uppercase tracking-[0.08em] mb-1.5" style={{ color: C.email }}>Instantly campaign ID</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.08em] mb-1.5" style={{ color: C.email }}>{t("rel.accounts.instantly.campaignId")}</p>
                 <p className="text-[12px] font-mono break-all" style={{ color: C.textBody }}>
                   {accounts.instantlyWorkspace.campaignId ?? "—"}
                 </p>
               </div>
               <p className="text-[11px] leading-relaxed" style={{ color: C.textMuted }}>
-                Para revisar mailboxes individuales (warmup, bounces, reputación), abrí el dashboard de Instantly directamente. La integración del CRM no expone esos datos vía API todavía.
+                {t("rel.accounts.instantly.help")}
               </p>
             </div>
           ) : (
@@ -180,10 +180,8 @@ export default async function StatusAccountsSection({ summary }: { summary: Tena
                   <Mail size={14} />
                 </div>
                 <div className="flex-1">
-                  <p className="text-[13px] font-semibold mb-1" style={{ color: "#D97706" }}>Instantly no configurado</p>
-                  <p className="text-[11.5px] leading-relaxed" style={{ color: C.textBody }}>
-                    Este tenant no tiene <code className="px-1 py-0.5 rounded font-mono text-[10.5px]" style={{ backgroundColor: C.surface }}>instantly_campaign_id</code> en company_bios. Los emails no van a salir hasta que se configure el workspace.
-                  </p>
+                  <p className="text-[13px] font-semibold mb-1" style={{ color: "#D97706" }}>{t("rel.accounts.instantly.notConfigured.title")}</p>
+                  <p className="text-[11.5px] leading-relaxed" style={{ color: C.textBody }}>{t("rel.accounts.instantly.notConfigured.body")}</p>
                 </div>
               </div>
             </div>
