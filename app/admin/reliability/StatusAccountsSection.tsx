@@ -17,21 +17,35 @@ function initialsOf(name: string): string {
 export default function StatusAccountsSection({ summary }: { summary: TenantSummary }) {
   const { accounts } = summary;
 
+  // Accent: amber if any seller is on cooldown OR Instantly missing, green otherwise.
+  const anyCooldown = accounts.sellers.some(s => s.onRateLimitCooldown);
+  const instantlyMissing = !accounts.instantlyWorkspace.configured;
+  const accentColor = anyCooldown || instantlyMissing ? "#D97706" : C.green;
+
   return (
     <section className="rounded-2xl border overflow-hidden" style={{
       backgroundColor: C.card,
       borderColor: C.border,
-      boxShadow: "0 1px 2px rgba(0,0,0,0.03), 0 4px 12px -6px rgba(0,0,0,0.04)",
+      borderLeftWidth: 4,
+      borderLeftColor: accentColor,
+      boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 6px 18px -8px rgba(0,0,0,0.06)",
     }}>
-      <header className="px-6 py-4 border-b" style={{ borderColor: C.border }}>
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-            style={{ background: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}>
-            <Plug size={13} />
+      <header className="px-6 py-5 border-b" style={{
+        borderColor: C.border,
+        background: `linear-gradient(135deg, ${C.card} 0%, color-mix(in srgb, ${accentColor} 3%, ${C.card}) 100%)`,
+      }}>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{
+              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`,
+              color: "#1A1A2E",
+              boxShadow: `0 3px 8px -2px color-mix(in srgb, ${gold} 30%, transparent)`,
+            }}>
+            <Plug size={15} />
           </div>
           <div>
-            <h2 className="text-base font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>Cuentas conectadas</h2>
-            <p className="text-[11px]" style={{ color: C.textMuted }}>Sellers (LinkedIn vía Unipile) + workspace de Instantly. Si algo está en cooldown o desconectado, se ve acá.</p>
+            <h2 className="text-[17px] font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>Cuentas conectadas</h2>
+            <p className="text-[11.5px] mt-0.5" style={{ color: C.textMuted }}>Sellers (LinkedIn vía Unipile) + workspace de Instantly. Si algo está en cooldown o desconectado, se ve acá.</p>
           </div>
         </div>
       </header>

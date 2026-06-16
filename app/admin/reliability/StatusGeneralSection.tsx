@@ -18,27 +18,45 @@ export default function StatusGeneralSection({ summary }: { summary: TenantSumma
       : { fg: C.green, bg: `color-mix(in srgb, ${C.green} 8%, transparent)`, border: `color-mix(in srgb, ${C.green} 32%, transparent)`, icon: CheckCircle2, label: "Saludable" };
   const Icon = verdict.icon;
 
+  // Map verdict to a left-edge accent color so the section reads as
+  // green/amber/red without the operator having to look at the pill.
+  const accentColor = verdict.fg;
+
   return (
     <section className="rounded-2xl border overflow-hidden" style={{
       backgroundColor: C.card,
       borderColor: C.border,
-      boxShadow: "0 1px 2px rgba(0,0,0,0.03), 0 4px 12px -6px rgba(0,0,0,0.04)",
+      borderLeftWidth: 4,
+      borderLeftColor: accentColor,
+      boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 6px 18px -8px rgba(0,0,0,0.06)",
     }}>
-      <header className="px-6 py-4 border-b flex items-center justify-between gap-3 flex-wrap" style={{ borderColor: C.border }}>
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-            style={{ background: `color-mix(in srgb, ${gold} 14%, transparent)`, color: gold }}>
-            <Sparkles size={13} />
+      <header className="px-6 py-5 border-b flex items-center justify-between gap-3 flex-wrap" style={{
+        borderColor: C.border,
+        background: `linear-gradient(135deg, ${C.card} 0%, color-mix(in srgb, ${gold} 3%, ${C.card}) 100%)`,
+      }}>
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+            style={{
+              background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`,
+              color: "#1A1A2E",
+              boxShadow: `0 3px 8px -2px color-mix(in srgb, ${gold} 30%, transparent)`,
+            }}>
+            <Sparkles size={15} />
           </div>
           <div>
-            <h2 className="text-base font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>Resumen ejecutivo</h2>
-            <p className="text-[11px]" style={{ color: C.textMuted }}>Últimos {general.windowDays} días</p>
+            <h2 className="text-[17px] font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>Resumen ejecutivo</h2>
+            <p className="text-[11.5px] mt-0.5" style={{ color: C.textMuted }}>Últimos {general.windowDays} días</p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
-          style={{ backgroundColor: verdict.bg, border: `1px solid ${verdict.border}`, color: verdict.fg }}>
+        <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full"
+          style={{
+            backgroundColor: verdict.bg,
+            border: `1.5px solid ${verdict.border}`,
+            color: verdict.fg,
+            boxShadow: `0 2px 8px -2px ${verdict.border}`,
+          }}>
           <Icon size={13} />
-          <span className="text-[11px] font-bold uppercase tracking-wider">{verdict.label}</span>
+          <span className="text-[11px] font-bold uppercase tracking-[0.08em]">{verdict.label}</span>
         </div>
       </header>
 

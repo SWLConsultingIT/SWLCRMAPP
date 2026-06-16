@@ -80,26 +80,56 @@ export default async function ReliabilityPage({
 
   return (
     <div className="w-full">
-      {/* Header strip — full width */}
-      <div className="px-6 pt-6 pb-3">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 72%, white))`, color: "#1A1A2E", boxShadow: `0 3px 10px color-mix(in srgb, ${gold} 32%, transparent)` }}>
-              <ShieldCheck size={18} />
+      {/* HERO — full-width gold-accented banner. Establishes the page
+          identity (Reliability = mission control). Bigger title, gold
+          glow halo, decorative gradient bar at the bottom. */}
+      <div className="relative overflow-hidden border-b" style={{
+        borderColor: `color-mix(in srgb, ${gold} 30%, ${C.border})`,
+        background: `
+          radial-gradient(ellipse 90% 140% at 15% 0%, color-mix(in srgb, ${gold} 18%, transparent) 0%, transparent 60%),
+          radial-gradient(ellipse 60% 100% at 95% 100%, color-mix(in srgb, ${gold} 12%, transparent) 0%, transparent 60%),
+          linear-gradient(180deg, ${C.card} 0%, ${C.card} 100%)
+        `,
+      }}>
+        <div className="px-6 lg:px-10 py-7 flex items-center justify-between gap-4 flex-wrap relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+              style={{
+                background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 65%, white))`,
+                color: "#1A1A2E",
+                boxShadow: `0 8px 20px -6px color-mix(in srgb, ${gold} 45%, transparent), 0 2px 4px rgba(0,0,0,0.05)`,
+              }}>
+              <ShieldCheck size={24} />
             </div>
             <div>
-              <h1 className="text-[20px] font-bold leading-tight" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>Reliability</h1>
-              <p className="text-[12px]" style={{ color: C.textMuted }}>
-                Salud del sistema por tenant · {all.length} tenant{all.length === 1 ? "" : "s"} monitoreado{all.length === 1 ? "" : "s"} · auto-refresh cada 60s
+              <div className="flex items-center gap-2 mb-1">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: gold }}>
+                  Mission Control
+                </p>
+                <span className="w-1 h-1 rounded-full" style={{ backgroundColor: gold }} />
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: C.textMuted }}>
+                  Super Admin
+                </p>
+              </div>
+              <h1 className="text-[28px] font-bold leading-none mb-1.5" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}>
+                Reliability
+              </h1>
+              <p className="text-[12.5px] leading-relaxed" style={{ color: C.textBody }}>
+                Salud del sistema por tenant · <strong>{all.length} tenant{all.length === 1 ? "" : "s"}</strong> monitoreado{all.length === 1 ? "" : "s"} · auto-refresh cada 60s
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-[11px]" style={{ color: C.textMuted }}>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full"
+            style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`, border: `1px solid color-mix(in srgb, ${gold} 28%, transparent)`, color: gold }}>
             <RefreshCw size={11} />
-            <span>actualizado: {new Date().toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" })}</span>
+            <span className="text-[11px] font-semibold tabular-nums">
+              actualizado: {new Date().toLocaleString("es-AR", { dateStyle: "short", timeStyle: "short" })}
+            </span>
           </div>
         </div>
+        {/* Decorative bottom accent bar */}
+        <div className="absolute left-0 right-0 bottom-0 h-[2px]"
+          style={{ background: `linear-gradient(90deg, transparent 0%, ${gold} 30%, ${gold} 70%, transparent 100%)`, opacity: 0.4 }} />
       </div>
 
       {/* Tenant tabs — sticky, full width */}
