@@ -525,16 +525,25 @@ export async function getTenantCampaigns(bioId: string): Promise<CampaignSummary
   // query from getTenantSummary line 247 that we know returns the right
   // count (used by the activeCampaigns badge), instead of the 2-step
   // approach that was returning 0 rows.
-  const { data: campaignsRaw } = await svc
+  // NOTE: column is `sequence_steps` (jsonb array), NOT `sequence_length`.
+  // The earlier code asked for sequence_length, got a 400 from PostgREST,
+  // received {data: null} and rendered "No flows in this tenant yet"
+  // even though activeCampaigns count returned 201. Compute step total
+  // from sequence_steps.length below.
+  const { data: campaignsRaw, error: campaignsErr } = await svc
     .from("campaigns")
-    .select("id, name, status, sequence_length, lead_id, seller_id, last_step_at, created_at, leads!inner(company_bio_id)")
+    .select("id, name, status, sequence_steps, lead_id, seller_id, last_step_at, created_at, leads!inner(company_bio_id)")
     .eq("status", "active")
     .eq("leads.company_bio_id", bioId)
     .order("created_at", { ascending: false })
     .limit(2000);
+  if (campaignsErr) {
+    console.error("[reliability] getTenantCampaigns query failed", campaignsErr);
+    return [];
+  }
 
   const campaigns = ((campaignsRaw ?? []) as unknown) as Array<{
-    id: string; name: string | null; status: string | null; sequence_length: number | null;
+    id: string; name: string | null; status: string | null; sequence_steps: unknown;
     lead_id: string | null; seller_id: string | null; last_step_at: string | null; created_at: string | null;
   }>;
   if (campaigns.length === 0) return [];
@@ -658,7 +667,7 @@ export async function getTenantCampaigns(bioId: string): Promise<CampaignSummary
       campaignName: c.name ?? "(sin nombre)",
       status: c.status ?? "unknown",
       channels: Array.from(channels),
-      totalSteps: c.sequence_length ?? 0,
+      totalSteps: Array.isArray(c.sequence_steps) ? (c.sequence_steps as unknown[]).length : 0,
       totalLeads: 1,
       messagesSent: sent,
       messagesQueued: queued,
@@ -693,11 +702,11 @@ export async function getCampaignDetail(campaignId: string): Promise<CampaignDet
 
   const { data: cRaw } = await svc
     .from("campaigns")
-    .select("id, name, status, sequence_length, lead_id, last_step_at, created_at, leads!inner(company_bio_id)")
+    .select("id, name, status, sequence_steps, lead_id, last_step_at, created_at, leads!inner(company_bio_id)")
     .eq("id", campaignId)
     .maybeSingle();
   if (!cRaw) return null;
-  const c = (cRaw as unknown) as { id: string; name: string | null; status: string | null; sequence_length: number | null; lead_id: string | null; last_step_at: string | null; created_at: string | null; leads: { company_bio_id: string | null } | null };
+  const c = (cRaw as unknown) as { id: string; name: string | null; status: string | null; sequence_steps: unknown; lead_id: string | null; last_step_at: string | null; created_at: string | null; leads: { company_bio_id: string | null } | null };
 
   const bioId = c.leads?.company_bio_id ?? null;
   if (!bioId) return null;
@@ -822,7 +831,7 @@ export async function getCampaignDetail(campaignId: string): Promise<CampaignDet
     campaignName: c.name ?? "(sin nombre)",
     status: c.status ?? "unknown",
     channels: Array.from(channels),
-    totalSteps: c.sequence_length ?? 0,
+    totalSteps: Array.isArray(c.sequence_steps) ? (c.sequence_steps as unknown[]).length : 0,
     totalLeads: 1,
     messagesSent: sent,
     messagesQueued: queued,

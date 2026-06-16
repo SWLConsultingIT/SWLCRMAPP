@@ -32,7 +32,7 @@ export default async function StatusGeneralSection({ summary }: { summary: Tenan
       borderLeftColor: accentColor,
       boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 6px 18px -8px rgba(0,0,0,0.06)",
     }}>
-      <header className="px-6 py-5 border-b flex items-center justify-between gap-3 flex-wrap" style={{
+      <header className="px-7 py-6 border-b flex items-center justify-between gap-3 flex-wrap" style={{
         borderColor: C.border,
         background: `linear-gradient(135deg, ${C.card} 0%, color-mix(in srgb, ${gold} 3%, ${C.card}) 100%)`,
       }}>
@@ -62,15 +62,15 @@ export default async function StatusGeneralSection({ summary }: { summary: Tenan
         </div>
       </header>
 
-      {/* The headline paragraph */}
-      <div className="px-7 py-6 border-b relative overflow-hidden" style={{
+      {/* The headline paragraph. Inner gold rail was removed 2026-06-16
+          — it visually collided with the section's left-edge verdict
+          accent (red/amber/green) at the seam. Soft gold-tinted backdrop
+          alone is enough to signal "this is the summary card". */}
+      <div className="px-8 py-7 border-b" style={{
         borderColor: C.border,
         background: `linear-gradient(135deg, ${C.card} 0%, color-mix(in srgb, ${gold} 5%, ${C.card}) 100%)`,
       }}>
-        <div className="absolute left-0 top-0 bottom-0 w-1" style={{
-          background: `linear-gradient(180deg, ${gold}, color-mix(in srgb, ${gold} 50%, transparent))`,
-        }} />
-        <p className="text-[16px] leading-[1.7] tracking-[-0.01em] pl-4"
+        <p className="text-[16px] leading-[1.7] tracking-[-0.01em]"
           style={{
             color: C.textPrimary,
             fontFamily: "var(--font-outfit), system-ui, sans-serif",
@@ -93,12 +93,12 @@ export default async function StatusGeneralSection({ summary }: { summary: Tenan
 
 function KpiCell({ icon, label, value, hint, accent = false }: { icon: React.ReactNode; label: string; value: string; hint?: string; accent?: boolean }) {
   return (
-    <div className="px-6 py-4 transition-colors hover:bg-[color-mix(in_srgb,var(--brand,_#c9a83a)_3%,transparent)]" style={{ backgroundColor: C.card }}>
-      <div className="flex items-center gap-1.5 mb-1.5" style={{ color: C.textMuted }}>
+    <div className="px-7 py-5 transition-colors hover:bg-[color-mix(in_srgb,var(--brand,_#c9a83a)_3%,transparent)]" style={{ backgroundColor: C.card }}>
+      <div className="flex items-center gap-1.5 mb-2.5" style={{ color: C.textMuted }}>
         {icon}
         <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em]">{label}</span>
       </div>
-      <div className="text-[26px] font-bold tabular-nums leading-none mb-1"
+      <div className="text-[28px] font-bold tabular-nums leading-none mb-1.5"
         style={{
           color: accent ? gold : C.textPrimary,
           fontFamily: "var(--font-outfit), system-ui, sans-serif",

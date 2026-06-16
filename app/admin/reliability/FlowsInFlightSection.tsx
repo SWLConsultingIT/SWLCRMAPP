@@ -69,7 +69,7 @@ export default async function FlowsInFlightSection({
       borderLeftColor: accentColor,
       boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 6px 18px -8px rgba(0,0,0,0.06)",
     }}>
-      <header className="px-6 py-5 border-b flex items-center gap-3 flex-wrap" style={{
+      <header className="px-7 py-6 border-b flex items-center gap-3 flex-wrap" style={{
         borderColor: C.border,
         background: `linear-gradient(135deg, ${C.card} 0%, color-mix(in srgb, ${accentColor} 3%, ${C.card}) 100%)`,
       }}>
@@ -123,7 +123,7 @@ export default async function FlowsInFlightSection({
 
       {/* CARDS GRID — one per flow, click → drill in */}
       <div className="border-t" style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${gold} 2%, ${C.card})` }}>
-        <div className="px-6 py-5 flex items-center gap-2 flex-wrap">
+        <div className="px-7 py-6 flex items-center gap-2 flex-wrap">
           <Workflow size={14} style={{ color: gold }} />
           <h3 className="text-[13px] font-bold uppercase tracking-[0.08em]" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
             {t("rel.flows.cards.heading")}
@@ -131,21 +131,21 @@ export default async function FlowsInFlightSection({
           <span className="text-[10.5px]" style={{ color: C.textMuted }}>{t("rel.flows.cards.subheading")}</span>
         </div>
         {campaigns.length === 0 ? (
-          <div className="px-6 pb-6">
-            <div className="rounded-xl p-5 text-center" style={{ backgroundColor: C.bg, border: `1px dashed ${C.border}` }}>
-              <Workflow size={20} style={{ color: C.textMuted, margin: "0 auto 8px" }} />
+          <div className="px-7 pb-7">
+            <div className="rounded-xl p-7 text-center" style={{ backgroundColor: C.bg, border: `1px dashed ${C.border}` }}>
+              <Workflow size={22} style={{ color: C.textMuted, margin: "0 auto 10px" }} />
               <p className="text-[12.5px]" style={{ color: C.textMuted }}>{t("rel.flows.cards.empty")}</p>
             </div>
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 px-6 pb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 px-7 pb-7">
               {campaigns.slice(0, 60).map(c => (
                 <CampaignCard key={c.campaignId} campaign={c} bioId={summary.bioId} t={t} />
               ))}
             </div>
             {campaigns.length > 60 && (
-              <div className="px-6 py-3 text-center text-[11px] border-t" style={{ borderColor: C.border, color: C.textMuted }}>
+              <div className="px-7 py-4 text-center text-[11px] border-t" style={{ borderColor: C.border, color: C.textMuted }}>
                 {t("rel.flows.cards.showingCap", { count: campaigns.length })}
               </div>
             )}
@@ -165,15 +165,15 @@ function Tile({ icon, label, value, hint, tone }: { icon: React.ReactNode; label
       : `color-mix(in srgb, ${gold} 8%, transparent)`;
   const iconFg = tone === "critical" ? "#DC2626" : tone === "warning" ? "#D97706" : gold;
   return (
-    <div className="px-5 py-4 transition-colors hover:bg-[color-mix(in_srgb,var(--brand,_#c9a83a)_3%,transparent)]" style={{ backgroundColor: C.card }}>
-      <div className="flex items-center gap-2 mb-2">
+    <div className="px-6 py-5 transition-colors hover:bg-[color-mix(in_srgb,var(--brand,_#c9a83a)_3%,transparent)]" style={{ backgroundColor: C.card }}>
+      <div className="flex items-center gap-2 mb-3">
         <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
           style={{ backgroundColor: iconBg, color: iconFg }}>
           {icon}
         </div>
         <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em]" style={{ color: C.textMuted }}>{label}</span>
       </div>
-      <div className="text-[26px] font-bold tabular-nums leading-none mb-1"
+      <div className="text-[28px] font-bold tabular-nums leading-none mb-1.5"
         style={{ color: valueColor, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}>
         {value.toLocaleString()}
       </div>

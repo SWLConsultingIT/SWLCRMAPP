@@ -93,7 +93,7 @@ export default async function ReliabilityPage({
           linear-gradient(180deg, ${C.card} 0%, ${C.card} 100%)
         `,
       }}>
-        <div className="px-6 lg:px-10 py-7 flex items-center justify-between gap-4 flex-wrap relative z-10">
+        <div className="px-6 lg:px-10 py-10 flex items-center justify-between gap-4 flex-wrap relative z-10">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
               style={{
@@ -137,8 +137,11 @@ export default async function ReliabilityPage({
       {/* Tenant tabs — sticky, full width */}
       <TenantTabsNav tabs={tabs} activeBioId={activeTenant.bioId} />
 
-      {/* Body: either single-campaign drill-in OR tenant overview */}
-      <div className="px-6 pb-12 space-y-5">
+      {/* Body: either single-campaign drill-in OR tenant overview.
+          Generous outer padding + tall vertical spacing — Fran asked for
+          breathing room between sections (previously space-y-5 + py was
+          too dense and sections felt crammed). */}
+      <div className="px-6 lg:px-10 pt-8 pb-16 space-y-8">
         {campaignDetail ? (
           <CampaignDetailSection detail={campaignDetail} />
         ) : (

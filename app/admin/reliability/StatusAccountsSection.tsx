@@ -32,7 +32,7 @@ export default async function StatusAccountsSection({ summary }: { summary: Tena
       borderLeftColor: accentColor,
       boxShadow: "0 1px 3px rgba(0,0,0,0.04), 0 6px 18px -8px rgba(0,0,0,0.06)",
     }}>
-      <header className="px-6 py-5 border-b" style={{
+      <header className="px-7 py-6 border-b" style={{
         borderColor: C.border,
         background: `linear-gradient(135deg, ${C.card} 0%, color-mix(in srgb, ${accentColor} 3%, ${C.card}) 100%)`,
       }}>
@@ -54,7 +54,7 @@ export default async function StatusAccountsSection({ summary }: { summary: Tena
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-px" style={{ backgroundColor: C.border }}>
         {/* SELLERS / UNIPILE */}
-        <div className="p-6" style={{ backgroundColor: C.card }}>
+        <div className="p-7" style={{ backgroundColor: C.card }}>
           <div className="flex items-center gap-2 mb-4">
             <Share2 size={15} style={{ color: C.linkedin }} />
             <h3 className="text-[12px] font-bold uppercase tracking-[0.08em]" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{t("rel.accounts.sellers")}</h3>
@@ -141,7 +141,7 @@ export default async function StatusAccountsSection({ summary }: { summary: Tena
         </div>
 
         {/* INSTANTLY MAILBOXES */}
-        <div className="p-6" style={{ backgroundColor: C.card }}>
+        <div className="p-7" style={{ backgroundColor: C.card }}>
           <div className="flex items-center gap-2 mb-4">
             <Mail size={15} style={{ color: C.email }} />
             <h3 className="text-[12px] font-bold uppercase tracking-[0.08em]" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>{t("rel.accounts.instantly")}</h3>
