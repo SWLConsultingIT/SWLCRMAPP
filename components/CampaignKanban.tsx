@@ -423,6 +423,12 @@ export default function CampaignKanban({ sequence, campaigns }: Props) {
     const b: Campaign[][] = sequence.map(() => []);
     const done: Campaign[] = [];
     for (const c of list) {
+      // A positive or negative reply ENDS the flow (any reply stops dispatch;
+      // positive → opportunity, negative → lost). Such a lead has left the
+      // campaign — it must not sit in a step column waiting to advance. It's
+      // tracked in Results / Lost now, not here. (Fran 2026-06-16)
+      const rc = (c.reply_class ?? "").toLowerCase();
+      if (rc === "positive" || rc === "negative") continue;
       const cs = c.current_step ?? 0;
       if (cs > sequence.length) { done.push(c); continue; }
       // Column i = cs=i: "i steps done, step i+1 is next".
