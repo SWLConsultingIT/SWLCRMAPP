@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { getUserScope } from "@/lib/scope";
 import { signSellerName } from "@/lib/unipile-name-signing";
 
 const KEY = process.env.UNIPILE_API_KEY!;
@@ -24,18 +24,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Name required" }, { status: 400 });
   }
 
-  // Resolve the acting user's company scope so the seller lands under the right tenant.
-  const authSupabase = await getSupabaseServer();
-  const { data: { user } } = await authSupabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Resolve the ACTIVE tenant via getUserScope — NOT user_profiles.company_bio_id.
+  // For a super_admin that column is permanently pinned to SWL and the tenant
+  // switcher never mirrors it, so reading it directly created the seller under
+  // SWL even while the user was viewing another tenant (Lucas Ledesma landed in
+  // SWL instead of Grupo IEB, Fran 2026-06-16). getUserScope honors the
+  // switch-tenant cookie, so companyBioId is the tenant actually on screen.
+  const scope = await getUserScope();
+  if (!scope.userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const companyBioId: string | null = scope.companyBioId;
+  if (!companyBioId) {
+    return NextResponse.json(
+      { error: "No active tenant — pick a tenant in the switcher before adding an account" },
+      { status: 400 },
+    );
+  }
 
   const svc = getSupabaseService();
-  const { data: profile } = await svc
-    .from("user_profiles")
-    .select("role, company_bio_id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  const companyBioId: string | null = profile?.company_bio_id ?? null;
 
   // 1. Resolve the target seller — either reuse an existing orphan (reconnect flow)
   //    or create a fresh one. Reusing avoids leaving zombie rows in Supabase when
