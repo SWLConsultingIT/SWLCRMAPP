@@ -1621,6 +1621,15 @@ export const en: Dict = {
   "rel.global.sellers.title": "All sellers",
   "rel.global.sellers.subtitle": "Every active seller across all tenants",
   "rel.global.sellers.empty": "No active sellers configured.",
+  // Call-advance mode badge + stuck-call context
+  "rel.flows.callMode.auto": "auto-call",
+  "rel.flows.callMode.manual": "manual-call",
+  "rel.flows.callMode.mixed": "mixed call mode",
+  "rel.flows.callMode.auto.hint": "Cron auto-dials and the sequence advances regardless of outcome.",
+  "rel.flows.callMode.manual.hint": "Sequence WAITS at the call step until a seller dials — stuck calls are expected.",
+  "rel.flows.callMode.mixed.hint": "Different leads in this flow have different call modes (legacy data).",
+  "rel.stuck.reason.manualCall.expected": "Expected on manual-call flows — sellers dial when they can.",
+  "rel.stuck.reason.manualCall.bug": "This flow is auto-call but cron isn't picking up — investigate.",
 };
 
 export const es: Dict = {
@@ -3234,6 +3243,15 @@ export const es: Dict = {
   "rel.global.sellers.title": "Todos los sellers",
   "rel.global.sellers.subtitle": "Todos los sellers activos en todos los tenants",
   "rel.global.sellers.empty": "No hay sellers activos configurados.",
+  // Call-advance mode badge + stuck-call context
+  "rel.flows.callMode.auto": "call automático",
+  "rel.flows.callMode.manual": "call manual",
+  "rel.flows.callMode.mixed": "call mixto",
+  "rel.flows.callMode.auto.hint": "El cron dialea solo y la secuencia avanza pase lo que pase.",
+  "rel.flows.callMode.manual.hint": "La secuencia ESPERA en el call step hasta que un seller dialee — los calls trabados son esperados.",
+  "rel.flows.callMode.mixed.hint": "Distintos leads del flow tienen distinto modo de call (data legacy).",
+  "rel.stuck.reason.manualCall.expected": "Esperado en flows de call manual — los sellers dialean cuando pueden.",
+  "rel.stuck.reason.manualCall.bug": "Este flow es call automático pero el cron no levanta — investigar.",
 };
 
 export const dicts: Record<Locale, Dict> = { en, es };

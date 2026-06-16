@@ -11,7 +11,7 @@ import {
   ChevronDown, Send, MessageSquare, PauseCircle, AlertOctagon,
   Wifi, Key, FileWarning, AlertCircle, Ban, Link as LinkIcon, MailX,
   HelpCircle, Workflow, AlertTriangle, CheckCircle2, Users, Phone,
-  Share2, Mail,
+  Share2, Mail, Bot, Hand,
 } from "lucide-react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
@@ -104,10 +104,38 @@ export default function FlowCard({ campaign }: { campaign: CampaignSummary }) {
               title={campaign.campaignName}>
               {campaign.campaignName}
             </h3>
-            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full shrink-0"
-              style={{ backgroundColor: tone.bgSoft, border: `1px solid ${tone.border}`, color: tone.fg }}>
-              <Icon size={10} />
-              <span className="text-[9px] font-bold uppercase tracking-[0.08em]">{tone.label}</span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Call-advance mode badge — only when the flow has a call
+                  step. Lets the operator immediately tell "manual call,
+                  stuck calls expected" from "auto call, stuck = bug". */}
+              {campaign.callAdvanceMode && (() => {
+                const m = campaign.callAdvanceMode;
+                const isManual = m === "manual";
+                const isMixed = m === "mixed";
+                const bg = isManual
+                  ? "color-mix(in srgb, #D97706 10%, transparent)"
+                  : isMixed
+                    ? "color-mix(in srgb, #DC2626 10%, transparent)"
+                    : `color-mix(in srgb, ${C.linkedin} 10%, transparent)`;
+                const fg = isManual ? "#D97706" : isMixed ? "#DC2626" : C.linkedin;
+                const ModeIcon = isManual ? Hand : isMixed ? AlertTriangle : Bot;
+                return (
+                  <span
+                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-full"
+                    style={{ backgroundColor: bg, border: `1px solid color-mix(in srgb, ${fg} 30%, transparent)`, color: fg }}
+                    title={t(`rel.flows.callMode.${m}.hint`)}>
+                    <ModeIcon size={10} />
+                    <span className="text-[9px] font-bold uppercase tracking-[0.08em]">
+                      {t(`rel.flows.callMode.${m}`)}
+                    </span>
+                  </span>
+                );
+              })()}
+              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full"
+                style={{ backgroundColor: tone.bgSoft, border: `1px solid ${tone.border}`, color: tone.fg }}>
+                <Icon size={10} />
+                <span className="text-[9px] font-bold uppercase tracking-[0.08em]">{tone.label}</span>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-1.5 text-[10.5px] flex-wrap pl-6" style={{ color: C.textMuted }}>
@@ -191,7 +219,17 @@ export default function FlowCard({ campaign }: { campaign: CampaignSummary }) {
                 </span>
               </div>
               <div className="space-y-1.5">
-                {stuckBuckets.map((b, i) => (
+                {stuckBuckets.map((b, i) => {
+                  // Context for the "manual call pending" bucket — if the
+                  // flow is manual-call this is EXPECTED (sellers dial
+                  // when they can); if auto-call, it's a bug.
+                  const isManualCallBucket = b.reason === "rel.stuck.reason.manualCall";
+                  const callContext = isManualCallBucket && campaign.callAdvanceMode === "manual"
+                    ? { fg: C.green, text: t("rel.stuck.reason.manualCall.expected") }
+                    : isManualCallBucket && campaign.callAdvanceMode === "auto"
+                      ? { fg: "#DC2626", text: t("rel.stuck.reason.manualCall.bug") }
+                      : null;
+                  return (
                   <div key={i} className="rounded-lg p-2.5"
                     style={{ backgroundColor: C.card, border: "1px solid color-mix(in srgb, #D97706 18%, transparent)" }}>
                     <div className="flex items-center gap-2 mb-1">
@@ -204,6 +242,11 @@ export default function FlowCard({ campaign }: { campaign: CampaignSummary }) {
                       </p>
                       <span className="text-[11px] font-bold tabular-nums shrink-0" style={{ color: "#D97706" }}>{b.count}</span>
                     </div>
+                    {callContext && (
+                      <p className="pl-7 text-[10px] italic mb-1" style={{ color: callContext.fg }}>
+                        {callContext.text}
+                      </p>
+                    )}
                     {b.samples.length > 0 && (
                       <div className="pl-7 space-y-0.5">
                         {b.samples.map((s, j) => (
@@ -222,7 +265,8 @@ export default function FlowCard({ campaign }: { campaign: CampaignSummary }) {
                       </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

@@ -86,6 +86,11 @@ export type CampaignSummary = {
   positiveReplies: number;
   lastActivityAt: string | null;
   health: "healthy" | "warning" | "critical";
+  // Whether THIS flow's call step is auto-advance (cron dials + sequence
+  // proceeds whether or not anyone answered) or manual (sequence blocks
+  // until the seller manually dials). Mixed groups (different rows have
+  // different settings) report 'mixed'. Null means no call step at all.
+  callAdvanceMode: "auto" | "manual" | "mixed" | null;
   // Per-card stuck breakdown — the "where are they stuck?" lives inside
   // each flow card, not in a global block above.
   stuckBuckets: Array<{
@@ -694,8 +699,14 @@ export function buildGlobalSummary(all: TenantSummary[]): GlobalSummary {
 // ── Per-campaign data ─────────────────────────────────────────────────
 
 function campaignHealth(s: CampaignSummary): "healthy" | "warning" | "critical" {
-  if (s.messagesFailed >= 10 || (s.messagesStuck >= 50 && s.messagesSent === 0)) return "critical";
-  if (s.messagesFailed > 0 || s.messagesStuck > 10) return "warning";
+  // Manual-call flows EXPECT stuck rows on the call step (sellers haven't
+  // dialed yet). Discount the stuck count from the call buckets so a
+  // by-design backlog doesn't paint the card red.
+  const stuckExManual = s.callAdvanceMode === "manual"
+    ? s.messagesStuck - (s.stuckBuckets.find(b => b.reason === "rel.stuck.reason.manualCall")?.count ?? 0)
+    : s.messagesStuck;
+  if (s.messagesFailed >= 10 || (stuckExManual >= 50 && s.messagesSent === 0)) return "critical";
+  if (s.messagesFailed > 0 || stuckExManual > 10) return "warning";
   return "healthy";
 }
 
@@ -719,7 +730,7 @@ export async function getTenantCampaigns(bioId: string): Promise<CampaignSummary
   // from sequence_steps.length below.
   const { data: campaignsRaw, error: campaignsErr } = await svc
     .from("campaigns")
-    .select("id, name, status, sequence_steps, lead_id, seller_id, last_step_at, created_at, leads!inner(company_bio_id)")
+    .select("id, name, status, sequence_steps, lead_id, seller_id, call_advance_mode, last_step_at, created_at, leads!inner(company_bio_id)")
     .eq("status", "active")
     .eq("leads.company_bio_id", bioId)
     .order("created_at", { ascending: false })
@@ -731,7 +742,8 @@ export async function getTenantCampaigns(bioId: string): Promise<CampaignSummary
 
   const campaigns = ((campaignsRaw ?? []) as unknown) as Array<{
     id: string; name: string | null; status: string | null; sequence_steps: unknown;
-    lead_id: string | null; seller_id: string | null; last_step_at: string | null; created_at: string | null;
+    lead_id: string | null; seller_id: string | null; call_advance_mode: string | null;
+    last_step_at: string | null; created_at: string | null;
   }>;
   if (campaigns.length === 0) return [];
 
@@ -938,6 +950,18 @@ export async function getTenantCampaigns(bioId: string): Promise<CampaignSummary
       .sort((a, b) => a.stepNumber - b.stepNumber)
       .map(s => ({ stepNumber: s.stepNumber, channels: Array.from(s.channels), sent: s.sent, queued: s.queued, stuck: s.stuck, failed: s.failed, draft: s.draft }));
 
+    // Call-advance mode for the flow. Only relevant if the sequence has
+    // a call step (channels includes "call"). 'mixed' if rows in the
+    // same flow disagree (rare — usually a migration leftover).
+    const hasCallStep = channels.has("call");
+    let callAdvanceMode: CampaignSummary["callAdvanceMode"] = null;
+    if (hasCallStep) {
+      const modes = new Set(group.map(g => (g.call_advance_mode ?? "auto").toLowerCase()));
+      if (modes.size === 0) callAdvanceMode = "auto";
+      else if (modes.size > 1) callAdvanceMode = "mixed";
+      else callAdvanceMode = (Array.from(modes)[0] === "manual" ? "manual" : "auto");
+    }
+
     const base: CampaignSummary = {
       campaignId: rep.id,
       campaignName: rep.name ?? "(sin nombre)",
@@ -953,6 +977,7 @@ export async function getTenantCampaigns(bioId: string): Promise<CampaignSummary
       positiveReplies,
       lastActivityAt,
       health: "healthy",
+      callAdvanceMode,
       stuckBuckets,
       failureBuckets,
       stepBreakdown,
@@ -1120,6 +1145,7 @@ export async function getCampaignDetail(campaignId: string): Promise<CampaignDet
     positiveReplies,
     lastActivityAt,
     health: "healthy",
+    callAdvanceMode: null,
     stuckBuckets: [], // detail view has its own (richer) stuckBreakdown
     failureBuckets: [],
     stepBreakdown: [],
