@@ -1,26 +1,26 @@
 // /admin/reliability — REDESIGN 2026-06-10.
 //
 // Full-width layout with one tab per tenant (company_bio). Inside each
-// tab, three sections:
-//   1. Status General — narrative paragraph + KPIs that explain how
-//      the tenant has been doing the last 7 days. Replaces the
-//      "please ask Claude what's going on" pattern.
-//   2. Status Campaigns — invites sent / queued / stuck / failed,
-//      with the WHY of failures grouped by reason.
-//   3. Status Accounts — sellers (LinkedIn via Unipile) + Instantly
-//      mailbox health.
+// tab, four sections:
+//   1. Status General — narrative paragraph + KPIs ("ask Claude" killer)
+//   2. Status Campaigns — invites sent / queued / stuck / failed, WHY
+//   3. Campaigns list — clickable rows that drill into a single campaign
+//   4. Status Accounts — sellers (Unipile) + Instantly workspace
 //
-// Server component. Only super_admin sees this page (canViewSwlAdmin).
+// When ?campaign=<id> is set, the campaigns list + status sections are
+// replaced by a CampaignDetailSection scoped to that single campaign.
 
 import { getUserScope, canViewSwlAdmin } from "@/lib/scope";
 import { redirect } from "next/navigation";
 import { C } from "@/lib/design";
 import { ShieldCheck, RefreshCw } from "lucide-react";
-import { getAllTenantSummaries } from "@/lib/reliability-summary";
+import { getAllTenantSummaries, getTenantCampaigns, getCampaignDetail } from "@/lib/reliability-summary";
 import TenantTabsNav from "./TenantTabsNav";
 import StatusGeneralSection from "./StatusGeneralSection";
 import StatusCampaignsSection from "./StatusCampaignsSection";
 import StatusAccountsSection from "./StatusAccountsSection";
+import CampaignsListSection from "./CampaignsListSection";
+import CampaignDetailSection from "./CampaignDetailSection";
 import AutoRefresh from "./AutoRefresh";
 
 export const dynamic = "force-dynamic";
@@ -47,9 +47,11 @@ export default async function ReliabilityPage({
     );
   }
 
-  // Resolve active tenant from URL — default to the FIRST critical/
+  // Resolve active tenant from URL — default to the first critical/
   // warning tenant so issues bubble up; otherwise the first tab.
   const requestedTenant = typeof sp.tenant === "string" ? sp.tenant : undefined;
+  const requestedCampaign = typeof sp.campaign === "string" ? sp.campaign : undefined;
+
   const activeTenant = (() => {
     if (requestedTenant) {
       const match = all.find(s => s.bioId === requestedTenant);
@@ -61,6 +63,20 @@ export default async function ReliabilityPage({
   })();
 
   const tabs = all.map(s => ({ bioId: s.bioId, bioName: s.bioName, health: s.general.health }));
+
+  // Drill-in path: ?tenant=X&campaign=Y → fetch the single campaign's
+  // detail and replace the per-tenant body with CampaignDetailSection.
+  let campaignDetail = null;
+  if (requestedCampaign) {
+    campaignDetail = await getCampaignDetail(requestedCampaign);
+    // If the campaign doesn't belong to the active tenant, ignore.
+    if (campaignDetail && campaignDetail.bioId !== activeTenant.bioId) {
+      campaignDetail = null;
+    }
+  }
+
+  // For the campaigns list, fetch only when we're NOT in drill-in.
+  const tenantCampaigns = campaignDetail ? [] : await getTenantCampaigns(activeTenant.bioId);
 
   return (
     <div className="w-full">
@@ -89,11 +105,18 @@ export default async function ReliabilityPage({
       {/* Tenant tabs — sticky, full width */}
       <TenantTabsNav tabs={tabs} activeBioId={activeTenant.bioId} />
 
-      {/* Active tenant sections */}
+      {/* Body: either single-campaign drill-in OR tenant overview */}
       <div className="px-6 pb-12 space-y-5">
-        <StatusGeneralSection summary={activeTenant} />
-        <StatusCampaignsSection summary={activeTenant} />
-        <StatusAccountsSection summary={activeTenant} />
+        {campaignDetail ? (
+          <CampaignDetailSection detail={campaignDetail} />
+        ) : (
+          <>
+            <StatusGeneralSection summary={activeTenant} />
+            <StatusCampaignsSection summary={activeTenant} />
+            <CampaignsListSection campaigns={tenantCampaigns} bioId={activeTenant.bioId} />
+            <StatusAccountsSection summary={activeTenant} />
+          </>
+        )}
       </div>
 
       <AutoRefresh />

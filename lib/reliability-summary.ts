@@ -249,7 +249,12 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
     svc.from("campaign_messages").select("id, channel, error_details, created_at, leads!inner(company_bio_id)").eq("status", "failed").gte("created_at", since).eq("leads.company_bio_id", bioId).limit(500),
     svc.from("campaign_messages").select("id, channel, step_number, created_at, metadata, lead_id, campaign_id, leads!inner(company_bio_id, primary_first_name, primary_last_name, company_name, linkedin_connected, status), campaigns(name, seller_id, sellers(name))").eq("status", "queued").eq("leads.company_bio_id", bioId).limit(2000),
     svc.from("lead_replies").select("id, classification, received_at, leads!inner(company_bio_id)").gte("received_at", since).eq("leads.company_bio_id", bioId).limit(1000),
-    svc.from("sellers").select("id, name, active, unipile_account_id, linkedin_daily_limit, company_bio_id").eq("company_bio_id", bioId),
+    // Sellers can be either primary-tenant'd via `company_bio_id` OR
+    // shared into this tenant via `shared_with_company_bio_ids` (array).
+    // Mirror the OR pattern used by /api/campaigns/approve — without it
+    // tenants that piggy-back on a parent's sellers (e.g. Arqy reusing
+    // SWL sellers) showed only their own row and looked under-staffed.
+    svc.from("sellers").select("id, name, active, unipile_account_id, linkedin_daily_limit, company_bio_id, shared_with_company_bio_ids").or(`company_bio_id.eq.${bioId},shared_with_company_bio_ids.cs.{${bioId}}`),
     svc.from("company_bios").select("instantly_campaign_id, instantly_workspace_id").eq("id", bioId).maybeSingle(),
   ]);
 
