@@ -60,6 +60,83 @@ function tsToIso(v: number | string | null | undefined): string | null {
   return new Date(v).toISOString();
 }
 
+// ── Conversation Intelligence (AI Voice) push events ──────────────────────
+// When the tenant enables AI transcription in Aircall, Aircall PUSHES the
+// result to this webhook via `transcription.created` / `summary.created`
+// (separate from the REST GET /transcription, which is gated behind a
+// different API scope and returns 403 for us). Their `data` is NOT a call
+// object — it's a CI resource keyed by `call_id` — so the call-centric path
+// below would drop it on `!call?.id`. We handle them here and write the
+// native Aircall transcript straight onto the matching call row (preferred
+// over our Whisper fallback). Parsed defensively because Aircall's payload
+// shape isn't fully documented; unknown shapes are logged so we can adjust.
+// Only transcription for now — we feed Aircall's native transcript into OUR
+// existing summary + coach pipeline (Haiku), which the UI is built around.
+// summary.created/sentiment.created can be wired in later if wanted.
+const CI_EVENTS = new Set(["transcription.created"]);
+
+function extractTranscript(data: any): string {
+  const content = data?.content ?? data?.transcription?.content ?? data?.transcription ?? null;
+  if (!content) return "";
+  if (typeof content === "string") return content.trim();
+  const utterances = content.utterances ?? data?.utterances ?? (Array.isArray(content) ? content : null);
+  if (Array.isArray(utterances)) {
+    return utterances
+      .map((u: any) => {
+        const who = u?.participant_type ?? u?.speaker ?? "";
+        const t = (u?.text ?? "").trim();
+        return who && t ? `${who}: ${t}` : t;
+      })
+      .filter(Boolean)
+      .join("\n")
+      .trim();
+  }
+  if (typeof content?.text === "string") return content.text.trim();
+  return "";
+}
+
+async function handleCiEvent(eventName: string, body: AircallEvent, origin: string): Promise<NextResponse> {
+  const data: any = body.data ?? {};
+  const callId = data.call_id ?? data.callId ?? data?.call?.id ?? null;
+  if (!callId) {
+    console.warn(`[aircall-webhook] ${eventName} without call_id — raw:`, JSON.stringify(data).slice(0, 400));
+    return NextResponse.json({ ignored: true, reason: "no call_id on CI event" });
+  }
+
+  const patch: Record<string, unknown> = {};
+  if (eventName === "transcription.created") {
+    const transcript = extractTranscript(data);
+    if (!transcript) {
+      console.warn(`[aircall-webhook] transcription.created had no parseable text — raw:`, JSON.stringify(data).slice(0, 600));
+      return NextResponse.json({ ignored: true, reason: "empty transcript", callId });
+    }
+    patch.transcript = transcript; // Aircall native — overwrite Whisper fallback.
+  }
+
+  const patchRes = await fetch(`${SB_URL}/calls?aircall_call_id=eq.${callId}`, {
+    method: "PATCH",
+    headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
+    body: JSON.stringify(patch),
+  });
+  const rows = await patchRes.json().catch(() => []);
+  const row = Array.isArray(rows) && rows[0] ? rows[0] : null;
+  if (!row) {
+    console.warn(`[aircall-webhook] ${eventName} — no calls row for aircall_call_id=${callId} yet`);
+    return NextResponse.json({ ignored: true, reason: "no matching call row", callId });
+  }
+
+  // When a fresh transcript lands, chain summary + coach analysis (idempotent,
+  // locked downstream) so the seller never has to click "Generate". Mirrors
+  // the Whisper transcribe endpoint's auto-pipeline.
+  if (eventName === "transcription.created" && process.env.CRON_SECRET) {
+    const headers: HeadersInit = { "Content-Type": "application/json", Authorization: `Bearer ${process.env.CRON_SECRET}` };
+    fetch(`${origin}/api/calls/${row.id}/summary`, { method: "POST", headers }).catch(() => {});
+    fetch(`${origin}/api/calls/${row.id}/coach-analysis`, { method: "POST", headers }).catch(() => {});
+  }
+
+  return NextResponse.json({ ok: true, event: eventName, callId, source: "aircall-ci" });
+}
+
 function mapStatus(ev: string | undefined, call: AircallCall): string {
   if (call.voicemail) return "voicemail";
   if (ev === "call.hungup" || ev === "call.ended") {
@@ -96,6 +173,13 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "invalid json" }, { status: 400 });
   }
+  // Conversation Intelligence push events carry a transcription/summary
+  // payload (not a call), so route them before the call-centric logic that
+  // would otherwise drop them on the `!call?.id` guard below.
+  if (body.event && CI_EVENTS.has(body.event)) {
+    return handleCiEvent(body.event, body, req.nextUrl.origin);
+  }
+
   const call = body.data;
   if (!call?.id) return NextResponse.json({ ignored: true });
 
