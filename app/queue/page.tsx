@@ -67,7 +67,7 @@ async function getQueueData() {
   // destructure produced { data: null } and the Inbox tab rendered empty
   // (incident: De Vera Grill positive replies invisible 2026-05-24).
   let replyQuery = supabase.from("lead_replies")
-    .select("id, classification, received_at, channel, reply_text, lead_id, campaign_id, requires_human_review, review_status, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id, icp_profile_id), campaigns!inner(name, seller_id)")
+    .select("id, classification, received_at, channel, reply_text, lead_id, campaign_id, requires_human_review, review_status, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id, icp_profile_id), campaigns!inner(name, seller_id, sellers(name))")
     .neq("classification", "auto_reply")
     .order("received_at", { ascending: false })
     .limit(30);
@@ -433,6 +433,7 @@ async function getQueueData() {
         replyText: r.reply_text,
         receivedAt: r.received_at,
         campaignName: (r.campaigns as any)?.name ?? null,
+        sellerName: (r.campaigns as any)?.sellers?.name ?? null,
         icpProfileName: lead?.icp_profile_id ? (icpNameById[lead.icp_profile_id] ?? null) : null,
         requiresHumanReview: r.requires_human_review ?? false,
         reviewStatus: (r.review_status as string | null) ?? null,

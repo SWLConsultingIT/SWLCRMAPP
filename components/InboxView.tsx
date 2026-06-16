@@ -20,6 +20,7 @@ type InboxReply = {
   leadName: string;
   company: string | null;
   campaignName: string | null;
+  sellerName: string | null;
   icpProfileName: string | null;
   classification: string | null;
   channel: string | null;
@@ -1211,9 +1212,9 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                                 )}
                                 <div className="flex-1 min-w-0">
                                   <p className="text-xs font-semibold truncate" style={{ color: C.textPrimary }}>
-                                    {isOut ? "Tu equipo" : selected.leadName}
+                                    {isOut ? (selected.sellerName ?? "Tu equipo") : selected.leadName}
                                     <span className="ml-2 text-[10px] font-normal" style={{ color: C.textMuted }}>
-                                      → {isOut ? selected.leadName : "Tu equipo"}
+                                      → {isOut ? selected.leadName : (selected.sellerName ?? "Tu equipo")}
                                     </span>
                                   </p>
                                   <p className="text-[10px]" style={{ color: C.textMuted }}>
@@ -1358,6 +1359,15 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                               </div>
                               <div className="flex items-center gap-1.5 mt-1 text-[10px]" style={{ color: C.textDim }}>
                                 <span className="tabular-nums">{time}</span>
+                                {/* WHO sent it — the seller who owns this lead's
+                                    outreach (boss 2026-06-16: "quién se hace
+                                    cargo"). Shown on every outbound message. */}
+                                {isOut && selected.sellerName && (
+                                  <>
+                                    <span>·</span>
+                                    <span className="font-semibold" style={{ color: channelColor(entry.channel) }}>{selected.sellerName}</span>
+                                  </>
+                                )}
                                 {stepLabel && (
                                   <>
                                     <span>·</span>
