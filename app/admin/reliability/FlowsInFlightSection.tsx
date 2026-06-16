@@ -107,103 +107,11 @@ export default async function FlowsInFlightSection({
           tone={campaignsStats.failed >= 20 ? "critical" : campaignsStats.failed > 0 ? "warning" : "neutral"} />
       </div>
 
-      {/* STUCK / FAILURE BREAKDOWN */}
-      {campaignsStats.failureReasons.length > 0 ? (
-        <div className="px-6 py-5 border-t" style={{ borderColor: C.border }}>
-          <div className="flex items-center gap-2 mb-3">
-            <AlertOctagon size={14} style={{ color: "#DC2626" }} />
-            <h3 className="text-[12px] font-bold uppercase tracking-[0.08em]" style={{ color: "#DC2626", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-              {t("rel.flows.stuck.title")}
-            </h3>
-            <span className="text-[10px] tabular-nums" style={{ color: C.textMuted }}>
-              · {t("rel.flows.stuck.subtitle", { count: campaignsStats.failed, buckets: campaignsStats.failureReasons.length })}
-            </span>
-          </div>
-          <div className="space-y-2">
-            {campaignsStats.failureReasons.slice(0, 10).map((r, i) => (
-              <div key={i} className="flex items-center gap-3 p-3.5 rounded-xl transition-shadow hover:shadow-sm"
-                style={{ backgroundColor: "color-mix(in srgb, #DC2626 4%, transparent)", border: "1px solid color-mix(in srgb, #DC2626 20%, transparent)" }}>
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: "color-mix(in srgb, #DC2626 12%, transparent)", color: "#DC2626" }}>
-                  {iconForReason(r.reason)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[13.5px] font-semibold leading-tight" style={{ color: C.textPrimary }}>{renderReason(r.reason, t)}</p>
-                  {r.sample && r.sample !== r.reason && (
-                    <p className="text-[11px] truncate mt-1" style={{ color: C.textMuted }}>
-                      <span className="font-mono text-[10.5px]">{r.sample}</span>
-                    </p>
-                  )}
-                </div>
-                <div className="text-right shrink-0">
-                  <div className="text-[20px] font-bold tabular-nums leading-none"
-                    style={{ color: "#DC2626", fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}>
-                    {r.count}
-                  </div>
-                  <div className="text-[9.5px] uppercase tracking-wider mt-0.5" style={{ color: C.textMuted }}>
-                    {r.count === 1 ? t("rel.flows.stuck.messagesOne") : t("rel.flows.stuck.messagesMany")}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : campaignsStats.stuckQueued > 0 ? (
-        <div className="px-6 py-5 border-t" style={{ borderColor: C.border }}>
-          <div className="flex items-center gap-2 mb-3">
-            <PauseCircle size={14} style={{ color: "#D97706" }} />
-            <h3 className="text-[12px] font-bold uppercase tracking-[0.08em]" style={{ color: "#D97706", fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-              {t("rel.flows.stuck.title")}
-            </h3>
-            <span className="text-[10px] tabular-nums" style={{ color: C.textMuted }}>
-              · {t("rel.flows.stuck.subtitle", { count: campaignsStats.stuckQueued, buckets: campaignsStats.stuckBreakdown.length })}
-            </span>
-          </div>
-          <div className="space-y-2">
-            {campaignsStats.stuckBreakdown.map((b, i) => (
-              <div key={i} className="rounded-xl p-3.5"
-                style={{ backgroundColor: "color-mix(in srgb, #D97706 4%, transparent)", border: "1px solid color-mix(in srgb, #D97706 22%, transparent)" }}>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: "color-mix(in srgb, #D97706 12%, transparent)", color: "#D97706" }}>
-                    {iconForReason(b.reason)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13.5px] font-semibold leading-tight" style={{ color: C.textPrimary }}>{renderReason(b.reason, t)}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="text-[20px] font-bold tabular-nums leading-none"
-                      style={{ color: "#D97706", fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.02em" }}>
-                      {b.count}
-                    </div>
-                    <div className="text-[9.5px] uppercase tracking-wider mt-0.5" style={{ color: C.textMuted }}>
-                      {b.count === 1 ? t("rel.flows.stuck.messagesOne") : t("rel.flows.stuck.messagesMany")}
-                    </div>
-                  </div>
-                </div>
-                {b.samples.length > 0 && (
-                  <div className="ml-12 space-y-1 pt-1 border-t" style={{ borderColor: "color-mix(in srgb, #D97706 12%, transparent)" }}>
-                    {b.samples.map((s, j) => (
-                      <div key={j} className="text-[11px] flex items-center gap-2 pt-1.5 flex-wrap" style={{ color: C.textBody }}>
-                        <span className="font-medium">{s.leadName}</span>
-                        <span style={{ color: C.textMuted }}>· {s.channel}</span>
-                        <span style={{ color: C.textMuted }}>· step {s.stepNumber}</span>
-                        <span style={{ color: C.textMuted }}>· {s.ageDays}d</span>
-                        <span className="font-medium truncate" style={{ color: C.textMuted }}>· {s.campaignName}</span>
-                      </div>
-                    ))}
-                    {b.count > b.samples.length && (
-                      <p className="text-[10.5px] pt-1.5 italic" style={{ color: C.textMuted }}>
-                        {t("rel.flows.stuck.more", { count: b.count - b.samples.length })}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
+      {/* Global stuck-block removed per Fran 2026-06-16 — the stuck WHY
+          now lives INSIDE each campaign card so you read it next to the
+          flow it belongs to instead of having to mentally map a stuck
+          message back to its campaign from a global list. */}
+      {campaigns.length === 0 && campaignsStats.stuckQueued === 0 && campaignsStats.failed === 0 && (
         <div className="px-6 py-5 border-t flex items-center gap-3" style={{ borderColor: C.border, background: `linear-gradient(135deg, ${C.card} 0%, color-mix(in srgb, ${C.green} 4%, ${C.card}) 100%)` }}>
           <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
             style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)`, color: C.green }}>
@@ -321,6 +229,52 @@ function CampaignCard({ campaign, bioId, t }: { campaign: CampaignSummary; bioId
         <CardStat icon={<PauseCircle size={11} />} label={t("rel.flows.cards.stat.stuck")} value={campaign.messagesStuck} tone={campaign.messagesStuck > 0 ? "warning" : "muted"} />
         <CardStat icon={<AlertOctagon size={11} />} label={t("rel.flows.cards.stat.failed")} value={campaign.messagesFailed} tone={campaign.messagesFailed > 0 ? "critical" : "muted"} />
       </div>
+
+      {/* Per-card stuck breakdown — moved here from the global block.
+          Always visible when there ARE stuck rows so you read WHY this
+          specific flow isn't advancing without leaving the card. */}
+      {campaign.stuckBuckets.length > 0 && (
+        <div className="px-3 py-2.5 border-t space-y-1.5" style={{ borderColor: tone.border, backgroundColor: "color-mix(in srgb, #D97706 3%, transparent)" }}>
+          <div className="flex items-center gap-1.5 mb-1">
+            <PauseCircle size={11} style={{ color: "#D97706" }} />
+            <span className="text-[9.5px] font-bold uppercase tracking-[0.08em]" style={{ color: "#D97706" }}>
+              {t("rel.flows.stuck.title")}
+            </span>
+          </div>
+          {campaign.stuckBuckets.map((b, i) => (
+            <div key={i} className="rounded-lg p-2"
+              style={{ backgroundColor: C.card, border: "1px solid color-mix(in srgb, #D97706 18%, transparent)" }}>
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-5 h-5 rounded flex items-center justify-center shrink-0"
+                  style={{ backgroundColor: "color-mix(in srgb, #D97706 12%, transparent)", color: "#D97706" }}>
+                  {iconForReason(b.reason)}
+                </div>
+                <p className="text-[11px] font-semibold leading-tight flex-1 min-w-0" style={{ color: C.textPrimary }}>
+                  {renderReason(b.reason, t)}
+                </p>
+                <span className="text-[11px] font-bold tabular-nums shrink-0" style={{ color: "#D97706" }}>{b.count}</span>
+              </div>
+              {b.samples.length > 0 && (
+                <div className="pl-7 space-y-0.5">
+                  {b.samples.map((s, j) => (
+                    <div key={j} className="text-[10px] flex items-center gap-1.5 flex-wrap" style={{ color: C.textMuted }}>
+                      <span className="font-medium" style={{ color: C.textBody }}>{s.leadName}</span>
+                      <span>· {s.channel}</span>
+                      <span>· step {s.stepNumber}</span>
+                      <span>· {s.ageDays}d</span>
+                    </div>
+                  ))}
+                  {b.count > b.samples.length && (
+                    <p className="text-[9.5px] italic" style={{ color: C.textMuted }}>
+                      {t("rel.flows.stuck.more", { count: b.count - b.samples.length })}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="px-4 py-2 flex items-center justify-end gap-1 transition-colors group-hover:bg-[color-mix(in_srgb,var(--brand,_#c9a83a)_8%,transparent)]" style={{ backgroundColor: C.card, borderTop: `1px solid ${tone.border}` }}>
         <span className="text-[10.5px] font-semibold uppercase tracking-wider" style={{ color: gold }}>{t("rel.flows.cards.viewDetail")}</span>
