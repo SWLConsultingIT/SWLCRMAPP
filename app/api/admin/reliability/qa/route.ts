@@ -19,6 +19,14 @@ import { getSupabaseService } from "@/lib/supabase-service";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+// n8n webhook for the Q&A bot. The workflow lives at
+// `SWL - CRM - Reliability Q&A` (yD8iKMNg9grcRMs7) and uses Anthropic
+// Haiku grounded on the payload we POST here. Hardcoded (same pattern
+// as other n8n webhooks the repo calls — keeps everything portable
+// across hosting platforms instead of behind a Vercel env var).
+const N8N_BASE = (process.env.N8N_API_BASE_URL ?? "https://n8n.srv949269.hstgr.cloud").replace(/\/+$/, "");
+const QA_WEBHOOK_URL = `${N8N_BASE}/webhook/swl-crm-reliability-qa`;
+
 export async function POST(req: Request) {
   const scope = await getUserScope();
   if (!canViewSwlAdmin(scope.tier)) {
@@ -28,10 +36,7 @@ export async function POST(req: Request) {
   if (!body?.bioId || !body.question?.trim()) {
     return NextResponse.json({ error: "bioId + question required" }, { status: 400 });
   }
-  const url = process.env.RELIABILITY_QA_WEBHOOK_URL;
-  if (!url) {
-    return NextResponse.json({ error: "RELIABILITY_QA_WEBHOOK_URL not set — create the n8n workflow first" }, { status: 503 });
-  }
+  const url = QA_WEBHOOK_URL;
 
   // 'general' = ask about the whole org (all tenants). Otherwise scoped
   // to one tenant.
