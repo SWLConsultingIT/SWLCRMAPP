@@ -642,6 +642,11 @@ export function buildGlobalSummary(all: TenantSummary[]): GlobalSummary {
     else healthyCount++;
 
     for (const s of t.accounts.sellers) {
+      // Skip sellers without a Unipile account ID — they're either
+      // half-onboarded or legacy rows that won't ever dispatch. The "All
+      // sellers" list on the General tab should only show sellers who
+      // can actually send today.
+      if (!s.unipileAccountId) continue;
       const cur = sellerMap.get(s.id);
       if (cur) {
         if (!cur.tenantNames.includes(t.bioName)) cur.tenantNames.push(t.bioName);
