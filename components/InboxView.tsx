@@ -466,18 +466,33 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
   // Quick-classify from the list row — assigns/overrides classification AND
   // marks the row reviewed in one call. Doesn't require the row to be the
   // currently-selected one; this is the row's own inline action.
+  // A card represents a LEAD (replies are deduped per lead), but the lead may
+  // have several PENDING replies (messages sent in a row). Reviewing the card
+  // must clear ALL of them, otherwise the dedupe re-surfaces the sibling that's
+  // still pending and the card never leaves Pending (boss 2026-06-12: "toqué
+  // follow up y no se fueron"). Resolve the lead's pending reply ids from the
+  // raw (un-deduped) list.
+  const siblingPendingIds = (replyId: string): string[] => {
+    const lead = rawReplies.find(r => r.id === replyId)?.leadId;
+    if (!lead) return [replyId];
+    const ids = rawReplies.filter(r => r.leadId === lead && isPending(r)).map(r => r.id);
+    return ids.length ? ids : [replyId];
+  };
+
   async function quickClassify(replyId: string, classification: "positive" | "negative" | "follow_up") {
     if (working) return;
     setWorking(true);
     try {
-      const res = await fetch(`/api/replies/${replyId}/review`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "approved", classification }),
-      });
-      if (!res.ok) {
-        const { error } = await res.json().catch(() => ({ error: "Failed" }));
-        toast.show({ kind: "error", title: "Couldn't classify", description: error || "Try again." });
+      const ids = siblingPendingIds(replyId);
+      const results = await Promise.allSettled(ids.map(id =>
+        fetch(`/api/replies/${id}/review`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "approved", classification }),
+        }).then(r => { if (!r.ok) throw new Error(String(r.status)); }),
+      ));
+      if (!results.some(r => r.status === "fulfilled")) {
+        toast.show({ kind: "error", title: "Couldn't classify", description: "Try again." });
         return;
       }
       // Mirror the API's cascade response: positive/negative now pause the
@@ -527,7 +542,9 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
   async function bulkApply(action: "negative" | "positive" | "reviewed") {
     if (working || selectedIds.size === 0) return;
     setWorking(true);
-    const ids = [...selectedIds];
+    // Each selected card is a lead — expand to all of that lead's pending
+    // reply ids so the whole conversation clears, not just the shown message.
+    const ids = [...new Set([...selectedIds].flatMap(id => siblingPendingIds(id)))];
     const body = action === "reviewed"
       ? { status: "approved" }
       : { status: "approved", classification: action };
@@ -559,14 +576,18 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
     if (!selected || working) return;
     setWorking(true);
     try {
-      const res = await fetch(`/api/replies/${selected.id}/review`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-      if (!res.ok) {
-        const { error } = await res.json().catch(() => ({ error: "Failed" }));
-        toast.show({ kind: "error", title: "Couldn't update review", description: error || "Try again" });
+      // approved/rejected clear the whole conversation (all the lead's pending
+      // replies); "pending" (re-open from History) acts on the one reply.
+      const ids = status === "pending" ? [selected.id] : siblingPendingIds(selected.id);
+      const results = await Promise.allSettled(ids.map(id =>
+        fetch(`/api/replies/${id}/review`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status }),
+        }).then(r => { if (!r.ok) throw new Error(String(r.status)); }),
+      ));
+      if (!results.some(r => r.status === "fulfilled")) {
+        toast.show({ kind: "error", title: "Couldn't update review", description: "Try again" });
         return;
       }
       toast.show({
