@@ -247,11 +247,17 @@ export async function GET(
       const url = `${UNIPILE_BASE}/api/v1/chats/${encodeURIComponent(chatId)}/messages?account_id=${encodeURIComponent(unipileAccountId)}&limit=50`;
       const data = await unipileGet(url);
       const items: any[] = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+      // Track which message ids the live chat still has + the oldest one we
+      // fetched — used below to detect messages deleted on LinkedIn's side.
+      const liveUnipileIds = new Set<string>();
+      let oldestUnipileMs = Number.POSITIVE_INFINITY;
       for (const msg of items) {
         const provId = (msg?.id as string | undefined) ?? null;
         const text = (msg?.text as string | undefined) ?? "";
         const at = (msg?.timestamp as string | undefined) ?? (msg?.created_at as string | undefined);
         if (!at) continue;
+        if (provId) liveUnipileIds.add(provId);
+        { const tms = new Date(at).getTime(); if (Number.isFinite(tms) && tms < oldestUnipileMs) oldestUnipileMs = tms; }
         // Compute receipt flags up-front so we can enrich an already-merged
         // DB entry OR attach to a new Unipile-sourced entry.
         const seenInt = msg?.seen;
@@ -317,6 +323,24 @@ export async function GET(
           seenAt,
           delivered,
         });
+      }
+
+      // Reflect LinkedIn-side DELETIONS: an outbound LinkedIn message we have
+      // in the DB (with a provider id) that is NO LONGER in the live chat was
+      // retracted/deleted there — drop it so the app matches LinkedIn (boss
+      // 2026-06-16: deleted an auto-reply on LinkedIn, the app still showed
+      // it). Guards against false positives: only when the fetch returned
+      // messages, and only for entries newer than the oldest one we fetched
+      // (older messages may be beyond the 50-message window, not deleted).
+      if (liveUnipileIds.size > 0) {
+        for (let i = entries.length - 1; i >= 0; i--) {
+          const e = entries[i];
+          if (e.source === "db" && e.direction === "outbound" && e.channel === "linkedin"
+              && e.providerMessageId && !liveUnipileIds.has(e.providerMessageId)
+              && new Date(e.at).getTime() >= oldestUnipileMs) {
+            entries.splice(i, 1);
+          }
+        }
       }
     }
   }
