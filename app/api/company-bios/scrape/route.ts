@@ -175,6 +175,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "URL is required" }, { status: 400 });
   }
 
+  // Reject search-engine result pages up-front. People paste a Google/Bing
+  // search URL (the address bar after searching the company) instead of the
+  // company's own site; those pages are bot-blocked / junk, so the AI gets no
+  // usable content and fails with the cryptic "no JSON object in response".
+  // Give an actionable message instead (Fran 2026-06-17, Grupo IEB).
+  try {
+    const u = new URL(/^https?:\/\//i.test(url) ? url : `https://${url}`);
+    const host = u.hostname.replace(/^www\./, "").toLowerCase();
+    const SEARCH_HOSTS = ["google.", "bing.com", "duckduckgo.com", "search.brave.com", "search.yahoo.com", "yandex."];
+    const isSearch = SEARCH_HOSTS.some(h => host.startsWith(h) || host.includes(h)) && (u.pathname.includes("/search") || u.searchParams.has("q"));
+    if (isSearch) {
+      return NextResponse.json(
+        { error: "That looks like a search-results page. Paste the company's own website (e.g. https://www.company.com), not a Google/Bing search." },
+        { status: 422 },
+      );
+    }
+  } catch {
+    return NextResponse.json({ error: "That doesn't look like a valid website URL. Paste the company's site, e.g. https://www.company.com" }, { status: 422 });
+  }
+
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   if (!anthropicKey) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
@@ -327,7 +347,14 @@ ${cleaned}`;
       if (start === -1 || end === -1) throw new Error("no JSON object in response");
       parsed = JSON.parse(txt.slice(start, end + 1));
     } catch (e: unknown) {
-      return NextResponse.json({ error: `Claude error: ${e instanceof Error ? e.message : String(e)}` }, { status: 502 });
+      // The most common cause is thin/blocked page content (JS-only site, login
+      // wall, or a non-company URL) so the model can't extract a profile. Surface
+      // an actionable hint instead of the raw "no JSON object in response".
+      const msg = e instanceof Error ? e.message : String(e);
+      const friendly = msg.includes("no JSON object")
+        ? "Couldn't read enough company info from that page. Make sure it's the company's main website (homepage), not a search result, login page or a JavaScript-only app."
+        : `Couldn't analyze the page: ${msg}`;
+      return NextResponse.json({ error: friendly }, { status: 502 });
     }
 
     // Whitelist only the columns that exist on company_bios. The AI sometimes
