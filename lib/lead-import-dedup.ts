@@ -94,6 +94,24 @@ function normLI(url: string | null | undefined): string {
     .split("#")[0]
     .replace(/\/+$/, "");
 }
+// A PERSONAL LinkedIn slug (/in/ or /pub/) identifies one human and is safe to
+// dedupe on. A /company/ or /school/ URL identifies an ORG — scraped lists
+// routinely drop the company page into every contact's linkedin field, so
+// using it as a per-person key collapses all of a company's distinct people
+// into one ("duplicate within this upload"). Return "" for those.
+function personalLI(url: string | null | undefined): string {
+  const n = normLI(url);
+  return n.startsWith("in:") || n.startsWith("pub:") ? n : "";
+}
+// Two rows are the same person only if their names are equal (or one side has
+// no name to compare). Lets distinct people who share a company mailbox / phone
+// /switchboard through instead of merging them.
+function namesCompatible(fn: string, ln: string, other: { primary_first_name: string | null; primary_last_name: string | null }): boolean {
+  const a = normText(`${fn} ${ln}`);
+  const b = normText(`${other.primary_first_name ?? ""} ${other.primary_last_name ?? ""}`);
+  if (!a || !b) return true;
+  return a === b;
+}
 function normEmail(e: string | null | undefined): string {
   return e ? String(e).trim().toLowerCase() : "";
 }
@@ -232,7 +250,7 @@ export async function buildImportPlan(input: {
   const byPh = new Map<string, ExistingLead>();
   const byNameCo = new Map<string, ExistingLead>();
   for (const l of existing) {
-    const li = normLI(l.primary_linkedin_url);
+    const li = personalLI(l.primary_linkedin_url);
     const we = normEmail(l.primary_work_email);
     const pe = normEmail(l.primary_personal_email);
     const ph = normPhone(l.primary_phone);
@@ -246,12 +264,14 @@ export async function buildImportPlan(input: {
     if (fn && ln && co) byNameCo.set(`${fn}|${ln}|${co}`, l);
   }
 
-  // Intra-batch composite dedup (matches the Supabase UNIQUE indexes —
-  // generic emails like info@empresa.com at two different companies
-  // aren't duplicates; same email + same company is).
-  const seenEmailCo = new Set<string>();
-  const seenLICo = new Set<string>();
-  const seenNameCo = new Set<string>();
+  // Intra-batch dedup. A row is a duplicate of an EARLIER row only if it's
+  // plausibly the SAME PERSON: same personal LinkedIn slug, same name+company,
+  // or same email WITH the same name. Email/phone alone are NOT used as person
+  // keys — scraped lists put one company email/switchboard on every contact, so
+  // keying on email+company collapsed distinct people ("duplicate within this
+  // upload"). Names are folded into the email key so a shared company mailbox
+  // no longer merges different people. (Fix 2026-06-17.)
+  const seen = new Set<string>();
 
   const outcomes: ImportRowOutcome[] = [];
 
@@ -274,7 +294,7 @@ export async function buildImportPlan(input: {
       continue;
     }
 
-    const li = normLI(mapped.primary_linkedin_url as string | null);
+    const li = personalLI(mapped.primary_linkedin_url as string | null);
     const we = normEmail(mapped.primary_work_email as string | null);
     const pe = normEmail(mapped.primary_personal_email as string | null);
     const ph = normPhone(mapped.primary_phone as string | null);
@@ -282,22 +302,30 @@ export async function buildImportPlan(input: {
     const fn = ((mapped.primary_first_name as string | null) || "").trim().toLowerCase();
     const ln = ((mapped.primary_last_name as string | null) || "").trim().toLowerCase();
 
-    const wKey = we && co && !isGenericEmail(we) ? `${we}||${co}` : null;
-    const peKey = pe && co && !isGenericEmail(pe) ? `${pe}||${co}` : null;
-    const lKey = li && co ? `${li}||${co}` : null;
-    const nKey = fn && ln && co ? `${fn}|${ln}|${co}` : null;
+    // Person keys. nameSig folds the person's name into the email key so two
+    // different people sharing a company email don't collapse; falls back to
+    // company when there's no name. Personal LinkedIn slug is unique to a human
+    // so it stands alone.
+    const nameSig = fn && ln ? `${fn}|${ln}` : "";
+    const wKey  = we && !isGenericEmail(we) ? `e:${we}|${nameSig || co}` : null;
+    const peKey = pe && !isGenericEmail(pe) ? `e:${pe}|${nameSig || co}` : null;
+    const liKey = li ? `li:${li}` : null;
+    const nKey  = fn && ln && co ? `n:${fn}|${ln}|${co}` : null;
 
-    if ((wKey && seenEmailCo.has(wKey)) || (peKey && seenEmailCo.has(peKey)) || (lKey && seenLICo.has(lKey)) || (nKey && seenNameCo.has(nKey))) {
+    if ((wKey && seen.has(wKey)) || (peKey && seen.has(peKey)) || (liKey && seen.has(liKey)) || (nKey && seen.has(nKey))) {
       outcomes.push({ rowIndex, status: "skipped_duplicate", reason: "duplicate within this upload", display });
       continue;
     }
 
+    // DB match: same person already in this tenant. Email/phone matches also
+    // require a compatible name so a shared company contact point doesn't merge
+    // a new person onto an existing different one.
     let dbMatch: ExistingLead | null = null;
     let matchedBy = "";
     if (li && byLI.has(li))      { dbMatch = byLI.get(li)!;      matchedBy = "LinkedIn URL"; }
-    else if (we && !isGenericEmail(we) && byWE.has(we)) { dbMatch = byWE.get(we)!; matchedBy = "work email"; }
-    else if (pe && !isGenericEmail(pe) && byPE.has(pe)) { dbMatch = byPE.get(pe)!; matchedBy = "personal email"; }
-    else if (ph && byPh.has(ph)) { dbMatch = byPh.get(ph)!;      matchedBy = "phone"; }
+    else if (we && !isGenericEmail(we) && byWE.has(we) && namesCompatible(fn, ln, byWE.get(we)!)) { dbMatch = byWE.get(we)!; matchedBy = "work email"; }
+    else if (pe && !isGenericEmail(pe) && byPE.has(pe) && namesCompatible(fn, ln, byPE.get(pe)!)) { dbMatch = byPE.get(pe)!; matchedBy = "personal email"; }
+    else if (ph && byPh.has(ph) && namesCompatible(fn, ln, byPh.get(ph)!)) { dbMatch = byPh.get(ph)!;      matchedBy = "phone"; }
     else if (nKey && byNameCo.has(nKey)) { dbMatch = byNameCo.get(nKey)!; matchedBy = "name + company"; }
 
     if (dbMatch && activeLeadIds.has(dbMatch.id)) {
@@ -311,10 +339,10 @@ export async function buildImportPlan(input: {
       continue;
     }
 
-    if (wKey) seenEmailCo.add(wKey);
-    if (peKey) seenEmailCo.add(peKey);
-    if (lKey) seenLICo.add(lKey);
-    if (nKey) seenNameCo.add(nKey);
+    if (wKey) seen.add(wKey);
+    if (peKey) seen.add(peKey);
+    if (liKey) seen.add(liKey);
+    if (nKey) seen.add(nKey);
 
     const score = calcLeadScore(mapped as Record<string, unknown>);
 
