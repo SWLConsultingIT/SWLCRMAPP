@@ -280,6 +280,24 @@ export async function buildImportPlan(input: {
     const rowIndex = i + 1;
     const mapped = applyMappingToRow(csvRow, mapping);
 
+    // Scraped lists routinely put the COMPANY LinkedIn page
+    // (linkedin.com/company/…) into the contact's personal linkedin field.
+    // Stored in primary_linkedin_url it (a) isn't the person's profile and
+    // (b) trips the (primary_linkedin_url, company) unique index the moment a
+    // second person at the same firm carries the same company URL — which is
+    // exactly what made 16/25 rows error out. Move it to company_linkedin and
+    // clear the personal slot so each person has a NULL personal LinkedIn.
+    {
+      const rawLI = String(mapped.primary_linkedin_url ?? "").trim();
+      if (rawLI) {
+        const n = normLI(rawLI);
+        if (n.startsWith("company:") || n.startsWith("school:")) {
+          if (!mapped.company_linkedin) mapped.company_linkedin = rawLI;
+          mapped.primary_linkedin_url = null;
+        }
+      }
+    }
+
     const hasName = mapped.primary_first_name || mapped.primary_last_name;
     const hasContact = mapped.primary_work_email || mapped.primary_personal_email || mapped.primary_phone || mapped.primary_linkedin_url;
 
