@@ -208,9 +208,13 @@ function heuristicTargetFor(headerNorm: string): string | null {
   if (/(^|\b)name\b$/.test(h) && !/company|business|first|last/.test(h)) return "_fullname";
   if (/\bfirst ?name\b/.test(h)) return "primary_first_name";
   if (/\blast ?name\b/.test(h)) return "primary_last_name";
-  // LinkedIn — person vs company
+  // LinkedIn — person vs company. Check COMPANY first: a header like
+  // "Company Linkedin Url" also matches the generic "linkedin.*url" person
+  // rule, so without this order it mapped to primary_linkedin_url and the
+  // company page overwrote the person's real /in/ profile (then tripped the
+  // (primary_linkedin_url, company) unique index). 2026-06-17.
+  if (/company.*linkedin|linkedin.*company|org.*linkedin/.test(h)) return "company_linkedin";
   if (/(person|profile|primary).*linkedin|linkedin.*(profile|url)|linkedin profile/.test(h)) return "primary_linkedin_url";
-  if (/company.*linkedin|linkedin.*company/.test(h)) return "company_linkedin";
   if (/^linkedin( url)?$/.test(h)) return "primary_linkedin_url";
   // Emails
   if (/personal.*email|home.*email/.test(h)) return "primary_personal_email";

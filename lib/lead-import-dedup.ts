@@ -280,21 +280,28 @@ export async function buildImportPlan(input: {
     const rowIndex = i + 1;
     const mapped = applyMappingToRow(csvRow, mapping);
 
-    // Scraped lists routinely put the COMPANY LinkedIn page
-    // (linkedin.com/company/…) into the contact's personal linkedin field.
-    // Stored in primary_linkedin_url it (a) isn't the person's profile and
-    // (b) trips the (primary_linkedin_url, company) unique index the moment a
-    // second person at the same firm carries the same company URL — which is
-    // exactly what made 16/25 rows error out. Move it to company_linkedin and
-    // clear the personal slot so each person has a NULL personal LinkedIn.
+    // Scraped lists routinely carry BOTH a "Person Linkedin Url" (/in/…) and a
+    // "Company Linkedin Url" (/company/…), and a mapping slip can land the
+    // company page in primary_linkedin_url. That (a) isn't the person's profile
+    // and (b) trips the (primary_linkedin_url, company) unique index the moment
+    // a 2nd person at the same firm carries the same company URL — exactly what
+    // errored 16/25 rows. If primary holds a company/school page, move it to
+    // company_linkedin and RECOVER the person's real /in/ profile from any
+    // other column in the raw row (so we keep the personal LinkedIn instead of
+    // nulling it). Mapping-independent safety net.
     {
       const rawLI = String(mapped.primary_linkedin_url ?? "").trim();
-      if (rawLI) {
-        const n = normLI(rawLI);
-        if (n.startsWith("company:") || n.startsWith("school:")) {
-          if (!mapped.company_linkedin) mapped.company_linkedin = rawLI;
-          mapped.primary_linkedin_url = null;
+      const n = rawLI ? normLI(rawLI) : "";
+      if (n.startsWith("company:") || n.startsWith("school:")) {
+        if (!mapped.company_linkedin) mapped.company_linkedin = rawLI;
+        let personal: string | null = null;
+        for (const v of Object.values(csvRow)) {
+          const s = String(v ?? "").trim();
+          if (!s) continue;
+          const ns = normLI(s);
+          if (ns.startsWith("in:") || ns.startsWith("pub:")) { personal = s; break; }
         }
+        mapped.primary_linkedin_url = personal; // recovered /in/ profile, or null
       }
     }
 
