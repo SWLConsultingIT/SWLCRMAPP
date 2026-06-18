@@ -19,6 +19,8 @@ export type PortfolioCompany = {
   calls: number;            callsPrev: number;
   replies: number;          repliesPrev: number;
   positives: number;        positivesPrev: number;
+  meetings: number;         meetingsPrev: number;
+  winsPeriod: number;       winsPeriodPrev: number;
   byChannel: { channel: string; messages: number; leads: number }[];
   // Per-seller activity this period (calls + outcomes attributed to the seller).
   sellers: { name: string; calls: number; leads: number; replies: number; positives: number }[];
@@ -135,6 +137,7 @@ export async function getPortfolioComparison(days = 7): Promise<PortfolioCompany
     bioId: "", name: "",
     contacted: 0, contactedPrev: 0, messages: 0, messagesPrev: 0,
     calls: 0, callsPrev: 0, replies: 0, repliesPrev: 0, positives: 0, positivesPrev: 0,
+    meetings: 0, meetingsPrev: 0, winsPeriod: 0, winsPeriodPrev: 0,
     byChannel: [], sellers: [], totalLeads: 0, activeLeads: 0, activeFlows: 0, opportunities: 0, wins: 0,
   });
   const acc: Record<string, Acc> = {};
@@ -165,13 +168,14 @@ export async function getPortfolioComparison(days = 7): Promise<PortfolioCompany
 
   for (const r of repliesAll) {
     const a = acc[bioOf(r) as string]; if (!a) continue;
-    const isPos = POS.has((r.classification as string) || "");
+    const cls = (r.classification as string) || "";
+    const isPos = POS.has(cls); const isMeet = cls === "meeting_intent";
     if (inThis(r.received_at as string)) {
-      a.replies++; if (isPos) a.positives++;
+      a.replies++; if (isPos) a.positives++; if (isMeet) a.meetings++;
       const ls = leadSeller.get(r.lead_id as string);
       const nm = ls && sidName.has(ls) ? sidName.get(ls)! : "__unassigned__";
       const st = sellerStat(a, nm); st.replies++; if (isPos) st.positives++;
-    } else if (inPrev(r.received_at as string)) { a.repliesPrev++; if (isPos) a.positivesPrev++; }
+    } else if (inPrev(r.received_at as string)) { a.repliesPrev++; if (isPos) a.positivesPrev++; if (isMeet) a.meetingsPrev++; }
   }
 
   const callSeller = (c: Row): string => {
@@ -206,7 +210,11 @@ export async function getPortfolioComparison(days = 7): Promise<PortfolioCompany
   for (const l of leads) {
     const a = acc[l.company_bio_id as string]; if (!a) continue;
     a.totalLeads++;
-    if (l.transferred_to_odoo_at || l.status === "closed_won" || l.status === "qualified") a.wins++;
+    const odoo = l.transferred_to_odoo_at as string | null;
+    if (odoo || l.status === "closed_won" || l.status === "qualified") a.wins++;
+    // Wins THIS period — only the Odoo transfer is timestamped, so window on it.
+    if (inThis(odoo)) a.winsPeriod++;
+    else if (inPrev(odoo)) a.winsPeriodPrev++;
   }
   for (const r of allPos) {
     const a = acc[bioOf(r) as string]; if (!a) continue;

@@ -43,7 +43,8 @@ export default async function PortfolioPrintPage({
     brand: "GrowthAI · Status de cartera", title: "Portfolio — comparativo de empresas",
     note: `Últimos ${days} días vs. los ${days} previos`, metric: "Métrica",
     act: "Actividad del período", contacted: "Leads contactados", messages: "Mensajes enviados",
-    calls: "Llamadas", replies: "Respuestas", positives: "Positivas", respRate: "Tasa de respuesta",
+    calls: "Llamadas", replies: "Respuestas", positives: "Positivas", meetings: "Reuniones", winsPeriod: "Wins (período)", respRate: "Tasa de respuesta",
+    sumTitle: "Resumen ejecutivo",
     pipe: "Pipeline acumulado (histórico)", totalLeads: "Leads totales", activeLeads: "En flujo activo",
     activeFlows: "Flows activos", opportunities: "Oportunidades (positivas)", wins: "Wins",
     sellers: "Sellers · actividad del período", seller: "Seller", company: "Empresa", leads: "Leads", unassigned: "Sin asignar",
@@ -52,7 +53,8 @@ export default async function PortfolioPrintPage({
     brand: "GrowthAI · Portfolio status", title: "Portfolio — company comparison",
     note: `Last ${days} days vs. prior ${days}`, metric: "Metric",
     act: "Activity this period", contacted: "Contacted leads", messages: "Messages sent",
-    calls: "Calls", replies: "Replies", positives: "Positive", respRate: "Response rate",
+    calls: "Calls", replies: "Replies", positives: "Positive", meetings: "Meetings", winsPeriod: "Wins (period)", respRate: "Response rate",
+    sumTitle: "Executive summary",
     pipe: "Cumulative pipeline (all-time)", totalLeads: "Total leads", activeLeads: "In active flow",
     activeFlows: "Active flows", opportunities: "Opportunities (positive)", wins: "Wins",
     sellers: "Sellers · activity this period", seller: "Seller", company: "Company", leads: "Leads", unassigned: "Unassigned",
@@ -67,6 +69,8 @@ export default async function PortfolioPrintPage({
     { label: T.calls, k: "calls", pk: "callsPrev" },
     { label: T.replies, k: "replies", pk: "repliesPrev" },
     { label: T.positives, k: "positives", pk: "positivesPrev" },
+    { label: T.meetings, k: "meetings", pk: "meetingsPrev" },
+    { label: T.winsPeriod, k: "winsPeriod", pk: "winsPeriodPrev" },
   ];
   const PIPE: { label: string; k: keyof PortfolioCompany; win?: boolean }[] = [
     { label: T.totalLeads, k: "totalLeads" },
@@ -79,6 +83,13 @@ export default async function PortfolioPrintPage({
   // Sellers flattened across companies for the print leaderboard.
   const sellerRows = companies.flatMap(c => c.sellers.map(s => ({ ...s, company: c.name })))
     .sort((a, b) => b.calls - a.calls || b.replies - a.replies);
+  // Executive summary aggregate.
+  const agg = (k: keyof PortfolioCompany) => companies.reduce((s, c) => s + (c[k] as number), 0);
+  const fmt = (v: number) => v.toLocaleString(numLoc);
+  const pc = (cur: number, prev: number) => prev === 0 ? "—" : `${cur >= prev ? "+" : ""}${Math.round(((cur - prev) / prev) * 100)}%`;
+  const sumText = es
+    ? `${fmt(agg("contacted"))} leads contactados (${pc(agg("contacted"), agg("contactedPrev"))}) · ${fmt(agg("calls"))} llamadas (${pc(agg("calls"), agg("callsPrev"))}) · ${fmt(agg("positives"))} positivas · ${fmt(agg("meetings"))} reuniones · ${fmt(agg("winsPeriod"))} wins.`
+    : `${fmt(agg("contacted"))} contacted leads (${pc(agg("contacted"), agg("contactedPrev"))}) · ${fmt(agg("calls"))} calls (${pc(agg("calls"), agg("callsPrev"))}) · ${fmt(agg("positives"))} positive · ${fmt(agg("meetings"))} meetings · ${fmt(agg("winsPeriod"))} wins.`;
 
   return (
     <html lang="es">
@@ -95,6 +106,9 @@ export default async function PortfolioPrintPage({
           .hero h1 { font-size:22px; font-weight:800; margin-top:6px; }
           .hero p { font-size:11.5px; color:#cdd9e6; margin-top:5px; }
           .ct { font-size:9.5px; font-weight:800; letter-spacing:.13em; text-transform:uppercase; color:${GOLD}; margin:18px 0 7px; }
+          .summary { background:#fff; border:1px solid ${LINE}; border-left:4px solid ${GOLD}; border-radius:11px; padding:12px 15px; margin-top:13px; }
+          .summary .stitle { font-size:9px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:${GOLD}; margin-bottom:4px; }
+          .summary p { font-size:11px; line-height:1.55; color:#33424f; }
           table { width:100%; border-collapse:collapse; border:1px solid ${LINE}; border-radius:10px; overflow:hidden; }
           th,td { padding:8px 11px; font-size:10.5px; border-bottom:1px solid ${LINE}; text-align:right; }
           th:first-child, td:first-child { text-align:left; }
@@ -113,6 +127,8 @@ export default async function PortfolioPrintPage({
           <h1>{T.title}</h1>
           <p>{T.note} · {today}</p>
         </div>
+
+        <div className="summary"><div className="stitle">{T.sumTitle}</div><p>{sumText}</p></div>
 
         <div className="ct">{T.act}</div>
         <table>
