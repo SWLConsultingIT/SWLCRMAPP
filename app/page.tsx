@@ -545,11 +545,12 @@ export default async function DashboardPage({
             {/* "LAST 30 DAYS" chip removed — it duplicated (and drifted from)
                 the PERIOD filter bar below. (Fran 2026-06-18) */}
             <FreshnessChip renderedAt={renderedAt} />
-            {/* The per-tenant report Download is hidden on Portfolio — that tab
-                has its own comparison PDF, so showing this one duplicated it. */}
-            {!onPortfolio && (
+            {/* Download lives in the hero like every other tab. On Portfolio it
+                points to the cross-tenant comparison PDF (current period); on
+                the rest, the per-tenant report. */}
             <Link
-              href="/reports"
+              href={onPortfolio ? `/reports/portfolio-print?pdays=${pdays === 0 ? "all" : pdays}` : "/reports"}
+              {...(onPortfolio ? { target: "_blank" } : {})}
               className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-opacity hover:opacity-90 whitespace-nowrap"
               style={{
                 background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
@@ -559,7 +560,6 @@ export default async function DashboardPage({
             >
               <FileDown size={13} /> {t("dashx.hero.download")}
             </Link>
-            )}
           </div>
         </div>
       </header>
