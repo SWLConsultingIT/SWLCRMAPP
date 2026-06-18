@@ -227,6 +227,38 @@ async function skipMessage(
   return { kind: "skipped", msgId, leadId, reason };
 }
 
+// Like skipMessage but also advances current_step and queues the next step.
+// Use for "bad data" skips (no email, catch_all, invalid) where the sequence
+// should keep running — the step is just unfulfillable for this lead.
+// Do NOT use for "campaign stopped / lead replied" skips where no further
+// steps should run.
+async function skipAndAdvance(
+  svc: ReturnType<typeof getSupabaseService>,
+  msgId: string, leadId: string, reason: string,
+  candidate: QueuedEmail,
+  sequenceSteps: Array<{ daysAfter?: number }> | null | undefined,
+): Promise<EmailResult> {
+  const result = await skipMessage(svc, msgId, leadId, reason);
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const nextStepNumber = candidate.step_number + 1;
+  const nextStepConfig = Array.isArray(sequenceSteps) ? sequenceSteps[candidate.step_number] : null;
+  const nextDaysAfter = typeof nextStepConfig?.daysAfter === "number" ? nextStepConfig.daysAfter : null;
+  const nextEligibleAt = nextDaysAfter !== null ? new Date(Date.now() + nextDaysAfter * DAY_MS).toISOString() : null;
+  await Promise.all([
+    svc.from("campaigns")
+      .update({ current_step: candidate.step_number })
+      .eq("id", candidate.campaign_id)
+      .lt("current_step", candidate.step_number),
+    ...(nextEligibleAt ? [
+      svc.from("campaign_messages").update({
+        status: "queued",
+        metadata: { eligible_at: nextEligibleAt, queued_by: "cron-dispatch-email-skip" },
+      }).eq("campaign_id", candidate.campaign_id).eq("step_number", nextStepNumber).eq("status", "draft"),
+    ] : []),
+  ]);
+  return result;
+}
+
 async function requeueRateLimited(
   svc: ReturnType<typeof getSupabaseService>,
   msgId: string, leadId: string, reason: string,
@@ -323,8 +355,9 @@ async function dispatchOneEmail(
   }
 
   // "No email on the lead row" is a data-state issue, not a delivery failure.
-  // Skip so it doesn't show up in /admin/reliability as a failed send.
-  if (!lead.primary_work_email) return await skipMessage(svc, candidate.id, candidate.lead_id, "lead has no work email");
+  // Advance the sequence so the next step (LinkedIn / call) can still run.
+  const seqStepsEarly = (campaign as any)?.sequence_steps as Array<{ daysAfter?: number }> | null;
+  if (!lead.primary_work_email) return await skipAndAdvance(svc, candidate.id, candidate.lead_id, "lead has no work email", candidate, seqStepsEarly);
 
   // Pre-send hygiene: skip leads whose work email is known-bad. Set by the
   // Instantly /email-verification pass (or any future verifier we wire up).
@@ -334,7 +367,10 @@ async function dispatchOneEmail(
   // Arqy's campaign into Instantly status -2 on 2026-05-26.
   const emailStatus = (lead as any).primary_email_status as string | null;
   if (emailStatus === "invalid" || emailStatus === "catch_all") {
-    return await skipMessage(svc, candidate.id, candidate.lead_id, `email status: ${emailStatus}`);
+    // Advance the sequence — bad email ≠ bad lead; the next step (LinkedIn,
+    // call) can still reach them. 7 PE USA leads froze here for 3 weeks
+    // because skipMessage alone didn't queue step 2 (2026-06-18).
+    return await skipAndAdvance(svc, candidate.id, candidate.lead_id, `email status: ${emailStatus}`, candidate, seqStepsEarly);
   }
 
   let seller: { id: string; name: string | null; company_bio_id: string | null } | null = null;
