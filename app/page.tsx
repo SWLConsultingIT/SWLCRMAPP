@@ -609,7 +609,7 @@ export default async function DashboardPage({
 
       {/* ═══ PORTFOLIO · cross-tenant comparison (super-admin only) ═══ */}
       {onPortfolio && portfolioData && (
-        <PortfolioView companies={portfolioData} days={pdays} />
+        <PortfolioView companies={portfolioData} days={pdays} locale={locale === "es" ? "es" : "en"} />
       )}
 
       {/* ═══ CHAPTER 1 · TODAY ═══════════════════════════════════════════

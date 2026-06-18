@@ -4,6 +4,7 @@
 
 import { getUserScope } from "@/lib/scope";
 import { redirect } from "next/navigation";
+import { getServerLocale } from "@/lib/i18n-server";
 import { getPortfolioComparison, type PortfolioCompany } from "@/lib/portfolio";
 import PrintTrigger from "../print/PrintTrigger";
 
@@ -26,6 +27,8 @@ export default async function PortfolioPrintPage({
   const scope = await getUserScope();
   if (scope.tier !== "super_admin") redirect("/");
   const sp = await searchParams;
+  const rawLoc = await getServerLocale();
+  const es = rawLoc !== "en";
   const pdaysRaw = Number(Array.isArray(sp.pdays) ? sp.pdays[0] : sp.pdays);
   const days = [7, 30, 90].includes(pdaysRaw) ? pdaysRaw : 7;
   const csv = (Array.isArray(sp.companies) ? sp.companies[0] : sp.companies) ?? "";
@@ -34,24 +37,48 @@ export default async function PortfolioPrintPage({
   const all = await getPortfolioComparison(days);
   const companies = (want.size ? all.filter(c => want.has(c.bioId)) : all.filter(c => c.contacted || c.calls || c.replies));
   const cols = companies.length || 1;
+  const numLoc = es ? "es-AR" : "en-US";
 
-  const today = new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "long", year: "numeric" });
+  const T = es ? {
+    brand: "GrowthAI · Status de cartera", title: "Portfolio — comparativo de empresas",
+    note: `Últimos ${days} días vs. los ${days} previos`, metric: "Métrica",
+    act: "Actividad del período", contacted: "Leads contactados", messages: "Mensajes enviados",
+    calls: "Llamadas", replies: "Respuestas", positives: "Positivas", respRate: "Tasa de respuesta",
+    pipe: "Pipeline acumulado (histórico)", totalLeads: "Leads totales", activeLeads: "En flujo activo",
+    activeFlows: "Flows activos", opportunities: "Oportunidades (positivas)", wins: "Wins",
+    sellers: "Sellers · actividad del período", seller: "Seller", company: "Empresa", leads: "Leads", unassigned: "Sin asignar",
+    foot: "GrowthAI — Status de actividad comercial · uso interno", gen: "Generado", live: "datos en vivo", comp: cols === 1 ? "empresa" : "empresas",
+  } : {
+    brand: "GrowthAI · Portfolio status", title: "Portfolio — company comparison",
+    note: `Last ${days} days vs. prior ${days}`, metric: "Metric",
+    act: "Activity this period", contacted: "Contacted leads", messages: "Messages sent",
+    calls: "Calls", replies: "Replies", positives: "Positive", respRate: "Response rate",
+    pipe: "Cumulative pipeline (all-time)", totalLeads: "Total leads", activeLeads: "In active flow",
+    activeFlows: "Active flows", opportunities: "Opportunities (positive)", wins: "Wins",
+    sellers: "Sellers · activity this period", seller: "Seller", company: "Company", leads: "Leads", unassigned: "Unassigned",
+    foot: "GrowthAI — Commercial activity status · internal", gen: "Generated", live: "live data", comp: cols === 1 ? "company" : "companies",
+  };
+  const today = new Date().toLocaleDateString(numLoc, { day: "2-digit", month: "long", year: "numeric" });
   const rate = (c: PortfolioCompany) => (c.contacted ? Math.round((c.replies / c.contacted) * 100) : 0);
 
   const ACT: { label: string; k: keyof PortfolioCompany; pk: keyof PortfolioCompany }[] = [
-    { label: "Leads contactados", k: "contacted", pk: "contactedPrev" },
-    { label: "Mensajes enviados", k: "messages", pk: "messagesPrev" },
-    { label: "Llamadas", k: "calls", pk: "callsPrev" },
-    { label: "Respuestas", k: "replies", pk: "repliesPrev" },
-    { label: "Positivas", k: "positives", pk: "positivesPrev" },
+    { label: T.contacted, k: "contacted", pk: "contactedPrev" },
+    { label: T.messages, k: "messages", pk: "messagesPrev" },
+    { label: T.calls, k: "calls", pk: "callsPrev" },
+    { label: T.replies, k: "replies", pk: "repliesPrev" },
+    { label: T.positives, k: "positives", pk: "positivesPrev" },
   ];
   const PIPE: { label: string; k: keyof PortfolioCompany; win?: boolean }[] = [
-    { label: "Leads totales", k: "totalLeads" },
-    { label: "En flujo activo", k: "activeLeads" },
-    { label: "Oportunidades (positivas)", k: "opportunities" },
-    { label: "Wins", k: "wins", win: true },
+    { label: T.totalLeads, k: "totalLeads" },
+    { label: T.activeLeads, k: "activeLeads" },
+    { label: T.activeFlows, k: "activeFlows" },
+    { label: T.opportunities, k: "opportunities" },
+    { label: T.wins, k: "wins", win: true },
   ];
   const n = (c: PortfolioCompany, k: keyof PortfolioCompany) => c[k] as number;
+  // Sellers flattened across companies for the print leaderboard.
+  const sellerRows = companies.flatMap(c => c.sellers.map(s => ({ ...s, company: c.name })))
+    .sort((a, b) => b.calls - a.calls || b.replies - a.replies);
 
   return (
     <html lang="es">
@@ -82,15 +109,15 @@ export default async function PortfolioPrintPage({
       <body>
         <PrintTrigger />
         <div className="hero">
-          <div className="brand">GrowthAI · Status de cartera</div>
-          <h1>Portfolio — comparativo de empresas</h1>
-          <p>Últimos {days} días vs. los {days} previos · {today}</p>
+          <div className="brand">{T.brand}</div>
+          <h1>{T.title}</h1>
+          <p>{T.note} · {today}</p>
         </div>
 
-        <div className="ct">Actividad del período</div>
+        <div className="ct">{T.act}</div>
         <table>
           <thead>
-            <tr><th>Métrica</th>{companies.map(c => <th key={c.bioId}>{c.name}</th>)}</tr>
+            <tr><th>{T.metric}</th>{companies.map(c => <th key={c.bioId}>{c.name}</th>)}</tr>
           </thead>
           <tbody>
             {ACT.map(m => (
@@ -98,33 +125,56 @@ export default async function PortfolioPrintPage({
                 <td>{m.label}</td>
                 {companies.map(c => {
                   const d = pct(n(c, m.k), n(c, m.pk));
-                  return <td key={c.bioId}><span className="v">{n(c, m.k).toLocaleString("es-AR")}</span><span className="d" style={{ color: d.col }}>{d.txt}</span></td>;
+                  return <td key={c.bioId}><span className="v">{n(c, m.k).toLocaleString(numLoc)}</span><span className="d" style={{ color: d.col }}>{d.txt}</span></td>;
                 })}
               </tr>
             ))}
             <tr>
-              <td>Tasa de respuesta</td>
+              <td>{T.respRate}</td>
               {companies.map(c => <td key={c.bioId}><span className="v">{rate(c)}%</span></td>)}
             </tr>
           </tbody>
         </table>
 
-        <div className="ct">Pipeline acumulado (histórico)</div>
+        {sellerRows.length > 0 && (
+          <>
+            <div className="ct">{T.sellers}</div>
+            <table>
+              <thead>
+                <tr><th>{T.seller}</th><th>{T.company}</th><th>{T.calls}</th><th>{T.leads}</th><th>{T.replies}</th><th>{T.positives}</th></tr>
+              </thead>
+              <tbody>
+                {sellerRows.map((s, i) => (
+                  <tr key={i}>
+                    <td style={{ textAlign: "left", fontWeight: 600, color: "#1c2733" }}>{s.name === "__unassigned__" ? T.unassigned : s.name}</td>
+                    <td style={{ textAlign: "left", color: MUTED }}>{s.company}</td>
+                    <td><span className="v">{s.calls}</span></td>
+                    <td>{s.leads}</td>
+                    <td>{s.replies}</td>
+                    <td><span className="v" style={s.positives > 0 ? { color: "#15803D" } : undefined}>{s.positives}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+
+        <div className="ct">{T.pipe}</div>
         <table>
           <thead>
-            <tr><th>Métrica</th>{companies.map(c => <th key={c.bioId}>{c.name}</th>)}</tr>
+            <tr><th>{T.metric}</th>{companies.map(c => <th key={c.bioId}>{c.name}</th>)}</tr>
           </thead>
           <tbody>
             {PIPE.map(m => (
               <tr key={m.k as string}>
                 <td>{m.label}</td>
-                {companies.map(c => <td key={c.bioId}><span className="v" style={m.win && n(c, m.k) > 0 ? { color: "#15803D" } : undefined}>{n(c, m.k).toLocaleString("es-AR")}</span></td>)}
+                {companies.map(c => <td key={c.bioId}><span className="v" style={m.win && n(c, m.k) > 0 ? { color: "#15803D" } : undefined}>{n(c, m.k).toLocaleString(numLoc)}</span></td>)}
               </tr>
             ))}
           </tbody>
         </table>
 
-        <div className="foot"><span>GrowthAI — Status de actividad comercial · uso interno</span><span>Generado {today} · datos en vivo · {cols} empresa{cols === 1 ? "" : "s"}</span></div>
+        <div className="foot"><span>{T.foot}</span><span>{T.gen} {today} · {T.live} · {cols} {T.comp}</span></div>
       </body>
     </html>
   );

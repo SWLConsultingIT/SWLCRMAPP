@@ -20,9 +20,12 @@ export type PortfolioCompany = {
   replies: number;          repliesPrev: number;
   positives: number;        positivesPrev: number;
   byChannel: { channel: string; messages: number; leads: number }[];
+  // Per-seller activity this period (calls + outcomes attributed to the seller).
+  sellers: { name: string; calls: number; leads: number; replies: number; positives: number }[];
   // Cumulative pipeline (all-time).
   totalLeads: number;
   activeLeads: number;
+  activeFlows: number;
   opportunities: number;
   wins: number;
 };
@@ -65,6 +68,12 @@ export async function getPortfolioComparison(days = 7): Promise<PortfolioCompany
   const bioIds = bios.map(b => b.id);
   if (bioIds.length === 0) return [];
 
+  // Sellers — for attributing calls/replies to a person.
+  const { data: sellersRaw } = await svc.from("sellers").select("id, name, user_id");
+  const sellers = (sellersRaw ?? []) as { id: string; name: string; user_id: string | null }[];
+  const sidName = new Map(sellers.map(s => [s.id, s.name]));
+  const uidName = new Map(sellers.filter(s => s.user_id).map(s => [s.user_id as string, s.name]));
+
   // ── Activity (last 2 windows) ───────────────────────────────────────────
   const msgs = await pageAll((f, t) => svc
     .from("campaign_messages")
@@ -83,7 +92,7 @@ export async function getPortfolioComparison(days = 7): Promise<PortfolioCompany
 
   const calls = await pageAll((f, t) => svc
     .from("calls")
-    .select("lead_id, started_at, created_at, leads!inner(company_bio_id)")
+    .select("lead_id, started_at, created_at, dialed_by_user_id, seller_id, leads!inner(company_bio_id)")
     .in("leads.company_bio_id" as string, bioIds)
     .gte("created_at", prevStart)
     .range(f, t));
@@ -91,7 +100,7 @@ export async function getPortfolioComparison(days = 7): Promise<PortfolioCompany
   // ── Cumulative (all-time) ───────────────────────────────────────────────
   const campaigns = await pageAll((f, t) => svc
     .from("campaigns")
-    .select("lead_id, company_bio_id, status")
+    .select("lead_id, company_bio_id, status, seller_id")
     .in("company_bio_id", bioIds)
     .range(f, t));
 
@@ -109,19 +118,35 @@ export async function getPortfolioComparison(days = 7): Promise<PortfolioCompany
     .range(f, t));
 
   // ── Aggregate per tenant ────────────────────────────────────────────────
-  const leadBio = new Map<string, string>(); // lead_id -> bio (from leads)
-  for (const l of leads) leadBio.set(l.id as string, l.company_bio_id as string);
+  // lead -> seller_id (first campaign wins) for attributing calls/replies.
+  const leadSeller = new Map<string, string>();
+  for (const c of campaigns) {
+    const lid = c.lead_id as string | null, sid = c.seller_id as string | null;
+    if (lid && sid && !leadSeller.has(lid)) leadSeller.set(lid, sid);
+  }
 
+  type SellerStat = { name: string; calls: number; replies: number; positives: number; _leads: Set<string> };
+  type Acc = PortfolioCompany & {
+    _cThis: Set<string>; _cPrev: Set<string>; _ch: Record<string, { m: number; leads: Set<string> }>;
+    _active: Set<string>; _opp: Set<string>; _seenCall: Set<string>; _callLeads: Set<string>;
+    _sellers: Record<string, SellerStat>;
+  };
   const blank = (): PortfolioCompany => ({
     bioId: "", name: "",
     contacted: 0, contactedPrev: 0, messages: 0, messagesPrev: 0,
     calls: 0, callsPrev: 0, replies: 0, repliesPrev: 0, positives: 0, positivesPrev: 0,
-    byChannel: [], totalLeads: 0, activeLeads: 0, opportunities: 0, wins: 0,
+    byChannel: [], sellers: [], totalLeads: 0, activeLeads: 0, activeFlows: 0, opportunities: 0, wins: 0,
   });
-  const acc: Record<string, PortfolioCompany & { _cThis: Set<string>; _cPrev: Set<string>; _ch: Record<string, { m: number; leads: Set<string> }>; _active: Set<string>; _opp: Set<string>; _seenCall: Set<string> }> = {};
+  const acc: Record<string, Acc> = {};
   for (const b of bios) {
-    acc[b.id] = Object.assign(blank(), { bioId: b.id, name: b.company_name, _cThis: new Set<string>(), _cPrev: new Set<string>(), _ch: {} as Record<string, { m: number; leads: Set<string> }>, _active: new Set<string>(), _opp: new Set<string>(), _seenCall: new Set<string>() });
+    acc[b.id] = Object.assign(blank(), {
+      bioId: b.id, name: b.company_name,
+      _cThis: new Set<string>(), _cPrev: new Set<string>(), _ch: {} as Record<string, { m: number; leads: Set<string> }>,
+      _active: new Set<string>(), _opp: new Set<string>(), _seenCall: new Set<string>(), _callLeads: new Set<string>(),
+      _sellers: {} as Record<string, SellerStat>,
+    });
   }
+  const sellerStat = (a: Acc, name: string): SellerStat => (a._sellers[name] ??= { name, calls: 0, replies: 0, positives: 0, _leads: new Set() });
 
   for (const m of msgs) {
     const a = acc[m.company_bio_id as string]; if (!a) continue;
@@ -140,23 +165,43 @@ export async function getPortfolioComparison(days = 7): Promise<PortfolioCompany
 
   for (const r of repliesAll) {
     const a = acc[bioOf(r) as string]; if (!a) continue;
-    if (inThis(r.received_at as string)) { a.replies++; if (POS.has((r.classification as string) || "")) a.positives++; }
-    else if (inPrev(r.received_at as string)) { a.repliesPrev++; if (POS.has((r.classification as string) || "")) a.positivesPrev++; }
+    const isPos = POS.has((r.classification as string) || "");
+    if (inThis(r.received_at as string)) {
+      a.replies++; if (isPos) a.positives++;
+      const ls = leadSeller.get(r.lead_id as string);
+      const nm = ls && sidName.has(ls) ? sidName.get(ls)! : "__unassigned__";
+      const st = sellerStat(a, nm); st.replies++; if (isPos) st.positives++;
+    } else if (inPrev(r.received_at as string)) { a.repliesPrev++; if (isPos) a.positivesPrev++; }
   }
 
+  const callSeller = (c: Row): string => {
+    const uid = c.dialed_by_user_id as string | null;
+    if (uid && uidName.has(uid)) return uidName.get(uid)!;
+    const sid = c.seller_id as string | null;
+    if (sid && sidName.has(sid)) return sidName.get(sid)!;
+    const ls = leadSeller.get(c.lead_id as string);
+    if (ls && sidName.has(ls)) return sidName.get(ls)!;
+    return "__unassigned__";
+  };
   for (const c of calls) {
     const a = acc[bioOf(c) as string]; if (!a) continue;
+    const lead = c.lead_id as string;
     const ts = (c.started_at as string) || (c.created_at as string);
-    const key = minuteKey(c.lead_id as string, ts);
+    const key = minuteKey(lead, ts);
     if (a._seenCall.has(key)) continue;
     a._seenCall.add(key);
-    if (inThis(c.created_at as string)) a.calls++;
-    else if (inPrev(c.created_at as string)) a.callsPrev++;
+    if (inThis(c.created_at as string)) {
+      a.calls++; a._callLeads.add(lead);
+      const st = sellerStat(a, callSeller(c)); st.calls++; st._leads.add(lead);
+    } else if (inPrev(c.created_at as string)) a.callsPrev++;
   }
 
   for (const c of campaigns) {
     const a = acc[c.company_bio_id as string]; if (!a) continue;
-    if ((c.status === "active" || c.status === "paused") && c.lead_id) a._active.add(c.lead_id as string);
+    if (c.status === "active" || c.status === "paused") {
+      a.activeFlows++;
+      if (c.lead_id) a._active.add(c.lead_id as string);
+    }
   }
   for (const l of leads) {
     const a = acc[l.company_bio_id as string]; if (!a) continue;
@@ -173,9 +218,16 @@ export async function getPortfolioComparison(days = 7): Promise<PortfolioCompany
     a.contacted = a._cThis.size; a.contactedPrev = a._cPrev.size;
     a.activeLeads = a._active.size; a.opportunities = a._opp.size;
     a.byChannel = Object.entries(a._ch)
-      .map(([channel, v]) => ({ channel, messages: v.m, leads: v.leads.size }))
-      .sort((x, y) => y.messages - x.messages);
-    const { _cThis, _cPrev, _ch, _active, _opp, _seenCall, ...clean } = a;
+      .map(([channel, v]) => ({ channel, messages: v.m, leads: v.leads.size }));
+    // Calls aren't campaign_messages — append them to the channel mix so the
+    // breakdown isn't "email only" when a tenant also dialed (Arqy).
+    if (a.calls > 0) a.byChannel.push({ channel: "call", messages: a.calls, leads: a._callLeads.size });
+    a.byChannel.sort((x, y) => y.messages - x.messages);
+    a.sellers = Object.values(a._sellers)
+      .map(s => ({ name: s.name, calls: s.calls, leads: s._leads.size, replies: s.replies, positives: s.positives }))
+      .filter(s => s.calls > 0 || s.replies > 0)
+      .sort((x, y) => y.calls - x.calls || y.replies - x.replies);
+    const { _cThis, _cPrev, _ch, _active, _opp, _seenCall, _callLeads, _sellers, ...clean } = a;
     return clean as PortfolioCompany;
   });
 }
