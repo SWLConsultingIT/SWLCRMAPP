@@ -497,7 +497,7 @@ export default async function DashboardPage({
           })()}
         </div>
       </header>
-      ) : (
+      ) : onPortfolio ? null : (
       <header
         className="relative rounded-2xl overflow-hidden px-5 sm:px-7 py-5 sm:py-6"
         style={{
