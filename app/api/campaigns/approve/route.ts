@@ -91,7 +91,11 @@ export async function POST(req: NextRequest) {
     const followupSteps = hasCR ? rawSteps.slice(1) : rawSteps;
     messages = followupSteps.map((s: any, i: number) => ({
       step: i + 1,
-      channel: s.channel ?? followupSequence[i]?.channel ?? "linkedin",
+      // sequence_steps is the authoritative source for channel — the wizard's
+      // channelMessages.steps[i].channel can be stale when the user edits the
+      // sequence after writing messages (GIEB 2026-06-18: call/linkedin swapped
+      // because s.channel reflected an earlier draft, not the final sequence).
+      channel: followupSequence[i]?.channel ?? s.channel ?? "linkedin",
       subject: s.subject ?? null,
       body: s.body ?? "",
     }));
