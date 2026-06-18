@@ -64,12 +64,15 @@ export async function getPortfolioComparison(days = 7): Promise<PortfolioCompany
   const inThis = (ts: string | null) => !!ts && ts >= thisStart;
   const inPrev = (ts: string | null) => !!ts && ts >= prevStart && ts < thisStart;
 
+  // Exclude demo tenants (e.g. Gruppo Everest) — their sellers/leads are
+  // fictional and must not show up in the portfolio metrics.
   const { data: biosRaw } = await svc
     .from("company_bios")
-    .select("id, company_name")
+    .select("id, company_name, is_demo")
     .is("archived_at", null)
     .order("company_name");
-  const bios = (biosRaw ?? []) as { id: string; company_name: string }[];
+  const bios = ((biosRaw ?? []) as { id: string; company_name: string; is_demo: boolean | null }[])
+    .filter(b => !b.is_demo);
   const bioIds = bios.map(b => b.id);
   if (bioIds.length === 0) return [];
 

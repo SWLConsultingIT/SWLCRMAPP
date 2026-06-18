@@ -497,7 +497,7 @@ export default async function DashboardPage({
           })()}
         </div>
       </header>
-      ) : onPortfolio ? null : (
+      ) : (
       <header
         className="relative rounded-2xl overflow-hidden px-5 sm:px-7 py-5 sm:py-6"
         style={{
@@ -541,6 +541,9 @@ export default async function DashboardPage({
               {t("dashx.hero.desc")}
             </p>
           </div>
+          {/* Per-tenant dashboard actions — hidden on Portfolio, which has its
+              own period selector + comparison PDF (avoids the duplicate PDF). */}
+          {!onPortfolio && (
           <div className="flex items-center gap-2 flex-wrap">
             <span
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10.5px] font-bold uppercase tracking-[0.14em]"
@@ -565,6 +568,7 @@ export default async function DashboardPage({
               <FileDown size={13} /> {t("dashx.hero.download")}
             </Link>
           </div>
+          )}
         </div>
       </header>
       )}

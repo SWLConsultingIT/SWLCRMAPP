@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { C, N } from "@/lib/design";
+import { C } from "@/lib/design";
 import { TrendingUp, TrendingDown, Minus, Users, Phone, MessageSquare, ThumbsUp, Download, Building2, Trophy } from "lucide-react";
 import type { PortfolioCompany } from "@/lib/portfolio";
 
@@ -176,35 +176,28 @@ export default function PortfolioView({
 
   return (
     <section className="space-y-4 pt-3">
-      {/* ─── Branded hero ─────────────────────────────────────────── */}
-      <div className="relative rounded-2xl overflow-hidden px-6 py-5"
-        style={{ background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`, border: `1px solid color-mix(in srgb, ${gold} 26%, ${N.hairline})`, boxShadow: `0 14px 40px -22px ${N.ink}` }}>
-        <span aria-hidden className="absolute -top-16 -right-10 w-60 h-60 rounded-full pointer-events-none"
-          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 17%, transparent) 0%, transparent 65%)` }} />
-        <div className="relative flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-[0.28em]" style={{ color: gold }}>{L.brand}</span>
-              <span className="inline-flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
-                style={{ color: "#34D399", backgroundColor: "rgba(52,211,153,.12)", border: "1px solid rgba(52,211,153,.35)" }}>
-                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#34D399" }} /> {L.live}
-              </span>
-            </div>
-            <h2 className="text-[23px] font-bold mt-1.5" style={{ color: "#fff", letterSpacing: "-.015em" }}>{L.title}</h2>
-            <p className="text-[11.5px] mt-1" style={{ color: "color-mix(in srgb, #F5F2E8 60%, transparent)" }}>{L.note(days)}</p>
+      {/* ─── Control bar — blends under the dashboard hero (no second hero).
+          Title + live + period selector + comparison-PDF download. ─────── */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2 min-w-0">
+          <h2 className="text-[15px] font-bold" style={{ color: C.textPrimary }}>{L.title}</h2>
+          <span className="inline-flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+            style={{ color: "#15803D", backgroundColor: "color-mix(in srgb, #15803D 11%, transparent)", border: "1px solid color-mix(in srgb, #15803D 28%, transparent)" }}>
+            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#15803D" }} /> {L.live}
+          </span>
+          <span className="text-[11px] hidden sm:inline" style={{ color: C.textMuted }}>· {L.note(days)}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-lg overflow-hidden border" style={{ borderColor: C.border }}>
+            {PERIODS.map(d => (
+              <button key={d} onClick={() => setPeriod(d)} className="px-3 py-1.5 text-xs font-bold transition"
+                style={{ backgroundColor: days === d ? gold : C.card, color: days === d ? "#1A1505" : C.textMuted }}>{d === 0 ? L.allTime : `${d}d`}</button>
+            ))}
           </div>
-          <div className="flex items-center gap-2">
-            <div className="inline-flex rounded-lg overflow-hidden" style={{ border: "1px solid color-mix(in srgb, #fff 18%, transparent)" }}>
-              {PERIODS.map(d => (
-                <button key={d} onClick={() => setPeriod(d)} className="px-3 py-1.5 text-xs font-bold transition"
-                  style={{ backgroundColor: days === d ? gold : "transparent", color: days === d ? "#1A1505" : "color-mix(in srgb, #F5F2E8 70%, transparent)" }}>{d === 0 ? L.allTime : `${d}d`}</button>
-              ))}
-            </div>
-            <button onClick={exportPdf} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition hover:-translate-y-0.5"
-              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`, color: "#1A1505", boxShadow: `0 6px 18px -6px color-mix(in srgb, ${gold} 60%, transparent)` }}>
-              <Download size={13} /> {L.pdf}
-            </button>
-          </div>
+          <button onClick={exportPdf} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition hover:-translate-y-0.5"
+            style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`, color: "#1A1505", boxShadow: `0 4px 14px -4px color-mix(in srgb, ${gold} 55%, transparent)` }}>
+            <Download size={13} /> {L.pdf}
+          </button>
         </div>
       </div>
 
