@@ -56,8 +56,11 @@ function minuteKey(lead: string, ts: string | null): string {
 export async function getPortfolioComparison(days = 7): Promise<PortfolioCompany[]> {
   const svc = getSupabaseService();
   const now = Date.now();
-  const thisStart = new Date(now - days * 86400000).toISOString();
-  const prevStart = new Date(now - 2 * days * 86400000).toISOString();
+  // days <= 0 → all-time. The "this" window becomes everything (since epoch)
+  // and the "prev" window collapses to empty, so trend deltas read as "—".
+  const allTime = days <= 0;
+  const thisStart = allTime ? new Date(0).toISOString() : new Date(now - days * 86400000).toISOString();
+  const prevStart = allTime ? new Date(0).toISOString() : new Date(now - 2 * days * 86400000).toISOString();
   const inThis = (ts: string | null) => !!ts && ts >= thisStart;
   const inPrev = (ts: string | null) => !!ts && ts >= prevStart && ts < thisStart;
 

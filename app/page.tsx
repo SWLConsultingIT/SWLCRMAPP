@@ -241,8 +241,8 @@ export default async function DashboardPage({
   // who hit ?tab=portfolio fall back to Overview (so the page isn't blank).
   if (filters.tab === "portfolio" && !isSuperAdmin) filters.tab = "overview";
   const onPortfolio = filters.tab === "portfolio";
-  const pdaysRaw = Number(Array.isArray(sp.pdays) ? sp.pdays[0] : sp.pdays);
-  const pdays = [7, 30, 90].includes(pdaysRaw) ? pdaysRaw : 7;
+  const pdaysStr = Array.isArray(sp.pdays) ? sp.pdays[0] : sp.pdays;
+  const pdays = pdaysStr === "all" ? 0 : [30, 90].includes(Number(pdaysStr)) ? Number(pdaysStr) : 7;
   const portfolioData = onPortfolio ? await getPortfolioComparison(pdays) : null;
   // Always load filter options — they feed both the tab-level TabFilterBar
   // AND the per-chart ChartFilterChips (Donut on Overview also needs them).

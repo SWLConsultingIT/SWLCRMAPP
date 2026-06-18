@@ -29,8 +29,8 @@ export default async function PortfolioPrintPage({
   const sp = await searchParams;
   const rawLoc = await getServerLocale();
   const es = rawLoc !== "en";
-  const pdaysRaw = Number(Array.isArray(sp.pdays) ? sp.pdays[0] : sp.pdays);
-  const days = [7, 30, 90].includes(pdaysRaw) ? pdaysRaw : 7;
+  const pdaysStr = Array.isArray(sp.pdays) ? sp.pdays[0] : sp.pdays;
+  const days = pdaysStr === "all" ? 0 : [30, 90].includes(Number(pdaysStr)) ? Number(pdaysStr) : 7;
   const csv = (Array.isArray(sp.companies) ? sp.companies[0] : sp.companies) ?? "";
   const want = new Set(csv.split(",").map(s => s.trim()).filter(Boolean));
 
@@ -41,7 +41,7 @@ export default async function PortfolioPrintPage({
 
   const T = es ? {
     brand: "GrowthAI · Status de cartera", title: "Portfolio — comparativo de empresas",
-    note: `Últimos ${days} días vs. los ${days} previos`, metric: "Métrica",
+    note: days <= 0 ? "Histórico completo" : `Últimos ${days} días vs. los ${days} previos`, metric: "Métrica",
     act: "Actividad del período", contacted: "Leads contactados", messages: "Mensajes enviados",
     calls: "Llamadas", replies: "Respuestas", positives: "Positivas", meetings: "Reuniones", winsPeriod: "Wins (período)", respRate: "Tasa de respuesta",
     sumTitle: "Resumen ejecutivo",
@@ -51,7 +51,7 @@ export default async function PortfolioPrintPage({
     foot: "GrowthAI — Status de actividad comercial · uso interno", gen: "Generado", live: "datos en vivo", comp: cols === 1 ? "empresa" : "empresas",
   } : {
     brand: "GrowthAI · Portfolio status", title: "Portfolio — company comparison",
-    note: `Last ${days} days vs. prior ${days}`, metric: "Metric",
+    note: days <= 0 ? "All-time" : `Last ${days} days vs. prior ${days}`, metric: "Metric",
     act: "Activity this period", contacted: "Contacted leads", messages: "Messages sent",
     calls: "Calls", replies: "Replies", positives: "Positive", meetings: "Meetings", winsPeriod: "Wins (period)", respRate: "Response rate",
     sumTitle: "Executive summary",
