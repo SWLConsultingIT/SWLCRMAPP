@@ -232,9 +232,13 @@ export async function getPortfolioComparison(days = 7): Promise<PortfolioCompany
     a.contacted = a._cThis.size; a.contactedPrev = a._cPrev.size;
     a.activeLeads = a._active.size; a.opportunities = a._opp.size;
     a.byChannel = Object.entries(a._ch)
+      // Drop campaign_messages' own 'call' rows — those are queued call-step
+      // markers, NOT real calls. Real calls come from the calls table below,
+      // so keeping both produced a duplicate "Call" row. (Fix 2026-06-18)
+      .filter(([channel]) => channel !== "call")
       .map(([channel, v]) => ({ channel, messages: v.m, leads: v.leads.size }));
-    // Calls aren't campaign_messages — append them to the channel mix so the
-    // breakdown isn't "email only" when a tenant also dialed (Arqy).
+    // Calls aren't campaign_messages — append the real (deduped) call count so
+    // the breakdown isn't "email only" when a tenant also dialed (Arqy).
     if (a.calls > 0) a.byChannel.push({ channel: "call", messages: a.calls, leads: a._callLeads.size });
     a.byChannel.sort((x, y) => y.messages - x.messages);
     a.sellers = Object.values(a._sellers)
