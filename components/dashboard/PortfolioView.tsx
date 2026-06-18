@@ -28,7 +28,7 @@ function dict(locale: "es" | "en") {
     aCallsDown: "⚠ llamadas en fuerte baja vs. el período previo",
     aNoPos: "⚠ sin respuestas positivas en el período",
     aUp: "✓ actividad en alza vs. el período previo",
-    pipeTitle: "Pipeline acumulado (histórico)",
+    pipeTitle: "Pipeline · estado actual", pipeNote: "Totales actuales y acumulados — no varían con el filtro de período.",
     totalLeads: "Leads totales", activeLeads: "En flujo activo", activeFlows: "Flows activos",
     opportunities: "Oportunidades (positivas)", wins: "Wins",
     sellersTitle: "Sellers · actividad del período", seller: "Seller", company: "Empresa",
@@ -49,7 +49,7 @@ function dict(locale: "es" | "en") {
     aCallsDown: "⚠ calls dropping sharply vs. the prior period",
     aNoPos: "⚠ no positive replies this period",
     aUp: "✓ activity trending up vs. the prior period",
-    pipeTitle: "Cumulative pipeline (all-time)",
+    pipeTitle: "Pipeline · current state", pipeNote: "Current & cumulative totals — not affected by the period filter.",
     totalLeads: "Total leads", activeLeads: "In active flow", activeFlows: "Active flows",
     opportunities: "Opportunities (positive)", wins: "Wins",
     sellersTitle: "Sellers · activity this period", seller: "Seller", company: "Company",
@@ -92,13 +92,16 @@ function Delta({ cur, prev }: { cur: number; prev: number }) {
 }
 
 // Premium panel wrapper — matches the app's chapter panels.
-function Panel({ title, icon: Icon, children }: { title: string; icon?: React.ElementType; children: React.ReactNode }) {
+function Panel({ title, icon: Icon, note, children }: { title: string; icon?: React.ElementType; note?: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: CARD_SH }}>
-      <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: C.border, background: `linear-gradient(180deg, color-mix(in srgb, ${gold} 4%, transparent), transparent)` }}>
-        <span className="w-1 h-3.5 rounded-full" style={{ background: gold }} />
-        {Icon && <Icon size={13} style={{ color: gold }} />}
-        <p className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: gold }}>{title}</p>
+      <div className="px-4 py-3 border-b" style={{ borderColor: C.border, background: `linear-gradient(180deg, color-mix(in srgb, ${gold} 4%, transparent), transparent)` }}>
+        <div className="flex items-center gap-2">
+          <span className="w-1 h-3.5 rounded-full" style={{ background: gold }} />
+          {Icon && <Icon size={13} style={{ color: gold }} />}
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: gold }}>{title}</p>
+        </div>
+        {note && <p className="text-[10px] mt-1 ml-3" style={{ color: C.textDim }}>{note}</p>}
       </div>
       {children}
     </div>
@@ -341,8 +344,8 @@ export default function PortfolioView({
             )}
           </Panel>
 
-          {/* ─── Pipeline acumulado ───────────────────────────────── */}
-          <Panel title={L.pipeTitle} icon={Building2}>
+          {/* ─── Pipeline · estado actual ─────────────────────────── */}
+          <Panel title={L.pipeTitle} icon={Building2} note={L.pipeNote}>
             <div className="overflow-x-auto">
               <table className="w-full text-sm" style={{ minWidth: 150 + shown.length * 150 }}>
                 <thead><tr style={{ borderBottom: `1px solid ${C.border}` }}>
