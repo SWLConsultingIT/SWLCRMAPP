@@ -34,6 +34,8 @@ import InlineSpark from "@/components/dashboard/InlineSpark";
 import StepPerformance from "@/components/dashboard/StepPerformance";
 import ScoreTile from "@/components/dashboard/ScoreTile";
 import ChapterNav from "@/components/dashboard/ChapterNav";
+import PortfolioView from "@/components/dashboard/PortfolioView";
+import { getPortfolioComparison } from "@/lib/portfolio";
 import ChannelComparison from "@/components/dashboard/ChannelComparison";
 import MicroKpi from "@/components/dashboard/MicroKpi";
 import RateBar from "@/components/dashboard/RateBar";
@@ -160,7 +162,7 @@ function buildScopeLabel(
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const DASHBOARD_TABS = ["today", "overview", "icps", "campaigns", "channels", "sellers"] as const;
+const DASHBOARD_TABS = ["today", "overview", "icps", "campaigns", "channels", "sellers", "portfolio"] as const;
 type DashboardTab = (typeof DASHBOARD_TABS)[number];
 
 function parseFilters(sp: Record<string, string | string[] | undefined>) {
@@ -234,6 +236,12 @@ export default async function DashboardPage({
   const sp = await searchParams;
   const filters = parseFilters(sp);
   const bioId = scope.isScoped ? scope.companyBioId! : null;
+  const isSuperAdmin = scope.tier === "super_admin";
+  // Portfolio is a super-admin-only cross-tenant comparison. Non-super-admins
+  // who hit ?tab=portfolio fall back to Overview (so the page isn't blank).
+  if (filters.tab === "portfolio" && !isSuperAdmin) filters.tab = "overview";
+  const onPortfolio = filters.tab === "portfolio";
+  const portfolioData = onPortfolio ? await getPortfolioComparison(7) : null;
   // Always load filter options — they feed both the tab-level TabFilterBar
   // AND the per-chart ChartFilterChips (Donut on Overview also needs them).
   // 3 cheap queries, no point conditionally skipping.
@@ -570,6 +578,8 @@ export default async function DashboardPage({
             { id: "campaigns", number: 4, label: t("dashx.chapter.campaigns") },
             { id: "channels",  number: 5, label: t("dashx.chapter.channels") },
             { id: "sellers",   number: 6, label: t("dashx.chapter.sellers") },
+            // Portfolio — cross-tenant comparison, super-admin only.
+            ...(isSuperAdmin ? [{ id: "portfolio", number: 7, label: "Portfolio" }] : []),
           ]}
         />
       </Suspense>
@@ -583,7 +593,7 @@ export default async function DashboardPage({
           Campaign · ICPs · Sellers (boss 2026-06-08). URL state is global so
           the data layer filters every section against it; rendering it once
           here replaces the old period-only top bar + per-tab dropdown bars. */}
-      {filters.tab !== "today" && (
+      {filters.tab !== "today" && filters.tab !== "portfolio" && (
         <Suspense fallback={<div className="h-10" />}>
           <TabFilterBar
             showPeriod
@@ -593,6 +603,11 @@ export default async function DashboardPage({
             labels={tabFilterLabels}
           />
         </Suspense>
+      )}
+
+      {/* ═══ PORTFOLIO · cross-tenant comparison (super-admin only) ═══ */}
+      {onPortfolio && portfolioData && (
+        <PortfolioView companies={portfolioData} days={7} />
       )}
 
       {/* ═══ CHAPTER 1 · TODAY ═══════════════════════════════════════════

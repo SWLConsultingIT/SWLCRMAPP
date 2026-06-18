@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<style>
+  /* Flowing layout — the browser paginates automatically. No fixed-height
+     pages, no absolutely-positioned footers (those caused overlaps). Cards
+     never split across pages via break-inside:avoid. */
+  @page { size: A4; margin: 12mm 14mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root{
+    --navy:#0E2A47; --navy2:#14365C; --gold:#C7A24B; --ink:#1c2733;
+    --muted:#5b6b7b; --line:#e4e9ef; --card:#ffffff;
+    --li:#0A66C2; --em:#7A5CC0; --call:#E08A1E;
+  }
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{ font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif; color:var(--ink); font-size:11px; line-height:1.5; }
+
+  .hero{ background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%); border-radius:14px; padding:24px 26px; color:#fff; position:relative; overflow:hidden; break-inside:avoid; }
+  .hero:after{ content:""; position:absolute; right:-40px; top:-40px; width:150px; height:150px; border-radius:50%; background:rgba(199,162,75,.14); }
+  .brand{ font-size:11.5px; letter-spacing:.3em; font-weight:700; color:var(--gold); text-transform:uppercase; }
+  .hero h1{ font-size:24px; font-weight:800; margin-top:8px; letter-spacing:-.01em; line-height:1.15; }
+  .hero p{ font-size:12px; color:#cdd9e6; margin-top:8px; line-height:1.5; }
+  .pill{ display:inline-block; margin-top:13px; font-size:10.5px; font-weight:700; background:rgba(199,162,75,.16); border:1px solid rgba(199,162,75,.5); color:var(--gold); padding:5px 12px; border-radius:999px; }
+
+  .sectitle{ font-size:10.5px; letter-spacing:.2em; text-transform:uppercase; color:var(--gold); font-weight:800; margin:14px 0 8px; break-after:avoid; }
+
+  .ctx{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:15px 17px; break-inside:avoid; }
+  .ctx p{ font-size:11.5px; color:var(--muted); line-height:1.6; }
+  .ctx b{ color:var(--ink); }
+
+  table{ width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:12px; overflow:hidden; break-inside:avoid; }
+  th,td{ text-align:left; padding:8px 11px; font-size:10.5px; border-bottom:1px solid var(--line); }
+  th{ background:#eef2f7; color:var(--muted); text-transform:uppercase; letter-spacing:.07em; font-size:9px; }
+  tr:last-child td{ border-bottom:none; }
+  .chip{ display:inline-block; font-size:9px; font-weight:700; padding:2px 7px; border-radius:6px; white-space:nowrap; }
+  .c-li{ background:#e6f0fb; color:var(--li); } .c-em{ background:#efeafb; color:var(--em); } .c-call{ background:#fdf1e1; color:var(--call); }
+
+  .step{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:11px 15px; margin-bottom:8px; border-left:4px solid var(--gold); break-inside:avoid; }
+  .step.li{ border-left-color:var(--li); } .step.em{ border-left-color:var(--em); } .step.call{ border-left-color:var(--call); }
+  .shead{ display:flex; align-items:center; gap:9px; margin-bottom:8px; }
+  .snum{ font-size:10px; font-weight:800; color:#fff; background:var(--navy); width:20px; height:20px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .sday{ font-size:10px; font-weight:700; color:var(--muted); }
+  .stitle{ font-size:12.5px; font-weight:800; color:var(--ink); }
+  .tech{ font-size:9.5px; color:var(--gold); font-weight:700; margin-left:auto; white-space:nowrap; }
+  .copy{ font-size:10.5px; line-height:1.6; color:#33424f; white-space:pre-line; background:#fafbfd; border:1px dashed var(--line); border-radius:8px; padding:10px 13px; }
+  .subj{ font-size:10px; font-weight:700; color:var(--ink); margin-bottom:6px; }
+  .note{ font-size:9.5px; color:var(--muted); font-style:italic; margin-top:7px; }
+
+  .closing{ margin-top:18px; padding-top:9px; border-top:1px solid var(--line); font-size:9px; color:#9aa7b4; display:flex; justify-content:space-between; }
+</style>
+</head>
+<body>
+
+  <div class="hero">
+    <div class="brand">Grupo IEB</div>
+    <h1>Secuencia de Outreach — Fondo de Asistencia Laboral (FAL)</h1>
+    <p>Campaña multicanal dirigida a CEOs y responsables financieros de empresas argentinas, anclada en la entrada en vigencia del FAL (1° de noviembre) y la obligación de seleccionar una administradora habilitada por la CNV.</p>
+    <span class="pill">7 toques · ~16 días · Conexión · Email · LinkedIn · Llamada</span>
+  </div>
+
+  <div class="sectitle">Contexto y estrategia</div>
+  <div class="ctx">
+    <p>El <b>1° de noviembre entra en vigencia el Fondo de Asistencia Laboral (FAL)</b>: toda empresa con empleados deberá definir una modalidad de implementación y seleccionar una <b>administradora habilitada por la CNV</b>. Quien no evalúe a tiempo podría recibir una administradora <b>asignada de oficio</b>, sin haber comparado alternativas.<br><br>
+    La secuencia utiliza ese plazo como <b>eje de relevancia y urgencia</b>, posicionando a Grupo IEB como el asesor que acompaña el proceso (impacto operativo, financiero e impositivo), aportando material de valor (introducción al FAL y presentación institucional) y conduciendo, de manera escalonada, a una <b>llamada de diagnóstico de 15 minutos</b>. El registro es profesional pero cercano (trato de vos), natural para el mercado argentino.</p>
+  </div>
+
+  <div class="sectitle">Vista general de la secuencia</div>
+  <table>
+    <tr><th>Paso</th><th>Día</th><th>Canal</th><th>Objetivo</th><th>Técnica de venta</th></tr>
+    <tr><td>0</td><td>0</td><td><span class="chip c-li">LinkedIn · Conexión</span></td><td>Conectar con relevancia</td><td>Apertura por relevancia</td></tr>
+    <tr><td>1</td><td>2</td><td><span class="chip c-em">Email</span></td><td>Presentar el tema + material</td><td>Autoridad + reciprocidad</td></tr>
+    <tr><td>2</td><td>4</td><td><span class="chip c-li">LinkedIn · DM</span></td><td>Reforzar + proponer llamada</td><td>Urgencia + aversión a la pérdida</td></tr>
+    <tr><td>3</td><td>7</td><td><span class="chip c-call">Llamada (manual)</span></td><td>Diagnóstico</td><td>Venta consultiva</td></tr>
+    <tr><td>4</td><td>10</td><td><span class="chip c-em">Email</span></td><td>Re-enganche</td><td>Prueba social</td></tr>
+    <tr><td>5</td><td>13</td><td><span class="chip c-li">LinkedIn · DM</span></td><td>Aporte de valor + CTA</td><td>Escasez temporal</td></tr>
+    <tr><td>6</td><td>16</td><td><span class="chip c-call">Llamada (manual)</span></td><td>Cierre / definición</td><td>Cierre por compromiso</td></tr>
+  </table>
+
+  <div class="sectitle">Mensajes de la secuencia</div>
+
+  <div class="step li">
+    <div class="shead"><span class="snum">0</span><span class="stitle">LinkedIn — Solicitud de conexión</span><span class="sday">Día 0</span><span class="tech">Relevancia</span></div>
+    <div class="copy">Hola [Nombre], soy Lucas de Grupo IEB. Ayudamos a empresas a prepararse para el nuevo Fondo de Asistencia Laboral (FAL), obligatorio desde noviembre. Me gustaría conectar. ¡Saludos!</div>
+    <div class="note">182 caracteres con el nombre incluido — por debajo del límite de 200. Sin enlace ni propuesta comercial.</div>
+  </div>
+
+  <div class="step em">
+    <div class="shead"><span class="snum">1</span><span class="stitle">Email — Primer contacto institucional</span><span class="sday">Día 2</span><span class="tech">Autoridad + reciprocidad</span></div>
+    <div class="subj">Asunto: Implementación del Fondo de Asistencia Laboral (FAL) en [Empresa]</div>
+    <div class="copy">Hola [Nombre], ¿cómo estás?
+
+Te escribo porque el 1° de noviembre entra en vigencia el Fondo de Asistencia Laboral (FAL), una normativa que va a requerir que todas las empresas con empleados definan una modalidad de implementación y elijan una administradora habilitada por la CNV.
+
+Si bien todavía faltan algunos meses, muchas compañías ya empezaron a analizar el tema para entender sus implicancias y no tener que decidir sobre la fecha límite sin haber evaluado las alternativas.
+
+Desde Grupo IEB estamos acompañando a empresas de distintos sectores en este proceso, ayudándolas a entender el alcance de la norma y su impacto operativo, financiero e impositivo. Te comparto una breve introducción al FAL y una presentación institucional del Grupo.
+
+Si te parece, coordinemos una llamada de 15 minutos para ver cómo debería prepararse [Empresa] y resolver cualquier duda.
+
+Saludos,
+Lucas Ledesma — Grupo IEB</div>
+  </div>
+
+  <div class="step li">
+    <div class="shead"><span class="snum">2</span><span class="stitle">LinkedIn — Mensaje principal</span><span class="sday">Día 4</span><span class="tech">Urgencia + de oficio</span></div>
+    <div class="copy">Hola [Nombre], ¿cómo estás? Te escribo porque el 1° de noviembre entra en vigencia el Fondo de Asistencia Laboral (FAL): todas las empresas con empleados van a tener que elegir una administradora habilitada por la CNV. Si no se define a tiempo, puede asignarse una de oficio, sin haber evaluado las alternativas.
+
+Desde Grupo IEB estamos acompañando este proceso (impacto operativo, financiero e impositivo). ¿Tenés disponibilidad la próxima semana para una llamada de 15 minutos y ver cómo implementarlo en [Empresa]?
+
+Saludos,
+Lucas</div>
+  </div>
+
+  <div class="step call">
+    <div class="shead"><span class="snum">3</span><span class="stitle">Llamada telefónica (modo manual)</span><span class="sday">Día 7</span><span class="tech">Venta consultiva</span></div>
+    <div class="copy">Guion para Lucas — diagnosticar antes de proponer:
+
+1. Apertura: "Te llamo por el tema del FAL, que arranca el 1° de noviembre. ¿Lo están viendo internamente?"
+2. Diagnóstico: cuántos empleados; si ya evaluaron administradoras; quién toma la decisión (Dirección, Finanzas, RR.HH.).
+3. Riesgo: si no se define, les pueden asignar una administradora de oficio.
+4. Posicionamiento: Grupo IEB acompaña el análisis operativo, financiero e impositivo.
+5. Cierre: dejar comprometido el próximo paso → mandar la intro al FAL y agendar los 15 minutos.
+
+Tono cercano y profesional. La llamada queda en este paso hasta que Lucas la realice (modo manual).</div>
+  </div>
+
+  <div class="step em">
+    <div class="shead"><span class="snum">4</span><span class="stitle">Email — Segundo contacto</span><span class="sday">Día 10</span><span class="tech">Prueba social</span></div>
+    <div class="subj">Asunto: Cómo se están preparando otras empresas para el FAL</div>
+    <div class="copy">Hola [Nombre],
+
+Quería retomar el tema del Fondo de Asistencia Laboral (FAL), que entra en vigencia el 1° de noviembre.
+
+En las últimas semanas estuvimos trabajando con varias empresas que ya empezaron a evaluar cómo implementar el esquema y qué alternativa les conviene más. Lo interesante es que, aunque la norma es la misma para todos, el impacto cambia bastante según la cantidad de empleados y la estrategia que se adopte.
+
+Por eso muchas compañías están aprovechando estos meses para analizarlo con anticipación y no decidir sobre la fecha límite.
+
+Si te parece, coordinemos una llamada de 15 minutos para ver cómo podría prepararse [Empresa] y qué alternativas hay.
+
+Saludos,
+Lucas Ledesma — Grupo IEB</div>
+  </div>
+
+  <div class="step li">
+    <div class="shead"><span class="snum">5</span><span class="stitle">LinkedIn — Aporte de valor</span><span class="sday">Día 13</span><span class="tech">Escasez temporal</span></div>
+    <div class="copy">Hola [Nombre], a medida que se acerca la fecha del FAL (1° de noviembre), muchas empresas están definiendo su administradora con anticipación para evitar que les asignen una de oficio. Si te sirve, te paso un panorama de las alternativas habilitadas por la CNV y cómo impactan según la estructura de [Empresa]. ¿Te viene bien una llamada corta esta semana?
+
+Saludos,
+Lucas</div>
+  </div>
+
+  <div class="step call">
+    <div class="shead"><span class="snum">6</span><span class="stitle">Llamada telefónica (modo manual) — Cierre</span><span class="sday">Día 16</span><span class="tech">Cierre por compromiso</span></div>
+    <div class="copy">Guion para Lucas — definición:
+
+1. Retomar el último contacto y el plazo (el 1° de noviembre cada vez más cerca).
+2. Validar interés y resolver objeciones (tiempos, costo, comparación con lo que tienen hoy).
+3. Si hay interés: agendar la reunión de análisis y confirmar el envío de la documentación.
+4. Si no es el momento: dejar la puerta abierta y acordar un nuevo contacto antes de la fecha límite.
+
+Tono cercano y profesional. Última instancia de la secuencia; si no hay respuesta, el lead queda para renurturing antes del 1° de noviembre.</div>
+  </div>
+
+  <div class="sectitle">Lógica de la secuencia</div>
+  <div class="ctx">
+    <p><b>Hilo conductor:</b> cada toque solicita un compromiso progresivamente mayor — conectar → presentar → proponer llamada → diagnóstico → material → definición — siempre anclado en el plazo del 1° de noviembre y en evitar la asignación "de oficio".<br><br>
+    <b>Cadencia:</b> aproximadamente 25 leads por semana. La <b>conexión de LinkedIn</b> abre el canal cálido; el <b>email</b> aporta formalidad y el material (introducción al FAL y presentación institucional); las <b>llamadas</b> concentran el diagnóstico y el cierre, y se ejecutan en modo manual.</p>
+  </div>
+
+  <div class="sectitle">Notas operativas</div>
+  <div class="ctx">
+    <p>• <b>Material adjunto:</b> introducción al FAL (1 página) + presentación institucional de Grupo IEB — se referencian en los pasos 1 y 3.<br><br>
+    • <b>Llamadas en modo manual:</b> los pasos 3 y 6 esperan a que Lucas realice la llamada; la secuencia no avanza automáticamente en esos puntos.<br><br>
+    • <b>Personalización:</b> [Nombre] y [Empresa] se completan por lead; el resto del texto es plantilla aprobada.<br><br>
+    • <b>Respuesta del lead:</b> cualquier respuesta detiene la secuencia y deriva la conversación al asesor.</p>
+  </div>
+
+  <div class="closing"><span>Grupo IEB — Propuesta de secuencia comercial</span><span>Confidencial · uso interno</span></div>
+
+</body>
+</html>
