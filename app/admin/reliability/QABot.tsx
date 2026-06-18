@@ -15,23 +15,9 @@ const gold = "var(--brand, #c9a83a)";
 
 type Message = { role: "user" | "assistant"; content: string; ts: number };
 
-const SUGGESTIONS: Record<string, string[]> = {
-  general: [
-    "¿Funciona todo?",
-    "¿Hay dispatchers frenados?",
-    "¿Quién está en cooldown de LinkedIn?",
-    "¿Qué tenant tiene más leads trabados?",
-    "¿Cuál es el estado de envíos de hoy?",
-    "¿Hay algún error crítico?",
-  ],
-  tenant: [
-    "¿Mandó algo hoy?",
-    "¿El seller está en cooldown?",
-    "¿Hay leads trabados en llamadas?",
-    "¿Cuántas respuestas hay pendientes?",
-    "¿Hay algo urgente que revisar?",
-    "¿Cuántos leads están activos?",
-  ],
+const SUGGESTION_KEYS = {
+  general: Array.from({ length: 6 }, (_, i) => `rel.qa.suggest.general.${i}` as const),
+  tenant:  Array.from({ length: 6 }, (_, i) => `rel.qa.suggest.tenant.${i}` as const),
 };
 
 export default function QABot({ bioId, bioName }: { bioId: string; bioName: string }) {
@@ -44,7 +30,8 @@ export default function QABot({ bioId, bioName }: { bioId: string; bioName: stri
   const threadRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const suggestions = SUGGESTIONS[bioId === "general" ? "general" : "tenant"];
+  const suggestionKeys = SUGGESTION_KEYS[bioId === "general" ? "general" : "tenant"];
+  const suggestions = suggestionKeys.map(k => t(k));
   const hasMessages = messages.length > 0;
 
   useEffect(() => {
@@ -79,7 +66,7 @@ export default function QABot({ bioId, bioName }: { bioId: string; bioName: stri
         setErr(body.error ?? `HTTP ${r.status}`);
         setMessages(prev => prev.filter((_, i) => i !== prev.length - 1));
       } else {
-        setMessages(prev => [...prev, { role: "assistant", content: body.answer ?? "(sin respuesta)", ts: Date.now() }]);
+        setMessages(prev => [...prev, { role: "assistant", content: body.answer ?? t("rel.qa.no_answer"), ts: Date.now() }]);
       }
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -122,7 +109,7 @@ export default function QABot({ bioId, bioName }: { bioId: string; bioName: stri
           {hasMessages && (
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
               style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold }}>
-              {Math.ceil(messages.length / 2)} {Math.ceil(messages.length / 2) === 1 ? "pregunta" : "preguntas"}
+              {t(Math.ceil(messages.length / 2) === 1 ? "rel.qa.questions.count_one" : "rel.qa.questions.count_other", { n: String(Math.ceil(messages.length / 2)) })}
             </span>
           )}
           <span className="text-[10px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full"
@@ -140,7 +127,7 @@ export default function QABot({ bioId, bioName }: { bioId: string; bioName: stri
           {!hasMessages && (
             <div className="px-7 pt-5 pb-2">
               <p className="text-[11px] font-semibold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>
-                Preguntas frecuentes
+                {t("rel.qa.suggestions.label")}
               </p>
               <div className="flex flex-wrap gap-2">
                 {suggestions.map((s) => (
@@ -261,7 +248,7 @@ export default function QABot({ bioId, bioName }: { bioId: string; bioName: stri
             {hasMessages && (
               <button type="button" onClick={() => { setMessages([]); setErr(null); }}
                 disabled={busy}
-                title="Limpiar conversación"
+                title={t("rel.qa.clear")}
                 className="p-2.5 rounded-xl transition-opacity hover:opacity-70 disabled:opacity-30"
                 style={{ border: `1px solid ${C.border}`, color: C.textMuted, backgroundColor: C.bg }}>
                 <Trash2 size={14} />
