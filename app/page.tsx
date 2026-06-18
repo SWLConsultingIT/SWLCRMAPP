@@ -241,7 +241,9 @@ export default async function DashboardPage({
   // who hit ?tab=portfolio fall back to Overview (so the page isn't blank).
   if (filters.tab === "portfolio" && !isSuperAdmin) filters.tab = "overview";
   const onPortfolio = filters.tab === "portfolio";
-  const portfolioData = onPortfolio ? await getPortfolioComparison(7) : null;
+  const pdaysRaw = Number(Array.isArray(sp.pdays) ? sp.pdays[0] : sp.pdays);
+  const pdays = [7, 30, 90].includes(pdaysRaw) ? pdaysRaw : 7;
+  const portfolioData = onPortfolio ? await getPortfolioComparison(pdays) : null;
   // Always load filter options — they feed both the tab-level TabFilterBar
   // AND the per-chart ChartFilterChips (Donut on Overview also needs them).
   // 3 cheap queries, no point conditionally skipping.
@@ -607,7 +609,7 @@ export default async function DashboardPage({
 
       {/* ═══ PORTFOLIO · cross-tenant comparison (super-admin only) ═══ */}
       {onPortfolio && portfolioData && (
-        <PortfolioView companies={portfolioData} days={7} />
+        <PortfolioView companies={portfolioData} days={pdays} />
       )}
 
       {/* ═══ CHAPTER 1 · TODAY ═══════════════════════════════════════════

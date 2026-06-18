@@ -5,8 +5,9 @@
 // Pure client-side toggle over server-preloaded data — no extra fetch.
 
 import { useState } from "react";
-import { C } from "@/lib/design";
-import { TrendingUp, TrendingDown, Minus, Users, Phone, MessageSquare, ThumbsUp } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { C, N } from "@/lib/design";
+import { TrendingUp, TrendingDown, Minus, Users, Phone, MessageSquare, ThumbsUp, Download } from "lucide-react";
 import type { PortfolioCompany } from "@/lib/portfolio";
 
 const gold = "var(--brand, #c9a83a)";
@@ -40,10 +41,22 @@ export default function PortfolioView({
 }) {
   // Default: select the companies that had any activity this week (so it's not
   // cluttered with empty demo tenants), or all if none.
+  const router = useRouter();
+  const params = useSearchParams();
   const active = companies.filter(c => c.contacted > 0 || c.calls > 0 || c.replies > 0);
   const [selected, setSelected] = useState<Set<string>>(
     new Set((active.length ? active : companies).map(c => c.bioId)),
   );
+  function setPeriod(d: number) {
+    const n = new URLSearchParams(params.toString());
+    if (d === 7) n.delete("pdays"); else n.set("pdays", String(d));
+    router.replace(n.toString() ? `?${n.toString()}` : "?", { scroll: false });
+  }
+  function exportPdf() {
+    const ids = [...selected].join(",");
+    window.open(`/reports/portfolio-print?pdays=${days}&companies=${ids}`, "_blank");
+  }
+  const PERIODS = [7, 30, 90];
   const toggle = (id: string) =>
     setSelected(prev => {
       const n = new Set(prev);
@@ -56,17 +69,71 @@ export default function PortfolioView({
   const num = (c: PortfolioCompany, k: string) => (c as unknown as Record<string, number>)[k];
   const rate = (c: PortfolioCompany) => (c.contacted ? Math.round((c.replies / c.contacted) * 100) : 0);
 
+  // Combined totals across the selected companies (for the KPI strip).
+  const sum = (k: string) => shown.reduce((s, c) => s + num(c, k), 0);
+  // Per-metric leader (highest value among shown) to highlight in gold.
+  const leader = (k: string) => shown.reduce((best, c) => (num(c, k) > num(best, k) ? c : best), shown[0])?.bioId;
+
   return (
     <section className="space-y-5 pt-3">
-      {/* Header + period note */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>Portfolio · comparativo de empresas</h2>
-          <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
-            Últimos {days} días vs. los {days} previos · solo super-admin
-          </p>
+      {/* ─── Branded hero ─────────────────────────────────────────── */}
+      <div className="relative rounded-2xl overflow-hidden px-6 py-5"
+        style={{ background: `linear-gradient(135deg, ${N.ink} 0%, ${N.ink2} 100%)`, border: `1px solid color-mix(in srgb, ${gold} 26%, ${N.hairline})` }}>
+        <span aria-hidden className="absolute -top-16 -right-10 w-56 h-56 rounded-full pointer-events-none"
+          style={{ background: `radial-gradient(circle, color-mix(in srgb, ${gold} 16%, transparent) 0%, transparent 65%)` }} />
+        <div className="relative flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-[0.28em]" style={{ color: gold }}>GrowthAI · Portfolio</span>
+              <span className="inline-flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full"
+                style={{ color: "#34D399", backgroundColor: "rgba(52,211,153,.12)", border: "1px solid rgba(52,211,153,.35)" }}>
+                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#34D399" }} /> En vivo
+              </span>
+            </div>
+            <h2 className="text-[22px] font-bold mt-1" style={{ color: "#fff", letterSpacing: "-.01em" }}>Comparativo de empresas</h2>
+            <p className="text-[11.5px] mt-1" style={{ color: "color-mix(in srgb, #F5F2E8 60%, transparent)" }}>
+              Últimos {days} días vs. los {days} previos · datos al instante
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-lg overflow-hidden" style={{ border: "1px solid color-mix(in srgb, #fff 18%, transparent)" }}>
+              {PERIODS.map(d => (
+                <button key={d} onClick={() => setPeriod(d)}
+                  className="px-3 py-1.5 text-xs font-bold transition"
+                  style={{ backgroundColor: days === d ? gold : "transparent", color: days === d ? "#1A1505" : "color-mix(in srgb, #F5F2E8 70%, transparent)" }}>
+                  {d}d
+                </button>
+              ))}
+            </div>
+            <button onClick={exportPdf}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition hover:-translate-y-0.5"
+              style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`, color: "#1A1505" }}>
+              <Download size={13} /> Descargar PDF
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* ─── Combined totals strip (selected companies) ───────────── */}
+      {shown.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {METRICS.map(m => (
+            <div key={m.key} className="rounded-xl border p-3.5 relative overflow-hidden"
+              style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `2px solid color-mix(in srgb, ${m.color} 70%, transparent)` }}>
+              <div className="flex items-center gap-1.5 mb-1">
+                <m.Icon size={12} style={{ color: m.color }} />
+                <span className="text-[9.5px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{m.label}</span>
+              </div>
+              <div className="flex items-end justify-between">
+                <span className="text-[24px] font-bold leading-none tabular-nums" style={{ color: m.key === "positives" && sum(m.key) > 0 ? C.green : C.textPrimary }}>
+                  {sum(m.key).toLocaleString("es-AR")}
+                </span>
+                <Delta cur={sum(m.key)} prev={sum(m.prevKey)} />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Company picker */}
       <div className="rounded-xl border p-3" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -125,16 +192,20 @@ export default function PortfolioView({
                           <m.Icon size={13} style={{ color: m.color }} /> {m.label}
                         </span>
                       </td>
-                      {shown.map(c => (
-                        <td key={c.bioId} className="px-4 py-2.5 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <span className="text-base font-bold tabular-nums" style={{ color: m.key === "positives" && num(c, m.key) > 0 ? C.green : C.textPrimary }}>
-                              {num(c, m.key).toLocaleString("es-AR")}
-                            </span>
-                            <Delta cur={num(c, m.key)} prev={num(c, m.prevKey)} />
-                          </div>
-                        </td>
-                      ))}
+                      {shown.map(c => {
+                        const isLeader = shown.length > 1 && num(c, m.key) > 0 && c.bioId === leader(m.key);
+                        const valCol = m.key === "positives" && num(c, m.key) > 0 ? C.green : isLeader ? gold : C.textPrimary;
+                        return (
+                          <td key={c.bioId} className="px-4 py-2.5 text-right" style={isLeader ? { backgroundColor: `color-mix(in srgb, ${gold} 7%, transparent)` } : undefined}>
+                            <div className="flex items-center justify-end gap-2">
+                              <span className="text-base font-bold tabular-nums" style={{ color: valCol }}>
+                                {num(c, m.key).toLocaleString("es-AR")}
+                              </span>
+                              <Delta cur={num(c, m.key)} prev={num(c, m.prevKey)} />
+                            </div>
+                          </td>
+                        );
+                      })}
                     </tr>
                   ))}
                   {/* Response rate (derived) */}
