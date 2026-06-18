@@ -541,21 +541,13 @@ export default async function DashboardPage({
               {t("dashx.hero.desc")}
             </p>
           </div>
-          {/* Per-tenant dashboard actions — hidden on Portfolio, which has its
-              own period selector + comparison PDF (avoids the duplicate PDF). */}
-          {!onPortfolio && (
           <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10.5px] font-bold uppercase tracking-[0.14em]"
-              style={{
-                backgroundColor: `color-mix(in srgb, ${gold} 18%, transparent)`,
-                color: gold,
-                border: `1px solid color-mix(in srgb, ${gold} 38%, transparent)`,
-              }}
-            >
-              {periodLabel}
-            </span>
+            {/* "LAST 30 DAYS" chip removed — it duplicated (and drifted from)
+                the PERIOD filter bar below. (Fran 2026-06-18) */}
             <FreshnessChip renderedAt={renderedAt} />
+            {/* The per-tenant report Download is hidden on Portfolio — that tab
+                has its own comparison PDF, so showing this one duplicated it. */}
+            {!onPortfolio && (
             <Link
               href="/reports"
               className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-opacity hover:opacity-90 whitespace-nowrap"
@@ -567,8 +559,8 @@ export default async function DashboardPage({
             >
               <FileDown size={13} /> {t("dashx.hero.download")}
             </Link>
+            )}
           </div>
-          )}
         </div>
       </header>
       )}
