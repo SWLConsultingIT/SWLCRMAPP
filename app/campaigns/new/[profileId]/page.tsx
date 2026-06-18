@@ -689,6 +689,16 @@ export default function NewCampaignWizard() {
     });
   }
 
+  // Returns the real calendar date for a given day offset from today,
+  // and whether it falls on a weekend (so the UI can warn the user).
+  function stepCalendarDate(dayOffset: number): { label: string; isWeekend: boolean } {
+    const d = new Date();
+    d.setDate(d.getDate() + dayOffset);
+    const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+    const label = d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+    return { label, isWeekend };
+  }
+
   // Submit
   async function handleSubmit() {
     const supabase = getSupabaseBrowser();
@@ -1209,8 +1219,15 @@ export default function NewCampaignWizard() {
                             {/* Days after */}
                             <div className="flex items-center gap-2 ml-auto">
                               {!hasCR && j === 0 ? (
-                                <span className="text-xs font-medium px-3 py-1.5 rounded-lg" style={{ backgroundColor: C.greenLight, color: C.green }}>
-                                  Day 0 — Immediate
+                                <span className="flex items-center gap-1.5">
+                                  <span className="text-xs font-medium px-3 py-1.5 rounded-lg" style={{ backgroundColor: C.greenLight, color: C.green }}>
+                                    Day 0 — Immediate
+                                  </span>
+                                  {stepCalendarDate(0).isWeekend && (
+                                    <span title="Today is a weekend — it will still send, but response rates may be lower">
+                                      <AlertTriangle size={11} style={{ color: "#D97706" }} />
+                                    </span>
+                                  )}
                                 </span>
                               ) : (
                                 <div className="flex items-center gap-1.5">
@@ -1222,9 +1239,21 @@ export default function NewCampaignWizard() {
                                       <option key={d} value={d}>{d === 0 ? "same day" : `${d} ${d === 1 ? "day" : "days"}`}</option>
                                     ))}
                                   </select>
-                                  <span className="text-xs tabular-nums" style={{ color: C.textDim }}>
-                                    (Day {days[i]})
-                                  </span>
+                                  {(() => {
+                                    const { label, isWeekend } = stepCalendarDate(days[i]);
+                                    return (
+                                      <span className="flex items-center gap-1">
+                                        <span className="text-xs tabular-nums" style={{ color: C.textDim }}>
+                                          Day {days[i]} · {label}
+                                        </span>
+                                        {isWeekend && (
+                                          <span title="Falls on a weekend — it will still send, but response rates may be lower">
+                                            <AlertTriangle size={11} style={{ color: "#D97706" }} />
+                                          </span>
+                                        )}
+                                      </span>
+                                    );
+                                  })()}
                                 </div>
                               )}
 
