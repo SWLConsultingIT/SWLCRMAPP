@@ -1224,8 +1224,10 @@ export default function NewCampaignWizard() {
                                     Day 0 — Immediate
                                   </span>
                                   {stepCalendarDate(0).isWeekend && (
-                                    <span title="Today is a weekend — it will still send, but response rates may be lower">
-                                      <AlertTriangle size={11} style={{ color: "#D97706" }} />
+                                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full"
+                                      style={{ backgroundColor: "color-mix(in srgb, #D97706 12%, transparent)", color: "#D97706", border: "1px solid color-mix(in srgb, #D97706 28%, transparent)" }}>
+                                      <AlertTriangle size={10} />
+                                      Weekend
                                     </span>
                                   )}
                                 </span>
@@ -1242,13 +1244,15 @@ export default function NewCampaignWizard() {
                                   {(() => {
                                     const { label, isWeekend } = stepCalendarDate(days[i]);
                                     return (
-                                      <span className="flex items-center gap-1">
+                                      <span className="flex items-center gap-1.5">
                                         <span className="text-xs tabular-nums" style={{ color: C.textDim }}>
                                           Day {days[i]} · {label}
                                         </span>
                                         {isWeekend && (
-                                          <span title="Falls on a weekend — it will still send, but response rates may be lower">
-                                            <AlertTriangle size={11} style={{ color: "#D97706" }} />
+                                          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full"
+                                            style={{ backgroundColor: "color-mix(in srgb, #D97706 12%, transparent)", color: "#D97706", border: "1px solid color-mix(in srgb, #D97706 28%, transparent)" }}>
+                                            <AlertTriangle size={10} />
+                                            Weekend
                                           </span>
                                         )}
                                       </span>
