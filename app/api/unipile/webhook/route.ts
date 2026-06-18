@@ -17,7 +17,7 @@
 // callbacks. Set the env var to activate enforcement.
 
 import { NextRequest, NextResponse } from "next/server";
-import { verifySellerName } from "@/lib/unipile-name-signing";
+import { verifySellerName, verifyTelegramName } from "@/lib/unipile-name-signing";
 
 const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY!;
@@ -30,6 +30,46 @@ type UnipileNotify = {
 
 export async function POST(req: NextRequest) {
   const body = (await req.json()) as UnipileNotify;
+
+  const accountId = body.account_id;
+  if (!accountId) {
+    return NextResponse.json({ error: "missing account_id" }, { status: 400 });
+  }
+
+  // Route by name prefix: "tg:" → Telegram callback, else → LinkedIn callback.
+  const isTelegramCallback = typeof body.name === "string" && body.name.startsWith("tg:");
+
+  if (isTelegramCallback) {
+    const verify = verifyTelegramName(body.name);
+    if (!verify.valid) {
+      console.warn("[unipile-webhook/telegram] rejected:", verify.reason);
+      return NextResponse.json({ error: "invalid name" }, { status: 401 });
+    }
+    if (verify.mode === "no-secret") {
+      console.warn("[unipile-webhook/telegram] UNIPILE_WEBHOOK_SECRET unset — accepting unsigned name");
+    } else if (verify.mode === "legacy") {
+      console.warn("[unipile-webhook/telegram] accepted legacy unsigned name (rollout window)");
+    }
+
+    const res = await fetch(`${SB_URL}/rest/v1/sellers?id=eq.${verify.sellerId}`, {
+      method: "PATCH",
+      headers: {
+        apikey: SB_KEY,
+        Authorization: `Bearer ${SB_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({ telegram_account_id: accountId, updated_at: new Date().toISOString() }),
+    });
+
+    if (!res.ok) {
+      return NextResponse.json({ error: await res.text() }, { status: 500 });
+    }
+    console.log(`[unipile-webhook/telegram] linked ${accountId} → seller ${verify.sellerId}`);
+    return NextResponse.json({ ok: true, channel: "telegram" });
+  }
+
+  // LinkedIn callback (original path).
   const verify = verifySellerName(body.name);
 
   if (!verify.valid) {
@@ -47,14 +87,7 @@ export async function POST(req: NextRequest) {
     console.warn("[unipile-webhook] accepted legacy unsigned name (rollout window)");
   }
 
-  const sellerId = verify.sellerId;
-  const accountId = body.account_id;
-  if (!accountId) {
-    return NextResponse.json({ error: "missing account_id" }, { status: 400 });
-  }
-
-  // Link the account_id to the seller that's waiting for it.
-  const res = await fetch(`${SB_URL}/rest/v1/sellers?id=eq.${sellerId}`, {
+  const res = await fetch(`${SB_URL}/rest/v1/sellers?id=eq.${verify.sellerId}`, {
     method: "PATCH",
     headers: {
       apikey: SB_KEY,
@@ -69,7 +102,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: await res.text() }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, channel: "linkedin" });
 }
 
 export async function GET() {

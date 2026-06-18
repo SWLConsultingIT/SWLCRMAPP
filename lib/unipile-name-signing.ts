@@ -47,6 +47,56 @@ export function signSellerName(sellerId: string): string {
   return `${sellerId}:${hmacFor(sellerId, secret)}`;
 }
 
+/**
+ * Sign a seller.id for a Telegram hosted-auth callback. Prefixes with "tg:"
+ * so the webhook can distinguish Telegram from LinkedIn callbacks.
+ * Format: `tg:<seller_id>:<hmac>`
+ */
+export function signTelegramName(sellerId: string): string {
+  const secret = process.env.UNIPILE_WEBHOOK_SECRET ?? "";
+  const payload = `tg:${sellerId}`;
+  if (!secret) return payload;
+  return `${payload}:${hmacFor(sellerId, secret)}`;
+}
+
+export type TelegramVerifyResult =
+  | { valid: true; sellerId: string; isTelegram: true; mode: "verified" | "legacy" | "no-secret" }
+  | { valid: false; mode: "invalid"; reason: string };
+
+/**
+ * Verify a Telegram `name` callback. Expects format `tg:<seller_id>:<hmac>`.
+ * Returns `{ isTelegram: false }` for non-Telegram names so the webhook can
+ * route accordingly.
+ */
+export function verifyTelegramName(name: string | null | undefined): TelegramVerifyResult {
+  if (typeof name !== "string" || !name.startsWith("tg:")) {
+    return { valid: false, mode: "invalid", reason: "not a telegram name" };
+  }
+  const rest = name.slice(3); // strip "tg:"
+  const secret = process.env.UNIPILE_WEBHOOK_SECRET ?? "";
+  const colonIdx = rest.indexOf(":");
+
+  if (!secret) {
+    const sellerId = colonIdx >= 0 ? rest.slice(0, colonIdx) : rest;
+    return { valid: true, sellerId, isTelegram: true, mode: "no-secret" };
+  }
+  if (colonIdx < 0) {
+    return { valid: true, sellerId: rest, isTelegram: true, mode: "legacy" };
+  }
+
+  const sellerId = rest.slice(0, colonIdx);
+  const presented = rest.slice(colonIdx + 1);
+  if (!sellerId) return { valid: false, mode: "invalid", reason: "empty seller id" };
+
+  const expected = hmacFor(sellerId, secret);
+  if (presented.length !== expected.length) return { valid: false, mode: "invalid", reason: "hmac length mismatch" };
+  const a = Buffer.from(presented, "hex");
+  const b = Buffer.from(expected, "hex");
+  if (a.length !== b.length) return { valid: false, mode: "invalid", reason: "hmac hex decode mismatch" };
+  if (!timingSafeEqual(a, b)) return { valid: false, mode: "invalid", reason: "hmac mismatch" };
+  return { valid: true, sellerId, isTelegram: true, mode: "verified" };
+}
+
 export type VerifyResult =
   | { valid: true; sellerId: string; mode: "verified" | "legacy" | "no-secret" }
   | { valid: false; mode: "invalid"; reason: string };

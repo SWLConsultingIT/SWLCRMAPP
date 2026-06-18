@@ -9,7 +9,7 @@ import EmptyState from "@/components/EmptyState";
 import {
   Share2, Mail, Phone, AlertTriangle,
   Users, Calendar, X, Plus, Trash2, Loader2, Shield, Pencil, Save,
-  Zap, Globe, TrendingUp, Settings, ChevronRight, Link2, CheckCircle,
+  Zap, Globe, TrendingUp, Settings, ChevronRight, Link2, CheckCircle, Send,
 } from "lucide-react";
 import EmailPoolManager from "@/components/EmailPoolManager";
 import AircallPoolManager from "@/components/AircallPoolManager";
@@ -24,6 +24,10 @@ type SellerCard = {
   linkedin: { sent: number; limit: number; pct: number };
   calls: number;
   isShared: boolean;
+  hasTelegram: boolean;
+  telegramAccountId: string | null;
+  telegram: { sent: number; limit: number; pct: number };
+  telegramStatus: string | null;
 };
 
 type HistoryEntry = {
@@ -69,10 +73,13 @@ function usageStatus(pct: number): { label: string; color: string; bg: string } 
   return { label: "Available", color: C.green, bg: C.greenLight };
 }
 
+const TG_BLUE = "#229ED9";
+
 const channelMeta: Record<string, { icon: typeof Share2; color: string; label: string }> = {
   linkedin: { icon: Share2, color: "#0A66C2", label: "LinkedIn" },
   email:    { icon: Mail,   color: "#7C3AED", label: "Email" },
   call:     { icon: Phone,  color: "#F97316", label: "Call" },
+  telegram: { icon: Send,   color: TG_BLUE,   label: "Telegram" },
 };
 
 function UsageBar({ sent, limit, channel }: { sent: number; limit: number; channel: string }) {
@@ -636,6 +643,130 @@ function PickUnipileAccount({
   );
 }
 
+// ─── Connect Telegram Modal ─────────────────────────────────────────────────
+function ConnectTelegramModal({ seller, onClose, onSuccess }: { seller: SellerCard; onClose: () => void; onSuccess: () => void }) {
+  const [step, setStep] = useState<"form" | "connecting" | "connected">("form");
+  const [dailyLimit, setDailyLimit] = useState(20);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [authUrl, setAuthUrlState] = useState<string | null>(null);
+  const [authWindow, setAuthWindow] = useState<Window | null>(null);
+
+  async function handleConnect() {
+    const w = window.open("about:blank", "unipile-tg-auth", "width=720,height=800");
+    setAuthWindow(w);
+    setSaving(true); setError(null);
+
+    const res = await fetch("/api/unipile/telegram-hosted-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sellerId: seller.id, telegramDailyLimit: dailyLimit }),
+    });
+    setSaving(false);
+
+    if (!res.ok) {
+      try { w?.close(); } catch { /* ignore */ }
+      const data = await res.json().catch(() => ({}));
+      setError(data.error ?? "Failed to start Telegram connection");
+      return;
+    }
+
+    const { authUrl: url } = await res.json();
+    setStep("connecting");
+    setAuthUrlState(url);
+    if (w && !w.closed) {
+      try { w.location.href = url; } catch { /* ignore */ }
+    }
+  }
+
+  useEffect(() => {
+    if (step !== "connecting") return;
+    const interval = setInterval(async () => {
+      const res = await fetch(`/api/sellers/${seller.id}/telegram-connection-status`, { cache: "no-store" });
+      const data = await res.json().catch(() => ({}));
+      if (data.connected) {
+        clearInterval(interval);
+        try { authWindow?.close(); } catch { /* ignore */ }
+        setStep("connected");
+        setTimeout(onSuccess, 1200);
+      }
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [step, authWindow, onSuccess, seller.id]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+      <div className="rounded-2xl border p-6 w-full max-w-md shadow-2xl" style={{ backgroundColor: C.card, borderColor: C.border }}>
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>
+            {step === "form" ? "Connect Telegram" : step === "connecting" ? "Connecting Telegram" : "Connected"}
+          </h2>
+          <button onClick={onClose}><X size={18} style={{ color: C.textMuted }} /></button>
+        </div>
+
+        {step === "form" && (
+          <>
+            <div className="rounded-2xl border p-4 mb-5" style={{ borderColor: `${TG_BLUE}30`, background: `linear-gradient(135deg, ${TG_BLUE}04 0%, ${TG_BLUE}0D 100%)` }}>
+              <div className="flex items-center gap-2 mb-2">
+                <Send size={14} style={{ color: TG_BLUE }} />
+                <span className="text-xs font-semibold" style={{ color: TG_BLUE }}>Telegram — {seller.name}</span>
+              </div>
+              <p className="text-[11px] leading-relaxed" style={{ color: C.textMuted }}>
+                Unipile will open a QR code or phone prompt. Scan with your Telegram app to link the account.
+                SWL never sees your Telegram credentials.
+              </p>
+              <div className="flex items-center justify-between mt-3">
+                <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textDim }}>Daily send limit</label>
+                <input type="number" value={dailyLimit} min={1} max={50} onChange={e => setDailyLimit(Number(e.target.value))}
+                  className="w-16 rounded px-2 py-1 text-xs text-center focus:outline-none"
+                  style={{ color: C.textPrimary, backgroundColor: C.card, border: `1px solid ${C.border}` }} />
+              </div>
+            </div>
+
+            {error && <div className="mb-4 rounded-lg px-3 py-2" style={{ backgroundColor: C.redLight }}><p className="text-xs font-medium" style={{ color: C.red }}>{error}</p></div>}
+
+            <div className="flex items-center justify-end gap-3">
+              <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium" style={{ backgroundColor: C.surface, color: C.textBody }}>Cancel</button>
+              <button onClick={handleConnect} disabled={saving}
+                className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-50"
+                style={{ backgroundColor: TG_BLUE, color: "#fff" }}>
+                {saving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                {saving ? "Preparing…" : "Connect Telegram"}
+              </button>
+            </div>
+          </>
+        )}
+
+        {step === "connecting" && (
+          <div className="py-10 text-center">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: `${TG_BLUE}15` }}>
+              <Loader2 size={24} className="animate-spin" style={{ color: TG_BLUE }} />
+            </div>
+            <p className="text-sm font-medium mb-1" style={{ color: C.textPrimary }}>Waiting for Telegram authentication…</p>
+            <p className="text-xs" style={{ color: C.textMuted }}>Complete the flow in the Unipile window. This modal updates automatically.</p>
+            {authUrl && (
+              <a href={authUrl} target="_blank" rel="noopener noreferrer"
+                className="inline-block mt-4 text-xs font-semibold underline" style={{ color: TG_BLUE }}>
+                Don&apos;t see the window? Open it manually →
+              </a>
+            )}
+          </div>
+        )}
+
+        {step === "connected" && (
+          <div className="py-10 text-center">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: "#DCFCE7" }}>
+              <Shield size={24} style={{ color: "#16A34A" }} />
+            </div>
+            <p className="text-sm font-bold mb-1" style={{ color: "#16A34A" }}>Telegram connected ✓</p>
+            <p className="text-xs" style={{ color: C.textMuted }}>{seller.name} is ready to send Telegram campaigns.</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Edit Seller Modal ──────────────────────────────────────────────────────
 function EditAccountModal({ seller, onClose, onSuccess }: { seller: SellerCard; onClose: () => void; onSuccess: () => void }) {
   const [name, setName] = useState(seller.name);
@@ -868,6 +999,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
   const [editTarget, setEditTarget] = useState<SellerCard | null>(null);
   const [linkTarget, setLinkTarget] = useState<SellerCard | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [connectTelegramTarget, setConnectTelegramTarget] = useState<SellerCard | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showPoolManager, setShowPoolManager] = useState(false);
   const [showAircallManager, setShowAircallManager] = useState(false);
@@ -1049,7 +1181,10 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                     <div className="px-5 py-4 space-y-4">
                       {seller.hasLinkedin
                         ? <UsageBar sent={seller.linkedin.sent} limit={seller.linkedin.limit} channel="linkedin" />
-                        : <p className="text-xs text-center py-2" style={{ color: C.textDim }}>No channel configured</p>}
+                        : <p className="text-xs text-center py-2" style={{ color: C.textDim }}>No LinkedIn configured</p>}
+                      {seller.hasTelegram && (
+                        <UsageBar sent={seller.telegram.sent} limit={seller.telegram.limit} channel="telegram" />
+                      )}
                       {seller.calls > 0 && (
                         <div className="flex items-center gap-2 text-xs" style={{ color: C.textMuted }}>
                           <Phone size={11} style={{ color: "#F97316" }} /> {seller.calls} calls today
@@ -1060,12 +1195,25 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                       {!seller.hasLinkedin && !seller.isShared && (
                         <button onClick={() => setReconnectTarget(seller)}
                           className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-80 shrink-0 whitespace-nowrap"
-                          style={{ backgroundColor: "#0A66C2", color: "#fff" }}><Share2 size={10} /> Connect Unipile</button>
+                          style={{ backgroundColor: "#0A66C2", color: "#fff" }}><Share2 size={10} /> Connect LinkedIn</button>
                       )}
                       {!seller.hasLinkedin && !seller.isShared && isAdmin && (
                         <button onClick={() => setLinkTarget(seller)}
                           className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-80 shrink-0 whitespace-nowrap"
                           style={{ backgroundColor: "#0A66C215", color: "#0A66C2", border: "1px solid #0A66C230" }}><Share2 size={10} /> Link existing</button>
+                      )}
+                      {!seller.hasTelegram && !seller.isShared && (
+                        <button onClick={() => setConnectTelegramTarget(seller)}
+                          className="inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1.5 rounded-md transition-opacity hover:opacity-80 shrink-0 whitespace-nowrap"
+                          style={{ backgroundColor: `${TG_BLUE}20`, color: TG_BLUE, border: `1px solid ${TG_BLUE}30` }}>
+                          <Send size={10} /> Connect Telegram
+                        </button>
+                      )}
+                      {seller.hasTelegram && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1.5 rounded-md shrink-0 whitespace-nowrap"
+                          style={{ backgroundColor: `${TG_BLUE}15`, color: TG_BLUE }}>
+                          <Send size={10} /> Telegram ✓
+                        </span>
                       )}
                       <Link href={`/accounts/linkedin/${seller.id}`}
                         title="Per-campaign messages sent, replies & positives for this seller"
@@ -1430,6 +1578,13 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
       {editTarget && <EditAccountModal seller={editTarget} onClose={() => setEditTarget(null)} onSuccess={() => { setEditTarget(null); router.refresh(); }} />}
       {linkTarget && <LinkUnipileModal seller={linkTarget} onClose={() => setLinkTarget(null)} onSuccess={() => { setLinkTarget(null); router.refresh(); }} />}
       {deleteTarget && <DeleteModal name={deleteTarget.name} onConfirm={handleDelete} onClose={() => setDeleteTarget(null)} loading={deleting} />}
+      {connectTelegramTarget && (
+        <ConnectTelegramModal
+          seller={connectTelegramTarget}
+          onClose={() => setConnectTelegramTarget(null)}
+          onSuccess={() => { setConnectTelegramTarget(null); router.refresh(); }}
+        />
+      )}
       <EmailPoolManager open={showPoolManager} onClose={() => setShowPoolManager(false)} />
       <AircallPoolManager open={showAircallManager} onClose={() => setShowAircallManager(false)} />
     </div>

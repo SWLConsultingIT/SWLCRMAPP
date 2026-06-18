@@ -138,7 +138,7 @@ async function getData() {
   // Sellers scoped to the current bio: own sellers + sellers shared from other
   // tenants via admin "Sellers shared with this client". No cross-tenant leak.
   let sellersQuery = supabase.from("sellers")
-    .select("id, name, unipile_account_id, linkedin_daily_limit, active, company_bio_id, shared_with_company_bio_ids")
+    .select("id, name, unipile_account_id, linkedin_daily_limit, active, company_bio_id, shared_with_company_bio_ids, telegram_account_id, telegram_daily_limit, telegram_status")
     .eq("active", true)
     .order("name");
   if (userCompanyBioId) {
@@ -198,12 +198,12 @@ async function getData() {
     .gte("sent_at", since24h)
     .not("sent_at", "is", null);
 
-  const usageToday: Record<string, { linkedin: number; email: number; call: number }> = {};
+  const usageToday: Record<string, { linkedin: number; email: number; call: number; telegram: number }> = {};
   for (const msg of todayMessages ?? []) {
     const sellerId = (msg.campaigns as any)?.seller_id;
     if (!sellerId) continue;
-    if (!usageToday[sellerId]) usageToday[sellerId] = { linkedin: 0, email: 0, call: 0 };
-    const ch = msg.channel as "linkedin" | "email" | "call";
+    if (!usageToday[sellerId]) usageToday[sellerId] = { linkedin: 0, email: 0, call: 0, telegram: 0 };
+    const ch = msg.channel as "linkedin" | "email" | "call" | "telegram";
     if (ch in usageToday[sellerId]) usageToday[sellerId][ch]++;
   }
 
@@ -247,9 +247,12 @@ async function getData() {
 
   // Sellers with LinkedIn only (email pulled out to Instantly pool section)
   const sellerCards = (sellers ?? []).map(s => {
-    const usage = usageToday[s.id] ?? { linkedin: 0, email: 0, call: 0 };
+    const usage = usageToday[s.id] ?? { linkedin: 0, email: 0, call: 0, telegram: 0 };
     const linkedinLimit = s.linkedin_daily_limit ?? 15;
     const linkedinPct = linkedinLimit > 0 ? Math.round((usage.linkedin / linkedinLimit) * 100) : 0;
+    const telegramLimit = (s as any).telegram_daily_limit ?? 20;
+    const telegramSent = usage.telegram;
+    const telegramPct = telegramLimit > 0 ? Math.round((telegramSent / telegramLimit) * 100) : 0;
 
     return {
       id: s.id,
@@ -258,9 +261,11 @@ async function getData() {
       unipileId: s.unipile_account_id,
       linkedin: { sent: usage.linkedin, limit: linkedinLimit, pct: Math.min(linkedinPct, 100) },
       calls: usage.call,
-      // Seller is "shared" when the viewer's tenant is NOT its primary owner.
-      // Used by the UI to badge the card and gate destructive actions.
       isShared: !!userCompanyBioId && s.company_bio_id !== userCompanyBioId,
+      hasTelegram: !!(s as any).telegram_account_id,
+      telegramAccountId: (s as any).telegram_account_id as string | null,
+      telegram: { sent: telegramSent, limit: telegramLimit, pct: Math.min(telegramPct, 100) },
+      telegramStatus: (s as any).telegram_status as string | null,
     };
   });
 

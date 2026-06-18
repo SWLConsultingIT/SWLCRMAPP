@@ -67,6 +67,7 @@ const ALL_CHANNEL_OPTIONS = [
   { key: "email",     label: "Email",     icon: Mail,           color: C.email,    short: "EM" },
   { key: "call",      label: "Call",      icon: Phone,          color: C.phone,    short: "CA" },
   { key: "whatsapp",  label: "WhatsApp",  icon: MessageCircle,  color: "#25D366",  short: "WA", superAdminOnly: true },
+  { key: "telegram",  label: "Telegram",  icon: Send,           color: "#229ED9",  short: "TG", superAdminOnly: true },
 ];
 
 const sequenceTemplates = [

@@ -32,10 +32,15 @@ export async function POST(req: Request) {
   if (!canViewSwlAdmin(scope.tier)) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
-  const body = await req.json().catch(() => null) as { bioId?: string; question?: string } | null;
+  const body = await req.json().catch(() => null) as {
+    bioId?: string;
+    question?: string;
+    conversationHistory?: Array<{ role: "user" | "assistant"; content: string }>;
+  } | null;
   if (!body?.bioId || !body.question?.trim()) {
     return NextResponse.json({ error: "bioId + question required" }, { status: 400 });
   }
+  const conversationHistory = Array.isArray(body.conversationHistory) ? body.conversationHistory.slice(-6) : [];
   const url = QA_WEBHOOK_URL;
 
   // 'general' = ask about the whole org (all tenants). Otherwise scoped
@@ -53,6 +58,7 @@ export async function POST(req: Request) {
       bio_id: "general",
       bio_name: "Todos los tenants",
       question: body.question.trim(),
+      conversation_history: conversationHistory,
       scope: "global",
       global,         // GlobalSummary (KPIs + tenant verdicts + sellers)
       tenants: all,   // full per-tenant summaries
@@ -70,6 +76,7 @@ export async function POST(req: Request) {
       bio_id: body.bioId,
       bio_name: bioName,
       question: body.question.trim(),
+      conversation_history: conversationHistory,
       scope: "tenant",
       summary, // full TenantSummary
       history, // last 50 events
