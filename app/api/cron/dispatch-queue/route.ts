@@ -300,6 +300,41 @@ function isRateLimitError(reason: string): boolean {
     || r.includes("429");
 }
 
+function isTransientNetworkError(reason: string): boolean {
+  const r = reason.toLowerCase();
+  return r.includes(" 504") || r.includes("→ 504")
+    || r.includes(" 503") || r.includes("→ 503")
+    || r.includes(" 502") || r.includes("→ 502")
+    || r.includes("timeout") || r.includes("fetch failed")
+    || r.includes("econnreset") || r.includes("etimedout")
+    || r.includes("network error");
+}
+
+async function requeueTransient(
+  svc: ReturnType<typeof getSupabaseService>,
+  msgId: string, leadId: string, reason: string,
+): Promise<DispatchOutcome> {
+  const { data: existing } = await svc
+    .from("campaign_messages").select("metadata").eq("id", msgId).maybeSingle();
+  const prevMeta = (existing?.metadata as Record<string, unknown> | null) ?? {};
+  const prevCount = typeof prevMeta.transient_error_count === "number" ? prevMeta.transient_error_count : 0;
+  if (prevCount >= 3) {
+    return await failMessage(svc, msgId, leadId, `transient error after ${prevCount} retries: ${reason}`);
+  }
+  await svc.from("campaign_messages").update({
+    status: "queued",
+    error_details: null,
+    metadata: {
+      ...prevMeta,
+      dispatched_by: "cron-dispatch-queue",
+      last_transient_error_at: new Date().toISOString(),
+      last_transient_error_reason: reason.slice(0, 400),
+      transient_error_count: prevCount + 1,
+    },
+  }).eq("id", msgId);
+  return { kind: "rate_limited", msgId, leadId, reason, cascadedCount: 0 };
+}
+
 function isAlreadyConnectedError(reason: string): boolean {
   const r = reason.toLowerCase();
   return r.includes("already connected") || r.includes("already a contact");
@@ -486,6 +521,7 @@ async function parkAwaitingAcceptance(
 async function requeueRateLimited(
   svc: ReturnType<typeof getSupabaseService>,
   msgId: string, leadId: string, sellerId: string | null, reason: string,
+  stepNumber: number,
 ): Promise<DispatchOutcome> {
   const cooldownAt = new Date().toISOString();
   const { data: existing } = await svc
@@ -504,15 +540,28 @@ async function requeueRateLimited(
     },
   }).eq("id", msgId);
 
+  // CLASS-SCOPED CASCADE (2026-06-19). LinkedIn meters connection INVITES
+  // (POST /users/invite, our step 0) and MESSAGES (POST /chats, our step ≥ 1)
+  // under SEPARATE quotas. Before this fix the cascade froze every queued
+  // LinkedIn row for the seller for 4h — so a 422 on a cold connection invite
+  // also froze the First DM to a lead who had ALREADY ACCEPTED, leaving warm
+  // conversations stuck for days (client complaint: accepted lead waited a full
+  // week for step 2). Now we only cascade within the SAME class as the row that
+  // hit the limit: an invite-limit pauses other invites (step 0); a messaging
+  // limit pauses other DMs (step ≥ 1). The other class keeps flowing.
+  const isInviteLimit = reason.includes("/users/invite") || stepNumber === 0;
   let cascadedCount = 0;
   if (sellerId) {
-    const { data: sellerQueued } = await svc
+    let q = svc
       .from("campaign_messages")
       .select("id, metadata, campaigns!inner(seller_id)")
       .eq("status", "queued")
       .eq("channel", "linkedin")
       .eq("campaigns.seller_id", sellerId)
       .neq("id", msgId);
+    // Scope by class: invites → step 0 only; messages → step ≥ 1 only.
+    q = isInviteLimit ? q.eq("step_number", 0) : q.gte("step_number", 1);
+    const { data: sellerQueued } = await q;
     if (sellerQueued && sellerQueued.length > 0) {
       await Promise.all((sellerQueued as any[]).map((row) => {
         const meta = (row.metadata as Record<string, unknown> | null) ?? {};
@@ -686,7 +735,10 @@ async function dispatchOneMessage(
   } catch (e: any) {
     const errMsg = e?.message ?? String(e);
     if (isRateLimitError(errMsg)) {
-      return await requeueRateLimited(svc, candidate.id, candidate.lead_id, seller.id, errMsg);
+      return await requeueRateLimited(svc, candidate.id, candidate.lead_id, seller.id, errMsg, candidate.step_number);
+    }
+    if (isTransientNetworkError(errMsg)) {
+      return await requeueTransient(svc, candidate.id, candidate.lead_id, errMsg);
     }
     return await failMessage(svc, candidate.id, candidate.lead_id, errMsg);
   }
@@ -867,7 +919,10 @@ async function dispatchOneMessage(
   } catch (e: any) {
     const errMsg = e?.message ?? String(e);
     if (isRateLimitError(errMsg)) {
-      return await requeueRateLimited(svc, candidate.id, candidate.lead_id, seller.id, errMsg);
+      return await requeueRateLimited(svc, candidate.id, candidate.lead_id, seller.id, errMsg, candidate.step_number);
+    }
+    if (isTransientNetworkError(errMsg)) {
+      return await requeueTransient(svc, candidate.id, candidate.lead_id, errMsg);
     }
     if (candidate.step_number === 0) {
       if (isAlreadyConnectedError(errMsg)) {
@@ -1043,39 +1098,65 @@ async function processSellerBatch(
 
   const batchSize = Math.min(remaining, BATCH_SIZE_PER_SELLER);
 
-  // Pull a window of queued messages for this seller, filter eligible.
+  // TWO-TIER PRIORITY FETCH (2026-06-19). A lead who already ACCEPTED our
+  // connection request and is waiting for the First DM (LinkedIn step ≥ 1) is a
+  // warm, time-sensitive conversation — every day it sits behind cold CRs
+  // (step 0) is a reply we're losing. The seller's daily LinkedIn cap is the
+  // scarce resource; it must go to warm leads first. (Fran 2026-06-19: client
+  // got a step-2 DM a full week late because cold CRs ate the daily cap while
+  // accepted leads waited.)
   //
-  // Order by metadata.eligible_at ASC (not created_at) — the previous order
-  // would push step_2/step_3 rows of older campaigns ahead of step_0 rows
-  // from newer campaigns because the import inserts the whole sequence in
-  // one shot with consecutive microseconds. Result: a seller with lots of
-  // older campaigns and a recent batch of CRs would never get the CRs sent
-  // (they sit at positions 26+ in the candidate list, the .limit(20) cuts
-  // them off, every iteration the future-eligible older rows get rejected
-  // in JS and the seller "blocks idle"). Switching to eligible_at-ASC means
-  // the row closest to becoming eligible (or already eligible) always wins.
-  // Limit bumped to 100 to be defensive against the same trap recurring on
-  // a different shape.
-  const { data: candidates } = await svc
-    .from("campaign_messages")
-    .select("id, campaign_id, lead_id, step_number, channel, content, status, metadata, campaigns!inner(seller_id)")
-    .eq("status", "queued")
-    .eq("channel", "linkedin")
-    .eq("campaigns.seller_id", seller.id)
-    .order("metadata->>eligible_at", { ascending: true, nullsFirst: true })
-    .limit(100);
-
+  // Why TWO queries instead of one ordered fetch: with a single
+  // `.order(step DESC).limit(100)` query, a seller with >100 warm DMs could
+  // push the OLDEST step-1 DMs out of the window (higher steps sort first),
+  // so the lead who accepted longest ago would wait behind newer deep-funnel
+  // ones. Fetching the warm tier on its own, ordered by eligible_at ASC,
+  // guarantees we always serve the oldest-waiting accepted lead first,
+  // regardless of backlog size. Cold CRs are only fetched when NO warm DM is
+  // eligible — so a warm backlog transparently pauses new CRs until it drains
+  // (self-correcting: warm DMs are bounded by acceptances). This holds for
+  // multichannel flows too: LinkedIn DMs always live at step ≥ 1 (step 0 is
+  // always the CR), no matter how many email/call steps interleave.
   const nowMs = Date.now();
-  const eligible = (candidates ?? []).filter((r: any) => {
+  const isEligible = (r: any): boolean => {
     const eligibleAt = r?.metadata?.eligible_at;
     if (eligibleAt && new Date(eligibleAt).getTime() > nowMs) return false;
     const lastRL = r?.metadata?.last_rate_limit_at;
     if (lastRL && nowMs - new Date(lastRL).getTime() <= RATE_LIMIT_COOLDOWN_MS) return false;
     return true;
-  });
+  };
+  const SELECT_COLS = "id, campaign_id, lead_id, step_number, channel, content, status, metadata, campaigns!inner(seller_id)";
+
+  // Tier 1 — warm: post-acceptance DMs (step ≥ 1), oldest-eligible first.
+  const { data: warmRows } = await svc
+    .from("campaign_messages")
+    .select(SELECT_COLS)
+    .eq("status", "queued")
+    .eq("channel", "linkedin")
+    .eq("campaigns.seller_id", seller.id)
+    .gte("step_number", 1)
+    .order("metadata->>eligible_at", { ascending: true, nullsFirst: true })
+    .limit(100);
+  let eligible = (warmRows ?? []).filter(isEligible);
+  let fetchedCount = warmRows?.length ?? 0;
+
+  // Tier 2 — cold CRs (step 0), only when no warm DM is eligible this tick.
+  if (eligible.length === 0) {
+    const { data: coldRows } = await svc
+      .from("campaign_messages")
+      .select(SELECT_COLS)
+      .eq("status", "queued")
+      .eq("channel", "linkedin")
+      .eq("campaigns.seller_id", seller.id)
+      .eq("step_number", 0)
+      .order("metadata->>eligible_at", { ascending: true, nullsFirst: true })
+      .limit(100);
+    eligible = (coldRows ?? []).filter(isEligible);
+    fetchedCount += coldRows?.length ?? 0;
+  }
 
   if (eligible.length === 0) {
-    result.blockedReason = (candidates?.length ?? 0) === 0 ? "no queued for seller" : "all in cooldown / future-scheduled";
+    result.blockedReason = fetchedCount === 0 ? "no queued for seller" : "all in cooldown / future-scheduled";
     return result;
   }
 

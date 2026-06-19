@@ -7,7 +7,7 @@
 // from Next.js).
 
 import { useState, useRef, useEffect } from "react";
-import { Bot, Send, Loader2, ChevronDown, User, Trash2 } from "lucide-react";
+import { Bot, Send, Loader2, ChevronDown, User, Trash2, Copy, Check } from "lucide-react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 
@@ -27,6 +27,7 @@ export default function QABot({ bioId, bioName }: { bioId: string; bioName: stri
   const [busy, setBusy] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -41,6 +42,13 @@ export default function QABot({ bioId, bioName }: { bioId: string; bioName: stri
   useEffect(() => {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, busy]);
+
+  function copyMsg(content: string, idx: number) {
+    navigator.clipboard.writeText(content).then(() => {
+      setCopiedIdx(idx);
+      setTimeout(() => setCopiedIdx(i => i === idx ? null : i), 1500);
+    });
+  }
 
   async function ask(q?: string) {
     const text = (q ?? question).trim();
@@ -160,20 +168,33 @@ export default function QABot({ bioId, bioName }: { bioId: string; bioName: stri
                     }}>
                     {msg.role === "user" ? <User size={11} /> : <Bot size={11} />}
                   </div>
-                  <div className="max-w-[85%] rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed"
-                    style={msg.role === "user" ? {
-                      backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`,
-                      border: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
-                      color: C.textPrimary,
-                      borderTopRightRadius: 4,
-                    } : {
-                      backgroundColor: C.bg,
-                      border: `1px solid ${C.border}`,
-                      color: C.textPrimary,
-                      whiteSpace: "pre-wrap",
-                      borderTopLeftRadius: 4,
-                    }}>
-                    {msg.content}
+                  <div className="max-w-[85%] flex flex-col">
+                    <div className="rounded-2xl px-4 py-2.5 text-[13px] leading-relaxed"
+                      style={msg.role === "user" ? {
+                        backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`,
+                        border: `1px solid color-mix(in srgb, ${gold} 22%, transparent)`,
+                        color: C.textPrimary,
+                        borderTopRightRadius: 4,
+                      } : {
+                        backgroundColor: C.bg,
+                        border: `1px solid ${C.border}`,
+                        color: C.textPrimary,
+                        whiteSpace: "pre-wrap",
+                        borderTopLeftRadius: 4,
+                      }}>
+                      {msg.content}
+                    </div>
+                    {msg.role === "assistant" && (
+                      <button type="button"
+                        onClick={() => copyMsg(msg.content, i)}
+                        className="self-start mt-1 flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] transition-colors"
+                        style={{ color: copiedIdx === i ? gold : C.textMuted, opacity: 0.55 }}
+                        onMouseEnter={e => { e.currentTarget.style.opacity = "1"; }}
+                        onMouseLeave={e => { if (copiedIdx !== i) e.currentTarget.style.opacity = "0.55"; }}>
+                        {copiedIdx === i ? <Check size={10} /> : <Copy size={10} />}
+                        <span>{copiedIdx === i ? "Copiado" : "Copiar"}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}

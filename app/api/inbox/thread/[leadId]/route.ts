@@ -323,10 +323,22 @@ export async function GET(
         // copies of the same note within the same 10 min.
         const ts = new Date(at).getTime();
         const targetDir = isFromUs ? "outbound" : "inbound";
+        const normText = text.trim();
         const dupe = entries.some(e => {
           if (e.direction !== targetDir) return false;
-          const diff = Math.abs(new Date(e.at).getTime() - ts);
-          return diff < 10 * 60_000 && (e.body || "").trim() === text.trim();
+          if ((e.body || "").trim() !== normText) return false;
+          // OUTBOUND: identical text = same message, regardless of timestamp.
+          // LinkedIn re-surfaces the connection-request note in /chats/messages
+          // AFTER the lead accepts — with a NEW message id and the ACCEPT
+          // timestamp (hours/days off the original sent_at). So both id-match
+          // and the 10-min window miss it and the CR showed twice in the inbox
+          // (Fran 2026-06-19). Sellers never fire the exact same outbound text
+          // twice in a real thread, so matching on text alone is safe here.
+          if (targetDir === "outbound") return true;
+          // INBOUND: keep the 10-min window — a lead CAN legitimately repeat a
+          // short message ("ok", "gracias") minutes apart, and those are
+          // genuinely distinct replies we must not collapse.
+          return Math.abs(new Date(e.at).getTime() - ts) < 10 * 60_000;
         });
         if (dupe) continue;
         entries.push({

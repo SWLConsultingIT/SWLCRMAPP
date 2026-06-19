@@ -278,15 +278,38 @@ export default function FlowEditorPage() {
     setError(null);
 
     const messagesPayload: Record<number, any> = {};
+    // New messages: steps added during this edit session (no campaign_messages row yet)
+    const newMessagesPayload: Record<number, any> = {};
+
     for (const [stepNum, msg] of Object.entries(messages)) {
-      if (!msg.id) continue;
       const stepAtts = attachments[Number(stepNum)] ?? [];
-      messagesPayload[Number(stepNum)] = {
-        id: msg.id,
-        content: msg.content,
-        subject: msg.subject ?? "",
-        attachments: stepAtts,
-      };
+      if (msg.id) {
+        messagesPayload[Number(stepNum)] = {
+          id: msg.id,
+          content: msg.content,
+          subject: msg.subject ?? "",
+          attachments: stepAtts,
+        };
+      } else {
+        // New step — find its channel + wait_days so the API can create DB rows
+        // Recompute msgKey → step index mapping
+        let stepIdx = -1;
+        let curKey = 0;
+        for (let si = 0; si < steps.length; si++) {
+          const sk = steps[si].action === "Send Request" ? 0 : (() => {
+            const nb = steps.slice(0, si).filter(s => s.action !== "Send Request").length;
+            return nb + 1;
+          })();
+          if (sk === Number(stepNum)) { stepIdx = si; break; }
+        }
+        const step = stepIdx >= 0 ? steps[stepIdx] : null;
+        newMessagesPayload[Number(stepNum)] = {
+          content: msg.content ?? "",
+          subject: msg.subject ?? "",
+          channel: step?.channel ?? "email",
+          waitDays: step?.wait_days ?? 3,
+        };
+      }
     }
 
     try {
@@ -300,6 +323,7 @@ export default function FlowEditorPage() {
           emailAccount: emailAccount || null,
           originalName,
           messages: messagesPayload,
+          newMessages: newMessagesPayload,
         }),
       });
       if (!r.ok) {
