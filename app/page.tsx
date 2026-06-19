@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { C, N } from "@/lib/design";
 import { getUserScope } from "@/lib/scope";
-import { getDashboardData } from "@/lib/dashboard-data";
+import { getDashboardData, getMyMetricsHeadline } from "@/lib/dashboard-data";
 import { getT, getServerLocale } from "@/lib/i18n-server";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
 import TabFilterBar from "@/components/dashboard/TabFilterBar";
@@ -191,6 +191,10 @@ function parseFilters(sp: Record<string, string | string[] | undefined>) {
      * (boss feedback 2026-05-28: the action list should be the landing
      * screen, not the metrics). */
     tab,
+    /** Period for the "My metrics" headline card. Independent from the global
+     *  from/to so sellers can check today's numbers without losing the full
+     *  date-range view on other tabs. */
+    myp: (["today", "7d", "30d"].includes(get("myp") ?? "") ? get("myp") : "30d") as "today" | "7d" | "30d",
   };
 }
 
@@ -247,11 +251,12 @@ export default async function DashboardPage({
   // Always load filter options — they feed both the tab-level TabFilterBar
   // AND the per-chart ChartFilterChips (Donut on Overview also needs them).
   // 3 cheap queries, no point conditionally skipping.
-  const [data, t, locale, filterOptions] = await Promise.all([
+  const [data, t, locale, filterOptions, myHeadline] = await Promise.all([
     getDashboardData(filters),
     getT(),
     getServerLocale(),
     loadFilterOptions(bioId),
+    getMyMetricsHeadline(filters.myp),
   ]);
   const tabFilterLabels = {
     campaigns: t("dashx.filters.campaigns"),
@@ -646,6 +651,7 @@ export default async function DashboardPage({
           boxShadow: `0 1px 0 color-mix(in srgb, ${gold} 18%, transparent), 0 8px 24px -12px ${N.ink}`,
         }}
       >
+        {/* Header: title + period chips */}
         <div
           className="relative px-5 py-3.5 flex items-center gap-3 overflow-hidden"
           style={{
@@ -659,21 +665,43 @@ export default async function DashboardPage({
             style={{ background: `linear-gradient(135deg, ${gold} 0%, color-mix(in srgb, ${gold} 78%, white) 100%)`, color: N.ink }}>
             <Activity size={14} />
           </span>
-          <div className="relative min-w-0">
+          <div className="relative min-w-0 flex-1">
             <h3 className="text-[14px] font-semibold tracking-[-0.005em]" style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
               {t("dashboard.myMetrics.title")}
             </h3>
-            <p className="text-[11px] mt-0.5 truncate" style={{ color: "color-mix(in srgb, white 60%, transparent)" }}>
-              {periodLabel}
-            </p>
+          </div>
+          {/* Period picker chips */}
+          <div className="relative flex items-center gap-1 shrink-0">
+            {(["today", "7d", "30d"] as const).map((p) => {
+              const label = p === "today"
+                ? (locale === "es" ? "Hoy" : "Today")
+                : p === "7d" ? "7d" : "30d";
+              const active = filters.myp === p;
+              return (
+                <Link
+                  key={p}
+                  href={`?tab=today&myp=${p}`}
+                  className="px-2 py-0.5 rounded text-[11px] font-semibold transition-colors"
+                  style={{
+                    backgroundColor: active
+                      ? `color-mix(in srgb, ${gold} 22%, transparent)`
+                      : "transparent",
+                    color: active ? gold : "color-mix(in srgb, white 50%, transparent)",
+                    border: `1px solid ${active ? `color-mix(in srgb, ${gold} 40%, transparent)` : "transparent"}`,
+                  }}
+                >
+                  {label}
+                </Link>
+              );
+            })}
           </div>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-px" style={{ backgroundColor: C.border }}>
           {[
-            { label: t("dashboard.myMetrics.leadsReached"), value: data.headline?.contactedLeads ?? 0, delta: data.deltas?.contacted ?? null, Icon: Users,          color: gold },
-            { label: t("dashboard.myMetrics.replies"),      value: data.headline?.repliedCount ?? 0,    delta: data.deltas?.replied ?? null,   Icon: MessageSquare, color: C.blue },
-            { label: t("dashboard.myMetrics.positive"),     value: data.headline?.positiveCount ?? 0,    delta: data.deltas?.positive ?? null,  Icon: ThumbsUp,      color: C.green },
-            { label: t("dashboard.responseRate"),           value: `${data.headline?.responseRate ?? 0}%`, delta: null,                         Icon: Target,        color: gold },
+            { label: t("dashboard.myMetrics.leadsReached"), value: myHeadline.contactedLeads, Icon: Users,          color: gold },
+            { label: t("dashboard.myMetrics.replies"),      value: myHeadline.repliedCount,   Icon: MessageSquare, color: C.blue },
+            { label: t("dashboard.myMetrics.positive"),     value: myHeadline.positiveCount,  Icon: ThumbsUp,      color: C.green },
+            { label: t("dashboard.responseRate"),           value: `${myHeadline.responseRate}%`, Icon: Target,    color: gold },
           ].map((m) => (
             <div key={m.label} className="px-5 py-4 flex flex-col gap-2" style={{ backgroundColor: C.card }}>
               <div className="flex items-center gap-2">
@@ -687,11 +715,6 @@ export default async function DashboardPage({
                 <span className="text-[26px] font-bold leading-none tabular-nums" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
                   {m.value}
                 </span>
-                {m.delta != null && m.delta !== 0 && (
-                  <span className="text-[11px] font-bold tabular-nums" style={{ color: m.delta >= 0 ? C.green : C.red }}>
-                    {m.delta >= 0 ? "+" : "−"}{Math.abs(m.delta)}%
-                  </span>
-                )}
               </div>
             </div>
           ))}

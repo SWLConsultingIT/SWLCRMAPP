@@ -1805,3 +1805,71 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
 }
 
 export type DashboardData = Awaited<ReturnType<typeof getDashboardData>>;
+
+/** Lightweight headline query for the "My metrics" card period picker.
+ *  Only fetches sent messages + replies in the requested window — no full
+ *  dashboard aggregation — so it runs in parallel without doubling DB load. */
+export async function getMyMetricsHeadline(myp: "today" | "7d" | "30d") {
+  try {
+    const supabase = await getSupabaseServer();
+    const scope = await getUserScope();
+    const bioId = scope.isScoped ? scope.companyBioId! : null;
+
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
+    let fromStr: string;
+    if (myp === "today") {
+      fromStr = todayStr;
+    } else if (myp === "7d") {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 6);
+      fromStr = d.toISOString().slice(0, 10);
+    } else {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 29);
+      fromStr = d.toISOString().slice(0, 10);
+    }
+    const fromIso = `${fromStr}T00:00:00.000Z`;
+    const toIso   = `${todayStr}T23:59:59.999Z`;
+
+    let msgQ = supabase
+      .from("campaign_messages")
+      .select("campaigns!inner(lead_id, leads!inner(company_bio_id))")
+      .eq("status", "sent")
+      .gte("sent_at", fromIso)
+      .lte("sent_at", toIso)
+      .limit(5000);
+    if (bioId) msgQ = (msgQ as any).eq("campaigns.leads.company_bio_id", bioId);
+
+    let replyQ = supabase
+      .from("lead_replies")
+      .select("lead_id, classification, leads!inner(company_bio_id)")
+      .gte("received_at", fromIso)
+      .lte("received_at", toIso)
+      .limit(5000);
+    if (bioId) replyQ = (replyQ as any).eq("leads.company_bio_id", bioId);
+
+    const [{ data: msgs }, { data: repls }] = await Promise.all([msgQ, replyQ]);
+
+    const POSITIVE_CLASS = new Set(["positive", "meeting_intent"]);
+    const contactedLeads = new Set(
+      (msgs ?? []).map((m: any) => m.campaigns?.lead_id).filter(Boolean)
+    ).size;
+    const repliedCount = new Set(
+      (repls ?? []).map((r: any) => r.lead_id).filter(Boolean)
+    ).size;
+    const positiveCount = new Set(
+      (repls ?? [])
+        .filter((r: any) => POSITIVE_CLASS.has(r.classification ?? ""))
+        .map((r: any) => r.lead_id)
+        .filter(Boolean)
+    ).size;
+    const responseRate =
+      contactedLeads > 0 ? Math.round((repliedCount / contactedLeads) * 100) : 0;
+
+    return { contactedLeads, repliedCount, positiveCount, responseRate };
+  } catch (e) {
+    console.error("[my-metrics] headline error:", e);
+    return { contactedLeads: 0, repliedCount: 0, positiveCount: 0, responseRate: 0 };
+  }
+}
