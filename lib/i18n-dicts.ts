@@ -1146,6 +1146,7 @@ export const en: Dict = {
   "dashx.decay.xAxis": "Days since first message",
   // FiltersBar
   "dashx.filters.period": "Period",
+  "dashx.filters.today": "Today",
   "dashx.filters.7d": "7 days",
   "dashx.filters.30d": "30 days",
   "dashx.filters.90d": "90 days",
@@ -2789,6 +2790,7 @@ export const es: Dict = {
   "dashx.decay.xAxis": "Días desde el primer mensaje",
   // FiltersBar
   "dashx.filters.period": "Período",
+  "dashx.filters.today": "Hoy",
   "dashx.filters.7d": "7 días",
   "dashx.filters.30d": "30 días",
   "dashx.filters.90d": "90 días",

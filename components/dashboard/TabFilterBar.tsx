@@ -21,10 +21,11 @@ const gold = "var(--brand, #c9a83a)";
 export type FilterOption = { id: string; label: string };
 
 const PERIODS = [
-  { id: "7d", labelKey: "dashx.filters.7d", days: 7 },
-  { id: "30d", labelKey: "dashx.filters.30d", days: 30 },
-  { id: "90d", labelKey: "dashx.filters.90d", days: 90 },
-  { id: "all", labelKey: "dashx.filters.all", days: null as number | null },
+  { id: "today", labelKey: "dashx.filters.today", days: 0 },
+  { id: "7d",    labelKey: "dashx.filters.7d",    days: 7 },
+  { id: "30d",   labelKey: "dashx.filters.30d",   days: 30 },
+  { id: "90d",   labelKey: "dashx.filters.90d",   days: 90 },
+  { id: "all",   labelKey: "dashx.filters.all",   days: null as number | null },
 ];
 
 function toIsoDay(d: Date) {
@@ -77,8 +78,10 @@ export default function TabFilterBar({
   const activePeriod = (() => {
     if (!currentFrom && !currentTo) return "all";
     if (currentFrom && currentTo) {
+      const todayIso = toIsoDay(new Date());
+      if (currentFrom === todayIso && currentTo === todayIso) return "today";
       const days = Math.round((new Date(currentTo).getTime() - new Date(currentFrom).getTime()) / 86_400_000);
-      const m = PERIODS.find(p => p.days === days);
+      const m = PERIODS.find(p => p.days !== null && p.days > 0 && p.days === days);
       return m ? m.id : "custom";
     }
     return "custom";
@@ -97,7 +100,11 @@ export default function TabFilterBar({
     if (!p) return;
     apply(next => {
       if (p.days === null) { next.delete("from"); next.delete("to"); }
-      else {
+      else if (p.days === 0) {
+        const today = toIsoDay(new Date());
+        next.set("from", today);
+        next.set("to", today);
+      } else {
         const to = new Date();
         const from = new Date(Date.now() - p.days * 86_400_000);
         next.set("from", from.toISOString().slice(0, 10));

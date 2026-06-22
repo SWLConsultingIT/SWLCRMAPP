@@ -42,6 +42,7 @@ import RateBar from "@/components/dashboard/RateBar";
 import ChannelCard from "@/components/dashboard/ChannelCard";
 import CallsCard from "@/components/dashboard/CallsCard";
 import CallOutcomesBySeller from "@/components/dashboard/CallOutcomesBySeller";
+import ActivityWidget from "@/components/ActivityWidget";
 import LinkedInConnectionsCard from "@/components/dashboard/LinkedInConnectionsCard";
 import TodayCard from "@/components/dashboard/TodayCard";
 import ChannelTouches from "@/components/dashboard/ChannelTouches";
@@ -1778,10 +1779,101 @@ export default async function DashboardPage({
 
       {/* Filters live in the unified top bar now (one line, all tabs). */}
 
+      {/* ── Seller Monitor: last connections + calls today ─────────────────
+          Two-column grid: left = ActivityWidget (realtime presence + last login),
+          right = per-seller calls made today so the boss can see at a glance
+          who is calling and who isn't. callsToday is derived from the server
+          data (byDay[today]) — no extra query needed. */}
+      {(() => {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        // Build a map from sellerName → callsToday (from callOutcomesBySeller)
+        const callsTodayMap = new Map<string, number>();
+        for (const row of data.callOutcomesBySeller) {
+          callsTodayMap.set(row.sellerName, row.byDay?.[todayStr]?.made ?? 0);
+        }
+        // Merge with sellerPerformance so ALL sellers appear (even those with 0 calls)
+        const sellerRows = (data.sellerPerformance as Array<{ id: string; name: string; pendingCalls: number }>)
+          .map(s => ({ id: s.id, name: s.name, callsToday: callsTodayMap.get(s.name) ?? 0, pendingCalls: s.pendingCalls }))
+          .sort((a, b) => b.callsToday - a.callsToday);
+
+        function inits(name: string) {
+          const parts = name.trim().split(/\s+/).filter(Boolean);
+          if (!parts.length) return "??";
+          if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+          return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+
+        return (
+          <section>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+              {/* Last connections — reuses ActivityWidget (presence + last_seen_at) */}
+              <ActivityWidget />
+
+              {/* Calls today per seller */}
+              <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Phone size={14} style={{ color: C.gold }} />
+                    <h3 className="text-[13px] font-semibold" style={{ color: C.textPrimary }}>Calls today</h3>
+                  </div>
+                  <a href="/queue?tab=calls"
+                    className="text-[10px] font-semibold uppercase tracking-widest transition-opacity hover:opacity-70"
+                    style={{ color: C.gold }}>
+                    Queue →
+                  </a>
+                </div>
+                {sellerRows.length === 0 ? (
+                  <p className="text-[11px]" style={{ color: C.textMuted }}>No sellers yet.</p>
+                ) : (
+                  <ul className="space-y-2.5">
+                    {sellerRows.map(s => {
+                      const noCallsAlert = s.callsToday === 0;
+                      return (
+                        <li key={s.id} className="flex items-center gap-3">
+                          <span
+                            className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                            style={{
+                              backgroundColor: noCallsAlert ? "rgba(239,68,68,0.1)" : "rgba(201,168,58,0.12)",
+                              color: noCallsAlert ? "#EF4444" : C.gold,
+                              border: `1px solid ${noCallsAlert ? "rgba(239,68,68,0.3)" : "rgba(201,168,58,0.25)"}`,
+                            }}>
+                            {inits(s.name)}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[12px] font-medium truncate" style={{ color: C.textPrimary }}>{s.name}</p>
+                            {s.pendingCalls > 0 && (
+                              <p className="text-[10px]" style={{ color: C.textMuted }}>{s.pendingCalls} pending in queue</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span
+                              className="text-[13px] font-bold tabular-nums"
+                              style={{ color: noCallsAlert ? "#EF4444" : C.textPrimary }}>
+                              {s.callsToday}
+                            </span>
+                            <span className="text-[10px]" style={{ color: C.textMuted }}>calls</span>
+                            {noCallsAlert && (
+                              <span title="No calls today" style={{ color: "#EF4444", fontSize: 12 }}>⚠</span>
+                            )}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </section>
+        );
+      })()}
+
       {/* Call outcomes by seller — per-seller, per-day call monitoring with
           outcome reasons. Moved here from Channels (Fran 2026-06-11): it's a
           seller metric, not a channel one. Wrapped in Panel + bare so it
-          matches the rest of the dashboard tables (dark header + flush table). */}
+          matches the rest of the dashboard tables (dark header + flush table).
+          "Unassigned" = calls where the lead has no active campaign (no seller_id)
+          and Aircall could not map the dialer to a seller record. */}
       <section>
         <Panel
           title={t("dashx.callsByUser.title")}
