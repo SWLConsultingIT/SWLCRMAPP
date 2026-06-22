@@ -174,10 +174,19 @@ export async function POST(
         return NextResponse.json({ error: "no LinkedIn chat found for this lead" }, { status: 422 });
       }
       const url = `${UNIPILE_BASE}/api/v1/chats/${encodeURIComponent(chatId)}/messages`;
+      // Unipile's chat-message endpoint expects native multipart/form-data (it's
+      // the attachment-capable endpoint). Posting application/json returns a
+      // success-shaped response with an id, but the message NEVER actually
+      // delivers to LinkedIn — confirmed 2026-06-22: seller replies logged
+      // 'sent' but were absent from the chat and their message_id 404'd in
+      // Unipile. Send multipart even with no files. (fetch sets the multipart
+      // boundary automatically — do NOT set Content-Type by hand.)
+      const fd = new FormData();
+      fd.append("text", outgoing);
       const res = await fetch(url, {
         method: "POST",
-        headers: { "X-API-KEY": UNIPILE_KEY, "Content-Type": "application/json", accept: "application/json" },
-        body: JSON.stringify({ text: outgoing }),
+        headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" },
+        body: fd,
       });
       const raw = await res.text();
       let parsed: any = null;
