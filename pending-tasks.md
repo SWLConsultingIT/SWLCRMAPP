@@ -1,3 +1,49 @@
+# Pending tasks
+
+## Referral capture (2026-06-22) — built local, awaiting OK to ship
+
+Feature: when a lead replies "ya no estoy / estoy de vacaciones, hablá con X",
+extract the referred contacts and let a seller turn them into new leads
+enrolled in the same-ICP flow (email-only until Apollo enrichment is wired).
+
+**Built + typecheck-clean (NOT deployed yet):**
+- `lib/referral-enrich.ts` — stub, email-only (seam for Apollo later).
+- migration `047_referral_capture` — APPLIED to prod DB. Added
+  `lead_replies.metadata` jsonb + `leads.referred_by_lead_id` /
+  `referral_source_reply_id` (PLAIN uuid, no FK — see incident below).
+- `app/api/inbox/referrals/[replyId]/route.ts` — create lead via importer
+  crypto path (inherits company+ICP, dedup), enrol by cloning the original
+  flow filtered to available channels, or create-only. Actions: `enrol:true/false`.
+- `components/ReferralContactsPanel.tsx` + `InboxView.tsx` + `app/queue/page.tsx`
+  — "Contactos detectados" block in the Inbox right pane + preview modal.
+
+**⚠️ Incident 2026-06-22 (fixed):** migration 047's FK
+`leads.referral_source_reply_id REFERENCES lead_replies(id)` created a 2nd
+relationship leads↔lead_replies → PostgREST embed `leads!inner(...)` went
+ambiguous (PGRST201) → Inbox blank across ALL tenants on prod. Fixed by
+dropping both referral FKs (kept columns as plain uuid) + `NOTIFY pgrst,
+'reload schema'`. Inbox verified working again.
+
+**Awaiting Fran's OK (D left for last — most delicate):**
+
+1. **Deploy app code (B/C/E)** → commit + push a `origin` (Vercel prod
+   `swlcrmapp`). Es additivo y de bajo riesgo: el bloque solo aparece cuando hay
+   `referred_contacts`, así que no cambia nada visible hasta que existan datos.
+   ¿Lo pusheo?
+
+2. **Para usarlo HOY sobre los 2 casos reales de los screenshots** (Roberto→Jimena
+   Cuesta, Jonathan→sus derivados): sembrar a mano el `metadata.referred_contacts`
+   de esas dos respuestas → aparece el bloque y se pueden crear/enrolar esos leads
+   ya. ¿Lo hago?
+
+3. **Módulo D (n8n)** — paso gated: backup de los 2 handlers (`EartyXv9hlVVFqvt`
+   email + `h2uBZscVnZy0utLD` LinkedIn) → cambio additivo en el prompt Haiku +
+   nodo de persistencia → `validate` → test por curl con el texto de
+   Roberto/Jonathan → recién ahí OK para dejarlo activo. Hace que las respuestas
+   FUTURAS auto-extraigan los contactos referidos.
+
+---
+
 # Pending tasks — 2026-06-01
 
 ## 1) [DEFERRED — needs n8n surgery] Message Generator: OpenAI → Claude Haiku

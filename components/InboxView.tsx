@@ -13,6 +13,7 @@ import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
 import { useLocale } from "@/lib/i18n";
 import InboxComposer from "./InboxComposer";
+import ReferralContactsPanel, { type ReferredContact } from "./ReferralContactsPanel";
 
 type InboxReply = {
   id: string;
@@ -29,6 +30,7 @@ type InboxReply = {
   reviewStatus: string | null;
   requiresHumanReview: boolean;
   positive: boolean;
+  referredContacts?: ReferredContact[];
 };
 
 // Inbox is intentionally 2-tab now: a Pending Review queue (everything the
@@ -490,7 +492,9 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
         fetch(`/api/replies/${id}/review`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status: "approved", classification }),
+          // Only the clicked reply fires the flow auto-reply; siblings are
+          // cascade-only (the route also dedupes, so no double-send).
+          body: JSON.stringify({ status: "approved", classification, sendAutoReply: id === replyId }),
         }).then(r => { if (!r.ok) throw new Error(String(r.status)); }),
       ));
       if (!results.some(r => r.status === "fulfilled")) {
@@ -1049,6 +1053,14 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                   </Link>
                 </div>
               </div>
+
+              {/* Referral capture — detected referred contacts from this reply */}
+              <ReferralContactsPanel
+                replyId={selected.id}
+                contacts={selected.referredContacts ?? []}
+                company={selected.company}
+                icpName={selected.icpProfileName}
+              />
 
               {/* Channel filter — only renders when more than one channel
                   appears in the thread. Click narrows the chronological feed
