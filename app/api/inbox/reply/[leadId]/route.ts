@@ -24,6 +24,8 @@ import { getInstantlyConfig } from "@/lib/instantly-config";
 import { renderPlaceholders } from "@/lib/placeholders";
 
 export const runtime = "nodejs";
+// Up to ~4.5s of post-send delivery polling on top of the send itself.
+export const maxDuration = 30;
 
 const UNIPILE_BASE = process.env.UNIPILE_DSN
   ? `https://${process.env.UNIPILE_DSN}`
@@ -104,6 +106,10 @@ export async function POST(
   }
 
   let providerMessageId: string | null = null;
+  // LinkedIn sends are verified against Unipile after the fact (see below);
+  // email is treated as confirmed (Instantly handles its own delivery). Default
+  // true so the non-verifiable paths don't false-fail.
+  let deliveryConfirmed = true;
   const sentMeta: Record<string, unknown> = { manual_seller_reply: true, sent_by_user: scope.userId };
 
   try {
@@ -197,6 +203,26 @@ export async function POST(
       }
       providerMessageId = parsed?.id ?? parsed?.message_id ?? null;
       sentMeta.chat_id = chatId;
+      // Verify the message actually delivered. Unipile returns a success-shaped
+      // 200 even when LinkedIn later drops the send (transient account
+      // rate-limit / restriction); the message then 404s by id and is absent
+      // from the chat, so logging status='sent' would lie (De Vera Grill
+      // 2026-06-22 — 3 silent failures the seller never knew about). Poll the
+      // message by id with short backoff to absorb Unipile's send lag.
+      if (providerMessageId && unipileAccountId) {
+        deliveryConfirmed = false;
+        for (let i = 0; i < 3; i++) {
+          await new Promise((r) => setTimeout(r, 1500));
+          try {
+            const v = await fetch(
+              `${UNIPILE_BASE}/api/v1/messages/${encodeURIComponent(providerMessageId)}?account_id=${encodeURIComponent(unipileAccountId)}`,
+              { headers: { "X-API-KEY": UNIPILE_KEY, accept: "application/json" } },
+            );
+            if (v.ok) { deliveryConfirmed = true; break; }
+          } catch { /* retry */ }
+        }
+        sentMeta.delivery_confirmed = deliveryConfirmed;
+      }
     } else {
       // EMAIL via Instantly /emails/send (threaded reply).
       const tenantBioId = (lead as any).company_bio_id;
@@ -274,7 +300,9 @@ export async function POST(
     step_number: -1,
     channel,
     content: outgoing,
-    status: "sent",
+    // Don't lie: if Unipile never confirmed delivery, log it 'failed' so the
+    // thread doesn't show a phantom-sent bubble and metrics don't count it.
+    status: deliveryConfirmed ? "sent" : "failed",
     sent_at: nowIso,
     provider_message_id: providerMessageId,
     metadata: sentMeta,
@@ -283,11 +311,15 @@ export async function POST(
 
   // Replying = handling it: mark the lead's pending replies reviewed so the
   // inbox row moves out of "Pending review" into History. (Fran 2026-06-03.)
-  await svc
-    .from("lead_replies")
-    .update({ review_status: "approved", requires_human_review: false })
-    .eq("lead_id", leadId)
-    .eq("requires_human_review", true);
+  // BUT only if the message actually delivered — if the send silently failed,
+  // keep the reply in Pending so the seller knows to retry.
+  if (deliveryConfirmed) {
+    await svc
+      .from("lead_replies")
+      .update({ review_status: "approved", requires_human_review: false })
+      .eq("lead_id", leadId)
+      .eq("requires_human_review", true);
+  }
 
   if (insErr) {
     // The message DID go out — surface a soft warning, don't fail the request.
@@ -300,5 +332,15 @@ export async function POST(
     });
   }
 
-  return NextResponse.json({ ok: true, channel, providerMessageId, reviewed: true, sentAt: nowIso });
+  if (!deliveryConfirmed) {
+    // Logged as 'failed' above + the reply stays in Pending. Tell the seller so
+    // they can retry — never a silent "sent" that didn't go out.
+    return NextResponse.json({
+      ok: false,
+      deliveryConfirmed: false,
+      channel,
+      error: "LinkedIn no confirmó la entrega — la cuenta puede estar con un límite temporal. Reintentá en unos minutos.",
+    }, { status: 502 });
+  }
+  return NextResponse.json({ ok: true, channel, providerMessageId, reviewed: true, sentAt: nowIso, deliveryConfirmed: true });
 }
