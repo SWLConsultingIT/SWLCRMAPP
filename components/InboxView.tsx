@@ -526,6 +526,10 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
             : "Marcado negative — campaña pausada, lead closed_lost",
         description: autoReplyDesc,
       });
+      // Re-fetch the thread so the auto-reply we just sent shows up immediately
+      // (the pane was loaded before the send, so it'd otherwise look like
+      // nothing went out — Fran 2026-06-22).
+      reloadThread();
       router.refresh();
     } finally {
       setWorking(false);
