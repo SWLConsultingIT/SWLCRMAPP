@@ -264,6 +264,13 @@ export async function GET(
       // copy so the app mirrors LinkedIn (Fran 2026-06-16 deleted an auto-reply
       // on Luciano's LinkedIn; the app kept showing it).
       const deletedUnipileIds = new Set<string>();
+      // Normalized texts of every live (non-deleted) message — used so the
+      // deletion sweep below never nukes a message whose stored id differs from
+      // the id Unipile reports in /chats/messages (Unipile can return a
+      // different id there than in the send response → our freshly-sent
+      // auto-reply looked "deleted" and vanished from the thread, De Vera Grill
+      // 2026-06-22). Text-present in the live chat = NOT deleted.
+      const liveUnipileTexts = new Set<string>();
       let oldestUnipileMs = Number.POSITIVE_INFINITY;
       for (const msg of items) {
         const provId = (msg?.id as string | undefined) ?? null;
@@ -278,6 +285,7 @@ export async function GET(
           deletedUnipileIds.add(provId);
           continue;
         }
+        if (text.trim()) liveUnipileTexts.add(text.trim());
         // Compute receipt flags up-front so we can enrich an already-merged
         // DB entry OR attach to a new Unipile-sourced entry.
         const seenInt = msg?.seen;
@@ -373,6 +381,7 @@ export async function GET(
         const goneFromChat = liveUnipileIds.size > 0
           && e.source === "db"
           && !liveUnipileIds.has(e.providerMessageId)
+          && !liveUnipileTexts.has((e.body || "").trim())
           && new Date(e.at).getTime() >= oldestUnipileMs;
         if (flaggedDeleted || goneFromChat) entries.splice(i, 1);
       }
