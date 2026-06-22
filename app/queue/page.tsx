@@ -252,12 +252,14 @@ async function getQueueData() {
   const now = Date.now();
   const pendingCallCandidates: any[] = [];
   const candidateLeadIds: string[] = [];
+  const candidateCampaignIds: string[] = [];
   for (const c of activeCampaigns ?? []) {
     const steps = Array.isArray(c.sequence_steps) ? c.sequence_steps : [];
     const currentStepIdx = c.current_step ?? 0;
     if (steps[currentStepIdx]?.channel === "call") {
       pendingCallCandidates.push({ c, currentStepIdx, steps });
       if (c.lead_id) candidateLeadIds.push(c.lead_id as string);
+      candidateCampaignIds.push(c.id as string);
     }
   }
 
@@ -302,6 +304,52 @@ async function getQueueData() {
     }
   }
 
+  // A call task should surface in "To Call" ONLY while the lead is genuinely
+  // still in the call step and hasn't engaged. The `current_step === call`
+  // check above is necessary but not sufficient: the campaign cursor can sit
+  // frozen on a call step for days (it only advances lazily via the dispatcher
+  // / skip-stale-calls, both of which bail on the edge cases below), leaving
+  // already-handled leads stuck in "To Call". Two extra guards:
+  //
+  //  1) The lead already REPLIED — any inbound message on a channel other than
+  //     'call' (LinkedIn / email / etc.). An answered lead is not a cold call
+  //     to make; the seller handles them from the Inbox. A 'call'-channel
+  //     lead_reply is the seller's own "follow-up" outcome and must NOT hide
+  //     the lead. (Eg Aleix Marco replied 2026-06-02 yet showed as a call to
+  //     make 17 days later.)
+  //
+  //  2) There is no `queued` call message at the current step (step_number =
+  //     current_step + 1). If the call row is skipped/sent/draft, there is
+  //     nothing to dial — the cursor is desynced and the entry would otherwise
+  //     sit in "To Call" until something advances it.
+  const repliedLeadIds = new Set<string>();
+  if (candidateLeadIds.length > 0) {
+    const { data: replyRows } = await supabase
+      .from("lead_replies")
+      .select("lead_id, channel")
+      .in("lead_id", candidateLeadIds)
+      .neq("channel", "call");
+    for (const r of replyRows ?? []) {
+      const lid = (r as any).lead_id as string | null;
+      if (lid) repliedLeadIds.add(lid);
+    }
+  }
+  const queuedCallStepsByCampaign = new Map<string, Set<number>>();
+  if (candidateCampaignIds.length > 0) {
+    const { data: callMsgRows } = await supabase
+      .from("campaign_messages")
+      .select("campaign_id, step_number")
+      .in("campaign_id", candidateCampaignIds)
+      .eq("channel", "call")
+      .eq("status", "queued");
+    for (const m of callMsgRows ?? []) {
+      const cid = (m as any).campaign_id as string;
+      const set = queuedCallStepsByCampaign.get(cid) ?? new Set<number>();
+      set.add((m as any).step_number as number);
+      queuedCallStepsByCampaign.set(cid, set);
+    }
+  }
+
   const pendingCalls: any[] = [];
   for (const { c, currentStepIdx, steps } of pendingCallCandidates) {
     const lead = c.leads as any;
@@ -311,6 +359,12 @@ async function getQueueData() {
     // the call step doesn't belong in "To Call".
     const hasPhone = !!(lead?.primary_phone || lead?.primary_secondary_phone);
     if (lead?.allow_call === false || !hasPhone) continue;
+    // Guard 1: the lead already engaged via an inbound message → not a cold
+    // call. Guard 2: no actionable queued call at the current step (cursor
+    // desynced). See the comment block above where both maps are built.
+    if (c.lead_id && repliedLeadIds.has(c.lead_id as string)) continue;
+    const queuedSteps = queuedCallStepsByCampaign.get(c.id as string);
+    if (!queuedSteps || !queuedSteps.has(currentStepIdx + 1)) continue;
     const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
     const daysAfter = steps[currentStepIdx]?.daysAfter ?? 0;
     // Working-days math: dueAt counts calendar days as before, but if the
