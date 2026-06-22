@@ -45,6 +45,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // and writing it 500'd because it wasn't in the enum — incident 2026-05-25.)
   const ENUM_CLASS = new Set(["positive", "negative", "question", "follow_up", "meeting_intent", "needs_info", "nurturing", "not_now", "unsubscribe", "spam", "auto_reply"]);
   const classOverride = (body as { classification?: string }).classification;
+  // Single-card classify buttons set sendAutoReply=true so the flow's authored
+  // auto-reply goes out on the seller's click. Bulk classify omits it → stays
+  // cascade-only (no surprise mass-sends).
+  const sendAutoReply = (body as { sendAutoReply?: boolean }).sendAutoReply === true;
   const patch: Record<string, unknown> = {
     review_status: status,
     requires_human_review: status === "pending",
@@ -60,6 +64,64 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .select("lead_id, campaign_id, reply_text, channel")
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // ─── Auto-reply send (button-triggered) ────────────────────────────────────
+  // When the seller classifies positive/negative from a single inbox card, fire
+  // the flow's authored auto-reply out the lead's channel BEFORE the cascade
+  // closes the lead. Template lives on the campaign_request (matched by campaign
+  // name, same lookup the n8n handler uses). /api/inbox/reply does the
+  // placeholder substitution + send + thread log, so we just hand it the raw
+  // template. Best-effort: a send failure never blocks the classification.
+  // Dedupe guards against double-sends (sibling replies / double-clicks).
+  let autoReplySent = false;
+  if (sendAutoReply && replyRow && (classOverride === "positive" || classOverride === "negative")) {
+    const leadId = (replyRow as { lead_id?: string }).lead_id ?? null;
+    const campaignId = (replyRow as { campaign_id?: string }).campaign_id ?? null;
+    const channel = (replyRow as { channel?: string }).channel ?? null;
+    if (leadId && campaignId) {
+      try {
+        const [{ data: camp }, { data: leadRow }] = await Promise.all([
+          supabase.from("campaigns").select("name").eq("id", campaignId).maybeSingle(),
+          supabase.from("leads").select("company_bio_id").eq("id", leadId).maybeSingle(),
+        ]);
+        const campName = (camp as { name?: string } | null)?.name ?? null;
+        const bioId = (leadRow as { company_bio_id?: string } | null)?.company_bio_id ?? null;
+        let template = "";
+        if (campName && bioId) {
+          const { data: reqRow } = await supabase
+            .from("campaign_requests")
+            .select("message_prompts")
+            .eq("name", campName)
+            .eq("company_bio_id", bioId)
+            .limit(1)
+            .maybeSingle();
+          const ar = (reqRow as { message_prompts?: { channelMessages?: { autoReplies?: { positive?: string; negative?: string } } } } | null)
+            ?.message_prompts?.channelMessages?.autoReplies;
+          template = (classOverride === "positive" ? ar?.positive : ar?.negative) ?? "";
+        }
+        if (template.trim()) {
+          // Dedupe: skip if any reply (auto or manual) already went out for this
+          // lead in the last 3 min (step_number=-1 is the manual/auto reply row).
+          const since = new Date(Date.now() - 3 * 60 * 1000).toISOString();
+          const { data: recent } = await supabase
+            .from("campaign_messages")
+            .select("id")
+            .eq("lead_id", leadId)
+            .eq("step_number", -1)
+            .gte("sent_at", since)
+            .limit(1);
+          if (!recent || recent.length === 0) {
+            const r = await fetch(new URL(`/api/inbox/reply/${leadId}`, req.url).toString(), {
+              method: "POST",
+              headers: { "Content-Type": "application/json", cookie: req.headers.get("cookie") ?? "" },
+              body: JSON.stringify({ text: template, channel: channel ?? undefined }),
+            });
+            autoReplySent = r.ok;
+          }
+        }
+      } catch { /* best-effort — never block the cascade */ }
+    }
+  }
 
   // ─── Cascade to campaign + lead state when the seller manually classifies ──
   // When the AI marked a reply ambiguous (or just wrong) and the seller picks
@@ -183,5 +245,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     } catch { /* best-effort */ }
   }
 
-  return NextResponse.json({ ok: true, cascadeApplied: cascadeOn, followUpApplied });
+  return NextResponse.json({ ok: true, cascadeApplied: cascadeOn, followUpApplied, autoReplySent });
 }
