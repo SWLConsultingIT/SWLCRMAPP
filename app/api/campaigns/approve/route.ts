@@ -299,6 +299,13 @@ export async function POST(req: NextRequest) {
         // step_number=0 (the CR) is handled specially in the dispatcher.
         sequence_steps: followupSequence,
         call_advance_mode: callAdvanceMode,
+        // Snapshot the flow's auto-reply templates onto the campaign so they can
+        // be resolved later by campaign_id (rock-solid) instead of the fragile
+        // campaign_requests name+bio match — which breaks for demo/managed
+        // tenants whose request is stamped with the SWL super-admin's bio, not
+        // the lead's (De Vera Grill incident 2026-06-22). The inbox auto-reply
+        // button + n8n handler read campaigns.metadata.autoReplies.
+        metadata: { autoReplies },
         started_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
       })
