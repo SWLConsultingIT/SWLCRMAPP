@@ -185,7 +185,19 @@ export async function GET(req: NextRequest) {
         if ((m.timestamp_email ?? "") < cutoff) { stop = true; break; }
         const leadId = emailToLead.get((m.from_address_email ?? "").trim().toLowerCase());
         if (!leadId) continue;
-        const text = (m.content_preview ?? m.body ?? "").trim();
+        // Instantly returns `body: { text, html }` (the FULL message) plus a
+        // ~60-char `content_preview`. Use the full plain-text body; fall back
+        // to stripped HTML, then the preview only as a last resort. Pre-fix
+        // this read content_preview first → every email reply recovered by
+        // this cron was truncated to ~60 chars mid-word (incident 2026-06-22,
+        // started when recover-replies was wired to the Orquestador 06-11).
+        const full =
+          (typeof m.body?.text === "string" && m.body.text.trim())
+            ? m.body.text
+            : (typeof m.body?.html === "string" && m.body.html.trim())
+              ? m.body.html.replace(/<[^>]+>/g, " ")
+              : (m.content_preview ?? "");
+        const text = full.trim();
         if (!text) continue;
         if (await insertIfNew(svc, leadId, "email", text, m.timestamp_email ?? null)) emailRecovered++;
       }
