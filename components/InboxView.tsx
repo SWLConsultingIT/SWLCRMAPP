@@ -495,12 +495,25 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
           // Only the clicked reply fires the flow auto-reply; siblings are
           // cascade-only (the route also dedupes, so no double-send).
           body: JSON.stringify({ status: "approved", classification, sendAutoReply: id === replyId }),
-        }).then(r => { if (!r.ok) throw new Error(String(r.status)); }),
+        }).then(async r => { if (!r.ok) throw new Error(String(r.status)); return r.json().catch(() => ({})); }),
       ));
       if (!results.some(r => r.status === "fulfilled")) {
         toast.show({ kind: "error", title: "Couldn't classify", description: "Try again." });
         return;
       }
+      // Read the clicked reply's auto-reply outcome so the seller knows whether
+      // the message actually went out (the card disappears after this).
+      const primaryIdx = ids.indexOf(replyId);
+      const primary = primaryIdx >= 0 && results[primaryIdx].status === "fulfilled"
+        ? (results[primaryIdx] as PromiseFulfilledResult<{ autoReplyStatus?: string }>).value
+        : null;
+      const ars = primary?.autoReplyStatus;
+      const autoReplyDesc = classification === "follow_up" ? undefined
+        : ars === "sent" ? "Auto-reply del flujo enviado al lead ✓ — mirá el thread en el lead."
+        : ars === "deduped" ? "Ya le habíamos respondido recién — no se duplicó el mensaje."
+        : ars === "no_template" ? "Este flujo no tiene auto-reply configurado: NO salió mensaje. Respondé desde el composer si querés."
+        : ars === "failed" ? "⚠ No se pudo enviar el auto-reply — respondé manualmente desde el composer."
+        : undefined;
       // Mirror the API's cascade response: positive/negative now pause the
       // campaign + close the lead. Tell the seller so they don't expect
       // another step to fire.
@@ -511,6 +524,7 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
           : classification === "positive"
             ? "Marcado positive — campaña pausada, lead qualified"
             : "Marcado negative — campaña pausada, lead closed_lost",
+        description: autoReplyDesc,
       });
       router.refresh();
     } finally {

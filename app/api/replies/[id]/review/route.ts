@@ -73,7 +73,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // placeholder substitution + send + thread log, so we just hand it the raw
   // template. Best-effort: a send failure never blocks the classification.
   // Dedupe guards against double-sends (sibling replies / double-clicks).
-  let autoReplySent = false;
+  // "skipped" (not requested) | "no_template" | "deduped" | "sent" | "failed"
+  let autoReplyStatus: "skipped" | "no_template" | "deduped" | "sent" | "failed" = "skipped";
   if (sendAutoReply && replyRow && (classOverride === "positive" || classOverride === "negative")) {
     const leadId = (replyRow as { lead_id?: string }).lead_id ?? null;
     const campaignId = (replyRow as { campaign_id?: string }).campaign_id ?? null;
@@ -104,7 +105,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             }
           }
         }
-        if (template.trim()) {
+        if (!template) {
+          autoReplyStatus = "no_template";
+        } else {
           // Dedupe: skip if any reply (auto or manual) already went out for this
           // lead in the last 3 min (step_number=-1 is the manual/auto reply row).
           const since = new Date(Date.now() - 3 * 60 * 1000).toISOString();
@@ -115,16 +118,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             .eq("step_number", -1)
             .gte("sent_at", since)
             .limit(1);
-          if (!recent || recent.length === 0) {
+          if (recent && recent.length > 0) {
+            autoReplyStatus = "deduped";
+          } else {
             const r = await fetch(new URL(`/api/inbox/reply/${leadId}`, req.url).toString(), {
               method: "POST",
               headers: { "Content-Type": "application/json", cookie: req.headers.get("cookie") ?? "" },
               body: JSON.stringify({ text: template, channel: channel ?? undefined }),
             });
-            autoReplySent = r.ok;
+            autoReplyStatus = r.ok ? "sent" : "failed";
           }
         }
-      } catch { /* best-effort — never block the cascade */ }
+      } catch { autoReplyStatus = "failed"; }
     }
   }
 
@@ -250,5 +255,5 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     } catch { /* best-effort */ }
   }
 
-  return NextResponse.json({ ok: true, cascadeApplied: cascadeOn, followUpApplied, autoReplySent });
+  return NextResponse.json({ ok: true, cascadeApplied: cascadeOn, followUpApplied, autoReplyStatus });
 }
