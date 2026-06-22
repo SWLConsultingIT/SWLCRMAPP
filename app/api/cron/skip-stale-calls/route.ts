@@ -118,10 +118,36 @@ export async function GET(req: NextRequest) {
     return out;
   };
 
+  // 2b. Skip leads that already replied via an inbound message (any channel
+  //     other than 'call'). A reply stops the flow — the seller takes over,
+  //     so we must NOT advance the cursor (that would queue a step the
+  //     dispatcher's reply-guard will never send, leaving the campaign in a
+  //     misleading half-advanced state). A 'call'-channel lead_reply is the
+  //     seller's own follow-up outcome and does NOT count as engagement.
+  const repliedLeadIds = new Set<string>();
+  {
+    const leadIds = [...new Set(onCall.map(c => c.lead_id).filter(Boolean))] as string[];
+    for (const ids of chunk(leadIds, 100)) {
+      const { data } = await svc
+        .from("lead_replies")
+        .select("lead_id, channel")
+        .in("lead_id", ids)
+        .neq("channel", "call");
+      for (const r of (data ?? []) as { lead_id: string }[]) repliedLeadIds.add(r.lead_id);
+    }
+  }
+
   // 3. BULK-fetch the queued call messages for those campaigns in a handful of
   //    chunked queries instead of one query PER campaign (the old hot loop did
   //    ~900 sequential round-trips and timed out). Index by campaign_id.
-  const callMsgByCampaign = new Map<string, MessageRow>();
+  // Store ALL queued calls per campaign (not just the lowest). Picking the
+  // lowest was a latent bug: a leftover "zombie" queued call at an earlier
+  // step (eg one stamped with a skipped_reason but whose status never flipped
+  // to 'skipped') would shadow the real current-step call, the
+  // step_number-match below would fail, and the campaign would never advance —
+  // frozen in /queue "To Call" for weeks. We now look up the call at exactly
+  // current_step+1 regardless of any lower zombies.
+  const callMsgsByCampaign = new Map<string, MessageRow[]>();
   for (const ids of chunk(onCall.map(c => c.id), 100)) {
     const { data } = await svc
       .from("campaign_messages")
@@ -130,9 +156,9 @@ export async function GET(req: NextRequest) {
       .eq("channel", "call")
       .eq("status", "queued");
     for (const m of (data ?? []) as (MessageRow & { campaign_id: string })[]) {
-      // Keep the lowest step_number queued call per campaign (the current one).
-      const prev = callMsgByCampaign.get(m.campaign_id);
-      if (!prev || m.step_number < prev.step_number) callMsgByCampaign.set(m.campaign_id, m);
+      const arr = callMsgsByCampaign.get(m.campaign_id) ?? [];
+      arr.push(m);
+      callMsgsByCampaign.set(m.campaign_id, arr);
     }
   }
 
@@ -149,11 +175,15 @@ export async function GET(req: NextRequest) {
   //    the next step number we'd want to advance to.
   const prelim: Array<{ c: Candidate; nextStepNumber: number | null }> = [];
   for (const campRaw of onCall) {
+    // A replied lead's flow is stopped — never advance it (see 2b).
+    if (campRaw.lead_id && repliedLeadIds.has(campRaw.lead_id)) continue;
     const steps = Array.isArray(campRaw.sequence_steps) ? campRaw.sequence_steps : [];
     const curIdx = campRaw.current_step ?? 0;
     const stepNumber = curIdx + 1; // step_number is 1-indexed in campaign_messages
-    const callMsg = callMsgByCampaign.get(campRaw.id);
-    if (!callMsg || callMsg.step_number !== stepNumber) continue;
+    // Find the queued call at exactly the current step (current_step+1),
+    // ignoring any lower zombie queued calls that would otherwise block us.
+    const callMsg = (callMsgsByCampaign.get(campRaw.id) ?? []).find(m => m.step_number === stepNumber);
+    if (!callMsg) continue;
 
     const mode = (campRaw.call_advance_mode ?? "auto") as "auto" | "manual";
     const staleDays = mode === "manual" ? STALE_DAYS_MANUAL : STALE_DAYS_AUTO;
