@@ -1,10 +1,5 @@
 "use client";
 
-// Per-seller activity monitor: last login + calls today + pending in queue.
-// Server passes the seller list (already scoped to the current company).
-// Client fetches /api/admin/active-users and matches by name to get last_seen_at.
-// Realtime Presence shows who is in the app right now (same channel as ActivityWidget).
-
 import { useEffect, useState, useMemo } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { C } from "@/lib/design";
@@ -15,19 +10,13 @@ const gold = "var(--brand, #c9a83a)";
 type SellerInput = {
   id: string;
   name: string;
+  userId: string | null;
+  lastSeenAt: string | null;
   callsToday: number;
   pendingCalls: number;
 };
 
-type ApiUser = {
-  id: string;
-  name: string;
-  email: string;
-  last_seen_at: string | null;
-};
-
 type PresenceMeta = { user_id: string; name: string };
-
 const PRESENCE_CHANNEL = "swl-activity-room";
 
 function timeAgo(iso: string | null): string {
@@ -67,30 +56,10 @@ const STATUS_CONFIG: Record<StatusKind, { label: string; dotColor: string; textC
 };
 
 export default function SellerPulseTable({ sellers }: { sellers: SellerInput[] }) {
-  const [users, setUsers]         = useState<ApiUser[]>([]);
   const [presenceIds, setPresenceIds] = useState<Set<string>>(new Set());
-  const [meId, setMeId]           = useState<string | null>(null);
-  const [loading, setLoading]     = useState(true);
+  const [meId, setMeId]              = useState<string | null>(null);
 
-  // Poll last_seen_at every 2 min (same cadence as ActivityWidget)
-  useEffect(() => {
-    let alive = true;
-    async function load() {
-      try {
-        const res = await fetch("/api/admin/active-users", { cache: "no-store" });
-        if (!res.ok) return;
-        const { users: u } = await res.json();
-        if (alive) setUsers(u);
-      } finally {
-        if (alive) setLoading(false);
-      }
-    }
-    load();
-    const id = setInterval(load, 2 * 60 * 1000);
-    return () => { alive = false; clearInterval(id); };
-  }, []);
-
-  // Realtime Presence — join the same channel as ActivityWidget
+  // Join the Realtime Presence channel (same as ActivityWidget)
   useEffect(() => {
     const sb = getSupabaseBrowser();
     let channel: ReturnType<typeof sb.channel> | null = null;
@@ -101,8 +70,7 @@ export default function SellerPulseTable({ sellers }: { sellers: SellerInput[] }
       channel = sb.channel(PRESENCE_CHANNEL, { config: { presence: { key: user.id } } });
       channel.on("presence", { event: "sync" }, () => {
         const state = channel!.presenceState() as Record<string, PresenceMeta[]>;
-        const ids = new Set(Object.keys(state));
-        setPresenceIds(ids);
+        setPresenceIds(new Set(Object.keys(state)));
       });
       channel.subscribe(async (status) => {
         if (status === "SUBSCRIBED") {
@@ -118,29 +86,20 @@ export default function SellerPulseTable({ sellers }: { sellers: SellerInput[] }
     return () => { if (channel) getSupabaseBrowser().removeChannel(channel); };
   }, []);
 
-  // Build a name→ApiUser lookup (case-insensitive) for matching sellers to users
-  const userByName = useMemo(() => {
-    const map = new Map<string, ApiUser>();
-    for (const u of users) map.set(u.name.trim().toLowerCase(), u);
-    return map;
-  }, [users]);
-
-  // Merge server sellers with client activity data, sorted: live → recent → idle → offline, then by calls desc
   const rows = useMemo(() => {
     const statusOrder: StatusKind[] = ["live", "recent", "idle", "offline"];
     return sellers
       .map(s => {
-        const user = userByName.get(s.name.trim().toLowerCase()) ?? null;
-        const isLive = user ? presenceIds.has(user.id) : false;
-        const status = getStatus(user?.last_seen_at ?? null, isLive);
-        return { ...s, user, status, isMe: user?.id === meId };
+        const isLive = !!s.userId && presenceIds.has(s.userId);
+        const status = getStatus(s.lastSeenAt, isLive);
+        return { ...s, status, isMe: s.userId === meId };
       })
       .sort((a, b) => {
         const so = statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status);
         if (so !== 0) return so;
         return b.callsToday - a.callsToday;
       });
-  }, [sellers, userByName, presenceIds, meId]);
+  }, [sellers, presenceIds, meId]);
 
   return (
     <div
@@ -151,7 +110,7 @@ export default function SellerPulseTable({ sellers }: { sellers: SellerInput[] }
         boxShadow: "0 1px 2px rgba(0,0,0,0.04), 0 0 0 1px color-mix(in srgb, var(--brand,#c9a83a) 7%, transparent), 0 16px 34px -20px color-mix(in srgb, var(--brand,#c9a83a) 38%, transparent)",
       }}
     >
-      {/* Header — matches Panel gradient */}
+      {/* Header */}
       <div
         className="px-4 py-3 flex items-center justify-between gap-3"
         style={{ background: "linear-gradient(135deg, #0B0F1A 0%, #111827 100%)" }}
@@ -162,7 +121,6 @@ export default function SellerPulseTable({ sellers }: { sellers: SellerInput[] }
             <p className="text-[13.5px] font-bold tracking-[-0.005em]" style={{ color: gold, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
               Seller activity
             </p>
-            {/* Live pulse dot */}
             <span className="flex items-center gap-1 ml-1">
               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#22C55E", boxShadow: "0 0 0 2px rgba(34,197,94,0.3)", animation: "pulse 2s cubic-bezier(0.4,0,0.6,1) infinite" }} />
               <span className="text-[9.5px] font-bold uppercase tracking-[0.14em]" style={{ color: "#22C55E" }}>Live</span>
@@ -200,14 +158,6 @@ export default function SellerPulseTable({ sellers }: { sellers: SellerInput[] }
                 No sellers found.
               </td>
             </tr>
-          ) : loading ? (
-            [...Array(sellers.length)].map((_, i) => (
-              <tr key={i} className="border-t" style={{ borderColor: C.border }}>
-                <td colSpan={5} className="px-4 py-3">
-                  <div className="h-3 rounded animate-pulse" style={{ backgroundColor: C.border, width: "60%" }} />
-                </td>
-              </tr>
-            ))
           ) : rows.map(row => {
             const cfg = STATUS_CONFIG[row.status];
             const noCallsAlert = row.callsToday === 0;
@@ -259,7 +209,7 @@ export default function SellerPulseTable({ sellers }: { sellers: SellerInput[] }
                   <div className="flex items-center gap-1.5" style={{ color: C.textMuted }}>
                     <Clock size={10} />
                     <span className="text-[11px]">
-                      {row.status === "live" ? "now" : timeAgo(row.user?.last_seen_at ?? null)}
+                      {row.status === "live" ? "now" : timeAgo(row.lastSeenAt)}
                     </span>
                   </div>
                 </td>

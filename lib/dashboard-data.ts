@@ -1873,3 +1873,41 @@ export async function getMyMetricsHeadline(myp: "today" | "7d" | "30d") {
     return { contactedLeads: 0, repliedCount: 0, positiveCount: 0, responseRate: 0 };
   }
 }
+
+// ── Seller activity — last_seen_at per seller via sellers.user_id ────────────
+// Used by SellerPulseTable. Server-side join avoids the client-side name-match
+// hack (which breaks when auth display_name ≠ seller name).
+// Returns a map of sellerId → { userId, lastSeenAt }.
+export async function getSellerActivity(bioId: string | null): Promise<Map<string, { userId: string | null; lastSeenAt: string | null }>> {
+  try {
+    const supabase = await getSupabaseServer();
+    let q = supabase.from("sellers").select("id, user_id").eq("active", true);
+    if (bioId) q = q.eq("company_bio_id", bioId);
+    const { data: sellers } = await q;
+
+    const userIds = ((sellers ?? []).map(s => (s as { user_id: string | null }).user_id).filter(Boolean)) as string[];
+    let profileMap: Record<string, string | null> = {};
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("user_profiles")
+        .select("user_id, last_seen_at")
+        .in("user_id", userIds);
+      for (const p of profiles ?? []) {
+        profileMap[(p as { user_id: string }).user_id] = (p as { last_seen_at: string | null }).last_seen_at;
+      }
+    }
+
+    return new Map(
+      (sellers ?? []).map(s => {
+        const row = s as { id: string; user_id: string | null };
+        return [row.id, {
+          userId: row.user_id ?? null,
+          lastSeenAt: row.user_id ? (profileMap[row.user_id] ?? null) : null,
+        }];
+      })
+    );
+  } catch (e) {
+    console.error("[seller-activity] error:", e);
+    return new Map();
+  }
+}

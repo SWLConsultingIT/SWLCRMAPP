@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { C, N } from "@/lib/design";
 import { getUserScope } from "@/lib/scope";
-import { getDashboardData, getMyMetricsHeadline } from "@/lib/dashboard-data";
+import { getDashboardData, getMyMetricsHeadline, getSellerActivity } from "@/lib/dashboard-data";
 import { getT, getServerLocale } from "@/lib/i18n-server";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
 import TabFilterBar from "@/components/dashboard/TabFilterBar";
@@ -252,12 +252,13 @@ export default async function DashboardPage({
   // Always load filter options — they feed both the tab-level TabFilterBar
   // AND the per-chart ChartFilterChips (Donut on Overview also needs them).
   // 3 cheap queries, no point conditionally skipping.
-  const [data, t, locale, filterOptions, myHeadline] = await Promise.all([
+  const [data, t, locale, filterOptions, myHeadline, sellerActivity] = await Promise.all([
     getDashboardData(filters),
     getT(),
     getServerLocale(),
     loadFilterOptions(bioId),
     getMyMetricsHeadline(filters.myp),
+    getSellerActivity(bioId),
   ]);
   const tabFilterLabels = {
     campaigns: t("dashx.filters.campaigns"),
@@ -1780,10 +1781,8 @@ export default async function DashboardPage({
       {/* Filters live in the unified top bar now (one line, all tabs). */}
 
       {/* ── Seller Pulse: last login (realtime) + calls today + queue ────────
-          SellerPulseTable is a client component: it receives sellers scoped
-          to the current company from the server, then enriches each row with
-          last_seen_at + realtime presence from /api/admin/active-users.
-          Only sellers in data.sellerPerformance (already company-scoped) appear. */}
+          Server fetches last_seen_at per seller via sellers.user_id → user_profiles.
+          Client only needs presence subscription (no name-match needed). */}
       {(() => {
         const todayStr = new Date().toISOString().slice(0, 10);
         const callsTodayMap = new Map<string, number>();
@@ -1791,7 +1790,17 @@ export default async function DashboardPage({
           callsTodayMap.set(row.sellerName, row.byDay?.[todayStr]?.made ?? 0);
         }
         const sellers = (data.sellerPerformance as Array<{ id: string; name: string; pendingCalls: number }>)
-          .map(s => ({ id: s.id, name: s.name, callsToday: callsTodayMap.get(s.name) ?? 0, pendingCalls: s.pendingCalls }));
+          .map(s => {
+            const act = sellerActivity.get(s.id);
+            return {
+              id: s.id,
+              name: s.name,
+              userId: act?.userId ?? null,
+              lastSeenAt: act?.lastSeenAt ?? null,
+              callsToday: callsTodayMap.get(s.name) ?? 0,
+              pendingCalls: s.pendingCalls,
+            };
+          });
         return <section><SellerPulseTable sellers={sellers} /></section>;
       })()}
 
