@@ -15,7 +15,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { UserPlus, Sparkles, X as XIcon, Check, Mail, Building2 } from "lucide-react";
+import { UserPlus, Sparkles, X as XIcon, Check, Mail, Building2, ChevronDown } from "lucide-react";
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
 
@@ -52,6 +52,9 @@ export default function ReferralContactsPanel({
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const [discarded, setDiscarded] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
+  // Collapsed by default so the conversation gets the room — the slim bar
+  // still shows the count, one click expands the list (Fran 2026-06-23).
+  const [open, setOpen] = useState(false);
   // Editable fields in the modal
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
@@ -124,7 +127,12 @@ export default function ReferralContactsPanel({
         background: `linear-gradient(180deg, color-mix(in srgb, ${C.gold} 9%, transparent), transparent)`,
       }}
     >
-      <div className="flex items-center gap-2 px-3 py-2">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-2 px-3 py-2 text-left transition-opacity hover:opacity-90"
+        aria-expanded={open}
+      >
         <span className="inline-flex items-center justify-center rounded-md" style={{ width: 20, height: 20, backgroundColor: C.gold, color: "#0C0E1B" }}>
           <UserPlus size={12} />
         </span>
@@ -132,11 +140,17 @@ export default function ReferralContactsPanel({
           Contactos detectados <span style={{ color: C.textDim, fontWeight: 500 }}>({contacts.length})</span>
         </span>
         <span className="text-[11px]" style={{ color: C.textMuted }}>
-          — derivados en esta respuesta
+          {open ? "— derivados en esta respuesta" : "— tocá para ver"}
         </span>
-      </div>
+        <ChevronDown
+          size={14}
+          className="ml-auto transition-transform"
+          style={{ color: C.gold, transform: open ? "rotate(180deg)" : "none" }}
+        />
+      </button>
 
-      <ul className="flex flex-col">
+      {open && (
+      <ul className="flex flex-col max-h-[200px] overflow-y-auto">
         {contacts.map((c, idx) => {
           const created = c.status === "created";
           const isDiscarded = discarded.has(idx);
@@ -208,6 +222,7 @@ export default function ReferralContactsPanel({
           );
         })}
       </ul>
+      )}
 
       {/* Preview modal */}
       {activeIdx !== null && (

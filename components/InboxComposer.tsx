@@ -152,10 +152,10 @@ export default function InboxComposer({
             ? `Responder por ${channelLabel}…`
             : "Escribí tu respuesta…"
         }
-        rows={compact ? 4 : 6}
+        rows={compact ? 3 : 6}
         disabled={sending}
         className="w-full resize-y bg-transparent text-sm outline-none px-1 py-1 leading-relaxed"
-        style={{ color: C.textPrimary, minHeight: compact ? 76 : 120 }}
+        style={{ color: C.textPrimary, minHeight: compact ? 58 : 120, maxHeight: compact ? 132 : undefined }}
         onKeyDown={(e) => {
           if ((e.metaKey || e.ctrlKey) && e.key === "Enter") { e.preventDefault(); send(); }
         }}
