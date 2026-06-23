@@ -664,7 +664,7 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
           panel, leaving sellers unable to bring the list back — Fran caught
           this on 2026-05-26). Flex layout means the thread always flex-1's
           regardless of whether the list pane is rendered. */}
-      <div className={`flex flex-col md:flex-row ${maximized ? "h-[92vh]" : "h-[78vh]"}`}>
+      <div className={`flex flex-col md:flex-row ${maximized ? "h-[94vh]" : "h-[86vh]"}`}>
         {/* List */}
         <div className={`${listCollapsed ? "hidden md:hidden" : "flex"} border-b md:border-b-0 md:border-r overflow-hidden flex-col md:w-[42%] md:min-w-[300px]`} style={{ borderColor: C.border }}>
           {/* Search + filters (Campaign / ICP / Channel — added 2026-05-27
@@ -966,7 +966,7 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
           )}
           {selected ? (
             <>
-              <div className="px-5 py-4 border-b flex items-start justify-between gap-3" style={{ borderColor: C.border, background: `linear-gradient(180deg, color-mix(in srgb, ${channelColor(selected.channel)} 4%, transparent), transparent)` }}>
+              <div className="px-5 py-2.5 border-b flex items-start justify-between gap-3" style={{ borderColor: C.border, background: `linear-gradient(180deg, color-mix(in srgb, ${channelColor(selected.channel)} 4%, transparent), transparent)` }}>
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   {/* Hide-list toggle — only when list is expanded. Reopen
                       lives outside the conditional (top-left floating). */}
@@ -1460,7 +1460,7 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
               {/* Composer — only on Pending review items. Replying marks the
                   row reviewed (→ History), so History stays read-only. */}
               {selected.leadId && isPending(selected) && (
-                <div className="px-5 py-3 border-t" style={{ borderColor: C.border }}>
+                <div className="px-5 py-2 border-t" style={{ borderColor: C.border }}>
                   <InboxComposer
                     leadId={selected.leadId}
                     channel={(selected as any).channel ?? null}
@@ -1479,7 +1479,7 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
               {/* Classify — the primary action. Replaces the old Mark reviewed /
                   Reject buttons (Fran 2026-06-23): clearer, and classifying is what
                   actually drives Results + sends the flow auto-reply + closes. */}
-              <div className="px-5 py-3 border-t" style={{ borderColor: C.border }}>
+              <div className="px-5 py-2 border-t" style={{ borderColor: C.border }}>
                 {isPending(selected) ? (
                   <>
                     <div className="flex items-center gap-2">

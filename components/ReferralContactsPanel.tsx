@@ -118,13 +118,13 @@ export default function ReferralContactsPanel({
 
   return (
     <div
-      className="mx-4 my-3 rounded-xl overflow-hidden border"
+      className="mx-4 my-2 rounded-xl overflow-hidden border"
       style={{
         borderColor: `color-mix(in srgb, ${C.gold} 35%, transparent)`,
         background: `linear-gradient(180deg, color-mix(in srgb, ${C.gold} 9%, transparent), transparent)`,
       }}
     >
-      <div className="flex items-center gap-2 px-3 py-2.5">
+      <div className="flex items-center gap-2 px-3 py-2">
         <span className="inline-flex items-center justify-center rounded-md" style={{ width: 20, height: 20, backgroundColor: C.gold, color: "#0C0E1B" }}>
           <UserPlus size={12} />
         </span>
