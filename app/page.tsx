@@ -44,6 +44,7 @@ import CallsCard from "@/components/dashboard/CallsCard";
 import CallOutcomesBySeller from "@/components/dashboard/CallOutcomesBySeller";
 import SellerPulseTable from "@/components/dashboard/SellerPulseTable";
 import DimWhileLoading from "@/components/DimWhileLoading";
+import DashboardExportModal from "@/components/dashboard/DashboardExportModal";
 import LinkedInConnectionsCard from "@/components/dashboard/LinkedInConnectionsCard";
 import TodayCard from "@/components/dashboard/TodayCard";
 import ChannelTouches from "@/components/dashboard/ChannelTouches";
@@ -554,21 +555,33 @@ export default async function DashboardPage({
             {/* "LAST 30 DAYS" chip removed — it duplicated (and drifted from)
                 the PERIOD filter bar below. (Fran 2026-06-18) */}
             <FreshnessChip renderedAt={renderedAt} />
-            {/* Download lives in the hero like every other tab. On Portfolio it
-                points to the cross-tenant comparison PDF (current period); on
-                the rest, the per-tenant report. */}
-            <Link
-              href={onPortfolio ? `/reports/portfolio-print?pdays=${pdays === 0 ? "all" : pdays}` : "/reports"}
-              {...(onPortfolio ? { target: "_blank" } : {})}
-              className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-opacity hover:opacity-90 whitespace-nowrap"
-              style={{
-                background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
-                color: N.ink,
-                boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 34%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
-              }}
-            >
-              <FileDown size={13} /> {t("dashx.hero.download")}
-            </Link>
+            {/* Download — portfolio uses its own cross-tenant PDF;
+                all other tabs open the section-picker export modal. */}
+            {onPortfolio ? (
+              <Link
+                href={`/reports/portfolio-print?pdays=${pdays === 0 ? "all" : pdays}`}
+                target="_blank"
+                className="inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-opacity hover:opacity-90 whitespace-nowrap"
+                style={{
+                  background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 78%, white))`,
+                  color: N.ink,
+                  boxShadow: `0 4px 14px color-mix(in srgb, ${gold} 34%, transparent), inset 0 0 0 1px color-mix(in srgb, ${gold} 55%, white)`,
+                }}
+              >
+                <FileDown size={13} /> {t("dashx.hero.download")}
+              </Link>
+            ) : (
+              <DashboardExportModal
+                periodLabel={periodLabel}
+                searchParams={{
+                  from:     filters.from ?? undefined,
+                  to:       filters.to   ?? undefined,
+                  campaign: filters.campaignNames?.[0],
+                  seller:   filters.sellerIds?.[0],
+                  icp:      filters.icpIds?.[0],
+                }}
+              />
+            )}
           </div>
         </div>
       </header>
