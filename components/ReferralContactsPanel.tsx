@@ -117,18 +117,26 @@ export default function ReferralContactsPanel({
   }
 
   return (
-    <div className="px-4 py-3 border-b" style={{ borderColor: C.border }}>
-      <div className="flex items-center gap-2 mb-2">
-        <UserPlus size={13} style={{ color: C.gold }} />
-        <span className="text-[12px] font-semibold" style={{ color: C.textPrimary }}>
-          Contactos detectados ({contacts.length})
+    <div
+      className="mx-4 my-3 rounded-xl overflow-hidden border"
+      style={{
+        borderColor: `color-mix(in srgb, ${C.gold} 35%, transparent)`,
+        background: `linear-gradient(180deg, color-mix(in srgb, ${C.gold} 9%, transparent), transparent)`,
+      }}
+    >
+      <div className="flex items-center gap-2 px-3 py-2.5">
+        <span className="inline-flex items-center justify-center rounded-md" style={{ width: 20, height: 20, backgroundColor: C.gold, color: "#0C0E1B" }}>
+          <UserPlus size={12} />
         </span>
-        <span className="text-[11px]" style={{ color: C.textDim }}>
+        <span className="text-[12.5px] font-bold" style={{ color: C.textPrimary }}>
+          Contactos detectados <span style={{ color: C.textDim, fontWeight: 500 }}>({contacts.length})</span>
+        </span>
+        <span className="text-[11px]" style={{ color: C.textMuted }}>
           — derivados en esta respuesta
         </span>
       </div>
 
-      <ul className="flex flex-col gap-1.5">
+      <ul className="flex flex-col">
         {contacts.map((c, idx) => {
           const created = c.status === "created";
           const isDiscarded = discarded.has(idx);
@@ -136,11 +144,10 @@ export default function ReferralContactsPanel({
           return (
             <li
               key={idx}
-              className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5"
+              className="flex items-center gap-2 px-3 py-2"
               style={{
-                borderColor: C.border,
-                backgroundColor: C.bg,
-                opacity: created || isDiscarded || generic ? 0.55 : 1,
+                borderTop: `1px solid color-mix(in srgb, ${C.gold} 22%, transparent)`,
+                opacity: created || isDiscarded || generic ? 0.6 : 1,
               }}
             >
               <div className="min-w-0 flex-1">

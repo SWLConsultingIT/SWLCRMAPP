@@ -1474,54 +1474,67 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                 </div>
               )}
 
-              {/* Actions */}
-              <div className="px-5 py-3 border-t flex items-center gap-2 flex-wrap" style={{ borderColor: C.border }}>
-                <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>
-                  Review
-                </span>
+              {/* Classify — the primary action. Replaces the old Mark reviewed /
+                  Reject buttons (Fran 2026-06-23): clearer, and classifying is what
+                  actually drives Results + sends the flow auto-reply + closes. */}
+              <div className="px-5 py-3 border-t" style={{ borderColor: C.border }}>
                 {isPending(selected) ? (
                   <>
-                    <button
-                      onClick={() => review("approved")}
-                      disabled={working}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-85"
-                      style={{ backgroundColor: `color-mix(in srgb, ${C.green} 16%, transparent)`, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 32%, transparent)` }}
-                      title={t("inbox.action.markReviewed")}
-                    >
-                      <Check size={12} /> Mark reviewed
-                    </button>
-                    <button
-                      onClick={() => review("rejected")}
-                      disabled={working}
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-85"
-                      style={{ backgroundColor: `color-mix(in srgb, ${C.red} 14%, transparent)`, color: C.red, border: `1px solid color-mix(in srgb, ${C.red} 30%, transparent)` }}
-                      title={t("inbox.action.reject")}
-                    >
-                      <XIcon size={12} /> Reject
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => requestClassify(selected.id, "positive")}
+                        disabled={working}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-90"
+                        style={{ color: C.green, backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${C.green} 30%, transparent)` }}
+                      >
+                        <ThumbsUp size={13} /> {locale === "es" ? "Positiva" : "Positive"}
+                      </button>
+                      <button
+                        onClick={() => requestClassify(selected.id, "negative")}
+                        disabled={working}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-90"
+                        style={{ color: C.red, backgroundColor: `color-mix(in srgb, ${C.red} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${C.red} 30%, transparent)` }}
+                      >
+                        <ThumbsDown size={13} /> {locale === "es" ? "Negativa" : "Negative"}
+                      </button>
+                      <button
+                        onClick={() => requestClassify(selected.id, "follow_up")}
+                        disabled={working}
+                        className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-90"
+                        style={{ color: C.blue, backgroundColor: `color-mix(in srgb, ${C.blue} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${C.blue} 30%, transparent)` }}
+                      >
+                        <HelpCircle size={13} /> Follow-up
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-center mt-2" style={{ color: C.textDim }}>
+                      {locale === "es"
+                        ? "Clasificar manda el auto-reply del flujo + cierra el flow"
+                        : "Classifying sends the flow auto-reply + closes the flow"}
+                      {" · "}
+                      <kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border, color: C.textMuted }}>J</kbd>/<kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border, color: C.textMuted }}>K</kbd>
+                    </p>
                   </>
                 ) : (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg"
-                    style={{ color: selected.reviewStatus === "rejected" ? C.red : C.green, backgroundColor: `color-mix(in srgb, ${selected.reviewStatus === "rejected" ? C.red : C.green} 12%, transparent)` }}>
-                    {selected.reviewStatus === "rejected"
-                      ? <><XIcon size={12} /> {locale === "es" ? "Rechazada" : "Rejected"}</>
-                      : <><Check size={12} /> {locale === "es" ? "Revisada" : "Reviewed"}</>}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg"
+                      style={{ color: selected.reviewStatus === "rejected" ? C.red : C.green, backgroundColor: `color-mix(in srgb, ${selected.reviewStatus === "rejected" ? C.red : C.green} 12%, transparent)` }}>
+                      {selected.reviewStatus === "rejected"
+                        ? <><XIcon size={12} /> {locale === "es" ? "Rechazada" : "Rejected"}</>
+                        : <><Check size={12} /> {locale === "es" ? "Revisada" : "Reviewed"}</>}
+                    </span>
+                    {selected.reviewStatus && selected.reviewStatus !== "pending" && (
+                      <button
+                        onClick={() => review("pending")}
+                        disabled={working}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors hover:bg-black/[0.04]"
+                        style={{ color: C.textMuted, border: `1px solid ${C.border}` }}
+                        title={t("inbox.action.sendBack")}
+                      >
+                        Re-open
+                      </button>
+                    )}
+                  </div>
                 )}
-                {selected.reviewStatus && selected.reviewStatus !== "pending" && (
-                  <button
-                    onClick={() => review("pending")}
-                    disabled={working}
-                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg disabled:opacity-50 transition-colors hover:bg-black/[0.04]"
-                    style={{ color: C.textMuted, border: `1px solid ${C.border}` }}
-                    title={t("inbox.action.sendBack")}
-                  >
-                    Re-open
-                  </button>
-                )}
-                <span className="ml-auto text-[10px]" style={{ color: C.textDim }}>
-                  Shortcuts: <kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border, color: C.textMuted }}>J</kbd>/<kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border, color: C.textMuted }}>K</kbd> nav · <kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border, color: C.textMuted }}>A</kbd> approve
-                </span>
               </div>
             </>
           ) : (
