@@ -847,14 +847,16 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                         onClick={() => setSelectedId(r.id)}
                         className="w-full text-left px-3 py-2.5 rounded-lg border transition-all hover:shadow-sm"
                         style={{
+                          // Selected = SWL gold (branding + clear focus). The channel
+                          // is still signalled by the tinted icon chip, so the rail
+                          // doesn't need to carry it too.
                           borderColor: isSelected
-                            ? `color-mix(in srgb, ${chColor} 45%, transparent)`
+                            ? `color-mix(in srgb, var(--brand, #c9a83a) 45%, transparent)`
                             : C.border,
-                          backgroundColor: isSelected ? `color-mix(in srgb, ${chColor} 10%, ${C.card})` : C.card,
-                          // Channel-tinted left rail (slightly thicker when selected for clearer focus).
-                          borderLeft: `3px solid ${isSelected ? chColor : `color-mix(in srgb, ${chColor} 35%, transparent)`}`,
+                          backgroundColor: isSelected ? `color-mix(in srgb, var(--brand, #c9a83a) 8%, ${C.card})` : C.card,
+                          borderLeft: `3px solid ${isSelected ? "var(--brand, #c9a83a)" : "transparent"}`,
                           boxShadow: isSelected
-                            ? `0 1px 3px color-mix(in srgb, ${chColor} 18%, transparent)`
+                            ? `0 1px 4px color-mix(in srgb, var(--brand, #c9a83a) 18%, transparent)`
                             : "none",
                         }}
                       >
