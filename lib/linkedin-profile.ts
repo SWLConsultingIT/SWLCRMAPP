@@ -150,6 +150,46 @@ export function profileHasSignal(p: LinkedInProfile | null): p is LinkedInProfil
   return !!p && !!(p.headline || p.summary || p.currentRole || p.experience.length || p.topSkills.length);
 }
 
+// True when a FULL profile carries usable signal.
+export function fullProfileHasSignal(p: LinkedInFullProfile | null): p is LinkedInFullProfile {
+  return !!p && !!(p.headline || p.summary || p.experience.length || p.skills.length || p.education.length);
+}
+
+// Renders the FULL profile into a rich prompt block for the brief generator.
+// Unlike renderLinkedInBlock (trimmed), this keeps the signals that make a
+// brief feel researched: experience WITH dates (so the model can infer tenure
+// and spot a recent job change — the strongest opener hook), education,
+// certifications, languages, network size and seniority.
+export function renderFullLinkedInBlock(p: LinkedInFullProfile): string {
+  const lines: string[] = ["LINKEDIN PROFILE — the lead's own words + work history. Anchor the brief on this and cite specifics; never invent facts not present here."];
+  if (p.headline) lines.push(`- Headline: ${p.headline}`);
+  if (p.location) lines.push(`- Location: ${p.location}`);
+  const net = [
+    p.networkDistance ? p.networkDistance : null,
+    typeof p.connectionsCount === "number" ? `${p.connectionsCount} connections` : null,
+    typeof p.followerCount === "number" && p.followerCount > 0 ? `${p.followerCount} followers` : null,
+    p.isPremium ? "Premium" : null,
+  ].filter(Boolean).join(" · ");
+  if (net) lines.push(`- Network: ${net}`);
+  if (p.summary) lines.push(`- About: ${p.summary.replace(/\s+/g, " ").slice(0, 900)}`);
+  if (p.experience.length) {
+    lines.push("- Experience (most recent first — use the dates to infer tenure in current role and any recent move):");
+    for (const e of p.experience.slice(0, 5)) {
+      const head = [e.position, e.company].filter(Boolean).join(" @ ");
+      const span = [e.start, e.end].filter(Boolean).join(" – ");
+      const desc = e.description ? ` — ${e.description.replace(/\s+/g, " ").slice(0, 180)}` : "";
+      lines.push(`  • ${head}${span ? ` (${span})` : ""}${desc}`);
+    }
+  }
+  if (p.education.length) {
+    lines.push(`- Education: ${p.education.slice(0, 3).map((e) => [e.degree, e.school].filter(Boolean).join(", ")).filter(Boolean).join(" | ")}`);
+  }
+  if (p.certifications.length) lines.push(`- Certifications: ${p.certifications.slice(0, 6).join(", ")}`);
+  if (p.languages.length) lines.push(`- Languages: ${p.languages.join(", ")}`);
+  if (p.skills.length) lines.push(`- Top skills: ${p.skills.slice(0, 12).map((s) => s.name).join(", ")}`);
+  return lines.join("\n");
+}
+
 // Renders the trimmed profile into a prompt block for the brief generator.
 export function renderLinkedInBlock(p: LinkedInProfile): string {
   const lines: string[] = ["LINKEDIN PROFILE (the lead's own words — anchor the brief on this)"];

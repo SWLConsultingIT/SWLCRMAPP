@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
-import { fetchLinkedInProfile, linkedinIdentifier, profileHasSignal, renderLinkedInBlock } from "@/lib/linkedin-profile";
+import { fetchLinkedInProfileFull, linkedinIdentifier, fullProfileHasSignal, renderFullLinkedInBlock } from "@/lib/linkedin-profile";
 import { resolveUnipileAccount } from "@/lib/unipile-account";
 
 // GET → return cached talking points (or null if not generated yet).
@@ -20,7 +20,12 @@ import { resolveUnipileAccount } from "@/lib/unipile-account";
 //
 // Backward compat: legacy rows persisted as `string[]` are rendered as
 // generic numbered points by the client.
-type TalkingPoint = { type: "pain" | "fit" | "opener"; text: string };
+type PointType = "snapshot" | "pain" | "fit" | "hook" | "opener" | "objection";
+type TalkingPoint = { type: PointType; text: string };
+
+// Canonical render order so the brief always reads the same regardless of the
+// order the model emits the objects in.
+const POINT_ORDER: PointType[] = ["snapshot", "pain", "fit", "hook", "opener", "objection"];
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -83,8 +88,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (identifier && lead.company_bio_id) {
     const accountId = await resolveUnipileAccount(svc, lead.company_bio_id as string, lead.linkedin_assigned_account as string | null);
     if (accountId) {
-      const profile = await fetchLinkedInProfile(identifier, accountId);
-      if (profileHasSignal(profile)) liBlock = renderLinkedInBlock(profile);
+      const profile = await fetchLinkedInProfileFull(identifier, accountId);
+      if (fullProfileHasSignal(profile)) liBlock = renderFullLinkedInBlock(profile);
     }
   }
 
@@ -130,7 +135,7 @@ async function generate({ lead, icpContext, liBlock, apiKey }: {
     : `COMPANY CONTEXT (no personal LinkedIn available — anchor on the company)
 ${companyLines || `- Company: ${lead.company_name ?? "—"}`}`;
 
-  const prompt = `You are a senior B2B SDR coach. The seller dials ${name} in 30 seconds. Generate a tight call brief: one likely pain, one fit reason, one opening line. They will literally read your output before pressing dial.
+  const prompt = `You are a senior B2B SDR coach prepping a seller who dials ${name} in 30 seconds. Build a SHORT but genuinely personalized pre-call brief, grounded in the lead's real profile below. The seller reads it verbatim before pressing dial. Generic lines are useless — every point must cite something specific about THIS person or company (a role, tenure, a prior employer, their school, a skill, a post, an enrichment signal).
 
 LEAD
 - ${name}${lead.primary_title_role ? `, ${lead.primary_title_role}` : ""}${lead.company_name ? ` at ${lead.company_name}` : ""}
@@ -148,26 +153,30 @@ ${icpContext ? `WHAT WE SELL
 - Pain we solve: ${icpContext.pain_points ?? ""}` : ""}
 
 TASK
-Return EXACTLY this JSON shape, nothing else:
+Return ONLY a JSON array of objects {type, text}, one per type, in this order:
 [
-  { "type": "pain",   "text": "<one pain this lead is likely fighting given role + company signals — ≤140 chars, concrete>" },
-  { "type": "fit",    "text": "<why our offering maps to that pain for THIS lead specifically — cite an enrichment data point, ≤140 chars>" },
-  { "type": "opener", "text": "<a literal opening line or question the seller can say verbatim, ≤140 chars, ends with a question mark when natural>" }
+  { "type": "snapshot",  "text": "<who they are in one line: current role @ company, roughly how long in seat (infer from the dates), seniority, location — ≤170 chars>" },
+  { "type": "pain",      "text": "<the most likely problem THIS person fights, tied to their role/industry and a profile signal — a problem, not a feature, ≤190 chars>" },
+  { "type": "fit",       "text": "<why our offering maps to that pain for them specifically — name our solution AND one of their signals, ≤190 chars>" },
+  { "type": "hook",      "text": "<one concrete human detail to open rapport: a recent job change/tenure, a prior employer, their school, a notable skill/cert, or a recent post — name the exact detail, ≤190 chars>" },
+  { "type": "opener",    "text": "<a verbatim opening line the seller says out loud that USES the hook above — natural, ends with a question, ≤190 chars>" },
+  { "type": "objection", "text": "<the most likely pushback for their role + a one-line counter, ≤170 chars>" }
 ]
 
 Rules:
-- Plain text inside the strings (no markdown, no quotes around the values, no leading numbers).
-- Pain must be a problem, not a feature. Fit must be a relevance claim, not a sales pitch. Opener must be something a human would actually say.
-- Use the lead's first name in the opener if you have it.
-- Output ONLY the JSON array. No prose, no fences.
-- ALWAYS return the three points. NEVER refuse, NEVER ask for more information, NEVER reply in prose. If the lead data is sparse, infer sensible points from whatever you have — the role, the industry, the company name, or what we sell — falling back to solid role-based generics for that seniority. There is always enough to write a useful brief.`;
+- Ground EVERY line in the data above. Any fact you state (tenure, prior company, school, skill) must come from the profile/enrichment — NEVER invent specifics or names.
+- If the current role started recently (under ~12 months per the dates), lead the hook with that "new in seat" angle — it's the strongest opener.
+- Write the "hook" and "opener" in the language the lead most likely speaks, inferred from their location/profile: Spanish for Spain and Latin America (rio-platense if Argentina), English for US/UK/etc. Default to English only if genuinely unclear. The other lines stay in English.
+- Plain text inside strings: no markdown, no fences, no surrounding quotes, no leading numbers.
+- NEVER refuse, NEVER ask for more info, NEVER reply in prose. If data is genuinely thin, still return snapshot/pain/fit/opener from role+industry, and OMIT the hook and/or objection objects rather than inventing fake specifics.
+- Output ONLY the JSON array.`;
 
   try {
     const client = new Anthropic({ apiKey });
     const res = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 600,
-      system: "You output ONLY a JSON array of exactly three objects {type, text}. You never refuse, never ask for more information, and never write prose — sparse input still yields a useful role-based brief.",
+      max_tokens: 1100,
+      system: "You output ONLY a JSON array of pre-call brief objects {type, text}. You never refuse, never ask for more information, and never write prose — sparse input still yields a useful role-based brief grounded only in the data given.",
       messages: [{ role: "user", content: prompt }],
     });
     const text = res.content[0].type === "text" ? res.content[0].text : "";
@@ -176,17 +185,21 @@ Rules:
     const json = match ? match[0] : text;
     const parsed = JSON.parse(json);
     if (!Array.isArray(parsed)) return null;
-    const allowedTypes = new Set(["pain", "fit", "opener"]);
-    const cleaned: TalkingPoint[] = parsed
-      .filter((p): p is { type: string; text: string } =>
-        !!p && typeof p === "object" &&
-        typeof (p as any).type === "string" &&
-        typeof (p as any).text === "string")
-      .filter((p) => allowedTypes.has(p.type))
-      .map((p) => ({ type: p.type as TalkingPoint["type"], text: p.text.trim() }))
-      .filter((p) => p.text.length > 0)
-      .slice(0, 3);
-    return cleaned.length === 3 ? cleaned : null;
+    const allowed = new Set<string>(POINT_ORDER);
+    const byType = new Map<PointType, TalkingPoint>();
+    for (const p of parsed) {
+      if (!p || typeof p !== "object") continue;
+      const t = (p as any).type, txt = (p as any).text;
+      if (typeof t !== "string" || typeof txt !== "string") continue;
+      if (!allowed.has(t) || byType.has(t as PointType)) continue; // first wins, dedupe by type
+      const clean = txt.trim();
+      if (clean) byType.set(t as PointType, { type: t as PointType, text: clean });
+    }
+    const cleaned = POINT_ORDER.filter((t) => byType.has(t)).map((t) => byType.get(t)!);
+    // The brief is only useful with the three core points; hook/snapshot/
+    // objection are enrichment on top.
+    const hasCore = ["pain", "fit", "opener"].every((t) => byType.has(t as PointType));
+    return hasCore ? cleaned : null;
   } catch {
     return null;
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Sparkles, RefreshCw, Target, Compass, Quote, ClipboardList, ChevronDown } from "lucide-react";
+import { Sparkles, RefreshCw, Target, Compass, Quote, ClipboardList, ChevronDown, UserRound, Lightbulb, ShieldAlert } from "lucide-react";
 import { C } from "@/lib/design";
 
 const gold = "var(--brand, #c9a83a)";
@@ -18,16 +18,26 @@ const gold = "var(--brand, #c9a83a)";
 //     collapsed toggle that expands inline, so it never overlaps neighbouring
 //     rows. No auto-generation (we don't fire N AI calls when the queue opens).
 
-type TalkingPoint = { type: "pain" | "fit" | "opener"; text: string };
+type PointType = "snapshot" | "pain" | "fit" | "hook" | "opener" | "objection";
+type TalkingPoint = { type: PointType; text: string };
 type AnyPoint = TalkingPoint | string;
 
+const ORDER: PointType[] = ["snapshot", "pain", "fit", "hook", "opener", "objection"];
+
 function isStructured(p: AnyPoint): p is TalkingPoint {
-  return typeof p === "object" && p !== null && "type" in p && "text" in p;
+  return typeof p === "object" && p !== null && "type" in p && "text" in p && p.type in POINT_META;
+}
+
+// Order structured points canonically (snapshot → … → objection); legacy
+// strings / unknown types keep their original position at the end.
+function orderPoints(points: AnyPoint[]): AnyPoint[] {
+  const rank = (p: AnyPoint) => (isStructured(p) ? ORDER.indexOf(p.type) : 99);
+  return points.map((p, i) => ({ p, i })).sort((a, b) => rank(a.p) - rank(b.p) || a.i - b.i).map((x) => x.p);
 }
 
 // Per-type visual language. Pain reads as urgency-red, fit as trust-blue,
 // opener as conversation-amber — distinct from the global brand gold.
-const POINT_META: Record<TalkingPoint["type"], {
+const POINT_META: Record<PointType, {
   label: string;
   icon: typeof Target;
   accent: string;
@@ -35,6 +45,14 @@ const POINT_META: Record<TalkingPoint["type"], {
   pillBg: string;
   pillFg: string;
 }> = {
+  snapshot: {
+    label: "Snapshot",
+    icon: UserRound,
+    accent: "#475569",
+    tint: "linear-gradient(135deg, rgba(248,250,252,0.95) 0%, rgba(255,255,255,0.6) 70%)",
+    pillBg: "#E2E8F0",
+    pillFg: "#334155",
+  },
   pain: {
     label: "Pain",
     icon: Target,
@@ -51,6 +69,14 @@ const POINT_META: Record<TalkingPoint["type"], {
     pillBg: "#DBEAFE",
     pillFg: "#1E40AF",
   },
+  hook: {
+    label: "Personal hook",
+    icon: Lightbulb,
+    accent: "#7C3AED",
+    tint: "linear-gradient(135deg, rgba(245,243,255,0.95) 0%, rgba(255,255,255,0.6) 70%)",
+    pillBg: "#EDE9FE",
+    pillFg: "#5B21B6",
+  },
   opener: {
     label: "Opener",
     icon: Quote,
@@ -58,6 +84,14 @@ const POINT_META: Record<TalkingPoint["type"], {
     tint: "linear-gradient(135deg, rgba(255,251,235,0.95) 0%, rgba(255,255,255,0.6) 70%)",
     pillBg: "#FEF3C7",
     pillFg: "#92400E",
+  },
+  objection: {
+    label: "Likely objection",
+    icon: ShieldAlert,
+    accent: "#0D9488",
+    tint: "linear-gradient(135deg, rgba(240,253,250,0.95) 0%, rgba(255,255,255,0.6) 70%)",
+    pillBg: "#CCFBF1",
+    pillFg: "#115E59",
   },
 };
 
@@ -164,12 +198,12 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
             <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
               {loading ? (
                 <span className="inline-flex items-center gap-1.5">
-                  <Sparkles size={10} className="animate-pulse" /> Reading enrichment data…
+                  <Sparkles size={10} className="animate-pulse" /> Reading LinkedIn + enrichment…
                 </span>
               ) : stamp ? (
                 <>Generated {stamp}</>
               ) : (
-                "30-second briefing pulled from this lead's enrichment"
+                "30-second briefing from this lead's LinkedIn + enrichment"
               )}
             </p>
           </div>
@@ -197,7 +231,7 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
 
         {points && points.length > 0 ? (
           <div className="grid gap-3">
-            {points.map((p, i) => {
+            {orderPoints(points).map((p, i) => {
               if (isStructured(p)) {
                 const meta = POINT_META[p.type];
                 const Icon = meta.icon;
@@ -253,7 +287,7 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
           </div>
         ) : loading ? (
           <div className="grid gap-3">
-            {[1, 2, 3].map((i) => (
+            {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="flex gap-3.5 rounded-xl p-4 pl-5 border animate-pulse"
                 style={{ backgroundColor: C.surface, borderColor: C.border }}>
                 <div className="rounded-full shrink-0" style={{ width: 34, height: 34, backgroundColor: C.border }} />
@@ -308,10 +342,10 @@ function CompactBrief({ talkingPoints }: { talkingPoints: AnyPoint[] | null }) {
       {open && (
         <div className="mt-2 rounded-xl border p-3.5" style={{ backgroundColor: C.bg, borderColor: `color-mix(in srgb, ${gold} 30%, transparent)` }}>
           <ol className="space-y-2">
-            {talkingPoints.map((p, i) => {
+            {orderPoints(talkingPoints).map((p, i) => {
               const structured = isStructured(p);
-              const label = structured ? (p.type === "pain" ? "Pain" : p.type === "fit" ? "Fit" : "Opener") : `${i + 1}.`;
-              const labelColor = structured ? (p.type === "pain" ? "#B91C1C" : p.type === "fit" ? "#1D4ED8" : "#B45309") : gold;
+              const label = structured ? POINT_META[p.type].label : `${i + 1}.`;
+              const labelColor = structured ? POINT_META[p.type].pillFg : gold;
               const text = typeof p === "string" ? p : p.text;
               return (
                 <li key={i}>
