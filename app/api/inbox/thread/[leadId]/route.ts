@@ -14,6 +14,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
+import { hydrateClientLeads } from "@/lib/leads-crypto";
+import { renderPlaceholders } from "@/lib/placeholders";
 
 export const runtime = "nodejs";
 
@@ -103,17 +105,22 @@ export async function GET(
 
   const svc = getSupabaseService();
 
-  // Tenant gate.
-  if (scope.isScoped && scope.companyBioId) {
-    const { data: lead } = await svc
-      .from("leads")
-      .select("company_bio_id")
-      .eq("id", leadId)
-      .maybeSingle();
-    if (!lead || lead.company_bio_id !== scope.companyBioId) {
-      return NextResponse.json({ error: "not found" }, { status: 404 });
-    }
+  // Fetch the lead once — for the tenant gate AND to render any outbound message
+  // whose placeholders were never snapshotted. The email dispatcher substitutes
+  // {{first_name}} etc. at send time but doesn't store rendered_content, so the
+  // thread would otherwise show the raw template ("Hola {{first_name}}").
+  // Decrypt client-source leads so the names are available.
+  const { data: leadRaw } = await svc
+    .from("leads")
+    .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role")
+    .eq("id", leadId)
+    .maybeSingle();
+  if (scope.isScoped && scope.companyBioId && (!leadRaw || (leadRaw as { company_bio_id?: string }).company_bio_id !== scope.companyBioId)) {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
   }
+  const [lead] = await hydrateClientLeads([(leadRaw ?? {}) as Record<string, unknown> & {
+    id?: string; source?: string | null; encrypted_payload?: unknown; company_bio_id?: string | null;
+  }]);
 
   // ─── Pull DB-tracked messages (sent only) + replies + calls in parallel ───
   const [messagesRes, repliesRes, callsRes] = await Promise.all([
@@ -164,7 +171,10 @@ export async function GET(
     if (!sentAt) continue; // defensive — status=sent without sent_at shouldn't happen
     const meta = ((m as any).metadata ?? {}) as Record<string, unknown>;
     const renderedFromMeta = typeof meta.rendered_content === "string" ? (meta.rendered_content as string) : null;
-    const body = renderedFromMeta || ((m as any).content as string | null) || "";
+    // No snapshot (email dispatcher path) → substitute placeholders on the fly
+    // with the lead's data so the bubble never shows a raw "{{first_name}}".
+    const body = renderedFromMeta
+      || renderPlaceholders(((m as any).content as string | null) || "", lead as any, { name: sellerName ?? "" });
     const provId = ((m as any).provider_message_id as string | null) ?? null;
     if (provId) seenProviderIds.add(provId);
     if (!chatIdFromDb && typeof meta.chat_id === "string") chatIdFromDb = meta.chat_id as string;
