@@ -43,6 +43,7 @@ import ChannelCard from "@/components/dashboard/ChannelCard";
 import CallsCard from "@/components/dashboard/CallsCard";
 import CallOutcomesBySeller from "@/components/dashboard/CallOutcomesBySeller";
 import SellerPulseTable from "@/components/dashboard/SellerPulseTable";
+import DimWhileLoading from "@/components/DimWhileLoading";
 import LinkedInConnectionsCard from "@/components/dashboard/LinkedInConnectionsCard";
 import TodayCard from "@/components/dashboard/TodayCard";
 import ChannelTouches from "@/components/dashboard/ChannelTouches";
@@ -328,6 +329,7 @@ export default async function DashboardPage({
   // period. Drives the "differentiated empty state" copy in tables — "no data"
   // vs "no matches with these filters" is a completely different user message.
   const hasFilters = (filters.campaignNames?.length ?? 0) > 0 || (filters.icpIds?.length ?? 0) > 0 || (filters.sellerIds?.length ?? 0) > 0;
+  const filterKey = [filters.from, filters.to, (filters.campaignNames ?? []).join(","), (filters.sellerIds ?? []).join(","), (filters.icpIds ?? []).join(",")].join("|");
 
   // Server timestamp for the "Updated · now" freshness indicator. Computed
   // here (not on client) so it reflects when the page was actually rendered;
@@ -610,6 +612,7 @@ export default async function DashboardPage({
         </Suspense>
       )}
 
+      <DimWhileLoading dataKey={filterKey}>
       {/* ═══ PORTFOLIO · cross-tenant comparison (super-admin only) ═══ */}
       {onPortfolio && portfolioData && (
         <PortfolioView companies={portfolioData} days={pdays} locale={locale === "es" ? "es" : "en"} />
@@ -1790,11 +1793,12 @@ export default async function DashboardPage({
           callsTodayMap.set(row.sellerName, row.byDay?.[todayStr]?.made ?? 0);
         }
         const sellers = (data.sellerPerformance as Array<{ id: string; name: string; pendingCalls: number }>)
+          .filter(s => sellerActivity.has(s.id))
           .map(s => {
             const act = sellerActivity.get(s.id);
             return {
               id: s.id,
-              name: s.name,
+              name: act?.displayName || s.name,
               userId: act?.userId ?? null,
               lastSeenAt: act?.lastSeenAt ?? null,
               callsToday: callsTodayMap.get(s.name) ?? 0,
@@ -2175,6 +2179,7 @@ export default async function DashboardPage({
 
       </section>
       )}
+      </DimWhileLoading>
       <SwlSignature caption={t("dashx.brand.captionMain")} tagline={t("dashx.brand.tagline")} />
     </div>
   );

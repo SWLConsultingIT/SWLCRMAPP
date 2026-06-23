@@ -92,6 +92,7 @@ export default function TabFilterBar({
     mutate(next);
     setOptimistic(next);
     const qs = next.toString();
+    window.dispatchEvent(new Event("filter-loading-start"));
     startTransition(() => router.replace(qs ? `?${qs}` : "?", { scroll: false }));
   }
 

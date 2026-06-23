@@ -5,6 +5,7 @@
 // (so what you see matches what you export).
 
 import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
 
@@ -1878,22 +1879,47 @@ export async function getMyMetricsHeadline(myp: "today" | "7d" | "30d") {
 // Used by SellerPulseTable. Server-side join avoids the client-side name-match
 // hack (which breaks when auth display_name ≠ seller name).
 // Returns a map of sellerId → { userId, lastSeenAt }.
-export async function getSellerActivity(bioId: string | null): Promise<Map<string, { userId: string | null; lastSeenAt: string | null }>> {
+export async function getSellerActivity(bioId: string | null): Promise<Map<string, { userId: string | null; lastSeenAt: string | null; displayName: string | null }>> {
   try {
     const supabase = await getSupabaseServer();
+    const svc = getSupabaseService();
+
     let q = supabase.from("sellers").select("id, user_id").eq("active", true);
     if (bioId) q = q.eq("company_bio_id", bioId);
     const { data: sellers } = await q;
 
     const userIds = ((sellers ?? []).map(s => (s as { user_id: string | null }).user_id).filter(Boolean)) as string[];
+
     let profileMap: Record<string, string | null> = {};
+    let displayNameMap: Record<string, string | null> = {};
+
     if (userIds.length > 0) {
-      const { data: profiles } = await supabase
-        .from("user_profiles")
-        .select("user_id, last_seen_at")
-        .in("user_id", userIds);
-      for (const p of profiles ?? []) {
-        profileMap[(p as { user_id: string }).user_id] = (p as { last_seen_at: string | null }).last_seen_at;
+      const [profilesResult, authResult] = await Promise.allSettled([
+        supabase
+          .from("user_profiles")
+          .select("user_id, last_seen_at")
+          .in("user_id", userIds),
+        svc.auth.admin.listUsers({ page: 1, perPage: 200 }),
+      ]);
+
+      if (profilesResult.status === "fulfilled") {
+        for (const p of profilesResult.value.data ?? []) {
+          profileMap[(p as { user_id: string }).user_id] = (p as { last_seen_at: string | null }).last_seen_at;
+        }
+      }
+
+      if (authResult.status === "fulfilled") {
+        const authUsers = (authResult.value.data as { users?: unknown[] })?.users ?? [];
+        for (const u of authUsers as Array<{ id: string; email?: string; user_metadata?: Record<string, unknown> }>) {
+          if (userIds.includes(u.id)) {
+            displayNameMap[u.id] =
+              (u.user_metadata?.name as string | undefined) ||
+              (u.user_metadata?.display_name as string | undefined) ||
+              (u.user_metadata?.full_name as string | undefined) ||
+              u.email?.split("@")[0] ||
+              null;
+          }
+        }
       }
     }
 
@@ -1903,6 +1929,7 @@ export async function getSellerActivity(bioId: string | null): Promise<Map<strin
         return [row.id, {
           userId: row.user_id ?? null,
           lastSeenAt: row.user_id ? (profileMap[row.user_id] ?? null) : null,
+          displayName: row.user_id ? (displayNameMap[row.user_id] ?? null) : null,
         }];
       })
     );
