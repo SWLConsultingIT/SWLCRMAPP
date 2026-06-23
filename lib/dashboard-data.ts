@@ -1050,21 +1050,16 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       g.contacted.add(c.lead_id);
       if (repliedLeadIds.has(c.lead_id)) g.replied.add(c.lead_id);
       if (positiveLeadIds.has(c.lead_id)) g.positive.add(c.lead_id);
-      // Per-channel contacted/replied — uses the campaign channel
-      const ch = c.channel ?? "linkedin";
-      if (ch === "linkedin") {
-        g.contactedLinkedin.add(c.lead_id);
-        if (repliedLeadIds.has(c.lead_id)) g.repliedLinkedin.add(c.lead_id);
-        // Connection invite leg — every linkedin campaign sent a CR.
+      // Connection invite leg — LinkedIn campaigns send a CR as step 0.
+      // This is campaign-channel-specific (only linkedin campaigns send CRs).
+      if ((c.channel ?? "linkedin") === "linkedin") {
         if (linkedinSentLeadIds.has(c.lead_id)) g.connectionsSent.add(c.lead_id);
         if (connectedLeadIds.has(c.lead_id)) g.connectionsAccepted.add(c.lead_id);
-      } else if (ch === "email") {
-        g.contactedEmail.add(c.lead_id);
-        if (repliedLeadIds.has(c.lead_id)) g.repliedEmail.add(c.lead_id);
-      } else if (ch === "call") {
-        g.contactedCall.add(c.lead_id);
-        if (repliedLeadIds.has(c.lead_id)) g.repliedCall.add(c.lead_id);
       }
+      // Per-channel contacted/replied are built in the messages loop below
+      // using m.channel (dispatcher-stamped), NOT c.channel. Using the
+      // campaign's top-level channel made all email/call steps inside a
+      // "linkedin" multi-channel flow vanish from Email/Call stats.
     }
     if (c.status === "active") g.active++;
     // Per-campaign attribution
@@ -1098,12 +1093,28 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     const g = sellerAgg.get(c.seller_id);
     if (!g) continue;
     g.sent++;
-    const ch = c.channel ?? "linkedin";
+    // Use the MESSAGE's own channel (dispatcher-stamped) — not the campaign's
+    // top-level channel — so multi-channel flows count email/call steps correctly.
+    const ch = m.channel ?? c.channel ?? "linkedin";
     if (ch === "linkedin") {
       if ((m.step_number ?? 0) === 0) g.sentLinkedinConn++;
       else g.sentLinkedinMsg++;
     } else if (ch === "email") g.sentEmail++;
     else if (ch === "call") g.sentCall++;
+    // Per-channel contacted/replied: keyed by message channel so a lead in a
+    // "linkedin" campaign that also got an email step shows up under Email too.
+    if (c.lead_id) {
+      if (ch === "linkedin") {
+        g.contactedLinkedin.add(c.lead_id);
+        if (repliedLeadIds.has(c.lead_id)) g.repliedLinkedin.add(c.lead_id);
+      } else if (ch === "email") {
+        g.contactedEmail.add(c.lead_id);
+        if (repliedLeadIds.has(c.lead_id)) g.repliedEmail.add(c.lead_id);
+      } else if (ch === "call") {
+        g.contactedCall.add(c.lead_id);
+        if (repliedLeadIds.has(c.lead_id)) g.repliedCall.add(c.lead_id);
+      }
+    }
     // Send attribution to per-campaign + per-ICP aggregates
     const camp = g.byCampaign.get(c.name);
     if (camp) camp.sent++;
@@ -1122,7 +1133,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     if (!m.campaign_id) continue;
     const c = campaigns.find(x => x.id === m.campaign_id);
     if (!c?.seller_id) continue;
-    if ((c.channel ?? "") !== "call") continue;
+    if (m.channel !== "call") continue; // use message-level channel, not campaign's
     const g = sellerAgg.get(c.seller_id);
     if (g) g.pendingCalls++;
   }
