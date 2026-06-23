@@ -568,7 +568,10 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
   const hoursSinceLastSend = lastSendMs && !isNaN(lastSendMs)
     ? Math.round((Date.now() - lastSendMs) / 3600_000)
     : null;
+  // Call messages are always manual (LAW) — the dispatcher never touches them.
+  // Exclude them from "due work" so manual-call backlogs don't trigger a false stall.
   const dueWorkCount = queuedMsgs.filter(m => {
+    if (m.channel === "call") return false;
     const eligibleAt = (m.metadata?.eligible_at as string | undefined) ?? null;
     if (eligibleAt) {
       const t = Date.parse(eligibleAt);

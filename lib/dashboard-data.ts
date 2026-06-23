@@ -515,42 +515,44 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     : null;
 
   // ── Per-channel breakdown ───────────────────────────────────────────────
-  const channelStats = new Map<string, { sent: number; contacted: Set<string>; replied: Set<string>; positive: Set<string> }>();
-  for (const c of campaigns) {
-    const ch = c.channel ?? "linkedin";
-    let s = channelStats.get(ch);
-    if (!s) { s = { sent: 0, contacted: new Set(), replied: new Set(), positive: new Set() }; channelStats.set(ch, s); }
-    if (c.lead_id) {
-      s.contacted.add(c.lead_id);
-      if (repliedLeadIds.has(c.lead_id)) s.replied.add(c.lead_id);
-      if (positiveLeadIds.has(c.lead_id)) s.positive.add(c.lead_id);
-    }
-  }
+  // Uses m.channel (message-level) not c.channel (campaign-level). Multi-channel
+  // flows are stored as campaign.channel='linkedin' but each step carries its real
+  // channel stamp — keying off campaign.channel made every email/call vanish into
+  // "linkedin" (same root cause as the ICP matrix fix in 2026-06-08).
+  // touchByChannel (built above) is the single source of truth for per-channel leads.
+  const sentCountByChannel = new Map<string, number>();
+  const repliedByChannel = new Map<string, Set<string>>();
+  const positiveByChannel = new Map<string, Set<string>>();
   for (const m of messages) {
     if (!m.campaign_id) continue;
-    const c = campaigns.find(x => x.id === m.campaign_id);
-    if (!c) continue;
-    const s = channelStats.get(c.channel ?? "linkedin");
-    if (s) s.sent++;
-  }
-  // Boss-feedback 2026-05-27: the Channels chapter must always show
-  // email / linkedin / call cards, even when activity is zero — a missing
-  // card silently looked like "we don't have this channel" when really
-  // it means "we haven't used it this period".
-  for (const ch of ["linkedin", "email", "call"]) {
-    if (!channelStats.has(ch)) {
-      channelStats.set(ch, { sent: 0, contacted: new Set(), replied: new Set(), positive: new Set() });
+    const leadId = campaignLeadById.get(m.campaign_id);
+    const ch = (m.channel || campaignChannelById.get(m.campaign_id) || "linkedin");
+    sentCountByChannel.set(ch, (sentCountByChannel.get(ch) ?? 0) + 1);
+    if (!leadId) continue;
+    if (repliedLeadIds.has(leadId)) {
+      let s = repliedByChannel.get(ch); if (!s) { s = new Set(); repliedByChannel.set(ch, s); } s.add(leadId);
+    }
+    if (positiveLeadIds.has(leadId)) {
+      let s = positiveByChannel.get(ch); if (!s) { s = new Set(); positiveByChannel.set(ch, s); } s.add(leadId);
     }
   }
-  const channelBreakdown = Array.from(channelStats.entries()).map(([channel, s]) => ({
-    channel,
-    sent: s.sent,
-    contacted: s.contacted.size,
-    replied: s.replied.size,
-    positive: s.positive.size,
-    responseRate: s.contacted.size > 0 ? Math.round((s.replied.size / s.contacted.size) * 100) : 0,
-    conversionRate: s.contacted.size > 0 ? Math.round((s.positive.size / s.contacted.size) * 100) : 0,
-  })).sort((a, b) => b.responseRate - a.responseRate);
+  // Always emit all three cards even when activity is zero.
+  for (const ch of ["linkedin", "email", "call"]) {
+    if (!touchByChannel.has(ch)) touchByChannel.set(ch, new Set());
+  }
+  const channelBreakdown = Array.from(touchByChannel.entries())
+    .filter(([ch]) => ["linkedin", "email", "call"].includes(ch))
+    .map(([channel, contactedSet]) => {
+      const sent      = sentCountByChannel.get(channel) ?? 0;
+      const replied   = repliedByChannel.get(channel)?.size ?? 0;
+      const positive  = positiveByChannel.get(channel)?.size ?? 0;
+      const contacted = contactedSet.size;
+      return {
+        channel, sent, contacted, replied, positive,
+        responseRate:  contacted > 0 ? Math.round((replied  / contacted) * 100) : 0,
+        conversionRate: contacted > 0 ? Math.round((positive / contacted) * 100) : 0,
+      };
+    }).sort((a, b) => b.responseRate - a.responseRate);
 
   // ── Calls breakdown (boss feedback 2026-05-27) ─────────────────────────
   // 5 sub-counts: pending / completed / answered / positive / negative.
@@ -587,7 +589,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       for (const m of allMessages) {
         if (m.status !== "queued" && m.status !== "pending") continue;
         if (!m.campaign_id) continue;
-        if (campaignChannelById.get(m.campaign_id) === "call") n++;
+        if ((m.channel ?? campaignChannelById.get(m.campaign_id)) === "call") n++;
       }
       return n;
     })(),

@@ -91,6 +91,7 @@ export default function DashboardExportModal({
   const [expanded, setExpanded] = useState<Set<string>>(new Set(TABS.map(t => t.id)));
   const [selected, setSelected] = useState<Set<string>>(allKeys());
   const [loading, setLoading]   = useState(false);
+  const [lang, setLang]         = useState<"es" | "en">("es");
 
   function toggleTab(tabId: string) {
     const items   = TABS.find(t => t.id === tabId)?.items ?? [];
@@ -126,6 +127,7 @@ export default function DashboardExportModal({
     if (searchParams.campaign) qs.set("campaign",  searchParams.campaign);
     if (searchParams.seller)   qs.set("seller",    searchParams.seller);
     if (searchParams.icp)      qs.set("icp",       searchParams.icp);
+    qs.set("lang", lang);
     const today = new Date().toISOString().slice(0, 10);
     printPdf(`/dashboard/print?${qs.toString()}`, `GrowthAI-Report-${today}`);
     setTimeout(() => { setLoading(false); setOpen(false); }, 1500);
@@ -254,6 +256,28 @@ export default function DashboardExportModal({
               className="px-5 py-4 shrink-0 border-t"
               style={{ borderColor }}
             >
+              {/* Language picker */}
+              <div className="flex items-center gap-2.5 mb-3">
+                <span className="text-[9.5px] uppercase tracking-[0.12em] font-bold" style={{ color: "#6A6A8A" }}>
+                  Idioma PDF
+                </span>
+                <div className="flex gap-1">
+                  {(["es", "en"] as const).map(l => (
+                    <button
+                      key={l}
+                      onClick={() => setLang(l)}
+                      className="px-2.5 py-0.5 rounded text-[10.5px] font-bold transition-all"
+                      style={{
+                        background: lang === l ? gold : "transparent",
+                        color: lang === l ? "#0B0F1A" : gold,
+                        border: `1px solid ${lang === l ? gold : "rgba(201,168,58,0.3)"}`,
+                      }}
+                    >
+                      {l.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="flex items-center justify-between mb-3">
                 <p className="text-[10.5px]" style={{ color: "#6A6A8A" }}>
                   {selected.size}/{totalItems} secciones

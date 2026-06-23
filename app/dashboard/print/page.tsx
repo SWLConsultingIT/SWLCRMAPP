@@ -23,6 +23,112 @@ async function getBranding() {
   };
 }
 
+// ─── i18n labels ──────────────────────────────────────────────────────────────
+
+const LABELS = {
+  es: {
+    locale:      "es-AR",
+    salesReport: "Reporte de Ventas",
+    generatedOn: (d: string) => `Generado el ${d}`,
+    footerBrand: "Growth AI Engine — SWL Consulting",
+    allTime:     "Todos los tiempos",
+    dateStart:   "inicio",
+    dateEnd:     "hoy",
+    never:       "Nunca",
+    justNow:     "Hace un momento",
+    minsAgo:     (m: number) => `Hace ${m}m`,
+    hoursAgo:    (h: number) => `Hace ${h}h`,
+    daysAgo:     (d: number) => `Hace ${d}d`,
+    noData:      "Sin datos para el período seleccionado",
+    // Cover KPIs
+    kpiLabels:   ["Importados", "Contactados", "Respondieron", "Positivos"] as string[],
+    // Overview
+    overviewTitle:  "Overview",
+    overviewSub:    "Pipeline y performance por ICP",
+    pipelineKpis:   "Pipeline KPIs",
+    statLabels:     ["Importados", "Contactados", "Respondieron", "Positivos", "Ganados", "Campañas act."] as string[],
+    totalPipeline:  "total en pipeline",
+    ofTotal:        "del total",
+    activeNow:      "activas ahora",
+    icpPerfLabel:   "Performance por ICP",
+    icpHeaders:     ["ICP", "Leads", "Contactados", "Resp.", "Reply %", "Positivos", "Flujos"] as string[],
+    // Outreach
+    outreachTitle:    "Outreach",
+    outreachSub:      "Campañas y actividad por canal",
+    channelBreakdown: "Desglose por canal",
+    channelHeaders:   ["Canal", "Enviados", "Contactados", "Respondieron", "Reply %", "Positivos", "Conv %"] as string[],
+    campaignPerf:     "Performance por campaña (top 10)",
+    campaignHeaders:  ["Campaña", "Canal", "Enviados", "Respondieron", "Reply %", "Positivos"] as string[],
+    // Channels
+    channelsTitle: "Channels",
+    channelsSub:   "Estadísticas detalladas por canal",
+    liStats:       ["Mensajes enviados", "Contactados", "Conexiones env.", "Aceptados", "Respondieron", "Reply rate", "Positivos"] as string[],
+    emailStats:    ["Enviados", "Contactados", "Respondieron", "Reply rate", "Positivos", "Conv. rate"] as string[],
+    callStats:     ["Realizadas", "Contestadas", "Positivas", "Negativas", "Pendientes", "Answer rate"] as string[],
+    // Sellers
+    sellersTitle:         "Sellers",
+    sellersSub:           "Activity, leaderboard y call outcomes",
+    sellerActivity:       "Seller activity",
+    activityHeaders:      ["Seller", "Último login", "Llamadas hoy", "Llamadas 7d", "Contactados", "Positivos"] as string[],
+    leaderboard:          "Leaderboard de performance",
+    leaderboardHeaders:   ["Seller", "Enviados", "Contactados", "Respondieron", "Reply %", "Positivos", "Campañas"] as string[],
+    callOutcomes:         "Call outcomes por seller",
+    callOutcomeHeaders:   ["Seller", "Realizadas", "Positivas", "Negativas", "Voicemail", "Sin resp.", "Positiv %"] as string[],
+  },
+  en: {
+    locale:      "en-US",
+    salesReport: "Sales Report",
+    generatedOn: (d: string) => `Generated on ${d}`,
+    footerBrand: "Growth AI Engine — SWL Consulting",
+    allTime:     "All time",
+    dateStart:   "start",
+    dateEnd:     "today",
+    never:       "Never",
+    justNow:     "Just now",
+    minsAgo:     (m: number) => `${m}m ago`,
+    hoursAgo:    (h: number) => `${h}h ago`,
+    daysAgo:     (d: number) => `${d}d ago`,
+    noData:      "No data for the selected period",
+    // Cover KPIs
+    kpiLabels:   ["Imported", "Contacted", "Replied", "Positive"] as string[],
+    // Overview
+    overviewTitle:  "Overview",
+    overviewSub:    "Pipeline & ICP performance",
+    pipelineKpis:   "Pipeline KPIs",
+    statLabels:     ["Imported", "Contacted", "Replied", "Positive", "Won", "Active campaigns"] as string[],
+    totalPipeline:  "total in pipeline",
+    ofTotal:        "of total",
+    activeNow:      "active now",
+    icpPerfLabel:   "Performance by ICP",
+    icpHeaders:     ["ICP", "Leads", "Contacted", "Replied", "Reply %", "Positive", "Flows"] as string[],
+    // Outreach
+    outreachTitle:    "Outreach",
+    outreachSub:      "Campaigns & channel activity",
+    channelBreakdown: "Channel breakdown",
+    channelHeaders:   ["Channel", "Sent", "Contacted", "Replied", "Reply %", "Positive", "Conv %"] as string[],
+    campaignPerf:     "Campaign performance (top 10)",
+    campaignHeaders:  ["Campaign", "Channel", "Sent", "Replied", "Reply %", "Positive"] as string[],
+    // Channels
+    channelsTitle: "Channels",
+    channelsSub:   "Detailed channel statistics",
+    liStats:       ["Messages sent", "Contacted", "Connections sent", "Accepted", "Replied", "Reply rate", "Positive"] as string[],
+    emailStats:    ["Sent", "Contacted", "Replied", "Reply rate", "Positive", "Conv. rate"] as string[],
+    callStats:     ["Made", "Answered", "Positive", "Negative", "Pending", "Answer rate"] as string[],
+    // Sellers
+    sellersTitle:         "Sellers",
+    sellersSub:           "Activity, leaderboard & call outcomes",
+    sellerActivity:       "Seller activity",
+    activityHeaders:      ["Seller", "Last login", "Calls today", "Calls 7d", "Contacted", "Positive"] as string[],
+    leaderboard:          "Performance leaderboard",
+    leaderboardHeaders:   ["Seller", "Sent", "Contacted", "Replied", "Reply %", "Positive", "Campaigns"] as string[],
+    callOutcomes:         "Call outcomes by seller",
+    callOutcomeHeaders:   ["Seller", "Made", "Positive", "Negative", "Voicemail", "No answer", "Positive %"] as string[],
+  },
+} as const;
+
+type LangKey = keyof typeof LABELS;
+type L = typeof LABELS[LangKey];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 type Palette = Record<string, string>;
@@ -41,22 +147,22 @@ const S: Palette = {
 function fmt(n: number)  { return n.toLocaleString("es-AR"); }
 function pct(n: number, d: number) { return d > 0 ? `${Math.round((n / d) * 100)}%` : "0%"; }
 
-function periodLabel(from: string | null, to: string | null): string {
-  if (!from && !to) return "Todos los tiempos";
+function buildPeriodLabel(from: string | null, to: string | null, L: L): string {
+  if (!from && !to) return L.allTime;
   const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
-  const f = from ? new Date(from).toLocaleDateString("es-AR", opts) : "inicio";
-  const t = to   ? new Date(to).toLocaleDateString("es-AR", { ...opts, year: "numeric" }) : "hoy";
+  const f = from ? new Date(from).toLocaleDateString(L.locale, opts) : L.dateStart;
+  const t = to   ? new Date(to).toLocaleDateString(L.locale, { ...opts, year: "numeric" }) : L.dateEnd;
   return `${f} — ${t}`;
 }
 
-function timeAgo(iso: string | null): string {
-  if (!iso) return "Nunca";
+function buildTimeAgo(iso: string | null, L: L): string {
+  if (!iso) return L.never;
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (m < 1) return "Hace un momento";
-  if (m < 60) return `Hace ${m}m`;
+  if (m < 1) return L.justNow;
+  if (m < 60) return L.minsAgo(m);
   const h = Math.floor(m / 60);
-  if (h < 24) return `Hace ${h}h`;
-  return `Hace ${Math.floor(h / 24)}d`;
+  if (h < 24) return L.hoursAgo(h);
+  return L.daysAgo(Math.floor(h / 24));
 }
 
 // ─── Page component ───────────────────────────────────────────────────────────
@@ -69,6 +175,8 @@ export default async function DashboardPrintPage({
   const sp       = await searchParams;
   const sections = new Set((sp.sections ?? "").split(",").filter(Boolean));
   const has      = (k: string) => sections.has(k);
+  const lang     = (sp.lang === "en" ? "en" : "es") as LangKey;
+  const L        = LABELS[lang];
 
   const filters = {
     from:          sp.from  ?? null,
@@ -86,8 +194,8 @@ export default async function DashboardPrintPage({
   ]);
 
   const { headline, channelBreakdown, icpPerformance, sellerPerformance, callOutcomesBySeller, campaignPerformance, callsBreakdown } = data;
-  const period = periodLabel(filters.from, filters.to);
-  const today  = new Date().toLocaleDateString("es-AR", { day: "numeric", month: "long", year: "numeric" });
+  const period = buildPeriodLabel(filters.from, filters.to, L);
+  const today  = new Date().toLocaleDateString(L.locale, { day: "numeric", month: "long", year: "numeric" });
 
   const todayStr = new Date().toISOString().slice(0, 10);
   const last7Days = Array.from({ length: 7 }, (_, i) => {
@@ -153,7 +261,7 @@ export default async function DashboardPrintPage({
         {/* Main headline */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", paddingBottom: "10mm" }}>
           <p style={{ fontSize: "3.2mm", color: S.gold, textTransform: "uppercase", letterSpacing: "0.16em",
-              fontWeight: 700, marginBottom: "4mm" }}>Sales Report</p>
+              fontWeight: 700, marginBottom: "4mm" }}>{L.salesReport}</p>
           <h1 style={{ fontSize: "14mm", fontWeight: 800, color: S.w, lineHeight: 1.1, margin: "0 0 5mm 0" }}>
             {brand.companyName}
           </h1>
@@ -163,10 +271,10 @@ export default async function DashboardPrintPage({
         {/* KPI summary strip */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "4mm", marginBottom: "12mm" }}>
           {([
-            ["Importados",   headline.totalLeads],
-            ["Contactados",  headline.contactedLeads],
-            ["Respondieron", headline.repliedCount],
-            ["Positivos",    headline.positiveCount],
+            [L.kpiLabels[0], headline.totalLeads],
+            [L.kpiLabels[1], headline.contactedLeads],
+            [L.kpiLabels[2], headline.repliedCount],
+            [L.kpiLabels[3], headline.positiveCount],
           ] as [string, number][]).map(([label, val]) => (
             <div key={label} style={{ background: S.card, borderRadius: "3mm", padding: "5mm",
                 borderLeft: `2mm solid ${S.gold}` }}>
@@ -182,27 +290,27 @@ export default async function DashboardPrintPage({
         {/* Footer */}
         <div style={{ display: "flex", justifyContent: "space-between", paddingTop: "4mm",
             borderTop: `1px solid ${S.border}` }}>
-          <span style={{ fontSize: "2.8mm", color: S.muted }}>Generado el {today}</span>
-          <span style={{ fontSize: "2.8mm", color: S.muted }}>Growth AI Engine — SWL Consulting</span>
+          <span style={{ fontSize: "2.8mm", color: S.muted }}>{L.generatedOn(today)}</span>
+          <span style={{ fontSize: "2.8mm", color: S.muted }}>{L.footerBrand}</span>
         </div>
       </div>
 
       {/* ══ OVERVIEW ═══════════════════════════════════════════════════ */}
       {(has("overview.kpis") || has("overview.icps")) && (
         <div className="pg">
-          <PageHeader title="Overview" subtitle="Pipeline y performance por ICP" S={S} />
+          <PageHeader title={L.overviewTitle} subtitle={L.overviewSub} S={S} />
 
           {has("overview.kpis") && (
             <>
-              <SectionLabel label="Pipeline KPIs" S={S} />
+              <SectionLabel label={L.pipelineKpis} S={S} />
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "4mm", marginBottom: "8mm" }}>
                 {([
-                  ["Importados",    headline.totalLeads,     "total en pipeline"],
-                  ["Contactados",   headline.contactedLeads, `${pct(headline.contactedLeads, headline.totalLeads)} del total`],
-                  ["Respondieron",  headline.repliedCount,   `${headline.responseRate}% reply rate`],
-                  ["Positivos",     headline.positiveCount,  `${pct(headline.positiveCount, headline.contactedLeads)} positive rate`],
-                  ["Ganados",       headline.wonCount,       `${headline.conversionRate}% conv. rate`],
-                  ["Campañas act.", data.activeCampaignCount,"activas ahora"],
+                  [L.statLabels[0], headline.totalLeads,     L.totalPipeline],
+                  [L.statLabels[1], headline.contactedLeads, `${pct(headline.contactedLeads, headline.totalLeads)} ${L.ofTotal}`],
+                  [L.statLabels[2], headline.repliedCount,   `${headline.responseRate}% reply rate`],
+                  [L.statLabels[3], headline.positiveCount,  `${pct(headline.positiveCount, headline.contactedLeads)} positive rate`],
+                  [L.statLabels[4], headline.wonCount,       `${headline.conversionRate}% conv. rate`],
+                  [L.statLabels[5], data.activeCampaignCount, L.activeNow],
                 ] as [string, number, string][]).map(([label, val, sub]) => (
                   <StatBox key={label} label={label} value={fmt(val)} sub={sub} S={S} />
                 ))}
@@ -212,9 +320,9 @@ export default async function DashboardPrintPage({
 
           {has("overview.icps") && icpPerformance.length > 0 && (
             <>
-              <SectionLabel label="Performance por ICP" S={S} />
+              <SectionLabel label={L.icpPerfLabel} S={S} />
               <DataTable
-                headers={["ICP", "Leads", "Contactados", "Resp.", "Reply %", "Positivos", "Flujos"]}
+                headers={[...L.icpHeaders]}
                 rows={icpPerformance.slice(0, 10).map(p => [
                   String(p.name),
                   fmt(Number((p as Record<string,unknown>).leads ?? 0)),
@@ -224,6 +332,7 @@ export default async function DashboardPrintPage({
                   fmt(Number((p as Record<string,unknown>).positive ?? 0)),
                   fmt(Number((p as Record<string,unknown>).flows ?? 0)),
                 ])}
+                noData={L.noData}
                 S={S}
               />
             </>
@@ -234,13 +343,13 @@ export default async function DashboardPrintPage({
       {/* ══ OUTREACH ═══════════════════════════════════════════════════ */}
       {(has("outreach.campaigns") || has("outreach.channels")) && (
         <div className="pg">
-          <PageHeader title="Outreach" subtitle="Campañas y actividad por canal" S={S} />
+          <PageHeader title={L.outreachTitle} subtitle={L.outreachSub} S={S} />
 
           {has("outreach.channels") && channelBreakdown.length > 0 && (
             <>
-              <SectionLabel label="Desglose por canal" S={S} />
+              <SectionLabel label={L.channelBreakdown} S={S} />
               <DataTable
-                headers={["Canal", "Enviados", "Contactados", "Respondieron", "Reply %", "Positivos", "Conv %"]}
+                headers={[...L.channelHeaders]}
                 rows={channelBreakdown.map(c => [
                   c.channel.toUpperCase(),
                   fmt(c.sent),
@@ -250,6 +359,7 @@ export default async function DashboardPrintPage({
                   fmt(c.positive),
                   pct(c.positive, c.contacted),
                 ])}
+                noData={L.noData}
                 S={S}
               />
             </>
@@ -257,9 +367,9 @@ export default async function DashboardPrintPage({
 
           {has("outreach.campaigns") && campaignPerformance.length > 0 && (
             <>
-              <SectionLabel label="Performance por campaña (top 10)" S={S} />
+              <SectionLabel label={L.campaignPerf} S={S} />
               <DataTable
-                headers={["Campaña", "Canal", "Enviados", "Respondieron", "Reply %", "Positivos"]}
+                headers={[...L.campaignHeaders]}
                 rows={(campaignPerformance as Array<Record<string,unknown>>).slice(0, 10).map(c => [
                   String(c.name ?? "").slice(0, 32),
                   String(c.channel ?? "—").toUpperCase(),
@@ -268,6 +378,7 @@ export default async function DashboardPrintPage({
                   pct(Number(c.replied ?? 0), Number(c.sent ?? 1)),
                   fmt(Number(c.positive ?? 0)),
                 ])}
+                noData={L.noData}
                 S={S}
               />
             </>
@@ -278,39 +389,39 @@ export default async function DashboardPrintPage({
       {/* ══ CHANNELS ═══════════════════════════════════════════════════ */}
       {(has("channels.email") || has("channels.linkedin") || has("channels.calls")) && (
         <div className="pg">
-          <PageHeader title="Channels" subtitle="Estadísticas detalladas por canal" S={S} />
+          <PageHeader title={L.channelsTitle} subtitle={L.channelsSub} S={S} />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: "6mm" }}>
             {has("channels.linkedin") && (() => {
               const li = channelMap["linkedin"];
               return <ChannelCard name="LinkedIn" color="#0A66C2" stats={[
-                ["Mensajes enviados", fmt(li?.sent ?? 0)],
-                ["Contactados",       fmt(li?.contacted ?? 0)],
-                ["Conexiones env.",   fmt(data.linkedinConnections.sent)],
-                ["Aceptados",         fmt(data.linkedinConnections.accepted)],
-                ["Respondieron",      fmt(li?.replied ?? 0)],
-                ["Reply rate",        pct(li?.replied ?? 0, li?.contacted ?? 1)],
-                ["Positivos",         fmt(li?.positive ?? 0)],
+                [L.liStats[0], fmt(li?.sent ?? 0)],
+                [L.liStats[1], fmt(li?.contacted ?? 0)],
+                [L.liStats[2], fmt(data.linkedinConnections.sent)],
+                [L.liStats[3], fmt(data.linkedinConnections.accepted)],
+                [L.liStats[4], fmt(li?.replied ?? 0)],
+                [L.liStats[5], pct(li?.replied ?? 0, li?.contacted ?? 1)],
+                [L.liStats[6], fmt(li?.positive ?? 0)],
               ]} S={S} />;
             })()}
             {has("channels.email") && (() => {
               const em = channelMap["email"];
               return <ChannelCard name="Email" color="#059669" stats={[
-                ["Enviados",     fmt(em?.sent ?? 0)],
-                ["Contactados",  fmt(em?.contacted ?? 0)],
-                ["Respondieron", fmt(em?.replied ?? 0)],
-                ["Reply rate",   pct(em?.replied ?? 0, em?.contacted ?? 1)],
-                ["Positivos",    fmt(em?.positive ?? 0)],
-                ["Conv. rate",   pct(em?.positive ?? 0, em?.contacted ?? 1)],
+                [L.emailStats[0], fmt(em?.sent ?? 0)],
+                [L.emailStats[1], fmt(em?.contacted ?? 0)],
+                [L.emailStats[2], fmt(em?.replied ?? 0)],
+                [L.emailStats[3], pct(em?.replied ?? 0, em?.contacted ?? 1)],
+                [L.emailStats[4], fmt(em?.positive ?? 0)],
+                [L.emailStats[5], pct(em?.positive ?? 0, em?.contacted ?? 1)],
               ]} S={S} />;
             })()}
             {has("channels.calls") && (
               <ChannelCard name="Calls" color="#EA580C" stats={[
-                ["Realizadas",  fmt(calls?.made ?? 0)],
-                ["Contestadas", fmt(calls?.answered ?? 0)],
-                ["Positivas",   fmt(calls?.positive ?? 0)],
-                ["Negativas",   fmt(calls?.negative ?? 0)],
-                ["Pendientes",  fmt(calls?.pending ?? 0)],
-                ["Answer rate", pct(calls?.answered ?? 0, calls?.made ?? 1)],
+                [L.callStats[0], fmt(calls?.made ?? 0)],
+                [L.callStats[1], fmt(calls?.answered ?? 0)],
+                [L.callStats[2], fmt(calls?.positive ?? 0)],
+                [L.callStats[3], fmt(calls?.negative ?? 0)],
+                [L.callStats[4], fmt(calls?.pending ?? 0)],
+                [L.callStats[5], pct(calls?.answered ?? 0, calls?.made ?? 1)],
               ]} S={S} />
             )}
           </div>
@@ -320,21 +431,22 @@ export default async function DashboardPrintPage({
       {/* ══ SELLERS ════════════════════════════════════════════════════ */}
       {(has("sellers.activity") || has("sellers.table") || has("sellers.calls")) && (
         <div className="pg">
-          <PageHeader title="Sellers" subtitle="Activity, leaderboard y call outcomes" S={S} />
+          <PageHeader title={L.sellersTitle} subtitle={L.sellersSub} S={S} />
 
           {has("sellers.activity") && sellerRows.length > 0 && (
             <>
-              <SectionLabel label="Seller activity" S={S} />
+              <SectionLabel label={L.sellerActivity} S={S} />
               <DataTable
-                headers={["Seller", "Último login", "Llamadas hoy", "Llamadas 7d", "Contactados", "Positivos"]}
+                headers={[...L.activityHeaders]}
                 rows={sellerRows.map(s => [
                   s.name,
-                  timeAgo(s.lastSeenAt),
+                  buildTimeAgo(s.lastSeenAt, L),
                   fmt(s.callsToday),
                   fmt(s.callsWeek),
                   fmt(s.contacted),
                   fmt(s.positive),
                 ])}
+                noData={L.noData}
                 S={S}
               />
             </>
@@ -342,9 +454,9 @@ export default async function DashboardPrintPage({
 
           {has("sellers.table") && sellerRows.length > 0 && (
             <>
-              <SectionLabel label="Leaderboard de performance" S={S} />
+              <SectionLabel label={L.leaderboard} S={S} />
               <DataTable
-                headers={["Seller", "Enviados", "Contactados", "Respondieron", "Reply %", "Positivos", "Campañas"]}
+                headers={[...L.leaderboardHeaders]}
                 rows={sellerRows.map(s => [
                   s.name,
                   fmt(s.sent),
@@ -354,6 +466,7 @@ export default async function DashboardPrintPage({
                   fmt(s.positive),
                   fmt(s.active),
                 ])}
+                noData={L.noData}
                 S={S}
               />
             </>
@@ -361,9 +474,9 @@ export default async function DashboardPrintPage({
 
           {has("sellers.calls") && callOutcomesBySeller.length > 0 && (
             <>
-              <SectionLabel label="Call outcomes por seller" S={S} />
+              <SectionLabel label={L.callOutcomes} S={S} />
               <DataTable
-                headers={["Seller", "Realizadas", "Positivas", "Negativas", "Voicemail", "Sin resp.", "Positiv %"]}
+                headers={[...L.callOutcomeHeaders]}
                 rows={callOutcomesBySeller.map(s => [
                   s.sellerName,
                   fmt(s.made),
@@ -373,6 +486,7 @@ export default async function DashboardPrintPage({
                   fmt(s.wrongNumber + s.badTiming),
                   pct(s.interested, s.made),
                 ])}
+                noData={L.noData}
                 S={S}
               />
             </>
@@ -420,7 +534,7 @@ function StatBox({ label, value, sub, S }: { label: string; value: string; sub: 
   );
 }
 
-function DataTable({ headers, rows, S }: { headers: string[]; rows: string[][]; S: Palette }) {
+function DataTable({ headers, rows, noData, S }: { headers: string[]; rows: string[][]; noData: string; S: Palette }) {
   return (
     <div style={{ width: "100%", marginBottom: "7mm" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
@@ -450,7 +564,7 @@ function DataTable({ headers, rows, S }: { headers: string[]; rows: string[][]; 
             <tr>
               <td colSpan={headers.length} style={{ padding: "5mm", textAlign: "center",
                   color: S.muted, fontSize: "3mm" }}>
-                Sin datos para el período seleccionado
+                {noData}
               </td>
             </tr>
           ) : rows.map((row, ri) => (
