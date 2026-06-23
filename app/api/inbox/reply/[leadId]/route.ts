@@ -110,6 +110,10 @@ export async function POST(
   // email is treated as confirmed (Instantly handles its own delivery). Default
   // true so the non-verifiable paths don't false-fail.
   let deliveryConfirmed = true;
+  // Soft warning surfaced to the UI (email path) when we can't confirm delivery
+  // — distinct from the LinkedIn hard-fail so an email is never marked failed
+  // (which would prompt a re-send and risk a duplicate).
+  let sendWarning: string | null = null;
   const sentMeta: Record<string, unknown> = { manual_seller_reply: true, sent_by_user: scope.userId };
 
   try {
@@ -283,6 +287,25 @@ export async function POST(
       sentMeta.from_address = from;
       sentMeta.subject = subject;
       sentMeta.to_address = to;
+      // Soft delivery confirmation: Instantly's send is reliable, but after the
+      // LinkedIn "200 != delivered" lesson we double-check by reading the email
+      // back by id. If it doesn't show, we DON'T fail (Instantly send is
+      // synchronous + a hard-fail here would risk a duplicate on re-send) — we
+      // just flag it + warn the seller to verify.
+      if (providerMessageId) {
+        let confirmed = false;
+        for (let i = 0; i < 3; i++) {
+          await new Promise((r) => setTimeout(r, 1500));
+          try {
+            const v = await fetch(`${INSTANTLY_BASE}/emails/${encodeURIComponent(providerMessageId)}`, {
+              headers: { Authorization: `Bearer ${config.apiKey}`, accept: "application/json" },
+            });
+            if (v.ok) { confirmed = true; break; }
+          } catch { /* retry */ }
+        }
+        sentMeta.delivery_confirmed = confirmed;
+        if (!confirmed) sendWarning = "Email enviado a Instantly, pero no pude confirmar la entrega — verificá en unos minutos.";
+      }
     }
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "send failed" }, { status: 502 });
@@ -342,5 +365,5 @@ export async function POST(
       error: "LinkedIn no confirmó la entrega — la cuenta puede estar con un límite temporal. Reintentá en unos minutos.",
     }, { status: 502 });
   }
-  return NextResponse.json({ ok: true, channel, providerMessageId, reviewed: true, sentAt: nowIso, deliveryConfirmed: true });
+  return NextResponse.json({ ok: true, channel, providerMessageId, reviewed: true, sentAt: nowIso, deliveryConfirmed: !sendWarning, warning: sendWarning ?? undefined });
 }
