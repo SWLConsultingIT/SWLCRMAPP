@@ -1806,7 +1806,6 @@ export default async function DashboardPage({
           callsTodayMap.set(row.sellerName, row.byDay?.[todayStr]?.made ?? 0);
         }
         const sellers = (data.sellerPerformance as Array<{ id: string; name: string; pendingCalls: number }>)
-          .filter(s => sellerActivity.has(s.id))
           .map(s => {
             const act = sellerActivity.get(s.id);
             return {

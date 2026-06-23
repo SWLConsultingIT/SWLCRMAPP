@@ -1884,9 +1884,15 @@ export async function getSellerActivity(bioId: string | null): Promise<Map<strin
     const supabase = await getSupabaseServer();
     const svc = getSupabaseService();
 
-    let q = supabase.from("sellers").select("id, user_id").eq("active", true);
-    if (bioId) q = q.eq("company_bio_id", bioId);
-    const { data: sellers } = await q;
+    // Fetch ALL active sellers across companies. sellerPerformance is
+    // already company-scoped via campaigns, so we use that as the display
+    // filter — this lookup is just for user_id + last_seen_at enrichment.
+    // Filtering by company_bio_id here would exclude shared sellers (e.g.
+    // Simone/Sara who have seller records under other companies but work for SWL).
+    const { data: sellers } = await supabase
+      .from("sellers")
+      .select("id, user_id")
+      .eq("active", true);
 
     const userIds = ((sellers ?? []).map(s => (s as { user_id: string | null }).user_id).filter(Boolean)) as string[];
 
