@@ -13,6 +13,7 @@ type SellerInput = {
   userId: string | null;
   lastSeenAt: string | null;
   callsToday: number;
+  callsWeek: number;
   pendingCalls: number;
 };
 
@@ -127,7 +128,7 @@ export default function SellerPulseTable({ sellers }: { sellers: SellerInput[] }
             </span>
           </div>
           <p className="text-[11px] mt-0.5" style={{ color: "#8B9EB7" }}>
-            Last login · calls today · queue
+            Último login · llamadas hoy · 7 días · cola
           </p>
         </div>
         <a href="/admin"
@@ -147,8 +148,9 @@ export default function SellerPulseTable({ sellers }: { sellers: SellerInput[] }
             <th className="px-4 py-2 text-left font-semibold">Seller</th>
             <th className="px-3 py-2 text-left font-semibold">Status</th>
             <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Last seen</th>
-            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Calls today</th>
-            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">In queue</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Hoy</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">7 días</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">En cola</th>
           </tr>
         </thead>
         <tbody>
@@ -229,6 +231,13 @@ export default function SellerPulseTable({ sellers }: { sellers: SellerInput[] }
                     </span>
                     <Phone size={10} style={{ color: noCallsAlert ? "#EF4444" : C.textMuted }} />
                   </div>
+                </td>
+
+                {/* Calls this week */}
+                <td className="px-3 py-3 text-right">
+                  <span className="text-[12px] font-semibold tabular-nums" style={{ color: row.callsWeek > 0 ? C.textBody : C.textDim }}>
+                    {row.callsWeek > 0 ? row.callsWeek : "—"}
+                  </span>
                 </td>
 
                 {/* In queue */}

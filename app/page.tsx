@@ -1801,9 +1801,14 @@ export default async function DashboardPage({
           Client only needs presence subscription (no name-match needed). */}
       {(() => {
         const todayStr = new Date().toISOString().slice(0, 10);
+        const last7Days: string[] = Array.from({ length: 7 }, (_, i) => {
+          const d = new Date(); d.setDate(d.getDate() - i); return d.toISOString().slice(0, 10);
+        });
         const callsTodayMap = new Map<string, number>();
+        const callsWeekMap  = new Map<string, number>();
         for (const row of data.callOutcomesBySeller) {
           callsTodayMap.set(row.sellerName, row.byDay?.[todayStr]?.made ?? 0);
+          callsWeekMap.set(row.sellerName, last7Days.reduce((s, d) => s + (row.byDay?.[d]?.made ?? 0), 0));
         }
         const sellers = (data.sellerPerformance as Array<{ id: string; name: string; pendingCalls: number }>)
           .map(s => {
@@ -1814,6 +1819,7 @@ export default async function DashboardPage({
               userId: act?.userId ?? null,
               lastSeenAt: act?.lastSeenAt ?? null,
               callsToday: callsTodayMap.get(s.name) ?? 0,
+              callsWeek:  callsWeekMap.get(s.name)  ?? 0,
               pendingCalls: s.pendingCalls,
             };
           });

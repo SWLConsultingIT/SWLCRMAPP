@@ -43,10 +43,11 @@ const TABS: TabSection[] = [
   {
     id: "sellers",
     label: "Sellers",
-    description: "Leaderboard + outcomes de llamadas",
+    description: "Activity, leaderboard y call outcomes",
     items: [
-      { id: "table", label: "Seller leaderboard" },
-      { id: "calls", label: "Call outcomes" },
+      { id: "activity", label: "Seller activity (login + llamadas)" },
+      { id: "table",    label: "Leaderboard de performance" },
+      { id: "calls",    label: "Call outcomes por seller" },
     ],
   },
 ];
