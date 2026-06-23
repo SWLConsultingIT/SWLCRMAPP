@@ -21,11 +21,16 @@ export default function InboxComposer({
   compact = false,
   autoSuggest = false,
   defaultSubject = null,
+  availableChannels,
 }: {
   leadId: string;
   channel?: string | null;
   onSent?: () => void;
   compact?: boolean;
+  /** Channels the lead can be reached on (e.g. ["linkedin","email"]). When more
+   *  than one, the composer shows a picker so the seller chooses where to reply.
+   *  Defaults to just `channel` when omitted. */
+  availableChannels?: string[];
   /** When true, auto-generate a draft as soon as this lead's thread opens
    *  (used for the Inbox "needs review" questions so the seller never stares
    *  at a blank box). The seller still edits + sends manually. */
@@ -41,9 +46,17 @@ export default function InboxComposer({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // The seller can override which channel to reply on when the lead has more
+  // than one (e.g. replied on both LinkedIn and Email). Defaults to the lead's
+  // channel; re-syncs when the selected lead changes.
+  const [selectedChannel, setSelectedChannel] = useState<string | null>(channel ?? null);
+  useEffect(() => { setSelectedChannel(channel ?? null); }, [channel]);
+  const effectiveChannel = selectedChannel ?? channel ?? null;
   const channelLabel =
-    channel === "email" ? "Email" : channel === "linkedin" ? "LinkedIn" : null;
-  const isEmail = channel === "email";
+    effectiveChannel === "email" ? "Email" : effectiveChannel === "linkedin" ? "LinkedIn" : null;
+  const isEmail = effectiveChannel === "email";
+  const pickable = (availableChannels ?? []).filter((c) => c === "linkedin" || c === "email");
+  const showChannelPicker = pickable.length > 1;
 
   const suggest = useCallback(async (langOverride?: string) => {
     setError(null);
@@ -86,7 +99,7 @@ export default function InboxComposer({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text: body,
-          ...(channel ? { channel } : {}),
+          ...(effectiveChannel ? { channel: effectiveChannel } : {}),
           ...(isEmail && subject.trim() ? { subject: subject.trim() } : {}),
         }),
       });
@@ -182,11 +195,29 @@ export default function InboxComposer({
           </select>
         </div>
         <div className="flex items-center gap-2">
-          {channelLabel && (
+          {showChannelPicker ? (
+            <div className="inline-flex rounded-lg overflow-hidden border" style={{ borderColor: C.border }} title="Elegí por qué canal responder">
+              {pickable.map((ch) => {
+                const active = effectiveChannel === ch;
+                return (
+                  <button
+                    key={ch}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setSelectedChannel(ch)}
+                    className="text-[10px] uppercase tracking-wide font-semibold px-2 py-1 transition disabled:opacity-50"
+                    style={{ color: active ? "#fff" : C.textDim, backgroundColor: active ? "var(--brand, #c9a83a)" : C.surface }}
+                  >
+                    {ch === "email" ? "Email" : "LinkedIn"}
+                  </button>
+                );
+              })}
+            </div>
+          ) : channelLabel ? (
             <span className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: C.textDim }}>
               {channelLabel}
             </span>
-          )}
+          ) : null}
           <button
             type="button"
             onClick={send}

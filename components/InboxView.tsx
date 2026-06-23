@@ -1462,6 +1462,7 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                   <InboxComposer
                     leadId={selected.leadId}
                     channel={(selected as any).channel ?? null}
+                    availableChannels={[...new Set(thread.map(e => e.channel).filter((c): c is string => c === "linkedin" || c === "email"))]}
                     onSent={() => { reloadThread(); router.refresh(); }}
                     compact
                     autoSuggest={isPending(selected)}
