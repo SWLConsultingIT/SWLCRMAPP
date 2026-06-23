@@ -65,12 +65,20 @@ export async function POST(
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "Missing ANTHROPIC_API_KEY" }, { status: 500 });
 
-  // The message we're answering. Default to the latest inbound reply, but let
-  // the caller override (e.g. answering a specific bubble in the thread).
-  const { data: lastReply } = await svc
+  // The channel the seller is replying on (from the composer's picker). When a
+  // lead has separate conversations on LinkedIn vs Email, the draft must answer
+  // the RIGHT one — so we scope BOTH the lead's last message and our last
+  // message to that channel. Falls back to the latest reply on any channel.
+  const reqChannel = typeof (body as { channel?: unknown })?.channel === "string"
+    ? (body as { channel: string }).channel : null;
+
+  // The message we're answering: the latest inbound reply on the chosen channel.
+  let lastReplyQ = svc
     .from("lead_replies")
     .select("reply_text, channel, received_at")
-    .eq("lead_id", leadId)
+    .eq("lead_id", leadId);
+  if (reqChannel) lastReplyQ = lastReplyQ.eq("channel", reqChannel);
+  const { data: lastReply } = await lastReplyQ
     .order("received_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -83,11 +91,13 @@ export async function POST(
   // doesn't give Haiku enough to lock the language (it was defaulting to
   // English inside an English prompt). Our own message carries the real
   // conversation language, so we feed it in + detect the language explicitly.
-  const { data: lastOutbound } = await svc
+  let lastOutboundQ = svc
     .from("campaign_messages")
     .select("content, sent_at")
     .eq("lead_id", leadId)
-    .eq("status", "sent")
+    .eq("status", "sent");
+  if (reqChannel) lastOutboundQ = lastOutboundQ.eq("channel", reqChannel);
+  const { data: lastOutbound } = await lastOutboundQ
     .order("sent_at", { ascending: false })
     .limit(1)
     .maybeSingle();

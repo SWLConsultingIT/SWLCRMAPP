@@ -66,7 +66,12 @@ export default function InboxComposer({
       const r = await fetch(`/api/inbox/suggest/${leadId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(chosen && chosen !== "auto" ? { lang: chosen } : {}),
+        body: JSON.stringify({
+          ...(chosen && chosen !== "auto" ? { lang: chosen } : {}),
+          // Draft based on the channel the seller is replying on, so a lead with
+          // separate LinkedIn vs Email threads gets the right conversation.
+          ...(effectiveChannel ? { channel: effectiveChannel } : {}),
+        }),
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) { setError(data?.error || "No se pudo generar el borrador"); return; }
@@ -76,7 +81,7 @@ export default function InboxComposer({
     } finally {
       setSuggesting(false);
     }
-  }, [leadId, lang]);
+  }, [leadId, lang, effectiveChannel]);
 
   // Reset on lead change so a draft never leaks across leads. When autoSuggest
   // is on, kick off a fresh draft for the newly-opened question.
