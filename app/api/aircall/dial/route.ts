@@ -222,12 +222,27 @@ export async function POST(req: NextRequest) {
   // If Aircall later rejects the dial (rate limit, bad number), we clean
   // up the orphan dial row below. Acceptable failure mode — the user gets
   // the same error message either way.
+  // Resolve the seller row for the calling user in the dialing tenant so
+  // call attribution goes to whoever clicked Call, not the campaign owner.
+  let callerSellerId: string | null = null;
+  if (dialingBio) {
+    const { data: sellerRow } = await svc
+      .from("sellers")
+      .select("id")
+      .eq("user_id", scope.userId)
+      .eq("company_bio_id", dialingBio)
+      .eq("active", true)
+      .maybeSingle();
+    callerSellerId = (sellerRow as { id: string } | null)?.id ?? null;
+  }
+
   let insertedDialId: string | null = null;
   if (leadId) {
     const { data: inserted } = await svc.from("calls").insert({
       aircall_call_id: null,
       lead_id: leadId,
-      seller_id: null,
+      seller_id: callerSellerId,
+      dialed_by_user_id: scope.userId,
       direction: "outbound",
       status: "initiated",
       phone_number: phone,

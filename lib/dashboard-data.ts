@@ -627,11 +627,13 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const blankCounts = (): CallOutcomeCounts => ({ made: 0, answered: 0, interested: 0, badTiming: 0, voicemail: 0, notInterested: 0, wrongNumber: 0 });
   const callSellerAgg = new Map<string, SellerCallStats>();
   for (const g of callGroups.values()) {
-    // Prefer the lead's flow owner; fall back to the dialer's seller mapping.
+    // Attribute to who actually dialed (dialed_by_user_id → seller), not the
+    // campaign's assigned seller. If the dialer has no seller row in this
+    // tenant (e.g. super_admin), fall back to the flow owner.
+    const dialerSeller = g.dialer ? userToSeller.get(g.dialer) : null;
     const ownerSellerId = g.leadId ? leadToSellerId.get(g.leadId) : null;
-    const fallback = g.dialer ? userToSeller.get(g.dialer) : null;
-    const sid = ownerSellerId ?? fallback?.id ?? "unassigned";
-    const sname = (ownerSellerId ? sellerMap.get(ownerSellerId) : null) ?? fallback?.name ?? "Unassigned";
+    const sid   = dialerSeller?.id   ?? ownerSellerId ?? "unassigned";
+    const sname = dialerSeller?.name ?? (ownerSellerId ? sellerMap.get(ownerSellerId) : null) ?? "Unassigned";
     if (sellerSet && !sellerSet.has(sid)) continue; // seller filter (by sellers.id)
     let agg = callSellerAgg.get(sid);
     if (!agg) { agg = { sellerId: sid, sellerName: sname, ...blankCounts(), byDay: {} }; callSellerAgg.set(sid, agg); }
@@ -1711,8 +1713,13 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       for (const m of allMessages) {
         if (m.status !== "queued" && m.status !== "pending") continue;
         if (!m.campaign_id) continue;
+        // Use the MESSAGE's own channel (dispatcher-stamped), not the campaign's
+        // top-level channel. Multi-channel flows (linkedin/email) have call steps
+        // whose m.channel="call" while camp.channel="linkedin" — the old check
+        // against camp.channel silently excluded all those calls.
+        if (m.channel !== "call") continue;
         const camp = campaignById.get(m.campaign_id);
-        if (!camp || camp.channel !== "call") continue;
+        if (!camp) continue;
         const leadId = camp.lead_id;
         if (!leadId || !leadById.has(leadId) || callsIds.has(leadId)) continue;
         callsIds.add(leadId);
