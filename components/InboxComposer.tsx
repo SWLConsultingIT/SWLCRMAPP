@@ -45,6 +45,10 @@ export default function InboxComposer({
   const [suggesting, setSuggesting] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Pro inbox pattern (Gmail/Front/Missive): the composer starts collapsed as a
+  // slim "Responder…" bar so the conversation gets the room; tapping it expands
+  // the editor inline (and kicks off the AI draft). Non-compact = always open.
+  const [expanded, setExpanded] = useState(!compact);
 
   // The seller can override which channel to reply on when the lead has more
   // than one (e.g. replied on both LinkedIn and Email). Defaults to the lead's
@@ -83,15 +87,22 @@ export default function InboxComposer({
     }
   }, [leadId, lang, effectiveChannel]);
 
-  // Reset on lead change so a draft never leaks across leads. When autoSuggest
-  // is on, kick off a fresh draft for the newly-opened question.
+  // Reset on lead change so a draft never leaks across leads, and collapse the
+  // composer again so opening a new conversation shows the chat at full height.
   useEffect(() => {
     setText("");
     setSubject(defaultSubject ?? "");
     setError(null);
-    if (autoSuggest && leadId) void suggest();
+    setExpanded(!compact);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leadId, autoSuggest, defaultSubject]);
+  }, [leadId, autoSuggest, defaultSubject, compact]);
+
+  // Expand the editor on demand — fires the AI draft (when autoSuggest) only
+  // now, instead of in the background while the seller is still reading.
+  const expand = useCallback(() => {
+    setExpanded(true);
+    if (autoSuggest && !text.trim()) void suggest();
+  }, [autoSuggest, text, suggest]);
 
   async function send() {
     const body = text.trim();
@@ -123,6 +134,29 @@ export default function InboxComposer({
   }
 
   const busy = suggesting || sending;
+
+  // Collapsed state — a slim, input-looking bar. Tapping it opens the editor.
+  if (compact && !expanded) {
+    return (
+      <button
+        type="button"
+        onClick={expand}
+        className="w-full flex items-center gap-2 rounded-2xl border px-3.5 py-2.5 text-left transition hover:opacity-90"
+        style={{ backgroundColor: C.card, borderColor: C.border, color: C.textMuted }}
+      >
+        <Sparkles size={14} style={{ color: "var(--brand, #c9a83a)" }} />
+        <span className="text-sm">
+          Responder{channelLabel ? ` por ${channelLabel}` : ""}…
+        </span>
+        <span
+          className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
+          style={{ color: "#fff", backgroundColor: "var(--brand, #c9a83a)" }}
+        >
+          <Send size={12} /> Escribir
+        </span>
+      </button>
+    );
+  }
 
   return (
     <div

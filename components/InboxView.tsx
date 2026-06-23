@@ -666,7 +666,7 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
           regardless of whether the list pane is rendered. */}
       <div className={`flex flex-col md:flex-row ${maximized ? "h-[94vh]" : "h-[86vh]"}`}>
         {/* List */}
-        <div className={`${listCollapsed ? "hidden md:hidden" : "flex"} border-b md:border-b-0 md:border-r overflow-hidden flex-col md:w-[42%] md:min-w-[300px]`} style={{ borderColor: C.border }}>
+        <div className={`${listCollapsed ? "hidden md:hidden" : "flex"} border-b md:border-b-0 md:border-r overflow-hidden flex-col md:w-[340px] md:min-w-[340px] md:shrink-0`} style={{ borderColor: C.border }}>
           {/* Search + filters (Campaign / ICP / Channel — added 2026-05-27
               per boss feedback so sellers can slice History before triaging) */}
           <div className="px-3 py-2 border-b space-y-2" style={{ borderColor: C.border }}>
