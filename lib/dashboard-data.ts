@@ -2021,3 +2021,84 @@ export async function getSellerActivity(bioId: string | null): Promise<Map<strin
     return new Map();
   }
 }
+
+// ─── Team members ─────────────────────────────────────────────────────────────
+// Returns ALL users in the tenant (user_company_memberships), enriched with
+// their seller record (if any), last_seen_at, and display name. Used by the
+// Sellers tab "Seller activity" panel so it shows the full team, not just
+// those with a sellers row.
+
+export type TeamMember = {
+  userId: string;
+  displayName: string;
+  lastSeenAt: string | null;
+  sellerId: string | null;
+};
+
+export async function getTeamMembers(bioId: string | null): Promise<TeamMember[]> {
+  if (!bioId) return [];
+  try {
+    const svc = getSupabaseService();
+
+    const [membershipsResult, sellersResult, authResult] = await Promise.allSettled([
+      svc.from("user_company_memberships").select("user_id").eq("company_bio_id", bioId),
+      svc.from("sellers").select("id, name, user_id").eq("company_bio_id", bioId).eq("active", true),
+      svc.auth.admin.listUsers({ page: 1, perPage: 500 }),
+    ]);
+
+    const memberUserIds: string[] = membershipsResult.status === "fulfilled"
+      ? (membershipsResult.value.data ?? []).map((m: any) => m.user_id as string).filter(Boolean)
+      : [];
+    if (!memberUserIds.length) return [];
+
+    // seller records for the tenant
+    const sellerByUserId = new Map<string, { id: string; name: string }>();
+    if (sellersResult.status === "fulfilled") {
+      for (const s of sellersResult.value.data ?? []) {
+        const row = s as { id: string; name: string; user_id: string | null };
+        if (row.user_id) sellerByUserId.set(row.user_id, { id: row.id, name: row.name });
+      }
+    }
+
+    // auth display names
+    const authMap = new Map<string, string>();
+    if (authResult.status === "fulfilled") {
+      const users = (authResult.value.data as { users?: unknown[] })?.users ?? [];
+      for (const u of users as Array<{ id: string; email?: string; user_metadata?: Record<string, unknown> }>) {
+        if (!memberUserIds.includes(u.id)) continue;
+        const meta = u.user_metadata ?? {};
+        const name = (meta.full_name as string | undefined)
+          ?? (meta.name as string | undefined)
+          ?? (meta.display_name as string | undefined)
+          ?? u.email?.split("@")[0]
+          ?? u.id.slice(0, 8);
+        authMap.set(u.id, name);
+      }
+    }
+
+    // last_seen_at
+    const { data: profiles } = await svc
+      .from("user_profiles")
+      .select("user_id, last_seen_at")
+      .in("user_id", memberUserIds);
+    const lastSeenMap = new Map<string, string | null>();
+    for (const p of profiles ?? []) {
+      const row = p as { user_id: string; last_seen_at: string | null };
+      lastSeenMap.set(row.user_id, row.last_seen_at);
+    }
+
+    return memberUserIds.map(uid => {
+      const seller = sellerByUserId.get(uid);
+      const displayName = seller?.name ?? authMap.get(uid) ?? uid.slice(0, 8);
+      return {
+        userId: uid,
+        displayName,
+        lastSeenAt: lastSeenMap.get(uid) ?? null,
+        sellerId: seller?.id ?? null,
+      };
+    });
+  } catch (e) {
+    console.error("[getTeamMembers] error:", e);
+    return [];
+  }
+}

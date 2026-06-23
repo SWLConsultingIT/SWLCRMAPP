@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { C, N } from "@/lib/design";
 import { getUserScope } from "@/lib/scope";
-import { getDashboardData, getMyMetricsHeadline, getSellerActivity } from "@/lib/dashboard-data";
+import { getDashboardData, getMyMetricsHeadline, getSellerActivity, getTeamMembers } from "@/lib/dashboard-data";
 import { getT, getServerLocale } from "@/lib/i18n-server";
 import ReliabilityBanner from "@/components/ReliabilityBanner";
 import TabFilterBar from "@/components/dashboard/TabFilterBar";
@@ -254,13 +254,14 @@ export default async function DashboardPage({
   // Always load filter options — they feed both the tab-level TabFilterBar
   // AND the per-chart ChartFilterChips (Donut on Overview also needs them).
   // 3 cheap queries, no point conditionally skipping.
-  const [data, t, locale, filterOptions, myHeadline, sellerActivity] = await Promise.all([
+  const [data, t, locale, filterOptions, myHeadline, sellerActivity, teamMembers] = await Promise.all([
     getDashboardData(filters),
     getT(),
     getServerLocale(),
     loadFilterOptions(bioId),
     getMyMetricsHeadline(filters.myp),
     getSellerActivity(bioId),
+    getTeamMembers(bioId),
   ]);
   const tabFilterLabels = {
     campaigns: t("dashx.filters.campaigns"),
@@ -1804,25 +1805,32 @@ export default async function DashboardPage({
         const last7Days: string[] = Array.from({ length: 7 }, (_, i) => {
           const d = new Date(); d.setDate(d.getDate() - i); return d.toISOString().slice(0, 10);
         });
-        const callsTodayMap = new Map<string, number>();
-        const callsWeekMap  = new Map<string, number>();
-        for (const row of data.callOutcomesBySeller) {
-          callsTodayMap.set(row.sellerName, row.byDay?.[todayStr]?.made ?? 0);
-          callsWeekMap.set(row.sellerName, last7Days.reduce((s, d) => s + (row.byDay?.[d]?.made ?? 0), 0));
+        // Index call outcomes by sellerId (which after attribution fix can be
+        // sellers.id OR user_id for non-seller dialers like super_admin).
+        const callsRowBySellerId = new Map<string, typeof data.callOutcomesBySeller[0]>();
+        for (const row of data.callOutcomesBySeller) callsRowBySellerId.set(row.sellerId, row);
+        // Pending calls indexed by sellers.id
+        const pendingBySellerId = new Map<string, number>();
+        for (const s of data.sellerPerformance as Array<{ id: string; pendingCalls: number }>) {
+          pendingBySellerId.set(s.id, s.pendingCalls);
         }
-        const sellers = (data.sellerPerformance as Array<{ id: string; name: string; pendingCalls: number }>)
-          .map(s => {
-            const act = sellerActivity.get(s.id);
-            return {
-              id: s.id,
-              name: act?.displayName || s.name,
-              userId: act?.userId ?? null,
-              lastSeenAt: act?.lastSeenAt ?? null,
-              callsToday: callsTodayMap.get(s.name) ?? 0,
-              callsWeek:  callsWeekMap.get(s.name)  ?? 0,
-              pendingCalls: s.pendingCalls,
-            };
-          });
+        // Show all team members (not just those with a sellers row)
+        const sellers = teamMembers.map(m => {
+          // Match calls by sellers.id first, then by userId (non-seller dialers)
+          const callsRow = (m.sellerId ? callsRowBySellerId.get(m.sellerId) : null)
+            ?? callsRowBySellerId.get(m.userId);
+          const callsToday = callsRow?.byDay?.[todayStr]?.made ?? 0;
+          const callsWeek  = last7Days.reduce((s, d) => s + (callsRow?.byDay?.[d]?.made ?? 0), 0);
+          return {
+            id:           m.userId,
+            name:         m.displayName,
+            userId:       m.userId,
+            lastSeenAt:   m.lastSeenAt,
+            callsToday,
+            callsWeek,
+            pendingCalls: m.sellerId ? (pendingBySellerId.get(m.sellerId) ?? 0) : 0,
+          };
+        });
         return <section><SellerPulseTable sellers={sellers} /></section>;
       })()}
 
