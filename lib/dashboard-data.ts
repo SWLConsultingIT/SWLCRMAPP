@@ -294,14 +294,14 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   type CallRow = {
     id: string; lead_id: string | null; status: string | null;
     duration: number | null; classification: string | null; started_at: string | null;
-    dialed_by_user_id: string | null;
+    dialed_by_user_id: string | null; phone_number: string | null;
   };
   let allCalls: CallRow[] = [];
   try {
     const makeCallsQ = () => {
       const q = supabase
         .from("calls")
-        .select("id, lead_id, status, duration, classification, started_at, dialed_by_user_id, leads!inner(company_bio_id)");
+        .select("id, lead_id, status, duration, classification, started_at, dialed_by_user_id, phone_number, leads!inner(company_bio_id)");
       return bioId ? q.eq("leads.company_bio_id", bioId) : q;
     };
     allCalls = await fetchAllRows<CallRow>(makeCallsQ);
@@ -574,7 +574,11 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const madeKeys = new Set<string>();
   for (const c of callsInPeriod) {
     const minute = (c.started_at ?? "").slice(0, 16); // yyyy-mm-ddThh:mm
-    madeKeys.add(`${c.lead_id ?? "?"}|${minute}`);
+    // Use phone suffix when available to deduplicate across phone-format variants
+    // (e.g. "+54 9 261..." vs "+54 261...") that land as separate rows.
+    const phoneSfx = (c.phone_number ?? "").replace(/\D/g, "").slice(-9);
+    const key = phoneSfx.length >= 7 ? `phone:${phoneSfx}|${minute}` : `${c.lead_id ?? "?"}|${minute}`;
+    madeKeys.add(key);
   }
   const callsMadeCount = madeKeys.size;
   const callsBreakdown = {
@@ -611,16 +615,44 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   }
   const userToSeller = new Map<string, { id: string; name: string }>();
   for (const s of allSellers) if (s.user_id) userToSeller.set(s.user_id, { id: s.id, name: s.name });
-  type CallGroup = { leadId: string | null; dialer: string | null; classification: string | null; answered: boolean; day: string };
+  type CallGroup = { leadId: string | null; dialer: string | null; classification: string | null; answered: boolean; day: string; phone: string | null };
   const callGroups = new Map<string, CallGroup>();
   for (const c of callsInPeriod) {
     const key = `${c.lead_id ?? "?"}|${(c.started_at ?? "").slice(0, 16)}`;
-    const g = callGroups.get(key) ?? { leadId: c.lead_id, dialer: null, classification: null, answered: false, day: (c.started_at ?? "").slice(0, 10) };
+    const g = callGroups.get(key) ?? { leadId: c.lead_id, dialer: null, classification: null, answered: false, day: (c.started_at ?? "").slice(0, 10), phone: c.phone_number ?? null };
     if (!g.dialer && c.dialed_by_user_id) g.dialer = c.dialed_by_user_id;
     if (!g.classification && c.classification) g.classification = c.classification;
     if ((c.duration ?? 0) > 0) g.answered = true;
     if (!g.day && c.started_at) g.day = c.started_at.slice(0, 10);
+    if (!g.phone && c.phone_number) g.phone = c.phone_number;
     callGroups.set(key, g);
+  }
+  // Secondary merge: webhook reconciliation sometimes creates an answered row for a
+  // slightly different lead (e.g. Argentine mobile +54 9 2614... vs +54 261...) which
+  // causes duplicate groups. Detect by phone suffix (last 9 digits) + same minute and
+  // merge — coalescing dialer + answered from whichever row has them.
+  {
+    const getPhoneSuffix = (phone: string | null | undefined) => (phone ?? "").replace(/\D/g, "").slice(-9);
+    const phoneMinuteIndex = new Map<string, string>(); // `${suffix}|${minute}` → group key
+    const toRemove = new Set<string>();
+    for (const [key, g] of callGroups) {
+      const suffix = getPhoneSuffix(g.phone);
+      if (suffix.length < 7) continue;
+      const minute = key.split("|")[1] ?? "";
+      const pmKey = `${suffix}|${minute}`;
+      const existing = phoneMinuteIndex.get(pmKey);
+      if (existing && existing !== key) {
+        const master = callGroups.get(existing)!;
+        if (!master.dialer && g.dialer) master.dialer = g.dialer;
+        if (!master.phone && g.phone) master.phone = g.phone;
+        if (!master.classification && g.classification) master.classification = g.classification;
+        if (g.answered) master.answered = true;
+        toRemove.add(key);
+      } else if (!existing) {
+        phoneMinuteIndex.set(pmKey, key);
+      }
+    }
+    for (const k of toRemove) callGroups.delete(k);
   }
   type CallOutcomeCounts = { made: number; answered: number; interested: number; badTiming: number; voicemail: number; notInterested: number; wrongNumber: number };
   type SellerCallStats = CallOutcomeCounts & { sellerId: string; sellerName: string; byDay: Record<string, CallOutcomeCounts> };

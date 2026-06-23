@@ -258,25 +258,29 @@ export async function POST(req: NextRequest) {
     // orphan Aircall row with no lead and the recording stranded. Widen to 6h
     // and pick the phone-matching marker CLOSEST in time to this call (robust
     // against the same lead being dialed twice in the window).
+    // Fetch orphaned initiated rows once — used by both Branch 1 (link existing
+    // row) and Branch 2 (copy dialer attribution when creating a fallback row).
     const sinceIso = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
     const recentRes = await fetch(
-      `${SB_URL}/calls?aircall_call_id=is.null&direction=eq.outbound&started_at=gte.${sinceIso}&select=id,phone_number,started_at&order=started_at.desc&limit=300`,
+      `${SB_URL}/calls?aircall_call_id=is.null&direction=eq.outbound&started_at=gte.${sinceIso}&select=id,phone_number,started_at,dialed_by_user_id,seller_id&order=started_at.desc&limit=300`,
       { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
     );
     const candidates = await recentRes.json().catch(() => []);
     const callStartMs = (() => { const iso = tsToIso(call.started_at); return iso ? new Date(iso).getTime() : Date.now(); })();
-    let match: { id?: string; phone_number?: string | null; started_at?: string | null } | null = null;
+    type Candidate = { id?: string; phone_number?: string | null; started_at?: string | null; dialed_by_user_id?: string | null; seller_id?: string | null };
+    let bestMatch: Candidate | null = null;
     let bestDiff = Infinity;
     if (Array.isArray(candidates)) {
-      for (const r of candidates as Array<{ id?: string; phone_number?: string | null; started_at?: string | null }>) {
+      for (const r of candidates as Candidate[]) {
         if (!phoneSuffixMatch(r.phone_number, call.raw_digits)) continue;
         const t = r.started_at ? new Date(r.started_at).getTime() : 0;
         const d = Math.abs(t - callStartMs);
-        if (d < bestDiff) { bestDiff = d; match = r; }
+        if (d < bestDiff) { bestDiff = d; bestMatch = r; }
       }
     }
-    if (match?.id) {
-      await fetch(`${SB_URL}/calls?id=eq.${match.id}`, {
+    // Branch 1: link the existing initiated row to this Aircall call.
+    if (bestMatch?.id) {
+      await fetch(`${SB_URL}/calls?id=eq.${bestMatch.id}`, {
         method: "PATCH",
         headers: {
           apikey: SB_KEY,
@@ -286,38 +290,31 @@ export async function POST(req: NextRequest) {
         },
         body: JSON.stringify({ aircall_call_id: call.id, ...update }),
       });
-      return NextResponse.json({ ok: true, status, linked: match.id });
+      return NextResponse.json({ ok: true, status, linked: bestMatch.id });
     }
 
-    // 2026-06-01: outbound from the Aircall Everywhere SDK (the embed
-    // modal) goes through aircall.sdk.dial(), not our /api/aircall/dial
-    // endpoint — so there's NO pre-existing initiated row to link.
-    // Without this branch, the webhook would write nothing for embed
-    // calls and the lead's Calls tab would stay empty even though
-    // Aircall recorded everything. Caught 2026-06-01 — Fran made a
-    // test call from the embed; 2 rows landed via the sync cron with
-    // lead_id=null. Same last-10-digits match as the inbound branch:
-    // raw_digits is what the seller dialed (the lead's number), and
-    // we already store that in leads.primary_phone.
+    // Branch 2 — outbound from Aircall Everywhere SDK (embed modal) or
+    // when Branch 1 fails to find the initiated row. No pre-existing row to
+    // link, so create one. Use the same candidates list to retrieve the
+    // dialer attribution (dialed_by_user_id / seller_id) from the best
+    // phone-matching initiated row — this propagates "who called" even when
+    // the initiated→Aircall link broke (e.g. number format mismatch).
     if (call.raw_digits) {
-      // Phone numbers in lead rows carry their original formatting
-      // ("+54 9 11 3394 2012", "'+34 917 37 32 47"), so an ilike on a
-      // contiguous digit run never matches — spaces in the trailing group
-      // break the substring. ilikeDigitPattern places a wildcard between
-      // every digit of the trailing suffix so any spacing survives; the
-      // JS phoneSuffixMatch below finalizes strictly.
+      // The dialer from the best phone-matching initiated row (may be null
+      // when called from the Aircall Everywhere SDK, which has no dial row).
+      const orphanDialer = bestMatch?.dialed_by_user_id ?? null;
+      const orphanSeller = bestMatch?.seller_id ?? null;
+
       const pattern = ilikeDigitPattern(call.raw_digits);
       const lookup = await fetch(
         `${SB_URL}/leads?or=(primary_phone.ilike.${pattern},primary_secondary_phone.ilike.${pattern})&select=id,primary_phone,primary_secondary_phone&limit=1000`,
         { headers: { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}` } }
       );
       const rows: Array<{ id: string; primary_phone: string | null; primary_secondary_phone: string | null }> = await lookup.json().catch(() => []);
-      // Suffix match (not exact last-10) so international format/country-code
-      // variants link too — the digit-pattern ilike above is just the prefilter.
-      const match = Array.isArray(rows) ? rows.find(r =>
+      const leadMatch = Array.isArray(rows) ? rows.find(r =>
         phoneSuffixMatch(r.primary_phone, call.raw_digits) || phoneSuffixMatch(r.primary_secondary_phone, call.raw_digits)
       ) : null;
-      const leadId = match?.id ?? null;
+      const leadId = leadMatch?.id ?? null;
       const insertRes = await fetch(`${SB_URL}/calls?on_conflict=aircall_call_id`, {
         method: "POST",
         headers: {
@@ -329,6 +326,8 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           aircall_call_id: call.id,
           lead_id: leadId,
+          dialed_by_user_id: orphanDialer,
+          seller_id: orphanSeller,
           direction: call.direction,
           status,
           phone_number: call.raw_digits,
@@ -342,8 +341,6 @@ export async function POST(req: NextRequest) {
       });
       const insertedRows = await insertRes.json().catch(() => []);
       const inserted = Array.isArray(insertedRows) && insertedRows[0] ? insertedRows[0] : null;
-      // Same transcribe + archive triggers as the inbound branch — the
-      // recording URL is Aircall's S3 presign and expires within hours.
       if (inserted?.id && (call.recording || call.asset)) {
         const origin = req.nextUrl.origin;
         fetch(`${origin}/api/aircall/transcribe`, {
@@ -355,7 +352,7 @@ export async function POST(req: NextRequest) {
           .then(m => m.archiveCallRecording(inserted.id as string))
           .catch(() => {});
       }
-      return NextResponse.json({ ok: true, status, linkedLead: leadId, callId: inserted?.id ?? null });
+      return NextResponse.json({ ok: true, status, linkedLead: leadId, callId: inserted?.id ?? null, orphanDialer });
     }
   }
 
