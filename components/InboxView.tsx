@@ -1074,14 +1074,6 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                 </div>
               </div>
 
-              {/* Referral capture — detected referred contacts from this reply */}
-              <ReferralContactsPanel
-                replyId={selected.id}
-                contacts={selected.referredContacts ?? []}
-                company={selected.company}
-                icpName={selected.icpProfileName}
-              />
-
               {/* Channel filter — only renders when more than one channel
                   appears in the thread. Click narrows the chronological feed
                   to that channel only. */}
@@ -1124,6 +1116,14 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                   left in neutral bubbles. Chronological top→bottom so the
                   seller reads it like a chat. */}
               <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3" style={{ backgroundColor: `color-mix(in srgb, ${C.surface} 40%, ${C.bg})` }}>
+                {/* Referral capture — scrolls WITH the thread so it never steals
+                    fixed height from the conversation (boss 2026-06-23). */}
+                <ReferralContactsPanel
+                  replyId={selected.id}
+                  contacts={selected.referredContacts ?? []}
+                  company={selected.company}
+                  icpName={selected.icpProfileName}
+                />
                 {threadLoading ? (
                   <div className="space-y-4 animate-pulse">
                     {[0, 1, 2].map(i => (
