@@ -93,6 +93,9 @@ export default function InboxComposer({
       const data = await r.json().catch(() => ({}));
       if (!r.ok) { setError(data?.error || "No se pudo enviar"); return; }
       setText("");
+      // Soft delivery warning (email path can't always confirm) — the message
+      // WAS sent, but surface the caution so the seller can double-check.
+      if (data?.warning) setError(data.warning);
       onSent?.();
     } catch {
       setError("No se pudo enviar");
