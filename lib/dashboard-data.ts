@@ -617,6 +617,29 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   }
   const userToSeller = new Map<string, { id: string; name: string }>();
   for (const s of allSellers) if (s.user_id) userToSeller.set(s.user_id, { id: s.id, name: s.name });
+
+  // For dialers that have no seller record in this tenant (e.g. super_admin
+  // dialing cross-tenant), fetch their auth identity so calls still show the
+  // real caller name instead of silently falling back to the flow owner.
+  const dialerIdentityMap = new Map<string, string>(); // user_id → display name
+  {
+    const svc = getSupabaseService();
+    const unknownDialerIds = [...new Set(
+      allCalls.map(c => c.dialed_by_user_id).filter((id): id is string => !!id && !userToSeller.has(id))
+    )];
+    for (const uid of unknownDialerIds) {
+      try {
+        const { data } = await svc.auth.admin.getUserById(uid);
+        const meta = data?.user?.user_metadata as Record<string, unknown> | undefined;
+        const name = (meta?.full_name as string | undefined)
+          ?? (meta?.name as string | undefined)
+          ?? data?.user?.email
+          ?? uid.slice(0, 8);
+        dialerIdentityMap.set(uid, name);
+      } catch { dialerIdentityMap.set(uid, uid.slice(0, 8)); }
+    }
+  }
+
   type CallGroup = { leadId: string | null; dialer: string | null; classification: string | null; answered: boolean; day: string; phone: string | null };
   const callGroups = new Map<string, CallGroup>();
   for (const c of callsInPeriod) {
@@ -661,13 +684,15 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const blankCounts = (): CallOutcomeCounts => ({ made: 0, answered: 0, interested: 0, badTiming: 0, voicemail: 0, notInterested: 0, wrongNumber: 0 });
   const callSellerAgg = new Map<string, SellerCallStats>();
   for (const g of callGroups.values()) {
-    // Attribute to who actually dialed (dialed_by_user_id → seller), not the
-    // campaign's assigned seller. If the dialer has no seller row in this
-    // tenant (e.g. super_admin), fall back to the flow owner.
+    // Attribution rule: if we know who clicked "Call" (dialed_by_user_id),
+    // ALWAYS show that person — never fall back to the flow owner just because
+    // the dialer has no seller record in this tenant. Only use the flow owner
+    // when dialed_by_user_id is null (call came from outside the app or before
+    // this field was tracked).
     const dialerSeller = g.dialer ? userToSeller.get(g.dialer) : null;
     const ownerSellerId = g.leadId ? leadToSellerId.get(g.leadId) : null;
-    const sid   = dialerSeller?.id   ?? ownerSellerId ?? "unassigned";
-    const sname = dialerSeller?.name ?? (ownerSellerId ? sellerMap.get(ownerSellerId) : null) ?? "Unassigned";
+    const sid   = dialerSeller?.id   ?? (g.dialer ? g.dialer                                          : (ownerSellerId ?? "unassigned"));
+    const sname = dialerSeller?.name ?? (g.dialer ? (dialerIdentityMap.get(g.dialer) ?? "Unknown")   : (ownerSellerId ? sellerMap.get(ownerSellerId) : null) ?? "Unassigned");
     if (sellerSet && !sellerSet.has(sid)) continue; // seller filter (by sellers.id)
     let agg = callSellerAgg.get(sid);
     if (!agg) { agg = { sellerId: sid, sellerName: sname, ...blankCounts(), byDay: {} }; callSellerAgg.set(sid, agg); }
