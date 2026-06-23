@@ -1895,7 +1895,7 @@ export async function getSellerActivity(bioId: string | null): Promise<Map<strin
 
     if (userIds.length > 0) {
       const [profilesResult, authResult] = await Promise.allSettled([
-        supabase
+        svc
           .from("user_profiles")
           .select("user_id, last_seen_at")
           .in("user_id", userIds),
