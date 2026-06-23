@@ -1278,7 +1278,7 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                               {/* Body */}
                               <div className="px-4 py-4">
                                 {entry.body && entry.body.trim() ? (
-                                  <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: C.textBody }}>{entry.body}</p>
+                                  <p className="text-[15px] whitespace-pre-wrap leading-[1.65]" style={{ color: C.textPrimary }}>{entry.body}</p>
                                 ) : entry.attachments && entry.attachments.length > 0 ? null : (
                                   <p className="text-sm italic" style={{ color: C.textMuted }}>(sin contenido)</p>
                                 )}
@@ -1355,7 +1355,7 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                                 }}
                               >
                                 {entry.body && entry.body.trim() ? (
-                                  <p className="text-sm whitespace-pre-wrap leading-relaxed">{entry.body}</p>
+                                  <p className="text-[15px] whitespace-pre-wrap leading-[1.6]" style={{ color: C.textPrimary }}>{entry.body}</p>
                                 ) : entry.attachments && entry.attachments.length > 0 ? null : (
                                   <p className="text-sm" style={{ color: C.textMuted }}>(sin contenido)</p>
                                 )}

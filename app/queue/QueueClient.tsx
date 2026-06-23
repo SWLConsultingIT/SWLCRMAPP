@@ -1412,6 +1412,9 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
             reviewStatus: r.reviewStatus ?? (r.requiresHumanReview ? "pending" : null),
             requiresHumanReview: !!r.requiresHumanReview,
             positive: r.classification === "positive" || r.classification === "meeting_intent",
+            // Referred contacts extracted from the reply — without this the
+            // "Contactos detectados" block in the right pane never gets data.
+            referredContacts: (r as any).referredContacts ?? [],
           }))}
         />
       )}
