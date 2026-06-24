@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Sparkles, RefreshCw, Target, Compass, Quote, ClipboardList, ChevronDown, UserRound, Lightbulb, ShieldAlert } from "lucide-react";
+import { Sparkles, RefreshCw, Target, Compass, Quote, ClipboardList, ChevronDown, UserRound, Lightbulb, ShieldAlert, Building2, Brain } from "lucide-react";
 import { C } from "@/lib/design";
 
 const gold = "var(--brand, #c9a83a)";
@@ -18,11 +18,11 @@ const gold = "var(--brand, #c9a83a)";
 //     collapsed toggle that expands inline, so it never overlaps neighbouring
 //     rows. No auto-generation (we don't fire N AI calls when the queue opens).
 
-type PointType = "snapshot" | "pain" | "fit" | "hook" | "opener" | "objection";
+type PointType = "snapshot" | "account" | "read" | "pain" | "fit" | "hook" | "opener" | "objection";
 type TalkingPoint = { type: PointType; text: string };
 type AnyPoint = TalkingPoint | string;
 
-const ORDER: PointType[] = ["snapshot", "pain", "fit", "hook", "opener", "objection"];
+const ORDER: PointType[] = ["snapshot", "account", "read", "pain", "fit", "hook", "opener", "objection"];
 
 function isStructured(p: AnyPoint): p is TalkingPoint {
   return typeof p === "object" && p !== null && "type" in p && "text" in p && p.type in POINT_META;
@@ -52,6 +52,22 @@ const POINT_META: Record<PointType, {
     tint: "linear-gradient(135deg, rgba(248,250,252,0.95) 0%, rgba(255,255,255,0.6) 70%)",
     pillBg: "#E2E8F0",
     pillFg: "#334155",
+  },
+  account: {
+    label: "Account angle",
+    icon: Building2,
+    accent: "#0891B2",
+    tint: "linear-gradient(135deg, rgba(236,254,255,0.95) 0%, rgba(255,255,255,0.6) 70%)",
+    pillBg: "#CFFAFE",
+    pillFg: "#155E75",
+  },
+  read: {
+    label: "How to read them",
+    icon: Brain,
+    accent: "#DB2777",
+    tint: "linear-gradient(135deg, rgba(253,242,248,0.95) 0%, rgba(255,255,255,0.6) 70%)",
+    pillBg: "#FCE7F3",
+    pillFg: "#9D174D",
   },
   pain: {
     label: "Pain",

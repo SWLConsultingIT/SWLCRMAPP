@@ -20,12 +20,13 @@ import { resolveUnipileAccount } from "@/lib/unipile-account";
 //
 // Backward compat: legacy rows persisted as `string[]` are rendered as
 // generic numbered points by the client.
-type PointType = "snapshot" | "pain" | "fit" | "hook" | "opener" | "objection";
+type PointType = "snapshot" | "account" | "read" | "pain" | "fit" | "hook" | "opener" | "objection";
 type TalkingPoint = { type: PointType; text: string };
 
 // Canonical render order so the brief always reads the same regardless of the
-// order the model emits the objects in.
-const POINT_ORDER: PointType[] = ["snapshot", "pain", "fit", "hook", "opener", "objection"];
+// order the model emits the objects in. Flow: who they are → their company &
+// what to pitch it → how to talk to this person → pain/fit/hook/opener/objection.
+const POINT_ORDER: PointType[] = ["snapshot", "account", "read", "pain", "fit", "hook", "opener", "objection"];
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -130,10 +131,27 @@ async function generate({ lead, icpContext, liBlock, apiKey }: {
     lead.recent_linkedin_post ? `- Recent post: ${String(lead.recent_linkedin_post).slice(0, 300)}` : "",
   ].filter(Boolean).join("\n");
 
+  // The PERSON section (LinkedIn-anchored when available).
   const profileSection = liBlock
     ? liBlock
-    : `COMPANY CONTEXT (no personal LinkedIn available — anchor on the company)
-${companyLines || `- Company: ${lead.company_name ?? "—"}`}`;
+    : `PERSON (no personal LinkedIn available — infer them from their role + the company below)
+- ${name}${lead.primary_title_role ? `, ${lead.primary_title_role}` : ""}`;
+
+  // The COMPANY section — always present so the "account angle" card can map
+  // our solutions to their industry, tech stack and size, even when we have a
+  // rich personal profile.
+  const companySize = [
+    lead.company_employees ? `${lead.company_employees} employees` : "",
+    lead.company_revenue ? `revenue ${lead.company_revenue}` : "",
+  ].filter(Boolean).join(", ");
+  const techStack = (() => {
+    const t = (enrichment.technologies ?? enrichment.tech_stack ?? enrichment.keywords) as unknown;
+    if (Array.isArray(t)) return t.slice(0, 20).join(", ");
+    if (typeof t === "string") return t.slice(0, 300);
+    return "";
+  })();
+  const companySection = `COMPANY (for the ACCOUNT ANGLE — map our solutions to their industry, size and stack)
+${companyLines || `- Company: ${lead.company_name ?? "—"}`}${companySize ? `\n- Size: ${companySize}` : ""}${techStack ? `\n- Tech stack / keywords: ${techStack}` : ""}`;
 
   const prompt = `You are a senior B2B SDR coach prepping a seller who dials ${name} in 30 seconds. Build a SHORT but genuinely personalized pre-call brief, grounded in the lead's real profile below. The seller reads it verbatim before pressing dial. Generic lines are useless — every point must cite something specific about THIS person or company (a role, tenure, a prior employer, their school, a skill, a post, an enrichment signal).
 
@@ -145,6 +163,8 @@ ${lead.seller_notes ? `- Notes: ${lead.seller_notes}` : ""}
 
 ${profileSection}
 
+${companySection}
+
 ENRICHMENT DATA (use these specific signals)
 ${enrichmentDump || "(none)"}
 
@@ -155,7 +175,9 @@ ${icpContext ? `WHAT WE SELL
 TASK
 Return ONLY a JSON array of objects {type, text}, one per type, in this order:
 [
-  { "type": "snapshot",  "text": "<who they are in one line: current role @ company, roughly how long in seat (infer from the dates), seniority, location — ≤170 chars>" },
+  { "type": "snapshot",  "text": "<who they are in one line: current role @ company, ~tenure (infer from dates), seniority, location — ≤170 chars>" },
+  { "type": "account",   "text": "<the ACCOUNT ANGLE: what THIS company does in one phrase + the single most relevant thing we could do for a company in their industry/size/stack, mapping OUR solutions. Concrete, e.g. 'construction developer → automate internal project & vendor workflows / score which bids to chase'. ≤210 chars>" },
+  { "type": "read",      "text": "<HOW TO TALK TO THIS PERSON: a quick sales-psychology read from their role, seniority, background and tenure — what they likely care about, their communication style, and one DO + one DON'T. ≤210 chars>" },
   { "type": "pain",      "text": "<the most likely problem THIS person fights, tied to their role/industry and a profile signal — a problem, not a feature, ≤190 chars>" },
   { "type": "fit",       "text": "<why our offering maps to that pain for them specifically — name our solution AND one of their signals, ≤190 chars>" },
   { "type": "hook",      "text": "<one concrete human detail to open rapport: a recent job change/tenure, a prior employer, their school, a notable skill/cert, or a recent post — name the exact detail, ≤190 chars>" },
@@ -164,18 +186,20 @@ Return ONLY a JSON array of objects {type, text}, one per type, in this order:
 ]
 
 Rules:
-- Ground EVERY line in the data above. Any fact you state (tenure, prior company, school, skill) must come from the profile/enrichment — NEVER invent specifics or names.
+- Ground EVERY line in the data above. Any fact you state (tenure, prior company, school, skill, tech stack) must come from the profile/company/enrichment — NEVER invent specifics or names.
+- "account": map OUR solutions to THEIR industry, size and stack. Generic-by-industry is fine, but name what we'd actually do for a company like theirs — not a vague benefit.
+- "read": use real sales psychology. Adapt to seniority (Director/CxO = strategic, time-poor, outcome-driven; manager = execution/relief-driven), background (partnerships/sales = relationship-led; engineering/ops = detail & proof-led), and tenure (new in seat = wants quick wins to prove themselves). Make it actionable (a do + a don't), never fluffy.
 - If the current role started recently (under ~12 months per the dates), lead the hook with that "new in seat" angle — it's the strongest opener.
-- Write the "hook" and "opener" in the language the lead most likely speaks, inferred from their location/profile: Spanish for Spain and Latin America (rio-platense if Argentina), English for US/UK/etc. Default to English only if genuinely unclear. The other lines stay in English.
+- Write the "read", "hook" and "opener" in the language the lead most likely speaks, inferred from their location/profile: Spanish for Spain and Latin America (rio-platense if Argentina), English for US/UK/etc. Default to English only if genuinely unclear. The other lines stay in English.
 - Plain text inside strings: no markdown, no fences, no surrounding quotes, no leading numbers.
-- NEVER refuse, NEVER ask for more info, NEVER reply in prose. If data is genuinely thin, still return snapshot/pain/fit/opener from role+industry, and OMIT the hook and/or objection objects rather than inventing fake specifics.
+- NEVER refuse, NEVER ask for more info, NEVER reply in prose. If data is genuinely thin, still return snapshot/pain/fit/opener, and OMIT the account/read/hook/objection objects rather than inventing fake specifics.
 - Output ONLY the JSON array.`;
 
   try {
     const client = new Anthropic({ apiKey });
     const res = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 1100,
+      max_tokens: 1500,
       system: "You output ONLY a JSON array of pre-call brief objects {type, text}. You never refuse, never ask for more information, and never write prose — sparse input still yields a useful role-based brief grounded only in the data given.",
       messages: [{ role: "user", content: prompt }],
     });
