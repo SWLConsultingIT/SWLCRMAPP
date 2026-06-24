@@ -24,6 +24,10 @@ const STUCK_DAYS = 7;
 export type TenantSummary = {
   bioId: string;
   bioName: string;
+  // Demo tenants (is_demo=true, e.g. Gruppo Everest) are expected to be idle —
+  // they're for showing the product, not real outreach. Never flag them as
+  // "dead / reactivate". The health classifier ignores idleness for demos.
+  isDemo: boolean;
   paragraph: string;
   general: GeneralStats;
   campaigns: CampaignsStats;
@@ -50,6 +54,10 @@ type GeneralStats = {
   positiveReplies: number;
   replyRatePct: number; // 0-100
   lastSendAt: string | null;
+  // Active campaigns whose next step was due >5 days ago — the real "frozen"
+  // signal. A high ratio vs activeCampaigns means the flow stopped advancing
+  // (the recurring current_step / skip-stale-calls freeze), NOT just cron lag.
+  overdueCampaigns: number;
   health: "healthy" | "warning" | "critical";
 };
 
@@ -57,6 +65,7 @@ type CampaignsStats = {
   invitesSent: number;
   invitesAccepted: number;
   invitesPending: number;
+  linkedinDMs: number; // LinkedIn messages AFTER accept (step >0) — NOT emails
   emailsSent: number;
   callsAttempted: number;
   stuckQueued: number; // queued + eligible_at < now() OR no eligible_at AND created_at > STUCK_DAYS
@@ -141,10 +150,12 @@ export type GlobalSummary = {
   tenants: Array<{
     bioId: string;
     bioName: string;
+    isDemo: boolean;
     health: "healthy" | "warning" | "critical";
     activeLeads: number;
     activeFlows: number;
     stuckQueued: number;
+    overdueCampaigns: number;
     failed: number;
     lastSendAt: string | null;
   }>;
@@ -239,6 +250,10 @@ function groupFailureReasons(rows: Array<{ error_details: string | null }>): Arr
 function buildParagraph(s: TenantSummary): string {
   const { bioName, general, campaigns, accounts } = s;
   const days = general.windowDays;
+  // Demo tenants: idle is expected — say so and stop. Never frame as "dead".
+  if (s.isDemo) {
+    return `${bioName} es un tenant demo (para mostrar el producto), sin outreach real — su inactividad es esperada y no requiere acción.`;
+  }
   const parts: string[] = [];
 
   // Opener — health verdict
@@ -252,6 +267,7 @@ function buildParagraph(s: TenantSummary): string {
   // Volume sentence — what got sent
   const volumeBits: string[] = [];
   if (campaigns.invitesSent > 0) volumeBits.push(`${campaigns.invitesSent} invitaciones de LinkedIn (${campaigns.invitesAccepted} aceptadas, ${campaigns.invitesPending} pendientes)`);
+  if (campaigns.linkedinDMs > 0) volumeBits.push(`${campaigns.linkedinDMs} mensajes de LinkedIn`);
   if (campaigns.emailsSent > 0) volumeBits.push(`${campaigns.emailsSent} emails`);
   if (campaigns.callsAttempted > 0) volumeBits.push(`${campaigns.callsAttempted} llamadas`);
   if (volumeBits.length > 0) {
@@ -283,6 +299,10 @@ function buildParagraph(s: TenantSummary): string {
   if (campaigns.stuckQueued > 0) {
     issues.push(`${campaigns.stuckQueued} están trabados en cola (queued sin avanzar)`);
   }
+  if (general.overdueCampaigns > 0) {
+    const ratio = general.activeCampaigns > 0 ? Math.round((general.overdueCampaigns / general.activeCampaigns) * 100) : 0;
+    issues.push(`${general.overdueCampaigns} flujos activos (${ratio}%) con el próximo paso vencido hace +5 días — posible freeze`);
+  }
   if (issues.length > 0) {
     parts.push(`Atención: ${issues.join("; ")}.`);
   }
@@ -301,11 +321,19 @@ function buildParagraph(s: TenantSummary): string {
   return parts.join(" ");
 }
 
-function classifyHealth(c: CampaignsStats, g: Omit<GeneralStats, "health">): "healthy" | "warning" | "critical" {
+function classifyHealth(c: CampaignsStats, g: Omit<GeneralStats, "health">, isDemo: boolean): "healthy" | "warning" | "critical" {
+  // Demo tenants are expected to be idle — only real failures matter, never
+  // warn just because nothing is going out.
+  if (isDemo) return c.failed >= 20 ? "critical" : c.failed > 0 ? "warning" : "healthy";
+  // FREEZE: a big share of active flows is badly overdue (stopped advancing).
+  // This is the signal that was MISSING — it's why a frozen tenant that still
+  // dribbles a few sends (totalMessagesSent>0) never hit "critical".
+  if (g.activeCampaigns >= 20 && g.overdueCampaigns >= g.activeCampaigns * 0.5) return "critical";
   // Critical: lots of failures OR everything stuck
   if (c.failed >= 20 || (c.stuckQueued >= 50 && g.totalMessagesSent === 0)) return "critical";
-  // Warning: some failures or stuck OR no activity at all in 7d when there are active campaigns
-  if (c.failed > 0 || c.stuckQueued > 10) return "warning";
+  // Warning: failures, a stuck pile, a meaningful overdue backlog, OR no
+  // activity at all in 7d when there ARE active campaigns.
+  if (c.failed > 0 || c.stuckQueued > 10 || g.overdueCampaigns >= 30) return "warning";
   if (g.activeCampaigns > 0 && g.totalMessagesSent === 0) return "warning";
   return "healthy";
 }
@@ -316,12 +344,14 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
   const svc = getSupabaseService();
   const since = new Date(Date.now() - WINDOW_DAYS * 86400000).toISOString();
   const stuckBefore = new Date(Date.now() - STUCK_DAYS * 86400000).toISOString();
+  const overdueBefore = new Date(Date.now() - 5 * 86400000).toISOString(); // "badly overdue" = next step due >5d ago
   const cooldownThreshold = new Date(Date.now() - RATE_LIMIT_COOLDOWN_MS).toISOString();
 
   // ── Run all queries in parallel ────────────────────────────────────
   const [
     activeLeadsRes,
     activeCampaignsRes,
+    overdueCampaignsRes,
     sentMessagesRes,
     failedMessagesRes,
     queuedMessagesRes,
@@ -331,6 +361,8 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
   ] = await Promise.all([
     svc.from("leads").select("id", { count: "exact", head: true }).eq("company_bio_id", bioId).not("status", "in", "(closed_won,closed_lost,qualified)"),
     svc.from("campaigns").select("id, lead_id, leads!inner(company_bio_id)", { count: "exact", head: true }).eq("status", "active").eq("leads.company_bio_id", bioId),
+    // Active flows whose next step was due >5 days ago = frozen (not cron lag).
+    svc.from("campaigns").select("id, leads!inner(company_bio_id)", { count: "exact", head: true }).eq("status", "active").eq("leads.company_bio_id", bioId).lt("next_step_due_at", overdueBefore),
     svc.from("campaign_messages").select("id, channel, step_number, sent_at, leads!inner(company_bio_id, linkedin_connected)").eq("status", "sent").gte("sent_at", since).eq("leads.company_bio_id", bioId).limit(2000),
     svc.from("campaign_messages").select("id, channel, error_details, created_at, leads!inner(company_bio_id)").eq("status", "failed").gte("created_at", since).eq("leads.company_bio_id", bioId).limit(500),
     svc.from("campaign_messages").select("id, channel, step_number, created_at, metadata, lead_id, campaign_id, leads!inner(company_bio_id, primary_first_name, primary_last_name, company_name, linkedin_connected, status), campaigns(name, seller_id, sellers(name))").eq("status", "queued").eq("leads.company_bio_id", bioId).limit(2000),
@@ -366,7 +398,7 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
       all.sort((a, b) => a.name.localeCompare(b.name));
       return { data: all, error: null };
     }),
-    svc.from("company_bios").select("instantly_campaign_id, instantly_workspace_id").eq("id", bioId).maybeSingle(),
+    svc.from("company_bios").select("instantly_campaign_id, instantly_workspace_id, is_demo").eq("id", bioId).maybeSingle(),
   ]);
 
   // ── Crunch counts ──────────────────────────────────────────────────
@@ -387,7 +419,8 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
   }>;
   const replies = ((repliesRes.data ?? []) as unknown) as Array<{ classification: string | null; received_at: string | null }>;
   const sellers = (sellersRes.data ?? []) as Array<{ id: string; name: string; active: boolean; unipile_account_id: string | null; linkedin_daily_limit: number | null }>;
-  const bio = (bioRes.data ?? null) as { instantly_campaign_id: string | null; instantly_workspace_id: string | null } | null;
+  const bio = (bioRes.data ?? null) as { instantly_campaign_id: string | null; instantly_workspace_id: string | null; is_demo: boolean | null } | null;
+  const isDemo = bio?.is_demo === true;
 
   // Invites (LinkedIn step_number=0 = the invite itself; step_number>=1 = DMs after accept)
   const invitesSent = sentMsgs.filter(m => m.channel === "linkedin" && m.step_number === 0).length;
@@ -506,6 +539,7 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
       .from("campaign_messages")
       .select("id, campaigns!inner(seller_id, leads!inner(company_bio_id))")
       .eq("status", "sent")
+      .eq("channel", "linkedin") // LinkedIn-only: this is compared against linkedin_daily_limit
       .gte("sent_at", since24h)
       .eq("campaigns.leads.company_bio_id", bioId)
       .limit(5000);
@@ -524,12 +558,14 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
     positiveReplies,
     replyRatePct,
     lastSendAt,
+    overdueCampaigns: overdueCampaignsRes.count ?? 0,
   };
 
   const campaignsStats: CampaignsStats = {
     invitesSent,
     invitesAccepted,
     invitesPending,
+    linkedinDMs,
     emailsSent,
     callsAttempted,
     stuckQueued,
@@ -538,7 +574,7 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
     failureReasons,
   };
 
-  const health = classifyHealth(campaignsStats, general);
+  const health = classifyHealth(campaignsStats, general, isDemo);
   const generalWithHealth: GeneralStats = { ...general, health };
 
   const accountsStats: AccountsStats = {
@@ -594,6 +630,7 @@ export async function getTenantSummary(bioId: string, bioName: string): Promise<
   const partial: TenantSummary = {
     bioId,
     bioName,
+    isDemo,
     paragraph: "",
     general: generalWithHealth,
     campaigns: campaignsStats,
@@ -688,10 +725,12 @@ export function buildGlobalSummary(all: TenantSummary[]): GlobalSummary {
     tenants: all.map(t => ({
       bioId: t.bioId,
       bioName: t.bioName,
+      isDemo: t.isDemo,
       health: t.general.health,
       activeLeads: t.general.activeLeads,
       activeFlows: t.general.activeCampaigns,
       stuckQueued: t.campaigns.stuckQueued,
+      overdueCampaigns: t.general.overdueCampaigns,
       failed: t.campaigns.failed,
       lastSendAt: t.general.lastSendAt,
     })).sort((a, b) => {
