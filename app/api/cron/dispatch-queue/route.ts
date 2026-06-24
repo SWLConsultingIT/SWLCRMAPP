@@ -323,6 +323,7 @@ async function requeueTransient(
   }
   await svc.from("campaign_messages").update({
     status: "queued",
+    dispatching_since: null,
     error_details: null,
     metadata: {
       ...prevMeta,
@@ -378,6 +379,39 @@ async function skipMessage(
     },
   }).eq("id", msgId);
   return { kind: "skipped_invited", msgId, leadId };
+}
+
+// Like skipMessage but also advances current_step and queues the next step,
+// so a data-state skip (no LinkedIn slug) doesn't FREEZE the flow. Mirrors
+// dispatch-email.skipAndAdvance. Without this, a slug-less lead stalls forever
+// at current_step with every later step stuck in `draft` — the same class of
+// bug that froze ~150 Pathway campaigns (those were skipped on the email step
+// before that path was fixed 2026-06-18; this closes the LinkedIn path too).
+// Do NOT use for "campaign stopped / lead replied / terminal" skips.
+async function skipAndAdvance(
+  svc: ReturnType<typeof getSupabaseService>,
+  msgId: string, leadId: string, reason: string,
+  candidate: QueuedRow,
+  sequenceSteps: Array<{ daysAfter?: number }> | null | undefined,
+): Promise<DispatchOutcome> {
+  const result = await skipMessage(svc, msgId, leadId, reason);
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const nextStepNumber = candidate.step_number + 1;
+  const nextStepConfig = Array.isArray(sequenceSteps) ? sequenceSteps[candidate.step_number] : null;
+  const nextDaysAfter = typeof nextStepConfig?.daysAfter === "number" ? nextStepConfig.daysAfter : null;
+  const nextEligibleAt = nextDaysAfter !== null ? new Date(Date.now() + nextDaysAfter * DAY_MS).toISOString() : null;
+  await Promise.all([
+    // current_step only ADVANCES (the `.lt` guard) — never drag the cursor back.
+    svc.from("campaigns").update({ current_step: candidate.step_number })
+      .eq("id", candidate.campaign_id).lt("current_step", candidate.step_number),
+    ...(nextEligibleAt ? [
+      svc.from("campaign_messages").update({
+        status: "queued",
+        metadata: { eligible_at: nextEligibleAt, queued_by: "cron-dispatch-queue-skip" },
+      }).eq("campaign_id", candidate.campaign_id).eq("step_number", nextStepNumber).eq("status", "draft"),
+    ] : []),
+  ]);
+  return result;
 }
 
 async function failMessage(
@@ -485,6 +519,7 @@ async function parkAwaitingAcceptance(
   // 1. Park the LinkedIn DM.
   await svc.from("campaign_messages").update({
     status: "queued",
+    dispatching_since: null,
     metadata: {
       dispatched_by: "cron-dispatch-queue",
       awaiting_acceptance: true,
@@ -686,8 +721,13 @@ async function dispatchOneMessage(
   const slug = extractLinkedinSlug(lead.primary_linkedin_url);
   if (!slug) {
     // Data-state, not a delivery failure. Skip without flagging as failed
-    // (would otherwise show up in /admin/reliability as ops noise).
-    return await skipMessage(svc, candidate.id, candidate.lead_id, "no LinkedIn slug on lead");
+    // (would otherwise show up in /admin/reliability as ops noise) — but
+    // ADVANCE so the next step (email / call) still runs. A bare skip here
+    // froze the flow at current_step forever (see skipAndAdvance above).
+    return await skipAndAdvance(
+      svc, candidate.id, candidate.lead_id, "no LinkedIn slug on lead",
+      candidate, (campaign as any)?.sequence_steps ?? null,
+    );
   }
 
   let providerId = lead.linkedin_internal_id ?? null;
