@@ -760,97 +760,17 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         />
       </div>
 
-      {/* ═══ COCKPIT — Pre-Call Brief (left) + an always-on Key facts / Company
-            sidebar (right). The brief ALWAYS renders (Fran 2026-06-05) and
-            self-generates on first view. The sidebar is intentionally compact
-            and ALWAYS populated (role + company), so it never becomes the empty
-            "dead zone" that sank the previous 2-col Profile-tab layout. Heavy,
-            expandable panels (LinkedIn Enrichment, Deep-dive research) stay
-            full-width BELOW. Stacks to one column under lg. ═══ */}
-      <div className="grid lg:grid-cols-[1fr_340px] gap-5 items-start">
-        <div className="min-w-0">
-          <PreCallBrief
-            leadId={id}
-            initialPoints={(lead as any).call_talking_points ?? null}
-            initialGeneratedAt={(lead as any).call_talking_points_at ?? null}
-          />
-        </div>
-
-        <aside className="space-y-4 min-w-0">
-          {/* Key facts — read-at-a-glance contact info (editing still lives in
-              the Profile tab's "About This Person"). */}
-          <div className="rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-            <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Key facts</h3>
-            <dl className="space-y-2.5 text-sm">
-              <div className="flex justify-between gap-3">
-                <dt style={{ color: C.textMuted }}>Role</dt>
-                <dd className="font-semibold text-right" style={{ color: C.textPrimary }}>{lead.primary_title_role ?? "—"}</dd>
-              </div>
-              {lead.primary_seniority && (
-                <div className="flex justify-between gap-3 items-center">
-                  <dt style={{ color: C.textMuted }}>Seniority</dt>
-                  <dd><span className="text-[11px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: goldLight, color: gold }}>{String(lead.primary_seniority).replace("_", " ").toUpperCase()}</span></dd>
-                </div>
-              )}
-              {lead.primary_work_email && (
-                <div className="flex justify-between gap-3 min-w-0">
-                  <dt className="shrink-0" style={{ color: C.textMuted }}>Email</dt>
-                  <dd className="min-w-0"><a href={`mailto:${lead.primary_work_email}`} className="font-medium hover:underline block truncate text-right" style={{ color: C.textBody }}>{lead.primary_work_email}</a></dd>
-                </div>
-              )}
-              {lead.primary_phone && lead.allow_call !== false && (
-                <div className="flex justify-between gap-3">
-                  <dt style={{ color: C.textMuted }}>Mobile</dt>
-                  <dd><a href={`tel:${lead.primary_phone}`} className="font-medium hover:underline" style={{ color: C.textBody }}>{lead.primary_phone}</a></dd>
-                </div>
-              )}
-              {isValidLinkedInUrl(lead.primary_linkedin_url as string | null) && (
-                <div className="flex justify-between gap-3 min-w-0">
-                  <dt className="shrink-0" style={{ color: C.textMuted }}>LinkedIn</dt>
-                  <dd className="min-w-0"><a href={lead.primary_linkedin_url as string} target="_blank" rel="noopener" className="font-medium hover:underline flex items-center gap-1 justify-end truncate" style={{ color: "#0A66C2" }}>{(lead.primary_linkedin_url as string).replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//, "").replace(/\/$/, "")} <ExternalLink size={11} className="shrink-0" /></a></dd>
-                </div>
-              )}
-            </dl>
-          </div>
-
-          {/* Company — so the seller doesn't have to click the link to know who
-              they're calling into. */}
-          {lead.company_name && (
-            <div className="rounded-2xl border p-4" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-              <h3 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: C.textMuted }}>Company</h3>
-              <div className="flex items-start gap-3 mb-3">
-                <div className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>{lead.company_name[0]?.toUpperCase()}</div>
-                <div className="min-w-0">
-                  <Link href={`/companies/${encodeURIComponent(lead.company_name)}`} className="text-sm font-bold hover:underline flex items-center gap-1" style={{ color: C.textPrimary }}>{lead.company_name} <ExternalLink size={10} style={{ color: C.textDim }} /></Link>
-                  <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>{[lead.company_industry, lead.company_sub_industry].filter(Boolean).join(" · ") || "—"}</p>
-                </div>
-              </div>
-              <dl className="space-y-2 text-sm">
-                {[lead.company_city, lead.company_country].filter(Boolean).join(", ") && (
-                  <div className="flex justify-between gap-3"><dt style={{ color: C.textMuted }}>Location</dt><dd className="font-medium text-right" style={{ color: C.textBody }}>{[lead.company_city, lead.company_country].filter(Boolean).join(", ")}</dd></div>
-                )}
-                {(lead.employees ?? lead.company_employee_count) && (
-                  <div className="flex justify-between gap-3"><dt style={{ color: C.textMuted }}>Employees</dt><dd className="font-medium" style={{ color: C.textBody }}>{lead.employees ?? lead.company_employee_count}</dd></div>
-                )}
-                {lead.annual_revenue && (
-                  <div className="flex justify-between gap-3"><dt style={{ color: C.textMuted }}>Revenue</dt><dd className="font-medium" style={{ color: C.textBody }}>${lead.annual_revenue}</dd></div>
-                )}
-              </dl>
-              {lead.company_website && (
-                <a href={lead.company_website.startsWith("http") ? lead.company_website : `https://${lead.company_website}`} target="_blank" rel="noopener" className="text-xs font-medium hover:underline flex items-center gap-1 mt-2.5 break-all" style={{ color: C.blue }}>{lead.company_website} <ExternalLink size={10} className="shrink-0" /></a>
-              )}
-              {technologies.length > 0 && (
-                <div className="mt-3 pt-3 border-t" style={{ borderColor: C.border }}>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: C.textDim }}>Tech stack</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {technologies.slice(0, 8).map((t: string) => (<span key={t} className="text-[11px] font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: C.blueLight, color: C.blue }}>{t}</span>))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </aside>
-      </div>
+      {/* ═══ PRE-CALL BRIEF — ALWAYS rendered (Fran 2026-06-05), self-generates
+            on first view, full-width. (A 2-col cockpit with a facts/company
+            sidebar was tried 2026-06-24 and reverted: the Company card
+            duplicated the Profile-tab Company block and the split read "raro".
+            Company-derived conclusions live in the brief's Account-angle card
+            and the Deep-dive research panel below.) ═══ */}
+      <PreCallBrief
+        leadId={id}
+        initialPoints={(lead as any).call_talking_points ?? null}
+        initialGeneratedAt={(lead as any).call_talking_points_at ?? null}
+      />
 
       {/* ═══ LINKEDIN ENRICHMENT — full profile (About, work history, skills,
             education) pulled live from Unipile on demand. Below the brief so
@@ -880,7 +800,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         const isOverdue = dueDate ? dueDate.getTime() < Date.now() : false;
 
         // Pick one of four states.
-        let tone = "neutral", title = "", subtitle = "", color = C.textMuted;
+        let tone = "neutral", title = "", subtitle = "", color: string = C.textMuted;
         if (status === "completed" || status === "closed_won") {
           tone = "won"; color = C.green;
           title = "Campaign completed";
