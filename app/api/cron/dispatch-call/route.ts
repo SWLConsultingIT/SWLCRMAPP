@@ -219,7 +219,7 @@ async function dispatchOneCall(
       .select("id, source, encrypted_payload, primary_first_name, primary_last_name, primary_phone, primary_secondary_phone, company_bio_id, company_country")
       .eq("id", candidate.lead_id).maybeSingle(),
     svc.from("campaigns")
-      .select("id, seller_id, name, aircall_number_id, sequence_steps")
+      .select("id, seller_id, name, aircall_number_id, sequence_steps, status")
       .eq("id", candidate.campaign_id).maybeSingle(),
   ]);
   if (!rawLead || !campaign) {
@@ -242,6 +242,29 @@ async function dispatchOneCall(
     }
   }
 
+  // Bug 7 fix: stop-condition checks after atomic claim. Any of these releases the
+  // claim rather than burning the attempt as a failed delivery.
+  const TERMINAL_STATUSES = new Set(["qualified", "closed_won", "closed_lost"]);
+  if ((campaign as any).status !== "active") {
+    // Campaign is paused or completed — re-queue (not skip) so it's retried when active again.
+    await svc.from("campaign_messages").update({
+      status: "queued",
+      dispatching_since: null,
+      metadata: { ...(candidate.metadata ?? {}), deferred_by: "campaign-not-active", deferred_at: new Date().toISOString() },
+    }).eq("id", candidate.id);
+    return { kind: "skipped", msgId: candidate.id, leadId: candidate.lead_id, reason: `campaign status=${(campaign as any).status}` };
+  }
+  if (TERMINAL_STATUSES.has((lead as any).status)) {
+    return await skipMessage(svc, candidate.id, candidate.lead_id, `lead terminal status=${(lead as any).status}`);
+  }
+  const { count: replyCount } = await svc
+    .from("lead_replies")
+    .select("id", { count: "exact", head: true })
+    .eq("lead_id", candidate.lead_id);
+  if ((replyCount ?? 0) > 0) {
+    return await skipMessage(svc, candidate.id, candidate.lead_id, "lead has a reply — flow stopped");
+  }
+
   // Business-hours guard: never dial a lead at 3 AM their time. Skip + requeue
   // with eligible_at set to the next 09:00 local Mon-Fri so the dispatcher
   // ignores this row until then. Cooldown machinery and daily caps still apply.
@@ -250,7 +273,8 @@ async function dispatchOneCall(
     const eligibleAt = nextBusinessWindowStartUTC(tz);
     await svc.from("campaign_messages").update({
       status: "queued",
-      metadata: { eligible_at: eligibleAt, deferred_by: "business-hours", deferred_tz: tz },
+      dispatching_since: null,
+      metadata: { ...(candidate.metadata ?? {}), eligible_at: eligibleAt, deferred_by: "business-hours", deferred_tz: tz },
     }).eq("id", candidate.id);
     return { kind: "skipped", msgId: candidate.id, leadId: lead.id, reason: `outside business hours (${tz}); requeued for ${eligibleAt}` };
   }
@@ -258,8 +282,33 @@ async function dispatchOneCall(
   // Phone resolution + E.164 normalization.
   const rawPhone = (lead as any).primary_phone || (lead as any).primary_secondary_phone || null;
   if (!rawPhone) {
-    // Data-state, not a delivery failure. Skip cleanly.
-    return await skipMessage(svc, candidate.id, candidate.lead_id, "lead has no phone");
+    // Data-state, not a delivery failure. Skip the call message and advance the
+    // campaign to the next step so the lead doesn't stay stuck at this call step
+    // forever. Same advancement logic as a successful call dispatch.
+    await skipMessage(svc, candidate.id, candidate.lead_id, "lead has no phone");
+    const seqSteps = (campaign as any)?.sequence_steps as Array<{ channel?: string; daysAfter?: number }> | null;
+    const nextStepNum = candidate.step_number + 1;
+    const nextCfg = Array.isArray(seqSteps) ? seqSteps[candidate.step_number] : null;
+    const nextDays = typeof nextCfg?.daysAfter === "number" ? nextCfg.daysAfter : null;
+    const nextEligible = nextDays !== null
+      ? new Date(Date.now() + nextDays * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+    const nowISO = new Date().toISOString();
+    await Promise.all([
+      svc.from("campaigns").update({
+        last_step_at: nowISO,
+        ...(nextEligible === null ? { status: "completed" } : {}),
+      }).eq("id", candidate.campaign_id),
+      svc.from("campaigns").update({ current_step: candidate.step_number })
+        .eq("id", candidate.campaign_id).lt("current_step", candidate.step_number),
+    ]);
+    if (nextEligible) {
+      await svc.from("campaign_messages").update({
+        status: "queued",
+        metadata: { eligible_at: nextEligible, queued_by: "cron-dispatch-call-no-phone" },
+      }).eq("campaign_id", candidate.campaign_id).eq("step_number", nextStepNum).eq("status", "draft");
+    }
+    return { kind: "skipped", msgId: candidate.id, leadId: candidate.lead_id, reason: "lead has no phone — advanced to next step" };
   }
   const normalizedPhone = "+" + String(rawPhone).replace(/[^\d]/g, "");
   if (normalizedPhone.length < 8) {
@@ -304,7 +353,8 @@ async function dispatchOneCall(
     const requeueAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
     await svc.from("campaign_messages").update({
       status: "queued",
-      metadata: { eligible_at: requeueAt, deferred_by: "tenant-user-unavailable", deferred_user_id: resolvedUserId },
+      dispatching_since: null,
+      metadata: { ...(candidate.metadata ?? {}), eligible_at: requeueAt, deferred_by: "tenant-user-unavailable", deferred_user_id: resolvedUserId },
     }).eq("id", candidate.id);
     return { kind: "skipped", msgId: candidate.id, leadId: candidate.lead_id, reason: `Aircall user ${resolvedUserId} not signed in; requeued for ${requeueAt}` };
   }
@@ -350,7 +400,10 @@ async function dispatchOneCall(
       status: "sent",
       sent_at: now,
       error_details: null,
+      // Bug 11 fix: merge with existing metadata instead of replacing — preserves
+      // eligible_at and other fields written before dispatch.
       metadata: {
+        ...(candidate.metadata as Record<string, unknown> | null) ?? {},
         dispatched_by: "cron-dispatch-call",
         aircall_user_id: resolvedUserId,
         aircall_number_id: numberId,
@@ -365,13 +418,16 @@ async function dispatchOneCall(
       started_at: now,
     }),
     svc.from("leads").update({ status: "contacted", current_channel: "call" }).eq("id", lead.id),
-    // Advance campaign to the step we just completed so the queue page no longer
-    // shows this lead under "pending calls" and the next step becomes eligible.
+    // last_step_at + status always update unconditionally.
     svc.from("campaigns").update({
-      current_step: candidate.step_number,
       last_step_at: now,
       ...(nextEligibleAt === null ? { status: "completed" } : {}),
     }).eq("id", candidate.campaign_id),
+    // current_step only ADVANCES — never retreats. Same .lt() guard as
+    // dispatch-queue and dispatch-email: if another dispatcher (e.g. email)
+    // already advanced the cursor to a higher step, this write is a no-op.
+    svc.from("campaigns").update({ current_step: candidate.step_number })
+      .eq("id", candidate.campaign_id).lt("current_step", candidate.step_number),
   ]);
 
   // Queue the next draft step (e.g. LinkedIn follow-up) so the relevant
@@ -483,6 +539,19 @@ async function handle(req: NextRequest) {
   const scope = await getUserScope().catch(() => ({ role: null as string | null }));
   if (!authorized(req, scope.role ?? null)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // KILL-SWITCH (Fran 2026-06-24): calls are MANUAL — sellers dial from /queue.
+  // Auto-dialing is OFF by default and the Orquestador node was already
+  // disabled; this guard makes it impossible at the code level too, so
+  // re-enabling the n8n node alone can never start auto-dialing leads. Flip
+  // ENABLE_AUTO_DIAL=1 in env only as a deliberate, explicit opt-in.
+  if (process.env.ENABLE_AUTO_DIAL !== "1") {
+    return NextResponse.json({
+      ok: true,
+      skipped: "auto-dial disabled — calls are manual (seller dials from /queue). Set ENABLE_AUTO_DIAL=1 to re-enable.",
+      dialed: 0,
+    });
   }
 
   // Aircall preflight: pull the list of all users + availability ONCE per
