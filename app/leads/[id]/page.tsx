@@ -163,6 +163,20 @@ async function getCalls(leadId: string) {
   return Array.isArray(data) ? data : [];
 }
 
+// What we sell into this lead's segment — powers the "Account & industry angle"
+// card (our generic play for their industry, from the ICP + company bio).
+async function getAngleContext(icpId: string | null, bioId: string | null) {
+  const supabase = await getSupabaseServer();
+  const [icpRes, bioRes] = await Promise.all([
+    icpId ? supabase.from("icp_profiles").select("profile_name, solutions_offered, pain_points").eq("id", icpId).single() : Promise.resolve({ data: null }),
+    bioId ? supabase.from("company_bios").select("main_services, value_proposition").eq("id", bioId).single() : Promise.resolve({ data: null }),
+  ]);
+  return {
+    icp: (icpRes.data ?? null) as { profile_name?: string; solutions_offered?: string; pain_points?: string } | null,
+    bio: (bioRes.data ?? null) as { main_services?: string; value_proposition?: string } | null,
+  };
+}
+
 // ── Helpers ──
 
 function scoreBadge(score: number | null, priority: boolean) {
@@ -308,6 +322,9 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   const { id } = await params;
   const lead = await getLead(id);
   if (!lead) notFound();
+
+  // Account & industry angle context (our play for this lead's segment).
+  const angle = await getAngleContext((lead as any).icp_profile_id ?? null, (lead as any).company_bio_id ?? null);
 
   const [campaign, rawMessages, replies, calls] = await Promise.all([
     getCampaign(id),
@@ -761,31 +778,91 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       </div>
 
       {/* ═══ PRE-CALL BRIEF — ALWAYS rendered (Fran 2026-06-05), self-generates
-            on first view, full-width. (A 2-col cockpit with a facts/company
-            sidebar was tried 2026-06-24 and reverted: the Company card
-            duplicated the Profile-tab Company block and the split read "raro".
-            Company-derived conclusions live in the brief's Account-angle card
-            and the Deep-dive research panel below.) ═══ */}
+            on first view. First in the Overview flow: brief → account angle →
+            company → deep-dive → enrichment. ═══ */}
       <PreCallBrief
         leadId={id}
         initialPoints={(lead as any).call_talking_points ?? null}
         initialGeneratedAt={(lead as any).call_talking_points_at ?? null}
       />
 
-      {/* ═══ LINKEDIN ENRICHMENT — full profile (About, work history, skills,
-            education) pulled live from Unipile on demand. Below the brief so
-            the seller can dig into the raw profile after the 30-sec summary. ═══ */}
-      <LinkedInEnrichment leadId={id} />
+      {/* ═══ ACCOUNT & INDUSTRY ANGLE — what this company does + our generic
+            play for their industry (from the ICP / company bio). Always-on,
+            data-grounded; the per-lead AI conclusion lives in the brief's
+            Account-angle card above. ═══ */}
+      {lead.company_name && (() => {
+        const whatTheyDo = (lead.organization_description as string | null)
+          || (lead.website_summary as string | null)
+          || ([lead.company_industry, lead.company_sub_industry].filter(Boolean).join(" · ") || null);
+        const ourPlay = angle.icp?.solutions_offered || angle.bio?.main_services || null;
+        const valueProp = angle.bio?.value_proposition || angle.icp?.pain_points || null;
+        if (!whatTheyDo && !ourPlay) return null;
+        return (
+          <div className="rounded-2xl border p-5 mt-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+            <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Account &amp; industry angle</h3>
+            <div className="grid md:grid-cols-2 gap-3">
+              {whatTheyDo && (
+                <div className="rounded-xl p-4" style={{ backgroundColor: C.bg, borderLeft: "3px solid #0891B2" }}>
+                  <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#155E75", letterSpacing: "0.08em" }}>What this company does</p>
+                  <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{String(whatTheyDo).slice(0, 400)}</p>
+                </div>
+              )}
+              {ourPlay && (
+                <div className="rounded-xl p-4" style={{ backgroundColor: C.bg, borderLeft: "3px solid #7C3AED" }}>
+                  <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#5B21B6", letterSpacing: "0.08em" }}>Our play for this industry</p>
+                  <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{String(ourPlay).slice(0, 400)}</p>
+                </div>
+              )}
+            </div>
+            {valueProp && (
+              <div className="mt-3 rounded-xl p-4" style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 6%, transparent)", border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 20%, transparent)" }}>
+                <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}><span className="font-bold" style={{ color: gold }}>→ </span>{String(valueProp).slice(0, 300)}</p>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
-      {/* AI Summary — moved out of its own tab into a card right under
-          LinkedIn Enrichment (boss 2026-06-09: "summary debería ser un card
-          abajo de linkedin enrichment y sacar esa view"). */}
+      {/* ═══ COMPANY CARD — compact, clickable through to the full company page
+            (replaces the old in-tab Company block). ═══ */}
+      {lead.company_name && (() => {
+        const techs = Array.isArray((lead.enrichment as any)?.technologies) ? (lead.enrichment as any).technologies as string[] : [];
+        return (
+          <Link href={`/companies/${encodeURIComponent(lead.company_name)}`} className="block mt-6 rounded-2xl border p-5 transition-shadow hover:shadow-md" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>{lead.company_name[0]?.toUpperCase()}</div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[15px] font-bold" style={{ color: C.textPrimary }}>{lead.company_name}</p>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs" style={{ color: C.textMuted }}>
+                  {[lead.company_industry, lead.company_sub_industry].filter(Boolean).length > 0 && <span>{[lead.company_industry, lead.company_sub_industry].filter(Boolean).join(" · ")}</span>}
+                  {[lead.company_city, lead.company_country].filter(Boolean).length > 0 && <span>{[lead.company_city, lead.company_country].filter(Boolean).join(", ")}</span>}
+                  {(lead.employees ?? lead.company_employee_count) ? <span><strong style={{ color: C.textBody }}>{lead.employees ?? lead.company_employee_count}</strong> employees</span> : null}
+                  {lead.annual_revenue ? <span><strong style={{ color: C.textBody }}>${lead.annual_revenue}</strong></span> : null}
+                </div>
+                {techs.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {techs.slice(0, 6).map((t) => <span key={t} className="text-[11px] font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: C.blueLight, color: C.blue }}>{t}</span>)}
+                  </div>
+                )}
+              </div>
+              <span className="text-xs font-bold flex items-center gap-1 shrink-0" style={{ color: gold }}>View company <ExternalLink size={12} /></span>
+            </div>
+          </Link>
+        );
+      })()}
+
+      {/* ═══ DEEP-DIVE RESEARCH — long-form prep dossier. ═══ */}
       <div className="mt-6">
         <LeadSummaryTab
           leadId={id}
           initialSummary={lead.ai_summary ?? null}
           initialGeneratedAt={lead.ai_summary_at ?? null}
         />
+      </div>
+
+      {/* ═══ LINKEDIN ENRICHMENT — raw full profile, on demand. ═══ */}
+      <div className="mt-6">
+        <LinkedInEnrichment leadId={id} />
       </div>
 
       {/* ═══ NEXT ACTION CARD — what the user should do or know right now.
@@ -1246,54 +1323,9 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             {/* Personalized Info — client-specific enrichment (Pathway: credit signals) */}
             <PersonalizedInfoPanel enrichment={lead.enrichment} />
 
-            {/* Company Info */}
-            {lead.company_name && (
-              <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-                <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Company</h3>
-                <div className="flex items-start gap-4 mb-4">
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center text-base font-bold shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>
-                    {lead.company_name[0]?.toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <Link href={`/companies/${encodeURIComponent(lead.company_name)}`}
-                      className="text-sm font-bold hover:underline flex items-center gap-1"
-                      style={{ color: C.textPrimary }}>
-                      {lead.company_name} <ExternalLink size={10} style={{ color: C.textDim }} />
-                    </Link>
-                    <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
-                      {[lead.company_industry, lead.company_sub_industry].filter(Boolean).join(" · ") || "—"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3 mb-3">
-                  {[
-                    { label: "Location", value: [lead.company_city, lead.company_country].filter(Boolean).join(", ") || null },
-                    { label: "Employees", value: lead.employees ?? lead.company_employee_count ?? null },
-                    { label: "Revenue", value: lead.annual_revenue ? `$${lead.annual_revenue}` : null },
-                  ].filter(f => f.value).map(f => (
-                    <div key={f.label} className="p-2.5 rounded-lg" style={{ backgroundColor: C.bg }}>
-                      <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{f.label}</p>
-                      <p className="text-xs font-semibold" style={{ color: C.textBody }}>{f.value}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {lead.organization_description && (
-                  <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>{lead.organization_description}</p>
-                )}
-
-                {lead.company_website && (
-                  <a href={lead.company_website.startsWith("http") ? lead.company_website : `https://${lead.company_website}`}
-                    target="_blank" rel="noopener"
-                    className="text-xs font-medium hover:underline flex items-center gap-1 mt-2"
-                    style={{ color: C.blue }}>
-                    {lead.company_website} <ExternalLink size={10} />
-                  </a>
-                )}
-              </div>
-            )}
+            {/* Company Info moved to the Overview flow as a single clickable
+                card (links to /companies/[name]) — removed here to avoid the
+                duplicate Company block. */}
 
             {/* Tech Stack & Keywords */}
             {(technologies.length > 0 || keywords.length > 0) && (
