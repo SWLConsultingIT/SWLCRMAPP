@@ -104,7 +104,7 @@ export async function POST(
         company_state, company_industry, company_sub_industry, company_linkedin,
         company_phone
       ),
-      campaigns(id, name, sequence_steps, seller_id, flow_type)
+      campaigns(id, name, sequence_steps, seller_id)
     `)
     .eq("id", replyId)
     .maybeSingle();
@@ -275,7 +275,7 @@ export async function POST(
   }
 
   // 9. Enrol: clone the original flow, keeping only steps the lead can use.
-  const origCampaign = (reply as unknown as { campaigns: { id: string; name: string | null; sequence_steps: unknown; seller_id: string | null; flow_type: string | null } | null }).campaigns;
+  const origCampaign = (reply as unknown as { campaigns: { id: string; name: string | null; sequence_steps: unknown; seller_id: string | null } | null }).campaigns;
   if (!origCampaign?.id) {
     await markActioned(false);
     return NextResponse.json({ ok: true, leadId: newLeadId, enrolled: false, reason: "no_source_flow", message: "Lead created — the reply has no source campaign to clone, enrol it manually." });
@@ -327,7 +327,7 @@ export async function POST(
       sequence_length: sequence.length,
       frequency_days: 0,
       target_leads_count: 1,
-      flow_type: origCampaign.flow_type ?? "generic",
+      flow_type: "generic",
       message_prompts: {
         sequence,
         channelMessages: { connectionRequest: "", steps: steps.map((s, i) => ({ channel: sequence[i].channel, subject: s.subject, body: s.body })), autoReplies: {} },
