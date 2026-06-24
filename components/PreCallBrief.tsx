@@ -111,6 +111,61 @@ const POINT_META: Record<PointType, {
   },
 };
 
+// The brief reads as two groups: "the read" (who they are + how to play it) and
+// "the play" (pain/fit/hook + what to say). Opener is rendered full-width at the
+// end of the play group so the verbatim line stands out.
+const READ_TYPES: PointType[] = ["snapshot", "account", "read"];
+const PLAY_TYPES: PointType[] = ["pain", "fit", "hook", "objection"];
+
+function GroupLabel({ children }: { children: string }) {
+  return (
+    <p className="text-[9.5px] font-bold uppercase tracking-wider mb-2" style={{ color: gold, letterSpacing: "0.12em" }}>
+      {children}
+    </p>
+  );
+}
+
+function BriefCard({ p }: { p: TalkingPoint }) {
+  const meta = POINT_META[p.type];
+  const Icon = meta.icon;
+  const isOpener = p.type === "opener";
+  return (
+    <div className="relative rounded-xl overflow-hidden border transition-shadow hover:shadow-sm h-full"
+      style={{ background: meta.tint, borderColor: `color-mix(in srgb, ${meta.accent} 18%, ${C.border})` }}>
+      <div className="absolute left-0 top-0 bottom-0" style={{ width: 3, backgroundColor: meta.accent }} />
+      <div className="flex gap-3.5 p-4 pl-5">
+        <div className="rounded-full flex items-center justify-center shrink-0 shadow-sm"
+          style={{ width: 34, height: 34, background: `linear-gradient(135deg, ${meta.accent}, color-mix(in srgb, ${meta.accent} 70%, white))` }}>
+          <Icon size={15} style={{ color: "#fff" }} strokeWidth={2.4} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <span className="inline-flex items-center text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md mb-1.5"
+            style={{ backgroundColor: meta.pillBg, color: meta.pillFg, letterSpacing: "0.08em" }}>
+            {meta.label}
+          </span>
+          {isOpener ? (
+            <p className="text-[14px] leading-snug italic" style={{ color: C.textPrimary, fontFamily: "Georgia, 'Times New Roman', serif" }}>
+              &ldquo;{p.text}&rdquo;
+            </p>
+          ) : (
+            <p className="text-[13.5px] leading-snug" style={{ color: C.textPrimary }}>{p.text}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LegacyCard({ text, n }: { text: string; n: number }) {
+  return (
+    <div className="flex gap-3 rounded-xl p-4 border" style={{ backgroundColor: C.surface, borderColor: C.border }}>
+      <span className="flex items-center justify-center rounded-full shrink-0 text-[11px] font-bold"
+        style={{ width: 24, height: 24, backgroundColor: gold, color: "#fff" }}>{n}</span>
+      <p className="text-[13.5px] leading-snug" style={{ color: C.textPrimary }}>{text}</p>
+    </div>
+  );
+}
+
 export default function PreCallBrief({
   leadId,
   initialPoints,
@@ -245,63 +300,43 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
           </p>
         )}
 
-        {points && points.length > 0 ? (
-          <div className="grid gap-3">
-            {orderPoints(points).map((p, i) => {
-              if (isStructured(p)) {
-                const meta = POINT_META[p.type];
-                const Icon = meta.icon;
-                const isOpener = p.type === "opener";
-                return (
-                  <div key={i}
-                    className="relative rounded-xl overflow-hidden border transition-shadow hover:shadow-sm"
-                    style={{
-                      background: meta.tint,
-                      borderColor: `color-mix(in srgb, ${meta.accent} 18%, ${C.border})`,
-                    }}>
-                    <div className="absolute left-0 top-0 bottom-0" style={{ width: 3, backgroundColor: meta.accent }} />
-                    <div className="flex gap-3.5 p-4 pl-5">
-                      <div className="rounded-full flex items-center justify-center shrink-0 shadow-sm"
-                        style={{
-                          width: 34, height: 34,
-                          background: `linear-gradient(135deg, ${meta.accent}, color-mix(in srgb, ${meta.accent} 70%, white))`,
-                        }}>
-                        <Icon size={15} style={{ color: "#fff" }} strokeWidth={2.4} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="inline-flex items-center text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md mb-1.5"
-                          style={{ backgroundColor: meta.pillBg, color: meta.pillFg, letterSpacing: "0.08em" }}>
-                          {meta.label}
-                        </span>
-                        {isOpener ? (
-                          <p className="text-[14px] leading-snug italic"
-                            style={{ color: C.textPrimary, fontFamily: "Georgia, 'Times New Roman', serif" }}>
-                            &ldquo;{p.text}&rdquo;
-                          </p>
-                        ) : (
-                          <p className="text-[13.5px] leading-snug" style={{ color: C.textPrimary }}>
-                            {p.text}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+        {points && points.length > 0 ? (() => {
+          const ordered = orderPoints(points);
+          const read = ordered.filter((p): p is TalkingPoint => isStructured(p) && READ_TYPES.includes(p.type));
+          const play = ordered.filter((p): p is TalkingPoint => isStructured(p) && PLAY_TYPES.includes(p.type));
+          const opener = ordered.find((p): p is TalkingPoint => isStructured(p) && p.type === "opener");
+          const legacy = ordered.filter((p) => !isStructured(p)) as string[];
+          // Older briefs persisted as plain strings / unknown types → simple list.
+          if (read.length === 0 && play.length === 0 && !opener) {
+            return <div className="grid gap-3">{legacy.map((t, i) => <LegacyCard key={i} text={String(t)} n={i + 1} />)}</div>;
+          }
+          return (
+            <div className="space-y-4">
+              {read.length > 0 && (
+                <div>
+                  <GroupLabel>The read — who they are &amp; how to play it</GroupLabel>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
+                    {read.map((p, i) => <BriefCard key={i} p={p} />)}
                   </div>
-                );
-              }
-              // Legacy string format — keep visible so older briefs don't blank out.
-              return (
-                <div key={i} className="flex gap-3 rounded-xl p-4 border"
-                  style={{ backgroundColor: C.surface, borderColor: C.border }}>
-                  <span className="flex items-center justify-center rounded-full shrink-0 text-[11px] font-bold"
-                    style={{ width: 24, height: 24, backgroundColor: gold, color: "#fff" }}>
-                    {i + 1}
-                  </span>
-                  <p className="text-[13.5px] leading-snug" style={{ color: C.textPrimary }}>{p}</p>
                 </div>
-              );
-            })}
-          </div>
-        ) : loading ? (
+              )}
+              {(play.length > 0 || opener) && (
+                <div>
+                  <GroupLabel>The play — pain, fit &amp; what to say</GroupLabel>
+                  {play.length > 0 && (
+                    <div className="grid gap-3 sm:grid-cols-2 items-stretch">
+                      {play.map((p, i) => <BriefCard key={i} p={p} />)}
+                    </div>
+                  )}
+                  {opener && <div className="mt-3"><BriefCard p={opener} /></div>}
+                </div>
+              )}
+              {legacy.length > 0 && (
+                <div className="grid gap-3">{legacy.map((t, i) => <LegacyCard key={i} text={String(t)} n={i + 1} />)}</div>
+              )}
+            </div>
+          );
+        })() : loading ? (
           <div className="grid gap-3">
             {[1, 2, 3, 4, 5].map((i) => (
               <div key={i} className="flex gap-3.5 rounded-xl p-4 pl-5 border animate-pulse"
