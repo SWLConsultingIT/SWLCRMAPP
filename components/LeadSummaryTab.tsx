@@ -70,7 +70,7 @@ export default function LeadSummaryTab({ leadId, initialSummary, initialGenerate
               className="text-[15px] font-semibold"
               style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}
             >
-              AI Summary
+              Deep-dive research
             </h3>
             <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
               {generatedAt
@@ -101,22 +101,50 @@ export default function LeadSummaryTab({ leadId, initialSummary, initialGenerate
         </div>
       )}
 
-      {summary ? (
-        <div
-          className="rounded-xl px-4 py-3.5 relative"
-          style={{
-            backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 4%, transparent)",
-            border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 14%, transparent)",
-          }}
-        >
-          <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>
-            {summary}
-          </p>
-        </div>
-      ) : (
+      {summary ? (() => {
+        // New format: JSON array of {heading, body}. Legacy: a plain paragraph.
+        let sections: { heading: string; body: string }[] | null = null;
+        try {
+          const parsed = JSON.parse(summary);
+          if (Array.isArray(parsed)) {
+            sections = parsed.filter((s) => s && typeof s.heading === "string" && typeof s.body === "string");
+          }
+        } catch { /* legacy plain text */ }
+
+        if (!sections || sections.length === 0) {
+          return (
+            <div className="rounded-xl px-4 py-3.5 relative"
+              style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 4%, transparent)", border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 14%, transparent)" }}>
+              <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{summary}</p>
+            </div>
+          );
+        }
+        return (
+          <div className="space-y-3.5">
+            {sections.map((s, i) => (
+              <div key={i} className="rounded-xl px-4 py-3.5 relative"
+                style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 4%, transparent)", border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 14%, transparent)" }}>
+                <h4 className="text-[11px] font-bold uppercase tracking-wider mb-1.5" style={{ color: gold, letterSpacing: "0.08em" }}>{s.heading}</h4>
+                <div className="text-sm leading-relaxed space-y-1" style={{ color: C.textBody }}>
+                  {s.body.split("\n").map((line, j) => {
+                    const t = line.trim();
+                    if (!t) return null;
+                    const bullet = t.startsWith("- ") || t.startsWith("• ");
+                    return bullet ? (
+                      <div key={j} className="flex gap-2"><span style={{ color: gold }}>•</span><span>{t.replace(/^[-•]\s+/, "")}</span></div>
+                    ) : (
+                      <p key={j}>{t}</p>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })() : (
         <div className="text-center py-10 relative">
           <p className="text-sm mb-5 max-w-sm mx-auto leading-relaxed" style={{ color: C.textMuted }}>
-            Get an AI-generated intelligence brief on this lead — personalized outreach angle based on enrichment data.
+            Long-form account &amp; contact research — company deep-dive, why-now, account strategy and a suggested sequence. The 5-minute prep, distinct from the 30-second brief.
           </p>
           <button
             onClick={generate}
@@ -129,7 +157,7 @@ export default function LeadSummaryTab({ leadId, initialSummary, initialGenerate
             }}
           >
             {loading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-            {loading ? "Generating…" : "Generate Summary"}
+            {loading ? "Researching…" : "Generate research"}
           </button>
         </div>
       )}
