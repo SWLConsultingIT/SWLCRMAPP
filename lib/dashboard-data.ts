@@ -679,6 +679,30 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     }
     for (const k of toRemove) callGroups.delete(k);
   }
+
+  // Per-seller call CONTACTED / ANSWERED for the Channel Champion + per-seller
+  // call metrics. Manual dials log to the `calls` table, NOT campaign_messages
+  // (the call step stays 'queued'/'draft' — only the now-disabled auto-dialer
+  // ever flipped it to 'sent'). So counting call "contacted" from sent messages
+  // under-counts to ~0 and the Call champion never appears even though sellers
+  // dialed hundreds of leads. Source it from real calls, attributed to the
+  // lead's flow owner (campaign.seller_id) to match the sellerAgg keying.
+  const callContactedBySeller = new Map<string, Set<string>>();
+  const callAnsweredBySeller = new Map<string, Set<string>>();
+  for (const g of callGroups.values()) {
+    if (!g.leadId) continue;
+    const ownerId = leadToSellerId.get(g.leadId);
+    if (!ownerId) continue;
+    let cset = callContactedBySeller.get(ownerId);
+    if (!cset) { cset = new Set(); callContactedBySeller.set(ownerId, cset); }
+    cset.add(g.leadId);
+    if (g.answered) {
+      let aset = callAnsweredBySeller.get(ownerId);
+      if (!aset) { aset = new Set(); callAnsweredBySeller.set(ownerId, aset); }
+      aset.add(g.leadId);
+    }
+  }
+
   type CallOutcomeCounts = { made: number; answered: number; interested: number; badTiming: number; voicemail: number; notInterested: number; wrongNumber: number };
   type SellerCallStats = CallOutcomeCounts & { sellerId: string; sellerName: string; byDay: Record<string, CallOutcomeCounts> };
   const blankCounts = (): CallOutcomeCounts => ({ made: 0, answered: 0, interested: 0, badTiming: 0, voicemail: 0, notInterested: 0, wrongNumber: 0 });
@@ -1205,6 +1229,11 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       .map(i => ({ id: i.id, name: i.name, sent: i.sent, replied: i.replied.size, positive: i.positive.size }))
       .sort((a, b) => b.positive - a.positive || b.sent - a.sent)
       .slice(0, 3);
+    // Call metrics from the `calls` table (real dials), not campaign_messages —
+    // see callContactedBySeller above. "replied" on a call = the call was
+    // answered (duration > 0), the truest analog to "they responded".
+    const contactedCall = callContactedBySeller.get(g.id)?.size ?? 0;
+    const repliedCall = callAnsweredBySeller.get(g.id)?.size ?? 0;
     return {
       id: g.id,
       name: g.name,
@@ -1221,13 +1250,13 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       // channel works for each seller specifically.
       replyRateLinkedin: g.contactedLinkedin.size > 0 ? Math.round((g.repliedLinkedin.size / g.contactedLinkedin.size) * 100) : 0,
       replyRateEmail:    g.contactedEmail.size > 0    ? Math.round((g.repliedEmail.size    / g.contactedEmail.size) * 100)    : 0,
-      replyRateCall:     g.contactedCall.size > 0     ? Math.round((g.repliedCall.size     / g.contactedCall.size) * 100)     : 0,
+      replyRateCall:     contactedCall > 0              ? Math.round((repliedCall            / contactedCall) * 100)            : 0,
       contactedLinkedin: g.contactedLinkedin.size,
       contactedEmail:    g.contactedEmail.size,
-      contactedCall:     g.contactedCall.size,
+      contactedCall,
       repliedLinkedin:   g.repliedLinkedin.size,
       repliedEmail:      g.repliedEmail.size,
-      repliedCall:       g.repliedCall.size,
+      repliedCall,
       // Connection invite leg
       connectionsSent: g.connectionsSent.size,
       connectionsAccepted: g.connectionsAccepted.size,
