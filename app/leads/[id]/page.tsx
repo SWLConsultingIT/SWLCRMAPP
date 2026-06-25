@@ -31,6 +31,8 @@ import MoveForwardButton from "@/components/MoveForwardButton";
 import PreCallBrief from "@/components/PreCallBrief";
 import LeadQA from "@/components/LeadQA";
 import ScrapeCompanyButton from "@/components/ScrapeCompanyButton";
+import ProspectClock from "@/components/ProspectClock";
+import { countryToTimeZone } from "@/lib/prospect-time";
 import LinkedInEnrichment from "@/components/LinkedInEnrichment";
 import RecentLeadTracker from "@/components/RecentLeadTracker";
 
@@ -582,6 +584,12 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   style={{ color: score.color, backgroundColor: score.bg }}>
                   {score.label}
                 </span>
+                {(() => {
+                  const tz = countryToTimeZone(lead.company_country);
+                  if (!tz) return null;
+                  const place = lead.company_city || lead.company_country || null;
+                  return <ProspectClock tz={tz} place={place} />;
+                })()}
                 {lead.created_at && (Date.now() - new Date(lead.created_at).getTime() < 7 * 86_400_000) && (
                   <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 sm:py-1 rounded-full"
                     style={{ backgroundColor: gold, color: "#04070d" }}>
@@ -826,6 +834,16 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         const techs = Array.isArray(enr.technologies) ? enr.technologies as string[] : [];
         const kws = Array.isArray(enr.keywords) ? enr.keywords as string[] : [];
         const scrape = (lead.company_scrape as { summary?: string; services?: string[]; scraped_at?: string } | null) ?? null;
+        // Conversation signals — what the company is publishing + sector trends.
+        // Both arrive as free text from enrichment; render best-effort.
+        const asText = (v: unknown) => (Array.isArray(v) ? v.join(" · ") : typeof v === "string" ? v : "");
+        const companyPosts = asText(lead.company_posts_content).trim();
+        const sectorTrends = asText(lead.industry_trends).trim();
+        // Company social links beyond the website.
+        const socials = [
+          lead.company_blog ? { label: "Blog", href: String(lead.company_blog).startsWith("http") ? String(lead.company_blog) : `https://${lead.company_blog}` } : null,
+          lead.company_instagram ? { label: "Instagram", href: String(lead.company_instagram).startsWith("http") ? String(lead.company_instagram) : `https://instagram.com/${String(lead.company_instagram).replace(/^@/, "")}` } : null,
+        ].filter(Boolean) as { label: string; href: string }[];
         const whatTheyDo = (scrape?.summary as string | null) || (lead.organization_description as string | null) || (lead.website_summary as string | null) || null;
         const ourPlay = angle.icp?.solutions_offered || angle.bio?.main_services || null;
         const valueProp = angle.bio?.value_proposition || angle.icp?.pain_points || null;
@@ -880,10 +898,22 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}><span className="font-bold" style={{ color: gold }}>→ </span>{String(valueProp).slice(0, 320)}</p>
               </div>
             )}
-            {(techs.length > 0 || kws.length > 0 || website || lead.recent_website_news) && (
+            {(techs.length > 0 || kws.length > 0 || website || lead.recent_website_news || socials.length > 0 || companyPosts || sectorTrends) && (
               <div className="px-5 pb-5 pt-3 border-t" style={{ borderColor: C.border }}>
-                {website && (
-                  <a href={website} target="_blank" rel="noopener" className="text-xs font-medium hover:underline inline-flex items-center gap-1" style={{ color: C.blue }}>{lead.company_website} <ExternalLink size={10} /></a>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {website && (
+                    <a href={website} target="_blank" rel="noopener" className="text-xs font-medium hover:underline inline-flex items-center gap-1" style={{ color: C.blue }}>{lead.company_website} <ExternalLink size={10} /></a>
+                  )}
+                  {socials.map(s => (
+                    <a key={s.label} href={s.href} target="_blank" rel="noopener" className="text-xs font-medium hover:underline inline-flex items-center gap-1" style={{ color: C.textMuted }}>{s.label} <ExternalLink size={10} /></a>
+                  ))}
+                </div>
+                {(companyPosts || sectorTrends) && (
+                  <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: `color-mix(in srgb, ${ZONE.account} 7%, transparent)`, borderLeft: `3px solid ${ZONE.account}` }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: ZONE.account, letterSpacing: "0.08em" }}>Signals to mention</p>
+                    {companyPosts && <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{companyPosts.slice(0, 280)}</p>}
+                    {sectorTrends && <p className="text-[12px] leading-relaxed mt-1.5" style={{ color: C.textMuted }}><span className="font-semibold">Sector:</span> {sectorTrends.slice(0, 220)}</p>}
+                  </div>
                 )}
                 {techs.length > 0 && (
                   <div className="mt-3">
@@ -905,6 +935,31 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 )}
               </div>
             )}
+          </div>
+        );
+      })()}
+
+      {/* ═══ CONVERSATION STARTERS — the prospect's own recent activity, the
+            best personalization fuel for a first touch. Only renders when we
+            actually captured a post. ═══ */}
+      {(() => {
+        const starters = [
+          lead.recent_linkedin_post ? { src: "LinkedIn", text: String(lead.recent_linkedin_post) } : null,
+          lead.recent_ig_post ? { src: "Instagram", text: String(lead.recent_ig_post) } : null,
+          lead.twitter_last_posts ? { src: "X / Twitter", text: Array.isArray(lead.twitter_last_posts) ? (lead.twitter_last_posts as string[]).join(" · ") : String(lead.twitter_last_posts) } : null,
+        ].filter(Boolean).filter(s => s!.text.trim()) as { src: string; text: string }[];
+        if (starters.length === 0) return null;
+        return (
+          <div className="rounded-2xl border mt-6 p-5" style={{ backgroundColor: C.card, borderColor: C.border, borderLeft: `3px solid ${ZONE.account}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-3" style={{ color: ZONE.account, letterSpacing: "0.1em" }}>Conversation starters · what they posted</p>
+            <div className="space-y-2.5">
+              {starters.map((s, i) => (
+                <div key={i} className="flex gap-3 items-start p-3 rounded-xl" style={{ backgroundColor: C.bg }}>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md shrink-0 mt-0.5" style={{ backgroundColor: `color-mix(in srgb, ${ZONE.account} 12%, transparent)`, color: ZONE.account }}>{s.src}</span>
+                  <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{s.text.slice(0, 320)}</p>
+                </div>
+              ))}
+            </div>
           </div>
         );
       })()}
