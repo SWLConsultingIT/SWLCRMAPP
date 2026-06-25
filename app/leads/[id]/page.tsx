@@ -29,6 +29,7 @@ import LeadSummaryTab from "@/components/LeadSummaryTab";
 import LeadStatsBar from "@/components/LeadStatsBar";
 import MoveForwardButton from "@/components/MoveForwardButton";
 import PreCallBrief from "@/components/PreCallBrief";
+import LeadQA from "@/components/LeadQA";
 import LinkedInEnrichment from "@/components/LinkedInEnrichment";
 import RecentLeadTracker from "@/components/RecentLeadTracker";
 
@@ -907,6 +908,11 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       <div className="mt-6">
         <LinkedInEnrichment leadId={id} />
       </div>
+
+      <ZoneLabel title="Copilot" />
+
+      {/* ═══ LEAD COPILOT — grounded Q&A chat with per-lead memory. ═══ */}
+      <LeadQA leadId={id} initialHistory={(lead as any).ai_chat ?? null} />
 
       <ZoneLabel title="Campaign" />
 
