@@ -12,7 +12,6 @@ import { useTheme } from "@/lib/theme";
 import { useLocale } from "@/lib/i18n";
 import { useAuthUser, useAuth } from "@/lib/auth-context";
 import { applyBrand, clearBrandVars } from "@/lib/brand";
-import CallClassificationToggle from "@/components/CallClassificationToggle";
 import ChangePasswordModal from "@/components/ChangePasswordModal";
 
 type SectionId = "profile" | "preferences" | "operations" | "integrations";
@@ -25,7 +24,7 @@ const SECTIONS: SectionDef[] = [
   { id: "integrations", labelKey: "settings.integrations", icon: Link2 },
 ];
 
-export default function SettingsLayout({ callMode }: { callMode: "manual" | "auto" }) {
+export default function SettingsLayout() {
   const router = useRouter();
   const { t } = useLocale();
   const [active, setActive] = useState<SectionId>("profile");
@@ -65,7 +64,7 @@ export default function SettingsLayout({ callMode }: { callMode: "manual" | "aut
       <div>
         {active === "profile" && <ProfileSection user={user} />}
         {active === "preferences" && <PreferencesSection />}
-        {active === "operations" && <OperationsSection callMode={callMode} />}
+        {active === "operations" && <OperationsSection />}
         {active === "integrations" && <IntegrationsSection />}
       </div>
     </div>
@@ -302,7 +301,7 @@ function LanguageCard() {
                 {opt.label}
               </span>
               {isActive && (
-                <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>
+                <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded" style={{ backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)", color: "#16A34A" }}>
                   {t("prefs.active")}
                 </span>
               )}
@@ -315,21 +314,11 @@ function LanguageCard() {
 }
 
 // ─── Section: Operations ────────────────────────────────────────────────────
-function OperationsSection({ callMode }: { callMode: "manual" | "auto" }) {
+function OperationsSection() {
   const { t } = useLocale();
   return (
     <div className="space-y-5">
       <SectionHeader icon={Phone} title={t("ops.title")} description={t("ops.subtitle")} />
-
-      <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-        <div className="mb-4">
-          <h3 className="text-sm font-bold mb-1" style={{ color: C.textPrimary }}>{t("ops.callClass")}</h3>
-          <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
-            {t("ops.callClassHelp")}
-          </p>
-        </div>
-        <CallClassificationToggle initialValue={callMode} />
-      </div>
 
       {/* Sending limits (boss 2026-06-08, item 11): the editors live under
           Accounts (LinkedIn daily invites are per-seller; email volume is
@@ -411,7 +400,7 @@ function IntegrationsSection() {
                 <span
                   className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
                   style={{
-                    backgroundColor: "#DCFCE7",
+                    backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)",
                     color: "#16A34A",
                     border: "1px solid color-mix(in srgb, #16A34A 18%, transparent)",
                   }}
