@@ -348,15 +348,16 @@ function ZoneLabel({ title, accent = "var(--brand, #c9a83a)" }: { title: string;
   );
 }
 
-// Tonal wash behind a whole zone — the page reads as grouped colored regions
-// instead of a stack of identical white cards. Content keeps its own cards;
-// the wash sits underneath and fades out.
+// Tonal wash behind a whole zone — a faint tint that groups each region
+// without reading as a solid colored panel. Kept very subtle (≈3%) and faded
+// quickly so it never competes with the cards' own tints (e.g. the gold
+// pre-call brief) or clashes with the navy hero above.
 function zoneStyle(accent: string) {
   return {
-    background: `linear-gradient(180deg, color-mix(in srgb, ${accent} 7%, transparent), transparent 74%)`,
+    background: `linear-gradient(180deg, color-mix(in srgb, ${accent} 3.5%, transparent), transparent 45%)`,
     borderRadius: 20,
-    padding: "16px 16px 22px",
-    marginTop: 14,
+    padding: "14px 14px 20px",
+    marginTop: 10,
   } as const;
 }
 
