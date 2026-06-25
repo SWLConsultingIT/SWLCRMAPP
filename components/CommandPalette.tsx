@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 import {
-  Search, ArrowRight, CheckCircle, XCircle, Clock, MinusCircle, Loader2,
+  Search, ArrowRight, CheckCircle, XCircle, Clock, MinusCircle, Loader2, Sparkles,
   LayoutDashboard, Users, Megaphone, Building2, Target, Shield, Bell,
   Trophy, UserCircle, Settings,
 } from "lucide-react";
@@ -108,19 +108,22 @@ export default function CommandPalette() {
   // Combined ordered list for keyboard navigation.
   const flat = useMemo(() => {
     const items: Array<
+      | { kind: "copilot"; data: { q: string } }
       | { kind: "nav"; data: NavCommand }
       | { kind: "lead"; data: LeadResult }
     > = [];
+    if (query.trim()) items.push({ kind: "copilot", data: { q: query.trim() } });
     for (const c of filteredNav) items.push({ kind: "nav", data: c });
     for (const l of leadResults) items.push({ kind: "lead", data: l });
     return items;
-  }, [filteredNav, leadResults]);
+  }, [query, filteredNav, leadResults]);
 
   function activate(idx: number) {
     const item = flat[idx];
     if (!item) return;
     setOpen(false);
-    if (item.kind === "nav") router.push(item.data.href);
+    if (item.kind === "copilot") router.push(`/copilot?q=${encodeURIComponent(item.data.q)}`);
+    else if (item.kind === "nav") router.push(item.data.href);
     else router.push(`/leads/${item.data.id}`);
   }
 
@@ -139,8 +142,9 @@ export default function CommandPalette() {
   if (!open) return null;
 
   const navItems = filteredNav;
-  const navStartIdx = 0;
-  const leadStartIdx = navItems.length;
+  const copilotOffset = query.trim() ? 1 : 0;
+  const navStartIdx = copilotOffset;
+  const leadStartIdx = copilotOffset + navItems.length;
 
   const placeholder = locale === "es"
     ? "Buscar leads, navegar, ejecutar acciones…"
@@ -193,6 +197,24 @@ export default function CommandPalette() {
 
         {/* Results */}
         <div className="max-h-[60vh] overflow-y-auto py-1.5">
+          {query.trim() && (
+            <button
+              onClick={() => activate(0)}
+              onMouseEnter={() => setCursor(0)}
+              className="w-full flex items-center gap-3 px-5 py-2.5 text-left transition-colors duration-150"
+              style={{ backgroundColor: cursor === 0 ? C.surface : "transparent" }}
+            >
+              <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: `linear-gradient(135deg, ${C.gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }}>
+                <Sparkles size={13} style={{ color: "#04070d" }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13px] font-medium truncate" style={{ color: C.textPrimary }}>Ask the Copilot: &ldquo;{query.trim()}&rdquo;</p>
+                <p className="text-[11px]" style={{ color: C.textMuted }}>Search across all your prospects</p>
+              </div>
+              <ArrowRight size={12} style={{ color: C.textDim }} className="shrink-0" />
+            </button>
+          )}
           {navOnly.length > 0 && (
             <Group label={navHeading}>
               {navOnly.map((cmd) => {
