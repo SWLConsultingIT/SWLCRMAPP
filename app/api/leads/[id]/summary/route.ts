@@ -77,7 +77,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  const sections = await generate({ lead, icpContext, bio, liBlock, apiKey, langInstruction });
+  const sections = await generate({ lead, icpContext, bio, liBlock, apiKey, langInstruction, locale });
   if (!sections || sections.length === 0) return NextResponse.json({ error: "AI call failed" }, { status: 500 });
 
   const stored = JSON.stringify(sections);
@@ -88,13 +88,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   return NextResponse.json({ ok: true, summary: stored });
 }
 
-async function generate({ lead, icpContext, bio, liBlock, apiKey, langInstruction }: {
+async function generate({ lead, icpContext, bio, liBlock, apiKey, langInstruction, locale }: {
   lead: Record<string, unknown>;
   icpContext: { profile_name?: string; solutions_offered?: string; pain_points?: string } | null;
   bio: { value_proposition?: string; main_services?: string } | null;
   liBlock: string | null;
   apiKey: string;
   langInstruction: string;
+  locale: string;
 }): Promise<Section[] | null> {
   const name = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "the lead";
   const enrichment = (lead.enrichment as Record<string, unknown> | null) ?? {};
@@ -113,6 +114,10 @@ async function generate({ lead, icpContext, bio, liBlock, apiKey, langInstructio
     lead.organization_description ? `- Description: ${String(lead.organization_description).slice(0, 600)}` : "",
     lead.recent_linkedin_post ? `- Their recent post: ${String(lead.recent_linkedin_post).slice(0, 300)}` : "",
   ].filter(Boolean).join("\n");
+
+  const headings = locale === "es"
+    ? { dive: "Análisis de la empresa", now: "Por qué ahora", strategy: "Estrategia de cuenta", sequence: "Secuencia sugerida", watchouts: "Puntos de atención" }
+    : { dive: "Company deep-dive", now: "Why now", strategy: "Account strategy", sequence: "Suggested sequence", watchouts: "Watch-outs" };
 
   const prompt = `You are a senior B2B account researcher writing a deep-dive prep dossier for a SELLER who is about to work this prospect. ~5 minutes of prep, not a 30-second summary.
 
@@ -140,11 +145,11 @@ OUR OFFERING (the seller's product — only for the Account-strategy mapping; th
 TASK
 Return ONLY a JSON array of {"heading","body"} sections, in this order:
 [
-  { "heading": "Company deep-dive", "body": "<what THE PROSPECT'S company (${lead.company_name ?? "—"}) actually does — their business, market, size/stack — based ONLY on the data above. NOT our product. 2-3 sentences.>" },
-  { "heading": "Why now", "body": "<timing triggers from the data — tenure/role change, hiring, a post. 1-2 sentences. Omit if nothing real.>" },
-  { "heading": "Account strategy", "body": "<how OUR offering maps to THIS prospect's company specifically + the value thesis. 2-3 sentences.>" },
-  { "heading": "Suggested sequence", "body": "<3-4 bullet lines, each '- ' + channel + the one thing to say, grounded in their real situation.>" },
-  { "heading": "Watch-outs", "body": "<1-3 '- ' bullet lines: likely objections/risks for this persona.>" }
+  { "heading": "${headings.dive}", "body": "<what THE PROSPECT'S company (${lead.company_name ?? "—"}) actually does — their business, market, size/stack — based ONLY on the data above. NOT our product. 2-3 sentences.>" },
+  { "heading": "${headings.now}", "body": "<timing triggers from the data — tenure/role change, hiring, a post. 1-2 sentences. Omit if nothing real.>" },
+  { "heading": "${headings.strategy}", "body": "<how OUR offering maps to THIS prospect's company specifically + the value thesis. 2-3 sentences.>" },
+  { "heading": "${headings.sequence}", "body": "<3-4 bullet lines, each '- ' + channel + the one thing to say, grounded in their real situation.>" },
+  { "heading": "${headings.watchouts}", "body": "<1-3 '- ' bullet lines: likely objections/risks for this persona.>" }
 ]
 
 LANGUAGE RULE: ${langInstruction}
