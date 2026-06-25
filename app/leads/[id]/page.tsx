@@ -318,6 +318,20 @@ function renderTemplateFallback(
     .replaceAll("{{seller_company}}", "");
 }
 
+// Section divider used to break the lead view into clear, scannable zones
+// (Pre-call prep / Account / Research / Campaign / Details). Bold gold-accented
+// heading so the section names stand out.
+function ZoneLabel({ title }: { title: string }) {
+  const gold = "var(--brand, #c9a83a)";
+  return (
+    <div className="flex items-center gap-3 mt-9 mb-3">
+      <span className="w-1.5 h-5 rounded-full" style={{ background: `linear-gradient(180deg, ${gold}, color-mix(in srgb, ${gold} 55%, white))` }} />
+      <h2 className="text-[14px] font-extrabold uppercase" style={{ color: C.textPrimary, letterSpacing: "0.14em" }}>{title}</h2>
+      <span className="flex-1 h-px" style={{ background: `linear-gradient(90deg, color-mix(in srgb, ${gold} 38%, transparent), transparent)` }} />
+    </div>
+  );
+}
+
 export default async function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const lead = await getLead(id);
@@ -777,6 +791,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         />
       </div>
 
+      <ZoneLabel title="Pre-call prep" />
+
       {/* ═══ PRE-CALL BRIEF — ALWAYS rendered (Fran 2026-06-05), self-generates
             on first view. First in the Overview flow: brief → account angle →
             company → deep-dive → enrichment. ═══ */}
@@ -785,6 +801,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         initialPoints={(lead as any).call_talking_points ?? null}
         initialGeneratedAt={(lead as any).call_talking_points_at ?? null}
       />
+
+      <ZoneLabel title="Account" />
 
       {/* ═══ COMPANY — one rich section: facts + what they do + our industry
             play + value prop + tech/keywords/news, clickable through to the
@@ -874,6 +892,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         );
       })()}
 
+      <ZoneLabel title="Research" />
+
       {/* ═══ DEEP-DIVE RESEARCH — long-form prep dossier. ═══ */}
       <div className="mt-6">
         <LeadSummaryTab
@@ -887,6 +907,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       <div className="mt-6">
         <LinkedInEnrichment leadId={id} />
       </div>
+
+      <ZoneLabel title="Campaign" />
 
       {/* ═══ NEXT ACTION CARD — what the user should do or know right now.
             Sits above the stepper so the seller doesn't have to interpret the
@@ -1138,6 +1160,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           AI summary (research) → full timeline → social deep-research.
           The Pre-Call Brief above the tabs already provides the 30-second
           summary, so Summary tab demotes to the research-tier. */}
+      <ZoneLabel title="Details" />
+
       <CompanyTabs tabs={[
         { label: "Profile Overview" },
         { label: "Campaign" },
