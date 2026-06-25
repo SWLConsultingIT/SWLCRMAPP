@@ -338,7 +338,7 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
             </div>
           );
         })() : loading ? (
-          <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
+          <div className="rounded-xl overflow-hidden">
             <LogoLoader size={54} minHeight="200px" />
           </div>
         ) : (
