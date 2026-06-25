@@ -128,7 +128,7 @@ export default function SellerPulseTable({ sellers }: { sellers: SellerInput[] }
             </span>
           </div>
           <p className="text-[11px] mt-0.5" style={{ color: "#8B9EB7" }}>
-            Último login · llamadas hoy · 7 días · cola
+            Last login · calls today · 7 days · queue
           </p>
         </div>
         <a href="/admin"
@@ -148,9 +148,9 @@ export default function SellerPulseTable({ sellers }: { sellers: SellerInput[] }
             <th className="px-4 py-2 text-left font-semibold">Seller</th>
             <th className="px-3 py-2 text-left font-semibold">Status</th>
             <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Last seen</th>
-            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Hoy</th>
-            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">7 días</th>
-            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">En cola</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Today</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">7 days</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">In queue</th>
           </tr>
         </thead>
         <tbody>
