@@ -209,14 +209,14 @@ function ScoreRing({ score, color }: { score: number; color: string }) {
   return (
     <div className="relative w-14 h-14 flex items-center justify-center">
       <svg width="56" height="56" className="absolute -rotate-90">
-        <circle cx="28" cy="28" r={r} fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="3.5" />
+        <circle cx="28" cy="28" r={r} fill="none" stroke={C.border} strokeWidth="3.5" />
         <circle cx="28" cy="28" r={r} fill="none" stroke={color} strokeWidth="3.5"
           strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round"
           style={{ transition: "stroke-dashoffset 1s cubic-bezier(0.22,1,0.36,1)" }} />
       </svg>
       <div className="text-center z-10">
-        <p className="text-sm font-bold leading-none" style={{ color: "#FFFFFF" }}>{score}</p>
-        <p style={{ color: "#8E9AB4", fontSize: 8, letterSpacing: "0.05em" }}>SCORE</p>
+        <p className="text-sm font-bold leading-none" style={{ color: C.textPrimary }}>{score}</p>
+        <p style={{ color: C.textDim, fontSize: 8, letterSpacing: "0.05em" }}>SCORE</p>
       </div>
     </div>
   );
@@ -525,22 +525,19 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       <Breadcrumb crumbs={[{ label: "Leads", href: "/leads" }, { label: lead.company_name ?? "Contact" }, { label: contactName }]} />
       <RecentLeadTracker leadId={id} name={contactName} company={lead.company_name ?? null} />
 
-      {/* ═══ CONTACT HEADER — navy command bar. The deep navy is the structural
-            counterpoint to gold (per design.ts) and breaks the wall of white
-            cards below it. Identity text is forced light; the colored pills and
-            light-bg chips read fine on navy as-is. ═══ */}
+      {/* ═══ CONTACT HEADER ═══ */}
       <div
-        className="rounded-2xl mb-6 relative overflow-hidden reveal"
+        className="rounded-2xl border mb-6 relative overflow-hidden reveal"
         style={{
-          background: "radial-gradient(120% 140% at 100% 0%, rgba(201,168,58,0.16), transparent 44%), linear-gradient(160deg, #10182B 0%, #0B0F1A 72%)",
-          border: "1px solid rgba(255,255,255,0.07)",
-          boxShadow: "0 2px 4px rgba(11,15,26,0.18), 0 24px 48px -20px rgba(11,15,26,0.40)",
+          backgroundColor: C.card,
+          borderColor: C.border,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.04)",
         }}
       >
         <div
-          className="absolute left-0 top-0 bottom-0 w-[4px]"
+          className="absolute inset-x-0 top-0 h-[3px]"
           style={{
-            background: `linear-gradient(180deg, ${gold}, color-mix(in srgb, ${gold} 45%, transparent))`,
+            background: `linear-gradient(90deg, transparent 0%, ${gold} 30%, color-mix(in srgb, ${gold} 72%, white) 50%, ${gold} 70%, transparent 100%)`,
           }}
         />
 
@@ -570,21 +567,21 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               <h1
                 className="text-[18px] sm:text-[22px] font-bold leading-tight truncate"
                 style={{
-                  color: "#FFFFFF",
+                  color: C.textPrimary,
                   fontFamily: "var(--font-outfit), system-ui, sans-serif",
                   letterSpacing: "-0.02em",
                 }}
               >
                 {lead.primary_first_name} {lead.primary_last_name}
               </h1>
-              <p className="text-xs sm:text-sm mt-0.5 truncate" style={{ color: "#AEB8CC" }}>
+              <p className="text-xs sm:text-sm mt-0.5 truncate" style={{ color: C.textMuted }}>
                 {lead.primary_title_role ?? "—"}
               </p>
               {lead.company_name && (
                 <Link href={`/companies/${encodeURIComponent(lead.company_name)}`}
-                  className="flex items-center gap-1.5 text-xs sm:text-sm mt-1 hover:underline truncate font-semibold"
-                  style={{ color: "#E6C661" }}>
-                  <Building2 size={12} className="shrink-0" style={{ color: "rgba(255,255,255,0.45)" }} />
+                  className="flex items-center gap-1.5 text-xs sm:text-sm mt-1 hover:underline truncate"
+                  style={{ color: C.blue }}>
+                  <Building2 size={12} className="shrink-0" style={{ color: C.textDim }} />
                   <span className="truncate">{lead.company_name}</span>
                   <ExternalLink size={10} className="shrink-0" style={{ opacity: 0.6 }} />
                 </Link>
@@ -605,7 +602,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   const tz = countryToTimeZone(lead.company_country);
                   if (!tz) return null;
                   const place = lead.company_city || lead.company_country || null;
-                  return <ProspectClock tz={tz} place={place} dark />;
+                  return <ProspectClock tz={tz} place={place} />;
                 })()}
                 {lead.created_at && (Date.now() - new Date(lead.created_at).getTime() < 7 * 86_400_000) && (
                   <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 sm:py-1 rounded-full"
@@ -619,13 +616,13 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 {lead.created_at && (
                   <span className="hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
                     title="When this lead was added"
-                    style={{ borderColor: "rgba(255,255,255,0.14)", color: "#C5CDDD", backgroundColor: "rgba(255,255,255,0.06)" }}>
+                    style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
                     Added {new Date(lead.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                   </span>
                 )}
                 {lead.assigned_seller && (
                   <span className="hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
-                    style={{ borderColor: "rgba(255,255,255,0.14)", color: "#C5CDDD", backgroundColor: "rgba(255,255,255,0.06)" }}>
+                    style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
                     <div className="w-4 h-4 rounded-full flex items-center justify-center text-white text-xs font-bold"
                       style={{ backgroundColor: gold, fontSize: 9 }}>
                       {lead.assigned_seller[0]}
@@ -640,7 +637,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 {lead.source_universe && (
                   <span className="hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border"
                     title="Source universe / segment"
-                    style={{ borderColor: "rgba(255,255,255,0.14)", color: "#C5CDDD", backgroundColor: "rgba(255,255,255,0.06)" }}>
+                    style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
                     {lead.source_universe}
                   </span>
                 )}
