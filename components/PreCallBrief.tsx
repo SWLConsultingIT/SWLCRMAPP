@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Sparkles, RefreshCw, Target, Compass, Quote, ClipboardList, ChevronDown, UserRound, Lightbulb, ShieldAlert, Building2, Brain } from "lucide-react";
 import { C } from "@/lib/design";
 import LogoLoader from "@/components/LogoLoader";
+import { useLocale } from "@/lib/i18n";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -36,10 +37,21 @@ function orderPoints(points: AnyPoint[]): AnyPoint[] {
   return points.map((p, i) => ({ p, i })).sort((a, b) => rank(a.p) - rank(b.p) || a.i - b.i).map((x) => x.p);
 }
 
+// i18n key for each point type label — used in BriefCard and CompactBrief
+const POINT_LABEL_KEY: Record<PointType, string> = {
+  snapshot: "brief.point.snapshot",
+  account:  "brief.point.account",
+  read:     "brief.point.read",
+  pain:     "brief.point.pain",
+  fit:      "brief.point.fit",
+  hook:     "brief.point.hook",
+  opener:   "brief.point.opener",
+  objection:"brief.point.objection",
+};
+
 // Per-type visual language. Pain reads as urgency-red, fit as trust-blue,
 // opener as conversation-amber — distinct from the global brand gold.
 const POINT_META: Record<PointType, {
-  label: string;
   icon: typeof Target;
   accent: string;
   tint: string;
@@ -47,7 +59,6 @@ const POINT_META: Record<PointType, {
   pillFg: string;
 }> = {
   snapshot: {
-    label: "Snapshot",
     icon: UserRound,
     accent: "#64748B",
     tint: "linear-gradient(135deg, rgba(248,250,252,0.95) 0%, rgba(255,255,255,0.6) 70%)",
@@ -55,7 +66,6 @@ const POINT_META: Record<PointType, {
     pillFg: "#334155",
   },
   account: {
-    label: "Account angle",
     icon: Building2,
     accent: "#0891B2",
     tint: "linear-gradient(135deg, rgba(236,254,255,0.95) 0%, rgba(255,255,255,0.6) 70%)",
@@ -63,7 +73,6 @@ const POINT_META: Record<PointType, {
     pillFg: "#155E75",
   },
   read: {
-    label: "How to read them",
     icon: Brain,
     accent: "#DB2777",
     tint: "linear-gradient(135deg, rgba(253,242,248,0.95) 0%, rgba(255,255,255,0.6) 70%)",
@@ -71,7 +80,6 @@ const POINT_META: Record<PointType, {
     pillFg: "#9D174D",
   },
   pain: {
-    label: "Pain",
     icon: Target,
     accent: "#DC2626",
     tint: "linear-gradient(135deg, rgba(254,242,242,0.95) 0%, rgba(255,255,255,0.6) 70%)",
@@ -79,7 +87,6 @@ const POINT_META: Record<PointType, {
     pillFg: "#991B1B",
   },
   fit: {
-    label: "Why we fit",
     icon: Compass,
     accent: "#2563EB",
     tint: "linear-gradient(135deg, rgba(239,246,255,0.95) 0%, rgba(255,255,255,0.6) 70%)",
@@ -87,7 +94,6 @@ const POINT_META: Record<PointType, {
     pillFg: "#1E40AF",
   },
   hook: {
-    label: "Personal hook",
     icon: Lightbulb,
     accent: "#7C3AED",
     tint: "linear-gradient(135deg, rgba(245,243,255,0.95) 0%, rgba(255,255,255,0.6) 70%)",
@@ -95,7 +101,6 @@ const POINT_META: Record<PointType, {
     pillFg: "#5B21B6",
   },
   opener: {
-    label: "Opener",
     icon: Quote,
     accent: "#D97706",
     tint: "linear-gradient(135deg, rgba(255,251,235,0.95) 0%, rgba(255,255,255,0.6) 70%)",
@@ -103,7 +108,6 @@ const POINT_META: Record<PointType, {
     pillFg: "#92400E",
   },
   objection: {
-    label: "Likely objection",
     icon: ShieldAlert,
     accent: "#0D9488",
     tint: "linear-gradient(135deg, rgba(240,253,250,0.95) 0%, rgba(255,255,255,0.6) 70%)",
@@ -127,6 +131,7 @@ function GroupLabel({ children }: { children: string }) {
 }
 
 function BriefCard({ p }: { p: TalkingPoint }) {
+  const { t } = useLocale();
   const meta = POINT_META[p.type];
   const Icon = meta.icon;
   const isOpener = p.type === "opener";
@@ -142,7 +147,7 @@ function BriefCard({ p }: { p: TalkingPoint }) {
         <div className="flex-1 min-w-0">
           <span className="inline-flex items-center text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md mb-1.5"
             style={{ backgroundColor: `color-mix(in srgb, ${meta.accent} 15%, transparent)`, color: `color-mix(in srgb, ${meta.accent}, white var(--c-accent-lift, 0%))`, letterSpacing: "0.08em" }}>
-            {meta.label}
+            {t(POINT_LABEL_KEY[p.type])}
           </span>
           {isOpener ? (
             <p className="text-[15px] leading-relaxed italic" style={{ color: C.textPrimary, fontFamily: "Georgia, 'Times New Roman', serif" }}>
@@ -191,6 +196,7 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
   initialPoints: AnyPoint[] | null;
   initialGeneratedAt: string | null;
 }) {
+  const { t } = useLocale();
   const [points, setPoints] = useState<AnyPoint[] | null>(initialPoints);
   const [generatedAt, setGeneratedAt] = useState<string | null>(initialGeneratedAt);
   const [loading, setLoading] = useState(false);
@@ -270,12 +276,12 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
             <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
               {loading ? (
                 <span className="inline-flex items-center gap-1.5">
-                  <Sparkles size={10} className="animate-pulse" /> Reading LinkedIn + enrichment…
+                  <Sparkles size={10} className="animate-pulse" /> {t("brief.loading")}
                 </span>
               ) : stamp ? (
-                <>Generated {stamp}</>
+                <>{t("brief.generated").replace("{stamp}", stamp)}</>
               ) : (
-                "30-second briefing from this lead's LinkedIn + enrichment"
+                t("brief.hint")
               )}
             </p>
           </div>
@@ -288,7 +294,7 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
           style={{ backgroundColor: C.surface, color: C.textBody, border: `1px solid ${C.border}` }}
         >
           <RefreshCw size={11} className={loading ? "animate-spin" : ""} />
-          {points && points.length > 0 ? "Refresh" : "Generate"}
+          {points && points.length > 0 ? t("brief.refresh") : t("brief.generate")}
         </button>
       </div>
 
@@ -315,7 +321,7 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
             <div className="space-y-4">
               {read.length > 0 && (
                 <div>
-                  <GroupLabel>The read — who they are &amp; how to play it</GroupLabel>
+                  <GroupLabel>{t("brief.group.read")}</GroupLabel>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
                     {read.map((p, i) => <BriefCard key={i} p={p} />)}
                   </div>
@@ -323,7 +329,7 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
               )}
               {(play.length > 0 || opener) && (
                 <div>
-                  <GroupLabel>The play — pain, fit &amp; what to say</GroupLabel>
+                  <GroupLabel>{t("brief.group.play")}</GroupLabel>
                   {play.length > 0 && (
                     <div className="grid gap-3 sm:grid-cols-2 items-stretch">
                       {play.map((p, i) => <BriefCard key={i} p={p} />)}
@@ -344,7 +350,7 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
         ) : (
           <div className="flex items-center justify-between gap-2 py-1">
             <p className="text-sm flex items-center gap-2" style={{ color: C.textMuted }}>
-              <Sparkles size={13} /> {error ? "Couldn't build the brief." : "Building this lead's pre-call brief…"}
+              <Sparkles size={13} /> {error ? t("brief.failed") : t("brief.building")}
             </p>
             <button
               type="button"
@@ -352,7 +358,7 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
               className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg"
               style={{ color: gold, border: `1px solid color-mix(in srgb, ${gold} 35%, transparent)` }}
             >
-              <RefreshCw size={11} /> Generate
+              <RefreshCw size={11} /> {t("brief.generate")}
             </button>
           </div>
         )}
@@ -363,6 +369,7 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
 
 // ── Compact toggle (/queue rows) ──────────────────────────────────────────────
 function CompactBrief({ talkingPoints }: { talkingPoints: AnyPoint[] | null }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   if (!talkingPoints || talkingPoints.length === 0) return null;
 
@@ -377,7 +384,7 @@ function CompactBrief({ talkingPoints }: { talkingPoints: AnyPoint[] | null }) {
           backgroundColor: open ? `color-mix(in srgb, ${gold} 10%, transparent)` : C.card,
         }}
       >
-        <ClipboardList size={12} /> Pre-call brief
+        <ClipboardList size={12} /> {t("brief.toggle")}
         <ChevronDown size={11} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }} />
       </button>
 
@@ -386,7 +393,7 @@ function CompactBrief({ talkingPoints }: { talkingPoints: AnyPoint[] | null }) {
           <ol className="space-y-2">
             {orderPoints(talkingPoints).map((p, i) => {
               const structured = isStructured(p);
-              const label = structured ? POINT_META[p.type].label : `${i + 1}.`;
+              const label = structured ? t(POINT_LABEL_KEY[p.type]) : `${i + 1}.`;
               const labelColor = structured ? POINT_META[p.type].pillFg : gold;
               const text = typeof p === "string" ? p : p.text;
               return (

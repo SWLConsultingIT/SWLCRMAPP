@@ -35,6 +35,7 @@ import ProspectClock from "@/components/ProspectClock";
 import { countryToTimeZone } from "@/lib/prospect-time";
 import LinkedInEnrichment from "@/components/LinkedInEnrichment";
 import RecentLeadTracker from "@/components/RecentLeadTracker";
+import { getT } from "@/lib/i18n-server";
 
 // Bypass Next's render cache. Without this, the page snapshots messages +
 // campaign state at build time and a freshly-sent step 1 keeps showing
@@ -362,6 +363,7 @@ function zoneStyle(accent: string) {
 }
 
 export default async function ContactDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const t = await getT();
   const { id } = await params;
   const lead = await getLead(id);
   if (!lead) notFound();
@@ -827,6 +829,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       </div>
 
       <section className="reveal" style={zoneStyle(ZONE.prep)}>
+      <ZoneLabel title={t("lead.zone.prep")} accent={ZONE.prep} />
 
       {/* ═══ PRE-CALL BRIEF — ALWAYS rendered (Fran 2026-06-05), self-generates
             on first view. First in the Overview flow: brief → account angle →
@@ -839,7 +842,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
       </section>
       <section className="reveal" style={zoneStyle(ZONE.account)}>
-      <ZoneLabel title="Account" accent={ZONE.account} />
+      <ZoneLabel title={t("lead.zone.account")} accent={ZONE.account} />
 
       {/* ═══ COMPANY — one rich section: facts + what they do + our industry
             play + value prop + tech/keywords/news, clickable through to the
@@ -982,7 +985,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
       </section>
       <section className="reveal" style={zoneStyle(ZONE.research)}>
-      <ZoneLabel title="Research" accent={ZONE.research} />
+      <ZoneLabel title={t("lead.zone.research")} accent={ZONE.research} />
 
       {/* ═══ DEEP-DIVE RESEARCH — long-form prep dossier. ═══ */}
       <div className="mt-6">
@@ -1007,7 +1010,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
       </section>
       <section className="reveal" style={zoneStyle(ZONE.campaign)}>
-      <ZoneLabel title="Campaign" accent={ZONE.campaign} />
+      <ZoneLabel title={t("lead.zone.campaign")} accent={ZONE.campaign} />
 
       {/* ═══ NEXT ACTION CARD — what the user should do or know right now.
             Sits above the stepper so the seller doesn't have to interpret the
@@ -1261,7 +1264,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           summary, so Summary tab demotes to the research-tier. */}
       </section>
       <section className="reveal" style={zoneStyle(ZONE.details)}>
-      <ZoneLabel title="Details" accent={ZONE.details} />
+      <ZoneLabel title={t("lead.zone.details")} accent={ZONE.details} />
 
       <CompanyTabs tabs={[
         { label: "Profile Overview" },
