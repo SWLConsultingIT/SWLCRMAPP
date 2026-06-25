@@ -9,9 +9,10 @@ type Props = {
   leadId: string;
   initialSummary: string | null;
   initialGeneratedAt: string | null;
+  accent?: string;
 };
 
-export default function LeadSummaryTab({ leadId, initialSummary, initialGeneratedAt }: Props) {
+export default function LeadSummaryTab({ leadId, initialSummary, initialGeneratedAt, accent = "var(--brand, #c9a83a)" }: Props) {
   const router = useRouter();
   const [summary, setSummary] = useState<string | null>(initialSummary);
   const [generatedAt, setGeneratedAt] = useState<string | null>(initialGeneratedAt);
@@ -35,7 +36,7 @@ export default function LeadSummaryTab({ leadId, initialSummary, initialGenerate
     }
   }
 
-  const gold = "var(--brand, #c9a83a)";
+  const gold = accent;
 
   return (
     <div
@@ -43,7 +44,7 @@ export default function LeadSummaryTab({ leadId, initialSummary, initialGenerate
       style={{
         backgroundColor: C.card,
         borderColor: C.border,
-        borderTop: `3px solid ${gold}`,
+        borderLeft: `3px solid ${accent}`,
         boxShadow: "0 4px 20px rgba(0,0,0,0.04)",
       }}
     >

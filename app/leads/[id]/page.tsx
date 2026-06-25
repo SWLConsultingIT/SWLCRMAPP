@@ -323,13 +323,24 @@ function renderTemplateFallback(
 // Section divider used to break the lead view into clear, scannable zones
 // (Pre-call prep / Account / Research / Campaign / Details). Bold gold-accented
 // heading so the section names stand out.
-function ZoneLabel({ title }: { title: string }) {
-  const gold = "var(--brand, #c9a83a)";
+// Zone accents — one muted color per section, used on the label bar and the
+// matching card's side rail so each zone reads as a cohesive unit. Gold stays
+// reserved for the hero + the flagship pre-call brief.
+const ZONE = {
+  prep: "var(--brand, #c9a83a)",
+  account: "#0891B2",
+  research: "#7C3AED",
+  copilot: "#0E9F6E",
+  campaign: "#2563EB",
+  details: "#64748B",
+} as const;
+
+function ZoneLabel({ title, accent = "var(--brand, #c9a83a)" }: { title: string; accent?: string }) {
   return (
     <div className="flex items-center gap-3 mt-9 mb-3">
-      <span className="w-1.5 h-5 rounded-full" style={{ background: `linear-gradient(180deg, ${gold}, color-mix(in srgb, ${gold} 55%, white))` }} />
+      <span className="w-1.5 h-5 rounded-full" style={{ background: `linear-gradient(180deg, ${accent}, color-mix(in srgb, ${accent} 55%, white))` }} />
       <h2 className="text-[14px] font-extrabold uppercase" style={{ color: C.textPrimary, letterSpacing: "0.14em" }}>{title}</h2>
-      <span className="flex-1 h-px" style={{ background: `linear-gradient(90deg, color-mix(in srgb, ${gold} 38%, transparent), transparent)` }} />
+      <span className="flex-1 h-px" style={{ background: `linear-gradient(90deg, color-mix(in srgb, ${accent} 38%, transparent), transparent)` }} />
     </div>
   );
 }
@@ -793,7 +804,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         />
       </div>
 
-      <ZoneLabel title="Pre-call prep" />
+      <ZoneLabel title="Pre-call prep" accent={ZONE.prep} />
 
       {/* ═══ PRE-CALL BRIEF — ALWAYS rendered (Fran 2026-06-05), self-generates
             on first view. First in the Overview flow: brief → account angle →
@@ -804,7 +815,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         initialGeneratedAt={(lead as any).call_talking_points_at ?? null}
       />
 
-      <ZoneLabel title="Account" />
+      <ZoneLabel title="Account" accent={ZONE.account} />
 
       {/* ═══ COMPANY — one rich section: facts + what they do + our industry
             play + value prop + tech/keywords/news, clickable through to the
@@ -826,16 +837,16 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         ].filter(f => f.value);
         const website = lead.company_website ? (String(lead.company_website).startsWith("http") ? String(lead.company_website) : `https://${lead.company_website}`) : null;
         return (
-          <div className="rounded-2xl border mt-6 overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `3px solid ${gold}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+          <div className="rounded-2xl border mt-6 overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderLeft: `3px solid ${ZONE.account}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
             <div className="flex items-center gap-4 p-5 pb-4">
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>{lead.company_name[0]?.toUpperCase()}</div>
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ZONE.account}, color-mix(in srgb, ${ZONE.account} 70%, white))`, color: "#fff" }}>{lead.company_name[0]?.toUpperCase()}</div>
               <div className="flex-1 min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted, letterSpacing: "0.1em" }}>Company</p>
                 <p className="text-[17px] font-bold leading-tight" style={{ color: C.textPrimary }}>{lead.company_name}</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <ScrapeCompanyButton leadId={id} hasScrape={!!scrape?.summary} />
-                <Link href={`/companies/${encodeURIComponent(lead.company_name)}`} className="text-xs font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg hover:shadow-sm" style={{ color: gold, border: `1px solid color-mix(in srgb, ${gold} 35%, transparent)` }}>View company <ExternalLink size={12} /></Link>
+                <Link href={`/companies/${encodeURIComponent(lead.company_name)}`} className="text-xs font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg hover:shadow-sm" style={{ color: ZONE.account, border: `1px solid color-mix(in srgb, ${ZONE.account} 35%, transparent)` }}>View company <ExternalLink size={12} /></Link>
               </div>
             </div>
             {facts.length > 0 && (
@@ -898,7 +909,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         );
       })()}
 
-      <ZoneLabel title="Research" />
+      <ZoneLabel title="Research" accent={ZONE.research} />
 
       {/* ═══ DEEP-DIVE RESEARCH — long-form prep dossier. ═══ */}
       <div className="mt-6">
@@ -906,6 +917,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           leadId={id}
           initialSummary={lead.ai_summary ?? null}
           initialGeneratedAt={lead.ai_summary_at ?? null}
+          accent={ZONE.research}
         />
       </div>
 
@@ -914,12 +926,12 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         <LinkedInEnrichment leadId={id} />
       </div>
 
-      <ZoneLabel title="Copilot" />
+      <ZoneLabel title="Copilot" accent={ZONE.copilot} />
 
       {/* ═══ LEAD COPILOT — grounded Q&A chat with per-lead memory. ═══ */}
-      <LeadQA leadId={id} initialHistory={(lead as any).ai_chat ?? null} />
+      <LeadQA leadId={id} initialHistory={(lead as any).ai_chat ?? null} accent={ZONE.copilot} />
 
-      <ZoneLabel title="Campaign" />
+      <ZoneLabel title="Campaign" accent={ZONE.campaign} />
 
       {/* ═══ NEXT ACTION CARD — what the user should do or know right now.
             Sits above the stepper so the seller doesn't have to interpret the
@@ -1171,7 +1183,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           AI summary (research) → full timeline → social deep-research.
           The Pre-Call Brief above the tabs already provides the 30-second
           summary, so Summary tab demotes to the research-tier. */}
-      <ZoneLabel title="Details" />
+      <ZoneLabel title="Details" accent={ZONE.details} />
 
       <CompanyTabs tabs={[
         { label: "Profile Overview" },

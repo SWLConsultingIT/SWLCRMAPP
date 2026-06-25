@@ -4,7 +4,6 @@ import { useRef, useState } from "react";
 import { Sparkles, Send, Brain, Loader2 } from "lucide-react";
 import { C } from "@/lib/design";
 
-const gold = "var(--brand, #c9a83a)";
 
 type Turn = { role: "user" | "assistant"; text: string; at?: string };
 
@@ -18,7 +17,8 @@ const SUGGESTIONS = [
 // Lead Copilot — grounded Q&A chat about this lead, with persistent per-lead
 // memory. Ask anything ("how do I handle the price objection?", "summarise the
 // last call") and get a tactical answer grounded in the lead's data.
-export default function LeadQA({ leadId, initialHistory }: { leadId: string; initialHistory?: Turn[] | null }) {
+export default function LeadQA({ leadId, initialHistory, accent }: { leadId: string; initialHistory?: Turn[] | null; accent?: string }) {
+  const gold = accent ?? "var(--brand, #c9a83a)";
   const [turns, setTurns] = useState<Turn[]>(Array.isArray(initialHistory) ? initialHistory : []);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -54,7 +54,7 @@ export default function LeadQA({ leadId, initialHistory }: { leadId: string; ini
 
   return (
     <div className="rounded-2xl border overflow-hidden"
-      style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `3px solid ${gold}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+      style={{ backgroundColor: C.card, borderColor: C.border, borderLeft: `3px solid ${gold}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
       {/* Header */}
       <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: C.border }}>
         <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
