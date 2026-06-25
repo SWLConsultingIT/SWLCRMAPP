@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 import {
   Phone, Share2, Mail, Megaphone, Target,
   ChevronRight, CheckCircle, Search, X,
@@ -157,6 +158,7 @@ function timeAgo(iso: string | null) {
 // again and classifies it definitively.
 function InlineClassifier({ call }: { call: PendingCall }) {
   const router = useRouter();
+  const { t } = useLocale();
   // 2026-06-01: aligned with the 4 outcomes the post-call popup uses.
   // Wire values stay legacy-compatible (interested → positive, etc.) so
   // the existing classify endpoint + downstream cascades don't need to
@@ -204,8 +206,8 @@ function InlineClassifier({ call }: { call: PendingCall }) {
     const isVoicemail = cls === "voicemail";
     const color = isFollow ? "#D97706" : isVoicemail ? "#0EA5E9" : C.textMuted;
     const Icon = isFollow ? Clock : isVoicemail ? Voicemail : PhoneOff;
-    const label = isFollow ? "Bad timing logged" : isVoicemail ? "Voicemail logged" : "Wrong number logged";
-    const hint = cls === "wrong_number" ? "Call channel disabled — update the phone to re-enable" : "Call again to update outcome";
+    const label = isFollow ? t("queue.classify.badTimingLogged") : isVoicemail ? t("queue.classify.voicemailLogged") : t("queue.classify.wrongNumberLogged");
+    const hint = cls === "wrong_number" ? t("queue.classify.callChannelDisabled") : t("queue.classify.callAgain");
     return (
       <div className="border-t px-5 py-2.5 flex items-center gap-2 text-[11px] flex-wrap"
         style={{ borderColor: C.border, backgroundColor: `color-mix(in srgb, ${color} 10%, transparent)` }}>
@@ -226,7 +228,7 @@ function InlineClassifier({ call }: { call: PendingCall }) {
     <div className="border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
     <div className="px-5 py-2.5 flex items-center gap-2 flex-wrap">
       <span className="text-[11px] font-semibold mr-1" style={{ color: C.textBody }}>
-        Called {timeAgo(call.latestCall.startedAt)} — outcome?
+        {t("queue.classify.calledOutcome").replace("{timeAgo}", timeAgo(call.latestCall.startedAt))}
       </span>
       <button
         onClick={() => classify("positive")}
@@ -234,7 +236,7 @@ function InlineClassifier({ call }: { call: PendingCall }) {
         className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
         style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)`, borderColor: `color-mix(in srgb, ${C.green} 35%, transparent)`, color: C.green }}>
         {busy === "positive" ? <Loader2 size={10} className="animate-spin" /> : <ThumbsUp size={10} />}
-        Interested
+        {t("queue.classify.interested")}
       </button>
       <button
         onClick={() => classify("negative")}
@@ -242,7 +244,7 @@ function InlineClassifier({ call }: { call: PendingCall }) {
         className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
         style={{ backgroundColor: `color-mix(in srgb, ${C.red} 12%, transparent)`, borderColor: `color-mix(in srgb, ${C.red} 35%, transparent)`, color: C.red }}>
         {busy === "negative" ? <Loader2 size={10} className="animate-spin" /> : <ThumbsDown size={10} />}
-        Not interested
+        {t("queue.classify.notInterested")}
       </button>
       <button
         onClick={() => classify("follow_up")}
@@ -250,7 +252,7 @@ function InlineClassifier({ call }: { call: PendingCall }) {
         className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
         style={{ backgroundColor: "color-mix(in srgb, #D97706 12%, transparent)", borderColor: "color-mix(in srgb, #D97706 35%, transparent)", color: "#D97706" }}>
         {busy === "follow_up" ? <Loader2 size={10} className="animate-spin" /> : <Clock size={10} />}
-        Bad timing
+        {t("queue.classify.badTiming")}
       </button>
       {showMore ? (
         <>
@@ -260,7 +262,7 @@ function InlineClassifier({ call }: { call: PendingCall }) {
             className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
             style={{ backgroundColor: "color-mix(in srgb, #0EA5E9 12%, transparent)", borderColor: "color-mix(in srgb, #0EA5E9 35%, transparent)", color: "#0EA5E9" }}>
             {busy === "voicemail" ? <Loader2 size={10} className="animate-spin" /> : <Voicemail size={10} />}
-            Voicemail
+            {t("queue.classify.voicemail")}
           </button>
           <button
             onClick={() => classify("wrong_number")}
@@ -268,14 +270,14 @@ function InlineClassifier({ call }: { call: PendingCall }) {
             className="text-[11px] font-medium px-2.5 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
             style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textMuted }}>
             {busy === "wrong_number" ? <Loader2 size={10} className="animate-spin" /> : <PhoneOff size={10} />}
-            Wrong number
+            {t("queue.classify.wrongNumber")}
           </button>
         </>
       ) : (
         <button
           onClick={() => setShowMore(true)}
           disabled={busy !== null}
-          title="More outcomes (voicemail / wrong number)"
+          title={t("queue.classify.moreOutcomes")}
           className="text-[11px] font-medium px-2 py-1 rounded-md border inline-flex items-center gap-1 disabled:opacity-50"
           style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textMuted }}>
           ···
@@ -289,7 +291,7 @@ function InlineClassifier({ call }: { call: PendingCall }) {
       <input
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        placeholder="Add a note about the call (optional) — saved to the lead's Notes"
+        placeholder={t("queue.classify.notePlaceholder")}
         className="w-full text-[11px] px-2.5 py-1.5 rounded-md border outline-none"
         style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}
       />
@@ -332,6 +334,7 @@ const HIST_TABS: Array<{ key: HistClass; label: string; color: string }> = [
 // its own expand + save state.
 function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; selected?: boolean; onToggleSelect?: (id: string) => void }) {
   const router = useRouter();
+  const { t } = useLocale();
   const [expanded, setExpanded] = useState(false);
   const [transcript, setTranscript] = useState(e.transcript);
   const [transcribing, setTranscribing] = useState(false);
@@ -469,7 +472,7 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
                   </span>
                   <button onClick={() => setEditOutcome(true)}
                     className="text-[10px] font-semibold transition-opacity hover:opacity-70" style={{ color: C.textDim }}>
-                    Cambiar
+                    {t("queue.history.changeOutcome")}
                   </button>
                 </span>
               ) : (
@@ -477,16 +480,16 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
                   {!cls && (
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
                       style={{ backgroundColor: tint(C.red, 12), color: C.red, border: `1px solid ${tint(C.red, 30)}` }}>
-                      <AlertTriangle size={9} /> Unclassified
+                      <AlertTriangle size={9} /> {t("queue.classify.unclassified")}
                     </span>
                   )}
                   {(() => {
                     const ALL = [
-                      { key: "positive", label: "Interested", color: C.green },
-                      { key: "negative", label: "Not interested", color: C.red },
-                      { key: "follow_up", label: "Bad timing", color: "#D97706" },
-                      { key: "voicemail", label: "Voicemail", color: "#0EA5E9" },
-                      { key: "wrong_number", label: "Wrong number", color: C.textMuted },
+                      { key: "positive", label: t("queue.classify.interested"), color: C.green },
+                      { key: "negative", label: t("queue.classify.notInterested"), color: C.red },
+                      { key: "follow_up", label: t("queue.classify.badTiming"), color: "#D97706" },
+                      { key: "voicemail", label: t("queue.classify.voicemail"), color: "#0EA5E9" },
+                      { key: "wrong_number", label: t("queue.classify.wrongNumber"), color: C.textMuted },
                     ] as const;
                     // 3 primary outcomes always; voicemail/wrong-number tuck
                     // behind "···" (also auto-shown if one of them is active).
@@ -509,7 +512,7 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
                         })}
                         {!moreOutcomes && !secondaryActive && (
                           <button onClick={() => setMoreOutcomes(true)} disabled={!!classifying}
-                            title="More outcomes (voicemail / wrong number)"
+                            title={t("queue.classify.moreOutcomes")}
                             className="inline-flex items-center text-[10px] font-semibold px-2 py-0.5 rounded-full border transition-colors disabled:opacity-50"
                             style={{ backgroundColor: "transparent", color: C.textDim, borderColor: C.border }}>
                             ···
@@ -520,7 +523,7 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
                   })()}
                   {cls && (
                     <button onClick={() => setEditOutcome(false)} className="text-[10px] font-semibold transition-opacity hover:opacity-70" style={{ color: C.textDim }}>
-                      Cancelar
+                      {t("queue.history.cancelOutcome")}
                     </button>
                   )}
                 </span>
@@ -561,13 +564,13 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
             <audio controls preload="none" src={`/api/aircall/calls/${e.id}/play`} className="flex-1 h-9 min-w-0" />
           ) : (
             <span className="flex-1 text-[11px] px-3 py-2 rounded-md text-center" style={{ backgroundColor: C.surface, color: C.textDim }}>
-              No recording
+              {t("queue.history.noRecording")}
             </span>
           )}
           <button onClick={() => setExpanded(v => !v)}
             className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-colors shrink-0"
             style={{ borderColor: C.border, color: C.textMuted, backgroundColor: expanded ? C.surface : "transparent" }}>
-            {expanded ? "Hide" : "Transcript & notes"} <ChevronRight size={11} style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform 150ms" }} />
+            {expanded ? t("queue.history.hide") : t("queue.history.transcriptNotes")} <ChevronRight size={11} style={{ transform: expanded ? "rotate(90deg)" : "none", transition: "transform 150ms" }} />
           </button>
           <button onClick={remove} disabled={deleting} title="Delete this call from History"
             className="inline-flex items-center justify-center w-8 h-8 rounded-lg border transition-colors shrink-0 hover:bg-black/[0.03] disabled:opacity-50"
@@ -581,7 +584,7 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
         <div className="border-t px-4 py-3 space-y-3" style={{ borderColor: C.border }}>
           {/* Transcript */}
           <div>
-            <p className="text-[10px] uppercase tracking-wider mb-1.5 font-semibold" style={{ color: C.textDim }}>Transcript</p>
+            <p className="text-[10px] uppercase tracking-wider mb-1.5 font-semibold" style={{ color: C.textDim }}>{t("queue.history.transcript")}</p>
             {transcript ? (
               <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{transcript}</p>
             ) : canTranscribe ? (
@@ -589,24 +592,24 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
                 className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-opacity hover:opacity-85 disabled:opacity-50"
                 style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.surface }}>
                 {transcribing ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
-                {transcribing ? "Transcribing…" : "Transcribe call"}
+                {transcribing ? t("queue.history.transcribing") : t("queue.history.transcribeCall")}
               </button>
             ) : (
-              <p className="text-[11px]" style={{ color: C.textDim }}>No transcript {e.hasRecording ? "yet" : "(no recording)"}.</p>
+              <p className="text-[11px]" style={{ color: C.textDim }}>{e.hasRecording ? t("queue.history.noTranscriptYet") : t("queue.history.noTranscriptNoRecording")}</p>
             )}
           </div>
           {/* Notes — saved to the lead's Team Notes; tag teammates to notify them */}
           <div>
             <p className="text-[10px] uppercase tracking-wider mb-1.5 font-semibold" style={{ color: C.textDim }}>
-              Add note <span style={{ color: C.textDim, fontWeight: 400, textTransform: "none" }}>· saved to the lead's Notes</span>
+              {t("queue.history.addNote")} <span style={{ color: C.textDim, fontWeight: 400, textTransform: "none" }}>{t("queue.history.noteSavedHint")}</span>
             </p>
             <textarea value={note} onChange={ev => setNote(ev.target.value)} rows={2}
-              placeholder="Add a note about this call…"
+              placeholder={t("queue.history.notePlaceholder")}
               className="w-full rounded-lg border px-3 py-2 text-[12px] resize-none outline-none focus:ring-2"
               style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary }} />
             {roster.length > 0 && (
               <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                <span className="text-[10px] font-semibold" style={{ color: C.textDim }}>Tag:</span>
+                <span className="text-[10px] font-semibold" style={{ color: C.textDim }}>{t("queue.history.tag")}</span>
                 {roster.map(m => {
                   const on = mentioned.has(m.userId);
                   return (
@@ -629,9 +632,9 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
                 className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg text-white transition-opacity hover:opacity-90 disabled:opacity-40"
                 style={{ backgroundColor: "#F97316" }}>
                 {savingNote ? <Loader2 size={11} className="animate-spin" /> : null}
-                Save note{mentioned.size > 0 ? ` & notify ${mentioned.size}` : ""}
+                {mentioned.size > 0 ? t("queue.history.saveNoteNotify").replace("{n}", String(mentioned.size)) : t("queue.history.saveNote")}
               </button>
-              {noteSaved && <span className="text-[11px] font-semibold" style={{ color: C.green }}>Saved to lead ✓</span>}
+              {noteSaved && <span className="text-[11px] font-semibold" style={{ color: C.green }}>{t("queue.history.noteSaved")}</span>}
             </div>
           </div>
           {err && <p className="text-[11px]" style={{ color: C.red }}>{err}</p>}
@@ -645,24 +648,27 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
 function CallBulkBar({ count, allSelected, onSelectAll, onClear, onDelete, deleting }: {
   count: number; allSelected: boolean; onSelectAll: () => void; onClear: () => void; onDelete: () => void; deleting: boolean;
 }) {
+  const { t } = useLocale();
   if (count === 0) return null;
   return (
     <div className="sticky top-0 z-20 mb-2 flex items-center gap-2 px-3 py-2 rounded-lg border"
       style={{ backgroundColor: "color-mix(in srgb, #F97316 8%, " + C.card + ")", borderColor: "color-mix(in srgb, #F97316 40%, transparent)" }}>
-      <span className="text-xs font-bold" style={{ color: "#F97316" }}>{count} seleccionada{count === 1 ? "" : "s"}</span>
+      <span className="text-xs font-bold" style={{ color: "#F97316" }}>
+        {count === 1 ? t("queue.bulk.selectedOne") : t("queue.bulk.selected").replace("{n}", String(count))}
+      </span>
       <button onClick={onSelectAll} className="text-[11px] font-semibold transition-opacity hover:opacity-70" style={{ color: C.textMuted }}>
-        {allSelected ? "Deseleccionar todo" : "Seleccionar todo"}
+        {allSelected ? t("queue.bulk.deselectAll") : t("queue.bulk.selectAll")}
       </button>
       <div className="flex-1" />
       <button onClick={onClear} className="text-[11px] font-semibold px-2.5 py-1 rounded-md border transition-opacity hover:opacity-80"
         style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.card }}>
-        Cancelar
+        {t("queue.bulk.cancel")}
       </button>
       <button onClick={onDelete} disabled={deleting}
         className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1 rounded-md transition-opacity hover:opacity-90 disabled:opacity-50"
         style={{ backgroundColor: C.red, color: "#fff" }}>
         {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-        Borrar {count}
+        {t("queue.bulk.delete").replace("{n}", String(count))}
       </button>
     </div>
   );
@@ -689,6 +695,16 @@ function CallHistoryPanel({
   onClearSelection: () => void;
   onSelectAll: (ids: string[]) => void;
 }) {
+  const { t } = useLocale();
+  const HIST_TABS_I18N: Record<HistClass, string> = {
+    all: t("queue.hist.all"),
+    positive: t("queue.hist.interested"),
+    negative: t("queue.hist.notInterested"),
+    follow_up: t("queue.hist.badTiming"),
+    voicemail: t("queue.hist.voicemail"),
+    wrong_number: t("queue.hist.wrongNumber"),
+    unclassified: t("queue.hist.unclassified"),
+  };
   const counts: Record<string, number> = { all: entries.length, positive: 0, negative: 0, follow_up: 0, voicemail: 0, wrong_number: 0, unclassified: 0 };
   for (const e of entries) {
     if (e.classification && counts[e.classification] !== undefined) counts[e.classification]++;
@@ -723,21 +739,21 @@ function CallHistoryPanel({
           calls, and reads red so pending work is obvious. */}
       <div className="rounded-xl border mb-4 overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.card }}>
         <div className="flex items-center gap-1.5 px-3 py-2.5 flex-wrap" style={{ borderBottom: `1px solid ${C.border}` }}>
-          {HIST_TABS.map(t => {
-            const active = histClass === t.key;
-            const count = counts[t.key] ?? 0;
-            const isUnc = t.key === "unclassified";
+          {HIST_TABS.map(ht => {
+            const active = histClass === ht.key;
+            const count = counts[ht.key] ?? 0;
+            const isUnc = ht.key === "unclassified";
             if (isUnc && count === 0) return null; // nothing pending → hide bucket
-            const idle = isUnc ? t.color : C.textMuted;
+            const idle = isUnc ? ht.color : C.textMuted;
             return (
-              <button key={t.key} onClick={() => setHistClass(t.key)}
+              <button key={ht.key} onClick={() => setHistClass(ht.key)}
                 className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
                 style={active
-                  ? { backgroundColor: tint(t.color, 12), color: t.color, borderColor: tint(t.color, 40) }
-                  : { backgroundColor: "transparent", color: idle, borderColor: isUnc ? tint(t.color, 30) : C.border }}>
-                {t.label}
+                  ? { backgroundColor: tint(ht.color, 12), color: ht.color, borderColor: tint(ht.color, 40) }
+                  : { backgroundColor: "transparent", color: idle, borderColor: isUnc ? tint(ht.color, 30) : C.border }}>
+                {HIST_TABS_I18N[ht.key]}
                 <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full tabular-nums"
-                  style={{ backgroundColor: active ? tint(t.color, 18) : (isUnc ? tint(t.color, 14) : C.surface), color: active || isUnc ? t.color : C.textDim }}>
+                  style={{ backgroundColor: active ? tint(ht.color, 18) : (isUnc ? tint(ht.color, 14) : C.surface), color: active || isUnc ? ht.color : C.textDim }}>
                   {count}
                 </span>
               </button>
@@ -755,7 +771,7 @@ function CallHistoryPanel({
             {(histFrom || histTo) && (
               <button onClick={() => { setHistFrom(""); setHistTo(""); }}
                 className="inline-flex items-center gap-1 px-1.5 py-1 rounded-md font-semibold transition-colors hover:bg-black/[0.04]" style={{ color: C.textDim }}>
-                <X size={11} /> Clear
+                <X size={11} /> {t("queue.calls.clear")}
               </button>
             )}
           </div>
@@ -765,12 +781,14 @@ function CallHistoryPanel({
               <PhoneCall size={12} style={{ color: C.textDim }} />
               <select value={histDialer} onChange={e => setHistDialer(e.target.value)}
                 className="rounded-md border px-2 py-1 outline-none font-medium" style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}>
-                <option value="all">Everyone</option>
+                <option value="all">{t("queue.calls.everyone")}</option>
                 {dialerNames.map(n => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>
           )}
-          <span className="ml-auto font-bold tabular-nums" style={{ color: C.textBody }}>{rows.length} call{rows.length === 1 ? "" : "s"}</span>
+          <span className="ml-auto font-bold tabular-nums" style={{ color: C.textBody }}>
+            {rows.length === 1 ? t("queue.hist.callCount").replace("{n}", "1") : t("queue.hist.callCountPlural").replace("{n}", String(rows.length))}
+          </span>
         </div>
       </div>
 
@@ -780,9 +798,11 @@ function CallHistoryPanel({
           <div className="w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center" style={{ backgroundColor: C.surface }}>
             <Phone size={22} style={{ color: C.textDim }} />
           </div>
-          <p className="text-sm font-bold mb-1.5" style={{ color: C.textPrimary }}>No calls in this view</p>
+          <p className="text-sm font-bold mb-1.5" style={{ color: C.textPrimary }}>{t("queue.hist.noCallsView")}</p>
           <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
-            No {HIST_TABS.find(t => t.key === histClass)?.label.toLowerCase()} calls{(histFrom || histTo) ? " in this date range" : ""}.
+            {(histFrom || histTo)
+              ? t("queue.hist.noCallsRange").replace("{label}", HIST_TABS_I18N[histClass].toLowerCase())
+              : t("queue.hist.noCallsLabel").replace("{label}", HIST_TABS_I18N[histClass].toLowerCase())}
           </p>
         </div>
       ) : (
@@ -804,6 +824,7 @@ function CallHistoryPanel({
 
 // ─── Main ──────────────────────────────────────────────────────────────────────
 export default function QueueClient({ pendingCalls, newReplies, callHistory }: Props) {
+  const { t } = useLocale();
   const searchParams = useSearchParams();
   // Deep-linked tab via `?tab=calls` / `?tab=inbox` / `?tab=history`. Per
   // boss feedback 2026-05-27, History is now the first tab — that's the
@@ -1000,24 +1021,24 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
   // tab===N render blocks and deep links. The array order is just the visual
   // order: conversations first (Replies, Team Chat), call queue last.
   const tabs = [
-    { id: 0, label: "Lead Replies", count: pendingReplyCount,   color: C.blue,    reviewCount: needsReviewCount, dividerBefore: false, dot: false },
-    { id: 2, label: "Team Chat",    count: 0,                    color: "#7C3AED", reviewCount: 0,                dividerBefore: false, dot: chatUnread > 0 },
-    { id: 1, label: "Calls",        count: pendingCalls.length, color: "#F97316", reviewCount: 0,                dividerBefore: true,  dot: false },
+    { id: 0, label: t("queue.tab.replies"), count: pendingReplyCount,   color: C.blue,    reviewCount: needsReviewCount, dividerBefore: false, dot: false },
+    { id: 2, label: t("queue.tab.chat"),    count: 0,                    color: "#7C3AED", reviewCount: 0,                dividerBefore: false, dot: chatUnread > 0 },
+    { id: 1, label: t("queue.tab.calls"),   count: pendingCalls.length, color: "#F97316", reviewCount: 0,                dividerBefore: true,  dot: false },
   ];
 
   return (
     <div className="p-4 sm:p-6 w-full">
       <PageHero
         icon={Bell}
-        section="Operations"
-        title="Inbox"
-        description="Review pending calls, new replies, and campaigns awaiting action."
+        section={t("queue.hero.section")}
+        title={t("queue.hero.title")}
+        description={t("queue.hero.desc")}
         accentColor={C.orange}
-        status={{ label: totalCount > 0 ? `${totalCount} pending` : "All Clear", active: totalCount > 0 }}
+        status={{ label: totalCount > 0 ? t("queue.hero.status.pending").replace("{n}", String(totalCount)) : t("queue.hero.status.clear"), active: totalCount > 0 }}
         stats={[
-          { label: "Calls to make", value: pendingCalls.length, tone: pendingCalls.length > 0 ? "warning" : "neutral" },
-          { label: "New replies", value: pendingReplyCount, tone: pendingReplyCount > 0 ? "positive" : "neutral" },
-          { label: "Need review", value: needsReviewCount, tone: needsReviewCount > 0 ? "danger" : "neutral" },
+          { label: t("queue.hero.stat.calls"), value: pendingCalls.length, tone: pendingCalls.length > 0 ? "warning" : "neutral" },
+          { label: t("queue.hero.stat.replies"), value: pendingReplyCount, tone: pendingReplyCount > 0 ? "positive" : "neutral" },
+          { label: t("queue.hero.stat.review"), value: needsReviewCount, tone: needsReviewCount > 0 ? "danger" : "neutral" },
         ]}
       />
 
@@ -1064,8 +1085,8 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
             <button onClick={clearDismissed}
               className="text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-colors"
               style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.card }}
-              title={`Restore ${dismissed.size} dismissed item${dismissed.size === 1 ? "" : "s"}`}>
-              Restore {dismissed.size}
+              title={t("queue.calls.restoreDismissed").replace("{n}", String(dismissed.size))}>
+              {t("queue.calls.restoreDismissed").replace("{n}", String(dismissed.size))}
             </button>
           )}
           {tab === 1 && (
@@ -1088,26 +1109,26 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
         const activeList = filteredCallsToMake;
         const emptyCopy = callSubTab === 0
           ? {
-              title: search ? "No calls match your search" : "No calls due right now",
+              title: search ? t("queue.empty.noCallsSearch") : t("queue.empty.noCallsDue"),
               hint: search
-                ? "Try clearing the search to see all pending calls."
+                ? t("queue.empty.searchHint")
                 : "Calls show up here the moment a sequence reaches a call step. Nothing for you to do right now — good time to triage your inbox or check Flows.",
-              ctaLabel: search ? null : "Open Inbox",
+              ctaLabel: search ? null : t("queue.empty.openInbox"),
               ctaTab: null,
               ctaHref: "/inbox",
             }
           : callSubTab === 1
           ? {
-              title: search ? "No calls match your search" : "Nothing to classify",
-              hint: "Once you call a lead, it lands here until you log the outcome (Positive / Negative / Follow-up). Classifying calls is what keeps the AI's reply matching accurate.",
+              title: search ? t("queue.empty.noCallsSearch") : t("queue.empty.nothingToClassify"),
+              hint: t("queue.empty.awaitingClassifyHint"),
               ctaLabel: null,
               ctaTab: null,
               ctaHref: null,
             }
           : {
-              title: search ? "No follow-ups match your search" : "No follow-ups waiting",
+              title: search ? t("queue.empty.noCallsSearch") : t("queue.empty.noCallsDue"),
               hint: "Leads you marked Follow-up live here until you dial them again. Empty means you're caught up — back to To Call.",
-              ctaLabel: "Back to To Call",
+              ctaLabel: t("queue.empty.backToCall"),
               ctaTab: 0 as 0,
               ctaHref: null,
             };
@@ -1118,9 +1139,9 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
             <div className="flex items-center gap-1 mb-4 rounded-lg border p-1 w-fit"
               style={{ borderColor: C.border, backgroundColor: C.card }}>
               {([
-                { idx: 0 as const, label: "To Call",           count: callsToMake.length,           icon: PhoneCall },
-                { idx: 1 as const, label: "Awaiting Outcome",  count: callsAwaitingOutcome.length,  icon: Clock     },
-                { idx: 2 as const, label: "History",           count: callHistory.length,           icon: Phone     },
+                { idx: 0 as const, label: t("queue.calls.sub.toCall"),   count: callsToMake.length,           icon: PhoneCall },
+                { idx: 1 as const, label: t("queue.calls.sub.awaiting"), count: callsAwaitingOutcome.length,  icon: Clock     },
+                { idx: 2 as const, label: t("queue.calls.sub.history"),  count: callHistory.length,           icon: Phone     },
                 // Awaiting Outcome count = unclassified calls in the log (same
                 // as History's "Sin clasificar" bucket). Boss 2026-06-11.
               ]).map(s => {
@@ -1150,15 +1171,15 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
             {callSubTab !== 2 && callSellerNames.length > 1 && (
               <div className="flex items-center gap-1.5 mb-3 text-xs">
                 <PhoneCall size={12} style={{ color: C.textDim }} />
-                <span style={{ color: C.textMuted }}>Seller:</span>
+                <span style={{ color: C.textMuted }}>{t("queue.calls.seller")}</span>
                 <select value={callSeller} onChange={e => setCallSeller(e.target.value)}
                   className="rounded-md border px-2 py-1 outline-none font-medium" style={{ borderColor: C.border, backgroundColor: C.card, color: C.textBody }}>
-                  <option value="all">Everyone</option>
+                  <option value="all">{t("queue.calls.everyone")}</option>
                   {callSellerNames.map(n => <option key={n} value={n}>{n}</option>)}
                 </select>
                 {callSeller !== "all" && (
                   <button onClick={() => setCallSeller("all")} className="inline-flex items-center gap-1 px-1.5 py-1 rounded-md font-semibold transition-colors hover:bg-black/[0.04]" style={{ color: C.textDim }}>
-                    <X size={11} /> Clear
+                    <X size={11} /> {t("queue.calls.clear")}
                   </button>
                 )}
               </div>
@@ -1194,9 +1215,9 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                     style={{ backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)` }}>
                     <CheckCircle size={22} style={{ color: C.green }} />
                   </div>
-                  <p className="text-sm font-bold mb-1.5" style={{ color: C.textPrimary }}>{search ? "No calls match your search" : "Todo clasificado"}</p>
+                  <p className="text-sm font-bold mb-1.5" style={{ color: C.textPrimary }}>{search ? t("queue.empty.noCallsSearch") : t("queue.empty.nothingToClassify")}</p>
                   <p className="text-xs leading-relaxed" style={{ color: C.textMuted }}>
-                    {search ? "Probá limpiar la búsqueda." : "Cada llamada que hagas cae acá hasta que registres el outcome (Interested / Bad timing / etc.). Clasificar mantiene los resultados y el matching de la IA correctos."}
+                    {search ? t("queue.empty.searchHint") : t("queue.empty.awaitingClassifyHint")}
                   </p>
                 </div>
               ) : (
@@ -1272,17 +1293,17 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                               </span>
                             )}
                             {call.callAdvanceMode === "manual" && (
-                              <span title="Sequence frozen until the seller dials. No auto-advance."
+                              <span title={t("queue.card.manualGateTitle")}
                                 className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
                                 style={{ backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#D97706", border: "1px solid color-mix(in srgb, #D97706 32%, transparent)" }}>
-                                Manual gate
+                                {t("queue.card.manualGate")}
                               </span>
                             )}
                           </div>
                           {call.role && <p className="text-xs" style={{ color: C.textMuted }}>{call.role}</p>}
                           <p className="text-[10px] mt-1" style={{ color: C.textDim }}>
-                            {call.campaignName} · Step {call.currentStep + 1}/{call.totalSteps}
-                            {call.lastStepAt && <> · Last activity {timeAgo(call.lastStepAt)}</>}
+                            {call.campaignName} · {t("queue.card.step").replace("{current}", String(call.currentStep + 1)).replace("{total}", String(call.totalSteps))}
+                            {call.lastStepAt && <> {t("queue.card.lastActivity").replace("{timeAgo}", timeAgo(call.lastStepAt))}</>}
                             {call.isOverdue && !awaitingOutcome && <> · {urgency.hint}</>}
                           </p>
                         </div>
@@ -1310,7 +1331,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                               title="Phone marked wrong via post-call outcome. Open lead detail to replace."
                             >
                               <AlertTriangle size={11} />
-                              Wrong number
+                              {t("queue.card.wrongNumber")}
                             </Link>
                           )}
                           {call.leadId && (
@@ -1320,7 +1341,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                               style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textBody }}
                               title="Open lead detail"
                             >
-                              <User size={11} /> Open lead
+                              <User size={11} /> {t("queue.card.openLead")}
                             </Link>
                           )}
                           {/* Open flow — jump straight to this call's campaign,
@@ -1332,7 +1353,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                               style={{ borderColor: C.border, backgroundColor: C.bg, color: C.textBody }}
                               title="Open the flow this call belongs to"
                             >
-                              <Megaphone size={11} /> Open flow
+                              <Megaphone size={11} /> {t("queue.card.openFlow")}
                             </Link>
                           )}
                           {call.leadId ? (() => {
@@ -1352,7 +1373,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                           })() : (
                             <span className="flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-xs"
                               style={{ backgroundColor: C.surface, color: C.textDim }}>
-                              <PhoneOff size={12} /> No lead linked
+                              <PhoneOff size={12} /> {t("queue.card.noLeadLinked")}
                             </span>
                           )}
                         </div>
@@ -1371,11 +1392,11 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                         style={{ borderColor: C.border, backgroundColor: C.bg }}>
                         <Link href={call.leadId ? `/leads/${call.leadId}` : "#"}
                           className="text-[10px] font-medium hover:underline flex items-center gap-1" style={{ color: gold }}>
-                          <User size={10} /> Lead Profile
+                          <User size={10} /> {t("queue.card.leadProfile")}
                         </Link>
                         <Link href={`/campaigns/${call.campaignId}`}
                           className="text-[10px] font-medium hover:underline flex items-center gap-1" style={{ color: gold }}>
-                          <Megaphone size={10} /> Campaign
+                          <Megaphone size={10} /> {t("queue.card.campaign")}
                         </Link>
                         {call.email && (
                           <span className="text-[10px] ml-auto" style={{ color: C.textDim }}>{call.email}</span>

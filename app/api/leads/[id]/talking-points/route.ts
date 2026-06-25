@@ -100,7 +100,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  const points = await generate({ lead, icpContext, liBlock, apiKey });
+  const points = await generate({ lead, icpContext, liBlock, apiKey, langInstruction });
   if (!points || points.length === 0) {
     return NextResponse.json({ error: "AI call failed" }, { status: 500 });
   }
@@ -112,11 +112,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   return NextResponse.json({ ok: true, points });
 }
 
-async function generate({ lead, icpContext, liBlock, apiKey }: {
+async function generate({ lead, icpContext, liBlock, apiKey, langInstruction }: {
   lead: Record<string, unknown>;
   icpContext: { profile_name?: string; solutions_offered?: string; pain_points?: string } | null;
   liBlock: string | null;
   apiKey: string;
+  langInstruction: string;
 }): Promise<TalkingPoint[] | null> {
   const name = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "the lead";
   const enrichment = (lead.enrichment as Record<string, unknown> | null) ?? {};
