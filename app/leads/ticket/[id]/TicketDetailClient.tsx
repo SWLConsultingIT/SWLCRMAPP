@@ -495,8 +495,6 @@ function LeadsTable({
               )}
               {[
                 t("ticket.table.lead"),
-                t("ticket.table.company"),
-                t("ticket.table.role"),
                 t("ticket.table.score"),
                 t("ticket.table.campaign"),
                 t("ticket.table.reply"),
@@ -508,7 +506,7 @@ function LeadsTable({
           </thead>
           <tbody>
             {visible.length === 0 ? (
-              <tr><td colSpan={selectable ? 8 : 7} className="px-4 py-10 text-center text-sm" style={{ color: C.textDim }}>{t("ticket.table.noMatches")}</td></tr>
+              <tr><td colSpan={selectable ? 6 : 5} className="px-4 py-10 text-center text-sm" style={{ color: C.textDim }}>{t("ticket.table.noMatches")}</td></tr>
             ) : visible.map(lead => {
               const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || t("ticket.table.unknown");
               const badge = scoreBadge(lead.score, lead.is_priority);
@@ -545,12 +543,15 @@ function LeadsTable({
                       </div>
                       <div className="min-w-0">
                         <span className="text-xs font-semibold group-hover/row:underline block truncate" style={{ color: C.textPrimary }}>{name}</span>
+                        {(lead.role || lead.company) && (
+                          <span className="text-[11px] block truncate" style={{ color: C.textMuted }}>
+                            {[lead.role, lead.company].filter(Boolean).join(" · ")}
+                          </span>
+                        )}
                       </div>
                       {lead.is_priority && <Star size={10} fill={gold} stroke={gold} className="shrink-0" />}
                     </Link>
                   </td>
-                  <td className="px-4 py-3"><span className="text-xs truncate block max-w-[140px]" style={{ color: C.textMuted }}>{lead.company ?? "—"}</span></td>
-                  <td className="px-4 py-3"><span className="text-xs truncate block max-w-[140px]" style={{ color: C.textMuted }}>{lead.role ?? "—"}</span></td>
                   <td className="px-4 py-3">
                     <span className="text-[9px] font-bold px-1.5 py-0.5 rounded inline-block" style={{ backgroundColor: badge.bg, color: badge.color }}>{t(`ticket.score.${badge.key}`)}</span>
                   </td>
