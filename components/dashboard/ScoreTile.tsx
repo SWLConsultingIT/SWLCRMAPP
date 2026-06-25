@@ -35,9 +35,9 @@ export default function ScoreTile({
   };
   const body = (
     <>
-      <p className="text-[9px] font-bold uppercase tracking-wider truncate" style={{ color: C.textDim }}>{label}</p>
+      <p className="text-[9px] font-bold uppercase tracking-wider truncate" style={{ color: C.textMuted }}>{label}</p>
       <p className="text-[22px] font-bold tabular-nums leading-tight tracking-[-0.02em]"
-        style={{ color, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
+        style={{ color: `color-mix(in srgb, ${color}, white var(--c-accent-lift, 0%))`, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
         {value}
       </p>
     </>

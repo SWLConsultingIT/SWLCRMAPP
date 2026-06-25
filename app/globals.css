@@ -33,6 +33,10 @@
   --c-textMuted:   #6B7280;
   --c-textDim:     #9CA3AF;
   --c-textOnDark:  #E6EAF4;
+  /* How much to lift saturated accent colors toward white. 0% in light (the
+     mid-tone hexes read fine on white cards); bumped in dark so the same
+     hexes don't sit dark-on-dark on the navy card. Use in color-mix. */
+  --c-accent-lift: 0%;
 
   --c-shadow:   0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.07);
   --c-shadowMd: 0 4px 20px rgba(0,0,0,0.09), 0 2px 6px rgba(0,0,0,0.04);
@@ -86,6 +90,7 @@
   --c-textMuted:   #A3ADC2;
   --c-textDim:     #7E8AA5;
   --c-textOnDark:  #E8ECF5;
+  --c-accent-lift: 36%;  /* lighten saturated accents toward white so they read on the navy card */
 
   --c-shadow:   0 1px 3px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.6);
   --c-shadowMd: 0 4px 20px rgba(0,0,0,0.6), 0 2px 6px rgba(0,0,0,0.5);
@@ -301,6 +306,34 @@ select:focus-visible {
   from { width: 0; }
 }
 .animate-fill { animation: fillBar 0.8s cubic-bezier(0.22,1,0.36,1); }
+
+/* ─── Reveal-on-load (used by lead-detail zones) ───────────────────────
+   Soft fade + rise. Apply `.reveal` and set --d for a per-element stagger
+   delay. Cards lift on hover via `.lift`. Honors prefers-reduced-motion
+   (the global reset at the top already kills animations there). */
+@keyframes revealUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.reveal {
+  animation: revealUp 0.55s cubic-bezier(0.21,0.6,0.35,1) both;
+  animation-delay: var(--d, 0ms);
+}
+.lift { transition: transform 0.2s cubic-bezier(0.22,1,0.36,1), box-shadow 0.2s ease; }
+.lift:hover { transform: translateY(-3px); }
+
+/* Soft sheen sweep across a surface (e.g. AI cards on hover). */
+@keyframes sheen {
+  0%   { transform: translateX(-120%); }
+  60%, 100% { transform: translateX(220%); }
+}
+.sheen-host { position: relative; overflow: hidden; }
+.sheen-host::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,0.18), transparent);
+  transform: translateX(-120%); pointer-events: none;
+}
+.sheen-host:hover::after { animation: sheen 1.1s ease; }
 
 /* ─── LogoLoader: cropped brand-mark PNG + gold wordmark ──────────────
    The brand PNG has its "SWL" lettering in white, which disappears on
