@@ -141,15 +141,15 @@ function BriefCard({ p }: { p: TalkingPoint }) {
         </div>
         <div className="flex-1 min-w-0">
           <span className="inline-flex items-center text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md mb-1.5"
-            style={{ backgroundColor: `color-mix(in srgb, ${meta.accent} 15%, transparent)`, color: meta.accent, letterSpacing: "0.08em" }}>
+            style={{ backgroundColor: `color-mix(in srgb, ${meta.accent} 15%, transparent)`, color: `color-mix(in srgb, ${meta.accent}, white var(--c-accent-lift, 0%))`, letterSpacing: "0.08em" }}>
             {meta.label}
           </span>
           {isOpener ? (
-            <p className="text-[14px] leading-snug italic" style={{ color: C.textPrimary, fontFamily: "Georgia, 'Times New Roman', serif" }}>
+            <p className="text-[15px] leading-relaxed italic" style={{ color: C.textPrimary, fontFamily: "Georgia, 'Times New Roman', serif" }}>
               &ldquo;{p.text}&rdquo;
             </p>
           ) : (
-            <p className="text-[13.5px] leading-snug" style={{ color: C.textPrimary }}>{p.text}</p>
+            <p className="text-[14px] leading-relaxed" style={{ color: C.textBody }}>{p.text}</p>
           )}
         </div>
       </div>
