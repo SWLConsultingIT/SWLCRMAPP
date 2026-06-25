@@ -942,7 +942,10 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                           One click classifies AND marks reviewed, freeing the
                           seller from opening every thread. */}
                       {isPending(r) && (
-                      <div className="absolute top-2 right-2 opacity-0 group-hover/ix:opacity-100 transition-opacity flex items-center gap-1 pointer-events-auto">
+                      <div
+                        className="absolute top-1.5 right-1.5 opacity-0 group-hover/ix:opacity-100 transition-opacity flex items-center gap-1 pointer-events-auto rounded-lg px-1.5 py-1"
+                        style={{ backgroundColor: C.card, border: `1px solid ${C.border}`, boxShadow: "0 4px 14px rgba(0,0,0,0.4)" }}
+                      >
                         <button
                           type="button"
                           disabled={working}

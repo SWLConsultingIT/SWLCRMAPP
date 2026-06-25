@@ -324,7 +324,7 @@ const HIST_TABS: Array<{ key: HistClass; label: string; color: string }> = [
   { key: "follow_up",    label: "Bad timing",     color: "#D97706" },
   { key: "voicemail",    label: "Voicemail",      color: "#0EA5E9" },
   { key: "wrong_number", label: "Wrong number",   color: C.textMuted },
-  { key: "unclassified", label: "Sin clasificar", color: "#DC2626" },
+  { key: "unclassified", label: "Unclassified", color: "#DC2626" },
 ];
 
 // One reviewable call in the History list: recording player, transcript
@@ -477,7 +477,7 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
                   {!cls && (
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
                       style={{ backgroundColor: tint(C.red, 12), color: C.red, border: `1px solid ${tint(C.red, 30)}` }}>
-                      <AlertTriangle size={9} /> Sin clasificar
+                      <AlertTriangle size={9} /> Unclassified
                     </span>
                   )}
                   {(() => {
