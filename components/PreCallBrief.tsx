@@ -228,7 +228,7 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
     : null;
 
   return (
-    <div className="relative rounded-2xl overflow-hidden mb-6"
+    <div className="relative rounded-2xl overflow-hidden mb-6 sheen-host"
       style={{
         background: `linear-gradient(180deg, color-mix(in srgb, ${gold} 6%, var(--card)) 0%, var(--card) 40%)`,
         border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 22%, var(--border))",

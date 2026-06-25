@@ -40,7 +40,7 @@ export default function LeadSummaryTab({ leadId, initialSummary, initialGenerate
 
   return (
     <div
-      className="rounded-2xl border p-6 relative overflow-hidden"
+      className="rounded-2xl border p-6 relative overflow-hidden sheen-host"
       style={{
         backgroundColor: C.card,
         borderColor: C.border,
