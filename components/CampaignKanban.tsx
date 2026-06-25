@@ -175,14 +175,18 @@ function deriveCardBadges(camp: Campaign): CardBadge[] {
 // each showing that channel's own state, instead of one mixed badge. Derived
 // from the sequence position vs current_step (+ the CR badge for connection
 // state, + the call outcome / wrong-number flag for the call channel).
+// Theme-adaptive: background is a subtle color-mix tint (was a hardcoded light
+// pastel, which rendered as a loud bright block on the dark card). The text
+// color is lifted toward white in dark mode (via --c-accent-lift, applied at
+// render) so it stays readable on the navy tint.
 const CHIP_STYLE: Record<string, { c: string; bg: string }> = {
-  done:   { c: "#15803D", bg: "#DCFCE7" },
-  sent:   { c: "#0A66C2", bg: "#DBEAFE" },
-  queued: { c: "#B45309", bg: "#FEF3C7" },
-  warn:   { c: "#B45309", bg: "#FEF3C7" },
-  info:   { c: "#0369A1", bg: "#E0F2FE" },
-  fail:   { c: "#DC2626", bg: "#FEE2E2" },
-  none:   { c: "#9CA3AF", bg: "#F3F4F6" },
+  done:   { c: "#15803D", bg: "color-mix(in srgb, #15803D 15%, transparent)" },
+  sent:   { c: "#0A66C2", bg: "color-mix(in srgb, #0A66C2 15%, transparent)" },
+  queued: { c: "#B45309", bg: "color-mix(in srgb, #B45309 15%, transparent)" },
+  warn:   { c: "#B45309", bg: "color-mix(in srgb, #B45309 15%, transparent)" },
+  info:   { c: "#0369A1", bg: "color-mix(in srgb, #0369A1 15%, transparent)" },
+  fail:   { c: "#DC2626", bg: "color-mix(in srgb, #DC2626 15%, transparent)" },
+  none:   { c: "#9CA3AF", bg: "color-mix(in srgb, #9CA3AF 12%, transparent)" },
 };
 type Chip = { channel: string; label: string; tone: keyof typeof CHIP_STYLE; count?: number };
 function channelChips(camp: Campaign): Chip[] {
@@ -322,7 +326,7 @@ function LeadCard({ camp, isDragging }: { camp: Campaign; isDragging?: boolean }
             return (
               <span key={chip.channel}
                 className="text-[9px] font-semibold px-1.5 py-0.5 rounded inline-flex items-center gap-1"
-                style={{ backgroundColor: s.bg, color: s.c }}
+                style={{ backgroundColor: s.bg, color: `color-mix(in srgb, ${s.c}, white var(--c-accent-lift, 0%))` }}
                 title={chip.channel === "CR" ? (camp.step_0?.errorDetails ?? undefined) : undefined}>
                 <span style={{ opacity: 0.65 }}>{chip.channel}</span>
                 {chip.label}{chip.count && chip.count > 0 ? ` ${chip.count}` : ""}
