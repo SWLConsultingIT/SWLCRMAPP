@@ -38,6 +38,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await req.json().catch(() => ({}));
   const question = typeof body?.question === "string" ? body.question.trim() : "";
   if (!question) return NextResponse.json({ error: "Empty question" }, { status: 400 });
+  const locale: string = typeof body?.locale === "string" ? body.locale : "en";
+  const langInstruction = locale === "es" ? " Respond in Spanish." : " Respond in English.";
 
   const svc = getSupabaseService();
   const { data: leadRow } = await svc.from("leads").select("*").eq("id", id).single();
@@ -103,7 +105,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       model: "claude-haiku-4-5-20251001",
       max_tokens: 900,
       temperature: 0.4,
-      system: `You are a sharp B2B sales strategist embedded in a CRM, helping a seller work ONE specific lead. Answer the seller's question using ONLY the CONTEXT about this lead. Be concise and tactical — 2-6 sentences or short bullets, no preamble. If the question is about psychology/approach, give a concrete, human read. If something isn't in the data, say so briefly and give your best inference clearly flagged as inference. NEVER invent specific facts (names, companies, numbers) that aren't in the context.\n\nCONTEXT:\n${context}`,
+      system: `You are a sharp B2B sales strategist embedded in a CRM, helping a seller work ONE specific lead. Answer the seller's question using ONLY the CONTEXT about this lead. Be concise and tactical — 2-6 sentences or short bullets, no preamble. If the question is about psychology/approach, give a concrete, human read. If something isn't in the data, say so briefly and give your best inference clearly flagged as inference. NEVER invent specific facts (names, companies, numbers) that aren't in the context.${langInstruction}\n\nCONTEXT:\n${context}`,
       messages: [...priorTurns, { role: "user", content: question }] as any,
     });
     const answer = (res.content[0].type === "text" ? res.content[0].text : "").trim();

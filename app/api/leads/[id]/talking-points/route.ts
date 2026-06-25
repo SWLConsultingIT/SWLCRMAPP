@@ -43,9 +43,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   });
 }
 
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "Missing ANTHROPIC_API_KEY" }, { status: 500 });
+
+  const body = await req.json().catch(() => ({}));
+  const locale: string = (body as any).locale ?? "en";
+  const langInstruction = locale === "es"
+    ? "Write ALL content in Spanish (río-platense if Argentina, neutral otherwise). The seller's interface is in Spanish — the brief must be readable in Spanish."
+    : "Write ALL content in English.";
 
   const { id } = await params;
   const svc = getSupabaseService();
@@ -190,7 +196,7 @@ Rules:
 - "account": map OUR solutions to THEIR industry, size and stack. Generic-by-industry is fine, but name what we'd actually do for a company like theirs — not a vague benefit.
 - "read": use real sales psychology. Adapt to seniority (Director/CxO = strategic, time-poor, outcome-driven; manager = execution/relief-driven), background (partnerships/sales = relationship-led; engineering/ops = detail & proof-led), and tenure (new in seat = wants quick wins to prove themselves). Make it actionable (a do + a don't), never fluffy.
 - If the current role started recently (under ~12 months per the dates), lead the hook with that "new in seat" angle — it's the strongest opener.
-- Write the "read", "hook" and "opener" in the language the lead most likely speaks, inferred from their location/profile: Spanish for Spain and Latin America (rio-platense if Argentina), English for US/UK/etc. Default to English only if genuinely unclear. The other lines stay in English.
+- ${langInstruction}
 - Plain text inside strings: no markdown, no fences, no surrounding quotes, no leading numbers.
 - NEVER refuse, NEVER ask for more info, NEVER reply in prose. If data is genuinely thin, still return snapshot/pain/fit/opener, and OMIT the account/read/hook/objection objects rather than inventing fake specifics.
 - Output ONLY the JSON array.`;

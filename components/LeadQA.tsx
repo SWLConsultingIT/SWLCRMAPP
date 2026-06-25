@@ -3,27 +3,29 @@
 import { useRef, useState } from "react";
 import { Sparkles, Send, Brain, Loader2 } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 
 type Turn = { role: "user" | "assistant"; text: string; at?: string };
-
-const SUGGESTIONS = [
-  "What's the strongest angle for this account?",
-  "How should I open the call?",
-  "Likely objections and how to handle them?",
-  "Summarise everything we know in 3 lines.",
-];
 
 // Lead Copilot — grounded Q&A chat about this lead, with persistent per-lead
 // memory. Ask anything ("how do I handle the price objection?", "summarise the
 // last call") and get a tactical answer grounded in the lead's data.
 export default function LeadQA({ leadId, initialHistory, accent }: { leadId: string; initialHistory?: Turn[] | null; accent?: string }) {
   const gold = accent ?? "var(--brand, #c9a83a)";
+  const { t, locale } = useLocale();
   const [turns, setTurns] = useState<Turn[]>(Array.isArray(initialHistory) ? initialHistory : []);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const SUGGESTIONS = [
+    t("copilot.suggestion.angle"),
+    t("copilot.suggestion.open"),
+    t("copilot.suggestion.objections"),
+    t("copilot.suggestion.summarise"),
+  ];
 
   async function ask(q: string) {
     const question = q.trim();
@@ -37,7 +39,7 @@ export default function LeadQA({ leadId, initialHistory, accent }: { leadId: str
       const res = await fetch(`/api/leads/${leadId}/ask`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question }),
+        body: JSON.stringify({ question, locale }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
@@ -63,11 +65,11 @@ export default function LeadQA({ leadId, initialHistory, accent }: { leadId: str
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <p className="text-[14px] font-bold" style={{ color: C.textPrimary }}>Lead Copilot</p>
+            <p className="text-[14px] font-bold" style={{ color: C.textPrimary }}>{t("copilot.title")}</p>
             <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md"
               style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, ${gold} 70%, white))`, color: "#fff", letterSpacing: "0.06em" }}>AI</span>
           </div>
-          <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>Ask anything about this lead — grounded in their data, with memory.</p>
+          <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>{t("copilot.subtitle")}</p>
         </div>
       </div>
 
@@ -75,7 +77,7 @@ export default function LeadQA({ leadId, initialHistory, accent }: { leadId: str
       <div ref={scrollRef} className="px-5 py-4 space-y-3" style={{ maxHeight: 420, overflowY: "auto" }}>
         {turns.length === 0 && !loading && (
           <div className="py-2">
-            <p className="text-[12px] mb-2.5" style={{ color: C.textMuted }}>Try asking:</p>
+            <p className="text-[12px] mb-2.5" style={{ color: C.textMuted }}>{t("copilot.tryAsking")}</p>
             <div className="flex flex-wrap gap-2">
               {SUGGESTIONS.map((s) => (
                 <button key={s} onClick={() => ask(s)}
@@ -112,7 +114,7 @@ export default function LeadQA({ leadId, initialHistory, accent }: { leadId: str
           <div className="flex justify-start">
             <div className="rounded-2xl px-3.5 py-2.5 inline-flex items-center gap-2 text-[12px]"
               style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}`, borderTopLeftRadius: 4 }}>
-              <Loader2 size={13} className="animate-spin" /> Thinking…
+              <Loader2 size={13} className="animate-spin" /> {t("copilot.thinking")}
             </div>
           </div>
         )}
@@ -126,7 +128,7 @@ export default function LeadQA({ leadId, initialHistory, accent }: { leadId: str
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); ask(input); } }}
-            placeholder="Ask the copilot… (⌘/Ctrl+Enter to send)"
+            placeholder={t("copilot.placeholder")}
             rows={1}
             className="flex-1 resize-none rounded-xl px-3 py-2.5 text-[13px] outline-none"
             style={{ backgroundColor: C.bg, color: C.textPrimary, border: `1px solid ${C.border}`, maxHeight: 120 }}

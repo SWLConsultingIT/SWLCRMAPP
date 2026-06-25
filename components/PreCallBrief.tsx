@@ -196,7 +196,7 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
   initialPoints: AnyPoint[] | null;
   initialGeneratedAt: string | null;
 }) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
   const [points, setPoints] = useState<AnyPoint[] | null>(initialPoints);
   const [generatedAt, setGeneratedAt] = useState<string | null>(initialGeneratedAt);
   const [loading, setLoading] = useState(false);
@@ -207,7 +207,11 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/leads/${leadId}/talking-points`, { method: "POST" });
+      const res = await fetch(`/api/leads/${leadId}/talking-points`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locale }),
+      });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body?.error ?? `HTTP ${res.status}`);
       setPoints(body.points ?? null);

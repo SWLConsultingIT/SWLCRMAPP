@@ -828,6 +828,16 @@ export const en: Dict = {
   "brief.building": "Building this lead's pre-call brief…",
   "brief.toggle": "Pre-call brief",
   "brief.sectionTitle": "Pre-call prep",
+  // Lead Copilot (LeadQA)
+  "copilot.title": "Lead Copilot",
+  "copilot.subtitle": "Ask anything about this lead — grounded in their data, with memory.",
+  "copilot.thinking": "Thinking…",
+  "copilot.placeholder": "Ask the copilot… (⌘/Ctrl+Enter to send)",
+  "copilot.suggestion.angle": "What's the strongest angle for this account?",
+  "copilot.suggestion.open": "How should I open the call?",
+  "copilot.suggestion.objections": "Likely objections and how to handle them?",
+  "copilot.suggestion.summarise": "Summarise everything we know in 3 lines.",
+  "copilot.tryAsking": "Try asking:",
   // Lead detail zone labels
   "lead.zone.prep": "Pre-call prep",
   "lead.zone.account": "Account",
@@ -2574,6 +2584,16 @@ export const es: Dict = {
   "brief.building": "Construyendo el brief de este lead…",
   "brief.toggle": "Brief pre-llamada",
   "brief.sectionTitle": "Prep pre-llamada",
+  // Lead Copilot (LeadQA)
+  "copilot.title": "Lead Copilot",
+  "copilot.subtitle": "Preguntá lo que quieras sobre este lead — basado en sus datos, con memoria.",
+  "copilot.thinking": "Pensando…",
+  "copilot.placeholder": "Preguntá al copilot… (⌘/Ctrl+Enter para enviar)",
+  "copilot.suggestion.angle": "¿Cuál es el mejor ángulo para esta cuenta?",
+  "copilot.suggestion.open": "¿Cómo arranco la llamada?",
+  "copilot.suggestion.objections": "¿Posibles objeciones y cómo manejarlas?",
+  "copilot.suggestion.summarise": "Resumí todo lo que sabemos en 3 líneas.",
+  "copilot.tryAsking": "Probá preguntar:",
   // Lead detail zone labels
   "lead.zone.prep": "Prep pre-llamada",
   "lead.zone.account": "Cuenta",
