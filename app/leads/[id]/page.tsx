@@ -786,68 +786,91 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         initialGeneratedAt={(lead as any).call_talking_points_at ?? null}
       />
 
-      {/* ═══ ACCOUNT & INDUSTRY ANGLE — what this company does + our generic
-            play for their industry (from the ICP / company bio). Always-on,
-            data-grounded; the per-lead AI conclusion lives in the brief's
-            Account-angle card above. ═══ */}
+      {/* ═══ COMPANY — one rich section: facts + what they do + our industry
+            play + value prop + tech/keywords/news, clickable through to the
+            full company page. (Consolidates the old angle + company card and
+            the removed in-tab Company block.) ═══ */}
       {lead.company_name && (() => {
-        const whatTheyDo = (lead.organization_description as string | null)
-          || (lead.website_summary as string | null)
-          || ([lead.company_industry, lead.company_sub_industry].filter(Boolean).join(" · ") || null);
+        const enr = (lead.enrichment as any) ?? {};
+        const techs = Array.isArray(enr.technologies) ? enr.technologies as string[] : [];
+        const kws = Array.isArray(enr.keywords) ? enr.keywords as string[] : [];
+        const whatTheyDo = (lead.organization_description as string | null) || (lead.website_summary as string | null) || null;
         const ourPlay = angle.icp?.solutions_offered || angle.bio?.main_services || null;
         const valueProp = angle.bio?.value_proposition || angle.icp?.pain_points || null;
-        if (!whatTheyDo && !ourPlay) return null;
+        const facts = [
+          { label: "Industry", value: [lead.company_industry, lead.company_sub_industry].filter(Boolean).join(" · ") || null },
+          { label: "Location", value: [lead.company_city, lead.company_country].filter(Boolean).join(", ") || null },
+          { label: "Employees", value: (lead.employees ?? lead.company_employee_count) ?? null },
+          { label: "Revenue", value: lead.annual_revenue ? `$${lead.annual_revenue}` : null },
+        ].filter(f => f.value);
+        const website = lead.company_website ? (String(lead.company_website).startsWith("http") ? String(lead.company_website) : `https://${lead.company_website}`) : null;
         return (
-          <div className="rounded-2xl border p-5 mt-6" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-            <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>Account &amp; industry angle</h3>
-            <div className="grid md:grid-cols-2 gap-3">
-              {whatTheyDo && (
-                <div className="rounded-xl p-4" style={{ backgroundColor: C.bg, borderLeft: "3px solid #0891B2" }}>
-                  <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#155E75", letterSpacing: "0.08em" }}>What this company does</p>
-                  <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{String(whatTheyDo).slice(0, 400)}</p>
-                </div>
-              )}
-              {ourPlay && (
-                <div className="rounded-xl p-4" style={{ backgroundColor: C.bg, borderLeft: "3px solid #7C3AED" }}>
-                  <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#5B21B6", letterSpacing: "0.08em" }}>Our play for this industry</p>
-                  <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{String(ourPlay).slice(0, 400)}</p>
-                </div>
-              )}
-            </div>
-            {valueProp && (
-              <div className="mt-3 rounded-xl p-4" style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 6%, transparent)", border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 20%, transparent)" }}>
-                <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}><span className="font-bold" style={{ color: gold }}>→ </span>{String(valueProp).slice(0, 300)}</p>
-              </div>
-            )}
-          </div>
-        );
-      })()}
-
-      {/* ═══ COMPANY CARD — compact, clickable through to the full company page
-            (replaces the old in-tab Company block). ═══ */}
-      {lead.company_name && (() => {
-        const techs = Array.isArray((lead.enrichment as any)?.technologies) ? (lead.enrichment as any).technologies as string[] : [];
-        return (
-          <Link href={`/companies/${encodeURIComponent(lead.company_name)}`} className="block mt-6 rounded-2xl border p-5 transition-shadow hover:shadow-md" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-            <div className="flex items-center gap-4">
+          <div className="rounded-2xl border mt-6 overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border, borderTop: `3px solid ${gold}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+            <div className="flex items-center gap-4 p-5 pb-4">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))`, color: "#fff" }}>{lead.company_name[0]?.toUpperCase()}</div>
               <div className="flex-1 min-w-0">
-                <p className="text-[15px] font-bold" style={{ color: C.textPrimary }}>{lead.company_name}</p>
-                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs" style={{ color: C.textMuted }}>
-                  {[lead.company_industry, lead.company_sub_industry].filter(Boolean).length > 0 && <span>{[lead.company_industry, lead.company_sub_industry].filter(Boolean).join(" · ")}</span>}
-                  {[lead.company_city, lead.company_country].filter(Boolean).length > 0 && <span>{[lead.company_city, lead.company_country].filter(Boolean).join(", ")}</span>}
-                  {(lead.employees ?? lead.company_employee_count) ? <span><strong style={{ color: C.textBody }}>{lead.employees ?? lead.company_employee_count}</strong> employees</span> : null}
-                  {lead.annual_revenue ? <span><strong style={{ color: C.textBody }}>${lead.annual_revenue}</strong></span> : null}
-                </div>
-                {techs.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mt-2">
-                    {techs.slice(0, 6).map((t) => <span key={t} className="text-[11px] font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: C.blueLight, color: C.blue }}>{t}</span>)}
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted, letterSpacing: "0.1em" }}>Company</p>
+                <p className="text-[17px] font-bold leading-tight" style={{ color: C.textPrimary }}>{lead.company_name}</p>
+              </div>
+              <Link href={`/companies/${encodeURIComponent(lead.company_name)}`} className="text-xs font-bold flex items-center gap-1 shrink-0 px-3 py-1.5 rounded-lg hover:shadow-sm" style={{ color: gold, border: `1px solid color-mix(in srgb, ${gold} 35%, transparent)` }}>View company <ExternalLink size={12} /></Link>
+            </div>
+            {facts.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-5 pb-4">
+                {facts.map(f => (
+                  <div key={f.label} className="rounded-xl p-3" style={{ backgroundColor: C.bg }}>
+                    <p className="text-[9px] uppercase tracking-wider mb-1" style={{ color: C.textDim }}>{f.label}</p>
+                    <p className="text-[13px] font-semibold" style={{ color: C.textBody }}>{f.value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {(whatTheyDo || ourPlay) && (
+              <div className="grid md:grid-cols-2 gap-3 px-5 pb-4">
+                {whatTheyDo && (
+                  <div className="rounded-xl p-4" style={{ backgroundColor: C.bg, borderLeft: "3px solid #0891B2" }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#155E75", letterSpacing: "0.08em" }}>What they do</p>
+                    <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{String(whatTheyDo).slice(0, 500)}</p>
+                  </div>
+                )}
+                {ourPlay && (
+                  <div className="rounded-xl p-4" style={{ backgroundColor: C.bg, borderLeft: "3px solid #7C3AED" }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#5B21B6", letterSpacing: "0.08em" }}>Our play for this industry</p>
+                    <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{String(ourPlay).slice(0, 500)}</p>
                   </div>
                 )}
               </div>
-              <span className="text-xs font-bold flex items-center gap-1 shrink-0" style={{ color: gold }}>View company <ExternalLink size={12} /></span>
-            </div>
-          </Link>
+            )}
+            {valueProp && (
+              <div className="mx-5 mb-4 rounded-xl p-4" style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 6%, transparent)", border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 20%, transparent)" }}>
+                <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}><span className="font-bold" style={{ color: gold }}>→ </span>{String(valueProp).slice(0, 320)}</p>
+              </div>
+            )}
+            {(techs.length > 0 || kws.length > 0 || website || lead.recent_website_news) && (
+              <div className="px-5 pb-5 pt-3 border-t" style={{ borderColor: C.border }}>
+                {website && (
+                  <a href={website} target="_blank" rel="noopener" className="text-xs font-medium hover:underline inline-flex items-center gap-1" style={{ color: C.blue }}>{lead.company_website} <ExternalLink size={10} /></a>
+                )}
+                {techs.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textDim }}>Tech stack</p>
+                    <div className="flex flex-wrap gap-1.5">{techs.slice(0, 12).map(t => <span key={t} className="text-[11px] font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: C.blueLight, color: C.blue }}>{t}</span>)}</div>
+                  </div>
+                )}
+                {kws.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textDim }}>Keywords</p>
+                    <div className="flex flex-wrap gap-1.5">{kws.slice(0, 12).map(k => <span key={k} className="text-[11px] font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`, color: gold }}>{k}</span>)}</div>
+                  </div>
+                )}
+                {lead.recent_website_news && (
+                  <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: "color-mix(in srgb, #D97706 10%, transparent)", borderLeft: "3px solid #F59E0B" }}>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "#D97706" }}>Recent news</p>
+                    <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{lead.recent_website_news}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         );
       })()}
 
