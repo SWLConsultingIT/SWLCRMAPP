@@ -41,7 +41,7 @@ const COLS: { key: ColKey; label: string; color: string }[] = [
   { key: "voicemail",    label: "Voicemail",      color: "#0EA5E9" },
   { key: "notInterested",label: "Not interested", color: C.red },
   { key: "wrongNumber",  label: "Wrong #",        color: C.textMuted },
-  { key: "unclassified", label: "Sin clasificar", color: C.red },
+  { key: "unclassified", label: "Unclassified", color: C.red },
 ];
 
 function fmtDay(iso: string): string {
