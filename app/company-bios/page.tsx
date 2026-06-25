@@ -576,7 +576,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
           style={{
             backgroundColor: C.card,
             borderColor: C.border,
-            boxShadow: `0 0 0 1px color-mix(in srgb, ${gold} 13%, transparent), 0 1px 0 rgba(255,255,255,0.6) inset, 0 10px 30px -12px rgba(0,0,0,0.14)`,
+            boxShadow: `0 0 0 1px color-mix(in srgb, ${gold} 26%, transparent), 0 10px 30px -12px rgba(0,0,0,0.14)`,
           }}
         >
           <div className="flex items-center justify-between mb-4">
@@ -609,7 +609,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               style={{
                 backgroundColor: C.card,
                 borderColor: C.border,
-                boxShadow: `0 0 0 1px color-mix(in srgb, ${gold} 13%, transparent), 0 1px 0 rgba(255,255,255,0.6) inset, 0 10px 30px -12px rgba(0,0,0,0.14)`,
+                boxShadow: `0 0 0 1px color-mix(in srgb, ${gold} 26%, transparent), 0 10px 30px -12px rgba(0,0,0,0.14)`,
               }}
             >
               <div className="flex items-center justify-between mb-3">
@@ -647,7 +647,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
               style={{
                 backgroundColor: C.card,
                 borderColor: C.border,
-                boxShadow: `0 0 0 1px color-mix(in srgb, ${gold} 13%, transparent), 0 1px 0 rgba(255,255,255,0.6) inset, 0 10px 30px -12px rgba(0,0,0,0.14)`,
+                boxShadow: `0 0 0 1px color-mix(in srgb, ${gold} 26%, transparent), 0 10px 30px -12px rgba(0,0,0,0.14)`,
               }}
             >
               {bio.target_market && (
@@ -706,7 +706,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
           style={{
             backgroundColor: C.card,
             borderColor: C.border,
-            boxShadow: `0 0 0 1px color-mix(in srgb, ${gold} 13%, transparent), 0 1px 0 rgba(255,255,255,0.6) inset, 0 10px 30px -12px rgba(0,0,0,0.14)`,
+            boxShadow: `0 0 0 1px color-mix(in srgb, ${gold} 26%, transparent), 0 10px 30px -12px rgba(0,0,0,0.14)`,
           }}
         >
           <div className="flex items-center justify-between mb-5">
@@ -833,7 +833,7 @@ function BioView({ bio, onEdit }: { bio: CompanyBio; onEdit: () => void }) {
           style={{
             backgroundColor: C.card,
             borderColor: C.border,
-            boxShadow: `0 0 0 1px color-mix(in srgb, ${gold} 13%, transparent), 0 1px 0 rgba(255,255,255,0.6) inset, 0 10px 30px -12px rgba(0,0,0,0.14)`,
+            boxShadow: `0 0 0 1px color-mix(in srgb, ${gold} 26%, transparent), 0 10px 30px -12px rgba(0,0,0,0.14)`,
           }}
         >
           <div className="flex items-center justify-between mb-4">
