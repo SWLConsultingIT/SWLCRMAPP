@@ -7,6 +7,7 @@ import { C } from "@/lib/design";
 import CallClassifier from "@/components/CallClassifier";
 import CallCoachAnalysis from "@/components/CallCoachAnalysis";
 import CallSummary from "@/components/CallSummary";
+import { useLocale } from "@/lib/i18n";
 
 export type CallRecord = {
   id: string;
@@ -59,6 +60,7 @@ export default function CallCard({ call, compact = false, personalPhone, company
   companyPhone?: string | null;
 }) {
   const router = useRouter();
+  const { t } = useLocale();
   const [deleting, setDeleting] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   // Inline error replaces the native alert() popups — they were ugly
@@ -148,11 +150,11 @@ export default function CallCard({ call, compact = false, personalPhone, company
               {call.phone_number ?? "—"}
               {(() => {
                 const d = digits(call.phone_number);
-                const which = d && digits(personalPhone) === d ? "Personal"
-                  : d && digits(companyPhone) === d ? "Company"
+                const which = d && digits(personalPhone) === d ? t("call.phoneType.personal")
+                  : d && digits(companyPhone) === d ? t("call.phoneType.company")
                   : null;
                 if (!which) return null;
-                const isPersonal = which === "Personal";
+                const isPersonal = which === t("call.phoneType.personal");
                 return (
                   <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
                     style={{ backgroundColor: isPersonal ? "color-mix(in srgb, #7C3AED 14%, transparent)" : C.surface, color: isPersonal ? "#7C3AED" : C.textMuted }}
@@ -270,7 +272,7 @@ export default function CallCard({ call, compact = false, personalPhone, company
       )}
       {hasRecording && (
         <div className="mt-3">
-          <audio controls preload="none" src={`/api/aircall/calls/${call.id}/play`} className="w-full h-8" />
+          <audio controls preload="metadata" src={`/api/aircall/calls/${call.id}/play`} className="w-full h-8" />
         </div>
       )}
       {canTranscribe && (

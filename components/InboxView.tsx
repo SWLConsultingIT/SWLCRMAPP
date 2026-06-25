@@ -53,16 +53,16 @@ function channelIcon(ch: string | null) {
   return MessageSquare;
 }
 
-function classBadge(c: string | null): { label: string; color: string; bg: string } | null {
+function classBadge(c: string | null, t: (k: string) => string): { label: string; color: string; bg: string } | null {
   if (!c) return null;
-  if (c === "positive" || c === "meeting_intent") return { label: "Positive", color: C.green, bg: `color-mix(in srgb, ${C.green} 14%, transparent)` };
-  if (c === "negative") return { label: "Negative", color: C.red, bg: `color-mix(in srgb, ${C.red} 14%, transparent)` };
-  if (c === "question" || c === "needs_info") return { label: "Question", color: C.blue, bg: `color-mix(in srgb, ${C.blue} 14%, transparent)` };
-  if (c === "follow_up" || c === "nurturing" || c === "not_now") return { label: "Follow-up", color: "#D97706", bg: "color-mix(in srgb, #D97706 14%, transparent)" };
-  if (c === "connection_accepted") return { label: "Accepted", color: C.green, bg: `color-mix(in srgb, ${C.green} 14%, transparent)` };
-  if (c === "connection_greeting") return { label: "Saludo conexión", color: C.textMuted, bg: C.surface };
-  if (c === "email_invalid") return { label: "Invalid email", color: C.red, bg: `color-mix(in srgb, ${C.red} 14%, transparent)` };
-  if (c === "email_bounced") return { label: "Bounced", color: C.red, bg: `color-mix(in srgb, ${C.red} 14%, transparent)` };
+  if (c === "positive" || c === "meeting_intent") return { label: t("inbox.badge.positive"), color: C.green, bg: `color-mix(in srgb, ${C.green} 14%, transparent)` };
+  if (c === "negative") return { label: t("inbox.badge.negative"), color: C.red, bg: `color-mix(in srgb, ${C.red} 14%, transparent)` };
+  if (c === "question" || c === "needs_info") return { label: t("inbox.badge.question"), color: C.blue, bg: `color-mix(in srgb, ${C.blue} 14%, transparent)` };
+  if (c === "follow_up" || c === "nurturing" || c === "not_now") return { label: t("inbox.badge.follow_up"), color: "#D97706", bg: "color-mix(in srgb, #D97706 14%, transparent)" };
+  if (c === "connection_accepted") return { label: t("inbox.badge.accepted"), color: C.green, bg: `color-mix(in srgb, ${C.green} 14%, transparent)` };
+  if (c === "connection_greeting") return { label: t("inbox.badge.connection_greeting"), color: C.textMuted, bg: C.surface };
+  if (c === "email_invalid") return { label: t("inbox.badge.email_invalid"), color: C.red, bg: `color-mix(in srgb, ${C.red} 14%, transparent)` };
+  if (c === "email_bounced") return { label: t("inbox.badge.email_bounced"), color: C.red, bg: `color-mix(in srgb, ${C.red} 14%, transparent)` };
   return { label: c, color: C.textMuted, bg: C.surface };
 }
 
@@ -829,20 +829,20 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                     <button disabled={working} onClick={() => bulkApply("negative")} title={t("inbox.action.markNegative")}
                       className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold disabled:opacity-40"
                       style={{ color: C.red, backgroundColor: `color-mix(in srgb, ${C.red} 14%, transparent)`, border: `1px solid color-mix(in srgb, ${C.red} 30%, transparent)` }}>
-                      <ThumbsDown size={11} /> {locale === "es" ? "Negativas" : "Negative"}
+                      <ThumbsDown size={11} /> {t("inbox.bulk.negative")}
                     </button>
                     <button disabled={working} onClick={() => bulkApply("positive")} title={t("inbox.action.markPositive")}
                       className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold disabled:opacity-40"
                       style={{ color: C.green, backgroundColor: `color-mix(in srgb, ${C.green} 14%, transparent)`, border: `1px solid color-mix(in srgb, ${C.green} 30%, transparent)` }}>
-                      <ThumbsUp size={11} /> {locale === "es" ? "Positivas" : "Positive"}
+                      <ThumbsUp size={11} /> {t("inbox.bulk.positive")}
                     </button>
                     <button disabled={working} onClick={() => bulkApply("reviewed")} title={t("inbox.action.markReviewed")}
                       className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold disabled:opacity-40"
                       style={{ color: C.textMuted, backgroundColor: C.surface, border: `1px solid ${C.border}` }}>
-                      <Check size={11} /> {locale === "es" ? "Revisadas" : "Reviewed"}
+                      <Check size={11} /> {t("inbox.bulk.reviewed")}
                     </button>
                     <button onClick={() => setSelectedIds(new Set())} className="text-[10px] font-semibold hover:underline px-1" style={{ color: C.textMuted }}>
-                      {locale === "es" ? "Limpiar" : "Clear"}
+                      {t("inbox.bulk.clear")}
                     </button>
                   </div>
                 )}
@@ -863,7 +863,7 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                 {filtered.map(r => {
                   const isSelected = r.id === selectedId;
                   const Icon = channelIcon(r.channel);
-                  const badge = classBadge(r.classification);
+                  const badge = classBadge(r.classification, t);
                   const chColor = channelColor(r.channel);
                   return (
                     <li key={r.id} className="relative group/ix">
@@ -1032,7 +1032,7 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                       {selected.leadName}
                     </h2>
                     {(() => {
-                      const b = classBadge(selected.classification);
+                      const b = classBadge(selected.classification, t);
                       return b ? (
                         <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ color: b.color, backgroundColor: b.bg }}>
                           {b.label}
@@ -1525,7 +1525,7 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                         className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-90"
                         style={{ color: C.green, backgroundColor: `color-mix(in srgb, ${C.green} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${C.green} 30%, transparent)` }}
                       >
-                        <ThumbsUp size={13} /> {locale === "es" ? "Positiva" : "Positive"}
+                        <ThumbsUp size={13} /> {t("inbox.classify.positive")}
                       </button>
                       <button
                         onClick={() => requestClassify(selected.id, "negative")}
@@ -1533,7 +1533,7 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                         className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-90"
                         style={{ color: C.red, backgroundColor: `color-mix(in srgb, ${C.red} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${C.red} 30%, transparent)` }}
                       >
-                        <ThumbsDown size={13} /> {locale === "es" ? "Negativa" : "Negative"}
+                        <ThumbsDown size={13} /> {t("inbox.classify.negative")}
                       </button>
                       <button
                         onClick={() => requestClassify(selected.id, "follow_up")}
@@ -1541,13 +1541,11 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                         className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg disabled:opacity-50 transition-opacity hover:opacity-90"
                         style={{ color: C.blue, backgroundColor: `color-mix(in srgb, ${C.blue} 12%, transparent)`, border: `1px solid color-mix(in srgb, ${C.blue} 30%, transparent)` }}
                       >
-                        <HelpCircle size={13} /> Follow-up
+                        <HelpCircle size={13} /> {t("inbox.classify.followUp")}
                       </button>
                     </div>
                     <p className="text-[10px] text-center mt-2" style={{ color: C.textDim }}>
-                      {locale === "es"
-                        ? "Clasificar manda el auto-reply del flujo + cierra el flow"
-                        : "Classifying sends the flow auto-reply + closes the flow"}
+                      {t("inbox.classify.hint")}
                       {" · "}
                       <kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border, color: C.textMuted }}>J</kbd>/<kbd className="px-1 py-0.5 rounded border" style={{ borderColor: C.border, color: C.textMuted }}>K</kbd>
                     </p>
@@ -1620,10 +1618,10 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                         onChange={e => setArPreview(p => ({ ...p, send: e.target.checked }))}
                         className="accent-[var(--brand,#c9a83a)]"
                       />
-                      Enviar auto-reply al lead
+                      {t("inbox.autoreply.send")}
                     </label>
                     {arPreview.loading && (
-                      <span className="text-[11px]" style={{ color: C.textMuted }}>Cargando…</span>
+                      <span className="text-[11px]" style={{ color: C.textMuted }}>{t("inbox.autoreply.loading")}</span>
                     )}
                   </div>
                   {arPreview.send && !arPreview.loading && (
@@ -1643,7 +1641,7 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
                       />
                       {!arPreview.text.trim() && (
                         <p className="text-[11px] mt-1" style={{ color: C.textMuted }}>
-                          Sin texto, no se envía ningún mensaje.
+                          {t("inbox.autoreply.noText")}
                         </p>
                       )}
                     </div>

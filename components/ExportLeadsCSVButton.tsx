@@ -3,6 +3,7 @@
 import { Download } from "lucide-react";
 import { useToast } from "@/lib/toast";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 // Compact CSV export button rendered next to "Import Leads" in the page hero.
 // Accepts the already-loaded lead list as a prop (page.tsx caps to 500); if
@@ -34,6 +35,7 @@ type Props = {
 
 export default function ExportLeadsCSVButton({ leads, totalLeadCount }: Props) {
   const toast = useToast();
+  const { t } = useLocale();
 
   function handleExport() {
     if (leads.length === 0) {
@@ -41,7 +43,7 @@ export default function ExportLeadsCSVButton({ leads, totalLeadCount }: Props) {
       return;
     }
     const headers = [
-      "First Name", "Last Name", "Company", "Role", "Email", "Phone",
+      t("export.header.firstName"), t("export.header.lastName"), t("export.header.company"), t("export.header.role"), t("export.header.email"), t("export.header.phone"),
       "Status", "Score", "Priority", "Profile", "Has Campaign", "Replies", "Positive Reply", "Created",
     ];
     const rows = leads.map(l => [

@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { C } from "@/lib/design";
 import { TrendingUp, Users, MessageSquare, Target } from "lucide-react";
+import { getT } from "@/lib/i18n-server";
 
 const gold = "var(--brand, #c9a83a)";
 const goldLight = "color-mix(in srgb, var(--brand, #c9a83a) 8%, transparent)";
@@ -170,6 +171,7 @@ const classColors: Record<string, string> = { positive: C.green, meeting_intent:
 const channelColors: Record<string, string> = { linkedin: C.linkedin, email: C.email, whatsapp: "#22c55e", call: C.phone };
 
 export default async function ReportsView() {
+  const t = await getT();
   const { replyBreakdown, leadBreakdown, sellerBreakdown, recentQualified, conversionRate, positiveRate, total, totalReplies, qualified, weeklyData, avgDaysToQualify, channelResponseRate } = await getReportData();
 
   const kpis = [
@@ -269,7 +271,7 @@ export default async function ReportsView() {
           <table className="w-full text-sm">
             <thead>
               <tr style={{ borderBottom: `1px solid ${C.border}`, backgroundColor: C.cardHov }}>
-                {["Name", "Company", "Role", "Seller", "Date"].map(h => (
+                {[t("reports.col.name"), t("reports.col.company"), t("reports.col.role"), t("reports.col.seller"), t("reports.col.date")].map(h => (
                   <th key={h} className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{h}</th>
                 ))}
               </tr>
