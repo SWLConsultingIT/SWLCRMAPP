@@ -3,17 +3,18 @@
 import { useState, useRef, useEffect } from "react";
 import { C } from "@/lib/design";
 import { CheckCircle, XCircle, Clock, MinusCircle, ChevronDown, Loader, MessageSquare } from "lucide-react";
+import { useLocale } from "@/lib/i18n";
 
-const statusConfig: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
-  new:           { label: "New",        color: C.blue,      bg: C.blueLight,   icon: Clock },
-  contacted:     { label: "Contacted",  color: C.orange,    bg: C.orangeLight, icon: Clock },
-  connected:     { label: "Connected",  color: C.accent,    bg: C.accentLight, icon: CheckCircle },
-  responded:     { label: "Responded",  color: C.green,     bg: C.greenLight,  icon: MessageSquare },
-  qualified:     { label: "Qualified",  color: C.green,     bg: C.greenLight,  icon: CheckCircle },
-  proposal_sent: { label: "Proposal",   color: C.accent,    bg: C.accentLight, icon: CheckCircle },
-  closed_won:    { label: "Won",        color: C.green,     bg: C.greenLight,  icon: CheckCircle },
-  closed_lost:   { label: "Lost",       color: C.red,       bg: C.redLight,    icon: XCircle },
-  nurturing:     { label: "Nurturing",  color: C.textMuted, bg: C.surface,     icon: MinusCircle },
+const statusConfig: Record<string, { color: string; bg: string; icon: React.ElementType }> = {
+  new:           { color: C.blue,      bg: C.blueLight,   icon: Clock },
+  contacted:     { color: C.orange,    bg: C.orangeLight, icon: Clock },
+  connected:     { color: C.accent,    bg: C.accentLight, icon: CheckCircle },
+  responded:     { color: C.green,     bg: C.greenLight,  icon: MessageSquare },
+  qualified:     { color: C.green,     bg: C.greenLight,  icon: CheckCircle },
+  proposal_sent: { color: C.accent,    bg: C.accentLight, icon: CheckCircle },
+  closed_won:    { color: C.green,     bg: C.greenLight,  icon: CheckCircle },
+  closed_lost:   { color: C.red,       bg: C.redLight,    icon: XCircle },
+  nurturing:     { color: C.textMuted, bg: C.surface,     icon: MinusCircle },
 };
 
 export default function LeadStatusSelect({ leadId, initialStatus, onUpdate }: {
@@ -21,10 +22,26 @@ export default function LeadStatusSelect({ leadId, initialStatus, onUpdate }: {
   initialStatus: string;
   onUpdate?: (newStatus: string) => void;
 }) {
+  const { t } = useLocale();
   const [status, setStatus] = useState(initialStatus);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  function statusLabel(key: string): string {
+    const labelKeys: Record<string, string> = {
+      new: "leadsPage.status.new",
+      contacted: "leadsPage.status.contacted",
+      connected: "leadsPage.status.connected",
+      responded: "leadsPage.status.responded",
+      qualified: "leadsPage.status.qualified",
+      proposal_sent: "leadsPage.status.proposalSent",
+      closed_won: "leadsPage.status.won",
+      closed_lost: "leadsPage.status.lost",
+      nurturing: "leadsPage.status.nurturing",
+    };
+    return t(labelKeys[key] ?? "leadsPage.status.new");
+  }
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -65,7 +82,7 @@ export default function LeadStatusSelect({ leadId, initialStatus, onUpdate }: {
         style={{ backgroundColor: st.bg }}
       >
         <Icon size={11} style={{ color: st.color }} className={loading ? "animate-spin" : ""} />
-        <span className="text-xs font-medium" style={{ color: st.color }}>{st.label}</span>
+        <span className="text-xs font-medium" style={{ color: st.color }}>{statusLabel(status)}</span>
         <ChevronDown size={10} style={{ color: st.color, opacity: 0.6 }} />
       </button>
 
@@ -85,7 +102,7 @@ export default function LeadStatusSelect({ leadId, initialStatus, onUpdate }: {
                 onMouseLeave={e => { if (status !== key) (e.currentTarget as HTMLElement).style.backgroundColor = "transparent"; }}
               >
                 <Ic size={11} />
-                {cfg.label}
+                {statusLabel(key)}
               </button>
             );
           })}

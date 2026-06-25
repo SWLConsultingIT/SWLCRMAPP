@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, X, Loader2, Archive } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 type Counts = {
   leads: number;
@@ -21,6 +22,7 @@ export default function ArchiveCompanyModal({
   onClose: () => void;
   onArchived: () => void;
 }) {
+  const { t } = useLocale();
   const [loading, setLoading] = useState(true);
   const [companyName, setCompanyName] = useState<string>("");
   const [counts, setCounts] = useState<Counts | null>(null);
@@ -68,7 +70,7 @@ export default function ArchiveCompanyModal({
               <AlertTriangle size={20} style={{ color: C.red }} />
             </div>
             <h2 className="text-lg font-bold" style={{ color: C.textPrimary }}>
-              Archive {companyName || "this company"}?
+              {t("archive.title").replace("{name}", companyName || "…")}
             </h2>
           </div>
           <button onClick={onClose}><X size={18} style={{ color: C.textMuted }} /></button>
@@ -93,13 +95,13 @@ export default function ArchiveCompanyModal({
 
             {/* Impact summary */}
             <div className="rounded-xl border p-4 mb-4" style={{ borderColor: `${C.red}30`, background: `linear-gradient(135deg, ${C.red}08 0%, ${C.red}14 100%)` }}>
-              <p className="text-xs font-semibold mb-2" style={{ color: C.red }}>This will archive:</p>
+              <p className="text-xs font-semibold mb-2" style={{ color: C.red }}>{t("archive.impact.title")}</p>
               <ul className="space-y-1.5">
-                <ImpactRow label="Leads"      value={counts.leads} />
-                <ImpactRow label="Campaigns"  value={counts.campaigns} />
-                <ImpactRow label="Messages"   value={counts.messages} />
-                <ImpactRow label="Replies"    value={counts.replies} />
-                <ImpactRow label="Team members (memberships)" value={counts.members} />
+                <ImpactRow label={t("archive.impact.leads")}      value={counts.leads} />
+                <ImpactRow label={t("archive.impact.campaigns")}  value={counts.campaigns} />
+                <ImpactRow label={t("archive.impact.messages")}   value={counts.messages} />
+                <ImpactRow label={t("archive.impact.replies")}    value={counts.replies} />
+                <ImpactRow label={t("archive.impact.members")} value={counts.members} />
               </ul>
             </div>
 
@@ -144,13 +146,13 @@ export default function ArchiveCompanyModal({
           <button onClick={onClose} disabled={archiving}
             className="rounded-lg px-4 py-2 text-sm font-medium disabled:opacity-50"
             style={{ backgroundColor: C.surface, color: C.textBody }}>
-            Cancel
+            {t("archive.cancel")}
           </button>
           <button onClick={handleArchive} disabled={!matches || archiving || loading || !!error}
             className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-semibold disabled:opacity-30 transition-opacity"
             style={{ backgroundColor: C.red, color: "#fff" }}>
             {archiving ? <Loader2 size={14} className="animate-spin" /> : <Archive size={14} />}
-            {archiving ? "Archiving…" : "Archive company"}
+            {archiving ? t("archive.confirming") : t("archive.confirm")}
           </button>
         </div>
       </div>

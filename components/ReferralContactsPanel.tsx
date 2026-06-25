@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { UserPlus, Sparkles, X as XIcon, Check, Mail, Building2, ChevronDown } from "lucide-react";
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
+import { useLocale } from "@/lib/i18n";
 
 export type ReferredContact = {
   name?: string | null;
@@ -49,6 +50,7 @@ export default function ReferralContactsPanel({
 }) {
   const router = useRouter();
   const toast = useToast();
+  const { t } = useLocale();
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const [discarded, setDiscarded] = useState<Set<number>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -93,11 +95,11 @@ export default function ReferralContactsPanel({
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.show({ kind: "error", title: "No se pudo crear", description: (j as { error?: string }).error ?? "Probá de nuevo." });
+        toast.show({ kind: "error", title: t("referral.toast.createError"), description: (j as { error?: string }).error ?? t("referral.toast.tryAgain") });
         return;
       }
       if ((j as { alreadyExisted?: boolean }).alreadyExisted) {
-        toast.show({ kind: "warning", title: "Ya existía", description: "Ese email ya es un lead en este tenant." });
+        toast.show({ kind: "warning", title: t("referral.toast.alreadyExists"), description: t("referral.toast.alreadyExistsDesc") });
         setActiveIdx(null);
         router.refresh();
         return;
@@ -105,12 +107,12 @@ export default function ReferralContactsPanel({
       const enrolled = (j as { enrolled?: boolean }).enrolled;
       toast.show({
         kind: "success",
-        title: enrolled ? "Lead creado y sumado al flow" : "Lead creado",
+        title: enrolled ? t("referral.toast.createdEnrolled") : t("referral.toast.created"),
         description: enrol && !enrolled
-          ? ((j as { message?: string }).message ?? "No se pudo enrolar — quedó en el pool del ICP.")
+          ? ((j as { message?: string }).message ?? t("referral.toast.notEnrolled"))
           : enrolled
-            ? "Email-only por ahora (sin enrichment)."
-            : "Quedó en el pool del ICP.",
+            ? t("referral.toast.emailOnly")
+            : t("referral.toast.inPool"),
       });
       setActiveIdx(null);
       router.refresh();
@@ -137,10 +139,10 @@ export default function ReferralContactsPanel({
           <UserPlus size={12} />
         </span>
         <span className="text-[12.5px] font-bold" style={{ color: C.textPrimary }}>
-          Contactos detectados <span style={{ color: C.textDim, fontWeight: 500 }}>({contacts.length})</span>
+          {t("referral.title")} <span style={{ color: C.textDim, fontWeight: 500 }}>({contacts.length})</span>
         </span>
         <span className="text-[11px]" style={{ color: C.textMuted }}>
-          {open ? "— derivados en esta respuesta" : "— tocá para ver"}
+          {open ? t("referral.subtitle.open") : t("referral.subtitle.closed")}
         </span>
         <ChevronDown
           size={14}
@@ -171,12 +173,12 @@ export default function ReferralContactsPanel({
                   </span>
                   {c.is_decision_maker && (
                     <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: "#16A34A22", color: "#16A34A" }}>
-                      DECISOR
+                      {t("referral.badge.decisionMaker")}
                     </span>
                   )}
                   {generic && (
                     <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: C.border, color: C.textDim }}>
-                      CASILLA GENÉRICA
+                      {t("referral.badge.generic")}
                     </span>
                   )}
                 </div>
@@ -187,7 +189,7 @@ export default function ReferralContactsPanel({
 
               {created ? (
                 <span className="inline-flex items-center gap-1 text-[11px] font-semibold shrink-0" style={{ color: "#16A34A" }}>
-                  <Check size={12} /> Creado
+                  <Check size={12} /> {t("referral.status.created")}
                 </span>
               ) : isDiscarded ? (
                 <button
@@ -196,7 +198,7 @@ export default function ReferralContactsPanel({
                   className="text-[11px] font-medium px-2 py-1 rounded-lg shrink-0"
                   style={{ color: C.textMuted }}
                 >
-                  Deshacer
+                  {t("referral.discard.undo")}
                 </button>
               ) : (
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -206,7 +208,7 @@ export default function ReferralContactsPanel({
                     className="text-[11px] font-medium px-2 py-1 rounded-lg border transition-opacity hover:opacity-80"
                     style={{ borderColor: C.border, color: C.textDim, backgroundColor: C.card }}
                   >
-                    Descartar
+                    {t("referral.discard")}
                   </button>
                   <button
                     type="button"
@@ -214,7 +216,7 @@ export default function ReferralContactsPanel({
                     className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-lg border transition-opacity hover:opacity-85"
                     style={{ borderColor: C.gold, color: C.gold, backgroundColor: C.card }}
                   >
-                    <UserPlus size={11} /> Agregar
+                    <UserPlus size={11} /> {t("referral.add")}
                   </button>
                 </div>
               )}
@@ -237,7 +239,7 @@ export default function ReferralContactsPanel({
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: C.border }}>
-              <span className="text-[13px] font-semibold" style={{ color: C.textPrimary }}>Nuevo lead desde referral</span>
+              <span className="text-[13px] font-semibold" style={{ color: C.textPrimary }}>{t("referral.modal.title")}</span>
               <button type="button" onClick={closeModal} className="rounded-lg p-1 hover:opacity-70" style={{ color: C.textMuted }}>
                 <XIcon size={15} />
               </button>
@@ -245,16 +247,16 @@ export default function ReferralContactsPanel({
 
             <div className="px-4 py-3 flex flex-col gap-3">
               <div className="grid grid-cols-2 gap-2">
-                <Field label="Nombre" value={first} onChange={setFirst} />
-                <Field label="Apellido" value={last} onChange={setLast} />
+                <Field label={t("referral.modal.firstName")} value={first} onChange={setFirst} />
+                <Field label={t("referral.modal.lastName")} value={last} onChange={setLast} />
               </div>
-              <Field label="Email" value={email} onChange={setEmail} type="email" />
-              <Field label="Rol / Cargo" value={role} onChange={setRole} placeholder="(opcional)" />
+              <Field label={t("referral.modal.email")} value={email} onChange={setEmail} type="email" />
+              <Field label={t("referral.modal.role")} value={role} onChange={setRole} placeholder={t("referral.modal.optional")} />
 
               {/* Inherited, read-only */}
               <div className="rounded-lg border px-3 py-2 flex flex-col gap-1.5" style={{ borderColor: C.border, backgroundColor: C.bg }}>
                 <div className="flex items-center gap-2 text-[11px]" style={{ color: C.textMuted }}>
-                  <Building2 size={12} /> Empresa: <span style={{ color: C.textPrimary }}>{company ?? "—"}</span>
+                  <Building2 size={12} /> {t("referral.modal.company")} <span style={{ color: C.textPrimary }}>{company ?? "—"}</span>
                 </div>
                 <div className="flex items-center gap-2 text-[11px]" style={{ color: C.textMuted }}>
                   <span className="inline-block w-3" /> ICP: <span style={{ color: C.textPrimary }}>{icpName ?? "—"}</span>
@@ -264,7 +266,7 @@ export default function ReferralContactsPanel({
               <div className="flex items-start gap-2 rounded-lg px-3 py-2" style={{ backgroundColor: "#C9A83A1A" }}>
                 <Sparkles size={13} style={{ color: "#C9A83A", marginTop: 1 }} />
                 <span className="text-[11px]" style={{ color: C.textMuted }}>
-                  Enrichment pendiente — el lead se crea <strong style={{ color: C.textPrimary }}>email-only</strong>. Cuando se active Apollo, sumará LinkedIn y teléfono automáticamente.
+                  {t("referral.modal.enrichmentHint")}
                 </span>
               </div>
             </div>
@@ -277,7 +279,7 @@ export default function ReferralContactsPanel({
                 className="text-[12px] font-semibold px-3 py-1.5 rounded-lg border transition-opacity hover:opacity-85 disabled:opacity-50"
                 style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}
               >
-                Solo crear lead
+                {t("referral.modal.createOnly")}
               </button>
               <button
                 type="button"
@@ -286,7 +288,7 @@ export default function ReferralContactsPanel({
                 className="inline-flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg transition-opacity hover:opacity-90 disabled:opacity-50"
                 style={{ backgroundColor: C.gold, color: "#0C0E1B" }}
               >
-                <Mail size={12} /> {busy ? "Creando…" : "Crear + sumar al flow"}
+                <Mail size={12} /> {busy ? t("referral.modal.creating") : t("referral.modal.createEnrol")}
               </button>
             </div>
           </div>
