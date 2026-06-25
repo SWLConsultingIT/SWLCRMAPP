@@ -483,20 +483,34 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
     return ids.length ? ids : [replyId];
   };
 
-  async function quickClassify(replyId: string, classification: "positive" | "negative" | "follow_up") {
+  async function quickClassify(
+    replyId: string,
+    classification: "positive" | "negative" | "follow_up",
+    opts?: { sendAutoReply?: boolean; customAutoReplyText?: string },
+  ) {
     if (working) return;
     setWorking(true);
+    // Default: send auto-reply for pos/neg, not for follow_up.
+    const doSendAR = opts?.sendAutoReply ?? (classification !== "follow_up");
     try {
       const ids = siblingPendingIds(replyId);
-      const results = await Promise.allSettled(ids.map(id =>
-        fetch(`/api/replies/${id}/review`, {
+      const results = await Promise.allSettled(ids.map(id => {
+        const isPrimary = id === replyId;
+        const body: Record<string, unknown> = {
+          status: "approved",
+          classification,
+          // Only the clicked reply fires the auto-reply; siblings are cascade-only.
+          sendAutoReply: isPrimary && doSendAR,
+        };
+        if (isPrimary && opts?.customAutoReplyText !== undefined) {
+          body.customAutoReplyText = opts.customAutoReplyText;
+        }
+        return fetch(`/api/replies/${id}/review`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          // Only the clicked reply fires the flow auto-reply; siblings are
-          // cascade-only (the route also dedupes, so no double-send).
-          body: JSON.stringify({ status: "approved", classification, sendAutoReply: id === replyId }),
-        }).then(async r => { if (!r.ok) throw new Error(String(r.status)); return r.json().catch(() => ({})); }),
-      ));
+          body: JSON.stringify(body),
+        }).then(async r => { if (!r.ok) throw new Error(String(r.status)); return r.json().catch(() => ({})); });
+      }));
       if (!results.some(r => r.status === "fulfilled")) {
         toast.show({ kind: "error", title: "Couldn't classify", description: "Try again." });
         return;
@@ -509,9 +523,10 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
         : null;
       const ars = primary?.autoReplyStatus;
       const autoReplyDesc = classification === "follow_up" ? undefined
-        : ars === "sent" ? "Auto-reply del flujo enviado al lead ✓ — mirá el thread en el lead."
+        : !doSendAR ? "Sin auto-reply — respondé vos desde el composer cuando quieras."
+        : ars === "sent" ? "Auto-reply enviado al lead ✓ — mirá el thread en el lead."
         : ars === "deduped" ? "Ya le habíamos respondido recién — no se duplicó el mensaje."
-        : ars === "no_template" ? "Este flujo no tiene auto-reply configurado: NO salió mensaje. Respondé desde el composer si querés."
+        : ars === "no_template" ? "No salió mensaje — respondé desde el composer si querés."
         : ars === "failed" ? "⚠ No se pudo enviar el auto-reply — respondé manualmente desde el composer."
         : undefined;
       // Mirror the API's cascade response: positive/negative now pause the
@@ -543,20 +558,41 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
   type ConfirmClass = "positive" | "negative" | "follow_up";
   const [confirmClassify, setConfirmClassify] = useState<{ replyId: string; classification: ConfirmClass } | null>(null);
   const [dontAskAgain, setDontAskAgain] = useState(false);
+  // Auto-reply preview state for the confirm modal (positive/negative only).
+  const [arPreview, setArPreview] = useState<{ text: string; send: boolean; loading: boolean }>({ text: "", send: true, loading: false });
   const confirmOffKey = (c: ConfirmClass) => `swl-confirm-off-${c}`;
   function requestClassify(replyId: string, classification: ConfirmClass) {
     let off = false;
-    try { off = typeof window !== "undefined" && window.localStorage.getItem(confirmOffKey(classification)) === "1"; } catch { /* */ }
+    // positive/negative always show the modal (auto-reply choice must be explicit).
+    if (classification === "follow_up") {
+      try { off = typeof window !== "undefined" && window.localStorage.getItem(confirmOffKey(classification)) === "1"; } catch { /* */ }
+    }
     if (off) { void quickClassify(replyId, classification); return; }
     setDontAskAgain(false);
     setConfirmClassify({ replyId, classification });
+    if (classification === "positive" || classification === "negative") {
+      setArPreview({ text: "", send: true, loading: true });
+      fetch(`/api/replies/${replyId}/autoreply-preview?classification=${classification}`)
+        .then(r => r.json())
+        .then((d: { text?: string | null }) => {
+          const text = d.text ?? "";
+          setArPreview(p => ({ ...p, text, send: true, loading: false }));
+        })
+        .catch(() => setArPreview(p => ({ ...p, text: "", loading: false })));
+    } else {
+      setArPreview({ text: "", send: false, loading: false });
+    }
   }
   function confirmClassifyNow() {
     const c = confirmClassify;
     if (!c) return;
     if (dontAskAgain) { try { window.localStorage.setItem(confirmOffKey(c.classification), "1"); } catch { /* */ } }
     setConfirmClassify(null);
-    void quickClassify(c.replyId, c.classification);
+    const sendAR = (c.classification === "positive" || c.classification === "negative") && arPreview.send;
+    void quickClassify(c.replyId, c.classification, {
+      sendAutoReply: sendAR,
+      customAutoReplyText: sendAR ? arPreview.text : undefined,
+    });
   }
   const CONFIRM_COLOR: Record<ConfirmClass, string> = { positive: C.green, negative: C.red, follow_up: "#D97706" };
 
@@ -1571,20 +1607,70 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
               </div>
               <p className="text-[12.5px] leading-relaxed mb-2" style={{ color: C.textBody }}>{t(`inbox.confirm.${cls}.body`)}</p>
               <p className="text-[12px] leading-relaxed mb-3" style={{ color: C.textMuted }}>{t(`inbox.confirm.${cls}.note`)}</p>
-              <label className="flex items-center gap-2 text-[12px] mb-4 cursor-pointer" style={{ color: C.textMuted }}>
-                <input type="checkbox" checked={dontAskAgain} onChange={(e) => setDontAskAgain(e.target.checked)} />
-                {t("inbox.confirm.dontShow")}
-              </label>
+
+              {/* Auto-reply section — only for positive/negative, not follow_up */}
+              {(cls === "positive" || cls === "negative") && (
+                <div className="rounded-xl border mb-4 overflow-hidden" style={{ borderColor: C.border }}>
+                  <div className="flex items-center gap-2 px-3 py-2" style={{ backgroundColor: `color-mix(in srgb, ${C.surface} 60%, transparent)` }}>
+                    <label className="flex items-center gap-2 text-[12px] font-semibold cursor-pointer select-none flex-1" style={{ color: C.textBody }}>
+                      <input
+                        type="checkbox"
+                        checked={arPreview.send}
+                        disabled={arPreview.loading}
+                        onChange={e => setArPreview(p => ({ ...p, send: e.target.checked }))}
+                        className="accent-[var(--brand,#c9a83a)]"
+                      />
+                      Enviar auto-reply al lead
+                    </label>
+                    {arPreview.loading && (
+                      <span className="text-[11px]" style={{ color: C.textMuted }}>Cargando…</span>
+                    )}
+                  </div>
+                  {arPreview.send && !arPreview.loading && (
+                    <div className="px-3 pb-3 pt-1">
+                      <textarea
+                        value={arPreview.text}
+                        onChange={e => setArPreview(p => ({ ...p, text: e.target.value }))}
+                        rows={5}
+                        placeholder="Escribí el mensaje a enviar al lead…"
+                        className="w-full text-[12px] leading-relaxed rounded-lg px-3 py-2 resize-y outline-none"
+                        style={{
+                          backgroundColor: C.bg,
+                          border: `1px solid ${C.border}`,
+                          color: C.textBody,
+                          fontFamily: "inherit",
+                        }}
+                      />
+                      {!arPreview.text.trim() && (
+                        <p className="text-[11px] mt-1" style={{ color: C.textMuted }}>
+                          Sin texto, no se envía ningún mensaje.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* "Don't show again" only for follow_up — positive/negative always
+                  require explicit auto-reply choice so they always show the modal. */}
+              {cls === "follow_up" && (
+                <label className="flex items-center gap-2 text-[12px] mb-4 cursor-pointer" style={{ color: C.textMuted }}>
+                  <input type="checkbox" checked={dontAskAgain} onChange={(e) => setDontAskAgain(e.target.checked)} />
+                  {t("inbox.confirm.dontShow")}
+                </label>
+              )}
               <div className="flex items-center justify-end gap-2">
                 <button type="button" onClick={() => setConfirmClassify(null)} disabled={working}
                   className="text-xs font-semibold px-3 py-2 rounded-lg border transition-opacity hover:opacity-85"
                   style={{ borderColor: C.border, color: C.textMuted, backgroundColor: C.bg }}>
                   {t("inbox.confirm.cancel")}
                 </button>
-                <button type="button" onClick={confirmClassifyNow} disabled={working}
+                <button type="button" onClick={confirmClassifyNow} disabled={working || arPreview.loading}
                   className="text-xs font-semibold px-3 py-2 rounded-lg transition-opacity hover:opacity-85 disabled:opacity-50"
                   style={{ color: "#fff", backgroundColor: color }}>
-                  {t(`inbox.confirm.${cls}.yes`)}
+                  {(cls === "positive" || cls === "negative") && arPreview.send && arPreview.text.trim()
+                    ? `${t(`inbox.confirm.${cls}.yes`)} + Enviar reply`
+                    : t(`inbox.confirm.${cls}.yes`)}
                 </button>
               </div>
             </div>

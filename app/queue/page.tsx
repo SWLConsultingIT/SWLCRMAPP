@@ -67,8 +67,11 @@ async function getQueueData() {
   // destructure produced { data: null } and the Inbox tab rendered empty
   // (incident: De Vera Grill positive replies invisible 2026-05-24).
   let replyQuery = supabase.from("lead_replies")
-    .select("id, classification, received_at, channel, reply_text, lead_id, campaign_id, requires_human_review, review_status, metadata, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id, icp_profile_id), campaigns!inner(name, seller_id, sellers(name))")
+    .select("id, classification, received_at, channel, reply_text, lead_id, campaign_id, requires_human_review, review_status, metadata, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, company_bio_id, icp_profile_id, status), campaigns!inner(name, seller_id, sellers(name))")
     .neq("classification", "auto_reply")
+    // Never surface replies from leads the seller explicitly closed — if a
+    // closed_lost lead sends a follow-up it goes to History, not Pending.
+    .not("leads.status", "in", "(closed_lost,qualified,closed_won)")
     .order("received_at", { ascending: false })
     .limit(30);
   if (scopedCompanyBioId) replyQuery = replyQuery.eq("leads.company_bio_id", scopedCompanyBioId);

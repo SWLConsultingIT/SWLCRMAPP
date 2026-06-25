@@ -54,6 +54,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // auto-reply goes out on the seller's click. Bulk classify omits it → stays
   // cascade-only (no surprise mass-sends).
   const sendAutoReply = (body as { sendAutoReply?: boolean }).sendAutoReply === true;
+  // Optional seller-edited reply text. When provided (even empty string),
+  // bypasses the campaign template lookup and uses this text directly.
+  // An empty customAutoReplyText → no message is sent (seller cleared it).
+  const customAutoReplyText = (body as { customAutoReplyText?: string }).customAutoReplyText;
   const patch: Record<string, unknown> = {
     review_status: status,
     requires_human_review: status === "pending",
@@ -86,27 +90,35 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const channel = (replyRow as { channel?: string }).channel ?? null;
     if (leadId && campaignId) {
       try {
-        const { data: camp } = await supabase
-          .from("campaigns").select("name, metadata").eq("id", campaignId).maybeSingle();
-        const pick = (ar?: { positive?: string; negative?: string } | null) =>
-          ((classOverride === "positive" ? ar?.positive : ar?.negative) ?? "").trim();
-        // Preferred: the auto-reply snapshot stored on the campaign at creation
-        // (resolved by campaign_id — reliable for every tenant).
-        const campMeta = (camp as { metadata?: { autoReplies?: { positive?: string; negative?: string } } } | null)?.metadata;
-        let template = pick(campMeta?.autoReplies);
-        // Fallback for legacy campaigns created before the snapshot: match the
-        // campaign_request by name, bio-agnostic (demo/managed tenants have the
-        // request stamped with the SWL bio, not the lead's). First non-empty wins.
-        if (!template) {
-          const campName = (camp as { name?: string } | null)?.name ?? null;
-          if (campName) {
-            const { data: reqRows } = await supabase
-              .from("campaign_requests").select("message_prompts").eq("name", campName).limit(8);
-            for (const rr of (reqRows ?? [])) {
-              const ar = (rr as { message_prompts?: { channelMessages?: { autoReplies?: { positive?: string; negative?: string } } } })
-                ?.message_prompts?.channelMessages?.autoReplies;
-              const t = pick(ar);
-              if (t) { template = t; break; }
+        let template = "";
+        // If the seller provided custom text (edited or written from scratch in
+        // the confirm modal), use it directly — skip the template lookup.
+        if (typeof customAutoReplyText === "string") {
+          template = customAutoReplyText.trim();
+          // Empty string means the seller intentionally cleared the reply → no send.
+        } else {
+          const { data: camp } = await supabase
+            .from("campaigns").select("name, metadata").eq("id", campaignId).maybeSingle();
+          const pick = (ar?: { positive?: string; negative?: string } | null) =>
+            ((classOverride === "positive" ? ar?.positive : ar?.negative) ?? "").trim();
+          // Preferred: the auto-reply snapshot stored on the campaign at creation
+          // (resolved by campaign_id — reliable for every tenant).
+          const campMeta = (camp as { metadata?: { autoReplies?: { positive?: string; negative?: string } } } | null)?.metadata;
+          template = pick(campMeta?.autoReplies);
+          // Fallback for legacy campaigns created before the snapshot: match the
+          // campaign_request by name, bio-agnostic (demo/managed tenants have the
+          // request stamped with the SWL bio, not the lead's). First non-empty wins.
+          if (!template) {
+            const campName = (camp as { name?: string } | null)?.name ?? null;
+            if (campName) {
+              const { data: reqRows } = await supabase
+                .from("campaign_requests").select("message_prompts").eq("name", campName).limit(8);
+              for (const rr of (reqRows ?? [])) {
+                const ar = (rr as { message_prompts?: { channelMessages?: { autoReplies?: { positive?: string; negative?: string } } } })
+                  ?.message_prompts?.channelMessages?.autoReplies;
+                const t = pick(ar);
+                if (t) { template = t; break; }
+              }
             }
           }
         }

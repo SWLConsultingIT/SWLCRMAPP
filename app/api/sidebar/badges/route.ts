@@ -69,9 +69,10 @@ export async function GET() {
   // under "Unread / Needs review"). Joined through leads so tenant scoping is
   // safe; head-only so no rows download.
   let pendingRepliesQ = svc.from("lead_replies")
-    .select("id, leads!inner(company_bio_id)", { count: "exact", head: true })
+    .select("id, leads!inner(company_bio_id, status)", { count: "exact", head: true })
     .or("review_status.eq.pending,requires_human_review.eq.true")
-    .neq("classification", "auto_reply");
+    .neq("classification", "auto_reply")
+    .not("leads.status", "in", "(closed_lost,qualified,closed_won)");
   if (scopedBio) pendingRepliesQ = pendingRepliesQ.eq("leads.company_bio_id", scopedBio);
 
   const [calls, pendingReview, pendingExec, pendingCamps, pendingReplies] = await Promise.all([

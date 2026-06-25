@@ -268,6 +268,7 @@ async function requeueRateLimited(
   const prevCount = typeof prevMeta.rate_limit_count === "number" ? prevMeta.rate_limit_count : 0;
   await svc.from("campaign_messages").update({
     status: "queued",
+    dispatching_since: null,
     error_details: null,
     metadata: {
       ...prevMeta,
