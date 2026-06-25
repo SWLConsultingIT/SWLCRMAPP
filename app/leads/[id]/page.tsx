@@ -30,6 +30,7 @@ import LeadStatsBar from "@/components/LeadStatsBar";
 import MoveForwardButton from "@/components/MoveForwardButton";
 import PreCallBrief from "@/components/PreCallBrief";
 import LeadQA from "@/components/LeadQA";
+import ScrapeCompanyButton from "@/components/ScrapeCompanyButton";
 import LinkedInEnrichment from "@/components/LinkedInEnrichment";
 import RecentLeadTracker from "@/components/RecentLeadTracker";
 
@@ -813,7 +814,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         const enr = (lead.enrichment as any) ?? {};
         const techs = Array.isArray(enr.technologies) ? enr.technologies as string[] : [];
         const kws = Array.isArray(enr.keywords) ? enr.keywords as string[] : [];
-        const whatTheyDo = (lead.organization_description as string | null) || (lead.website_summary as string | null) || null;
+        const scrape = (lead.company_scrape as { summary?: string; services?: string[]; scraped_at?: string } | null) ?? null;
+        const whatTheyDo = (scrape?.summary as string | null) || (lead.organization_description as string | null) || (lead.website_summary as string | null) || null;
         const ourPlay = angle.icp?.solutions_offered || angle.bio?.main_services || null;
         const valueProp = angle.bio?.value_proposition || angle.icp?.pain_points || null;
         const facts = [
@@ -831,7 +833,10 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted, letterSpacing: "0.1em" }}>Company</p>
                 <p className="text-[17px] font-bold leading-tight" style={{ color: C.textPrimary }}>{lead.company_name}</p>
               </div>
-              <Link href={`/companies/${encodeURIComponent(lead.company_name)}`} className="text-xs font-bold flex items-center gap-1 shrink-0 px-3 py-1.5 rounded-lg hover:shadow-sm" style={{ color: gold, border: `1px solid color-mix(in srgb, ${gold} 35%, transparent)` }}>View company <ExternalLink size={12} /></Link>
+              <div className="flex items-center gap-2 shrink-0">
+                <ScrapeCompanyButton leadId={id} hasScrape={!!scrape?.summary} />
+                <Link href={`/companies/${encodeURIComponent(lead.company_name)}`} className="text-xs font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg hover:shadow-sm" style={{ color: gold, border: `1px solid color-mix(in srgb, ${gold} 35%, transparent)` }}>View company <ExternalLink size={12} /></Link>
+              </div>
             </div>
             {facts.length > 0 && (
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-5 pb-4">
