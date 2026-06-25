@@ -661,7 +661,7 @@ export default function InboxView({ replies: rawReplies }: { replies: InboxReply
   }
 
   return (
-    <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
+    <div className="rounded-2xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: `color-mix(in srgb, var(--brand, #c9a83a) 28%, ${C.border})`, boxShadow: `0 0 0 1px color-mix(in srgb, var(--brand, #c9a83a) 16%, transparent), 0 10px 30px -12px rgba(0,0,0,0.4)` }}>
       {/* Tabs */}
       <div className="flex items-center gap-1 px-2 sm:px-3 pt-2 border-b overflow-x-auto" style={{ borderColor: C.border }}>
         {(Object.keys(TAB_LABELS) as Tab[]).map(k => {

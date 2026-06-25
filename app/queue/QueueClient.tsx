@@ -1243,7 +1243,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                   // Awaiting Outcome has its own CallHistoryRow branch above.
                   const awaitingOutcome = false;
                   return (
-                    <div key={call.id} className="rounded-2xl border transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-md" style={{ backgroundColor: C.card, borderColor: isEscalated ? urgency.border : C.border, borderLeftWidth: isEscalated ? 3 : 1, borderLeftColor: isEscalated ? urgency.color : undefined, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
+                    <div key={call.id} className="rounded-2xl border transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 hover:shadow-md" style={{ backgroundColor: C.card, borderColor: C.border, borderLeftWidth: isEscalated ? 3 : 1, borderLeftColor: isEscalated ? urgency.color : undefined, boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
                       <div className="flex items-center gap-4 px-5 py-4">
                         {/* Avatar */}
                         <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
@@ -1267,7 +1267,7 @@ export default function QueueClient({ pendingCalls, newReplies, callHistory }: P
                             )}
                             {call.sellerName && (
                               <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                                style={{ backgroundColor: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE" }}>
+                                style={{ backgroundColor: "color-mix(in srgb, #3B82F6 16%, transparent)", color: "color-mix(in srgb, #2563EB, white var(--c-accent-lift, 0%))", border: "1px solid color-mix(in srgb, #3B82F6 34%, transparent)" }}>
                                 {call.sellerName}
                               </span>
                             )}
