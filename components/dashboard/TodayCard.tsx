@@ -172,15 +172,18 @@ export default function TodayCard({
       {/* Boss feedback 2026-05-29: every section must render even at count=0
           so the operator sees the universe of "what to do". Empty sections
           collapse but the header (count + label + CTA) stays visible. */}
-      <ul className="divide-y" style={{ borderColor: C.border }}>
-        {sections.map(s => {
+      <ul>
+        {sections.map((s, i) => {
             const Icon = s.icon;
             const isOpen = open[s.key];
             const hasItems = s.count > 0;
             const sl = labels.sections[s.key];
 
             return (
-              <li key={s.key}>
+              <li
+                key={s.key}
+                style={i === 0 ? undefined : { borderTop: `1px solid color-mix(in srgb, ${gold} 18%, ${C.border})` }}
+              >
                 <button
                   type="button"
                   onClick={() => hasItems && setOpen(o => ({ ...o, [s.key]: !o[s.key] }))}

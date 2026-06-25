@@ -452,6 +452,17 @@ select:focus-visible {
   background-color: rgba(255,255,255,0.04) !important;
 }
 
+/* ─── Dark-mode divider color ───
+   Tailwind v4 leaves `divide-y` / `divide-x` border-color at `currentColor`
+   (the light body text in dark mode), so dividers render near-WHITE on dark
+   cards and look like harsh seams. Pin every divider to the themed border
+   token. Components that want a different divider tint set it explicitly
+   (e.g. TodayCard uses a gold tint via inline borderTop). */
+[data-theme="dark"] .divide-y > * + *,
+[data-theme="dark"] .divide-x > * + * {
+  border-color: var(--c-border);
+}
+
 /* ─── Toast slide in ─── */
 @keyframes slideInRight {
   from { transform: translateX(110%); opacity: 0; }
