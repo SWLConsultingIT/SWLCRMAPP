@@ -240,7 +240,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
     ? { backgroundColor: "#F97316", color: "#fff" }
     : variant === "ghost"
     ? { backgroundColor: "transparent", color: "#EA580C", border: `1px solid ${C.border}` }
-    : { backgroundColor: "#FFF7ED", color: "#EA580C", border: "1px solid #FED7AA" };
+    : { backgroundColor: "color-mix(in srgb, #EA580C 13%, transparent)", color: "#EA580C", border: "1px solid color-mix(in srgb, #EA580C 30%, transparent)" };
 
   const selected = numbers.find(n => n.id === selectedNumberId);
   const selectedPhoneOpt = phoneOptions.find(p => p.value === selectedPhone) ?? phoneOptions[0];
@@ -274,7 +274,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
         className={`flex items-center gap-1.5 rounded-lg ${padding} ${text} font-semibold transition-opacity hover:opacity-85 disabled:opacity-60 ${state === "idle" && variant === "solid" ? "animate-pulse" : ""}`}
         style={{
           ...baseStyle,
-          ...(state === "called" ? { backgroundColor: "#DCFCE7", color: "#16A34A", border: "1px solid #BBF7D0" } : {}),
+          ...(state === "called" ? { backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)", color: "#16A34A", border: "1px solid color-mix(in srgb, #16A34A 32%, transparent)" } : {}),
           ...(state === "error" ? { backgroundColor: C.redLight, color: C.red, border: `1px solid ${C.red}30` } : {}),
         }}
       >
@@ -316,7 +316,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
                     onClick={() => { setSelectedPhone(opt.value); setPhonePicker(false); }}
                     className="w-full text-left px-3 py-2.5 hover:bg-black/[0.03] transition-colors flex items-center gap-2.5"
                     style={{
-                      backgroundColor: isSel ? "#FFF7ED" : "transparent",
+                      backgroundColor: isSel ? "color-mix(in srgb, #EA580C 13%, transparent)" : "transparent",
                       borderLeft: isSel ? "3px solid #F97316" : "3px solid transparent",
                     }}
                   >
@@ -378,7 +378,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
                 onClick={() => { setSelectedNumberId(n.id); setPicker(false); }}
                 className="w-full text-left px-3 py-2.5 hover:bg-black/[0.03] transition-colors flex items-center gap-2.5"
                 style={{
-                  backgroundColor: isSelected ? "#FFF7ED" : "transparent",
+                  backgroundColor: isSelected ? "color-mix(in srgb, #EA580C 13%, transparent)" : "transparent",
                   borderLeft: isSelected ? "3px solid #F97316" : "3px solid transparent",
                 }}
               >

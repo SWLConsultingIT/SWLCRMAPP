@@ -185,17 +185,17 @@ export default async function PathwayReportPage({ params }: { params: Params }) 
         }
         .report-page { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: #111; }
         .report-page h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin: 0 0 6px 0; }
-        .report-page h2 { font-size: 18px; font-weight: 700; margin: 28px 0 10px 0; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb; }
+        .report-page h2 { font-size: 18px; font-weight: 700; margin: 28px 0 10px 0; padding-bottom: 6px; border-bottom: 1px solid color-mix(in srgb, #6B7280 24%, transparent); }
         .report-page h3 { font-size: 14px; font-weight: 700; margin: 18px 0 6px 0; color: #1f2937; }
         .report-page p { font-size: 13px; line-height: 1.55; color: #374151; margin: 0 0 8px 0; }
         .report-page li { font-size: 13px; line-height: 1.55; color: #374151; }
         .report-page table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 6px 0; }
-        .report-page th { text-align: left; font-weight: 600; color: #6b7280; border-bottom: 2px solid #e5e7eb; padding: 6px 8px; }
-        .report-page td { border-bottom: 1px solid #f3f4f6; padding: 6px 8px; color: #1f2937; }
-        .kpi { display: inline-block; min-width: 130px; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 8px; margin: 4px 6px 4px 0; vertical-align: top; }
+        .report-page th { text-align: left; font-weight: 600; color: #6b7280; border-bottom: 2px solid color-mix(in srgb, #6B7280 24%, transparent); padding: 6px 8px; }
+        .report-page td { border-bottom: 1px solid color-mix(in srgb, #6B7280 14%, transparent); padding: 6px 8px; color: #1f2937; }
+        .kpi { display: inline-block; min-width: 130px; padding: 10px 14px; border: 1px solid color-mix(in srgb, #6B7280 24%, transparent); border-radius: 8px; margin: 4px 6px 4px 0; vertical-align: top; }
         .kpi .v { font-size: 22px; font-weight: 700; line-height: 1; color: #111; }
         .kpi .l { font-size: 11px; color: #6b7280; margin-top: 4px; }
-        .alert { background: #fef2f2; border-left: 3px solid #dc2626; padding: 10px 14px; margin: 10px 0; border-radius: 4px; font-size: 13px; color: #7f1d1d; }
+        .alert { background: color-mix(in srgb, #DC2626 10%, transparent); border-left: 3px solid #dc2626; padding: 10px 14px; margin: 10px 0; border-radius: 4px; font-size: 13px; color: #7f1d1d; }
         .recommend { background: #f0fdf4; border-left: 3px solid #16a34a; padding: 10px 14px; margin: 10px 0; border-radius: 4px; font-size: 13px; color: #14532d; }
         .neutral { background: #f9fafb; border-left: 3px solid #6b7280; padding: 10px 14px; margin: 10px 0; border-radius: 4px; font-size: 13px; color: #1f2937; }
       `}</style>
@@ -336,7 +336,7 @@ export default async function PathwayReportPage({ params }: { params: Params }) 
           </ol>
         </div>
 
-        <p style={{ marginTop: 32, fontSize: 11, color: "#9ca3af", borderTop: "1px solid #e5e7eb", paddingTop: 16 }}>
+        <p style={{ marginTop: 32, fontSize: 11, color: "#9ca3af", borderTop: "1px solid color-mix(in srgb, #6B7280 24%, transparent)", paddingTop: 16 }}>
           Data live as of {today}. This report is generated on-demand from the GrowthAI database; reprint any time for an updated snapshot.
         </p>
       </div>

@@ -24,7 +24,7 @@ const classColors: Record<string, { color: string; bg: string; label: string }> 
   positive:       { color: C.green,   bg: C.greenLight, label: "Positive" },
   meeting_intent: { color: C.green,   bg: C.greenLight, label: "Meeting Intent" },
   negative:       { color: C.red,     bg: C.redLight,   label: "Negative" },
-  question:       { color: "#D97706", bg: "#FFFBEB",    label: "Question" },
+  question:       { color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)",    label: "Question" },
 };
 
 function formatDate(iso: string | null) {
@@ -369,7 +369,7 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
               </span>
             ) : (
               <span className="text-[11px] font-bold px-3 py-1.5 rounded-md"
-                style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}>
+                style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}>
                 Pending Transfer
               </span>
             )}

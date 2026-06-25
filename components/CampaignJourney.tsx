@@ -146,7 +146,7 @@ function CampaignBlock({
       <button className="w-full text-left px-5 py-4" onClick={() => setOpen(!open)}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#EFF6FF" }}>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "color-mix(in srgb, #2563EB 12%, transparent)" }}>
               <ChannelIcon channel={campaign.channel} size={16} />
             </div>
             <div>
@@ -203,12 +203,12 @@ function CampaignBlock({
                   <div className="flex flex-col items-center shrink-0" style={{ width: 36 }}>
                     {connectionSent ? (
                       <div className="rounded-full flex items-center justify-center shrink-0"
-                        style={{ width: 36, height: 36, backgroundColor: "#DCFCE7" }}>
+                        style={{ width: 36, height: 36, backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)" }}>
                         <CheckCircle2 size={20} style={{ color: "#22C55E" }} />
                       </div>
                     ) : (
                       <div className="rounded-full flex items-center justify-center shrink-0"
-                        style={{ width: 36, height: 36, backgroundColor: C.surface, border: "2px solid #E5E7EB" }}>
+                        style={{ width: 36, height: 36, backgroundColor: C.surface, border: "2px solid color-mix(in srgb, #6B7280 24%, transparent)" }}>
                         <LinkedInIcon size={16} />
                       </div>
                     )}
@@ -218,7 +218,7 @@ function CampaignBlock({
                       <div className="flex items-center gap-2.5">
                         <span className="text-xs font-bold px-2 py-0.5 rounded"
                           style={{
-                            backgroundColor: connectionSent ? "#DCFCE7" : C.surface,
+                            backgroundColor: connectionSent ? "color-mix(in srgb, #16A34A 16%, transparent)" : C.surface,
                             color: connectionSent ? "#22C55E" : "#9CA3AF",
                           }}>
                           Invite
@@ -232,7 +232,7 @@ function CampaignBlock({
                         <span className="text-xs font-bold px-2 py-0.5 rounded"
                           style={{
                             color: connectionSent ? "#22C55E" : "#9CA3AF",
-                            backgroundColor: connectionSent ? "#DCFCE7" : C.surface,
+                            backgroundColor: connectionSent ? "color-mix(in srgb, #16A34A 16%, transparent)" : C.surface,
                           }}>
                           {connectionSent ? "SENT" : (connectionMsg.status ?? "PENDING").toUpperCase()}
                         </span>
@@ -277,7 +277,7 @@ function CampaignBlock({
                     <div className="flex flex-col items-center shrink-0" style={{ width: 36 }}>
                       {isCompleted ? (
                         <div className="rounded-full flex items-center justify-center shrink-0"
-                          style={{ width: 36, height: 36, backgroundColor: "#DCFCE7" }}>
+                          style={{ width: 36, height: 36, backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)" }}>
                           <CheckCircle2 size={20} style={{ color: "#22C55E" }} />
                         </div>
                       ) : isCurrent ? (
@@ -289,7 +289,7 @@ function CampaignBlock({
                         </div>
                       ) : (
                         <div className="rounded-full flex items-center justify-center shrink-0"
-                          style={{ width: 36, height: 36, backgroundColor: C.surface, border: "2px solid #E5E7EB" }}>
+                          style={{ width: 36, height: 36, backgroundColor: C.surface, border: "2px solid color-mix(in srgb, #6B7280 24%, transparent)" }}>
                           <span className="text-xs font-medium" style={{ color: "#9CA3AF" }}>
                             {String(stepNum).padStart(2, "0")}
                           </span>
@@ -307,7 +307,7 @@ function CampaignBlock({
                         <div className="flex items-center gap-2.5">
                           <span className="text-xs font-bold px-2 py-0.5 rounded"
                             style={{
-                              backgroundColor: isCompleted ? "#DCFCE7" : isCurrent ? goldLight : C.surface,
+                              backgroundColor: isCompleted ? "color-mix(in srgb, #16A34A 16%, transparent)" : isCurrent ? goldLight : C.surface,
                               color: isCompleted ? "#22C55E" : isCurrent ? gold : "#9CA3AF",
                             }}>
                             Step {stepNum}
@@ -320,7 +320,7 @@ function CampaignBlock({
                         </div>
                         <div className="shrink-0">
                           {msg?.status === "sent" && (
-                            <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ color: "#22C55E", backgroundColor: "#DCFCE7" }}>SENT</span>
+                            <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ color: "#22C55E", backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)" }}>SENT</span>
                           )}
                           {isCurrent && msg?.status !== "sent" && (
                             <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ color: gold, backgroundColor: goldLight }}>CURRENT</span>

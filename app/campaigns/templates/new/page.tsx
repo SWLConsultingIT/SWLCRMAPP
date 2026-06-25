@@ -645,7 +645,7 @@ function WizardProgress({ current }: { current: WizardStep }) {
           <div key={s.key} className="flex items-center gap-2">
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full transition-colors"
               style={{
-                backgroundColor: active ? accentSoft(15) : done ? "#DCFCE7" : C.bg,
+                backgroundColor: active ? accentSoft(15) : done ? "color-mix(in srgb, #16A34A 16%, transparent)" : C.bg,
                 border: `1px solid ${active ? accentSoft(40) : done ? "#86EFAC" : C.border}`,
               }}>
               <span className="text-[11px] font-bold tabular-nums flex items-center justify-center rounded-full"
@@ -774,7 +774,7 @@ function SourceStep(props: {
           className="rounded-xl border-2 border-dashed py-12 px-6 text-center cursor-pointer transition-colors"
           style={{
             borderColor: dragOver ? ACCENT : C.border,
-            backgroundColor: dragOver ? "#F5F3FF" : C.bg,
+            backgroundColor: dragOver ? "color-mix(in srgb, #7C3AED 10%, transparent)" : C.bg,
           }}>
           <Upload size={32} className="mx-auto mb-3" style={{ color: dragOver ? ACCENT : C.textDim }} />
           <p className="text-sm font-semibold" style={{ color: C.textBody }}>
@@ -960,7 +960,7 @@ function SequenceStep(props: {
     <div className="rounded-2xl border" style={{ backgroundColor: C.card, borderColor: C.border }}>
       {/* LinkedIn connection request — prerequisite, not a numbered step */}
       {(hasConnectionRequest || hasLinkedInStep) && (
-        <div className="px-5 py-3 border-b flex items-start gap-3" style={{ borderColor: "#0A66C220", backgroundColor: "#EFF6FF" }}>
+        <div className="px-5 py-3 border-b flex items-start gap-3" style={{ borderColor: "#0A66C220", backgroundColor: "color-mix(in srgb, #2563EB 12%, transparent)" }}>
           <Share2 size={13} className="mt-0.5 shrink-0" style={{ color: "#0A66C2" }} />
           <div className="flex-1 min-w-0">
             <p className="text-[11px] font-semibold mb-1" style={{ color: "#0A66C2" }}>
@@ -1009,7 +1009,7 @@ function SequenceStep(props: {
           {!hasConnectionRequest && !hasLinkedInStep && (
             <button onClick={addConnectionRequest}
               className="text-[11px] font-semibold px-3 py-1.5 rounded-md inline-flex items-center gap-1.5 border"
-              style={{ borderColor: "#0A66C230", color: "#0A66C2", backgroundColor: "#EFF6FF" }}>
+              style={{ borderColor: "#0A66C230", color: "#0A66C2", backgroundColor: "color-mix(in srgb, #2563EB 12%, transparent)" }}>
               <Share2 size={11} /> Add LinkedIn invite
             </button>
           )}
@@ -1321,7 +1321,7 @@ function IdentityStep(props: {
             )}
             {variantsCount > 0 && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border"
-                style={{ borderColor: "#16A34A40", backgroundColor: "#DCFCE7", color: "#16A34A" }}>
+                style={{ borderColor: "#16A34A40", backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)", color: "#16A34A" }}>
                 A/B · {variantsCount} step{variantsCount === 1 ? "" : "s"}
               </span>
             )}

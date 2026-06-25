@@ -69,7 +69,7 @@ function usageColor(pct: number): string {
 
 function usageStatus(pct: number): { label: string; color: string; bg: string } {
   if (pct >= 100) return { label: "Limited", color: C.red, bg: C.redLight };
-  if (pct >= 80) return { label: "Almost Full", color: "#D97706", bg: "#FFFBEB" };
+  if (pct >= 80) return { label: "Almost Full", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" };
   return { label: "Available", color: C.green, bg: C.greenLight };
 }
 
@@ -375,7 +375,7 @@ function AddAccountModal({
 
         {step === "connected" && (
           <div className="py-10 text-center">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: "#DCFCE7" }}>
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)" }}>
               <Shield size={24} style={{ color: "#16A34A" }} />
             </div>
             <p className="text-sm font-bold mb-1" style={{ color: "#16A34A" }}>LinkedIn connected ✓</p>
@@ -755,7 +755,7 @@ function ConnectTelegramModal({ seller, onClose, onSuccess }: { seller: SellerCa
 
         {step === "connected" && (
           <div className="py-10 text-center">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: "#DCFCE7" }}>
+            <div className="w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)" }}>
               <Shield size={24} style={{ color: "#16A34A" }} />
             </div>
             <p className="text-sm font-bold mb-1" style={{ color: "#16A34A" }}>Telegram connected ✓</p>
@@ -924,7 +924,7 @@ function LinkUnipileModal({ seller, onClose, onSuccess }: { seller: SellerCard; 
                     <p className="text-[10px] font-mono" style={{ color: C.textDim }}>{a.id}</p>
                   </div>
                   <span className="text-[9px] font-bold px-2 py-0.5 rounded"
-                    style={{ backgroundColor: a.status === "OK" ? "#DCFCE7" : "#FEF3C7", color: a.status === "OK" ? "#16A34A" : "#D97706" }}>
+                    style={{ backgroundColor: a.status === "OK" ? "color-mix(in srgb, #16A34A 16%, transparent)" : "color-mix(in srgb, #D97706 16%, transparent)", color: a.status === "OK" ? "#16A34A" : "#D97706" }}>
                     {a.status}
                   </span>
                 </button>
@@ -1255,7 +1255,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
             </div>
             {instantlyPct >= 80 && instantlyPoolLimit > 0 && (
               <div className="rounded-2xl border px-4 py-3 mb-4 flex items-center gap-3"
-                style={{ background: instantlyPct >= 100 ? `linear-gradient(135deg, ${C.redLight} 0%, ${C.red}15 100%)` : "linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)", borderColor: instantlyPct >= 100 ? `${C.red}40` : "#FCD34D", boxShadow: instantlyPct >= 100 ? `0 4px 14px ${C.red}15` : "0 4px 14px rgba(217,119,6,0.08)" }}>
+                style={{ background: instantlyPct >= 100 ? `linear-gradient(135deg, ${C.redLight} 0%, ${C.red}15 100%)` : "linear-gradient(135deg, color-mix(in srgb, #D97706 13%, transparent) 0%, color-mix(in srgb, #D97706 16%, transparent) 100%)", borderColor: instantlyPct >= 100 ? `${C.red}40` : "color-mix(in srgb, #D97706 34%, transparent)", boxShadow: instantlyPct >= 100 ? `0 4px 14px ${C.red}15` : "0 4px 14px rgba(217,119,6,0.08)" }}>
                 <AlertTriangle size={15} style={{ color: instantlyPct >= 100 ? C.red : "#D97706", flexShrink: 0 }} />
                 <div>
                   <p className="text-xs font-bold" style={{ color: instantlyPct >= 100 ? C.red : "#92400E" }}>
@@ -1338,7 +1338,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                               <Mail size={11} className="shrink-0" style={{ color: "#7C3AED" }} />
                               <span className="font-medium truncate" style={{ color: C.textBody }}>{dom}</span>
                               <span className="text-[10px] shrink-0" style={{ color: C.textDim }}>{d.count} mailbox{d.count === 1 ? "" : "es"}</span>
-                              {d.warmup > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0" style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}>{d.warmup} warming</span>}
+                              {d.warmup > 0 && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0" style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}>{d.warmup} warming</span>}
                             </span>
                             <span className="font-mono tabular-nums shrink-0" style={{ color: C.textBody }}>{d.limit}/d</span>
                           </div>
@@ -1361,7 +1361,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                             <span className="font-mono text-[10px]" style={{ color: C.textDim }}>{a.dailyLimit}/d</span>
                             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
                               style={{
-                                backgroundColor: a.setupPending ? "#FFFBEB" : C.greenLight,
+                                backgroundColor: a.setupPending ? "color-mix(in srgb, #D97706 13%, transparent)" : C.greenLight,
                                 color: a.setupPending ? "#D97706" : C.green,
                               }}>
                               {a.setupPending ? "WARMUP" : "READY"}
@@ -1401,7 +1401,7 @@ export default function AccountsClient({ sellers, history, instantly, aircall, t
                       </div>
                       <span className="text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0"
                         style={{
-                          backgroundColor: n.is_active ? C.greenLight : "#FFFBEB",
+                          backgroundColor: n.is_active ? C.greenLight : "color-mix(in srgb, #D97706 13%, transparent)",
                           color: n.is_active ? C.green : "#D97706",
                         }}>
                         {n.is_active ? "Active" : "Inactive"}

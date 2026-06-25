@@ -205,7 +205,7 @@ async function getMonitoringData(bioId: string) {
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const statusStyles: Record<string, { label: string; color: string; bg: string }> = {
-  pending:  { label: "Pending",  color: "#D97706", bg: "#FFFBEB" },
+  pending:  { label: "Pending",  color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
   reviewed: { label: "Reviewed", color: C.blue,    bg: C.blueLight },
   approved: { label: "Approved", color: C.green,   bg: C.greenLight },
   rejected: { label: "Rejected", color: C.red,     bg: C.redLight },
@@ -316,8 +316,8 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
           {monitoring.alerts.map((alert, i) => (
             <div key={i} className="flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium"
               style={{
-                backgroundColor: alert.level === "red" ? C.redLight : "#FFFBEB",
-                borderColor: alert.level === "red" ? `${C.red}30` : "#FDE68A",
+                backgroundColor: alert.level === "red" ? C.redLight : "color-mix(in srgb, #D97706 13%, transparent)",
+                borderColor: alert.level === "red" ? `${C.red}30` : "color-mix(in srgb, #D97706 30%, transparent)",
                 color: alert.level === "red" ? C.red : "#92400E",
               }}>
               <AlertTriangle size={15} />
@@ -480,7 +480,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
           <div className="px-6 py-4 flex items-center gap-2.5 border-b" style={{ borderColor: C.border, background: "rgba(217,119,6,0.04)" }}>
             <Clock size={15} style={{ color: "#D97706" }} />
             <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Pending Tickets</h2>
-            <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}>
               {pendingProfiles.length}
             </span>
           </div>
@@ -603,7 +603,7 @@ export default async function AdminClientPage({ params }: { params: Promise<{ id
                     {p.status === "approved" && p.execution_status && p.execution_status !== "not_started" && (
                       <span className="text-xs font-medium px-2 py-0.5 rounded-md shrink-0"
                         style={{
-                          backgroundColor: p.execution_status === "completed" ? C.greenLight : p.execution_status === "uploaded" ? C.blueLight : "#FFFBEB",
+                          backgroundColor: p.execution_status === "completed" ? C.greenLight : p.execution_status === "uploaded" ? C.blueLight : "color-mix(in srgb, #D97706 13%, transparent)",
                           color: p.execution_status === "completed" ? C.green : p.execution_status === "uploaded" ? C.blue : "#D97706",
                         }}>
                         {p.execution_status === "completed" ? "Done" : p.execution_status === "uploaded" ? "Leads Uploaded" : "In Progress"}

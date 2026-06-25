@@ -124,7 +124,7 @@ const channelMeta: Record<string, { icon: React.ElementType; color: string; labe
 // Status meta — `label` resolved at render via t(`flows.status.${key}`).
 const statusConfig: Record<string, { key: string; color: string; bg: string }> = {
   active:    { key: "active",    color: "var(--brand, #c9a83a)", bg: "color-mix(in srgb, var(--brand, #c9a83a) 12%, transparent)" },
-  paused:    { key: "paused",    color: "#D97706",  bg: "#FFFBEB" },
+  paused:    { key: "paused",    color: "#D97706",  bg: "color-mix(in srgb, #D97706 13%, transparent)" },
   completed: { key: "completed", color: C.textMuted, bg: C.surface },
   failed:    { key: "failed",    color: C.red,      bg: C.redLight },
 };

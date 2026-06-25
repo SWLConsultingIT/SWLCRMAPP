@@ -59,36 +59,36 @@ type Campaign = {
 type CardBadge = { label: string; color: string; bg: string };
 
 const CHANNEL_COLORS: Record<string, { color: string; bg: string }> = {
-  linkedin: { color: "#0A66C2", bg: "#DBEAFE" },
-  email:    { color: "#7C3AED", bg: "#EDE9FE" },
-  call:     { color: "#F97316", bg: "#FFF7ED" },
+  linkedin: { color: "#0A66C2", bg: "color-mix(in srgb, #2563EB 16%, transparent)" },
+  email:    { color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" },
+  call:     { color: "#F97316", bg: "color-mix(in srgb, #EA580C 13%, transparent)" },
 };
 
 // Status of the LinkedIn Connection Request slot (step 0).
 function crBadge(camp: Campaign): CardBadge | null {
   const s = camp.step_0;
   if (!s) return null;
-  if (s.status === "sent") return { label: "CR SENT", color: "#16A34A", bg: "#DCFCE7" };
-  if (s.status === "failed") return { label: "CR FAILED", color: "#DC2626", bg: "#FEE2E2" };
-  if (s.status === "dispatching") return { label: "CR SENDING…", color: "#7C3AED", bg: "#EDE9FE" };
+  if (s.status === "sent") return { label: "CR SENT", color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" };
+  if (s.status === "failed") return { label: "CR FAILED", color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
+  if (s.status === "dispatching") return { label: "CR SENDING…", color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" };
   if (s.status === "skipped") {
     const reason = (s.skippedReason ?? "").toLowerCase();
-    if (reason.includes("first_degree") || reason.includes("already a 1st")) return { label: "ALREADY CONNECTED", color: "#7C3AED", bg: "#EDE9FE" };
-    if (reason.includes("pending") || reason.includes("invitation_sent")) return { label: "INVITE PENDING", color: "#D97706", bg: "#FEF3C7" };
-    if (reason.includes("withdrawn") || reason.includes("ignored")) return { label: "INVITE WITHDRAWN", color: "#6B7280", bg: "#F3F4F6" };
+    if (reason.includes("first_degree") || reason.includes("already a 1st")) return { label: "ALREADY CONNECTED", color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" };
+    if (reason.includes("pending") || reason.includes("invitation_sent")) return { label: "INVITE PENDING", color: "#D97706", bg: "color-mix(in srgb, #D97706 16%, transparent)" };
+    if (reason.includes("withdrawn") || reason.includes("ignored")) return { label: "INVITE WITHDRAWN", color: "#6B7280", bg: "color-mix(in srgb, #6B7280 14%, transparent)" };
     const url = camp.leads?.primary_linkedin_url ?? null;
     const looksLikeLinkedIn = !!url && /linkedin\.com\/in\//i.test(url);
-    if (!url) return { label: "NO LINKEDIN", color: "#DC2626", bg: "#FEE2E2" };
-    if (!looksLikeLinkedIn) return { label: "BAD URL", color: "#DC2626", bg: "#FEE2E2" };
-    return { label: "LOCKED PROFILE", color: "#DC2626", bg: "#FEE2E2" };
+    if (!url) return { label: "NO LINKEDIN", color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
+    if (!looksLikeLinkedIn) return { label: "BAD URL", color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
+    return { label: "LOCKED PROFILE", color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
   }
-  if (s.status === "draft") return { label: "CR DRAFT", color: "#6B7280", bg: "#F3F4F6" };
+  if (s.status === "draft") return { label: "CR DRAFT", color: "#6B7280", bg: "color-mix(in srgb, #6B7280 14%, transparent)" };
   if (s.status === "queued") {
     if (s.lastRateLimitAt) {
       const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
-      if (new Date(s.lastRateLimitAt).getTime() > fourHoursAgo) return { label: "CR COOLDOWN", color: "#D97706", bg: "#FFFBEB" };
+      if (new Date(s.lastRateLimitAt).getTime() > fourHoursAgo) return { label: "CR COOLDOWN", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" };
     }
-    return { label: "CR QUEUED", color: "#0A66C2", bg: "#DBEAFE" };
+    return { label: "CR QUEUED", color: "#0A66C2", bg: "color-mix(in srgb, #2563EB 16%, transparent)" };
   }
   return null;
 }
@@ -102,17 +102,17 @@ function stepBadge(camp: Campaign): CardBadge | null {
   if (!m) return null;
   const channel = (m.channel ?? "linkedin").toUpperCase();
   const colors = CHANNEL_COLORS[m.channel] ?? CHANNEL_COLORS.linkedin;
-  if (m.status === "failed") return { label: `${channel} FAILED`, color: "#DC2626", bg: "#FEE2E2" };
-  if (m.status === "dispatching") return { label: `${channel} SENDING…`, color: "#7C3AED", bg: "#EDE9FE" };
-  if (m.status === "sent") return { label: `${channel} SENT`, color: "#16A34A", bg: "#DCFCE7" };
+  if (m.status === "failed") return { label: `${channel} FAILED`, color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
+  if (m.status === "dispatching") return { label: `${channel} SENDING…`, color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" };
+  if (m.status === "sent") return { label: `${channel} SENT`, color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" };
   if (m.status === "queued") {
     if (m.lastRateLimitAt) {
       const fourHoursAgo = Date.now() - 4 * 60 * 60 * 1000;
-      if (new Date(m.lastRateLimitAt).getTime() > fourHoursAgo) return { label: `${channel} COOLDOWN`, color: "#D97706", bg: "#FFFBEB" };
+      if (new Date(m.lastRateLimitAt).getTime() > fourHoursAgo) return { label: `${channel} COOLDOWN`, color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" };
     }
     return { label: `${channel} QUEUED`, color: colors.color, bg: colors.bg };
   }
-  if (m.status === "draft") return { label: `${channel} DRAFT`, color: "#6B7280", bg: "#F3F4F6" };
+  if (m.status === "draft") return { label: `${channel} DRAFT`, color: "#6B7280", bg: "color-mix(in srgb, #6B7280 14%, transparent)" };
   return null;
 }
 
@@ -123,17 +123,17 @@ function stepBadge(camp: Campaign): CardBadge | null {
 // for in-flight active campaigns so the dispatch badges still show.
 function lifecycleBadge(camp: Campaign): CardBadge | null {
   const rc = (camp.reply_class ?? "").toLowerCase();
-  if (rc === "positive") return { label: "POSITIVE REPLY", color: "#15803D", bg: "#DCFCE7" };
-  if (rc === "negative") return { label: "NEGATIVE REPLY", color: "#DC2626", bg: "#FEE2E2" };
-  if (rc === "question") return { label: "REPLIED · QUESTION", color: "#7C3AED", bg: "#EDE9FE" };
-  if (rc === "followup") return { label: "FOLLOW-UP · BAD TIMING", color: "#D97706", bg: "#FEF3C7" };
-  if (rc === "not_now") return { label: "NOT NOW", color: "#D97706", bg: "#FEF3C7" };
-  if (rc === "voicemail") return { label: "VOICEMAIL", color: "#0EA5E9", bg: "#E0F2FE" };
-  if (rc && rc !== "other") return { label: "REPLIED", color: "#0A66C2", bg: "#DBEAFE" };
-  if (rc === "other") return { label: "REPLIED", color: "#0A66C2", bg: "#DBEAFE" };
-  if (camp.status === "paused") return { label: "PAUSED", color: "#D97706", bg: "#FEF3C7" };
-  if (camp.status === "completed") return { label: "DONE", color: "#15803D", bg: "#DCFCE7" };
-  if (camp.status === "failed") return { label: "FLOW FAILED", color: "#DC2626", bg: "#FEE2E2" };
+  if (rc === "positive") return { label: "POSITIVE REPLY", color: "#15803D", bg: "color-mix(in srgb, #16A34A 16%, transparent)" };
+  if (rc === "negative") return { label: "NEGATIVE REPLY", color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
+  if (rc === "question") return { label: "REPLIED · QUESTION", color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" };
+  if (rc === "followup") return { label: "FOLLOW-UP · BAD TIMING", color: "#D97706", bg: "color-mix(in srgb, #D97706 16%, transparent)" };
+  if (rc === "not_now") return { label: "NOT NOW", color: "#D97706", bg: "color-mix(in srgb, #D97706 16%, transparent)" };
+  if (rc === "voicemail") return { label: "VOICEMAIL", color: "#0EA5E9", bg: "color-mix(in srgb, #0284C7 14%, transparent)" };
+  if (rc && rc !== "other") return { label: "REPLIED", color: "#0A66C2", bg: "color-mix(in srgb, #2563EB 16%, transparent)" };
+  if (rc === "other") return { label: "REPLIED", color: "#0A66C2", bg: "color-mix(in srgb, #2563EB 16%, transparent)" };
+  if (camp.status === "paused") return { label: "PAUSED", color: "#D97706", bg: "color-mix(in srgb, #D97706 16%, transparent)" };
+  if (camp.status === "completed") return { label: "DONE", color: "#15803D", bg: "color-mix(in srgb, #16A34A 16%, transparent)" };
+  if (camp.status === "failed") return { label: "FLOW FAILED", color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" };
   return null;
 }
 
@@ -696,7 +696,7 @@ function MoveModal({
 
         {/* Body */}
         <div className="px-5 py-4 space-y-3">
-          <div className="rounded-lg border p-3" style={{ borderColor: "#FCD34D", backgroundColor: "#FFFBEB" }}>
+          <div className="rounded-lg border p-3" style={{ borderColor: "color-mix(in srgb, #D97706 34%, transparent)", backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)" }}>
             <div className="flex items-start gap-2">
               <AlertTriangle size={13} className="shrink-0 mt-0.5" style={{ color: "#D97706" }} />
               <p className="text-[11px] leading-relaxed" style={{ color: "#92400E" }}>

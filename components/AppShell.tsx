@@ -12,6 +12,7 @@ import DemoBanner from "@/components/DemoBanner";
 import KeyboardCheatsheet from "@/components/KeyboardCheatsheet";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
 import { ToastProvider } from "@/lib/toast";
+import { MobileMenuProvider } from "@/lib/mobile-menu";
 
 // LogoLoader is the global route-transition loader (gold SWL mark). It
 // dismisses immediately when the next pathname renders so it doesn't stack
@@ -34,6 +35,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <ToastProvider>
+      <MobileMenuProvider>
       <NavigationProgress />
       <div className="flex h-full">
         <Sidebar />
@@ -57,6 +59,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <CommandPalette />
         <KeyboardCheatsheet />
       </div>
+      </MobileMenuProvider>
     </ToastProvider>
   );
 }

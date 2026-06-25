@@ -2332,7 +2332,7 @@ function Panel({
                       className="pointer-events-none absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 w-72 rounded-md border px-3 py-2 text-[11px] font-medium leading-snug shadow-lg opacity-0 transition-opacity duration-100 group-hover/tip:opacity-100 group-focus-within/tip:opacity-100"
                       style={{
                         background: "rgba(11, 15, 26, 0.98)",
-                        color: "#E5E7EB",
+                        color: "color-mix(in srgb, #6B7280 24%, transparent)",
                         borderColor: `color-mix(in srgb, ${gold} 35%, transparent)`,
                         boxShadow: "0 12px 32px -10px rgba(0,0,0,0.5)",
                       }}
@@ -2407,7 +2407,7 @@ function Panel({
                       className="pointer-events-none absolute left-full ml-2 top-1/2 -translate-y-1/2 z-50 w-72 rounded-md border px-3 py-2 text-[11px] font-medium normal-case tracking-normal leading-snug shadow-lg opacity-0 transition-opacity duration-100 group-hover/tip:opacity-100 group-focus-within/tip:opacity-100"
                       style={{
                         background: "rgba(11, 15, 26, 0.98)",
-                        color: "#E5E7EB",
+                        color: "color-mix(in srgb, #6B7280 24%, transparent)",
                         borderColor: `color-mix(in srgb, ${gold} 35%, transparent)`,
                         boxShadow: "0 12px 32px -10px rgba(0,0,0,0.5)",
                       }}

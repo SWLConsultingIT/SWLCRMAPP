@@ -136,7 +136,7 @@ function UsersTab() {
               <p className="text-sm font-medium truncate" style={{ color: C.textPrimary }}>{user.email}</p>
               {user.role && !user.company_bio_id && (
                 <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded shrink-0"
-                  style={{ backgroundColor: "#FEF3C7", color: "#D97706" }}>
+                  style={{ backgroundColor: "color-mix(in srgb, #D97706 16%, transparent)", color: "#D97706" }}>
                   <AlertTriangle size={9} /> No company
                 </span>
               )}
@@ -206,10 +206,10 @@ type SellerRow = {
 };
 
 const linkedinStatusMeta: Record<string, { label: string; color: string; bg: string }> = {
-  active:     { label: "Active",     color: "#16A34A", bg: "#DCFCE7" },
-  restricted: { label: "Restricted", color: "#D97706", bg: "#FFFBEB" },
-  banned:     { label: "Banned",     color: "#DC2626", bg: "#FEE2E2" },
-  warning:    { label: "Warning",    color: "#7C3AED", bg: "#EDE9FE" },
+  active:     { label: "Active",     color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" },
+  restricted: { label: "Restricted", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
+  banned:     { label: "Banned",     color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" },
+  warning:    { label: "Warning",    color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" },
 };
 
 function SellersTab() {
@@ -1111,7 +1111,7 @@ export default function AdminClient({ clients, pendingApprovals, myCompanyBioId 
                     ))}
                     {totalPending > 0 && (
                       <span className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold shrink-0"
-                        style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}>
+                        style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}>
                         <Clock size={10} /> {totalPending} pending
                       </span>
                     )}

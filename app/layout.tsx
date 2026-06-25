@@ -17,6 +17,11 @@ export const metadata: Metadata = {
   description: "Growth Engine — SWL Consulting",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+};
+
 // Belt-and-braces: the server already sets `data-theme="dark"` on <html> when
 // the swl-theme cookie says dark, so SSR is flash-free. This script only runs
 // on the client and re-syncs the attribute against the cookie in case the

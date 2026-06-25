@@ -142,7 +142,7 @@ function RooftopSection({ data }: { data: Record<string, unknown> }) {
     : { bg: C.redLight,   fg: C.red,   label: "NO SOLAR PANELS" };
 
   return (
-    <SectionBlock icon={Sun} title="Rooftop Intelligence" accent="#D97706" bg="#FFFBEB">
+    <SectionBlock icon={Sun} title="Rooftop Intelligence" accent="#D97706" bg="color-mix(in srgb, #D97706 13%, transparent)">
       {/* Photo + headline badge */}
       <div className="flex flex-col md:flex-row gap-4 items-stretch">
         {photoUrl && (
@@ -182,7 +182,7 @@ function RooftopSection({ data }: { data: Record<string, unknown> }) {
                 )}
                 {data.transizione_5_0_eligible === true && (
                   <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                    style={{ backgroundColor: "#F5F3FF", color: "#7C3AED" }}>
+                    style={{ backgroundColor: "color-mix(in srgb, #7C3AED 10%, transparent)", color: "#7C3AED" }}>
                     Transizione 5.0
                   </span>
                 )}
@@ -240,9 +240,9 @@ const PRIORITY_KEYS = [
 ];
 
 const RATING_COLORS: Record<string, { color: string; bg: string }> = {
-  GOLD:            { color: "#B45309", bg: "#FEF3C7" },
+  GOLD:            { color: "#B45309", bg: "color-mix(in srgb, #D97706 16%, transparent)" },
   SILVER:          { color: "#4B5563", bg: C.border },
-  BRONZE:          { color: "#9A3412", bg: "#FED7AA" },
+  BRONZE:          { color: "#9A3412", bg: "color-mix(in srgb, #EA580C 30%, transparent)" },
   "ONE RED FLAG":  { color: C.red,     bg: C.redLight },
   "TWO RED FLAGS": { color: C.red,     bg: C.redLight },
 };
@@ -305,7 +305,7 @@ function formatValue(key: string, value: unknown): React.ReactNode {
     const upper = s.toUpperCase();
     const isRef = upper.includes("REFINANCE");
     const isGreen = upper.includes("GREENFIELD");
-    const bg = isRef ? "#FEF3C7" : isGreen ? C.greenLight : C.bg;
+    const bg = isRef ? "color-mix(in srgb, #D97706 16%, transparent)" : isGreen ? C.greenLight : C.bg;
     const col = isRef ? "#B45309" : isGreen ? C.green : C.textBody;
     return (
       <span className="text-[11px] font-semibold px-2 py-0.5 rounded whitespace-normal break-words inline-block"
@@ -324,7 +324,7 @@ function formatValue(key: string, value: unknown): React.ReactNode {
           const isOut = t.toLowerCase() === "outstanding";
           return (
             <span key={i} className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-              style={{ backgroundColor: isOut ? "#FEF3C7" : C.greenLight, color: isOut ? "#B45309" : C.green }}>
+              style={{ backgroundColor: isOut ? "color-mix(in srgb, #D97706 16%, transparent)" : C.greenLight, color: isOut ? "#B45309" : C.green }}>
               {titleCase(t)}
             </span>
           );
@@ -584,7 +584,7 @@ export default function PersonalizedInfoPanel({ enrichment }: Props) {
       {/* Secondary groups — split short KV rows from long full-width rows so the grid stays aligned */}
       {[
         { title: "Credit Rating & Financials", icon: TrendingUp, keys: rfaExtra, accent: C.blue,  bg: C.blueLight },
-        { title: "Companies House",             icon: Building2, keys: chExtra,  accent: "#7C3AED", bg: "#F5F3FF" },
+        { title: "Companies House",             icon: Building2, keys: chExtra,  accent: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 10%, transparent)" },
         { title: "Additional",                  icon: Info,       keys: other,    accent: C.textMuted, bg: "#F9FAFB" },
       ].map(group => {
         if (group.keys.length === 0) return null;

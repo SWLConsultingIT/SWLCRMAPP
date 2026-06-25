@@ -128,7 +128,7 @@ function ProfileView({ profile: p, onRefresh }: { profile: Profile; onRefresh: (
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-[15px] font-bold" style={{ color: C.textPrimary }}>{name || "—"}</p>
-            {p.isPremium && <span className="text-[8.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>Premium</span>}
+            {p.isPremium && <span className="text-[8.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: "color-mix(in srgb, #D97706 16%, transparent)", color: "#92400E" }}>Premium</span>}
             {p.networkDistance && <span className="text-[8.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: C.surface, color: C.textMuted }}>{p.networkDistance.replace("_", " ")}</span>}
           </div>
           {p.headline && <p className="text-[12.5px] mt-0.5 leading-snug" style={{ color: C.textBody }}>{p.headline}</p>}

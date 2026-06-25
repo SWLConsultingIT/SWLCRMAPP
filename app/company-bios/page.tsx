@@ -1497,7 +1497,7 @@ function BioForm({ bio, onSave, onCancel, onDelete, isNew }: { bio: CompanyBio; 
                 <AlertCircle size={15} /> {error}
               </span>
             ) : dirty && !saving ? (
-              <span className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full" style={{ backgroundColor: "color-mix(in srgb, #D97706 16%, transparent)", color: "#92400E" }}>
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: "#D97706" }} /> Unsaved changes
               </span>
             ) : !isNew && !saving ? (

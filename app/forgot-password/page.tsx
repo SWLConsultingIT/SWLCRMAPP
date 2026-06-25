@@ -99,7 +99,7 @@ export default function ForgotPasswordPage() {
               {error && (
                 <div className="flex items-center gap-2 rounded-xl px-4 py-3" style={{ backgroundColor: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.2)" }}>
                   <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: "#DC2626" }} />
-                  <p className="text-xs" style={{ color: "#FCA5A5" }}>{error}</p>
+                  <p className="text-xs" style={{ color: "color-mix(in srgb, #DC2626 34%, transparent)" }}>{error}</p>
                 </div>
               )}
 

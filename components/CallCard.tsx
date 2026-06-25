@@ -226,7 +226,7 @@ export default function CallCard({ call, compact = false, personalPhone, company
           <p className="text-xs leading-relaxed whitespace-pre-wrap" style={{ color: C.textBody }}>{call.transcript}</p>
           {showRetranscribeConfirm && (
             <div className="mt-3 p-2.5 rounded border flex items-center justify-between gap-2"
-              style={{ backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }}>
+              style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", borderColor: "color-mix(in srgb, #D97706 30%, transparent)" }}>
               <p className="text-[11px]" style={{ color: "#92400E" }}>
                 Replace this transcript? Cost ~$0.003.
               </p>

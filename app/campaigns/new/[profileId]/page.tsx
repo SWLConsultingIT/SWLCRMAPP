@@ -632,10 +632,10 @@ export default function NewCampaignWizard() {
 
   // Multi-seller quota helpers
   const SELLER_COLORS = [
-    { bg: "#DBEAFE", text: "#1D4ED8" },
-    { bg: "#EDE9FE", text: "#6D28D9" },
-    { bg: "#FEF3C7", text: "#92400E" },
-    { bg: "#DCFCE7", text: "#166534" },
+    { bg: "color-mix(in srgb, #2563EB 16%, transparent)", text: "#1D4ED8" },
+    { bg: "color-mix(in srgb, #7C3AED 16%, transparent)", text: "#6D28D9" },
+    { bg: "color-mix(in srgb, #D97706 16%, transparent)", text: "#92400E" },
+    { bg: "color-mix(in srgb, #16A34A 16%, transparent)", text: "#166534" },
     { bg: "#FCE7F3", text: "#9D174D" },
   ];
 
@@ -1341,7 +1341,7 @@ export default function NewCampaignWizard() {
               const PREVIEW = 6;
               return (
                 <div className="mt-4 rounded-lg border p-4"
-                  style={{ borderColor: "#FDE68A", backgroundColor: "#FFFBEB" }}>
+                  style={{ borderColor: "color-mix(in srgb, #D97706 30%, transparent)", backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)" }}>
                   <div className="flex items-start gap-2.5 mb-3">
                     <AlertTriangle size={16} style={{ color: "#D97706" }} className="shrink-0 mt-0.5" />
                     <div className="flex-1">
@@ -1365,7 +1365,7 @@ export default function NewCampaignWizard() {
                       const extra = g.blockedNames.length - shown.length;
                       return (
                         <div key={g.ch} className="rounded-md border bg-white p-2.5"
-                          style={{ borderColor: "#FDE68A" }}>
+                          style={{ borderColor: "color-mix(in srgb, #D97706 30%, transparent)" }}>
                           <div className="flex items-center justify-between mb-1.5">
                             <span className="text-xs font-bold flex items-center gap-1.5" style={{ color: color(g.ch) }}>
                               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color(g.ch) }} />
@@ -1390,7 +1390,7 @@ export default function NewCampaignWizard() {
                           <div className="flex flex-wrap gap-1">
                             {shown.map((n, idx) => (
                               <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded"
-                                style={{ backgroundColor: "#F3F4F6", color: "#374151" }}>{n}</span>
+                                style={{ backgroundColor: "color-mix(in srgb, #6B7280 14%, transparent)", color: "#374151" }}>{n}</span>
                             ))}
                             {extra > 0 && (
                               <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
@@ -2058,7 +2058,7 @@ export default function NewCampaignWizard() {
 
       {/* Warnings & errors */}
       {messagesWarning && (
-        <div className="mt-4 rounded-lg border px-4 py-3" style={{ borderColor: "#D97706", backgroundColor: "#FFFBEB" }}>
+        <div className="mt-4 rounded-lg border px-4 py-3" style={{ borderColor: "#D97706", backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)" }}>
           <p className="text-sm font-medium" style={{ color: "#D97706" }}>{messagesWarning}</p>
         </div>
       )}

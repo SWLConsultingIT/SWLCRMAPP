@@ -527,7 +527,7 @@ function CallHistoryRow({ e, selected, onToggleSelect }: { e: CallHistoryEntry; 
               )}
               {e.dialedByName && (
                 <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                  style={{ backgroundColor: "#EFF6FF", color: "#1D4ED8", border: "1px solid #BFDBFE" }}
+                  style={{ backgroundColor: "color-mix(in srgb, #2563EB 12%, transparent)", color: "#1D4ED8", border: "1px solid color-mix(in srgb, #2563EB 30%, transparent)" }}
                   title="Team member who placed the call">
                   <PhoneCall size={9} /> {e.dialedByName}
                 </span>

@@ -60,9 +60,35 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ error: updateErr.message }, { status: 500 });
   }
 
+  // Bug 10 fix: re-queue draft messages for the next step of each resumed campaign
+  // whose eligible_at is already in the past. When a campaign is paused mid-sequence
+  // the next step stays in 'draft' (dispatchers skip paused campaigns), so the
+  // resume flip alone won't trigger a send — we must flip draft→queued here.
+  const { data: draftMsgs } = await svc
+    .from("campaign_messages")
+    .select("id, step_number, metadata, campaigns!inner(current_step)")
+    .in("campaign_id", ids)
+    .eq("status", "draft");
+
+  const toRequeue = (draftMsgs ?? []).filter((m: any) => {
+    const currentStep = (m as any).campaigns?.current_step ?? -1;
+    if (m.step_number !== currentStep + 1) return false;
+    const eligibleAt = (m?.metadata as any)?.eligible_at;
+    if (!eligibleAt) return true;
+    return new Date(eligibleAt).getTime() <= Date.now();
+  });
+
+  for (const m of toRequeue) {
+    const prevMeta = ((m as any).metadata as Record<string, unknown> | null) ?? {};
+    await svc.from("campaign_messages")
+      .update({ status: "queued", metadata: { ...prevMeta, eligible_at: nowISO, queued_by: "resume-paused" } })
+      .eq("id", (m as any).id);
+  }
+
   return NextResponse.json({
     ok: true,
     resumed: ids.length,
+    requeued: toRequeue.length,
     campaignIds: ids,
   });
 }

@@ -57,7 +57,7 @@ const channelMeta: Record<string, { icon: React.ElementType; color: string; labe
 
 const statusMeta: Record<string, { label: string; color: string; bg: string; icon: React.ElementType }> = {
   active:    { label: "Active",    color: C.green,    bg: C.greenLight,  icon: PlayCircle },
-  paused:    { label: "Paused",    color: "#D97706",  bg: "#FFFBEB",     icon: PauseCircle },
+  paused:    { label: "Paused",    color: "#D97706",  bg: "color-mix(in srgb, #D97706 13%, transparent)",     icon: PauseCircle },
   completed: { label: "Completed", color: C.textMuted, bg: C.surface,    icon: CheckCircle },
   failed:    { label: "Failed",    color: C.red,      bg: C.redLight,    icon: XCircle },
 };

@@ -51,11 +51,11 @@ export const C = {
 
   // ── Score badges ──
   hot:            "#DC2626",
-  hotBg:          "#FEE2E2",
+  hotBg:          "color-mix(in srgb, #DC2626 14%, transparent)",
   warm:           "#EA580C",
-  warmBg:         "#FFEDD5",
+  warmBg:         "color-mix(in srgb, #EA580C 15%, transparent)",
   nurture:        "#1A7F74",
-  nurtureBg:      "#E6F5F3",
+  nurtureBg:      "color-mix(in srgb, #1A7F74 16%, transparent)",
 
   // ── Text ──
   textPrimary:    "var(--c-textPrimary)",
@@ -89,9 +89,9 @@ export const C = {
   // ── Legacy aliases (for components not yet migrated) ──
   cyan:           "#0A66C2",
   cyanGlow:       "rgba(10,102,194,0.1)",
-  greenGlow:      "#ECFDF5",
-  redGlow:        "#FEF2F2",
-  yellowGlow:     "#FFFBEB",
+  greenGlow:      "color-mix(in srgb, #16A34A 12%, transparent)",
+  redGlow:        "color-mix(in srgb, #DC2626 10%, transparent)",
+  yellowGlow:     "color-mix(in srgb, #D97706 13%, transparent)",
 } as const;
 
 export type Color = typeof C;

@@ -56,9 +56,9 @@ export default function LostLeadActions({ leadId }: Props) {
         disabled={busy !== null}
         className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-[opacity,transform,box-shadow,background-color,border-color] hover:opacity-85 disabled:opacity-50"
         style={{
-          backgroundColor: done === "recover" ? "#DCFCE7" : C.blueLight,
+          backgroundColor: done === "recover" ? "color-mix(in srgb, #16A34A 16%, transparent)" : C.blueLight,
           color: done === "recover" ? "#16A34A" : C.blue,
-          border: `1px solid ${done === "recover" ? "#BBF7D0" : C.blue + "30"}`,
+          border: `1px solid ${done === "recover" ? "color-mix(in srgb, #16A34A 32%, transparent)" : C.blue + "30"}`,
         }}
       >
         {busy === "recover" ? <Loader2 size={12} className="animate-spin" /> :

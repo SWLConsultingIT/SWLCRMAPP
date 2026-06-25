@@ -64,21 +64,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { error } = await supabase.from("campaigns").update(update).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // SKIP also has to clear the pending message(s) for the skipped step(s) and
-  // queue the next one. Otherwise a manual call step (calls never auto-dispatch)
-  // stays `queued` forever and the lead snaps back to the call column on the
-  // next cycle — exactly what Sara hit (boss 2026-06-09: kanban move + "move
-  // forward" didn't persist). Mirrors /api/cron/skip-stale-calls.
-  // campaign_messages.step_number is 1-indexed (CR = 0), so the message queued
-  // at the old cursor sits at step_number = step (the new cursor) and the next
-  // step to fire is step_number = step + 1.
+  const nowISO = new Date().toISOString();
+
   if (action === "skip") {
-    const nowISO = new Date().toISOString();
+    // Clear all queued/draft messages at or before the new cursor so the lead
+    // doesn't snap back to the old column on the next orchestrator cycle.
     await supabase.from("campaign_messages")
       .update({ status: "skipped", metadata: { skipped_by: "kanban-skip", skipped_at: nowISO } })
       .eq("campaign_id", id)
       .lte("step_number", step)
       .in("status", ["queued", "draft"]);
+    // Queue the next step so the orchestrator picks it up.
     const { data: nextRows } = await supabase.from("campaign_messages")
       .select("id")
       .eq("campaign_id", id)
@@ -91,6 +87,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         .update({ status: "queued", metadata: { eligible_at: nowISO, queued_by: "kanban-skip" } })
         .eq("id", nextId);
     }
+  } else {
+    // "send": flip the target step's message draft→queued with eligible_at=now so
+    // the dispatcher picks it up on the next orchestrator cycle (≤15 min).
+    // Without this the message stays in `draft` and the orchestrator never sees it
+    // — the send button advanced the UI but delivered nothing.
+    await supabase.from("campaign_messages")
+      .update({ status: "queued", metadata: { eligible_at: nowISO, queued_by: "kanban-send" } })
+      .eq("campaign_id", id)
+      .eq("step_number", step)
+      .in("status", ["draft", "queued"]);
   }
+
   return NextResponse.json({ ok: true, currentStep: step, action });
 }

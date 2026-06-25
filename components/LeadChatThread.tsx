@@ -213,7 +213,7 @@ export default function LeadChatThread({ leadId, leadName }: { leadId?: string; 
               <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[10px] font-bold"
                 style={isOut
                   ? { backgroundColor: `color-mix(in srgb, ${channelColor(entry.channel)} 18%, transparent)`, color: channelColor(entry.channel) }
-                  : { backgroundColor: "#E5E7EB", color: "#374151" }}>
+                  : { backgroundColor: "color-mix(in srgb, #6B7280 24%, transparent)", color: "#374151" }}>
                 {isOut ? <Icon size={12} /> : leadAv}
               </div>
               <div className={`flex flex-col max-w-[78%] ${isOut ? "items-end" : "items-start"}`}>

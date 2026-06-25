@@ -29,10 +29,10 @@ export default function AlertsPanel({ alerts }: { alerts: Alert[] }) {
   const total = alerts.reduce((s, a) => s + a.count, 0);
 
   // Warm amber accent that has to read in BOTH light + dark mode.
-  // - panel bg/border  → use the theme-aware C.yellowLight (#FFFBEB in light,
+  // - panel bg/border  → use the theme-aware C.yellowLight (color-mix(in srgb, #D97706 13%, transparent) in light,
   //                      a deep #2A1F08 in dark) + a brand-amber border so the
   //                      panel still feels amber-toned in dark without the
-  //                      eye-burning #FFFBEB rectangle.
+  //                      eye-burning color-mix(in srgb, #D97706 13%, transparent) rectangle.
   // - text/icon colors → kept brand amber (#D97706 / #B45309) which reads
   //                      against both backgrounds. The count badge swaps to
   //                      a translucent amber chip via color-mix so it doesn't

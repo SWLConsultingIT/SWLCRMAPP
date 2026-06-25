@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseService } from "@/lib/supabase-service";
+import { getUserScope, canCreateCampaigns } from "@/lib/scope";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  // Bug 12 fix: auth gate — same pattern as /api/campaigns/[id]/step/route.ts
+  const scope = await getUserScope();
+  if (!scope.userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!canCreateCampaigns(scope.tier)) {
+    return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  }
+
   const { id } = await params;
   const body = await req.json();
   const { flowName, flowManagerId, steps, emailAccount, originalName, messages, newMessages } = body;
@@ -39,17 +47,46 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { error: err1 } = await svc.from("campaigns").update(update).in("id", allCampaignIds);
   if (err1) return NextResponse.json({ error: err1.message }, { status: 500 });
 
+  // Bug 4 fix: cancel queued/draft messages for steps removed from the sequence.
+  // Valid step_numbers: 0 (LinkedIn CR) through steps.length. Anything above
+  // steps.length is a deleted step — cancelling prevents the dispatcher from
+  // sending a message for a step the seller explicitly removed.
+  if (allCampaignIds.length > 0) {
+    const skippedAt = new Date().toISOString();
+    await svc.from("campaign_messages")
+      .update({ status: "skipped", metadata: { skipped_by: "edit-flow-step-removed", skipped_at: skippedAt } })
+      .in("campaign_id", allCampaignIds)
+      .gt("step_number", steps.length)
+      .in("status", ["queued", "draft"]);
+  }
+
   // Update existing message templates (each has an id tied to a specific row).
+  // Bug 1 fix: batch-read existing metadata first and merge instead of replacing —
+  // preserves eligible_at and other dispatcher-written fields on the row.
   if (messages && typeof messages === "object") {
+    const msgIds = Object.values(messages as Record<string, any>)
+      .map((m: any) => m?.id).filter(Boolean) as string[];
+    const existingMetaMap: Record<string, Record<string, any>> = {};
+    if (msgIds.length > 0) {
+      const { data: existingRows } = await svc
+        .from("campaign_messages").select("id, metadata").in("id", msgIds);
+      for (const row of existingRows ?? []) {
+        existingMetaMap[(row as any).id] = ((row as any).metadata as Record<string, any> | null) ?? {};
+      }
+    }
     for (const [, msg] of Object.entries(messages)) {
       const m = msg as any;
       if (!m?.id) continue;
-      const metadata: Record<string, any> = {};
-      if (m.subject) metadata.subject = m.subject;
-      if (Array.isArray(m.attachments) && m.attachments.length > 0) metadata.attachments = m.attachments;
+      const newMeta: Record<string, any> = { ...(existingMetaMap[m.id] ?? {}) };
+      if (m.subject) newMeta.subject = m.subject; else delete newMeta.subject;
+      if (Array.isArray(m.attachments) && m.attachments.length > 0) {
+        newMeta.attachments = m.attachments;
+      } else {
+        delete newMeta.attachments;
+      }
       await svc.from("campaign_messages").update({
         content: m.content,
-        metadata: Object.keys(metadata).length > 0 ? metadata : null,
+        metadata: Object.keys(newMeta).length > 0 ? newMeta : null,
       }).eq("id", m.id);
     }
   }

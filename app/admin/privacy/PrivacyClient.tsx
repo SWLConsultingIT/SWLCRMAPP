@@ -16,7 +16,7 @@ type AccessEntry = {
 const callerMeta: Record<string, { label: string; color: string; bg: string; icon: typeof Bot }> = {
   "agent-ai":  { label: "AI agent",     color: C.blue,  bg: C.blueLight,  icon: Bot },
   "client-app": { label: "Your team",   color: C.green, bg: C.greenLight, icon: User },
-  "swl-admin":  { label: "SWL admin",   color: "#D97706", bg: "#FFFBEB",  icon: Eye },
+  "swl-admin":  { label: "SWL admin",   color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)",  icon: Eye },
   "system":     { label: "System",      color: C.textMuted, bg: C.surface, icon: Server },
 };
 

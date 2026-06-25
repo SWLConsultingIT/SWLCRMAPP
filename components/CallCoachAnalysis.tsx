@@ -72,8 +72,8 @@ function tintColors(tint: ParsedSection["tint"]) {
   switch (tint) {
     case "good":    return { fg: C.green,    bg: `${C.green}10`,   border: `${C.green}30`  };
     case "bad":     return { fg: C.red,      bg: `${C.red}10`,     border: `${C.red}30`    };
-    case "info":    return { fg: "#7C3AED",  bg: "#F5F3FF",        border: "#DDD6FE"       };
-    case "warning": return { fg: "#D97706",  bg: "#FFFBEB",        border: "#FDE68A"       };
+    case "info":    return { fg: "#7C3AED",  bg: "color-mix(in srgb, #7C3AED 10%, transparent)",        border: "color-mix(in srgb, #7C3AED 30%, transparent)"       };
+    case "warning": return { fg: "#D97706",  bg: "color-mix(in srgb, #D97706 13%, transparent)",        border: "color-mix(in srgb, #D97706 30%, transparent)"       };
     default:        return { fg: C.textBody, bg: C.bg,             border: C.border        };
   }
 }
@@ -81,7 +81,7 @@ function tintColors(tint: ParsedSection["tint"]) {
 function scoreColor(score: number | null): { fg: string; bg: string; ring: string } {
   if (score == null) return { fg: C.textMuted, bg: C.surface, ring: C.border };
   if (score >= 8)     return { fg: C.green,    bg: `${C.green}15`, ring: `${C.green}40` };
-  if (score >= 6)     return { fg: "#D97706",  bg: "#FEF3C7",      ring: "#FDE68A" };
+  if (score >= 6)     return { fg: "#D97706",  bg: "color-mix(in srgb, #D97706 16%, transparent)",      ring: "color-mix(in srgb, #D97706 30%, transparent)" };
   return                  { fg: C.red,      bg: C.redLight,     ring: `${C.red}40`   };
 }
 

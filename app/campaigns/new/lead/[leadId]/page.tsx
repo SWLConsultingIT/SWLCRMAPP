@@ -870,7 +870,7 @@ export default function NewLeadCampaignWizard() {
 
       {/* Warnings & errors */}
       {messagesWarning && (
-        <div className="mt-4 rounded-lg border px-4 py-3" style={{ borderColor: "#D97706", backgroundColor: "#FFFBEB" }}>
+        <div className="mt-4 rounded-lg border px-4 py-3" style={{ borderColor: "#D97706", backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)" }}>
           <p className="text-sm font-medium" style={{ color: "#D97706" }}>{messagesWarning}</p>
         </div>
       )}

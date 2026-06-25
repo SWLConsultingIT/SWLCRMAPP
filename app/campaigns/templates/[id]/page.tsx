@@ -281,7 +281,7 @@ export default async function TemplateDetailPage({
 
 function Chip({ icon, label, tone = "default" }: { icon: React.ReactNode; label: string; tone?: "default" | "warn" | "muted" }) {
   const colors = tone === "warn"
-    ? { bg: "#FFFBEB", border: "#FCD34D", color: "#92400E" }
+    ? { bg: "color-mix(in srgb, #D97706 13%, transparent)", border: "color-mix(in srgb, #D97706 34%, transparent)", color: "#92400E" }
     : tone === "muted"
       ? { bg: C.surface, border: C.border, color: C.textMuted }
       : { bg: `color-mix(in srgb, ${ACCENT} 10%, transparent)`, border: `color-mix(in srgb, ${ACCENT} 30%, transparent)`, color: ACCENT };
@@ -317,7 +317,7 @@ function StepCard({
     <div className="rounded-lg border p-4"
       style={{
         borderColor: isInvite ? "#0A66C240" : C.border,
-        backgroundColor: isInvite ? "#EFF6FF" : C.bg,
+        backgroundColor: isInvite ? "color-mix(in srgb, #2563EB 12%, transparent)" : C.bg,
       }}>
       <div className="flex items-center gap-2 mb-2.5">
         <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold"

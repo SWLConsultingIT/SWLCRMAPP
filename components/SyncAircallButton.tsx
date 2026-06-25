@@ -34,7 +34,7 @@ export default function SyncAircallButton() {
       className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50"
       style={{
         borderColor: C.border,
-        backgroundColor: done ? "#DCFCE7" : C.card,
+        backgroundColor: done ? "color-mix(in srgb, #16A34A 16%, transparent)" : C.card,
         color: done ? "#16A34A" : C.textMuted,
       }}
     >

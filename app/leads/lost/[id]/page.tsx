@@ -32,7 +32,7 @@ const classColors: Record<string, { color: string; bg: string; label: string }> 
   positive:       { color: C.green,   bg: C.greenLight, label: "Positive" },
   meeting_intent: { color: C.green,   bg: C.greenLight, label: "Meeting Intent" },
   negative:       { color: C.red,     bg: C.redLight,   label: "Negative" },
-  question:       { color: "#D97706", bg: "#FFFBEB",    label: "Question" },
+  question:       { color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)",    label: "Question" },
 };
 
 function scoreBadge(score: number | null, priority: boolean) {
@@ -639,10 +639,10 @@ export default async function LostLeadPage({ params }: { params: Promise<{ id: s
 
 // ─── AI Recovery Panel ──────────────────────────────────────────────────────
 const viabilityColor = { high: "#16A34A", medium: "#D97706", low: C.red };
-const viabilityBg = { high: "#DCFCE7", medium: "#FFFBEB", low: C.redLight };
+const viabilityBg = { high: "color-mix(in srgb, #16A34A 16%, transparent)", medium: "color-mix(in srgb, #D97706 13%, transparent)", low: C.redLight };
 const verdictMeta: Record<LossAnalysis["verdict"], { label: string; color: string; bg: string }> = {
-  recoverable: { label: "Recoverable",  color: "#16A34A", bg: "#DCFCE7" },
-  dormant:     { label: "Dormant",      color: "#D97706", bg: "#FFFBEB" },
+  recoverable: { label: "Recoverable",  color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" },
+  dormant:     { label: "Dormant",      color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
   lost:        { label: "Lost",         color: C.red,     bg: C.redLight },
 };
 const channelIcon: Record<string, { icon: typeof Share2; color: string; label: string }> = {
@@ -669,9 +669,9 @@ function AIRecoveryPanel({
   const filledTemplate = (analysis.message_template ?? "").replace(/\{\{first_name\}\}/g, firstName ?? "there");
 
   return (
-    <div className="mt-3 rounded-lg border overflow-hidden" style={{ borderColor: "#7C3AED30", backgroundColor: "#F5F3FF" }}>
+    <div className="mt-3 rounded-lg border overflow-hidden" style={{ borderColor: "#7C3AED30", backgroundColor: "color-mix(in srgb, #7C3AED 10%, transparent)" }}>
       {/* Header */}
-      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b" style={{ borderColor: "#7C3AED20", backgroundColor: "#EDE9FE" }}>
+      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b" style={{ borderColor: "#7C3AED20", backgroundColor: "color-mix(in srgb, #7C3AED 16%, transparent)" }}>
         <div className="flex items-center gap-1.5">
           <Sparkles size={11} style={{ color: "#7C3AED" }} />
           <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#7C3AED" }}>AI Recovery Plan</span>
@@ -723,7 +723,7 @@ function AIRecoveryPanel({
 
         {/* Next touchpoint */}
         {tp && (
-          <div className="rounded-lg border p-2.5" style={{ borderColor: "#DDD6FE", backgroundColor: "#FAFAFF" }}>
+          <div className="rounded-lg border p-2.5" style={{ borderColor: "color-mix(in srgb, #7C3AED 30%, transparent)", backgroundColor: "#FAFAFF" }}>
             <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#7C3AED" }}>Next Touchpoint</p>
             <div className="flex items-center gap-2 mb-1.5">
               <div className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded"
@@ -740,7 +740,7 @@ function AIRecoveryPanel({
 
         {/* Message template */}
         {analysis.message_template && (
-          <div className="rounded-lg border overflow-hidden" style={{ borderColor: "#DDD6FE" }}>
+          <div className="rounded-lg border overflow-hidden" style={{ borderColor: "color-mix(in srgb, #7C3AED 30%, transparent)" }}>
             <div className="flex items-center justify-between px-2.5 py-1.5" style={{ backgroundColor: "#7C3AED0A" }}>
               <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "#7C3AED" }}>Ready-to-send message</p>
               <CopyTemplateButton text={filledTemplate} />
@@ -753,7 +753,7 @@ function AIRecoveryPanel({
 
         {/* Watch for */}
         {analysis.watch_for && (
-          <div className="flex gap-2 text-[11px] pt-1 border-t" style={{ borderColor: "#DDD6FE", color: "#5B21B6" }}>
+          <div className="flex gap-2 text-[11px] pt-1 border-t" style={{ borderColor: "color-mix(in srgb, #7C3AED 30%, transparent)", color: "#5B21B6" }}>
             <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider pt-1" style={{ color: "#7C3AED" }}>Watch for:</span>
             <span className="pt-0.5">{analysis.watch_for}</span>
           </div>

@@ -829,7 +829,6 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       </div>
 
       <section className="reveal" style={zoneStyle(ZONE.prep)}>
-      <ZoneLabel title="Pre-call prep" accent={ZONE.prep} />
 
       {/* ═══ PRE-CALL BRIEF — ALWAYS rendered (Fran 2026-06-05), self-generates
             on first view. First in the Overview flow: brief → account angle →
@@ -1004,7 +1003,6 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
       </section>
       <section className="reveal" style={zoneStyle(ZONE.copilot)}>
-      <ZoneLabel title="Copilot" accent={ZONE.copilot} />
 
       {/* ═══ LEAD COPILOT — grounded Q&A chat with per-lead memory. ═══ */}
       <LeadQA leadId={id} initialHistory={(lead as any).ai_chat ?? null} accent={ZONE.copilot} />
@@ -1141,7 +1139,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 <div className="relative z-10 mb-3 flex items-center justify-center" style={{ height: 68 }}>
                   {connectionStepSent ? (
                     <div className="rounded-full flex items-center justify-center"
-                      style={{ width: 48, height: 48, backgroundColor: "#DCFCE7" }}>
+                      style={{ width: 48, height: 48, backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)" }}>
                       <CheckCircle2 size={26} style={{ color: "#22C55E" }} />
                     </div>
                   ) : (
@@ -1191,7 +1189,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   <div className="relative z-10 mb-3 flex items-center justify-center" style={{ height: 68 }}>
                     {isCompleted ? (
                       <div className="rounded-full flex items-center justify-center"
-                        style={{ width: 48, height: 48, backgroundColor: "#DCFCE7" }}>
+                        style={{ width: 48, height: 48, backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)" }}>
                         <CheckCircle2 size={26} style={{ color: "#22C55E" }} />
                       </div>
                     ) : isCurrent ? (
@@ -1527,7 +1525,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 <div className="space-y-3">
                   {lead.recent_linkedin_post && (
                     <div className="flex gap-3 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "#EFF6FF" }}>
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "color-mix(in srgb, #2563EB 12%, transparent)" }}>
                         <LinkedInIcon size={14} />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1709,7 +1707,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               platform: "LinkedIn",
               icon: <LinkedInIcon size={16} />,
               color: "#0A66C2",
-              bg: "#EFF6FF",
+              bg: "color-mix(in srgb, #2563EB 12%, transparent)",
               content: lead.recent_linkedin_post,
               handle: lead.primary_linkedin_url ? `@${contactName.split(" ")[0].toLowerCase()}` : null,
             },
@@ -1753,7 +1751,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   platform: "LinkedIn",
                   icon: <LinkedInIcon size={16} />,
                   color: "#0A66C2",
-                  bg: "#EFF6FF",
+                  bg: "color-mix(in srgb, #2563EB 12%, transparent)",
                   content: lead.recent_linkedin_post,
                   handle: lead.primary_linkedin_url ? contactName : null,
                 },

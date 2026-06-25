@@ -22,7 +22,7 @@ export default function RegenerateLossAnalysis({ leadId }: { leadId: string }) {
   return (
     <button onClick={handle} disabled={loading}
       className="flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded border transition-opacity hover:opacity-80 disabled:opacity-50"
-      style={{ borderColor: "#7C3AED30", color: "#7C3AED", backgroundColor: "#F5F3FF" }}>
+      style={{ borderColor: "#7C3AED30", color: "#7C3AED", backgroundColor: "color-mix(in srgb, #7C3AED 10%, transparent)" }}>
       {loading
         ? <><Loader2 size={10} className="animate-spin" /> Regenerating…</>
         : <><RefreshCw size={10} /> Regenerate</>}

@@ -36,16 +36,25 @@ export async function GET(req: NextRequest) {
   const nowMs = Date.now();
   const nowISO = new Date(nowMs).toISOString();
 
-  // Pull every parked LinkedIn DM. The list is small in practice — only
-  // multi-channel campaigns whose lead hasn't accepted yet land here.
-  const { data: parkedRaw, error: parkedErr } = await svc
-    .from("campaign_messages")
-    .select("id, lead_id, step_number, metadata, leads!inner(linkedin_connected)")
-    .eq("status", "queued")
-    .eq("channel", "linkedin")
-    .gt("step_number", 0);
-  if (parkedErr) {
-    return NextResponse.json({ error: parkedErr.message }, { status: 500 });
+  // Pull every parked LinkedIn DM — paginated to avoid the 1000-row
+  // PostgREST silent cap. At scale (100 sellers × many parked DMs each)
+  // a single .select() without .range() silently truncates, leaving some
+  // accepted leads waiting for their DM forever.
+  const parkedRaw: any[] = [];
+  {
+    const PAGE = 1000;
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await svc
+        .from("campaign_messages")
+        .select("id, lead_id, step_number, metadata, leads!inner(linkedin_connected)")
+        .eq("status", "queued")
+        .eq("channel", "linkedin")
+        .gt("step_number", 0)
+        .range(from, from + PAGE - 1);
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+      parkedRaw.push(...(data ?? []));
+      if ((data ?? []).length < PAGE) break;
+    }
   }
 
   type Row = {

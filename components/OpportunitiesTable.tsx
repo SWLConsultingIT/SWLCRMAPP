@@ -196,7 +196,7 @@ export default function OpportunitiesTable({ leads }: { leads: OpportunityLead[]
                         </span>
                       ) : (
                         <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md"
-                          style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}>Pending</span>
+                          style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}>Pending</span>
                       )}
                     </td>
                     <td className="px-4 py-3 hidden xl:table-cell">

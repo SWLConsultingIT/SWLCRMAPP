@@ -33,10 +33,10 @@ type MyRequest = {
 
 // Status pill colors for the requester's "Your requests" list.
 const STATUS_PILL: Record<string, { bg: string; fg: string; label: string }> = {
-  open: { bg: "#FEF3C7", fg: "#B45309", label: "Open" },
-  in_progress: { bg: "#DBEAFE", fg: "#1D4ED8", label: "In progress" },
-  resolved: { bg: "#D1FAE5", fg: "#047857", label: "Resolved" },
-  rejected: { bg: "#FEE2E2", fg: "#B91C1C", label: "Rejected" },
+  open: { bg: "color-mix(in srgb, #D97706 16%, transparent)", fg: "#B45309", label: "Open" },
+  in_progress: { bg: "color-mix(in srgb, #2563EB 16%, transparent)", fg: "#1D4ED8", label: "In progress" },
+  resolved: { bg: "color-mix(in srgb, #16A34A 16%, transparent)", fg: "#047857", label: "Resolved" },
+  rejected: { bg: "color-mix(in srgb, #DC2626 14%, transparent)", fg: "#B91C1C", label: "Rejected" },
 };
 
 type ViewItem = {

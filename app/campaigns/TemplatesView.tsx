@@ -400,7 +400,7 @@ export default function TemplatesView() {
                   {isOrphan && <AlertCircle size={13} style={{ color: "#D97706" }} />}
                   <span className="text-sm font-bold" style={{ color: isOrphan ? "#92400E" : C.textPrimary }}>{group.label}</span>
                   <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                    style={{ backgroundColor: isOrphan ? "#FEF3C7" : C.bg, color: isOrphan ? "#92400E" : C.textMuted, border: `1px solid ${isOrphan ? "#FCD34D" : C.border}` }}>
+                    style={{ backgroundColor: isOrphan ? "color-mix(in srgb, #D97706 16%, transparent)" : C.bg, color: isOrphan ? "#92400E" : C.textMuted, border: `1px solid ${isOrphan ? "color-mix(in srgb, #D97706 34%, transparent)" : C.border}` }}>
                     {group.items.length}
                   </span>
                   {isOrphan && (
@@ -525,7 +525,7 @@ function TemplateRow({
             <button onClick={() => { setMenuOpen(!menuOpen); setSubmenu("move"); }}
               disabled={busy}
               className="text-xs font-medium px-3 py-1.5 rounded-md inline-flex items-center gap-1 border disabled:opacity-50"
-              style={{ borderColor: "#FCD34D", backgroundColor: "#FFFBEB", color: "#92400E" }}>
+              style={{ borderColor: "color-mix(in srgb, #D97706 34%, transparent)", backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#92400E" }}>
               {busy ? <Loader2 size={11} className="animate-spin" /> : <FolderTree size={11} />}
               Assign ICP <ChevronDown size={11} />
             </button>

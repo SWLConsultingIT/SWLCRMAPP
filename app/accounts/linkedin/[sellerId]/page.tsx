@@ -11,10 +11,10 @@ import LimitEditor from "./LimitEditor";
 const gold = "var(--brand, #c9a83a)";
 
 const linkedinStatusMeta: Record<string, { label: string; color: string; bg: string }> = {
-  active:     { label: "Active",     color: "#16A34A", bg: "#DCFCE7" },
-  restricted: { label: "Restricted", color: "#D97706", bg: "#FFFBEB" },
-  banned:     { label: "Banned",     color: "#DC2626", bg: "#FEE2E2" },
-  warning:    { label: "Warning",    color: "#7C3AED", bg: "#EDE9FE" },
+  active:     { label: "Active",     color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" },
+  restricted: { label: "Restricted", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
+  banned:     { label: "Banned",     color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" },
+  warning:    { label: "Warning",    color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" },
 };
 
 type CampaignRow = {
@@ -299,7 +299,7 @@ export default async function LinkedInAccountDetail({ params }: { params: Promis
                             </span>
                             <span className="font-semibold truncate" style={{ color: C.textPrimary }}>{c.name}</span>
                             {c.active > 0 && (
-                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)", color: "#16A34A" }}>
                                 {c.active} active
                               </span>
                             )}

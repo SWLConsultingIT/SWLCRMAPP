@@ -75,7 +75,7 @@ const POINT_META: Record<PointType, {
     icon: Target,
     accent: "#DC2626",
     tint: "linear-gradient(135deg, rgba(254,242,242,0.95) 0%, rgba(255,255,255,0.6) 70%)",
-    pillBg: "#FEE2E2",
+    pillBg: "color-mix(in srgb, #DC2626 14%, transparent)",
     pillFg: "#991B1B",
   },
   fit: {
@@ -83,7 +83,7 @@ const POINT_META: Record<PointType, {
     icon: Compass,
     accent: "#2563EB",
     tint: "linear-gradient(135deg, rgba(239,246,255,0.95) 0%, rgba(255,255,255,0.6) 70%)",
-    pillBg: "#DBEAFE",
+    pillBg: "color-mix(in srgb, #2563EB 16%, transparent)",
     pillFg: "#1E40AF",
   },
   hook: {
@@ -91,7 +91,7 @@ const POINT_META: Record<PointType, {
     icon: Lightbulb,
     accent: "#7C3AED",
     tint: "linear-gradient(135deg, rgba(245,243,255,0.95) 0%, rgba(255,255,255,0.6) 70%)",
-    pillBg: "#EDE9FE",
+    pillBg: "color-mix(in srgb, #7C3AED 16%, transparent)",
     pillFg: "#5B21B6",
   },
   opener: {
@@ -99,7 +99,7 @@ const POINT_META: Record<PointType, {
     icon: Quote,
     accent: "#D97706",
     tint: "linear-gradient(135deg, rgba(255,251,235,0.95) 0%, rgba(255,255,255,0.6) 70%)",
-    pillBg: "#FEF3C7",
+    pillBg: "color-mix(in srgb, #D97706 16%, transparent)",
     pillFg: "#92400E",
   },
   objection: {
@@ -296,7 +296,7 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
       <div className="relative px-6 pb-5">
         {error && (
           <p className="text-xs mb-3 px-3 py-2 rounded-md"
-            style={{ color: "#991B1B", backgroundColor: "#FEF2F2", border: "1px solid #FECACA" }}>
+            style={{ color: "#991B1B", backgroundColor: "color-mix(in srgb, #DC2626 10%, transparent)", border: "1px solid color-mix(in srgb, #DC2626 28%, transparent)" }}>
             {error}
           </p>
         )}

@@ -10,8 +10,9 @@ import HelpMenu from "@/components/HelpMenu";
 import {
   LayoutDashboard, Users, Megaphone,
   Building2, Target, Shield, ChevronDown, Bell, UserCircle, Settings, Inbox,
-  PanelLeftClose, PanelLeftOpen, Trophy,
+  PanelLeftClose, PanelLeftOpen, Trophy, X,
 } from "lucide-react";
+import { useMobileMenu } from "@/lib/mobile-menu";
 import { useRouter } from "next/navigation";
 
 const DARK   = "#060c18";
@@ -70,6 +71,9 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { t } = useLocale();
   const router = useRouter();
+  const { open: mobileOpen, close: closeMobile } = useMobileMenu();
+  // Close mobile menu on navigation
+  useEffect(() => { closeMobile(); }, [pathname]);
   // Read from shared AuthContext — was a duplicate /api/auth/me fetch on every
   // sidebar mount before. Saves one round-trip per navigation.
   // Declared early because the recent-leads effect below depends on it.
@@ -175,8 +179,24 @@ export default function Sidebar() {
   const toggleSection = (label: string) => setCollapsed(prev => ({ ...prev, [label]: !prev[label] }));
 
   return (
+    <>
+      {/* Mobile backdrop — shown when menu is open on small screens */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={closeMobile}
+        />
+      )}
     <aside
-      className={`${railOnly ? "w-[64px]" : "w-60"} hidden md:flex flex-col shrink-0 border-r relative transition-[width] duration-200`}
+      className={[
+        railOnly ? "w-[64px]" : "w-60",
+        // Desktop: always in flow. Mobile: hidden by default, slide in as fixed overlay when open.
+        "flex flex-col shrink-0 border-r relative transition-[width,transform] duration-200",
+        "md:relative md:translate-x-0",
+        mobileOpen
+          ? "fixed inset-y-0 left-0 z-50 flex"
+          : "hidden md:flex",
+      ].join(" ")}
       style={{
         backgroundColor: DARK,
         borderColor: BORDER,
@@ -187,6 +207,17 @@ export default function Sidebar() {
         backgroundSize: "40px 40px",
       }}
     >
+      {/* Mobile close button */}
+      {mobileOpen && (
+        <button
+          type="button"
+          onClick={closeMobile}
+          className="md:hidden absolute top-3 right-3 z-10 w-7 h-7 rounded-md flex items-center justify-center"
+          style={{ backgroundColor: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.6)" }}
+        >
+          <X size={14} />
+        </button>
+      )}
       {/* Collapse toggle — pinned top-right of the rail. Lets power users
           claim ~196px of horizontal space when they want a wider data table. */}
       <button
@@ -445,5 +476,6 @@ export default function Sidebar() {
         </Link>
       </div>
     </aside>
+    </>
   );
 }

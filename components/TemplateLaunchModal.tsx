@@ -12,10 +12,10 @@ const ACCENT = gold;
 
 // One distinct color per seller slot (up to 6 sellers).
 const SELLER_COLORS = [
-  { bg: "#DBEAFE", text: "#1D4ED8" }, // blue
-  { bg: "#EDE9FE", text: "#6D28D9" }, // purple
-  { bg: "#FEF3C7", text: "#92400E" }, // amber
-  { bg: "#DCFCE7", text: "#166534" }, // green
+  { bg: "color-mix(in srgb, #2563EB 16%, transparent)", text: "#1D4ED8" }, // blue
+  { bg: "color-mix(in srgb, #7C3AED 16%, transparent)", text: "#6D28D9" }, // purple
+  { bg: "color-mix(in srgb, #D97706 16%, transparent)", text: "#92400E" }, // amber
+  { bg: "color-mix(in srgb, #16A34A 16%, transparent)", text: "#166534" }, // green
   { bg: "#FCE7F3", text: "#9D174D" }, // pink
   { bg: "#FFE4E6", text: "#9F1239" }, // rose
 ];

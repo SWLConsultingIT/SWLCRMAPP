@@ -153,7 +153,7 @@ export default function ActivityWidget() {
       <Bucket
         label={`In app now · ${buckets.live.length}`}
         accent="#22C55E"
-        accentBg="#ECFDF5"
+        accentBg="color-mix(in srgb, #16A34A 12%, transparent)"
         users={buckets.live}
         emptyText="Nobody is in the app right now."
         meId={meId}
@@ -165,7 +165,7 @@ export default function ActivityWidget() {
       <Bucket
         label={`Recent · ${buckets.recent.length}`}
         accent="#D97706"
-        accentBg="#FFFBEB"
+        accentBg="color-mix(in srgb, #D97706 13%, transparent)"
         users={buckets.recent}
         emptyText="No-one active in the last hour."
         meId={meId}

@@ -160,7 +160,7 @@ const classColors: Record<string, { color: string; bg: string; labelKey: string 
   positive:       { color: C.green,   bg: C.greenLight, labelKey: "leadsPage.classBadge.positive" },
   meeting_intent: { color: C.green,   bg: C.greenLight, labelKey: "leadsPage.classBadge.meeting" },
   negative:       { color: C.red,     bg: C.redLight,   labelKey: "leadsPage.classBadge.negative" },
-  question:       { color: "#D97706", bg: "#FFFBEB",    labelKey: "leadsPage.classBadge.question" },
+  question:       { color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)",    labelKey: "leadsPage.classBadge.question" },
 };
 
 // ─── Lost Lead Card (detailed report style) ──────────────────────────────────
@@ -308,7 +308,7 @@ function WonLeadCard({ lead, t }: { lead: OpportunityLead; t: Tr }) {
             </span>
           ) : (
             <span className="text-[10px] font-bold px-2.5 py-1 rounded-md shrink-0"
-              style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}>
+              style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}>
               {t("leadsPage.card.pendingTransfer")}
             </span>
           )}
@@ -453,10 +453,10 @@ function RenurturingLeadCard({ lead, t }: { lead: RenurturingLead; t: Tr }) {
     : isReadyToReengage ? gold
     : lead.new_campaign_status === "cancelled" ? C.red
     : lead.new_campaign_status === "paused" ? "#D97706" : C.green;
-  const statusBg = isPendingReview ? "#FFFBEB"
+  const statusBg = isPendingReview ? "color-mix(in srgb, #D97706 13%, transparent)"
     : isReadyToReengage ? `color-mix(in srgb, ${gold} 14%, transparent)`
     : lead.new_campaign_status === "cancelled" ? C.redLight
-    : lead.new_campaign_status === "paused" ? "#FFFBEB" : C.greenLight;
+    : lead.new_campaign_status === "paused" ? "color-mix(in srgb, #D97706 13%, transparent)" : C.greenLight;
 
   return (
     <div className="rounded-xl border overflow-hidden transition-shadow hover:shadow-md"
@@ -1341,7 +1341,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
               const menuOpen = openMenuId === lead.id;
               return (
                 <tr key={lead.id} className="border-t transition-colors hover:bg-black/[0.015] group/lr"
-                  style={{ borderColor: C.border, backgroundColor: isSelected ? "#FEF2F2" : undefined }}>
+                  style={{ borderColor: C.border, backgroundColor: isSelected ? "color-mix(in srgb, #DC2626 10%, transparent)" : undefined }}>
                   <td className="px-3 py-2.5">
                     <button
                       onClick={(e) => toggleOne(lead.id, e.shiftKey)}
@@ -1410,7 +1410,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                       // active badge so we don't dead-link the cell.
                       <span className="text-[10px] font-semibold" style={{ color: C.green }}>{t("leadsPage.table.activeBadge")}</span>
                     ) : (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>{t("leadsPage.table.noCampaign")}</span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: "color-mix(in srgb, #D97706 16%, transparent)", color: "#92400E" }}>{t("leadsPage.table.noCampaign")}</span>
                     )}
                   </td>
                   <td className="px-4 py-2.5">

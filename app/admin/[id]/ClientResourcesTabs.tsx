@@ -14,10 +14,10 @@ type AircallNumber = { id: number; name: string; digits: string; country: string
 type InstantlyEmail = { email: string; dailyLimit: number; warmupScore: number; setupPending: boolean };
 
 const linkedinStatusMeta: Record<string, { label: string; color: string; bg: string }> = {
-  active:     { label: "Active",     color: "#16A34A", bg: "#DCFCE7" },
-  restricted: { label: "Restricted", color: "#D97706", bg: "#FFFBEB" },
-  banned:     { label: "Banned",     color: "#DC2626", bg: "#FEE2E2" },
-  warning:    { label: "Warning",    color: "#7C3AED", bg: "#EDE9FE" },
+  active:     { label: "Active",     color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)" },
+  restricted: { label: "Restricted", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
+  banned:     { label: "Banned",     color: "#DC2626", bg: "color-mix(in srgb, #DC2626 14%, transparent)" },
+  warning:    { label: "Warning",    color: "#7C3AED", bg: "color-mix(in srgb, #7C3AED 16%, transparent)" },
 };
 
 export default function ClientResourcesTabs({ companyBioId, companyName }: Props) {

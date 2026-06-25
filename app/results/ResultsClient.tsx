@@ -151,7 +151,7 @@ function WonRow({ lead, t }: { lead: OpportunityLead; t: Tr }) {
             <Trophy size={9} /> {t("results.won.inCrm")}
           </span>
         ) : (
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md" style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md" style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}>
             {t("results.won.pendingTransfer")}
           </span>
         )}

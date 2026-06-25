@@ -88,7 +88,7 @@ export default async function AircallNumberDetail({ params }: { params: Promise<
           <p className="text-sm mt-1 tabular-nums" style={{ color: C.textMuted }}>{number.digits}</p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: "#DCFCE7", color: "#16A34A" }}>
+          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: "color-mix(in srgb, #16A34A 16%, transparent)", color: "#16A34A" }}>
             {(number.availability_status ?? "available").toUpperCase()}
           </span>
         </div>
@@ -153,7 +153,7 @@ export default async function AircallNumberDetail({ params }: { params: Promise<
                       )}
                       {call.classification && (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{
-                          backgroundColor: call.classification === "positive" || call.classification === "meeting_intent" ? "#DCFCE7" : call.classification === "negative" || call.classification === "wrong_number" ? "#FEE2E2" : C.surface,
+                          backgroundColor: call.classification === "positive" || call.classification === "meeting_intent" ? "color-mix(in srgb, #16A34A 16%, transparent)" : call.classification === "negative" || call.classification === "wrong_number" ? "color-mix(in srgb, #DC2626 14%, transparent)" : C.surface,
                           color: call.classification === "positive" || call.classification === "meeting_intent" ? "#16A34A" : call.classification === "negative" || call.classification === "wrong_number" ? "#DC2626" : C.textMuted,
                         }}>
                           {call.classification.toUpperCase()}

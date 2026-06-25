@@ -49,9 +49,9 @@ function ChannelIcon({ channel, size = 14 }: { channel: string; size?: number })
 }
 
 const channelIcons: Record<string, { icon?: typeof Mail; color: string; bg: string; label: string }> = {
-  linkedin: { color: C.linkedin, bg: "#EFF6FF",   label: "LinkedIn" },
-  email:    { color: C.email,    bg: "#ECFDF5",   label: "Email" },
-  call:     { color: C.phone,    bg: "#FFF7ED",   label: "Phone" },
+  linkedin: { color: C.linkedin, bg: "color-mix(in srgb, #2563EB 12%, transparent)",   label: "LinkedIn" },
+  email:    { color: C.email,    bg: "color-mix(in srgb, #16A34A 12%, transparent)",   label: "Email" },
+  call:     { color: C.phone,    bg: "color-mix(in srgb, #EA580C 13%, transparent)",   label: "Phone" },
   whatsapp: { color: "#25D366",  bg: "#F0FDF4",   label: "WhatsApp" },
 };
 
@@ -304,8 +304,8 @@ export default function ActivityTimeline({ activities, notes: initialNotes, lead
                           key={item.id}
                           className="rounded-2xl border p-4 relative overflow-hidden"
                           style={{
-                            backgroundColor: item.requiresReview ? "#FFFBEB" : isPositive ? C.greenLight : C.card,
-                            borderColor: item.requiresReview ? "#FDE68A" : isPositive ? "#BBF7D0" : C.border,
+                            backgroundColor: item.requiresReview ? "color-mix(in srgb, #D97706 13%, transparent)" : isPositive ? C.greenLight : C.card,
+                            borderColor: item.requiresReview ? "color-mix(in srgb, #D97706 30%, transparent)" : isPositive ? "color-mix(in srgb, #16A34A 32%, transparent)" : C.border,
                             borderTop: `3px solid ${accentColor}`,
                             boxShadow: "0 4px 16px rgba(0,0,0,0.04)",
                           }}

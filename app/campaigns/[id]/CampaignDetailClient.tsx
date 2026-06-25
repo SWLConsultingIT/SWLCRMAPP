@@ -34,7 +34,7 @@ const channelMeta: Record<string, { icon: React.ElementType; color: string; labe
 
 const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
   active:    { label: "Active",    color: C.green,    bg: C.greenLight },
-  paused:    { label: "Paused",    color: "#D97706",  bg: "#FFFBEB" },
+  paused:    { label: "Paused",    color: "#D97706",  bg: "color-mix(in srgb, #D97706 13%, transparent)" },
   completed: { label: "Completed", color: C.textMuted, bg: C.surface },
   failed:    { label: "Failed",    color: C.red,      bg: C.redLight },
 };
@@ -425,7 +425,7 @@ export default function CampaignDetailClient({
             <span className="text-xs font-medium ml-2" style={{ color: C.textMuted }}>{selected.size > 0 ? `${selected.size} selected` : "All"}:</span>
             <Link href={`/campaigns/${campaignId}/edit`} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold hover:opacity-80" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, color: gold, border: `1px solid color-mix(in srgb, ${gold} 19%, transparent)` }}><Pencil size={11} /> Edit</Link>
             {campaignStatus === "active" ? (
-              <button onClick={() => bulkAct("pause")} disabled={!!acting} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}><Pause size={11} /> Pause</button>
+              <button onClick={() => bulkAct("pause")} disabled={!!acting} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}><Pause size={11} /> Pause</button>
             ) : campaignStatus === "paused" ? (
               <button onClick={() => bulkAct("resume")} disabled={!!acting} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: C.greenLight, color: C.green }}><Play size={11} /> Resume</button>
             ) : null}
@@ -505,7 +505,7 @@ export default function CampaignDetailClient({
                       <td className="px-4 py-3"><div className="flex items-center gap-2"><div className="w-16 h-1.5 rounded-full" style={{ backgroundColor: C.border }}><div className="h-1.5 rounded-full" style={{ width: `${p}%`, background: `linear-gradient(90deg, ${gold}, color-mix(in srgb, var(--brand, #c9a83a) 72%, white))` }} /></div><span className="text-xs tabular-nums" style={{ color: C.textMuted }}>{c.current_step}/{ts}</span></div></td>
                       <td className="px-4 py-3 text-xs" style={{ color: C.textBody }}>{c.sellers?.name ?? "—"}</td>
                       <td className="px-4 py-3"><div className="flex gap-1">
-                        {c.status === "active" && <button onClick={() => act(c.id, "pause")} disabled={!!acting} className="rounded-md px-2 py-1 text-xs disabled:opacity-50" style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}><Pause size={10} /></button>}
+                        {c.status === "active" && <button onClick={() => act(c.id, "pause")} disabled={!!acting} className="rounded-md px-2 py-1 text-xs disabled:opacity-50" style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}><Pause size={10} /></button>}
                         {c.status === "paused" && <button onClick={() => act(c.id, "resume")} disabled={!!acting} className="rounded-md px-2 py-1 text-xs disabled:opacity-50" style={{ backgroundColor: C.greenLight, color: C.green }}><Play size={10} /></button>}
                         {["active","paused"].includes(c.status) && <>
                           <MoveForwardButton
@@ -572,7 +572,7 @@ export default function CampaignDetailClient({
             {isEditable && (
               <div className="flex items-center gap-2">
                 {campaignStatus === "active" ? (
-                  <button onClick={() => act(campaignId, "pause")} disabled={!!acting} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}><Pause size={11} /> Pause</button>
+                  <button onClick={() => act(campaignId, "pause")} disabled={!!acting} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}><Pause size={11} /> Pause</button>
                 ) : (
                   <button onClick={() => act(campaignId, "resume")} disabled={!!acting} className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50" style={{ backgroundColor: C.greenLight, color: C.green }}><Play size={11} /> Resume</button>
                 )}

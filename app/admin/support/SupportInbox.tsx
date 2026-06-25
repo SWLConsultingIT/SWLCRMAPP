@@ -39,10 +39,10 @@ const ACTIONS: { value: Status; label: string }[] = [
 ];
 
 const STATUS_STYLE: Record<string, { bg: string; fg: string; label: string; Icon: typeof CircleDot }> = {
-  open: { bg: "#FEF3C7", fg: "#B45309", label: "Open", Icon: CircleDot },
-  in_progress: { bg: "#DBEAFE", fg: "#1D4ED8", label: "In progress", Icon: Clock },
-  resolved: { bg: "#D1FAE5", fg: "#047857", label: "Resolved", Icon: CheckCircle2 },
-  rejected: { bg: "#FEE2E2", fg: "#B91C1C", label: "Rejected", Icon: Ban },
+  open: { bg: "color-mix(in srgb, #D97706 16%, transparent)", fg: "#B45309", label: "Open", Icon: CircleDot },
+  in_progress: { bg: "color-mix(in srgb, #2563EB 16%, transparent)", fg: "#1D4ED8", label: "In progress", Icon: Clock },
+  resolved: { bg: "color-mix(in srgb, #16A34A 16%, transparent)", fg: "#047857", label: "Resolved", Icon: CheckCircle2 },
+  rejected: { bg: "color-mix(in srgb, #DC2626 14%, transparent)", fg: "#B91C1C", label: "Rejected", Icon: Ban },
 };
 
 const CAT_LABEL: Record<string, string> = {
@@ -225,7 +225,7 @@ export default function SupportInbox() {
                             style={isCurrent
                               ? { borderColor: C.aiAccent, color: C.aiAccent }
                               : reject
-                                ? { borderColor: "#FCA5A5", color: "#B91C1C" }
+                                ? { borderColor: "color-mix(in srgb, #DC2626 34%, transparent)", color: "#B91C1C" }
                                 : { borderColor: C.border, color: C.textMuted }}
                           >
                             {busyId === it.id ? "…" : a.label}

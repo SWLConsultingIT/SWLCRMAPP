@@ -181,7 +181,7 @@ function initials(name: string | null | undefined): string {
 // Deterministic pastel color per name so each lead's avatar is visually
 // distinct. Hash the name → hue, fixed saturation/lightness for legibility.
 function avatarColor(name: string | null | undefined): { bg: string; fg: string } {
-  if (!name) return { bg: "#E5E7EB", fg: "#374151" };
+  if (!name) return { bg: "color-mix(in srgb, #6B7280 24%, transparent)", fg: "#374151" };
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   const hue = h % 360;

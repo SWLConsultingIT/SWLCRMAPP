@@ -7,7 +7,7 @@ import { Clock, Upload, CheckCircle, Loader2 } from "lucide-react";
 
 const steps = [
   { key: "not_started",  label: "Not Started",    color: C.textMuted, bg: C.surface,    icon: Clock },
-  { key: "in_progress",  label: "In Progress",    color: "#D97706",   bg: "#FFFBEB",    icon: Clock },
+  { key: "in_progress",  label: "In Progress",    color: "#D97706",   bg: "color-mix(in srgb, #D97706 13%, transparent)",    icon: Clock },
   { key: "uploaded",     label: "Leads Uploaded",  color: C.blue,      bg: C.blueLight,  icon: Upload },
   { key: "completed",    label: "Completed",       color: C.green,     bg: C.greenLight, icon: CheckCircle },
 ];
@@ -76,7 +76,7 @@ export default function ExecutionActions({ id, currentStatus, leadsUploaded }: {
         {currentStatus === "not_started" && (
           <button onClick={() => updateStatus("in_progress")} disabled={acting}
             className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-opacity disabled:opacity-50"
-            style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}>
+            style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}>
             {acting ? <Loader2 size={12} className="animate-spin" /> : <Clock size={12} />}
             Mark as In Progress
           </button>

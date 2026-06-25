@@ -375,7 +375,7 @@ export default function AircallPhoneProvider({ children }: { children: ReactNode
             padding: "10px 20px 14px",
             fontSize: 10.5, color: C.textMuted, textAlign: "center",
             letterSpacing: "0.04em",
-            borderTop: `1px solid color-mix(in srgb, var(--c-border, #e5e7eb) 60%, transparent)`,
+            borderTop: `1px solid color-mix(in srgb, var(--c-border, color-mix(in srgb, #6B7280 24%, transparent)) 60%, transparent)`,
           }}>
             Audio runs through your browser · no desktop app required
           </div>

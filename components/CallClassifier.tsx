@@ -21,10 +21,10 @@ type Props = {
 };
 
 const meta: Record<Classification, { label: string; color: string; bg: string; border: string; icon: typeof ThumbsUp }> = {
-  positive:     { label: "Interested",     color: "#16A34A", bg: "#DCFCE7", border: "#BBF7D0", icon: ThumbsUp },
+  positive:     { label: "Interested",     color: "#16A34A", bg: "color-mix(in srgb, #16A34A 16%, transparent)", border: "color-mix(in srgb, #16A34A 32%, transparent)", icon: ThumbsUp },
   negative:     { label: "Not interested", color: C.red,     bg: C.redLight, border: `${C.red}30`, icon: ThumbsDown },
-  follow_up:    { label: "Bad timing",     color: "#D97706", bg: "#FEF3C7", border: "#FDE68A", icon: Clock },
-  voicemail:    { label: "Voicemail",      color: "#0EA5E9", bg: "#E0F2FE", border: "#BAE6FD", icon: Voicemail },
+  follow_up:    { label: "Bad timing",     color: "#D97706", bg: "color-mix(in srgb, #D97706 16%, transparent)", border: "color-mix(in srgb, #D97706 30%, transparent)", icon: Clock },
+  voicemail:    { label: "Voicemail",      color: "#0EA5E9", bg: "color-mix(in srgb, #0284C7 14%, transparent)", border: "#BAE6FD", icon: Voicemail },
   wrong_number: { label: "Wrong number",   color: C.textMuted, bg: C.surface, border: C.border, icon: PhoneOff },
 };
 

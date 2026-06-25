@@ -94,7 +94,7 @@ type Props = {
 // on context.
 const statusMeta: Record<string, { color: string; bg: string; icon: typeof PlayCircle; key: string }> = {
   active:    { color: C.green,     bg: C.greenLight, icon: PlayCircle,  key: "active" },
-  paused:    { color: "#D97706",   bg: "#FFFBEB",    icon: PauseCircle, key: "paused" },
+  paused:    { color: "#D97706",   bg: "color-mix(in srgb, #D97706 13%, transparent)",    icon: PauseCircle, key: "paused" },
   completed: { color: C.textMuted, bg: C.surface,    icon: CheckCircle, key: "completed" },
   failed:    { color: C.red,       bg: C.redLight,   icon: XCircle,     key: "failed" },
 };
@@ -268,7 +268,7 @@ function UpdatesTab({ updates, t }: { updates: TicketUpdate[]; t: Tr }) {
   const updateStatusMeta: Record<TicketUpdate["status"], { color: string; bg: string; key: string }> = {
     approved:       { color: C.green,    bg: C.greenLight, key: "approved" },
     rejected:       { color: C.red,      bg: C.redLight,   key: "rejected" },
-    pending_review: { color: "#D97706",  bg: "#FFFBEB",    key: "pendingReview" },
+    pending_review: { color: "#D97706",  bg: "color-mix(in srgb, #D97706 13%, transparent)",    key: "pendingReview" },
   };
   return (
     <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
@@ -561,7 +561,7 @@ function LeadsTable({
                     ) : lead.has_campaign ? (
                       <span className="text-[10px]" style={{ color: C.textMuted }}>{lead.campaign_name ?? ""}</span>
                     ) : (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: "#FEF3C7", color: "#92400E" }}>{t("ticket.table.noCampaign")}</span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md" style={{ backgroundColor: "color-mix(in srgb, #D97706 16%, transparent)", color: "#92400E" }}>{t("ticket.table.noCampaign")}</span>
                     )}
                   </td>
                   <td className="px-4 py-3"><span className="text-[10px] font-semibold" style={{ color: replyColor }}>{replyLabel}</span></td>

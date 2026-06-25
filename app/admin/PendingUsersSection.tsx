@@ -62,8 +62,8 @@ export default function PendingUsersSection() {
   if (users.length === 0) return null;
 
   return (
-    <div className="rounded-xl border mb-6 overflow-hidden" style={{ backgroundColor: C.card, borderColor: "#FCD34D" }}>
-      <div className="px-5 py-3 flex items-center gap-2 border-b" style={{ borderColor: C.border, backgroundColor: "#FFFBEB" }}>
+    <div className="rounded-xl border mb-6 overflow-hidden" style={{ backgroundColor: C.card, borderColor: "color-mix(in srgb, #D97706 34%, transparent)" }}>
+      <div className="px-5 py-3 flex items-center gap-2 border-b" style={{ borderColor: C.border, backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)" }}>
         <AlertTriangle size={14} style={{ color: "#D97706" }} />
         <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: "#92400E" }}>
           Pending Assignment ({users.length})

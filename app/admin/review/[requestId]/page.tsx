@@ -84,7 +84,7 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
                 </span>
               )}
               <span className="text-xs font-semibold px-2 py-0.5 rounded-md"
-                style={{ backgroundColor: "#FFFBEB", color: "#D97706" }}>
+                style={{ backgroundColor: "color-mix(in srgb, #D97706 13%, transparent)", color: "#D97706" }}>
                 Pending Review
               </span>
             </div>

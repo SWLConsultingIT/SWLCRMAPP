@@ -12,7 +12,7 @@ const gold = "var(--brand, #c9a83a)";
 const supabase = getSupabaseService();
 
 const statusStyles: Record<string, { label: string; color: string; bg: string }> = {
-  pending:  { label: "Pending Review", color: "#D97706", bg: "#FFFBEB" },
+  pending:  { label: "Pending Review", color: "#D97706", bg: "color-mix(in srgb, #D97706 13%, transparent)" },
   reviewed: { label: "Reviewed",       color: C.blue,    bg: C.blueLight },
   approved: { label: "Approved",       color: C.green,   bg: C.greenLight },
   rejected: { label: "Rejected",       color: C.red,     bg: C.redLight },

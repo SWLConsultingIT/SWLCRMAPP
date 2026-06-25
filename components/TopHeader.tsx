@@ -8,6 +8,7 @@ import { useLocale } from "@/lib/i18n";
 import { useAuthUser, useAuth } from "@/lib/auth-context";
 import HelpMenu from "./HelpMenu";
 import NotificationBell from "./NotificationBell";
+import { useMobileMenu } from "@/lib/mobile-menu";
 
 const ROUTE_KEYS: Record<string, { key: string; brand?: string }> = {
   "/":              { key: "nav.dashboard" },
@@ -62,6 +63,7 @@ export default function TopHeader() {
   // header mount before. Saves one round-trip per navigation.
   const user = useAuthUser();
   const { clearAuth } = useAuth();
+  const { toggle: toggleMobileMenu } = useMobileMenu();
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -91,17 +93,12 @@ export default function TopHeader() {
         boxShadow: "0 1px 0 rgba(0,0,0,0.04), 0 2px 8px rgba(0,0,0,0.03)",
       }}
     >
-      {/* Mobile hamburger (#8) */}
+      {/* Mobile hamburger */}
       <button
         className="md:hidden p-2 rounded-lg transition-colors hover:bg-gray-100"
         style={{ color: C.textMuted }}
         title="Menu"
-        onClick={() => {
-          const sidebar = document.querySelector("aside");
-          if (sidebar) {
-            sidebar.classList.toggle("hidden");
-          }
-        }}
+        onClick={toggleMobileMenu}
       >
         <Menu size={18} />
       </button>
