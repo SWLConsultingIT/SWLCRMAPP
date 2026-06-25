@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { getSupabaseBrowser } from "@/lib/supabase-browser";
 import { fetchPrefsCached, clearAllSessionCache } from "@/lib/session-cache";
 
@@ -58,12 +58,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   // the cookie). Reading the cookie here keeps React state in sync with the
   // DOM that was sent on the first byte — no flash.
   const [theme, setThemeState] = useState<Theme>(() => readThemeCookie() ?? "light");
+  // When the user toggles the theme, the cookie is written synchronously but the
+  // DB PATCH is async. A pullThemeFromDb fired in that window (e.g. an auth-state
+  // change / token refresh on navigation) used to read the still-stale DB theme
+  // and REVERT the user's choice (Fran 2026-06-25: "toqué light, cambié de view,
+  // volvió a dark"). Treat a recent explicit toggle as authoritative.
+  const userSetAt = useRef(0);
 
   useEffect(() => {
     let alive = true;
     purgeLegacyLocalStorage();
 
     async function pullThemeFromDb() {
+      // Don't let a (possibly stale) DB read stomp a theme the user just picked
+      // — the PATCH may still be in flight. The cookie already holds their choice.
+      if (Date.now() - userSetAt.current < 12000) return;
       const d = await fetchPrefsCached();
       if (!alive || !d) return;
       // Unauthenticated response — server says "no user, no opinion". Don't
@@ -113,6 +122,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { applyDom(theme); }, [theme]);
 
   function setTheme(t: Theme) {
+    userSetAt.current = Date.now();
     setThemeState(t);
     applyDom(t);
     writeThemeCookie(t);
