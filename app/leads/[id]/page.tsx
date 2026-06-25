@@ -867,10 +867,10 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         const ourPlay = angle.icp?.solutions_offered || angle.bio?.main_services || null;
         const valueProp = angle.bio?.value_proposition || angle.icp?.pain_points || null;
         const facts = [
-          { label: "Industry", value: [lead.company_industry, lead.company_sub_industry].filter(Boolean).join(" · ") || null },
-          { label: "Location", value: [lead.company_city, lead.company_country].filter(Boolean).join(", ") || null },
-          { label: "Employees", value: (lead.employees ?? lead.company_employee_count) ?? null },
-          { label: "Revenue", value: lead.annual_revenue ? `$${lead.annual_revenue}` : null },
+          { label: t("lead.company.industry"), value: [lead.company_industry, lead.company_sub_industry].filter(Boolean).join(" · ") || null },
+          { label: t("lead.company.location"), value: [lead.company_city, lead.company_country].filter(Boolean).join(", ") || null },
+          { label: t("lead.company.employees"), value: (lead.employees ?? lead.company_employee_count) ?? null },
+          { label: t("lead.company.revenue"), value: lead.annual_revenue ? `$${lead.annual_revenue}` : null },
         ].filter(f => f.value);
         const website = lead.company_website ? (String(lead.company_website).startsWith("http") ? String(lead.company_website) : `https://${lead.company_website}`) : null;
         return (
@@ -878,7 +878,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             <div className="flex items-center gap-4 p-5 pb-4">
               <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ZONE.account}, color-mix(in srgb, ${ZONE.account} 70%, white))`, color: "#fff" }}>{lead.company_name[0]?.toUpperCase()}</div>
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted, letterSpacing: "0.1em" }}>Company</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted, letterSpacing: "0.1em" }}>{t("lead.company.label")}</p>
                 <p className="text-[17px] font-bold leading-tight" style={{ color: C.textPrimary }}>{lead.company_name}</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -900,13 +900,13 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               <div className="grid md:grid-cols-2 gap-3 px-5 pb-4">
                 {whatTheyDo && (
                   <div className="rounded-xl p-4" style={{ backgroundColor: C.bg, borderLeft: "3px solid #0891B2" }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#0891B2", letterSpacing: "0.08em" }}>What they do</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#0891B2", letterSpacing: "0.08em" }}>{t("lead.company.whatTheyDo")}</p>
                     <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{String(whatTheyDo).slice(0, 500)}</p>
                   </div>
                 )}
                 {ourPlay && (
                   <div className="rounded-xl p-4" style={{ backgroundColor: C.bg, borderLeft: "3px solid #7C3AED" }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#7C3AED", letterSpacing: "0.08em" }}>Our play for this industry</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#7C3AED", letterSpacing: "0.08em" }}>{t("lead.company.ourPlay")}</p>
                     <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{String(ourPlay).slice(0, 500)}</p>
                   </div>
                 )}
@@ -929,26 +929,26 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 </div>
                 {(companyPosts || sectorTrends) && (
                   <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: `color-mix(in srgb, ${ZONE.account} 7%, transparent)`, borderLeft: `3px solid ${ZONE.account}` }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: ZONE.account, letterSpacing: "0.08em" }}>Signals to mention</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: ZONE.account, letterSpacing: "0.08em" }}>{t("lead.company.signals")}</p>
                     {companyPosts && <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{companyPosts.slice(0, 280)}</p>}
-                    {sectorTrends && <p className="text-[12px] leading-relaxed mt-1.5" style={{ color: C.textMuted }}><span className="font-semibold">Sector:</span> {sectorTrends.slice(0, 220)}</p>}
+                    {sectorTrends && <p className="text-[12px] leading-relaxed mt-1.5" style={{ color: C.textMuted }}><span className="font-semibold">{t("lead.company.sector")}</span> {sectorTrends.slice(0, 220)}</p>}
                   </div>
                 )}
                 {techs.length > 0 && (
                   <div className="mt-3">
-                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textDim }}>Tech stack</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textDim }}>{t("lead.company.techStack")}</p>
                     <div className="flex flex-wrap gap-1.5">{techs.slice(0, 12).map(t => <span key={t} className="text-[11px] font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: C.blueLight, color: C.blue }}>{t}</span>)}</div>
                   </div>
                 )}
                 {kws.length > 0 && (
                   <div className="mt-3">
-                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textDim }}>Keywords</p>
+                    <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textDim }}>{t("lead.company.keywords")}</p>
                     <div className="flex flex-wrap gap-1.5">{kws.slice(0, 12).map(k => <span key={k} className="text-[11px] font-medium px-2 py-0.5 rounded-md" style={{ backgroundColor: `color-mix(in srgb, ${gold} 10%, transparent)`, color: gold }}>{k}</span>)}</div>
                   </div>
                 )}
                 {lead.recent_website_news && (
                   <div className="mt-3 p-3 rounded-lg" style={{ backgroundColor: "color-mix(in srgb, #D97706 10%, transparent)", borderLeft: "3px solid #F59E0B" }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "#D97706" }}>Recent news</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "#D97706" }}>{t("lead.company.recentNews")}</p>
                     <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{lead.recent_website_news}</p>
                   </div>
                 )}

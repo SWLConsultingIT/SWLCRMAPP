@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { C } from "@/lib/design";
 import { Sparkles, Loader2, RefreshCw } from "lucide-react";
+import { useLocale } from "@/lib/i18n";
 
 type Props = {
   leadId: string;
@@ -14,6 +15,7 @@ type Props = {
 
 export default function LeadSummaryTab({ leadId, initialSummary, initialGeneratedAt, accent = "var(--brand, #c9a83a)" }: Props) {
   const router = useRouter();
+  const { t, locale } = useLocale();
   const [summary, setSummary] = useState<string | null>(initialSummary);
   const [generatedAt, setGeneratedAt] = useState<string | null>(initialGeneratedAt);
   const [loading, setLoading] = useState(false);
@@ -23,7 +25,11 @@ export default function LeadSummaryTab({ leadId, initialSummary, initialGenerate
     setLoading(true);
     setError(null);
     try {
-      const r = await fetch(`/api/leads/${leadId}/summary`, { method: "POST" });
+      const r = await fetch(`/api/leads/${leadId}/summary`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locale }),
+      });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error ?? "Failed");
       setSummary(data.summary);
@@ -71,12 +77,12 @@ export default function LeadSummaryTab({ leadId, initialSummary, initialGenerate
               className="text-[15px] font-semibold"
               style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}
             >
-              Deep-dive research
+              {t("summary.title")}
             </h3>
             <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
               {generatedAt
-                ? `Generated ${new Date(generatedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`
-                : "Not generated yet"}
+                ? t("summary.generated").replace("{stamp}", new Date(generatedAt).toLocaleString(locale === "es" ? "es-AR" : "en-GB", { dateStyle: "medium", timeStyle: "short" }))
+                : t("summary.notGenerated")}
             </p>
           </div>
         </div>
@@ -88,7 +94,7 @@ export default function LeadSummaryTab({ leadId, initialSummary, initialGenerate
             style={{ borderColor: C.border, color: C.textBody, backgroundColor: C.bg }}
           >
             {loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-            Regenerate
+            {t("summary.regenerate")}
           </button>
         )}
       </div>
@@ -145,7 +151,7 @@ export default function LeadSummaryTab({ leadId, initialSummary, initialGenerate
       })() : (
         <div className="text-center py-10 relative">
           <p className="text-sm mb-5 max-w-sm mx-auto leading-relaxed" style={{ color: C.textMuted }}>
-            Long-form account &amp; contact research — company deep-dive, why-now, account strategy and a suggested sequence. The 5-minute prep, distinct from the 30-second brief.
+            {t("summary.hint")}
           </p>
           <button
             onClick={generate}
@@ -158,7 +164,7 @@ export default function LeadSummaryTab({ leadId, initialSummary, initialGenerate
             }}
           >
             {loading ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
-            {loading ? "Researching…" : "Generate research"}
+            {loading ? t("summary.researching") : t("summary.generate")}
           </button>
         </div>
       )}

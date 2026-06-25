@@ -17,9 +17,15 @@ import { resolveUnipileAccount } from "@/lib/unipile-account";
 
 type Section = { heading: string; body: string };
 
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "Missing ANTHROPIC_API_KEY" }, { status: 500 });
+
+  const body = await req.json().catch(() => ({}));
+  const locale: string = (body as any).locale ?? "en";
+  const langInstruction = locale === "es"
+    ? "Write ALL content in Spanish (río-platense if Argentina, neutral otherwise). Section headings must also be in Spanish."
+    : "Write ALL content in English.";
 
   const { id } = await params;
   const svc = getSupabaseService();
@@ -71,7 +77,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
-  const sections = await generate({ lead, icpContext, bio, liBlock, apiKey });
+  const sections = await generate({ lead, icpContext, bio, liBlock, apiKey, langInstruction });
   if (!sections || sections.length === 0) return NextResponse.json({ error: "AI call failed" }, { status: 500 });
 
   const stored = JSON.stringify(sections);
@@ -82,12 +88,13 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   return NextResponse.json({ ok: true, summary: stored });
 }
 
-async function generate({ lead, icpContext, bio, liBlock, apiKey }: {
+async function generate({ lead, icpContext, bio, liBlock, apiKey, langInstruction }: {
   lead: Record<string, unknown>;
   icpContext: { profile_name?: string; solutions_offered?: string; pain_points?: string } | null;
   bio: { value_proposition?: string; main_services?: string } | null;
   liBlock: string | null;
   apiKey: string;
+  langInstruction: string;
 }): Promise<Section[] | null> {
   const name = `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "the lead";
   const enrichment = (lead.enrichment as Record<string, unknown> | null) ?? {};
@@ -139,6 +146,8 @@ Return ONLY a JSON array of {"heading","body"} sections, in this order:
   { "heading": "Suggested sequence", "body": "<3-4 bullet lines, each '- ' + channel + the one thing to say, grounded in their real situation.>" },
   { "heading": "Watch-outs", "body": "<1-3 '- ' bullet lines: likely objections/risks for this persona.>" }
 ]
+
+LANGUAGE RULE: ${langInstruction}
 
 HARD RULES — accuracy over detail:
 - Use ONLY facts present in the data above. Do NOT invent metrics, ARR, customers, partners, competitors, or relationships. If a fact isn't given, don't state it.
