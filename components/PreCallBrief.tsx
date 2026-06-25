@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Sparkles, RefreshCw, Target, Compass, Quote, ClipboardList, ChevronDown, UserRound, Lightbulb, ShieldAlert, Building2, Brain } from "lucide-react";
 import { C } from "@/lib/design";
+import LogoLoader from "@/components/LogoLoader";
 
 const gold = "var(--brand, #c9a83a)";
 
@@ -48,7 +49,7 @@ const POINT_META: Record<PointType, {
   snapshot: {
     label: "Snapshot",
     icon: UserRound,
-    accent: "#475569",
+    accent: "#64748B",
     tint: "linear-gradient(135deg, rgba(248,250,252,0.95) 0%, rgba(255,255,255,0.6) 70%)",
     pillBg: "#E2E8F0",
     pillFg: "#334155",
@@ -131,7 +132,7 @@ function BriefCard({ p }: { p: TalkingPoint }) {
   const isOpener = p.type === "opener";
   return (
     <div className="relative rounded-xl overflow-hidden border transition-shadow hover:shadow-sm h-full"
-      style={{ background: meta.tint, borderColor: `color-mix(in srgb, ${meta.accent} 18%, ${C.border})` }}>
+      style={{ background: `color-mix(in srgb, ${meta.accent} 7%, ${C.card})`, borderColor: `color-mix(in srgb, ${meta.accent} 22%, ${C.border})` }}>
       <div className="absolute left-0 top-0 bottom-0" style={{ width: 3, backgroundColor: meta.accent }} />
       <div className="flex gap-3.5 p-4 pl-5">
         <div className="rounded-full flex items-center justify-center shrink-0 shadow-sm"
@@ -140,7 +141,7 @@ function BriefCard({ p }: { p: TalkingPoint }) {
         </div>
         <div className="flex-1 min-w-0">
           <span className="inline-flex items-center text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-md mb-1.5"
-            style={{ backgroundColor: meta.pillBg, color: meta.pillFg, letterSpacing: "0.08em" }}>
+            style={{ backgroundColor: `color-mix(in srgb, ${meta.accent} 15%, transparent)`, color: meta.accent, letterSpacing: "0.08em" }}>
             {meta.label}
           </span>
           {isOpener ? (
@@ -337,18 +338,8 @@ function PremiumBrief({ leadId, initialPoints, initialGeneratedAt }: {
             </div>
           );
         })() : loading ? (
-          <div className="grid gap-3">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="flex gap-3.5 rounded-xl p-4 pl-5 border animate-pulse"
-                style={{ backgroundColor: C.surface, borderColor: C.border }}>
-                <div className="rounded-full shrink-0" style={{ width: 34, height: 34, backgroundColor: C.border }} />
-                <div className="flex-1 space-y-2 mt-1">
-                  <div className="h-2.5 w-16 rounded" style={{ backgroundColor: C.border }} />
-                  <div className="h-3.5 rounded" style={{ backgroundColor: C.border }} />
-                  <div className="h-3.5 w-4/5 rounded" style={{ backgroundColor: C.border }} />
-                </div>
-              </div>
-            ))}
+          <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
+            <LogoLoader size={54} minHeight="200px" />
           </div>
         ) : (
           <div className="flex items-center justify-between gap-2 py-1">

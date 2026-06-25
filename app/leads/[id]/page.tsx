@@ -846,13 +846,13 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
               <div className="grid md:grid-cols-2 gap-3 px-5 pb-4">
                 {whatTheyDo && (
                   <div className="rounded-xl p-4" style={{ backgroundColor: C.bg, borderLeft: "3px solid #0891B2" }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#155E75", letterSpacing: "0.08em" }}>What they do</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#0891B2", letterSpacing: "0.08em" }}>What they do</p>
                     <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{String(whatTheyDo).slice(0, 500)}</p>
                   </div>
                 )}
                 {ourPlay && (
                   <div className="rounded-xl p-4" style={{ backgroundColor: C.bg, borderLeft: "3px solid #7C3AED" }}>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#5B21B6", letterSpacing: "0.08em" }}>Our play for this industry</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#7C3AED", letterSpacing: "0.08em" }}>Our play for this industry</p>
                     <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{String(ourPlay).slice(0, 500)}</p>
                   </div>
                 )}

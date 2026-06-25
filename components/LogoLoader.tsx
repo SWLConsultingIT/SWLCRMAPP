@@ -12,16 +12,20 @@ const LOGO_URL = "https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNx
 export default function LogoLoader({
   fullscreen = false,
   size = 140,
+  minHeight = "70vh",
 }: {
   /** When true, covers the entire viewport. Default false: fills its
    *  container so the Sidebar and TopHeader stay visible during page nav. */
   fullscreen?: boolean;
   /** Lockup height in px. */
   size?: number;
+  /** Min-height of the non-fullscreen container. Default "70vh" (page nav);
+   *  pass e.g. "200px" for a compact inline loader inside a card. */
+  minHeight?: string;
 }) {
   const containerClass = fullscreen
     ? "fixed inset-0 z-[100] flex items-center justify-center"
-    : "relative w-full min-h-[70vh] flex items-center justify-center overflow-hidden";
+    : "relative w-full flex items-center justify-center overflow-hidden";
 
   // Always paint an explicit themed background. The non-fullscreen variant
   // used to inherit `<main>`'s background, which left a white flash if the
@@ -35,6 +39,7 @@ export default function LogoLoader({
       }
     : {
         backgroundColor: "var(--c-bg, #F7F8FB)",
+        minHeight,
       };
 
   // PNG is 280×136 native. The brand mark sits in the left ~35%; the rest
