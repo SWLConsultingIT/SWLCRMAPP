@@ -450,9 +450,12 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   if (!campaign) notFound();
 
   // Tenant scope for the "Add Leads" tab — campaign → seller → company_bio.
-  // Falls back to campaign.company_bio_id (if column exists) or null (no leads shown).
+  // Fallback chain: seller.company_bio_id → lead.company_bio_id → campaign column.
+  // The seller fallback is unreliable when the seller record was created under the
+  // wrong tenant (hosted-link bug). The lead's company_bio_id is always correct.
   const tenantBioId =
     (campaign.sellers?.company_bio_id as string | null | undefined) ??
+    (campaign.leads?.company_bio_id as string | null | undefined) ??
     (campaign.company_bio_id as string | null | undefined) ??
     null;
 

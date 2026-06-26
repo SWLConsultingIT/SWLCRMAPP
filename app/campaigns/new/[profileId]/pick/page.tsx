@@ -29,16 +29,25 @@ async function loadPickerData(profileId: string) {
 
   // Leads of this ICP that are NOT currently in an active/paused flow.
   // `lead_id` from campaigns gives us the "in flight" set; we subtract.
-  const [{ data: rawLeads }, { data: liveCamps }] = await Promise.all([
-    supabase
-      .from("leads")
-      .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, lead_score, allow_linkedin, allow_email, allow_call, icp_profile_id")
-      .eq("icp_profile_id", profileId)
-      .order("created_at", { ascending: false })
-      .limit(500),
-    supabase.from("campaigns").select("lead_id").in("status", ["active", "paused"]),
-  ]);
-  const inFlight = new Set((liveCamps ?? []).map(c => c.lead_id).filter(Boolean) as string[]);
+  // We fetch leads first so we can scope the campaigns check to only these lead
+  // IDs — a global `.in("status", [...])` without a lead_id filter hits the
+  // default 1000-row cap once all tenants' active campaigns exceed it, silently
+  // truncating the enrolled set and letting already-enrolled leads reappear as
+  // "eligible".
+  const { data: rawLeads } = await supabase
+    .from("leads")
+    .select("id, source, encrypted_payload, company_bio_id, primary_first_name, primary_last_name, company_name, primary_title_role, lead_score, allow_linkedin, allow_email, allow_call, icp_profile_id")
+    .eq("icp_profile_id", profileId)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  const allLeadIds = (rawLeads ?? []).map(r => r.id).filter(Boolean) as string[];
+  const inFlight = new Set<string>();
+  for (let i = 0; i < allLeadIds.length; i += 300) {
+    const chunk = allLeadIds.slice(i, i + 300);
+    const { data: enrolled } = await supabase
+      .from("campaigns").select("lead_id").in("status", ["active", "paused"]).in("lead_id", chunk);
+    (enrolled ?? []).forEach(c => { if (c.lead_id) inFlight.add(c.lead_id); });
+  }
   const hydrated = (await hydrateClientLeads((rawLeads ?? []) as Record<string, unknown>[])) as Array<Record<string, unknown> & { id: string }>;
   const eligible: PickableLead[] = hydrated
     .filter(l => !inFlight.has(l.id))
