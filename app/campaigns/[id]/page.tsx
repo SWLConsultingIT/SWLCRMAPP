@@ -449,13 +449,13 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   const [campaign, t] = await Promise.all([getCampaign(id), getT()]);
   if (!campaign) notFound();
 
-  // Tenant scope for the "Add Leads" tab — campaign → seller → company_bio.
-  // Fallback chain: seller.company_bio_id → lead.company_bio_id → campaign column.
-  // The seller fallback is unreliable when the seller record was created under the
-  // wrong tenant (hosted-link bug). The lead's company_bio_id is always correct.
+  // Tenant scope for the "Add Leads" tab.
+  // Use the lead's company_bio_id as the primary source — it's always correct.
+  // The seller's company_bio_id is a fallback only: it can point to the wrong
+  // tenant when the seller record was created under SWL by the hosted-link bug.
   const tenantBioId =
-    (campaign.sellers?.company_bio_id as string | null | undefined) ??
     (campaign.leads?.company_bio_id as string | null | undefined) ??
+    (campaign.sellers?.company_bio_id as string | null | undefined) ??
     (campaign.company_bio_id as string | null | undefined) ??
     null;
 
