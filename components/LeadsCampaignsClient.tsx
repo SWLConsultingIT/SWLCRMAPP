@@ -1363,10 +1363,10 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                     </Link>
                   </td>
                   <td className="px-4 py-2.5 hidden md:table-cell">
-                    <span className="text-xs truncate block max-w-[140px]" style={{ color: C.textMuted }}>{lead.company ?? "—"}</span>
+                    <span className="text-xs truncate block max-w-[160px]" title={lead.company ?? undefined} style={{ color: C.textMuted }}>{lead.company ?? "—"}</span>
                   </td>
                   <td className="px-4 py-2.5 hidden lg:table-cell">
-                    <span className="text-xs truncate block max-w-[140px]" style={{ color: C.textMuted }}>{lead.role ?? "—"}</span>
+                    <span className="text-xs truncate block max-w-[160px]" title={lead.role ?? undefined} style={{ color: C.textMuted }}>{lead.role ?? "—"}</span>
                   </td>
                   <td className="px-4 py-2.5 text-center">
                     <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: badge.bg, color: badge.color }}>{badge.label}</span>
@@ -1382,7 +1382,7 @@ function AllLeadsTable({ leads }: { leads: LeadInfo[] }) {
                         href={`/leads/ticket/${lead.profile_id}`}
                         onClick={(e) => e.stopPropagation()}
                         title={lead.profile_name}
-                        className="text-[11px] font-medium hover:underline inline-flex items-center gap-1 max-w-[180px]"
+                        className="text-[11px] font-medium hover:underline inline-flex items-center gap-1 max-w-[220px]"
                         style={{ color: gold }}
                       >
                         <Target size={9} className="shrink-0" />
