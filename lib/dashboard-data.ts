@@ -681,24 +681,23 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   }
 
   // Per-seller call CONTACTED / ANSWERED for the Channel Champion + per-seller
-  // call metrics. Manual dials log to the `calls` table, NOT campaign_messages
-  // (the call step stays 'queued'/'draft' — only the now-disabled auto-dialer
-  // ever flipped it to 'sent'). So counting call "contacted" from sent messages
-  // under-counts to ~0 and the Call champion never appears even though sellers
-  // dialed hundreds of leads. Source it from real calls, attributed to the
-  // lead's flow owner (campaign.seller_id) to match the sellerAgg keying.
+  // call metrics. Manual dials log to the `calls` table, NOT campaign_messages.
+  // Attribution: use who actually pressed "Call" (dialed_by_user_id → seller),
+  // falling back to the flow owner only when the dialer is unknown.
   const callContactedBySeller = new Map<string, Set<string>>();
   const callAnsweredBySeller = new Map<string, Set<string>>();
   for (const g of callGroups.values()) {
     if (!g.leadId) continue;
+    const dialerSeller = g.dialer ? userToSeller.get(g.dialer) : null;
     const ownerId = leadToSellerId.get(g.leadId);
-    if (!ownerId) continue;
-    let cset = callContactedBySeller.get(ownerId);
-    if (!cset) { cset = new Set(); callContactedBySeller.set(ownerId, cset); }
+    const attributeId = dialerSeller?.id ?? ownerId;
+    if (!attributeId) continue;
+    let cset = callContactedBySeller.get(attributeId);
+    if (!cset) { cset = new Set(); callContactedBySeller.set(attributeId, cset); }
     cset.add(g.leadId);
     if (g.answered) {
-      let aset = callAnsweredBySeller.get(ownerId);
-      if (!aset) { aset = new Set(); callAnsweredBySeller.set(ownerId, aset); }
+      let aset = callAnsweredBySeller.get(attributeId);
+      if (!aset) { aset = new Set(); callAnsweredBySeller.set(attributeId, aset); }
       aset.add(g.leadId);
     }
   }
