@@ -4,7 +4,7 @@ import { getUserScope } from "@/lib/scope";
 import { mapLimit } from "@/lib/concurrency";
 import { fetchStepAttachments } from "@/lib/campaign-attachments";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
-import { renderPlaceholders, findUnresolvedPlaceholders, findSuspiciousPlaceholders } from "@/lib/placeholders";
+import { renderPlaceholders, findUnresolvedPlaceholders, findSuspiciousPlaceholders, isInvalidSellerName } from "@/lib/placeholders";
 
 // Hard cap on parallel seller batches in a single tick. Each seller's batch
 // opens ~3 DB connections (list queued, hydrate lead+campaign, update on
@@ -837,6 +837,13 @@ async function dispatchOneMessage(
     return await failMessage(
       svc, candidate.id, candidate.lead_id,
       `Template contains foreign placeholder syntax (${tokens}) that the dispatcher cannot render. Open the flow and fix the template — use {{first_name}}, {{company_name}}, etc.`,
+    );
+  }
+
+  if (isInvalidSellerName(seller.name)) {
+    return await failMessage(
+      svc, candidate.id, candidate.lead_id,
+      `Seller name "${seller.name ?? ""}" looks like a system default — update sellers.name in Settings → Sellers before dispatching.`,
     );
   }
 

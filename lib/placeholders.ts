@@ -108,11 +108,29 @@ export type PlaceholderSeller = {
   name?: string | null;
 };
 
+// Names that indicate the seller record was never properly configured.
+// If any of these reach a real lead's inbox as a signature, it's a trust-damaging
+// incident (like the 2026-06-27 "— Admin" LinkedIn DM). Guard in renderPlaceholders
+// so all dispatchers are protected from a single point.
+const SELLER_NAME_BLOCKLIST = new Set([
+  "", "admin", "administrator", "user", "test", "default", "seller", "agent",
+  "unnamed", "(unnamed)", "n/a", "na",
+]);
+
+export function isInvalidSellerName(name: string | null | undefined): boolean {
+  return SELLER_NAME_BLOCKLIST.has((name ?? "").toLowerCase().trim());
+}
+
 export function renderPlaceholders(
   template: string,
   lead: PlaceholderLead,
   seller: PlaceholderSeller,
 ): string {
+  if (isInvalidSellerName(seller.name)) {
+    throw new Error(
+      `Seller name "${seller.name ?? ""}" looks like a system default — update sellers.name before dispatching.`,
+    );
+  }
   const first = lead.primary_first_name ?? "there";
   const last = lead.primary_last_name ?? "";
   const full = `${first} ${last}`.trim();

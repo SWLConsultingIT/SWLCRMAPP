@@ -5,7 +5,7 @@ import { getInstantlyConfig } from "@/lib/instantly-config";
 import { resolveFlowCampaignId } from "@/lib/instantly-flow-campaign";
 import { signStepAttachments } from "@/lib/campaign-attachments";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
-import { renderPlaceholders, findUnresolvedPlaceholders, findSuspiciousPlaceholders } from "@/lib/placeholders";
+import { renderPlaceholders, findUnresolvedPlaceholders, findSuspiciousPlaceholders, isInvalidSellerName } from "@/lib/placeholders";
 
 // Cron-driven dispatcher for `campaign_messages` rows in `status='queued'`
 // where channel='email'. One mail per tick via Instantly v2.
@@ -414,6 +414,13 @@ async function dispatchOneEmail(
   // `{First Name}`). The dispatcher only knows `{{snake_case}}`; foreign
   // forms ship literally if we don't catch them. 2026-05-31: a LinkedIn
   // DM to Craig Wilson went out with raw `[First Name]` for this reason.
+  if (isInvalidSellerName(seller?.name)) {
+    return await failMessage(
+      svc, candidate.id, candidate.lead_id,
+      `Seller name "${seller?.name ?? ""}" looks like a system default — update sellers.name in Settings → Sellers before dispatching.`,
+    );
+  }
+
   const suspicious = findSuspiciousPlaceholders(`${subjectRaw}\n${bodyRaw}`);
   if (suspicious.length > 0) {
     const tokens = suspicious.map(s => s.token).join(", ");
