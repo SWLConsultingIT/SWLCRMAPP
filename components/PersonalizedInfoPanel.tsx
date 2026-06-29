@@ -1,12 +1,13 @@
 import { C } from "@/lib/design";
 import { Sparkles, TrendingUp, Building2, Info, Sun } from "lucide-react";
 import RooftopImageLightbox from "@/components/RooftopImageLightbox";
+import NearbyCompaniesPanel, { type NearbyCompany } from "@/components/NearbyCompaniesPanel";
 
 // Generic lead-enrichment panel. Renders whatever is in `lead.enrichment` jsonb.
 // Grouped by key prefix so each client can extend their own vocabulary without code changes.
 // Priority fields (for Pathway: credit signals) are pulled to the top as stat cards.
 
-type Props = { enrichment: Record<string, unknown> | null | undefined };
+type Props = { enrichment: Record<string, unknown> | null | undefined; leadId?: string };
 
 // Pretty labels for known keys. Unknown keys fall back to auto-titled snake_case.
 const LABELS: Record<string, string> = {
@@ -126,7 +127,7 @@ function formatRooftopValue(key: string, value: unknown): string {
   return String(value);
 }
 
-function RooftopSection({ data }: { data: Record<string, unknown> }) {
+function RooftopSection({ data, leadId }: { data: Record<string, unknown>; leadId?: string }) {
   const photoUrl = data.rooftop_photo_url as string | undefined;
   const hasSolar = String(data.has_solar_panels ?? "").toLowerCase() === "yes";
   const angle = data.ai_outreach_angle as string | undefined;
@@ -207,6 +208,15 @@ function RooftopSection({ data }: { data: Record<string, unknown> }) {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Cross-sell: nearby businesses around the plant (Everest demo). Renders
+          only when we have a lead id + a coordinate-based search is possible. */}
+      {leadId && (Array.isArray(data.nearby_companies) || (typeof data.rooftop_lat === "number" && typeof data.rooftop_lng === "number")) && (
+        <NearbyCompaniesPanel
+          leadId={leadId}
+          initial={(Array.isArray(data.nearby_companies) ? data.nearby_companies : []) as NearbyCompany[]}
+        />
       )}
     </SectionBlock>
   );
@@ -512,7 +522,7 @@ function sortKeys(keys: string[], order: string[]): string[] {
   });
 }
 
-export default function PersonalizedInfoPanel({ enrichment }: Props) {
+export default function PersonalizedInfoPanel({ enrichment, leadId }: Props) {
   if (!enrichment || typeof enrichment !== "object" || Object.keys(enrichment).length === 0) return null;
 
   const data = normalizeEnrichment(enrichment as Record<string, unknown>);
@@ -555,7 +565,7 @@ export default function PersonalizedInfoPanel({ enrichment }: Props) {
       </div>
 
       {/* Rooftop intelligence (Gruppo Everest) — renders only if present */}
-      {showRooftop && <RooftopSection data={data} />}
+      {showRooftop && <RooftopSection data={data} leadId={leadId} />}
 
       {/* Priority KPI cards */}
       {priorityVisible.length > 0 && (
