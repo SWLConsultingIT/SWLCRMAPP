@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, ChevronDown, RefreshCw, X, Phone, Globe, MapPin, ExternalLink, Star, Loader2, Sparkles } from "lucide-react";
+import { ChevronDown, RefreshCw, X, Phone, Globe, MapPin, ExternalLink, Star, Loader2, Sparkles } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 export type NearbyCompany = { name: string; address: string | null; phone: string | null; web: string | null };
 
@@ -22,6 +23,8 @@ export default function NearbyCompaniesPanel({
   leadId: string;
   initial: NearbyCompany[];
 }) {
+  const { locale } = useLocale();
+  const L = (en: string, es: string) => (locale === "es" ? es : en);
   const [list, setList] = useState<NearbyCompany[]>(initial ?? []);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -61,25 +64,33 @@ export default function NearbyCompaniesPanel({
   const webHref = (w: string) => (w.startsWith("http") ? w : `https://${w}`);
   const prettyType = (t: string) => t.replace(/_/g, " ").replace(/\b\w/g, m => m.toUpperCase());
   const teal = "#1A7F74";
+  const ai = "#7C3AED";
 
   return (
     <div className="mt-5">
-      {/* Prominent CTA */}
+      {/* Prominent AI CTA */}
       <button
         onClick={() => (list.length ? setOpen(o => !o) : scrape())}
-        className="group w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-white font-semibold transition-all hover:shadow-lg hover:-translate-y-px"
-        style={{ background: `linear-gradient(135deg, ${teal}, #145F56)`, boxShadow: `0 6px 18px color-mix(in srgb, ${teal} 35%, transparent)` }}
+        disabled={loading}
+        className="group w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-white font-semibold transition-all hover:shadow-lg hover:-translate-y-px disabled:opacity-70"
+        style={{ background: `linear-gradient(135deg, ${ai}, #5B21B6)`, boxShadow: `0 6px 20px color-mix(in srgb, ${ai} 40%, transparent)` }}
       >
         <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(255,255,255,0.18)" }}>
-          <Building2 size={18} />
+          {loading ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
         </span>
         <span className="flex-1 text-left leading-tight">
-          <span className="block text-[14px]">Empresas cercanas para cross-sell</span>
-          <span className="block text-[11px] font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>
-            {list.length ? `${list.length} negocios alrededor de la planta · tocá para ver` : "Escanear el área de la planta"}
+          <span className="flex items-center gap-1.5 text-[14px]">
+            {L("Find nearby companies", "Buscar empresas cercanas")}
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "rgba(255,255,255,0.22)" }}>AI</span>
+          </span>
+          <span className="block text-[11px] font-medium" style={{ color: "rgba(255,255,255,0.82)" }}>
+            {loading
+              ? L("Scanning the area with AI…", "Escaneando el área con IA…")
+              : list.length
+                ? L(`${list.length} businesses around the plant · tap to view`, `${list.length} negocios cerca de la planta · tocá para ver`)
+                : L("Scan the plant's surroundings for cross-sell", "Escanear los alrededores de la planta para cross-sell")}
           </span>
         </span>
-        <Sparkles size={16} className="shrink-0 opacity-80" />
         {list.length > 0 && <ChevronDown size={16} className="shrink-0" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />}
       </button>
 
@@ -87,12 +98,12 @@ export default function NearbyCompaniesPanel({
         <button
           onClick={scrape}
           disabled={loading}
-          title="Re-escanear con Google Places"
+          title={L("Re-scan with Google Places", "Re-escanear con Google Places")}
           className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-colors disabled:opacity-50"
           style={{ backgroundColor: C.bg, color: C.textMuted, borderColor: C.border }}
         >
           <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          {loading ? "Escaneando…" : "Actualizar lista"}
+          {loading ? L("Scanning…", "Escaneando…") : L("Refresh list", "Actualizar lista")}
         </button>
         {err && <span className="text-[11px]" style={{ color: C.red }}>{err}</span>}
       </div>
@@ -135,7 +146,7 @@ export default function NearbyCompaniesPanel({
               {detailLoading ? (
                 <div className="flex flex-col items-center gap-2" style={{ color: C.textMuted }}>
                   <Loader2 size={22} className="animate-spin" />
-                  <span className="text-[11px] font-medium">Trayendo datos de Google…</span>
+                  <span className="text-[11px] font-medium">{L("Fetching from Google…", "Trayendo datos de Google…")}</span>
                 </div>
               ) : detail?.photoUrl ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
@@ -150,7 +161,7 @@ export default function NearbyCompaniesPanel({
             </div>
 
             <div className="p-5">
-              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: teal }}>Empresa cercana · cross-sell</p>
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: teal }}>{L("Nearby company · cross-sell", "Empresa cercana · cross-sell")}</p>
               <p className="text-[18px] font-bold leading-tight" style={{ color: C.textPrimary }}>{detail?.name ?? selected.name}</p>
 
               {/* rating + category */}
@@ -190,7 +201,7 @@ export default function NearbyCompaniesPanel({
               <a href={detail?.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((detail?.name ?? selected.name))}`} target="_blank" rel="noopener"
                 className="flex items-center justify-center gap-2 p-2.5 rounded-lg text-[13px] font-semibold mt-3"
                 style={{ background: `linear-gradient(135deg, ${teal}, #145F56)`, color: "#fff" }}>
-                <MapPin size={14} /> Abrir en Google Maps
+                <MapPin size={14} /> {L("Open in Google Maps", "Abrir en Google Maps")}
               </a>
             </div>
           </div>

@@ -131,6 +131,10 @@ function RooftopSection({ data, leadId }: { data: Record<string, unknown>; leadI
   const photoUrl = data.rooftop_photo_url as string | undefined;
   const hasSolar = String(data.has_solar_panels ?? "").toLowerCase() === "yes";
   const angle = data.ai_outreach_angle as string | undefined;
+  const lat = typeof data.rooftop_lat === "number" ? data.rooftop_lat : null;
+  const lng = typeof data.rooftop_lng === "number" ? data.rooftop_lng : null;
+  const hasMap = lat != null && lng != null;
+  const mapEmbed = hasMap ? `https://maps.google.com/maps?q=${lat},${lng}&t=k&z=18&hl=es&output=embed` : null;
 
   const stats: Array<{ key: string; label: string }> = [
     { key: "rooftop_area_m2", label: "Rooftop Area" },
@@ -151,14 +155,23 @@ function RooftopSection({ data, leadId }: { data: Record<string, unknown>; leadI
     <SectionBlock icon={Sun} title="Rooftop Intelligence" accent="#D97706" bg="color-mix(in srgb, #D97706 13%, transparent)">
       {/* Photo + headline badge */}
       <div className="flex flex-col md:flex-row gap-4 items-stretch">
-        {photoUrl && (
+        {hasMap ? (
+          // Inline, navigable satellite widget (no full-screen overlay).
+          <div className="rounded-xl overflow-hidden border shrink-0" style={{ borderColor: C.border, width: 280, height: 200 }}>
+            <iframe
+              title="Rooftop satellite"
+              src={mapEmbed!}
+              style={{ width: "100%", height: "100%", border: 0 }}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
+        ) : photoUrl ? (
           <RooftopImageLightbox
             photoUrl={photoUrl}
             alt={hasSolar ? "Rooftop with solar panels" : "Rooftop without solar panels"}
-            lat={typeof data.rooftop_lat === "number" ? data.rooftop_lat : null}
-            lng={typeof data.rooftop_lng === "number" ? data.rooftop_lng : null}
           />
-        )}
+        ) : null}
         <div className="flex-1 flex flex-col justify-between gap-3">
           <div>
             <span className="inline-block text-[11px] font-bold px-2.5 py-1 rounded tracking-wider"

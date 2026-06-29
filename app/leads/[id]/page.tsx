@@ -884,60 +884,16 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         />
       </div>
 
-      {/* ═══ Gruppo Everest (demo) — focused header trio under the hero:
-            About this person → Personalized Info (Rooftop) → Account (company).
-            Scoped to this tenant only; the originals are gated OFF below for
-            Everest so nothing duplicates. Every other tenant is untouched. ═══ */}
-      {isEverest && (
-        <section className="reveal space-y-6" style={zoneStyle(ZONE.prep)}>
-          {/* — About this person — */}
-          <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
-            <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>About This Person</h3>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex-1 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
-                <p className="uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Role / Title</p>
-                <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{lead.primary_title_role ?? "—"}</p>
-              </div>
-              <div className="p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
-                <p className="uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Seniority</p>
-                <span className="text-xs font-bold px-2.5 py-1 rounded" style={{ backgroundColor: goldLight, color: gold }}>
-                  {lead.primary_seniority?.replace("_", " ").toUpperCase() ?? "—"}
-                </span>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {lead.primary_work_email && (
-                <div className="flex items-start gap-2.5 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
-                  <Mail size={14} style={{ color: C.email, marginTop: 2 }} />
-                  <div className="min-w-0">
-                    <p className="uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Email</p>
-                    <a href={`mailto:${lead.primary_work_email}`} className="text-sm font-medium hover:underline block truncate" style={{ color: C.textBody }}>{lead.primary_work_email}</a>
-                  </div>
-                </div>
-              )}
-              {lead.primary_phone && (
-                <div className="flex items-start gap-2.5 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
-                  <Phone size={14} style={{ color: C.phone, marginTop: 2 }} />
-                  <div className="min-w-0">
-                    <p className="uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Mobile</p>
-                    <p className="text-sm font-medium" style={{ color: C.textBody }}>{lead.primary_phone}</p>
-                  </div>
-                </div>
-              )}
-              {isValidLinkedInUrl(lead.primary_linkedin_url as string | null) && (
-                <div className="flex items-start gap-2.5 p-3 rounded-lg min-w-0" style={{ backgroundColor: C.bg }}>
-                  <LinkedInIcon size={14} />
-                  <div className="min-w-0">
-                    <p className="uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>LinkedIn</p>
-                    <a href={String(lead.primary_linkedin_url)} target="_blank" rel="noopener" className="text-sm font-medium hover:underline flex items-center gap-1 truncate" style={{ color: "#0A66C2" }}>
-                      {String(lead.primary_linkedin_url).replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//, "").replace(/\/$/, "")} <ExternalLink size={11} className="shrink-0" />
-                    </a>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+      {/* Gruppo Everest demo: flex wrapper so we can CSS-`order` the Details
+          zone (tabs + About This Person) above the Rooftop/Account trio without
+          physically moving 500+ lines of JSX. For every other tenant this is a
+          plain pass-through div (no flex, no order) — zero layout change. */}
+      <div style={isEverest ? { display: "flex", flexDirection: "column" } : undefined}>
 
+      {/* Rooftop Intelligence + Account trio. About This Person now lives back
+          in the Details / Profile-Overview tab (ordered to the top below). */}
+      {isEverest && (
+        <section className="reveal space-y-6" style={{ ...zoneStyle(ZONE.prep), order: -1 }}>
           {/* — Personalized Info (Rooftop Intelligence) — */}
           <PersonalizedInfoPanel enrichment={lead.enrichment} leadId={id} />
 
@@ -1383,7 +1339,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           The Pre-Call Brief above the tabs already provides the 30-second
           summary, so Summary tab demotes to the research-tier. */}
       </section>
-      <section className="reveal" style={zoneStyle(ZONE.details)}>
+      <section className="reveal" style={{ ...zoneStyle(ZONE.details), ...(isEverest ? { order: -2 } : {}) }}>
       <ZoneLabel title={t("lead.zone.details")} accent={ZONE.details} />
 
       <CompanyTabs tabs={[
@@ -1407,8 +1363,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           {/* About the Person + everything else, stacked full-width */}
           <div className="space-y-5 min-w-0">
 
-            {/* About This Person — Everest renders this in the header trio up top */}
-            {!isEverest && (
+            {/* About This Person */}
             <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
               <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>About This Person</h3>
 
@@ -1588,7 +1543,6 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 </div>
               </div>
             </div>
-            )}
 
             {/* Key notes — notes the seller pinned from the Notes tab */}
             <LeadPinnedNotes leadId={id} />
@@ -1948,6 +1902,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
       </CompanyTabs>
       </section>
+      </div>{/* /flex-order wrapper (Everest) */}
     </div>
   );
 }
