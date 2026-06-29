@@ -521,6 +521,62 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
   const keywords = lead.keywords ? lead.keywords.split(",").map((k: string) => k.trim()).filter(Boolean) : [];
   const technologies: string[] = lead.organization_technologies ?? [];
 
+  // ── Gruppo Everest demo gate ───────────────────────────────────────────────
+  // EVERY change for the cross-selling demo is scoped behind this flag so no
+  // other tenant's lead page is affected. When true we render a focused header
+  // trio (About → Personalized → Account) under the hero and gate the originals
+  // (full Account zone + About-this-person card) off below.
+  const isEverest = (lead as any).company_bio_id === "4ab610c8-e852-4b37-97d7-c41ba19b0d0e";
+  const accountBlock = isEverest && lead.company_name ? (() => {
+    const ourPlay = angle.icp?.solutions_offered || angle.bio?.main_services || null;
+    const valueProp = angle.bio?.value_proposition || angle.icp?.pain_points || null;
+    const website = lead.company_website ? (String(lead.company_website).startsWith("http") ? String(lead.company_website) : `https://${lead.company_website}`) : null;
+    const facts = [
+      { label: "Industry", value: [lead.company_industry, lead.company_sub_industry].filter(Boolean).join(" · ") || null },
+      { label: "Location", value: [lead.company_city, lead.company_country].filter(Boolean).join(", ") || null },
+    ].filter(f => f.value);
+    return (
+      <div className="rounded-2xl border overflow-hidden lift" style={{ backgroundColor: C.card, borderColor: C.border, borderLeft: `3px solid ${ZONE.account}`, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+        <div className="flex items-center gap-4 p-5 pb-4">
+          <div className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${ZONE.account}, color-mix(in srgb, ${ZONE.account} 70%, white))`, color: "#fff" }}>{lead.company_name[0]?.toUpperCase()}</div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted, letterSpacing: "0.1em" }}>Company</p>
+            <p className="text-[17px] font-bold leading-tight" style={{ color: C.textPrimary }}>{lead.company_name}</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Link href={`/companies/${encodeURIComponent(lead.company_name)}`} className="text-xs font-bold flex items-center gap-1 px-3 py-1.5 rounded-lg hover:shadow-sm" style={{ color: ZONE.account, border: `1px solid color-mix(in srgb, ${ZONE.account} 35%, transparent)` }}>View company <ExternalLink size={12} /></Link>
+          </div>
+        </div>
+        {facts.length > 0 && (
+          <div className="grid grid-cols-2 gap-3 px-5 pb-4">
+            {facts.map(f => (
+              <div key={f.label} className="rounded-xl p-3" style={{ backgroundColor: `color-mix(in srgb, ${ZONE.account} 7%, transparent)` }}>
+                <p className="text-[9px] uppercase tracking-wider mb-1" style={{ color: C.textDim }}>{f.label}</p>
+                <p className="text-[13px] font-semibold" style={{ color: C.textBody }}>{f.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        {ourPlay && (
+          <div className="mx-5 mb-4 rounded-xl p-4" style={{ backgroundColor: C.bg, borderLeft: "3px solid #7C3AED" }}>
+            <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: "#7C3AED", letterSpacing: "0.08em" }}>Our play for this industry</p>
+            <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{String(ourPlay).slice(0, 500)}</p>
+          </div>
+        )}
+        {valueProp && (
+          <div className="mx-5 mb-4 rounded-xl p-4" style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 6%, transparent)", border: "1px solid color-mix(in srgb, var(--brand, #c9a83a) 20%, transparent)" }}>
+            <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}><span className="font-bold" style={{ color: gold }}>→ </span>{String(valueProp).slice(0, 320)}</p>
+          </div>
+        )}
+        {website && (
+          <div className="px-5 pb-5 pt-3 border-t" style={{ borderColor: C.border }}>
+            <a href={website} target="_blank" rel="noopener" className="text-xs font-medium hover:underline inline-flex items-center gap-1" style={{ color: C.blue }}>{lead.company_website} <ExternalLink size={10} /></a>
+          </div>
+        )}
+      </div>
+    );
+  })() : null;
+
   return (
     <div className="p-6 w-full fade-in">
 
@@ -828,12 +884,65 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         />
       </div>
 
-      {/* Gruppo Everest (demo): Personalized Info is the headline — render it
-          right under the hero, BEFORE the Pre-Call Brief. Scoped to this tenant
-          only; every other tenant keeps it in its original position below. */}
-      {lead.company_bio_id === "4ab610c8-e852-4b37-97d7-c41ba19b0d0e" && (
+      {/* ═══ Gruppo Everest (demo) — focused header trio under the hero:
+            About this person → Personalized Info (Rooftop) → Account (company).
+            Scoped to this tenant only; the originals are gated OFF below for
+            Everest so nothing duplicates. Every other tenant is untouched. ═══ */}
+      {isEverest && (
         <section className="reveal" style={zoneStyle(ZONE.prep)}>
+          {/* — About this person — */}
+          <div className="rounded-2xl border p-5 mb-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+            <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>About This Person</h3>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex-1 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
+                <p className="uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Role / Title</p>
+                <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{lead.primary_title_role ?? "—"}</p>
+              </div>
+              <div className="p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
+                <p className="uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Seniority</p>
+                <span className="text-xs font-bold px-2.5 py-1 rounded" style={{ backgroundColor: goldLight, color: gold }}>
+                  {lead.primary_seniority?.replace("_", " ").toUpperCase() ?? "—"}
+                </span>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {lead.primary_work_email && (
+                <div className="flex items-start gap-2.5 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
+                  <Mail size={14} style={{ color: C.email, marginTop: 2 }} />
+                  <div className="min-w-0">
+                    <p className="uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Email</p>
+                    <a href={`mailto:${lead.primary_work_email}`} className="text-sm font-medium hover:underline block truncate" style={{ color: C.textBody }}>{lead.primary_work_email}</a>
+                  </div>
+                </div>
+              )}
+              {lead.primary_phone && (
+                <div className="flex items-start gap-2.5 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>
+                  <Phone size={14} style={{ color: C.phone, marginTop: 2 }} />
+                  <div className="min-w-0">
+                    <p className="uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>Mobile</p>
+                    <p className="text-sm font-medium" style={{ color: C.textBody }}>{lead.primary_phone}</p>
+                  </div>
+                </div>
+              )}
+              {isValidLinkedInUrl(lead.primary_linkedin_url as string | null) && (
+                <div className="flex items-start gap-2.5 p-3 rounded-lg min-w-0" style={{ backgroundColor: C.bg }}>
+                  <LinkedInIcon size={14} />
+                  <div className="min-w-0">
+                    <p className="uppercase tracking-wider mb-0.5" style={{ color: C.textDim, fontSize: 10 }}>LinkedIn</p>
+                    <a href={String(lead.primary_linkedin_url)} target="_blank" rel="noopener" className="text-sm font-medium hover:underline flex items-center gap-1 truncate" style={{ color: "#0A66C2" }}>
+                      {String(lead.primary_linkedin_url).replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//, "").replace(/\/$/, "")} <ExternalLink size={11} className="shrink-0" />
+                    </a>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* — Personalized Info (Rooftop Intelligence) — */}
           <PersonalizedInfoPanel enrichment={lead.enrichment} />
+
+          {/* — Account (company) — */}
+          {accountBlock}
         </section>
       )}
 
@@ -850,6 +959,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       />
 
       </section>
+      {!isEverest && (
       <section className="reveal" style={zoneStyle(ZONE.account)}>
       <ZoneLabel title={t("lead.zone.account")} accent={ZONE.account} />
 
@@ -993,6 +1103,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       })()}
 
       </section>
+      )}
       <section className="reveal" style={zoneStyle(ZONE.research)}>
       <ZoneLabel title={t("lead.zone.research")} accent={ZONE.research} />
 
@@ -1296,7 +1407,8 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           {/* About the Person + everything else, stacked full-width */}
           <div className="space-y-5 min-w-0">
 
-            {/* About This Person */}
+            {/* About This Person — Everest renders this in the header trio up top */}
+            {!isEverest && (
             <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
               <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>About This Person</h3>
 
@@ -1476,6 +1588,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                 </div>
               </div>
             </div>
+            )}
 
             {/* Key notes — notes the seller pinned from the Notes tab */}
             <LeadPinnedNotes leadId={id} />
