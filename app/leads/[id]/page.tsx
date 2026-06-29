@@ -889,9 +889,9 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             Scoped to this tenant only; the originals are gated OFF below for
             Everest so nothing duplicates. Every other tenant is untouched. ═══ */}
       {isEverest && (
-        <section className="reveal" style={zoneStyle(ZONE.prep)}>
+        <section className="reveal space-y-6" style={zoneStyle(ZONE.prep)}>
           {/* — About this person — */}
-          <div className="rounded-2xl border p-5 mb-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
+          <div className="rounded-2xl border p-5" style={{ backgroundColor: C.card, borderColor: C.border, boxShadow: "0 4px 20px rgba(0,0,0,0.04)" }}>
             <h3 className="text-xs font-bold uppercase tracking-wider mb-4" style={{ color: C.textMuted }}>About This Person</h3>
             <div className="flex items-center gap-3 mb-4">
               <div className="flex-1 p-3 rounded-lg" style={{ backgroundColor: C.bg }}>

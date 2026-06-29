@@ -1,15 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, ChevronDown, RefreshCw, X, Phone, Globe, MapPin, ExternalLink } from "lucide-react";
+import { Building2, ChevronDown, RefreshCw, X, Phone, Globe, MapPin, ExternalLink, Star, Loader2, Sparkles } from "lucide-react";
 import { C } from "@/lib/design";
 
 export type NearbyCompany = { name: string; address: string | null; phone: string | null; web: string | null };
 
-// Cross-sell panel (Gruppo Everest demo). Shows the businesses around the
-// anchor plant: a button → expandable list → click a company → detail modal.
-// The list is seeded from enrichment.nearby_companies; "Actualizar" re-scrapes
-// live via /api/leads/[id]/nearby-companies (Google Places).
+type RichDetail = {
+  name: string; address: string | null; phone: string | null; web: string | null;
+  rating: number | null; ratingsTotal: number | null; types: string[];
+  photoUrl: string | null; mapsUrl: string | null; businessStatus: string | null;
+};
+
+// Cross-sell panel (Gruppo Everest demo): a prominent button → expandable list
+// of nearby businesses → click a company → it scrapes Google Places live and
+// opens a rich card (photo, name, rating, category, address, phone, web).
 export default function NearbyCompaniesPanel({
   leadId,
   initial,
@@ -22,6 +27,8 @@ export default function NearbyCompaniesPanel({
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [selected, setSelected] = useState<NearbyCompany | null>(null);
+  const [detail, setDetail] = useState<RichDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   async function scrape() {
     if (loading) return;
@@ -35,49 +42,73 @@ export default function NearbyCompaniesPanel({
     finally { setLoading(false); }
   }
 
-  const mapsLink = (c: NearbyCompany) =>
-    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.name + " " + (c.address ?? ""))}`;
+  async function openDetail(c: NearbyCompany) {
+    setSelected(c); setDetail(null); setDetailLoading(true);
+    try {
+      const r = await fetch(`/api/leads/${leadId}/place-detail`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: c.name, address: c.address }),
+      });
+      const d = await r.json();
+      if (r.ok) setDetail(d);
+      else setDetail({ name: c.name, address: c.address, phone: c.phone, web: c.web, rating: null, ratingsTotal: null, types: [], photoUrl: null, mapsUrl: null, businessStatus: null });
+    } catch {
+      setDetail({ name: c.name, address: c.address, phone: c.phone, web: c.web, rating: null, ratingsTotal: null, types: [], photoUrl: null, mapsUrl: null, businessStatus: null });
+    } finally { setDetailLoading(false); }
+  }
+
   const webHref = (w: string) => (w.startsWith("http") ? w : `https://${w}`);
+  const prettyType = (t: string) => t.replace(/_/g, " ").replace(/\b\w/g, m => m.toUpperCase());
+  const teal = "#1A7F74";
 
   return (
-    <div className="mt-4">
-      {/* Trigger row */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => (list.length ? setOpen(o => !o) : scrape())}
-          className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors"
-          style={{ backgroundColor: "color-mix(in srgb, #1A7F74 10%, transparent)", color: "#1A7F74", borderColor: "color-mix(in srgb, #1A7F74 32%, transparent)" }}
-        >
-          <Building2 size={14} />
-          Empresas cercanas para cross-sell{list.length ? ` (${list.length})` : ""}
-          {list.length > 0 && <ChevronDown size={13} style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />}
-        </button>
+    <div className="mt-5">
+      {/* Prominent CTA */}
+      <button
+        onClick={() => (list.length ? setOpen(o => !o) : scrape())}
+        className="group w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-white font-semibold transition-all hover:shadow-lg hover:-translate-y-px"
+        style={{ background: `linear-gradient(135deg, ${teal}, #145F56)`, boxShadow: `0 6px 18px color-mix(in srgb, ${teal} 35%, transparent)` }}
+      >
+        <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(255,255,255,0.18)" }}>
+          <Building2 size={18} />
+        </span>
+        <span className="flex-1 text-left leading-tight">
+          <span className="block text-[14px]">Empresas cercanas para cross-sell</span>
+          <span className="block text-[11px] font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>
+            {list.length ? `${list.length} negocios alrededor de la planta · tocá para ver` : "Escanear el área de la planta"}
+          </span>
+        </span>
+        <Sparkles size={16} className="shrink-0 opacity-80" />
+        {list.length > 0 && <ChevronDown size={16} className="shrink-0" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />}
+      </button>
+
+      <div className="flex items-center gap-3 mt-2">
         <button
           onClick={scrape}
           disabled={loading}
           title="Re-escanear con Google Places"
-          className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-2 rounded-lg border transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-colors disabled:opacity-50"
           style={{ backgroundColor: C.bg, color: C.textMuted, borderColor: C.border }}
         >
           <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-          {loading ? "Buscando…" : "Actualizar"}
+          {loading ? "Escaneando…" : "Actualizar lista"}
         </button>
+        {err && <span className="text-[11px]" style={{ color: C.red }}>{err}</span>}
       </div>
-      {err && <p className="text-[11px] mt-1.5" style={{ color: C.red }}>{err}</p>}
 
       {/* Dropdown list */}
       {open && list.length > 0 && (
-        <div className="mt-2 rounded-xl border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.card }}>
-          <div className="max-h-[320px] overflow-y-auto divide-y" style={{ borderColor: C.border }}>
+        <div className="mt-3 rounded-xl border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.card }}>
+          <div className="max-h-[340px] overflow-y-auto divide-y" style={{ borderColor: C.border }}>
             {list.map((c, i) => (
               <button
                 key={i}
-                onClick={() => setSelected(c)}
+                onClick={() => openDetail(c)}
                 className="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-black/[0.03] transition-colors"
-                style={{ borderColor: C.border }}
               >
                 <span className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
-                  style={{ backgroundColor: "color-mix(in srgb, #1A7F74 12%, transparent)", color: "#1A7F74" }}>
+                  style={{ backgroundColor: `color-mix(in srgb, ${teal} 12%, transparent)`, color: teal }}>
                   {c.name?.[0]?.toUpperCase() ?? "?"}
                 </span>
                 <span className="flex-1 min-w-0">
@@ -95,44 +126,70 @@ export default function NearbyCompaniesPanel({
         </div>
       )}
 
-      {/* Detail modal */}
+      {/* Rich detail modal */}
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.6)", backdropFilter: "blur(3px)" }} onClick={() => setSelected(null)}>
           <div className="w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }} onClick={e => e.stopPropagation()}>
-            <div className="flex items-start gap-3 p-5 pb-4">
-              <span className="w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold shrink-0"
-                style={{ background: "linear-gradient(135deg, #1A7F74, color-mix(in srgb, #1A7F74 70%, white))", color: "#fff" }}>
-                {selected.name?.[0]?.toUpperCase() ?? "?"}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: "#1A7F74" }}>Empresa cercana · cross-sell</p>
-                <p className="text-[17px] font-bold leading-tight" style={{ color: C.textPrimary }}>{selected.name}</p>
-              </div>
-              <button onClick={() => setSelected(null)} className="p-1 rounded hover:bg-black/[0.06]" style={{ color: C.textMuted }}><X size={18} /></button>
+            {/* Cover photo / loading */}
+            <div className="relative h-44 flex items-center justify-center" style={{ backgroundColor: C.bg }}>
+              {detailLoading ? (
+                <div className="flex flex-col items-center gap-2" style={{ color: C.textMuted }}>
+                  <Loader2 size={22} className="animate-spin" />
+                  <span className="text-[11px] font-medium">Trayendo datos de Google…</span>
+                </div>
+              ) : detail?.photoUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={detail.photoUrl} alt={detail.name} className="w-full h-full object-cover" />
+              ) : (
+                <span className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold"
+                  style={{ background: `linear-gradient(135deg, ${teal}, #145F56)`, color: "#fff" }}>
+                  {(detail?.name ?? selected.name)?.[0]?.toUpperCase() ?? "?"}
+                </span>
+              )}
+              <button onClick={() => setSelected(null)} className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)", color: "#fff" }}><X size={16} /></button>
             </div>
-            <div className="px-5 pb-5 space-y-2.5">
-              {selected.address && (
-                <a href={mapsLink(selected)} target="_blank" rel="noopener" className="flex items-start gap-2.5 p-3 rounded-lg hover:underline" style={{ backgroundColor: C.bg, color: C.textBody }}>
-                  <MapPin size={15} style={{ color: "#1A7F74", marginTop: 1 }} />
-                  <span className="text-[13px]">{selected.address}</span>
-                </a>
-              )}
-              {selected.phone && (
-                <a href={`tel:${selected.phone.replace(/\s/g, "")}`} className="flex items-center gap-2.5 p-3 rounded-lg" style={{ backgroundColor: C.bg, color: C.textBody }}>
-                  <Phone size={15} style={{ color: C.phone }} />
-                  <span className="text-[13px] font-medium">{selected.phone}</span>
-                </a>
-              )}
-              {selected.web && (
-                <a href={webHref(selected.web)} target="_blank" rel="noopener" className="flex items-center gap-2.5 p-3 rounded-lg hover:underline" style={{ backgroundColor: C.bg, color: C.blue }}>
-                  <Globe size={15} />
-                  <span className="text-[13px] font-medium truncate">{selected.web}</span>
-                  <ExternalLink size={11} className="shrink-0" />
-                </a>
-              )}
-              <a href={mapsLink(selected)} target="_blank" rel="noopener"
-                className="flex items-center justify-center gap-2 p-2.5 rounded-lg text-[13px] font-semibold mt-1"
-                style={{ backgroundColor: "#1A7F74", color: "#fff" }}>
+
+            <div className="p-5">
+              <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: teal }}>Empresa cercana · cross-sell</p>
+              <p className="text-[18px] font-bold leading-tight" style={{ color: C.textPrimary }}>{detail?.name ?? selected.name}</p>
+
+              {/* rating + category */}
+              <div className="flex items-center flex-wrap gap-2 mt-2">
+                {detail?.rating != null && (
+                  <span className="inline-flex items-center gap-1 text-[12px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#B45309" }}>
+                    <Star size={11} fill="#B45309" stroke="#B45309" /> {detail.rating}{detail.ratingsTotal != null && <span className="font-medium" style={{ color: C.textMuted }}>({detail.ratingsTotal})</span>}
+                  </span>
+                )}
+                {(detail?.types ?? []).filter(t => !["establishment", "point_of_interest"].includes(t)).slice(0, 2).map(t => (
+                  <span key={t} className="text-[10px] font-semibold px-1.5 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${teal} 12%, transparent)`, color: teal }}>{prettyType(t)}</span>
+                ))}
+              </div>
+
+              <div className="space-y-2.5 mt-3">
+                {(detail?.address ?? selected.address) && (
+                  <a href={detail?.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((detail?.name ?? selected.name) + " " + (detail?.address ?? selected.address ?? ""))}`} target="_blank" rel="noopener" className="flex items-start gap-2.5 p-3 rounded-lg hover:underline" style={{ backgroundColor: C.bg, color: C.textBody }}>
+                    <MapPin size={15} style={{ color: teal, marginTop: 1 }} />
+                    <span className="text-[13px]">{detail?.address ?? selected.address}</span>
+                  </a>
+                )}
+                {(detail?.phone ?? selected.phone) && (
+                  <a href={`tel:${(detail?.phone ?? selected.phone ?? "").replace(/\s/g, "")}`} className="flex items-center gap-2.5 p-3 rounded-lg" style={{ backgroundColor: C.bg, color: C.textBody }}>
+                    <Phone size={15} style={{ color: C.phone }} />
+                    <span className="text-[13px] font-medium">{detail?.phone ?? selected.phone}</span>
+                  </a>
+                )}
+                {(detail?.web ?? selected.web) && (
+                  <a href={webHref(detail?.web ?? selected.web ?? "")} target="_blank" rel="noopener" className="flex items-center gap-2.5 p-3 rounded-lg hover:underline" style={{ backgroundColor: C.bg, color: C.blue }}>
+                    <Globe size={15} />
+                    <span className="text-[13px] font-medium truncate">{(detail?.web ?? selected.web ?? "").replace(/^https?:\/\//, "")}</span>
+                    <ExternalLink size={11} className="shrink-0" />
+                  </a>
+                )}
+              </div>
+
+              <a href={detail?.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((detail?.name ?? selected.name))}`} target="_blank" rel="noopener"
+                className="flex items-center justify-center gap-2 p-2.5 rounded-lg text-[13px] font-semibold mt-3"
+                style={{ background: `linear-gradient(135deg, ${teal}, #145F56)`, color: "#fff" }}>
                 <MapPin size={14} /> Abrir en Google Maps
               </a>
             </div>

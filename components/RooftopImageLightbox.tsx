@@ -154,11 +154,12 @@ export default function RooftopImageLightbox({
             </button>
           </div>
 
-          {/* Navigable Google Maps satellite (Everest leads with coordinates) */}
+          {/* Navigable Google Maps satellite (Everest leads with coordinates).
+              Contained card — not full-screen. */}
           {hasMap && (
             <div
-              className="relative rounded-lg overflow-hidden"
-              style={{ width: "90vw", height: "85vh", backgroundColor: "#000" }}
+              className="relative rounded-2xl overflow-hidden shadow-2xl border"
+              style={{ width: "min(880px, 92vw)", height: "min(600px, 78vh)", backgroundColor: "#000", borderColor: "rgba(255,255,255,0.12)" }}
               onClick={e => e.stopPropagation()}
             >
               <iframe
