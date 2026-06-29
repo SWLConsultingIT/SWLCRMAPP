@@ -42,7 +42,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   // 2) Place details.
-  const detUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${resolvedId}&fields=name,formatted_address,formatted_phone_number,international_phone_number,website,rating,user_ratings_total,photos,types,url,business_status&key=${GOOGLE_KEY}`;
+  const detUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${resolvedId}&fields=name,formatted_address,formatted_phone_number,international_phone_number,website,rating,user_ratings_total,photos,types,url,business_status,editorial_summary,price_level,opening_hours&key=${GOOGLE_KEY}`;
   const dRes = await fetch(detUrl, { cache: "no-store" });
   const dData = await dRes.json();
   if (dData.status !== "OK") {
@@ -65,5 +65,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     photoUrl,
     mapsUrl: d.url ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([name, address].filter(Boolean).join(", "))}`,
     businessStatus: d.business_status ?? null,
+    description: d.editorial_summary?.overview ?? null,
+    priceLevel: typeof d.price_level === "number" ? d.price_level : null,
+    openNow: d.opening_hours?.open_now ?? null,
   });
 }
