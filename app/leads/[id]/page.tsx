@@ -828,6 +828,15 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         />
       </div>
 
+      {/* Gruppo Everest (demo): Personalized Info is the headline — render it
+          right under the hero, BEFORE the Pre-Call Brief. Scoped to this tenant
+          only; every other tenant keeps it in its original position below. */}
+      {lead.company_bio_id === "4ab610c8-e852-4b37-97d7-c41ba19b0d0e" && (
+        <section className="reveal" style={zoneStyle(ZONE.prep)}>
+          <PersonalizedInfoPanel enrichment={lead.enrichment} />
+        </section>
+      )}
+
       <section className="reveal" style={zoneStyle(ZONE.prep)}>
       <ZoneLabel title={t("lead.zone.prep")} accent={ZONE.prep} />
 
@@ -1471,8 +1480,11 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             {/* Key notes — notes the seller pinned from the Notes tab */}
             <LeadPinnedNotes leadId={id} />
 
-            {/* Personalized Info — client-specific enrichment (Pathway: credit signals) */}
-            <PersonalizedInfoPanel enrichment={lead.enrichment} />
+            {/* Personalized Info — client-specific enrichment (Pathway: credit signals).
+                Gruppo Everest renders this up top (under the hero) instead, so skip here. */}
+            {lead.company_bio_id !== "4ab610c8-e852-4b37-97d7-c41ba19b0d0e" && (
+              <PersonalizedInfoPanel enrichment={lead.enrichment} />
+            )}
 
             {/* Company Info moved to the Overview flow as a single clickable
                 card (links to /companies/[name]) — removed here to avoid the

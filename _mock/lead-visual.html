@@ -1,0 +1,183 @@
+<title>Lead detail — refinamiento visual</title>
+<style>
+  :root{
+    --bg:#F2F4F9; --card:#FFFFFF; --border:#E8EBF3; --border2:#DFE3EE;
+    --tp:#111827; --tb:#374151; --tm:#6B7280; --td:#9CA3AF;
+    --gold:#c9a83a; --cyan:#0891B2; --violet:#7C3AED; --emerald:#0E9F6E; --blue:#2563EB; --slate:#64748B;
+    --navy:#0B0F1A; --navy2:#141B2E; --navy3:#1F2A44;
+    --shadow-sm:0 1px 2px rgba(16,24,40,.04);
+    --shadow-md:0 1px 2px rgba(16,24,40,.04), 0 10px 28px -12px rgba(16,24,40,.16);
+    --shadow-lg:0 2px 4px rgba(16,24,40,.05), 0 24px 48px -20px rgba(11,15,26,.28);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:var(--tb);-webkit-font-smoothing:antialiased;padding:28px 16px 64px}
+  .wrap{max-width:920px;margin:0 auto}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--tm);margin:0 auto 22px;max-width:920px;padding:14px 18px;background:#fff;border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow-sm)}
+  .legend b{color:var(--tp)}
+  .legend .k{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:8px;height:8px;border-radius:9px;display:inline-block}
+
+  /* ---------- HERO: navy, breaks the white ---------- */
+  .hero{position:relative;border-radius:20px;overflow:hidden;background:
+      radial-gradient(120% 140% at 100% 0%, rgba(201,168,58,.18), transparent 42%),
+      linear-gradient(160deg,#10182B 0%, #0B0F1A 70%);
+      box-shadow:var(--shadow-lg);padding:26px 28px;color:#EAEEF6;margin-bottom:26px}
+  .hero .rail{position:absolute;left:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,var(--gold),color-mix(in srgb,var(--gold) 50%,transparent))}
+  .hrow{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+  .avatar{width:62px;height:62px;border-radius:18px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:22px;color:#0B0F1A;background:linear-gradient(135deg,var(--gold),#e3c969);box-shadow:0 8px 24px rgba(201,168,58,.35)}
+  .hname{font-size:23px;font-weight:700;letter-spacing:-.02em;color:#fff;line-height:1.1}
+  .hrole{font-size:13.5px;color:#AEB8CC;margin-top:3px}
+  .hco{font-size:13px;color:var(--gold);margin-top:7px;display:inline-flex;align-items:center;gap:6px;font-weight:600}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+  .chip{font-size:11px;font-weight:600;padding:5px 11px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#D7DEEC;display:inline-flex;align-items:center;gap:6px}
+  .chip.hot{background:rgba(201,168,58,.16);border-color:rgba(201,168,58,.4);color:#F0DC9C}
+  .ring{margin-left:auto;text-align:center;flex:0 0 auto}
+  .ring .n{font-size:30px;font-weight:800;color:#fff;line-height:1}
+  .ring .l{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#8E9AB4;margin-top:3px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:rgba(255,255,255,.09);border-radius:14px;overflow:hidden;margin-top:22px}
+  .stat{background:rgba(255,255,255,.03);padding:13px 16px}
+  .stat .v{font-size:19px;font-weight:700;color:#fff}
+  .stat .l{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#8E9AB4;margin-top:2px}
+
+  /* ---------- ZONE: tonal wash, grouped region (not a white box) ---------- */
+  .zone{border-radius:20px;padding:20px 22px 22px;margin-bottom:18px}
+  .zlabel{display:flex;align-items:center;gap:11px;margin-bottom:15px}
+  .zbar{width:6px;height:19px;border-radius:99px}
+  .ztitle{font-size:13px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--tp)}
+  .zline{flex:1;height:1px}
+
+  /* primary card inside a zone = clean white, soft layered shadow */
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow-md)}
+  /* secondary content = OPEN, no box — flat tinted inset tiles */
+  .eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+  .h3{font-size:16px;font-weight:700;color:var(--tp);letter-spacing:-.01em}
+  .body{font-size:13.5px;line-height:1.6;color:var(--tb)}
+  .muted{color:var(--tm)}
+
+  /* fact tiles — flat, tinted, borderless: stop the white-box pileup */
+  .facts{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .fact{background:rgba(8,145,178,.06);border-radius:12px;padding:11px 13px}
+  .fact .l{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--td);margin-bottom:3px}
+  .fact .v{font-size:13.5px;font-weight:650;color:var(--tp)}
+
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .panel{border-radius:12px;padding:14px 15px}
+  .tag{font-size:11px;font-weight:600;padding:3px 9px;border-radius:7px;display:inline-block}
+
+  .brief-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .bcard{background:#fff;border:1px solid var(--border);border-radius:13px;padding:14px 15px;box-shadow:var(--shadow-sm);border-top:2px solid var(--gold)}
+  .pill{display:inline-block;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:6px;margin-bottom:8px}
+
+  @media(max-width:720px){.facts{grid-template-columns:repeat(2,1fr)}.split,.brief-grid{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.ring{margin-left:0}}
+</style>
+
+<div class="legend">
+  <span class="k"><b>Qué cambió:</b></span>
+  <span class="k"><span class="dot" style="background:var(--navy)"></span> Hero <b>navy</b> (rompe el blanco)</span>
+  <span class="k"><span class="dot" style="background:var(--cyan)"></span> Zonas con <b>fondo tonal</b>, no cajas blancas</span>
+  <span class="k"><span class="dot" style="background:#fff;border:1px solid var(--border)"></span> Card blanca solo para lo principal</span>
+  <span class="k"><b>Tiles planos</b> tintados en vez de más cajas</span>
+</div>
+
+<div class="wrap">
+
+  <!-- HERO -->
+  <div class="hero">
+    <span class="rail"></span>
+    <div class="hrow">
+      <div class="avatar">MR</div>
+      <div style="min-width:0">
+        <div class="hname">María Fernanda Restrepo</div>
+        <div class="hrole">Head of Operations</div>
+        <div class="hco">▢ Constructora Bolívar · Bogotá ↗</div>
+        <div class="chips">
+          <span class="chip" style="background:rgba(14,159,110,.18);border-color:rgba(14,159,110,.4);color:#8FE3C2">● REPLIED · POSITIVE</span>
+          <span class="chip hot">★ HOT LEAD</span>
+          <span class="chip">🕐 09:42 local · Bogotá <span class="dot" style="background:#0E9F6E"></span></span>
+          <span class="chip">Added 12 Jun · Lucas L.</span>
+        </div>
+      </div>
+      <div class="ring">
+        <div class="n">87</div>
+        <div class="l">Score</div>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="v">14</div><div class="l">Mensajes</div></div>
+      <div class="stat"><div class="v">3</div><div class="l">Respuestas</div></div>
+      <div class="stat"><div class="v">1</div><div class="l">Positivas</div></div>
+      <div class="stat"><div class="v">2 / 5</div><div class="l">Paso campaña</div></div>
+    </div>
+  </div>
+
+  <!-- ZONE: Pre-call prep (gold wash) -->
+  <div class="zone" style="background:linear-gradient(180deg,rgba(201,168,58,.07),rgba(201,168,58,.02) 60%,transparent)">
+    <div class="zlabel">
+      <span class="zbar" style="background:linear-gradient(180deg,var(--gold),#e3c969)"></span>
+      <span class="ztitle">Pre-call prep</span>
+      <span class="zline" style="background:linear-gradient(90deg,rgba(201,168,58,.4),transparent)"></span>
+    </div>
+    <div class="brief-grid">
+      <div class="bcard"><span class="pill" style="background:rgba(201,168,58,.14);color:#9a7d18">The read · pain</span><div class="body">Equipos de obra coordinan por WhatsApp y planillas; los reportes de avance llegan tarde y descoordinados entre frentes.</div></div>
+      <div class="bcard"><span class="pill" style="background:rgba(201,168,58,.14);color:#9a7d18">The play · hook</span><div class="body">"Vi que están en plena expansión de proyectos en Bogotá — ¿cómo consolidan hoy el avance diario de cada obra?"</div></div>
+    </div>
+  </div>
+
+  <!-- ZONE: Account (cyan wash) -->
+  <div class="zone" style="background:linear-gradient(180deg,rgba(8,145,178,.06),rgba(8,145,178,.015) 60%,transparent)">
+    <div class="zlabel">
+      <span class="zbar" style="background:linear-gradient(180deg,var(--cyan),#3bb6d4)"></span>
+      <span class="ztitle">Account</span>
+      <span class="zline" style="background:linear-gradient(90deg,rgba(8,145,178,.35),transparent)"></span>
+    </div>
+
+    <!-- ONE primary card, then OPEN content -->
+    <div class="card" style="border-left:3px solid var(--cyan);overflow:hidden">
+      <div style="display:flex;align-items:center;gap:14px;padding:18px 20px 14px">
+        <div style="width:46px;height:46px;border-radius:13px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:18px;background:linear-gradient(135deg,var(--cyan),#3bb6d4)">C</div>
+        <div style="flex:1;min-width:0">
+          <div class="eyebrow muted" style="color:var(--cyan)">Company</div>
+          <div class="h3" style="margin-top:2px">Constructora Bolívar</div>
+        </div>
+        <a style="font-size:12px;font-weight:700;color:var(--cyan);border:1px solid rgba(8,145,178,.35);padding:7px 13px;border-radius:10px;text-decoration:none">View company ↗</a>
+      </div>
+      <div style="padding:0 20px 16px"><div class="facts">
+        <div class="fact"><div class="l">Industry</div><div class="v">Construcción · Real Estate</div></div>
+        <div class="fact"><div class="l">Location</div><div class="v">Bogotá, CO</div></div>
+        <div class="fact"><div class="l">Employees</div><div class="v">1,200</div></div>
+        <div class="fact"><div class="l">Revenue</div><div class="v">$420M</div></div>
+      </div></div>
+      <div style="padding:0 20px 18px"><div class="split">
+        <div class="panel" style="background:rgba(8,145,178,.06);border-left:3px solid var(--cyan)"><div class="eyebrow" style="color:var(--cyan);margin-bottom:6px">What they do</div><div class="body">Desarrolladora de vivienda y proyectos comerciales, líder en Colombia con operación multi-ciudad.</div></div>
+        <div class="panel" style="background:rgba(124,58,237,.06);border-left:3px solid var(--violet)"><div class="eyebrow" style="color:var(--violet);margin-bottom:6px">Our play for this industry</div><div class="body">Automatización de reportería de obra + consolidación de avance entre frentes en un solo panel.</div></div>
+      </div></div>
+      <div style="padding:14px 20px;background:rgba(201,168,58,.05);border-top:1px solid var(--border)"><div class="body"><b style="color:var(--gold)">→ </b>Menos tiempo armando reportes manuales, decisiones de obra en tiempo real.</div></div>
+    </div>
+
+    <!-- OPEN content (no box) — conversation starter sits on the wash -->
+    <div style="margin-top:16px">
+      <div class="eyebrow" style="color:var(--cyan);margin-bottom:9px">Conversation starters · what they posted</div>
+      <div style="display:flex;gap:11px;align-items:flex-start">
+        <span class="tag" style="background:rgba(8,145,178,.12);color:var(--cyan)">LinkedIn</span>
+        <div class="body" style="flex:1">"Orgullosos de entregar la torre norte de nuestro proyecto en Chía — 280 familias nuevas. 🏗️"</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ZONE: Research + Copilot teaser (violet / emerald) -->
+  <div class="zone" style="background:linear-gradient(180deg,rgba(124,58,237,.055),transparent 70%)">
+    <div class="zlabel">
+      <span class="zbar" style="background:linear-gradient(180deg,var(--violet),#a06ff0)"></span>
+      <span class="ztitle">Research</span>
+      <span class="zline" style="background:linear-gradient(90deg,rgba(124,58,237,.32),transparent)"></span>
+    </div>
+    <div class="card" style="border-left:3px solid var(--violet);padding:18px 20px">
+      <div style="display:flex;align-items:center;gap:11px;margin-bottom:11px">
+        <div style="width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--violet),#a06ff0);color:#fff">✦</div>
+        <div><div class="h3" style="font-size:15px">Deep-dive research</div><div class="eyebrow muted" style="font-weight:600;letter-spacing:.02em;text-transform:none">Generado hace 2h</div></div>
+      </div>
+      <div class="body muted">Company deep-dive · Why now · Account strategy · Suggested sequence · Watch-outs…</div>
+    </div>
+  </div>
+
+</div>

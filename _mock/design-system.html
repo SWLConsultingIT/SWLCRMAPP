@@ -1,0 +1,177 @@
+<title>Sistema de cards + colores — CRM</title>
+<style>
+  :root{
+    --bg:#F7F8FB; --card:#FFFFFF; --border:#E8EBF3; --border2:#DFE3EE;
+    --tp:#111827; --tb:#374151; --tm:#6B7280; --td:#9CA3AF;
+    --gold:#c9a83a; --green:#16A34A; --red:#DC2626; --amber:#D97706; --blue:#2563EB;
+    --cyan:#0891B2; --violet:#7C3AED; --emerald:#0E9F6E; --slate:#64748B;
+    /* LAS 2 ÚNICAS sombras */
+    --rest:0 1px 2px rgba(16,24,40,.04), 0 8px 24px -12px rgba(16,24,40,.12);
+    --lift:0 2px 4px rgba(16,24,40,.05), 0 16px 32px -16px rgba(16,24,40,.20);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;color:var(--tb);-webkit-font-smoothing:antialiased;padding:32px 20px 80px;line-height:1.5}
+  .wrap{max-width:960px;margin:0 auto}
+  h1{font-size:26px;font-weight:800;color:var(--tp);letter-spacing:-.02em}
+  .sub{color:var(--tm);font-size:14px;margin-top:4px;margin-bottom:28px}
+  .sec{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--tp);display:flex;align-items:center;gap:10px;margin:34px 0 14px}
+  .sec::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--border2),transparent)}
+  .grid{display:grid;gap:14px}
+  .g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}.g4{grid-template-columns:repeat(4,1fr)}
+  .note{font-size:12px;color:var(--tm);margin-top:8px}
+  .bad{color:var(--red);font-weight:700}.good{color:var(--green);font-weight:700}
+
+  /* ===== CARD CANÓNICA ===== */
+  .card{background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--rest);padding:20px}
+  .card.rail{border-left:3px solid var(--accent,var(--gold))}
+  .eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tm)}
+  .ctitle{font-size:15px;font-weight:700;color:var(--tp);letter-spacing:-.01em;margin-top:2px}
+  .cbody{font-size:13.5px;color:var(--tb);margin-top:8px}
+  /* tile interno (sub-card): radio menor, sin sombra */
+  .tile{background:var(--bg);border-radius:12px;padding:12px 14px}
+  .tile .l{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--td)}
+  .tile .v{font-size:14px;font-weight:650;color:var(--tp);margin-top:2px}
+
+  .swatch{height:54px;border-radius:12px;display:flex;align-items:flex-end;padding:8px;color:#fff;font-size:11px;font-weight:700}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px}
+  .radius-demo{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
+  .rb{background:#fff;border:1px solid var(--border);box-shadow:var(--rest);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--tm);font-weight:600}
+
+  /* botones */
+  .btn{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:650;padding:9px 16px;border-radius:10px;border:1px solid transparent;cursor:default}
+  .btn-solid{background:linear-gradient(135deg,var(--gold),#d8bd5a);color:#1a1505}
+  .btn-soft{background:color-mix(in srgb,var(--gold) 12%,transparent);color:#8a6f12}
+  .btn-ghost{background:#fff;border-color:var(--border);color:var(--tb)}
+  .btn-danger{background:color-mix(in srgb,var(--red) 10%,transparent);color:var(--red);border-color:color-mix(in srgb,var(--red) 25%,transparent)}
+
+  .ba{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .ba .label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
+  /* "antes": inconsistente */
+  .old1{background:#fff;border:1px solid #e5e5e5;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,.04);padding:14px}
+  .old2{background:#fafafa;border:1px solid #ddd;border-radius:18px;box-shadow:0 20px 60px rgba(0,0,0,.18);padding:18px;margin-top:10px}
+  .old3{background:#fff;border:2px solid #eee;border-radius:12px;box-shadow:none;padding:10px;margin-top:10px}
+  @media(max-width:760px){.g2,.g3,.g4,.ba{grid-template-columns:1fr}}
+</style>
+
+<div class="wrap">
+  <h1>Sistema de cards + colores</h1>
+  <p class="sub">Un solo lenguaje para todas las views. Consistente, legible, prolijo. Esto reemplaza las +12 sombras distintas y los 6 radios mezclados que hay hoy.</p>
+
+  <!-- CARD -->
+  <div class="sec">La card canónica</div>
+  <div class="grid g3">
+    <div class="card">
+      <p class="eyebrow">Card base</p>
+      <p class="ctitle">Título de la card</p>
+      <p class="cbody">Radio 16px · borde 1px · UNA sombra suave · padding 20px. Todas iguales.</p>
+    </div>
+    <div class="card rail" style="--accent:var(--cyan)">
+      <p class="eyebrow" style="color:var(--cyan)">Con riel de acento</p>
+      <p class="ctitle">Sección temática</p>
+      <p class="cbody">Mismo card + un riel fino de 3px al costado para identificar la sección.</p>
+    </div>
+    <div class="card">
+      <p class="eyebrow">Tiles internos</p>
+      <div class="grid g2" style="margin-top:8px">
+        <div class="tile"><div class="l">Empleados</div><div class="v">1.200</div></div>
+        <div class="tile"><div class="l">Revenue</div><div class="v">$420M</div></div>
+      </div>
+      <p class="note">Sub-cards: radio 12px, fondo gris, sin sombra.</p>
+    </div>
+  </div>
+
+  <!-- RADIOS + SOMBRAS -->
+  <div class="sec">Radios (4 únicos) · Sombras (2 únicas)</div>
+  <div class="grid g2">
+    <div class="card">
+      <p class="eyebrow" style="margin-bottom:12px">Escala de radios</p>
+      <div class="radius-demo">
+        <div class="rb" style="width:64px;height:48px;border-radius:8px">8<br>chips/inputs</div>
+        <div class="rb" style="width:64px;height:48px;border-radius:12px">12<br>tiles</div>
+        <div class="rb" style="width:64px;height:48px;border-radius:16px">16<br>cards</div>
+        <div class="rb" style="width:48px;height:48px;border-radius:999px">∞<br>pills</div>
+      </div>
+      <p class="note"><span class="bad">Hoy:</span> rounded-lg/md/xl/2xl/sm mezclados (~2.400 usos, 6 valores).</p>
+    </div>
+    <div class="card">
+      <p class="eyebrow" style="margin-bottom:12px">Sombras</p>
+      <div style="display:flex;gap:18px">
+        <div style="flex:1;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--rest);padding:14px;font-size:12px;font-weight:650;color:var(--tp)">Rest<br><span style="color:var(--tm);font-weight:400">reposo</span></div>
+        <div style="flex:1;background:#fff;border:1px solid var(--border);border-radius:12px;box-shadow:var(--lift);padding:14px;font-size:12px;font-weight:650;color:var(--tp)">Lift<br><span style="color:var(--tm);font-weight:400">hover</span></div>
+      </div>
+      <p class="note"><span class="bad">Hoy:</span> +12 strings de sombra distintas hardcodeadas.</p>
+    </div>
+  </div>
+
+  <!-- COLORES -->
+  <div class="sec">Colores — significado fijo</div>
+  <div class="card">
+    <p class="eyebrow" style="margin-bottom:10px">Marca + semánticos (estado)</p>
+    <div class="grid g4">
+      <div><div class="swatch" style="background:var(--gold)">Gold</div><p class="note">Marca · acción primaria</p></div>
+      <div><div class="swatch" style="background:var(--green)">Green</div><p class="note">Positivo · ganado</p></div>
+      <div><div class="swatch" style="background:var(--red)">Red</div><p class="note">Negativo · perdido · peligro</p></div>
+      <div><div class="swatch" style="background:var(--amber)">Amber</div><p class="note">Aviso · pendiente</p></div>
+    </div>
+    <p class="eyebrow" style="margin:18px 0 10px">Acentos por sección (solo en rieles/labels, nunca como relleno)</p>
+    <div class="grid g4">
+      <div><div class="swatch" style="background:var(--cyan)">Cyan</div><p class="note">Account/Empresa</p></div>
+      <div><div class="swatch" style="background:var(--violet)">Violet</div><p class="note">Research</p></div>
+      <div><div class="swatch" style="background:var(--emerald)">Emerald</div><p class="note">Copilot</p></div>
+      <div><div class="swatch" style="background:var(--blue)">Blue</div><p class="note">Campaña · info/links</p></div>
+    </div>
+  </div>
+
+  <!-- TEXTO -->
+  <div class="sec">Jerarquía de texto (legibilidad)</div>
+  <div class="card">
+    <p style="font-size:18px;font-weight:700;color:var(--tp)">Título — textPrimary #111827</p>
+    <p style="font-size:14px;color:var(--tb);margin-top:6px">Cuerpo — textBody #374151. Es el color de lectura por defecto, buen contraste.</p>
+    <p style="font-size:13px;color:var(--tm);margin-top:6px">Secundario — textMuted #6B7280. Subtítulos, metadatos.</p>
+    <p style="font-size:11px;color:var(--td);margin-top:6px;text-transform:uppercase;letter-spacing:.08em">Label tenue — textDim #9CA3AF</p>
+    <p class="note"><span class="bad">Hoy:</span> aparecen hex sueltos (#155E75, #5B21B6…) que se rompen en dark mode. <span class="good">Regla:</span> siempre tokens.</p>
+  </div>
+
+  <!-- BOTONES + BADGES -->
+  <div class="sec">Botones · Badges</div>
+  <div class="grid g2">
+    <div class="card">
+      <p class="eyebrow" style="margin-bottom:12px">Botones (4 variantes, misma altura)</p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <span class="btn btn-solid">Primaria</span>
+        <span class="btn btn-soft">Suave</span>
+        <span class="btn btn-ghost">Ghost</span>
+        <span class="btn btn-danger">Peligro</span>
+      </div>
+      <p class="note"><span class="bad">Hoy:</span> cada botón con color/padding propio inline.</p>
+    </div>
+    <div class="card">
+      <p class="eyebrow" style="margin-bottom:12px">Badges (pill, color semántico)</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span class="chip" style="background:color-mix(in srgb,var(--green) 14%,transparent);color:var(--green)">● Positivo</span>
+        <span class="chip" style="background:color-mix(in srgb,var(--red) 12%,transparent);color:var(--red)">● Negativo</span>
+        <span class="chip" style="background:color-mix(in srgb,var(--amber) 14%,transparent);color:var(--amber)">● Pendiente</span>
+        <span class="chip" style="background:color-mix(in srgb,var(--gold) 16%,transparent);color:#8a6f12">★ Hot</span>
+      </div>
+      <p class="note">Mismo radio, mismo tamaño, color = significado.</p>
+    </div>
+  </div>
+
+  <!-- ANTES / DESPUÉS -->
+  <div class="sec">Antes → Después</div>
+  <div class="ba">
+    <div>
+      <p class="label bad">Antes (cada card distinta)</p>
+      <div class="old1"><b style="color:#111">Card A</b><div style="font-size:12px;color:#777;margin-top:4px">radio 8, sombra fuerte rara</div></div>
+      <div class="old2"><b style="color:#111">Card B</b><div style="font-size:12px;color:#777;margin-top:4px">radio 18, sombra de modal, fondo gris</div></div>
+      <div class="old3"><b style="color:#111">Card C</b><div style="font-size:12px;color:#777;margin-top:4px">radio 12, borde 2px, sin sombra</div></div>
+    </div>
+    <div>
+      <p class="label good">Después (mismo lenguaje)</p>
+      <div class="card" style="padding:14px"><b style="color:var(--tp)">Card A</b><div class="note">16 · borde 1px · sombra rest</div></div>
+      <div class="card" style="padding:14px;margin-top:10px"><b style="color:var(--tp)">Card B</b><div class="note">16 · borde 1px · sombra rest</div></div>
+      <div class="card rail" style="padding:14px;margin-top:10px;--accent:var(--cyan)"><b style="color:var(--tp)">Card C</b><div class="note">+ riel cyan si es sección</div></div>
+    </div>
+  </div>
+
+</div>

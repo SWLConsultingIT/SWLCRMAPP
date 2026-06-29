@@ -104,6 +104,10 @@ const ROOFTOP_KEYS = new Set([
   "proposed_system_kwp", "estimated_savings_pct_year1", "co2_offset_tons_year",
   "payback_months", "cer_eligible", "transizione_5_0_eligible",
   "ai_outreach_angle",
+  // Structural / consumed-elsewhere keys — kept out of the generic "Additional"
+  // bucket so they don't render as raw text. lat/lng drive the map; the
+  // nearby-companies array is the cross-sell list (rendered by its own section).
+  "rooftop_lat", "rooftop_lng", "nearby_companies",
 ]);
 
 function formatRooftopValue(key: string, value: unknown): string {
@@ -150,6 +154,8 @@ function RooftopSection({ data }: { data: Record<string, unknown> }) {
           <RooftopImageLightbox
             photoUrl={photoUrl}
             alt={hasSolar ? "Rooftop with solar panels" : "Rooftop without solar panels"}
+            lat={typeof data.rooftop_lat === "number" ? data.rooftop_lat : null}
+            lng={typeof data.rooftop_lng === "number" ? data.rooftop_lng : null}
           />
         )}
         <div className="flex-1 flex flex-col justify-between gap-3">

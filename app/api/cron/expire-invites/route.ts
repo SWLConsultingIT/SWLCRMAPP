@@ -180,13 +180,9 @@ export async function GET(req: NextRequest) {
       .eq("id", (row as any).id);
   }
 
-  // Split: a multichannel flow with remaining NON-LinkedIn steps (call/email at
-  // index >= current_step) must NOT be killed when the LinkedIn invite expires —
-  // the lead can still be called/emailed (boss 2026-06-09: 22 PE-USA leads the
-  // seller wanted to CALL got dumped into Lost because the cron completed the
-  // whole flow on invite_expired). For those, we still withdraw the stale invite
-  // + suppress LinkedIn (done above/below), but keep the campaign active and the
-  // lead open. Only flows with no actionable non-LinkedIn step left get closed.
+  // Split 1: multichannel flows with remaining non-LinkedIn steps stay alive — the
+  // lead can still be called/emailed. Only flows with no actionable non-LinkedIn
+  // step left are candidates for closure.
   const hasRemainingNonLinkedIn = (row: any): boolean => {
     const camp = Array.isArray(row.campaigns) ? row.campaigns[0] : row.campaigns;
     const steps: Array<{ channel?: string }> = Array.isArray(camp?.sequence_steps) ? camp.sequence_steps : [];
@@ -196,11 +192,28 @@ export async function GET(req: NextRequest) {
   const deadRows = expirable.filter(r => !hasRemainingNonLinkedIn(r));
   const aliveRows = expirable.filter(hasRemainingNonLinkedIn);
 
-  const campaignIds = [...new Set(deadRows.map((r: any) => r.campaign_id))];
-  const leadIds = [...new Set(deadRows.map((r: any) => r.lead_id))];
-  const aliveCount = new Set(aliveRows.map((r: any) => r.campaign_id)).size;
+  // Split 2 (boss 2026-06-23): within deadRows, only mark the lead closed_lost if
+  // ALL flow steps have been dispatched (current_step reached the last step).
+  // When a LinkedIn-only flow's invite expires but the DM steps were never sent
+  // (because acceptance never came), the lead still has unreached steps — closing
+  // it as lost burns good leads. The campaign closes (invite is genuinely dead),
+  // but the lead stays open in the pipeline so the seller can decide what to do.
+  const allStepsExhausted = (row: any): boolean => {
+    const camp = Array.isArray(row.campaigns) ? row.campaigns[0] : row.campaigns;
+    const steps: Array<unknown> = Array.isArray(camp?.sequence_steps) ? camp.sequence_steps : [];
+    const cur = camp?.current_step ?? 0;
+    return steps.length === 0 || cur >= steps.length - 1;
+  };
+  const exhaustedRows = deadRows.filter(allStepsExhausted);
+  const stuckRows = deadRows.filter(r => !allStepsExhausted(r));
 
-  // 1. Mark only the truly-dead campaigns completed with stop_reason.
+  const campaignIds = [...new Set(deadRows.map((r: any) => r.campaign_id))];
+  const exhaustedLeadIds = [...new Set(exhaustedRows.map((r: any) => r.lead_id))];
+  const aliveCount = new Set(aliveRows.map((r: any) => r.campaign_id)).size;
+  const stuckCount = new Set(stuckRows.map((r: any) => r.campaign_id)).size;
+
+  // 1. Mark all dead campaigns (exhausted + stuck) completed. The invite is gone
+  //    regardless — no point keeping the campaign active.
   if (campaignIds.length > 0) {
     await svc
       .from("campaigns")
@@ -208,19 +221,18 @@ export async function GET(req: NextRequest) {
       .in("id", campaignIds);
   }
 
-  // 2. Soft-archive only those leads. Multichannel-alive leads stay open so the
-  //    seller can still call/email them.
-  if (leadIds.length > 0) {
+  // 2. Only archive leads whose flow steps were fully exhausted. Stuck leads
+  //    (invite expired but DM steps never sent) stay open in the pipeline.
+  if (exhaustedLeadIds.length > 0) {
     await svc
       .from("leads")
       .update({ status: "closed_lost", archived: true })
-      .in("id", leadIds);
+      .in("id", exhaustedLeadIds);
   }
 
-  // 3. Suppress LinkedIn for 90 days on EVERY expirable lead (the invite was
-  //    withdrawn regardless), so we don't re-invite — but for multichannel-alive
-  //    leads the call/email steps keep running. Channel-scoped, so it doesn't
-  //    block other channels.
+  // 3. Suppress LinkedIn for 90 days on EVERY expirable lead (invite withdrawn
+  //    regardless), so we don't re-invite. For multichannel-alive and stuck leads
+  //    this only blocks the LinkedIn channel — other channels keep running.
   const allExpirableLeadIds = [...new Set(expirable.map((r: any) => r.lead_id))];
   const suppressionRows = allExpirableLeadIds.map(leadId => ({
     lead_id: leadId,
@@ -237,8 +249,9 @@ export async function GET(req: NextRequest) {
     scanned: candidates?.length ?? 0,
     expired: expirable.length,
     campaignsClosed: campaignIds.length,
-    leadsArchived: leadIds.length,
+    leadsArchived: exhaustedLeadIds.length,
     multichannelKeptAlive: aliveCount,
+    inviteExpiredStepsRemaining: stuckCount,
     withdrawn: withdrawnCount,
     alreadyGone: alreadyGoneCount,
     withdrawFailed: withdrawFailedCount,

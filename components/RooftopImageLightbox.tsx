@@ -6,10 +6,21 @@ import { ZoomIn, ZoomOut, X, Maximize2 } from "lucide-react";
 export default function RooftopImageLightbox({
   photoUrl,
   alt,
+  lat,
+  lng,
 }: {
   photoUrl: string;
   alt: string;
+  // When coordinates are present (Gruppo Everest leads carry rooftop_lat/lng),
+  // the lightbox opens a NAVIGABLE Google Maps satellite view instead of a
+  // static zoom image — pan/zoom the real rooftop + surroundings. No API key
+  // needed (classic ?output=embed). Falls back to the image viewer otherwise.
+  lat?: number | null;
+  lng?: number | null;
 }) {
+  const hasMap = typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng);
+  const mapEmbed = hasMap ? `https://maps.google.com/maps?q=${lat},${lng}&t=k&z=18&hl=es&output=embed` : null;
+  const mapLink  = hasMap ? `https://www.google.com/maps/@${lat},${lng},19z/data=!3m1!1e3` : null;
   const [open, setOpen]   = useState(false);
   const [zoom, setZoom]   = useState(1);
   const [pos, setPos]     = useState({ x: 0, y: 0 });
@@ -87,7 +98,7 @@ export default function RooftopImageLightbox({
           className="absolute bottom-1.5 right-1.5 inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-1 rounded"
           style={{ backgroundColor: "rgba(0,0,0,0.55)", color: "#fff" }}
         >
-          <Maximize2 size={10} /> Ver
+          <Maximize2 size={10} /> {hasMap ? "Ver mapa" : "Ver"}
         </span>
       </button>
 
@@ -103,23 +114,37 @@ export default function RooftopImageLightbox({
             className="absolute top-4 right-4 flex items-center gap-2 z-10"
             onClick={e => e.stopPropagation()}
           >
-            <button
-              onClick={() => setZoom(z => clampZoom(z - 0.25))}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-white hover:bg-white/10 transition-colors"
-              title="Alejar (–)"
-            >
-              <ZoomOut size={16} />
-            </button>
-            <span className="text-xs font-bold text-white/70 w-10 text-center select-none">
-              {Math.round(zoom * 100)}%
-            </span>
-            <button
-              onClick={() => setZoom(z => clampZoom(z + 0.25))}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-white hover:bg-white/10 transition-colors"
-              title="Acercar (+)"
-            >
-              <ZoomIn size={16} />
-            </button>
+            {hasMap ? (
+              <a
+                href={mapLink!}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 h-8 rounded-lg text-white hover:bg-white/10 transition-colors"
+                title="Abrir en Google Maps"
+              >
+                Abrir en Google Maps
+              </a>
+            ) : (
+              <>
+                <button
+                  onClick={() => setZoom(z => clampZoom(z - 0.25))}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white hover:bg-white/10 transition-colors"
+                  title="Alejar (–)"
+                >
+                  <ZoomOut size={16} />
+                </button>
+                <span className="text-xs font-bold text-white/70 w-10 text-center select-none">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <button
+                  onClick={() => setZoom(z => clampZoom(z + 0.25))}
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white hover:bg-white/10 transition-colors"
+                  title="Acercar (+)"
+                >
+                  <ZoomIn size={16} />
+                </button>
+              </>
+            )}
             <button
               onClick={closeLightbox}
               className="w-8 h-8 rounded-lg flex items-center justify-center text-white hover:bg-white/10 transition-colors ml-2"
@@ -129,8 +154,26 @@ export default function RooftopImageLightbox({
             </button>
           </div>
 
+          {/* Navigable Google Maps satellite (Everest leads with coordinates) */}
+          {hasMap && (
+            <div
+              className="relative rounded-lg overflow-hidden"
+              style={{ width: "90vw", height: "85vh", backgroundColor: "#000" }}
+              onClick={e => e.stopPropagation()}
+            >
+              <iframe
+                title={alt}
+                src={mapEmbed!}
+                style={{ width: "100%", height: "100%", border: 0 }}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                allowFullScreen
+              />
+            </div>
+          )}
+
           {/* Reset zoom hint */}
-          {zoom > 1 && (
+          {!hasMap && zoom > 1 && (
             <button
               className="absolute bottom-4 left-1/2 -translate-x-1/2 text-xs text-white/50 hover:text-white/80 transition-colors"
               onClick={e => { e.stopPropagation(); setZoom(1); setPos({ x: 0, y: 0 }); }}
@@ -139,7 +182,8 @@ export default function RooftopImageLightbox({
             </button>
           )}
 
-          {/* Image container */}
+          {/* Image container (static-photo fallback when no coordinates) */}
+          {!hasMap && (
           <div
             ref={containerRef}
             className="relative overflow-hidden"
@@ -173,9 +217,10 @@ export default function RooftopImageLightbox({
               }}
             />
           </div>
+          )}
 
           {/* Scroll hint */}
-          {zoom === 1 && (
+          {!hasMap && zoom === 1 && (
             <p className="absolute bottom-4 left-1/2 -translate-x-1/2 text-[11px] text-white/40 select-none pointer-events-none">
               Scroll para hacer zoom · arrastrá para mover · Esc para cerrar
             </p>
