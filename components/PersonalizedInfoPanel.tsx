@@ -7,7 +7,7 @@ import NearbyCompaniesPanel, { type NearbyCompany } from "@/components/NearbyCom
 // Grouped by key prefix so each client can extend their own vocabulary without code changes.
 // Priority fields (for Pathway: credit signals) are pulled to the top as stat cards.
 
-type Props = { enrichment: Record<string, unknown> | null | undefined; leadId?: string };
+type Props = { enrichment: Record<string, unknown> | null | undefined; leadId?: string; companyName?: string | null };
 
 // Pretty labels for known keys. Unknown keys fall back to auto-titled snake_case.
 const LABELS: Record<string, string> = {
@@ -127,7 +127,7 @@ function formatRooftopValue(key: string, value: unknown): string {
   return String(value);
 }
 
-function RooftopSection({ data, leadId }: { data: Record<string, unknown>; leadId?: string }) {
+function RooftopSection({ data, leadId, companyName }: { data: Record<string, unknown>; leadId?: string; companyName?: string | null }) {
   const photoUrl = data.rooftop_photo_url as string | undefined;
   const hasSolar = String(data.has_solar_panels ?? "").toLowerCase() === "yes";
   const angle = data.ai_outreach_angle as string | undefined;
@@ -229,6 +229,9 @@ function RooftopSection({ data, leadId }: { data: Record<string, unknown>; leadI
         <NearbyCompaniesPanel
           leadId={leadId}
           initial={(Array.isArray(data.nearby_companies) ? data.nearby_companies : []) as NearbyCompany[]}
+          plantLat={lat}
+          plantLng={lng}
+          plantCompany={companyName ?? null}
         />
       )}
     </SectionBlock>
@@ -535,7 +538,7 @@ function sortKeys(keys: string[], order: string[]): string[] {
   });
 }
 
-export default function PersonalizedInfoPanel({ enrichment, leadId }: Props) {
+export default function PersonalizedInfoPanel({ enrichment, leadId, companyName }: Props) {
   if (!enrichment || typeof enrichment !== "object" || Object.keys(enrichment).length === 0) return null;
 
   const data = normalizeEnrichment(enrichment as Record<string, unknown>);
@@ -578,7 +581,7 @@ export default function PersonalizedInfoPanel({ enrichment, leadId }: Props) {
       </div>
 
       {/* Rooftop intelligence (Gruppo Everest) — renders only if present */}
-      {showRooftop && <RooftopSection data={data} leadId={leadId} />}
+      {showRooftop && <RooftopSection data={data} leadId={leadId} companyName={companyName} />}
 
       {/* Priority KPI cards */}
       {priorityVisible.length > 0 && (

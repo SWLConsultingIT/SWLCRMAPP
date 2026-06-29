@@ -42,17 +42,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
 
   // 2) Place details.
-  const detUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${resolvedId}&fields=name,formatted_address,formatted_phone_number,international_phone_number,website,rating,user_ratings_total,photos,types,url,business_status,editorial_summary,price_level,opening_hours&key=${GOOGLE_KEY}`;
+  const detUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${resolvedId}&fields=name,formatted_address,formatted_phone_number,international_phone_number,website,rating,user_ratings_total,photos,types,url,business_status,editorial_summary,price_level,opening_hours,geometry,reviews&key=${GOOGLE_KEY}`;
   const dRes = await fetch(detUrl, { cache: "no-store" });
   const dData = await dRes.json();
   if (dData.status !== "OK") {
     return NextResponse.json({ error: `Places details: ${dData.status}` }, { status: 502 });
   }
   const d = dData.result;
-  const photoRef = d.photos?.[0]?.photo_reference as string | undefined;
-  const photoUrl = photoRef
-    ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=640&photo_reference=${photoRef}&key=${GOOGLE_KEY}`
-    : null;
+  const photoUrls: string[] = Array.isArray(d.photos)
+    ? d.photos.slice(0, 6).map((p: { photo_reference: string }) => `https://maps.googleapis.com/maps/api/place/photo?maxwidth=640&photo_reference=${p.photo_reference}&key=${GOOGLE_KEY}`)
+    : [];
+  const photoUrl = photoUrls[0] ?? null;
+  const reviews = Array.isArray(d.reviews)
+    ? d.reviews.slice(0, 3).map((r: { author_name?: string; rating?: number; text?: string; relative_time_description?: string }) => ({
+        author: r.author_name ?? null, rating: typeof r.rating === "number" ? r.rating : null,
+        text: (r.text ?? "").slice(0, 280), when: r.relative_time_description ?? null,
+      }))
+    : [];
 
   return NextResponse.json({
     name: d.name ?? name ?? "—",
@@ -68,5 +74,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     description: d.editorial_summary?.overview ?? null,
     priceLevel: typeof d.price_level === "number" ? d.price_level : null,
     openNow: d.opening_hours?.open_now ?? null,
+    lat: d.geometry?.location?.lat ?? null,
+    lng: d.geometry?.location?.lng ?? null,
+    photoUrls,
+    reviews,
   });
 }

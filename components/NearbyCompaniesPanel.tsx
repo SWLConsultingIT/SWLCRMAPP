@@ -1,17 +1,37 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, RefreshCw, X, Phone, Globe, MapPin, ExternalLink, Star, Loader2, Sparkles } from "lucide-react";
+import { ChevronDown, RefreshCw, X, Phone, Globe, MapPin, ExternalLink, Star, Loader2, Sparkles, UserPlus, CheckCircle2 } from "lucide-react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 
 export type NearbyCompany = { name: string; address: string | null; phone: string | null; web: string | null };
 
+function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  const R = 6371, toR = (d: number) => (d * Math.PI) / 180;
+  const dLat = toR(bLat - aLat), dLng = toR(bLng - aLng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toR(aLat)) * Math.cos(toR(bLat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+// Very rough rooftop-PV fit by business category — demo estimates, not measured.
+function solarFit(industry: string | null): { kwp: number; savingsEur: number } {
+  const i = (industry || "").toLowerCase();
+  const kwp = /lodging|hotel|resort/.test(i) ? 90
+    : /restaurant|bar|cafe|food/.test(i) ? 35
+    : /store|retail|shopping/.test(i) ? 55
+    : /spa|gym|health/.test(i) ? 45
+    : 40;
+  return { kwp, savingsEur: Math.round(kwp * 260) };
+}
+
+type Review = { author: string | null; rating: number | null; text: string; when: string | null };
 type RichDetail = {
   name: string; address: string | null; phone: string | null; web: string | null;
   rating: number | null; ratingsTotal: number | null; types: string[];
   photoUrl: string | null; mapsUrl: string | null; businessStatus: string | null;
   description?: string | null; priceLevel?: number | null; openNow?: boolean | null;
+  lat?: number | null; lng?: number | null; photoUrls?: string[]; reviews?: Review[];
 };
 
 // Cross-sell panel (Gruppo Everest demo): a prominent button → expandable list
@@ -20,9 +40,15 @@ type RichDetail = {
 export default function NearbyCompaniesPanel({
   leadId,
   initial,
+  plantLat,
+  plantLng,
+  plantCompany,
 }: {
   leadId: string;
   initial: NearbyCompany[];
+  plantLat?: number | null;
+  plantLng?: number | null;
+  plantCompany?: string | null;
 }) {
   const { locale } = useLocale();
   const L = (en: string, es: string) => (locale === "es" ? es : en);
@@ -37,6 +63,8 @@ export default function NearbyCompaniesPanel({
   const [selected, setSelected] = useState<NearbyCompany | null>(null);
   const [detail, setDetail] = useState<RichDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [createState, setCreateState] = useState<"idle" | "creating" | "created" | "error">("idle");
+  const [createdId, setCreatedId] = useState<string | null>(null);
 
   async function scrape() {
     if (loading) return;
@@ -54,8 +82,30 @@ export default function NearbyCompaniesPanel({
     setList([]); setScraped(false); setOpen(false); setErr(null);
   }
 
+  async function createLead() {
+    if (!selected || createState === "creating") return;
+    setCreateState("creating");
+    try {
+      const ind = (detail?.types || []).find(x => !["establishment", "point_of_interest", "premise", "geocode", "food"].includes(x));
+      const r = await fetch(`/api/leads/${leadId}/nearby-companies/create-lead`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: detail?.name ?? selected.name,
+          address: detail?.address ?? selected.address,
+          phone: detail?.phone ?? selected.phone,
+          web: detail?.web ?? selected.web,
+          industry: ind ? prettyType(ind) : null,
+          fromCompany: plantCompany ?? null,
+        }),
+      });
+      const d = await r.json();
+      if (r.ok && d.leadId) { setCreatedId(d.leadId); setCreateState("created"); }
+      else setCreateState("error");
+    } catch { setCreateState("error"); }
+  }
+
   async function openDetail(c: NearbyCompany) {
-    setSelected(c); setDetail(null); setDetailLoading(true);
+    setSelected(c); setDetail(null); setDetailLoading(true); setCreateState("idle"); setCreatedId(null);
     try {
       const r = await fetch(`/api/leads/${leadId}/place-detail`, {
         method: "POST",
@@ -85,6 +135,14 @@ export default function NearbyCompaniesPanel({
   const industry = industryOf(detail?.types);
   const about = detail?.description
     ?? (industry && addr ? L(`${industry} based in ${addr.split(",").slice(-3, -1).join(",").trim()}.`, `${industry} en ${addr.split(",").slice(-3, -1).join(",").trim()}.`) : null);
+  const distanceKm = (plantLat != null && plantLng != null && detail?.lat != null && detail?.lng != null)
+    ? haversineKm(plantLat, plantLng, detail.lat, detail.lng) : null;
+  const fit = solarFit(industry);
+  const anchorName = plantCompany ? plantCompany.replace(/\s+(s\.?r\.?l\.?|srl|s\.?p\.?a\.?|spa)\.?$/i, "").trim() : L("the plant", "la planta");
+  const aiAngle = detail ? L(
+    `${industry ? industry + " " : ""}${distanceKm != null ? `~${distanceKm.toFixed(1)} km from ${anchorName}'s plant` : `near ${anchorName}'s plant`} — a strong candidate to join the CACER energy community. Pitch: pool a ~${fit.kwp} kWp rooftop install into the community for ~€${fit.savingsEur.toLocaleString()}/yr in savings, zero capex via Transizione 5.0 / PNRR.`,
+    `${industry ? industry + " " : ""}${distanceKm != null ? `a ~${distanceKm.toFixed(1)} km de la planta de ${anchorName}` : `cerca de la planta de ${anchorName}`} — fuerte candidata a sumarse a la comunidad energética (CACER). Pitch: integrar un techo solar de ~${fit.kwp} kWp a la comunidad para ~€${fit.savingsEur.toLocaleString()}/año de ahorro, sin capex vía Transizione 5.0 / PNRR.`
+  ) : null;
 
   return (
     <div className="mt-5">
@@ -207,6 +265,24 @@ export default function NearbyCompaniesPanel({
                 </div>
               )}
 
+              {/* AI cross-sell angle */}
+              {aiAngle && (
+                <div className="mt-3 rounded-lg p-3" style={{ backgroundColor: `color-mix(in srgb, ${ai} 8%, transparent)`, border: `1px solid color-mix(in srgb, ${ai} 28%, transparent)` }}>
+                  <p className="text-[9px] font-bold uppercase tracking-wider mb-1 inline-flex items-center gap-1" style={{ color: ai }}><Sparkles size={11} /> {L("AI cross-sell angle", "Ángulo de cross-sell IA")}</p>
+                  <p className="text-[13px] leading-relaxed" style={{ color: C.textBody }}>{aiAngle}</p>
+                </div>
+              )}
+
+              {/* Photo gallery */}
+              {(detail?.photoUrls?.length ?? 0) > 1 && (
+                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                  {detail!.photoUrls!.slice(1, 5).map((u, i) => (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img key={i} src={u} alt="" className="h-16 w-24 object-cover rounded-lg shrink-0 border" style={{ borderColor: C.border }} />
+                  ))}
+                </div>
+              )}
+
               {/* Info grid */}
               <div className="grid grid-cols-2 gap-2.5 mt-3">
                 {industry && (
@@ -233,6 +309,16 @@ export default function NearbyCompaniesPanel({
                     <p className="text-[13px] font-semibold inline-flex items-center gap-1.5 truncate" style={{ color: C.blue }}><Globe size={12} /> <span className="truncate">{web.replace(/^https?:\/\/(www\.)?/, "")}</span></p>
                   </a>
                 )}
+                {distanceKm != null && (
+                  <div className="p-2.5 rounded-lg" style={{ backgroundColor: C.bg }}>
+                    <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{L("Distance to plant", "Distancia a la planta")}</p>
+                    <p className="text-[13px] font-semibold" style={{ color: C.textBody }}>{distanceKm.toFixed(1)} km</p>
+                  </div>
+                )}
+                <div className="p-2.5 rounded-lg" style={{ backgroundColor: "color-mix(in srgb, #D97706 8%, transparent)" }}>
+                  <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: "#B45309" }}>{L("Solar fit (est.)", "Fit solar (est.)")}</p>
+                  <p className="text-[13px] font-semibold" style={{ color: C.textBody }}>~{fit.kwp} kWp · ~€{fit.savingsEur.toLocaleString()}/{L("yr", "año")}</p>
+                </div>
                 {addr && (
                   <div className="p-2.5 rounded-lg col-span-2" style={{ backgroundColor: C.bg }}>
                     <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{L("Address", "Dirección")}</p>
@@ -241,11 +327,49 @@ export default function NearbyCompaniesPanel({
                 )}
               </div>
 
-              <a href={detail?.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((detail?.name ?? selected.name))}`} target="_blank" rel="noopener"
-                className="flex items-center justify-center gap-2 p-2.5 rounded-lg text-[13px] font-semibold mt-3"
-                style={{ background: `linear-gradient(135deg, ${teal}, #145F56)`, color: "#fff" }}>
-                <MapPin size={14} /> {L("Open in Google Maps", "Abrir en Google Maps")}
-              </a>
+              {/* Recent reviews */}
+              {(detail?.reviews?.length ?? 0) > 0 && (
+                <div className="mt-3">
+                  <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5" style={{ color: C.textDim }}>{L("Recent reviews", "Reseñas recientes")}</p>
+                  <div className="space-y-2">
+                    {detail!.reviews!.slice(0, 2).map((rv, i) => (
+                      <div key={i} className="rounded-lg p-2.5" style={{ backgroundColor: C.bg }}>
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className="text-[11px] font-semibold" style={{ color: C.textBody }}>{rv.author ?? "—"}</span>
+                          {rv.rating != null && <span className="text-[10px] font-bold" style={{ color: "#B45309" }}>{rv.rating}★</span>}
+                          {rv.when && <span className="text-[10px]" style={{ color: C.textDim }}>· {rv.when}</span>}
+                        </div>
+                        <p className="text-[12px] leading-snug" style={{ color: C.textMuted }}>{rv.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Actions: create as lead + maps */}
+              <div className="flex gap-2 mt-4">
+                {createState === "created" ? (
+                  <a href={`/leads/${createdId}`} className="flex-1 flex items-center justify-center gap-2 p-2.5 rounded-lg text-[13px] font-semibold"
+                    style={{ backgroundColor: C.greenLight, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 32%, transparent)` }}>
+                    <CheckCircle2 size={14} /> {L("Lead created · view", "Lead creado · ver")}
+                  </a>
+                ) : (
+                  <button onClick={createLead} disabled={createState === "creating"}
+                    className="flex-1 flex items-center justify-center gap-2 p-2.5 rounded-lg text-[13px] font-semibold disabled:opacity-60"
+                    style={{ background: "linear-gradient(135deg, var(--brand, #c9a83a), #A8862E)", color: "#fff" }}>
+                    {createState === "creating"
+                      ? <><Loader2 size={14} className="animate-spin" /> {L("Creating…", "Creando…")}</>
+                      : <><UserPlus size={14} /> {L("Create as lead", "Crear como lead")}</>}
+                  </button>
+                )}
+                <a href={detail?.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((detail?.name ?? selected.name))}`} target="_blank" rel="noopener"
+                  title={L("Open in Google Maps", "Abrir en Google Maps")}
+                  className="flex items-center justify-center gap-2 px-4 p-2.5 rounded-lg text-[13px] font-semibold"
+                  style={{ background: `linear-gradient(135deg, ${teal}, #145F56)`, color: "#fff" }}>
+                  <MapPin size={14} /> Maps
+                </a>
+              </div>
+              {createState === "error" && <p className="text-[11px] mt-1.5" style={{ color: C.red }}>{L("Couldn't create the lead", "No se pudo crear el lead")}</p>}
             </div>
           </div>
         </div>

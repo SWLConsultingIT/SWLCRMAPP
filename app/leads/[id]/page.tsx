@@ -895,7 +895,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       {isEverest && (
         <section className="reveal space-y-6" style={{ ...zoneStyle(ZONE.prep), order: -1 }}>
           {/* — Personalized Info (Rooftop Intelligence) — */}
-          <PersonalizedInfoPanel enrichment={lead.enrichment} leadId={id} />
+          <PersonalizedInfoPanel enrichment={lead.enrichment} leadId={id} companyName={lead.company_name} />
 
           {/* — Account (company) — */}
           {accountBlock}
@@ -1550,7 +1550,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
             {/* Personalized Info — client-specific enrichment (Pathway: credit signals).
                 Gruppo Everest renders this up top (under the hero) instead, so skip here. */}
             {lead.company_bio_id !== "4ab610c8-e852-4b37-97d7-c41ba19b0d0e" && (
-              <PersonalizedInfoPanel enrichment={lead.enrichment} leadId={id} />
+              <PersonalizedInfoPanel enrichment={lead.enrichment} leadId={id} companyName={lead.company_name} />
             )}
 
             {/* Company Info moved to the Overview flow as a single clickable
