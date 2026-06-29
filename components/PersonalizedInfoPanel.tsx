@@ -1,5 +1,6 @@
 import { C } from "@/lib/design";
-import { Sparkles, TrendingUp, Building2, Info, Sun, ExternalLink } from "lucide-react";
+import { Sparkles, TrendingUp, Building2, Info, Sun } from "lucide-react";
+import RooftopImageLightbox from "@/components/RooftopImageLightbox";
 
 // Generic lead-enrichment panel. Renders whatever is in `lead.enrichment` jsonb.
 // Grouped by key prefix so each client can extend their own vocabulary without code changes.
@@ -146,25 +147,10 @@ function RooftopSection({ data }: { data: Record<string, unknown> }) {
       {/* Photo + headline badge */}
       <div className="flex flex-col md:flex-row gap-4 items-stretch">
         {photoUrl && (
-          <a
-            href={photoUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="relative block rounded-lg overflow-hidden border group shrink-0"
-            style={{ borderColor: C.border, width: 220, height: 165 }}
-            title="Open full-size rooftop photo"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={photoUrl}
-              alt={hasSolar ? "Rooftop with solar panels" : "Rooftop without solar panels"}
-              className="w-full h-full object-cover transition-transform group-hover:scale-[1.02]"
-            />
-            <span className="absolute bottom-1.5 right-1.5 inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-1 rounded"
-              style={{ backgroundColor: "rgba(0,0,0,0.55)", color: "#fff" }}>
-              <ExternalLink size={10} /> Open
-            </span>
-          </a>
+          <RooftopImageLightbox
+            photoUrl={photoUrl}
+            alt={hasSolar ? "Rooftop with solar panels" : "Rooftop without solar panels"}
+          />
         )}
         <div className="flex-1 flex flex-col justify-between gap-3">
           <div>
