@@ -1,5 +1,5 @@
-import { C } from "@/lib/design";
-import { Sparkles, TrendingUp, Building2, Info, Sun, FileText, Zap, CalendarClock, MapPin, Users, Maximize2 } from "lucide-react";
+import { C, N } from "@/lib/design";
+import { Sparkles, TrendingUp, Building2, Info, Sun, FileText, Zap, CalendarClock, MapPin, Users, Maximize2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import RooftopMapThumb from "@/components/RooftopMapThumb";
 
@@ -150,7 +150,7 @@ function RooftopSection({ data, leadId, companyName }: { data: Record<string, un
     : { bg: C.redLight,   fg: C.red,   label: "NO SOLAR PANELS" };
 
   return (
-    <SectionBlock icon={Sun} title="Rooftop Intelligence" accent="#D97706" bg="color-mix(in srgb, #D97706 13%, transparent)">
+    <SectionBlock icon={Sun} title="Rooftop Intelligence" accent={C.gold} bg={C.goldSoft}>
       {/* Photo + headline badge */}
       <div className="flex flex-col md:flex-row gap-4 items-stretch">
         {photoUrl ? (
@@ -183,7 +183,7 @@ function RooftopSection({ data, leadId, companyName }: { data: Record<string, un
           {angle && (
             <div className="text-[12px] leading-relaxed rounded-md p-3 border"
               style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textBody }}>
-              <div className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: "#D97706" }}>
+              <div className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: C.gold }}>
                 Outreach Angle
               </div>
               {angle}
@@ -211,18 +211,26 @@ function RooftopSection({ data, leadId, companyName }: { data: Record<string, un
       {/* Cross-sell: link to the dedicated nearby-companies page (Everest demo). */}
       {leadId && Array.isArray(data.nearby_companies) && data.nearby_companies.length > 0 && (
         <Link href={`/leads/${leadId}/nearby`}
-          className="mt-4 w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-white font-semibold transition-all hover:shadow-lg hover:-translate-y-px"
-          style={{ background: "linear-gradient(135deg, #1A7F74, #145F56)", boxShadow: "0 6px 18px color-mix(in srgb, #1A7F74 32%, transparent)" }}>
-          <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(255,255,255,0.18)" }}>
+          className="group mt-4 w-full flex items-center gap-3.5 px-4 py-3.5 rounded-xl font-semibold transition-all hover:-translate-y-px relative overflow-hidden"
+          style={{ background: `linear-gradient(135deg, ${N.ink2}, ${N.ink})`, border: `1px solid ${N.hairline}`, boxShadow: "0 10px 26px -10px rgba(0,0,0,0.55)" }}>
+          {/* faint gold sheen on the right edge */}
+          <span aria-hidden className="absolute inset-y-0 right-0 w-1/2 pointer-events-none"
+            style={{ background: `linear-gradient(90deg, transparent, ${C.goldGlow})` }} />
+          <span className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 relative" style={{ background: `linear-gradient(135deg, ${C.gold}, ${C.goldDim})`, color: N.ink, boxShadow: `0 4px 12px ${C.goldGlow}` }}>
             <Building2 size={18} />
           </span>
-          <span className="flex-1 text-left leading-tight">
-            <span className="block text-[14px]">Cross-sell — nearby energy consumers</span>
-            <span className="block text-[11px] font-medium" style={{ color: "rgba(255,255,255,0.82)" }}>
-              {(data.nearby_companies as unknown[]).length} businesses around the plant · tap to explore the match
+          <span className="flex-1 text-left leading-tight relative">
+            <span className="flex items-center gap-2">
+              <span className="text-[14px]" style={{ color: "#fff" }}>Cross-sell — nearby energy consumers</span>
+              <span className="text-[8.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 22%, transparent)", color: N.goldOnDark }}>Opportunity 2</span>
+            </span>
+            <span className="block text-[11.5px] font-medium mt-1" style={{ color: "rgba(255,255,255,0.6)" }}>
+              {(data.nearby_companies as unknown[]).length} businesses around the plant · explore the producer ↔ consumer match
             </span>
           </span>
-          <span className="text-[20px] shrink-0">→</span>
+          <span className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-transform group-hover:translate-x-0.5 relative" style={{ backgroundColor: "rgba(255,255,255,0.08)", color: N.goldOnDark }}>
+            <ArrowRight size={16} />
+          </span>
         </Link>
       )}
     </SectionBlock>
@@ -567,7 +575,7 @@ function MeetingNotesSection({ notes }: { notes: any }) {
 
 // ── Plant Intelligence (Gruppo Everest) — the Opportunity-1 dossier per PV plant ──
 function PlantIntelSection({ intel }: { intel: any }) {
-  const accent = "#15803D";
+  const accent = C.gold;
   const it = (n: number) => n.toLocaleString("it-IT");
   const kw  = typeof intel.installed_power_kw === "number" ? `${it(intel.installed_power_kw)} kW` : null;
   const eur = typeof intel.contributo_eur === "number" ? `€${it(intel.contributo_eur)}` : null;

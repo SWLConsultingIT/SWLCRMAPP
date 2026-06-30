@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, X, Phone, Globe, MapPin, Star, Loader2, Zap, UserPlus, CheckCircle2, Search, ArrowUpDown, ChevronRight } from "lucide-react";
-import { C } from "@/lib/design";
+import { C, N } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 
 type NearbyCompany = { name: string; address: string | null; phone: string | null; web: string | null };
@@ -67,9 +67,9 @@ function cityOf(address: string | null) {
   return capPart.replace(/\b\d{5}\b/g, "").replace(/\b[A-Z]{2}\b\s*$/, "").trim() || null;
 }
 function fitOf(demand: number) {
-  if (demand >= 250) return { label: "High", color: "#15803D", bg: "color-mix(in srgb, #15803D 14%, transparent)" };
-  if (demand >= 150) return { label: "Medium", color: "#B45309", bg: "color-mix(in srgb, #D97706 14%, transparent)" };
-  return { label: "Low", color: C.textMuted, bg: "color-mix(in srgb, #64748B 14%, transparent)" };
+  if (demand >= 250) return { label: "High", color: N.ink, bg: C.gold };
+  if (demand >= 150) return { label: "Medium", color: C.goldDim, bg: "color-mix(in srgb, var(--brand, #c9a83a) 16%, transparent)" };
+  return { label: "Low", color: C.textMuted, bg: "color-mix(in srgb, #64748B 12%, transparent)" };
 }
 
 type Row = NearbyCompany & { industry: string; city: string | null; demand: number };
@@ -83,7 +83,7 @@ export default function NearbyCompaniesPage({
 }) {
   const { locale } = useLocale();
   const L = (en: string, es: string) => (locale === "es" ? es : en);
-  const teal = "#1A7F74";
+  const gold = C.gold;
 
   const [query, setQuery] = useState("");
   const [industryFilter, setIndustryFilter] = useState<string>("all");
@@ -153,37 +153,53 @@ export default function NearbyCompaniesPage({
     <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider select-none cursor-pointer" style={{ color: C.textMuted, textAlign: right ? "right" : "left" }} onClick={() => toggleSort(k)}>
       <span className={`inline-flex items-center gap-1 ${right ? "flex-row-reverse" : ""}`}>
         {children}
-        <ArrowUpDown size={11} style={{ opacity: sort.key === k ? 1 : 0.3, color: sort.key === k ? teal : C.textMuted }} />
+        <ArrowUpDown size={11} style={{ opacity: sort.key === k ? 1 : 0.3, color: sort.key === k ? gold : C.textMuted }} />
       </span>
     </th>
   );
 
   return (
-    <div className="p-6 w-full fade-in" style={{ maxWidth: 1320, margin: "0 auto" }}>
+    <div className="px-6 py-6 lg:px-10 w-full fade-in">
       <Link href={`/leads/${leadId}`} className="inline-flex items-center gap-1.5 text-[13px] font-semibold mb-5" style={{ color: C.textMuted }}>
         <ArrowLeft size={15} /> {L("Back to lead", "Volver al lead")}
       </Link>
 
-      <div className="rounded-2xl border p-6 mb-5" style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${teal} 12%, ${C.card}), ${C.card})`, borderColor: C.border }}>
-        <p className="text-[11px] font-bold uppercase tracking-wider mb-1.5" style={{ color: teal }}>{L("Opportunity 2 · Producer ↔ Consumer match", "Oportunidad 2 · Match productor ↔ consumidor")}</p>
-        <h1 className="text-[26px] font-bold tracking-tight" style={{ color: C.textPrimary }}>{L("Energy consumers around", "Consumidores de energía cerca de")} {anchor}</h1>
-        <p className="text-[14px] mt-2 leading-relaxed" style={{ color: C.textMuted, maxWidth: "82ch" }}>
-          {L(
-            `Businesses within reach of the ${potenzaKw ? `${Math.round(potenzaKw)} kW ` : ""}array — potential off-takers for surplus generation, or anchor members for a renewable energy community (CER).`,
-            `Negocios al alcance del parque ${potenzaKw ? `de ${Math.round(potenzaKw)} kW ` : ""}— posibles consumidores del excedente, o miembros de una comunidad energética (CER).`
-          )}
-        </p>
-        <div className="flex flex-wrap gap-2.5 mt-4">
-          {[
-            { v: String(rows.length), l: L("companies nearby", "empresas cerca") },
-            { v: `~${totalDemand.toLocaleString("it-IT")} MWh/${L("yr", "año")}`, l: L("combined demand (shown)", "demanda combinada (mostrada)") },
-            { v: potenzaKw ? `${Math.round(potenzaKw)} kW` : "—", l: L("plant array", "parque de la planta") },
-          ].map((s, i) => (
-            <div key={i} className="rounded-xl border px-4 py-2.5" style={{ backgroundColor: C.card, borderColor: C.border }}>
-              <p className="text-[17px] font-bold" style={{ color: C.textPrimary, fontVariantNumeric: "tabular-nums" }}>{s.v}</p>
-              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{s.l}</p>
-            </div>
-          ))}
+      {/* Hero — SWL navy with gold accents */}
+      <div className="rounded-2xl border p-7 lg:p-8 mb-5 relative overflow-hidden"
+        style={{ background: `linear-gradient(135deg, ${N.ink2} 0%, ${N.ink} 70%)`, borderColor: N.hairline }}>
+        {/* ambient gold glow */}
+        <div aria-hidden className="absolute pointer-events-none" style={{ top: -120, right: -80, width: 420, height: 420, borderRadius: "50%", background: `radial-gradient(circle, ${C.goldGlow}, transparent 70%)` }} />
+        <div className="relative flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+          <div className="max-w-[68ch]">
+            <span className="inline-flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] px-2.5 py-1 rounded-full mb-3"
+              style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 18%, transparent)", color: N.goldOnDark, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
+              <Zap size={12} /> {L("Opportunity 2 · Producer ↔ Consumer match", "Oportunidad 2 · Match productor ↔ consumidor")}
+            </span>
+            <h1 className="text-[30px] lg:text-[34px] font-bold tracking-tight leading-[1.1]" style={{ color: "#fff" }}>
+              {L("Energy consumers around", "Consumidores de energía cerca de")}{" "}
+              <span style={{ color: N.goldOnDark }}>{anchor}</span>
+            </h1>
+            <p className="text-[14px] mt-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.66)" }}>
+              {L(
+                `Businesses within reach of the ${potenzaKw ? `${Math.round(potenzaKw)} kW ` : ""}array — potential off-takers for surplus generation, or anchor members for a renewable energy community (CER).`,
+                `Negocios al alcance del parque ${potenzaKw ? `de ${Math.round(potenzaKw)} kW ` : ""}— posibles consumidores del excedente, o miembros de una comunidad energética (CER).`
+              )}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2.5 shrink-0">
+            {[
+              { v: String(rows.length), l: L("companies nearby", "empresas cerca") },
+              { v: `~${totalDemand.toLocaleString("it-IT")}`, sub: `MWh/${L("yr", "año")}`, l: L("combined demand", "demanda combinada") },
+              { v: potenzaKw ? `${Math.round(potenzaKw)}` : "—", sub: "kW", l: L("plant array", "parque planta") },
+            ].map((s, i) => (
+              <div key={i} className="rounded-xl px-4 py-3 min-w-[120px]" style={{ backgroundColor: "rgba(255,255,255,0.05)", border: `1px solid ${N.hairline}` }}>
+                <p className="text-[22px] font-bold leading-none" style={{ color: "#fff", fontVariantNumeric: "tabular-nums" }}>
+                  {s.v}{s.sub && <span className="text-[12px] font-semibold ml-1" style={{ color: N.goldOnDark }}>{s.sub}</span>}
+                </p>
+                <p className="text-[9.5px] font-semibold uppercase tracking-wider mt-1.5" style={{ color: "rgba(255,255,255,0.5)" }}>{s.l}</p>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -225,7 +241,7 @@ export default function NearbyCompaniesPage({
                     style={{ borderBottom: i < filtered.length - 1 ? `1px solid ${C.border}` : undefined, ["--row-h" as any]: C.bg }}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <span className="w-9 h-9 rounded-lg flex items-center justify-center text-[13px] font-bold shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${teal} 12%, transparent)`, color: teal }}>{r.name?.[0]?.toUpperCase() ?? "?"}</span>
+                        <span className="w-9 h-9 rounded-lg flex items-center justify-center text-[13px] font-bold shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold }}>{r.name?.[0]?.toUpperCase() ?? "?"}</span>
                         <div className="min-w-0">
                           <p className="text-[13.5px] font-semibold truncate" style={{ color: C.textPrimary, maxWidth: 300 }}>{r.name}</p>
                           {r.address && <p className="text-[11.5px] truncate" style={{ color: C.textMuted, maxWidth: 300 }}>{r.address}</p>}
@@ -233,7 +249,7 @@ export default function NearbyCompaniesPage({
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-[11.5px] font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${teal} 11%, transparent)`, color: teal }}>{r.industry}</span>
+                      <span className="text-[11.5px] font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${gold} 11%, transparent)`, color: gold }}>{r.industry}</span>
                     </td>
                     <td className="px-4 py-3 text-[13px]" style={{ color: C.textBody }}>{r.city ?? "—"}</td>
                     <td className="px-4 py-3 text-[13px] font-semibold text-right" style={{ color: C.textPrimary, fontVariantNumeric: "tabular-nums" }}>~{r.demand} <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>MWh/{L("yr", "año")}</span></td>
@@ -267,20 +283,20 @@ export default function NearbyCompaniesPage({
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={detail.photoUrl} alt="" className="w-full h-full object-cover" />
               ) : (
-                <span className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold" style={{ background: `linear-gradient(135deg, ${teal}, #145F56)`, color: "#fff" }}>{(detail?.name ?? selected.name)?.[0]?.toUpperCase() ?? "?"}</span>
+                <span className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold" style={{ background: `linear-gradient(135deg, ${N.ink3}, ${N.ink})`, color: "#fff" }}>{(detail?.name ?? selected.name)?.[0]?.toUpperCase() ?? "?"}</span>
               )}
               <button onClick={() => setSelected(null)} className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)", color: "#fff" }}><X size={16} /></button>
             </div>
             <div className="p-5 overflow-y-auto">
               <p className="text-[18px] font-bold leading-tight" style={{ color: C.textPrimary }}>{detail?.name ?? selected.name}</p>
               <div className="flex items-center flex-wrap gap-2 mt-2">
-                {industry && <span className="text-[11px] font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${teal} 12%, transparent)`, color: teal }}>{industry}</span>}
+                {industry && <span className="text-[11px] font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold }}>{industry}</span>}
                 {detail?.rating != null && <span className="inline-flex items-center gap-1 text-[12px] font-bold px-2 py-0.5 rounded" style={{ backgroundColor: "color-mix(in srgb, #D97706 14%, transparent)", color: "#B45309" }}><Star size={11} fill="#B45309" stroke="#B45309" /> {detail.rating}{detail.ratingsTotal != null && <span className="font-medium" style={{ color: C.textMuted }}>({detail.ratingsTotal})</span>}</span>}
               </div>
 
               {/* Producer ↔ Consumer match */}
-              <div className="mt-4 rounded-xl p-4" style={{ backgroundColor: `color-mix(in srgb, ${teal} 8%, transparent)`, border: `1px solid color-mix(in srgb, ${teal} 26%, transparent)` }}>
-                <p className="text-[10px] font-bold uppercase tracking-wider mb-2 inline-flex items-center gap-1.5" style={{ color: teal }}><Zap size={12} /> {L("Producer ↔ consumer match", "Match productor ↔ consumidor")}</p>
+              <div className="mt-4 rounded-xl p-4" style={{ backgroundColor: `color-mix(in srgb, ${gold} 8%, transparent)`, border: `1px solid color-mix(in srgb, ${gold} 26%, transparent)` }}>
+                <p className="text-[10px] font-bold uppercase tracking-wider mb-2 inline-flex items-center gap-1.5" style={{ color: gold }}><Zap size={12} /> {L("Producer ↔ consumer match", "Match productor ↔ consumidor")}</p>
                 <div className="grid grid-cols-3 gap-3">
                   <div><p className="text-[9px] uppercase tracking-wider" style={{ color: C.textDim }}>{L("Distance to plant", "Distancia a la planta")}</p><p className="text-[15px] font-bold" style={{ color: C.textPrimary }}>{distKm != null ? `${distKm.toFixed(1)} km` : "—"}</p></div>
                   <div><p className="text-[9px] uppercase tracking-wider" style={{ color: C.textDim }}>{L("Est. demand", "Consumo est.")}</p><p className="text-[15px] font-bold" style={{ color: C.textPrimary }}>~{demand} MWh/{L("yr", "año")}</p></div>
@@ -295,7 +311,7 @@ export default function NearbyCompaniesPage({
               </div>
 
               <div className="grid grid-cols-2 gap-2.5 mt-3">
-                {addr && <div className="p-2.5 rounded-lg col-span-2" style={{ backgroundColor: C.bg }}><p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{L("Address", "Dirección")}</p><p className="text-[13px] font-medium inline-flex items-start gap-1.5" style={{ color: C.textBody }}><MapPin size={13} style={{ color: teal, marginTop: 1 }} /> {addr}</p></div>}
+                {addr && <div className="p-2.5 rounded-lg col-span-2" style={{ backgroundColor: C.bg }}><p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{L("Address", "Dirección")}</p><p className="text-[13px] font-medium inline-flex items-start gap-1.5" style={{ color: C.textBody }}><MapPin size={13} style={{ color: gold, marginTop: 1 }} /> {addr}</p></div>}
                 {phone && <a href={`tel:${phone.replace(/\s/g, "")}`} className="p-2.5 rounded-lg" style={{ backgroundColor: C.bg }}><p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{L("Phone", "Teléfono")}</p><p className="text-[13px] font-semibold inline-flex items-center gap-1.5" style={{ color: C.textBody }}><Phone size={12} style={{ color: C.phone }} /> {phone}</p></a>}
                 {web && <a href={webHref(web)} target="_blank" rel="noopener" className="p-2.5 rounded-lg min-w-0" style={{ backgroundColor: C.bg }}><p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: C.textDim }}>{L("Website", "Sitio web")}</p><p className="text-[13px] font-semibold inline-flex items-center gap-1.5 truncate" style={{ color: C.blue }}><Globe size={12} /> <span className="truncate">{web.replace(/^https?:\/\/(www\.)?/, "")}</span></p></a>}
               </div>
@@ -322,7 +338,7 @@ export default function NearbyCompaniesPage({
                     {createState === "creating" ? <><Loader2 size={14} className="animate-spin" /> {L("Creating…", "Creando…")}</> : <><UserPlus size={14} /> {L("Create as lead", "Crear como lead")}</>}
                   </button>
                 )}
-                <a href={detail?.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((detail?.name ?? selected.name))}`} target="_blank" rel="noopener" className="flex items-center justify-center gap-2 px-4 p-2.5 rounded-lg text-[13px] font-semibold" style={{ background: `linear-gradient(135deg, ${teal}, #145F56)`, color: "#fff" }}><MapPin size={14} /> Maps</a>
+                <a href={detail?.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((detail?.name ?? selected.name))}`} target="_blank" rel="noopener" className="flex items-center justify-center gap-2 px-4 p-2.5 rounded-lg text-[13px] font-semibold" style={{ background: `linear-gradient(135deg, ${N.ink3}, ${N.ink})`, color: "#fff" }}><MapPin size={14} /> Maps</a>
               </div>
               {createState === "error" && <p className="text-[11px] mt-1.5" style={{ color: C.red }}>{L("Couldn't create the lead", "No se pudo crear el lead")}</p>}
             </div>

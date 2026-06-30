@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { X, Map as MapIcon } from "lucide-react";
-import { C } from "@/lib/design";
+import { X, Maximize2, MapPin } from "lucide-react";
+import { C, N } from "@/lib/design";
 
-// Rooftop satellite thumbnail → opens a contained, interactive mini Google Maps
-// INSIDE the app (no full-screen takeover, no navigating away). The thumbnail is
-// the static satellite image; clicking it pops a card with a live, pan/zoom map.
+// Rooftop satellite thumbnail → opens a FLOATING mini Google Maps, docked in the
+// corner like the Aircall call widget. It never blacks out or dims the rest of
+// the screen (Fran: "no quiero que me anule toda la pantalla") and never
+// navigates away — the page stays fully usable behind it.
 export default function RooftopMapThumb({
   photoUrl, lat, lng, alt,
 }: {
@@ -28,27 +29,38 @@ export default function RooftopMapThumb({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={photoUrl} alt={alt} className="w-full h-full object-cover transition-transform group-hover:scale-[1.03]" />
         {hasMap && (
-          <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-md"
-            style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "#fff" }}>
-            <MapIcon size={11} /> Map
+          <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md"
+            style={{ backgroundColor: C.gold, color: N.ink }}>
+            <Maximize2 size={10} /> Map
           </span>
         )}
       </button>
 
+      {/* Floating, non-blocking map widget — docked bottom-right like Aircall */}
       {open && embed && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6"
-          style={{ backgroundColor: "rgba(11,15,26,0.45)", backdropFilter: "blur(2px)" }}
-          onClick={() => setOpen(false)}>
-          <div className="relative rounded-2xl overflow-hidden shadow-2xl border"
-            style={{ width: "min(840px, 92vw)", height: "min(560px, 80vh)", borderColor: "rgba(255,255,255,0.15)", backgroundColor: "#000" }}
-            onClick={e => e.stopPropagation()}>
-            <iframe title={alt} src={embed} style={{ width: "100%", height: "100%", border: 0 }} loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
-            <button onClick={() => setOpen(false)}
-              className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center"
-              style={{ backgroundColor: "rgba(0,0,0,0.6)", color: "#fff" }} aria-label="Close">
-              <X size={16} />
+        <div
+          className="fixed z-50 rounded-2xl overflow-hidden flex flex-col"
+          style={{
+            bottom: 24, right: 24,
+            width: "min(440px, calc(100vw - 48px))",
+            height: "min(420px, calc(100vh - 48px))",
+            backgroundColor: N.ink,
+            border: `1px solid ${N.hairline}`,
+            boxShadow: "0 24px 60px -12px rgba(0,0,0,0.55), 0 0 0 1px rgba(0,0,0,0.2)",
+          }}
+        >
+          <div className="flex items-center justify-between px-3.5 py-2.5 shrink-0" style={{ borderBottom: `1px solid ${N.hairline}` }}>
+            <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold truncate" style={{ color: "#fff" }}>
+              <MapPin size={13} style={{ color: N.goldOnDark }} />
+              <span className="truncate">{alt}</span>
+            </span>
+            <button onClick={() => setOpen(false)} aria-label="Close"
+              className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 transition-colors"
+              style={{ backgroundColor: "rgba(255,255,255,0.08)", color: "#fff" }}>
+              <X size={15} />
             </button>
           </div>
+          <iframe title={alt} src={embed} style={{ width: "100%", height: "100%", border: 0, flex: 1 }} loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
         </div>
       )}
     </>
