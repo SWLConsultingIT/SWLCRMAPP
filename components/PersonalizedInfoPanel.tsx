@@ -1,5 +1,5 @@
 import { C } from "@/lib/design";
-import { Sparkles, TrendingUp, Building2, Info, Sun } from "lucide-react";
+import { Sparkles, TrendingUp, Building2, Info, Sun, FileText } from "lucide-react";
 import NearbyCompaniesPanel, { type NearbyCompany } from "@/components/NearbyCompaniesPanel";
 
 // Generic lead-enrichment panel. Renders whatever is in `lead.enrichment` jsonb.
@@ -107,7 +107,7 @@ const ROOFTOP_KEYS = new Set([
   // Structural / consumed-elsewhere keys — kept out of the generic "Additional"
   // bucket so they don't render as raw text. lat/lng drive the map; the
   // nearby-companies array is the cross-sell list (rendered by its own section).
-  "rooftop_lat", "rooftop_lng", "nearby_companies",
+  "rooftop_lat", "rooftop_lng", "nearby_companies", "meeting_notes",
 ]);
 
 function formatRooftopValue(key: string, value: unknown): string {
@@ -530,6 +530,42 @@ function sortKeys(keys: string[], order: string[]): string[] {
   });
 }
 
+// Meeting / discovery notes (Gruppo Everest demo). Structured account notes
+// rendered as a readable dossier inside Personalized Info.
+function MeetingNotesSection({ notes }: { notes: any }) {
+  const accent = "#6366F1";
+  const sections: any[] = Array.isArray(notes?.sections) ? notes.sections : [];
+  return (
+    <SectionBlock icon={FileText} title={notes?.title || "Meeting Notes"} accent={accent} bg={`color-mix(in srgb, ${accent} 9%, transparent)`}>
+      {(notes?.subtitle || notes?.tag) && (
+        <div className="flex items-center gap-2 mb-4">
+          {notes.subtitle && <span className="text-[11px] font-semibold" style={{ color: C.textMuted }}>{notes.subtitle}</span>}
+          {notes.tag && <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: C.redLight, color: C.red }}>{notes.tag}</span>}
+        </div>
+      )}
+      <div className="space-y-3">
+        {sections.map((s, i) => (
+          <div key={i} className="rounded-lg p-4" style={{ backgroundColor: C.bg, borderLeft: `3px solid color-mix(in srgb, ${accent} 50%, transparent)` }}>
+            <p className="text-[13px] font-bold mb-2" style={{ color: C.textPrimary }}>{s.h}</p>
+            {(Array.isArray(s.p) ? s.p : []).map((para: string, j: number) => (
+              <p key={j} className="text-[12.5px] leading-relaxed mb-1.5" style={{ color: C.textBody }}>{para}</p>
+            ))}
+            {s.bulletsLabel && <p className="text-[10px] font-bold uppercase tracking-wider mt-2.5 mb-1.5" style={{ color: accent }}>{s.bulletsLabel}</p>}
+            {Array.isArray(s.bullets) && s.bullets.length > 0 && (
+              <ul className="space-y-1 mt-1">
+                {s.bullets.map((b: string, k: number) => (
+                  <li key={k} className="text-[12.5px] leading-snug flex gap-2" style={{ color: C.textBody }}><span style={{ color: accent }}>•</span><span>{b}</span></li>
+                ))}
+              </ul>
+            )}
+            {s.note && <p className="text-[12px] italic mt-3 pt-2.5 border-t" style={{ color: C.textMuted, borderColor: C.border }}>{s.note}</p>}
+          </div>
+        ))}
+      </div>
+    </SectionBlock>
+  );
+}
+
 export default function PersonalizedInfoPanel({ enrichment, leadId, companyName }: Props) {
   if (!enrichment || typeof enrichment !== "object" || Object.keys(enrichment).length === 0) return null;
 
@@ -574,6 +610,7 @@ export default function PersonalizedInfoPanel({ enrichment, leadId, companyName 
 
       {/* Rooftop intelligence (Gruppo Everest) — renders only if present */}
       {showRooftop && <RooftopSection data={data} leadId={leadId} companyName={companyName} />}
+      {data.meeting_notes && typeof data.meeting_notes === "object" && <MeetingNotesSection notes={data.meeting_notes} />}
 
       {/* Priority KPI cards */}
       {priorityVisible.length > 0 && (
