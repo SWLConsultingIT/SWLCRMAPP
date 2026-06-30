@@ -57,11 +57,15 @@ function openCommandPalette() {
 export default function TopHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const pageName = usePageName(pathname);
+  const pageNameRaw = usePageName(pathname);
   const { t } = useLocale();
   // Read from shared AuthContext — was a duplicate /api/auth/me fetch on every
   // header mount before. Saves one round-trip per navigation.
   const user = useAuthUser();
+  // Gruppo Everest demo: the leads list is reframed as "Everest Opportunities".
+  const pageName = pathname.startsWith("/leads") && user?.companyBioId === "4ab610c8-e852-4b37-97d7-c41ba19b0d0e"
+    ? "Everest Opportunities"
+    : pageNameRaw;
   const { clearAuth } = useAuth();
   const { toggle: toggleMobileMenu } = useMobileMenu();
 

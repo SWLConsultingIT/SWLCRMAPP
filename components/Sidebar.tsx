@@ -363,7 +363,9 @@ export default function Sidebar() {
                 // light up /leads in the sidebar.
                 const active = pathname === href || (href !== "/" && pathname.startsWith(href));
                 const badge = badgeKey ? badges[badgeKey] : 0;
-                const itemLabel = brandLabel ?? t(labelKey);
+                let itemLabel = brandLabel ?? t(labelKey);
+                // Gruppo Everest demo: the leads list is reframed as "Everest Opportunities".
+                if (href === "/leads" && authUser?.companyBioId === "4ab610c8-e852-4b37-97d7-c41ba19b0d0e") itemLabel = "Everest Opportunities";
 
                 return (
                   <Link

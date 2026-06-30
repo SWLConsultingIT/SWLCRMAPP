@@ -587,14 +587,16 @@ export default async function LeadsCampaignsPage() {
   const { profileGroups, allLeads, lostLeads, renurturingLeads, wonLeads, companies, stats, totalLeadCount } = await getData();
   const scope = await getUserScope();
   const canImport = canEditTenantSettings(scope.tier) || scope.tier === "manager";
+  // Gruppo Everest demo: the leads list is reframed as "Everest Opportunities".
+  const isEverest = scope.companyBioId === "4ab610c8-e852-4b37-97d7-c41ba19b0d0e";
 
   return (
     <div className="p-4 sm:p-6 w-full">
       <PageHero
         icon={Users}
         section="Operations"
-        title="Leads"
-        description="Manage your full prospect pipeline and track outreach progress across all channels."
+        title={isEverest ? "Everest Opportunities" : "Leads"}
+        description={isEverest ? "Energy plants and nearby off-takers — your full Everest opportunity pipeline." : "Manage your full prospect pipeline and track outreach progress across all channels."}
         accentColor={C.blue}
         status={{ label: "Active", active: true }}
         stats={[

@@ -353,17 +353,7 @@ export default function NearbyCompaniesPage({
                 </div>
               )}
 
-              <div className="flex gap-2 mt-4">
-                {createState === "created" ? (
-                  <a href={`/leads/${createdId}`} className="flex-1 flex items-center justify-center gap-2 p-2.5 rounded-lg text-[13px] font-semibold" style={{ backgroundColor: C.greenLight, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 32%, transparent)` }}><CheckCircle2 size={14} /> {L("Lead created · view", "Lead creado · ver")}</a>
-                ) : (
-                  <button onClick={createLead} disabled={createState === "creating"} className="flex-1 flex items-center justify-center gap-2 p-2.5 rounded-lg text-[13px] font-semibold disabled:opacity-60" style={{ background: "linear-gradient(135deg, var(--brand, #c9a83a), #A8862E)", color: "#fff" }}>
-                    {createState === "creating" ? <><Loader2 size={14} className="animate-spin" /> {L("Creating…", "Creando…")}</> : <><UserPlus size={14} /> {L("Create as lead", "Crear como lead")}</>}
-                  </button>
-                )}
-                <a href={detail?.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((detail?.name ?? selected.name))}`} target="_blank" rel="noopener" className="flex items-center justify-center gap-2 px-4 p-2.5 rounded-lg text-[13px] font-semibold" style={{ background: `linear-gradient(135deg, ${N.ink3}, ${N.ink})`, color: "#fff" }}><MapPin size={14} /> Maps</a>
-              </div>
-              {createState === "error" && <p className="text-[11px] mt-1.5" style={{ color: C.red }}>{L("Couldn't create the lead", "No se pudo crear el lead")}</p>}
+              <a href={detail?.mapsUrl ?? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((detail?.name ?? selected.name))}`} target="_blank" rel="noopener" className="mt-4 w-full flex items-center justify-center gap-2 p-2.5 rounded-lg text-[13px] font-semibold" style={{ background: `linear-gradient(135deg, ${N.ink3}, ${N.ink})`, color: "#fff" }}><MapPin size={14} /> {L("Open in Maps", "Abrir en Maps")}</a>
             </div>
           </div>
         </div>
