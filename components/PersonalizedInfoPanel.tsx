@@ -1,6 +1,7 @@
 import { C } from "@/lib/design";
-import { Sparkles, TrendingUp, Building2, Info, Sun, FileText } from "lucide-react";
+import { Sparkles, TrendingUp, Building2, Info, Sun, FileText, Zap, CalendarClock, MapPin, Users, Maximize2 } from "lucide-react";
 import Link from "next/link";
+import RooftopMapThumb from "@/components/RooftopMapThumb";
 
 // Generic lead-enrichment panel. Renders whatever is in `lead.enrichment` jsonb.
 // Grouped by key prefix so each client can extend their own vocabulary without code changes.
@@ -107,7 +108,7 @@ const ROOFTOP_KEYS = new Set([
   // Structural / consumed-elsewhere keys — kept out of the generic "Additional"
   // bucket so they don't render as raw text. lat/lng drive the map; the
   // nearby-companies array is the cross-sell list (rendered by its own section).
-  "rooftop_lat", "rooftop_lng", "nearby_companies", "meeting_notes",
+  "rooftop_lat", "rooftop_lng", "nearby_companies", "meeting_notes", "plant_intel",
 ]);
 
 function formatRooftopValue(key: string, value: unknown): string {
@@ -153,23 +154,15 @@ function RooftopSection({ data, leadId, companyName }: { data: Record<string, un
       {/* Photo + headline badge */}
       <div className="flex flex-col md:flex-row gap-4 items-stretch">
         {photoUrl ? (
-          // Static satellite widget — shows the real rooftop, never navigates
-          // away (Fran: clicking the Google iframe kicked you out of the app).
-          <div className="rounded-xl overflow-hidden border shrink-0" style={{ borderColor: C.border, width: 280, height: 200 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={photoUrl}
-              alt={hasSolar ? "Rooftop with solar panels" : "Rooftop without solar panels"}
-              className="w-full h-full object-cover"
-            />
-          </div>
+          <RooftopMapThumb
+            photoUrl={photoUrl}
+            lat={lat}
+            lng={lng}
+            alt={hasSolar ? "Rooftop with solar panels" : "Rooftop without solar panels"}
+          />
         ) : null}
         <div className="flex-1 flex flex-col justify-between gap-3">
           <div>
-            <span className="inline-block text-[11px] font-bold px-2.5 py-1 rounded tracking-wider"
-              style={{ backgroundColor: badgeColor.bg, color: badgeColor.fg }}>
-              {badgeColor.label}
-            </span>
             {(data.cer_eligible === true || data.transizione_5_0_eligible === true) && (
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {data.cer_eligible === true && (
@@ -572,6 +565,105 @@ function MeetingNotesSection({ notes }: { notes: any }) {
   );
 }
 
+// ── Plant Intelligence (Gruppo Everest) — the Opportunity-1 dossier per PV plant ──
+function PlantIntelSection({ intel }: { intel: any }) {
+  const accent = "#15803D";
+  const it = (n: number) => n.toLocaleString("it-IT");
+  const kw  = typeof intel.installed_power_kw === "number" ? `${it(intel.installed_power_kw)} kW` : null;
+  const eur = typeof intel.contributo_eur === "number" ? `€${it(intel.contributo_eur)}` : null;
+
+  const owners: [string, string][] = ([
+    ["Incentive holder", intel.incentive_holder],
+    ["Beneficiary", intel.beneficiary],
+    ["Building owner", intel.building_owner],
+    ["Installation owner", intel.installation_owner],
+  ] as [string, string][]).filter(([, v]) => !!v);
+  const distinctOwners = new Set(owners.map(([, v]) => v));
+  const singleOwner = distinctOwners.size === 1;
+
+  const Field = ({ label, value }: { label: string; value: React.ReactNode }) =>
+    value == null || value === "" ? null : (
+      <div>
+        <p className="text-[9px] font-semibold uppercase tracking-wider mb-0.5" style={{ color: C.textMuted }}>{label}</p>
+        <p className="text-[12.5px] font-semibold break-words" style={{ color: C.textPrimary }}>{value}</p>
+      </div>
+    );
+
+  const SubCard = ({ icon: Icon, title, children }: { icon: typeof Info; title: string; children: React.ReactNode }) => (
+    <div className="rounded-lg p-3.5 border" style={{ backgroundColor: C.bg, borderColor: C.border }}>
+      <div className="flex items-center gap-1.5 mb-3">
+        <Icon size={12} style={{ color: accent }} />
+        <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: accent }}>{title}</p>
+      </div>
+      {children}
+    </div>
+  );
+
+  return (
+    <SectionBlock icon={Zap} title="Plant Intelligence" accent={accent} bg={`color-mix(in srgb, ${accent} 9%, transparent)`}>
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${accent} 14%, transparent)`, color: accent }}>Opportunity 1</span>
+        <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>Incentivised PV plant — structured dossier</span>
+      </div>
+
+      {/* Top KPIs */}
+      <div className="grid grid-cols-3 gap-2.5 mb-3">
+        <StatCard label="Installed power" value={kw ?? "—"} accent={accent} />
+        <StatCard label="Installation" value={intel.installation_type ?? "—"} accent={accent} />
+        <StatCard label="GSE segment" value={intel.segment ?? "—"} accent={accent} />
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+        {/* Location */}
+        <SubCard icon={MapPin} title="Location">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <Field label="City" value={intel.city} />
+            <Field label="Province" value={intel.province} />
+          </div>
+        </SubCard>
+
+        {/* State incentive */}
+        <SubCard icon={CalendarClock} title="State incentive (GSE)">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <Field label="Granted" value={intel.incentive_granted} />
+            <Field label="Valid until" value={intel.incentive_valid_until} />
+            <Field label="Contributo" value={eur} />
+            <Field label="CUP" value={intel.cup} />
+            <Field label="COR" value={intel.cor} />
+          </div>
+        </SubCard>
+
+        {/* Roof & expansion */}
+        <SubCard icon={Maximize2} title="Roof & expansion potential">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <Field label="Roof area" value={typeof intel.roof_area_m2 === "number" ? `${it(intel.roof_area_m2)} m²` : null} />
+            <Field label="Available" value={typeof intel.roof_available_m2 === "number" ? `${it(intel.roof_available_m2)} m²` : null} />
+            <Field label="Expansion potential" value={typeof intel.expansion_potential_kwp === "number" ? `+${it(intel.expansion_potential_kwp)} kWp` : null} />
+          </div>
+        </SubCard>
+
+        {/* Ownership structure */}
+        <SubCard icon={Users} title="Ownership structure">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+              style={singleOwner
+                ? { backgroundColor: C.greenLight ?? "color-mix(in srgb, #15803D 14%, transparent)", color: "#15803D" }
+                : { backgroundColor: C.redLight, color: C.red }}>
+              {singleOwner ? "Single owner" : "Split ownership"}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 gap-y-3">
+            {owners.map(([label, value]) => <Field key={label} label={label} value={value} />)}
+          </div>
+          {intel.ownership_note && (
+            <p className="text-[12px] italic mt-3 pt-2.5 border-t leading-relaxed" style={{ color: C.textMuted, borderColor: C.border }}>{intel.ownership_note}</p>
+          )}
+        </SubCard>
+      </div>
+    </SectionBlock>
+  );
+}
+
 export default function PersonalizedInfoPanel({ enrichment, leadId, companyName }: Props) {
   if (!enrichment || typeof enrichment !== "object" || Object.keys(enrichment).length === 0) return null;
 
@@ -616,6 +708,7 @@ export default function PersonalizedInfoPanel({ enrichment, leadId, companyName 
 
       {/* Rooftop intelligence (Gruppo Everest) — renders only if present */}
       {showRooftop && <RooftopSection data={data} leadId={leadId} companyName={companyName} />}
+      {data.plant_intel && typeof data.plant_intel === "object" && <PlantIntelSection intel={data.plant_intel} />}
       {data.meeting_notes && typeof data.meeting_notes === "object" && <MeetingNotesSection notes={data.meeting_notes} />}
 
       {/* Priority KPI cards */}

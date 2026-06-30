@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, X, Phone, Globe, MapPin, ExternalLink, Star, Loader2, Zap, UserPlus, CheckCircle2, Building2 } from "lucide-react";
+import { ArrowLeft, X, Phone, Globe, MapPin, Star, Loader2, Zap, UserPlus, CheckCircle2, Search, ArrowUpDown, ChevronRight } from "lucide-react";
 import { C } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 
@@ -21,17 +21,58 @@ function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(toR(aLat)) * Math.cos(toR(bLat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
+
 const SKIP = new Set(["establishment", "point_of_interest", "premise", "geocode", "food"]);
 const industryOf = (t?: string[]) => { const x = (t || []).find(v => !SKIP.has(v)); return x ? x.replace(/_/g, " ").replace(/\b\w/g, m => m.toUpperCase()) : null; };
+
+// Keyword classifier so the table has an industry BEFORE we fetch place details.
+const NAME_RULES: [RegExp, string][] = [
+  [/hotel|albergo|resort|locanda|b&b|ostello|agriturismo/i, "Lodging"],
+  [/ristorante|restaurant|pizzeria|trattoria|osteria|gastronomia|tavola calda/i, "Restaurant"],
+  [/\bbar\b|caff[eè]|cafe|pasticceria|gelateria|panificio|panetteria/i, "Café & bakery"],
+  [/supermercato|market|conad|coop|esselunga|lidl|carrefour|alimentari|discount/i, "Supermarket"],
+  [/farmacia|clinica|poliambulatorio|studio medico|dentist|ospedale|centro medico/i, "Health"],
+  [/palestra|fitness|spa|wellness|piscina/i, "Fitness & wellness"],
+  [/officina|meccanic|carrozzeria|autofficina|gomm|auto\b/i, "Automotive"],
+  [/scuola|istituto|asilo|universit|formazione/i, "Education"],
+  [/stamperia|tipografia|lavanderia|industria|manifattura|fonderia|acciaieria|capannone|logistica|magazzino|plast|metall/i, "Industrial"],
+  [/negozio|boutique|store|abbigliamento|ferramenta|mobili|arredament/i, "Retail"],
+  [/banca|assicurazion|consulenza|immobiliare|ufficio|notaio|commercialista/i, "Office / services"],
+];
+function industryFromName(name: string | null) {
+  for (const [re, label] of NAME_RULES) if (re.test(name || "")) return label;
+  return "Business";
+}
 // Rough annual demand by category (MWh/yr) — demo estimate.
 function demandMwh(industry: string | null) {
   const i = (industry || "").toLowerCase();
   if (/lodging|hotel|resort/.test(i)) return 340;
-  if (/restaurant|bar|cafe|food/.test(i)) return 120;
-  if (/store|retail|shopping|supermarket/.test(i)) return 210;
-  if (/spa|gym|health|hospital|clinic/.test(i)) return 260;
-  return 160;
+  if (/supermarket|supermercato/.test(i)) return 280;
+  if (/health|clinic|hospital/.test(i)) return 260;
+  if (/fitness|wellness|spa/.test(i)) return 230;
+  if (/industrial|manufactur/.test(i)) return 480;
+  if (/retail|store|shopping/.test(i)) return 210;
+  if (/automotive/.test(i)) return 180;
+  if (/education|school/.test(i)) return 160;
+  if (/restaurant|bar|food/.test(i)) return 120;
+  if (/caf[eé]|bakery/.test(i)) return 90;
+  if (/office|services/.test(i)) return 110;
+  return 150;
 }
+function cityOf(address: string | null) {
+  if (!address) return null;
+  const parts = address.split(",").map(s => s.trim()).filter(Boolean).filter(p => !/^italia?$/i.test(p));
+  const capPart = parts.find(p => /\b\d{5}\b/.test(p)) ?? parts[parts.length - 1] ?? null;
+  if (!capPart) return null;
+  return capPart.replace(/\b\d{5}\b/g, "").replace(/\b[A-Z]{2}\b\s*$/, "").trim() || null;
+}
+function fitOf(demand: number) {
+  if (demand >= 250) return { label: "High", color: "#15803D", bg: "color-mix(in srgb, #15803D 14%, transparent)" };
+  if (demand >= 150) return { label: "Medium", color: "#B45309", bg: "color-mix(in srgb, #D97706 14%, transparent)" };
+  return { label: "Low", color: C.textMuted, bg: "color-mix(in srgb, #64748B 14%, transparent)" };
+}
+
+type Row = NearbyCompany & { industry: string; city: string | null; demand: number };
 
 export default function NearbyCompaniesPage({
   leadId, company, plantLat, plantLng, potenzaKw, initial,
@@ -42,13 +83,42 @@ export default function NearbyCompaniesPage({
 }) {
   const { locale } = useLocale();
   const L = (en: string, es: string) => (locale === "es" ? es : en);
-  const list = initial ?? [];
+  const teal = "#1A7F74";
+
+  const [query, setQuery] = useState("");
+  const [industryFilter, setIndustryFilter] = useState<string>("all");
+  const [sort, setSort] = useState<{ key: "name" | "industry" | "city" | "demand"; dir: 1 | -1 }>({ key: "demand", dir: -1 });
+
   const [selected, setSelected] = useState<NearbyCompany | null>(null);
   const [detail, setDetail] = useState<RichDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [createState, setCreateState] = useState<"idle" | "creating" | "created" | "error">("idle");
   const [createdId, setCreatedId] = useState<string | null>(null);
-  const teal = "#1A7F74", amber = "#D97706";
+
+  const rows: Row[] = useMemo(() => (initial ?? []).map(c => {
+    const industry = industryFromName(c.name);
+    return { ...c, industry, city: cityOf(c.address), demand: demandMwh(industry) };
+  }), [initial]);
+
+  const industries = useMemo(() => Array.from(new Set(rows.map(r => r.industry))).sort(), [rows]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let r = rows.filter(row =>
+      (industryFilter === "all" || row.industry === industryFilter) &&
+      (!q || [row.name, row.city, row.industry, row.address].some(v => (v || "").toLowerCase().includes(q)))
+    );
+    const { key, dir } = sort;
+    r = [...r].sort((a, b) => {
+      if (key === "demand") return (a.demand - b.demand) * dir;
+      return String(a[key] ?? "").localeCompare(String(b[key] ?? "")) * dir;
+    });
+    return r;
+  }, [rows, query, industryFilter, sort]);
+
+  const totalDemand = useMemo(() => filtered.reduce((s, r) => s + r.demand, 0), [filtered]);
+  const toggleSort = (key: "name" | "industry" | "city" | "demand") =>
+    setSort(s => s.key === key ? { key, dir: (s.dir === 1 ? -1 : 1) } : { key, dir: key === "demand" ? -1 : 1 });
 
   async function open(c: NearbyCompany) {
     setSelected(c); setDetail(null); setLoading(true); setCreateState("idle"); setCreatedId(null);
@@ -64,14 +134,14 @@ export default function NearbyCompaniesPage({
     setCreateState("creating");
     try {
       const r = await fetch(`/api/leads/${leadId}/nearby-companies/create-lead`, { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: detail?.name ?? selected.name, address: detail?.address ?? selected.address, phone: detail?.phone ?? selected.phone, web: detail?.web ?? selected.web, industry: industryOf(detail?.types), fromCompany: company }) });
+        body: JSON.stringify({ name: detail?.name ?? selected.name, address: detail?.address ?? selected.address, phone: detail?.phone ?? selected.phone, web: detail?.web ?? selected.web, industry: industryOf(detail?.types) ?? industryFromName(selected.name), fromCompany: company }) });
       const d = await r.json();
       if (r.ok && d.leadId) { setCreatedId(d.leadId); setCreateState("created"); } else setCreateState("error");
     } catch { setCreateState("error"); }
   }
 
   const webHref = (w: string) => (w.startsWith("http") ? w : `https://${w}`);
-  const industry = industryOf(detail?.types);
+  const industry = industryOf(detail?.types) ?? (selected ? industryFromName(selected.name) : null);
   const addr = detail?.address ?? selected?.address ?? null;
   const phone = detail?.phone ?? selected?.phone ?? null;
   const web = detail?.web ?? selected?.web ?? null;
@@ -79,41 +149,111 @@ export default function NearbyCompaniesPage({
   const demand = demandMwh(industry);
   const anchor = company.replace(/\s+(s\.?r\.?l\.?|srl|s\.?p\.?a\.?|spa)\.?$/i, "").trim();
 
+  const Th = ({ k, children, right }: { k: "name" | "industry" | "city" | "demand"; children: React.ReactNode; right?: boolean }) => (
+    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider select-none cursor-pointer" style={{ color: C.textMuted, textAlign: right ? "right" : "left" }} onClick={() => toggleSort(k)}>
+      <span className={`inline-flex items-center gap-1 ${right ? "flex-row-reverse" : ""}`}>
+        {children}
+        <ArrowUpDown size={11} style={{ opacity: sort.key === k ? 1 : 0.3, color: sort.key === k ? teal : C.textMuted }} />
+      </span>
+    </th>
+  );
+
   return (
-    <div className="p-6 w-full fade-in" style={{ maxWidth: 1100, margin: "0 auto" }}>
+    <div className="p-6 w-full fade-in" style={{ maxWidth: 1320, margin: "0 auto" }}>
       <Link href={`/leads/${leadId}`} className="inline-flex items-center gap-1.5 text-[13px] font-semibold mb-5" style={{ color: C.textMuted }}>
         <ArrowLeft size={15} /> {L("Back to lead", "Volver al lead")}
       </Link>
 
-      <div className="rounded-2xl border p-6 mb-6" style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${teal} 12%, ${C.card}), ${C.card})`, borderColor: C.border }}>
+      <div className="rounded-2xl border p-6 mb-5" style={{ background: `linear-gradient(135deg, color-mix(in srgb, ${teal} 12%, ${C.card}), ${C.card})`, borderColor: C.border }}>
         <p className="text-[11px] font-bold uppercase tracking-wider mb-1.5" style={{ color: teal }}>{L("Opportunity 2 · Producer ↔ Consumer match", "Oportunidad 2 · Match productor ↔ consumidor")}</p>
         <h1 className="text-[26px] font-bold tracking-tight" style={{ color: C.textPrimary }}>{L("Energy consumers around", "Consumidores de energía cerca de")} {anchor}</h1>
-        <p className="text-[14px] mt-2 leading-relaxed" style={{ color: C.textMuted, maxWidth: "78ch" }}>
+        <p className="text-[14px] mt-2 leading-relaxed" style={{ color: C.textMuted, maxWidth: "82ch" }}>
           {L(
-            `Businesses within reach of the ${potenzaKw ? `${Math.round(potenzaKw)} kW ` : ""}array — potential off-takers for surplus generation, or anchor members for a renewable energy community (CER). ${list.length} found nearby.`,
-            `Negocios al alcance del parque ${potenzaKw ? `de ${Math.round(potenzaKw)} kW ` : ""}— posibles consumidores del excedente, o miembros de una comunidad energética (CER). ${list.length} cerca.`
+            `Businesses within reach of the ${potenzaKw ? `${Math.round(potenzaKw)} kW ` : ""}array — potential off-takers for surplus generation, or anchor members for a renewable energy community (CER).`,
+            `Negocios al alcance del parque ${potenzaKw ? `de ${Math.round(potenzaKw)} kW ` : ""}— posibles consumidores del excedente, o miembros de una comunidad energética (CER).`
           )}
         </p>
+        <div className="flex flex-wrap gap-2.5 mt-4">
+          {[
+            { v: String(rows.length), l: L("companies nearby", "empresas cerca") },
+            { v: `~${totalDemand.toLocaleString("it-IT")} MWh/${L("yr", "año")}`, l: L("combined demand (shown)", "demanda combinada (mostrada)") },
+            { v: potenzaKw ? `${Math.round(potenzaKw)} kW` : "—", l: L("plant array", "parque de la planta") },
+          ].map((s, i) => (
+            <div key={i} className="rounded-xl border px-4 py-2.5" style={{ backgroundColor: C.card, borderColor: C.border }}>
+              <p className="text-[17px] font-bold" style={{ color: C.textPrimary, fontVariantNumeric: "tabular-nums" }}>{s.v}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{s.l}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
-      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}>
-        {list.map((c, i) => (
-          <button key={i} onClick={() => open(c)} className="text-left rounded-xl border p-4 flex items-start gap-3 transition-all hover:shadow-md hover:-translate-y-px"
-            style={{ backgroundColor: C.card, borderColor: C.border }}>
-            <span className="w-10 h-10 rounded-lg flex items-center justify-center text-sm font-bold shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${teal} 12%, transparent)`, color: teal }}>
-              {c.name?.[0]?.toUpperCase() ?? "?"}
-            </span>
-            <span className="flex-1 min-w-0">
-              <span className="block text-[14px] font-semibold truncate" style={{ color: C.textPrimary }}>{c.name}</span>
-              {c.address && <span className="block text-[12px] truncate mt-0.5" style={{ color: C.textMuted }}>{c.address}</span>}
-              <span className="flex items-center gap-2 mt-2">
-                {c.phone && <Phone size={12} style={{ color: C.phone }} />}
-                {c.web && <Globe size={12} style={{ color: C.blue }} />}
-                <span className="text-[11px] font-semibold" style={{ color: teal }}>{L("View match →", "Ver match →")}</span>
-              </span>
-            </span>
-          </button>
-        ))}
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2.5 mb-3">
+        <div className="relative flex-1 min-w-[220px]">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: C.textMuted }} />
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder={L("Search company, city, industry…", "Buscar empresa, ciudad, industria…")}
+            className="w-full pl-9 pr-3 py-2.5 rounded-xl border text-[13px] outline-none" style={{ backgroundColor: C.card, borderColor: C.border, color: C.textPrimary }} />
+        </div>
+        <select value={industryFilter} onChange={e => setIndustryFilter(e.target.value)}
+          className="py-2.5 px-3 rounded-xl border text-[13px] font-medium outline-none cursor-pointer" style={{ backgroundColor: C.card, borderColor: C.border, color: C.textPrimary }}>
+          <option value="all">{L("All industries", "Todas las industrias")}</option>
+          {industries.map(i => <option key={i} value={i}>{i}</option>)}
+        </select>
+        <span className="text-[12px] font-semibold px-2" style={{ color: C.textMuted }}>{filtered.length} {L("results", "resultados")}</span>
+      </div>
+
+      {/* Table */}
+      <div className="rounded-2xl border overflow-hidden" style={{ borderColor: C.border, backgroundColor: C.card }}>
+        <div style={{ overflowX: "auto" }}>
+          <table className="w-full" style={{ borderCollapse: "collapse", minWidth: 860 }}>
+            <thead>
+              <tr style={{ borderBottom: `1px solid ${C.border}`, backgroundColor: C.bg }}>
+                <Th k="name">{L("Company", "Empresa")}</Th>
+                <Th k="industry">{L("Industry", "Industria")}</Th>
+                <Th k="city">{L("City", "Ciudad")}</Th>
+                <Th k="demand" right>{L("Est. demand", "Demanda est.")}</Th>
+                <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>{L("Fit", "Encaje")}</th>
+                <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>{L("Contact", "Contacto")}</th>
+                <th className="px-2 py-3" />
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((r, i) => {
+                const fit = fitOf(r.demand);
+                return (
+                  <tr key={i} onClick={() => open(r)} className="cursor-pointer transition-colors hover:bg-[var(--row-h)]"
+                    style={{ borderBottom: i < filtered.length - 1 ? `1px solid ${C.border}` : undefined, ["--row-h" as any]: C.bg }}>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="w-9 h-9 rounded-lg flex items-center justify-center text-[13px] font-bold shrink-0" style={{ backgroundColor: `color-mix(in srgb, ${teal} 12%, transparent)`, color: teal }}>{r.name?.[0]?.toUpperCase() ?? "?"}</span>
+                        <div className="min-w-0">
+                          <p className="text-[13.5px] font-semibold truncate" style={{ color: C.textPrimary, maxWidth: 300 }}>{r.name}</p>
+                          {r.address && <p className="text-[11.5px] truncate" style={{ color: C.textMuted, maxWidth: 300 }}>{r.address}</p>}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-[11.5px] font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${teal} 11%, transparent)`, color: teal }}>{r.industry}</span>
+                    </td>
+                    <td className="px-4 py-3 text-[13px]" style={{ color: C.textBody }}>{r.city ?? "—"}</td>
+                    <td className="px-4 py-3 text-[13px] font-semibold text-right" style={{ color: C.textPrimary, fontVariantNumeric: "tabular-nums" }}>~{r.demand} <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>MWh/{L("yr", "año")}</span></td>
+                    <td className="px-4 py-3 text-center"><span className="text-[10.5px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ backgroundColor: fit.bg, color: fit.color }}>{fit.label}</span></td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center gap-2.5">
+                        {r.phone ? <Phone size={13} style={{ color: C.phone }} /> : <span style={{ width: 13 }} />}
+                        {r.web ? <Globe size={13} style={{ color: C.blue }} /> : <span style={{ width: 13 }} />}
+                      </div>
+                    </td>
+                    <td className="px-2 py-3 text-right"><ChevronRight size={16} style={{ color: C.textMuted }} /></td>
+                  </tr>
+                );
+              })}
+              {filtered.length === 0 && (
+                <tr><td colSpan={7} className="px-4 py-10 text-center text-[13px]" style={{ color: C.textMuted }}>{L("No companies match your filters.", "Ninguna empresa coincide con los filtros.")}</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Detail modal */}
