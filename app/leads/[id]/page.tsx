@@ -356,10 +356,11 @@ function ZoneLabel({ title, accent = "var(--brand, #c9a83a)" }: { title: string;
 // pre-call brief) or clashes with the navy hero above.
 function zoneStyle(accent: string) {
   return {
-    background: `linear-gradient(180deg, color-mix(in srgb, ${accent} 3.5%, transparent), transparent 45%)`,
+    background: `linear-gradient(180deg, color-mix(in srgb, ${accent} 9%, transparent), color-mix(in srgb, ${accent} 2%, transparent) 55%)`,
     borderRadius: 20,
     padding: "14px 14px 20px",
-    marginTop: 10,
+    marginTop: 14,
+    border: `1px solid color-mix(in srgb, ${accent} 18%, transparent)`,
   } as const;
 }
 
@@ -1064,7 +1065,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       </section>
       )}
       <section className="reveal" style={zoneStyle(ZONE.research)}>
-      <CollapsibleSection title={t("lead.zone.research")} accent={ZONE.research} collapsible={!isEverest} defaultOpen={false}>
+      <CollapsibleSection title={t("lead.zone.research")} accent={ZONE.research} collapsible={!isEverest} defaultOpen>
 
       {/* ═══ DEEP-DIVE RESEARCH — long-form prep dossier. ═══ */}
       <div className="mt-6">
@@ -1081,14 +1082,16 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         <LinkedInEnrichment leadId={id} />
       </div>
 
+      {/* ═══ LEAD COPILOT — grouped here with the rest of the research/AI tools. ═══ */}
+      <div className="mt-6">
+        <LeadQA leadId={id} initialHistory={(lead as any).ai_chat ?? null} accent={ZONE.copilot} />
+      </div>
+
       </CollapsibleSection>
       </section>
-      <section className="reveal" style={zoneStyle(ZONE.copilot)}>
-
-      {/* ═══ LEAD COPILOT — grounded Q&A chat with per-lead memory. ═══ */}
-      <LeadQA leadId={id} initialHistory={(lead as any).ai_chat ?? null} accent={ZONE.copilot} />
-
-      </section>
+      {/* Standalone Campaign zone — redundant with the Details ▸ Campaign tab,
+          so it's hidden for normal tenants. Kept for Gruppo Everest (demo). */}
+      {isEverest && (
       <section className="reveal" style={zoneStyle(ZONE.campaign)}>
       <CollapsibleSection title={t("lead.zone.campaign")} accent={ZONE.campaign} collapsible={!isEverest} defaultOpen>
 
@@ -1344,6 +1347,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           summary, so Summary tab demotes to the research-tier. */}
       </CollapsibleSection>
       </section>
+      )}
       <section className="reveal" style={{ ...zoneStyle(ZONE.details), ...(isEverest ? { order: -2 } : {}) }}>
       <ZoneLabel title={t("lead.zone.details")} accent={ZONE.details} />
 
