@@ -6,7 +6,7 @@ import { ArrowLeft, X, Phone, Globe, MapPin, Star, Loader2, Zap, UserPlus, Check
 import { C, N } from "@/lib/design";
 import { useLocale } from "@/lib/i18n";
 
-type NearbyCompany = { name: string; address: string | null; phone: string | null; web: string | null };
+type NearbyCompany = { name: string; address: string | null; phone: string | null; web: string | null; distance_km?: number | null };
 type Review = { author: string | null; rating: number | null; text: string; when: string | null };
 type RichDetail = {
   name: string; address: string | null; phone: string | null; web: string | null;
@@ -72,7 +72,8 @@ function fitOf(demand: number) {
   return { label: "Low", color: C.textMuted, bg: "color-mix(in srgb, #64748B 12%, transparent)" };
 }
 
-type Row = NearbyCompany & { industry: string; city: string | null; demand: number };
+type Row = NearbyCompany & { industry: string; city: string | null; demand: number; distance: number | null };
+type SortKey = "name" | "industry" | "city" | "demand" | "distance";
 
 export default function NearbyCompaniesPage({
   leadId, company, plantLat, plantLng, potenzaKw, initial,
@@ -87,7 +88,7 @@ export default function NearbyCompaniesPage({
 
   const [query, setQuery] = useState("");
   const [industryFilter, setIndustryFilter] = useState<string>("all");
-  const [sort, setSort] = useState<{ key: "name" | "industry" | "city" | "demand"; dir: 1 | -1 }>({ key: "demand", dir: -1 });
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "distance", dir: 1 });
 
   const [selected, setSelected] = useState<NearbyCompany | null>(null);
   const [detail, setDetail] = useState<RichDetail | null>(null);
@@ -97,7 +98,7 @@ export default function NearbyCompaniesPage({
 
   const rows: Row[] = useMemo(() => (initial ?? []).map(c => {
     const industry = industryFromName(c.name);
-    return { ...c, industry, city: cityOf(c.address), demand: demandMwh(industry) };
+    return { ...c, industry, city: cityOf(c.address), demand: demandMwh(industry), distance: typeof c.distance_km === "number" ? c.distance_km : null };
   }), [initial]);
 
   const industries = useMemo(() => Array.from(new Set(rows.map(r => r.industry))).sort(), [rows]);
@@ -111,14 +112,15 @@ export default function NearbyCompaniesPage({
     const { key, dir } = sort;
     r = [...r].sort((a, b) => {
       if (key === "demand") return (a.demand - b.demand) * dir;
+      if (key === "distance") return ((a.distance ?? 1e9) - (b.distance ?? 1e9)) * dir;
       return String(a[key] ?? "").localeCompare(String(b[key] ?? "")) * dir;
     });
     return r;
   }, [rows, query, industryFilter, sort]);
 
   const totalDemand = useMemo(() => filtered.reduce((s, r) => s + r.demand, 0), [filtered]);
-  const toggleSort = (key: "name" | "industry" | "city" | "demand") =>
-    setSort(s => s.key === key ? { key, dir: (s.dir === 1 ? -1 : 1) } : { key, dir: key === "demand" ? -1 : 1 });
+  const toggleSort = (key: SortKey) =>
+    setSort(s => s.key === key ? { key, dir: (s.dir === 1 ? -1 : 1) } : { key, dir: (key === "demand" ? -1 : 1) });
 
   async function open(c: NearbyCompany) {
     setSelected(c); setDetail(null); setLoading(true); setCreateState("idle"); setCreatedId(null);
@@ -145,11 +147,11 @@ export default function NearbyCompaniesPage({
   const addr = detail?.address ?? selected?.address ?? null;
   const phone = detail?.phone ?? selected?.phone ?? null;
   const web = detail?.web ?? selected?.web ?? null;
-  const distKm = plantLat != null && plantLng != null && detail?.lat != null && detail?.lng != null ? haversineKm(plantLat, plantLng, detail.lat, detail.lng) : null;
+  const distKm = (plantLat != null && plantLng != null && detail?.lat != null && detail?.lng != null ? haversineKm(plantLat, plantLng, detail.lat, detail.lng) : null) ?? (typeof selected?.distance_km === "number" ? selected.distance_km : null);
   const demand = demandMwh(industry);
   const anchor = company.replace(/\s+(s\.?r\.?l\.?|srl|s\.?p\.?a\.?|spa)\.?$/i, "").trim();
 
-  const Th = ({ k, children, right }: { k: "name" | "industry" | "city" | "demand"; children: React.ReactNode; right?: boolean }) => (
+  const Th = ({ k, children, right }: { k: SortKey; children: React.ReactNode; right?: boolean }) => (
     <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider select-none cursor-pointer" style={{ color: C.textMuted, textAlign: right ? "right" : "left" }} onClick={() => toggleSort(k)}>
       <span className={`inline-flex items-center gap-1 ${right ? "flex-row-reverse" : ""}`}>
         {children}
@@ -227,6 +229,7 @@ export default function NearbyCompaniesPage({
                 <Th k="name">{L("Company", "Empresa")}</Th>
                 <Th k="industry">{L("Industry", "Industria")}</Th>
                 <Th k="city">{L("City", "Ciudad")}</Th>
+                <Th k="distance" right>{L("Distance", "Distancia")}</Th>
                 <Th k="demand" right>{L("Est. demand", "Demanda est.")}</Th>
                 <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>{L("Fit", "Encaje")}</th>
                 <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-center" style={{ color: C.textMuted }}>{L("Contact", "Contacto")}</th>
@@ -252,6 +255,7 @@ export default function NearbyCompaniesPage({
                       <span className="text-[11.5px] font-semibold px-2 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${gold} 11%, transparent)`, color: gold }}>{r.industry}</span>
                     </td>
                     <td className="px-4 py-3 text-[13px]" style={{ color: C.textBody }}>{r.city ?? "—"}</td>
+                    <td className="px-4 py-3 text-[13px] font-semibold text-right" style={{ color: C.textPrimary, fontVariantNumeric: "tabular-nums" }}>{r.distance != null ? <>{r.distance.toFixed(1)} <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>km</span></> : "—"}</td>
                     <td className="px-4 py-3 text-[13px] font-semibold text-right" style={{ color: C.textPrimary, fontVariantNumeric: "tabular-nums" }}>~{r.demand} <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>MWh/{L("yr", "año")}</span></td>
                     <td className="px-4 py-3 text-center"><span className="text-[10.5px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ backgroundColor: fit.bg, color: fit.color }}>{fit.label}</span></td>
                     <td className="px-4 py-3">
@@ -265,7 +269,7 @@ export default function NearbyCompaniesPage({
                 );
               })}
               {filtered.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-10 text-center text-[13px]" style={{ color: C.textMuted }}>{L("No companies match your filters.", "Ninguna empresa coincide con los filtros.")}</td></tr>
+                <tr><td colSpan={8} className="px-4 py-10 text-center text-[13px]" style={{ color: C.textMuted }}>{L("No companies match your filters.", "Ninguna empresa coincide con los filtros.")}</td></tr>
               )}
             </tbody>
           </table>

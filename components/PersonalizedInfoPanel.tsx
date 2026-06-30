@@ -646,6 +646,7 @@ function PlantIntelSection({ intel }: { intel: any }) {
           <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
             <Field label="City" value={intel.city} />
             <Field label="Province" value={intel.province} />
+            <Field label="Coordinates" value={typeof intel.geo_lat === "number" && typeof intel.geo_lng === "number" ? `${intel.geo_lat.toFixed(4)}, ${intel.geo_lng.toFixed(4)}` : null} />
             <Field label="Roof area" value={typeof intel.roof_area_m2 === "number" ? `${it(intel.roof_area_m2)} m²` : null} />
             <Field label="Available" value={typeof intel.roof_available_m2 === "number" ? `${it(intel.roof_available_m2)} m²` : null} />
             <Field label="Expansion potential" value={typeof intel.expansion_potential_kwp === "number" ? `+${it(intel.expansion_potential_kwp)} kWp` : null} />
