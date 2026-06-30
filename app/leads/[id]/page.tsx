@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
 import CompanyTabs from "@/components/CompanyTabs";
+import CollapsibleSection from "@/components/CollapsibleSection";
 import ActivityTimeline from "@/components/ActivityTimeline";
 import LeadChatThread from "@/components/LeadChatThread";
 import LeadNotes from "@/components/LeadNotes";
@@ -903,7 +904,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
       )}
 
       <section className="reveal" style={zoneStyle(ZONE.prep)}>
-      <ZoneLabel title={t("lead.zone.prep")} accent={ZONE.prep} />
+      <CollapsibleSection title={t("lead.zone.prep")} accent={ZONE.prep} collapsible={!isEverest} defaultOpen>
 
       {/* ═══ PRE-CALL BRIEF — ALWAYS rendered (Fran 2026-06-05), self-generates
             on first view. First in the Overview flow: brief → account angle →
@@ -914,10 +915,11 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         initialGeneratedAt={(lead as any).call_talking_points_at ?? null}
       />
 
+      </CollapsibleSection>
       </section>
       {!isEverest && (
       <section className="reveal" style={zoneStyle(ZONE.account)}>
-      <ZoneLabel title={t("lead.zone.account")} accent={ZONE.account} />
+      <CollapsibleSection title={t("lead.zone.account")} accent={ZONE.account} collapsible={!isEverest} defaultOpen>
 
       {/* ═══ COMPANY — one rich section: facts + what they do + our industry
             play + value prop + tech/keywords/news, clickable through to the
@@ -1058,10 +1060,11 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         );
       })()}
 
+      </CollapsibleSection>
       </section>
       )}
       <section className="reveal" style={zoneStyle(ZONE.research)}>
-      <ZoneLabel title={t("lead.zone.research")} accent={ZONE.research} />
+      <CollapsibleSection title={t("lead.zone.research")} accent={ZONE.research} collapsible={!isEverest} defaultOpen={false}>
 
       {/* ═══ DEEP-DIVE RESEARCH — long-form prep dossier. ═══ */}
       <div className="mt-6">
@@ -1078,6 +1081,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
         <LinkedInEnrichment leadId={id} />
       </div>
 
+      </CollapsibleSection>
       </section>
       <section className="reveal" style={zoneStyle(ZONE.copilot)}>
 
@@ -1086,7 +1090,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
 
       </section>
       <section className="reveal" style={zoneStyle(ZONE.campaign)}>
-      <ZoneLabel title={t("lead.zone.campaign")} accent={ZONE.campaign} />
+      <CollapsibleSection title={t("lead.zone.campaign")} accent={ZONE.campaign} collapsible={!isEverest} defaultOpen>
 
       {/* ═══ NEXT ACTION CARD — what the user should do or know right now.
             Sits above the stepper so the seller doesn't have to interpret the
@@ -1338,6 +1342,7 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
           AI summary (research) → full timeline → social deep-research.
           The Pre-Call Brief above the tabs already provides the 30-second
           summary, so Summary tab demotes to the research-tier. */}
+      </CollapsibleSection>
       </section>
       <section className="reveal" style={{ ...zoneStyle(ZONE.details), ...(isEverest ? { order: -2 } : {}) }}>
       <ZoneLabel title={t("lead.zone.details")} accent={ZONE.details} />
