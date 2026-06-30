@@ -95,6 +95,7 @@ export default function NearbyCompaniesPage({
   const [loading, setLoading] = useState(false);
   const [createState, setCreateState] = useState<"idle" | "creating" | "created" | "error">("idle");
   const [createdId, setCreatedId] = useState<string | null>(null);
+  const [photoIdx, setPhotoIdx] = useState(0);
 
   const rows: Row[] = useMemo(() => (initial ?? []).map(c => {
     const industry = industryFromName(c.name);
@@ -123,7 +124,7 @@ export default function NearbyCompaniesPage({
     setSort(s => s.key === key ? { key, dir: (s.dir === 1 ? -1 : 1) } : { key, dir: (key === "demand" ? -1 : 1) });
 
   async function open(c: NearbyCompany) {
-    setSelected(c); setDetail(null); setLoading(true); setCreateState("idle"); setCreatedId(null);
+    setSelected(c); setDetail(null); setLoading(true); setCreateState("idle"); setCreatedId(null); setPhotoIdx(0);
     try {
       const r = await fetch(`/api/leads/${leadId}/place-detail`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: c.name, address: c.address }) });
       const d = await r.json();
@@ -280,17 +281,35 @@ export default function NearbyCompaniesPage({
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.55)", backdropFilter: "blur(3px)" }} onClick={() => setSelected(null)}>
           <div className="w-full max-w-xl rounded-2xl border shadow-2xl overflow-hidden max-h-[92vh] flex flex-col" style={{ backgroundColor: C.card, borderColor: C.border }} onClick={e => e.stopPropagation()}>
-            <div className="relative h-44 flex items-center justify-center shrink-0" style={{ backgroundColor: C.bg }}>
-              {loading ? (
-                <div className="flex flex-col items-center gap-2" style={{ color: C.textMuted }}><Loader2 size={22} className="animate-spin" /><span className="text-[11px]">{L("Fetching details…", "Trayendo datos…")}</span></div>
-              ) : detail?.photoUrl ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={detail.photoUrl} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <span className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold" style={{ background: `linear-gradient(135deg, ${N.ink3}, ${N.ink})`, color: "#fff" }}>{(detail?.name ?? selected.name)?.[0]?.toUpperCase() ?? "?"}</span>
-              )}
-              <button onClick={() => setSelected(null)} className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)", color: "#fff" }}><X size={16} /></button>
-            </div>
+            {(() => {
+              const photos = detail?.photoUrls?.length ? detail.photoUrls : (detail?.photoUrl ? [detail.photoUrl] : []);
+              const hero = photos[photoIdx] ?? photos[0] ?? null;
+              return (
+                <div className="shrink-0" style={{ backgroundColor: C.bg }}>
+                  <div className="relative h-52 flex items-center justify-center">
+                    {loading ? (
+                      <div className="flex flex-col items-center gap-2" style={{ color: C.textMuted }}><Loader2 size={22} className="animate-spin" /><span className="text-[11px]">{L("Fetching photos & details…", "Trayendo fotos y datos…")}</span></div>
+                    ) : hero ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={hero} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold" style={{ background: `linear-gradient(135deg, ${N.ink3}, ${N.ink})`, color: "#fff" }}>{(detail?.name ?? selected.name)?.[0]?.toUpperCase() ?? "?"}</span>
+                    )}
+                    <button onClick={() => setSelected(null)} className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: "rgba(0,0,0,0.5)", color: "#fff" }}><X size={16} /></button>
+                  </div>
+                  {photos.length > 1 && (
+                    <div className="flex gap-1.5 px-3 py-2 overflow-x-auto" style={{ borderTop: `1px solid ${C.border}` }}>
+                      {photos.map((p, i) => (
+                        <button key={i} onClick={() => setPhotoIdx(i)} className="rounded-md overflow-hidden shrink-0 transition-all" style={{ width: 56, height: 40, border: `2px solid ${i === photoIdx ? gold : "transparent"}`, opacity: i === photoIdx ? 1 : 0.7 }}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={p} alt="" className="w-full h-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             <div className="p-5 overflow-y-auto">
               <p className="text-[18px] font-bold leading-tight" style={{ color: C.textPrimary }}>{detail?.name ?? selected.name}</p>
               <div className="flex items-center flex-wrap gap-2 mt-2">

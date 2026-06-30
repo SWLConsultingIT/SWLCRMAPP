@@ -52,6 +52,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const photoUrls: string[] = Array.isArray(d.photos)
     ? d.photos.slice(0, 6).map((p: { photo_reference: string }) => `https://maps.googleapis.com/maps/api/place/photo?maxwidth=640&photo_reference=${p.photo_reference}&key=${GOOGLE_KEY}`)
     : [];
+  // Guarantee at least one image for the demo: if the place has no Google
+  // photos, fall back to a Street View shot + a satellite shot of its location.
+  const loc = d.geometry?.location;
+  if (loc?.lat != null && loc?.lng != null) {
+    if (photoUrls.length === 0) {
+      photoUrls.push(`https://maps.googleapis.com/maps/api/streetview?size=640x400&location=${loc.lat},${loc.lng}&fov=82&key=${GOOGLE_KEY}`);
+    }
+    photoUrls.push(`https://maps.googleapis.com/maps/api/staticmap?center=${loc.lat},${loc.lng}&zoom=18&size=640x400&maptype=satellite&markers=color:0xC9A83A%7C${loc.lat},${loc.lng}&key=${GOOGLE_KEY}`);
+  }
   const photoUrl = photoUrls[0] ?? null;
   const reviews = Array.isArray(d.reviews)
     ? d.reviews.slice(0, 3).map((r: { author_name?: string; rating?: number; text?: string; relative_time_description?: string }) => ({
