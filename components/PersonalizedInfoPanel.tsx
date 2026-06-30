@@ -1,6 +1,6 @@
 import { C } from "@/lib/design";
 import { Sparkles, TrendingUp, Building2, Info, Sun, FileText } from "lucide-react";
-import NearbyCompaniesPanel, { type NearbyCompany } from "@/components/NearbyCompaniesPanel";
+import Link from "next/link";
 
 // Generic lead-enrichment panel. Renders whatever is in `lead.enrichment` jsonb.
 // Grouped by key prefix so each client can extend their own vocabulary without code changes.
@@ -215,16 +215,22 @@ function RooftopSection({ data, leadId, companyName }: { data: Record<string, un
         </div>
       )}
 
-      {/* Cross-sell: nearby businesses around the plant (Everest demo). Renders
-          only when we have a lead id + a coordinate-based search is possible. */}
-      {leadId && (Array.isArray(data.nearby_companies) || (typeof data.rooftop_lat === "number" && typeof data.rooftop_lng === "number")) && (
-        <NearbyCompaniesPanel
-          leadId={leadId}
-          initial={(Array.isArray(data.nearby_companies) ? data.nearby_companies : []) as NearbyCompany[]}
-          plantLat={lat}
-          plantLng={lng}
-          plantCompany={companyName ?? null}
-        />
+      {/* Cross-sell: link to the dedicated nearby-companies page (Everest demo). */}
+      {leadId && Array.isArray(data.nearby_companies) && data.nearby_companies.length > 0 && (
+        <Link href={`/leads/${leadId}/nearby`}
+          className="mt-4 w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-white font-semibold transition-all hover:shadow-lg hover:-translate-y-px"
+          style={{ background: "linear-gradient(135deg, #1A7F74, #145F56)", boxShadow: "0 6px 18px color-mix(in srgb, #1A7F74 32%, transparent)" }}>
+          <span className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: "rgba(255,255,255,0.18)" }}>
+            <Building2 size={18} />
+          </span>
+          <span className="flex-1 text-left leading-tight">
+            <span className="block text-[14px]">Cross-sell — nearby energy consumers</span>
+            <span className="block text-[11px] font-medium" style={{ color: "rgba(255,255,255,0.82)" }}>
+              {(data.nearby_companies as unknown[]).length} businesses around the plant · tap to explore the match
+            </span>
+          </span>
+          <span className="text-[20px] shrink-0">→</span>
+        </Link>
       )}
     </SectionBlock>
   );
