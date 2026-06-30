@@ -111,6 +111,12 @@ const ROOFTOP_KEYS = new Set([
   "rooftop_lat", "rooftop_lng", "nearby_companies", "meeting_notes", "plant_intel",
 ]);
 
+// Internal / raw keys that should never appear in the generic "Additional" bucket.
+// The cacer_* fields are the raw CACER import — already surfaced, cleanly, by the
+// Plant Intelligence section, so showing them again as raw text is just noise.
+const HIDE_KEYS = new Set(["segment", "icp", "import_seq", "imported_at", "nearby_scraped_at", "source"]);
+const isHiddenKey = (k: string) => HIDE_KEYS.has(k) || k.startsWith("cacer_");
+
 function formatRooftopValue(key: string, value: unknown): string {
   if (value == null || value === "") return "—";
   const n = Number(value);
@@ -151,8 +157,8 @@ function RooftopSection({ data, leadId, companyName }: { data: Record<string, un
 
   return (
     <SectionBlock icon={Sun} title="Rooftop Intelligence" accent={C.gold} bg={C.goldSoft}>
-      {/* Photo + headline badge */}
-      <div className="flex flex-col md:flex-row gap-4 items-stretch">
+      {/* Photo (floats left, expands in place) + outreach text wrapping beside it */}
+      <div style={{ overflow: "hidden" }}>
         {photoUrl ? (
           <RooftopMapThumb
             photoUrl={photoUrl}
@@ -161,25 +167,23 @@ function RooftopSection({ data, leadId, companyName }: { data: Record<string, un
             alt={hasSolar ? "Rooftop with solar panels" : "Rooftop without solar panels"}
           />
         ) : null}
-        <div className="flex-1 flex flex-col justify-between gap-3">
-          <div>
-            {(data.cer_eligible === true || data.transizione_5_0_eligible === true) && (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {data.cer_eligible === true && (
-                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                    style={{ backgroundColor: C.blueLight, color: C.blue }}>
-                    CER eligible
-                  </span>
-                )}
-                {data.transizione_5_0_eligible === true && (
-                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
-                    style={{ backgroundColor: "color-mix(in srgb, #7C3AED 10%, transparent)", color: "#7C3AED" }}>
-                    Transizione 5.0
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
+        <div style={{ overflow: "hidden" }} className="flex flex-col gap-3">
+          {(data.cer_eligible === true || data.transizione_5_0_eligible === true) && (
+            <div className="flex flex-wrap gap-1.5">
+              {data.cer_eligible === true && (
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                  style={{ backgroundColor: C.blueLight, color: C.blue }}>
+                  CER eligible
+                </span>
+              )}
+              {data.transizione_5_0_eligible === true && (
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded"
+                  style={{ backgroundColor: "color-mix(in srgb, #7C3AED 10%, transparent)", color: "#7C3AED" }}>
+                  Transizione 5.0
+                </span>
+              )}
+            </div>
+          )}
           {angle && (
             <div className="text-[12px] leading-relaxed rounded-md p-3 border"
               style={{ backgroundColor: C.bg, borderColor: C.border, color: C.textBody }}>
@@ -220,10 +224,7 @@ function RooftopSection({ data, leadId, companyName }: { data: Record<string, un
             <Building2 size={18} />
           </span>
           <span className="flex-1 text-left leading-tight relative">
-            <span className="flex items-center gap-2">
-              <span className="text-[14px]" style={{ color: "#fff" }}>Cross-sell — nearby energy consumers</span>
-              <span className="text-[8.5px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 22%, transparent)", color: N.goldOnDark }}>Opportunity 2</span>
-            </span>
+            <span className="text-[14px]" style={{ color: "#fff" }}>Cross-sell — nearby energy consumers</span>
             <span className="block text-[11.5px] font-medium mt-1" style={{ color: "rgba(255,255,255,0.6)" }}>
               {(data.nearby_companies as unknown[]).length} businesses around the plant · explore the producer ↔ consumer match
             </span>
@@ -579,6 +580,16 @@ function PlantIntelSection({ intel }: { intel: any }) {
   const it = (n: number) => n.toLocaleString("it-IT");
   const kw  = typeof intel.installed_power_kw === "number" ? `${it(intel.installed_power_kw)} kW` : null;
   const eur = typeof intel.contributo_eur === "number" ? `€${it(intel.contributo_eur)}` : null;
+  const yr = (s: unknown) => { const m = String(s ?? "").match(/\d{4}/); return m ? Number(m[0]) : null; };
+  const gY = yr(intel.incentive_granted), vY = yr(intel.incentive_valid_until);
+  const term = gY != null && vY != null && vY > gY ? `${vY - gY} yrs` : null;
+
+  const kpis = ([
+    { label: "Installed power", value: kw },
+    { label: "Installation", value: intel.installation_type },
+    { label: "GSE segment", value: intel.segment },
+    { label: "Incentive term", value: term },
+  ] as { label: string; value: React.ReactNode }[]).filter(k => k.value);
 
   const owners: [string, string][] = ([
     ["Incentive holder", intel.incentive_holder],
@@ -610,29 +621,18 @@ function PlantIntelSection({ intel }: { intel: any }) {
   return (
     <SectionBlock icon={Zap} title="Plant Intelligence" accent={accent} bg={`color-mix(in srgb, ${accent} 9%, transparent)`}>
       <div className="flex items-center gap-2 mb-4">
-        <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${accent} 14%, transparent)`, color: accent }}>Opportunity 1</span>
         <span className="text-[11px] font-medium" style={{ color: C.textMuted }}>Incentivised PV plant — structured dossier</span>
       </div>
 
       {/* Top KPIs */}
-      <div className="grid grid-cols-3 gap-2.5 mb-3">
-        <StatCard label="Installed power" value={kw ?? "—"} accent={accent} />
-        <StatCard label="Installation" value={intel.installation_type ?? "—"} accent={accent} />
-        <StatCard label="GSE segment" value={intel.segment ?? "—"} accent={accent} />
+      <div className="grid gap-2.5 mb-2.5" style={{ gridTemplateColumns: `repeat(${kpis.length}, minmax(0, 1fr))` }}>
+        {kpis.map(k => <StatCard key={k.label} label={k.label} value={k.value} accent={accent} />)}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-        {/* Location */}
-        <SubCard icon={MapPin} title="Location">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <Field label="City" value={intel.city} />
-            <Field label="Province" value={intel.province} />
-          </div>
-        </SubCard>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 items-start">
         {/* State incentive */}
         <SubCard icon={CalendarClock} title="State incentive (GSE)">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
             <Field label="Granted" value={intel.incentive_granted} />
             <Field label="Valid until" value={intel.incentive_valid_until} />
             <Field label="Contributo" value={eur} />
@@ -641,32 +641,41 @@ function PlantIntelSection({ intel }: { intel: any }) {
           </div>
         </SubCard>
 
-        {/* Roof & expansion */}
-        <SubCard icon={Maximize2} title="Roof & expansion potential">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+        {/* Site & roof (location + roof merged so the space is used well) */}
+        <SubCard icon={MapPin} title="Site & roof">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
+            <Field label="City" value={intel.city} />
+            <Field label="Province" value={intel.province} />
             <Field label="Roof area" value={typeof intel.roof_area_m2 === "number" ? `${it(intel.roof_area_m2)} m²` : null} />
             <Field label="Available" value={typeof intel.roof_available_m2 === "number" ? `${it(intel.roof_available_m2)} m²` : null} />
             <Field label="Expansion potential" value={typeof intel.expansion_potential_kwp === "number" ? `+${it(intel.expansion_potential_kwp)} kWp` : null} />
           </div>
         </SubCard>
 
-        {/* Ownership structure */}
-        <SubCard icon={Users} title="Ownership structure">
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
-              style={singleOwner
-                ? { backgroundColor: C.greenLight ?? "color-mix(in srgb, #15803D 14%, transparent)", color: "#15803D" }
-                : { backgroundColor: C.redLight, color: C.red }}>
-              {singleOwner ? "Single owner" : "Split ownership"}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 gap-y-3">
-            {owners.map(([label, value]) => <Field key={label} label={label} value={value} />)}
-          </div>
-          {intel.ownership_note && (
-            <p className="text-[12px] italic mt-3 pt-2.5 border-t leading-relaxed" style={{ color: C.textMuted, borderColor: C.border }}>{intel.ownership_note}</p>
-          )}
-        </SubCard>
+        {/* Ownership structure — full width, owners laid out across the row */}
+        <div className="md:col-span-2">
+          <SubCard icon={Users} title="Ownership structure">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded"
+                style={singleOwner
+                  ? { backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 16%, transparent)", color: C.goldDim }
+                  : { backgroundColor: C.redLight, color: C.red }}>
+                {singleOwner ? "Single owner" : "Split ownership"}
+              </span>
+              {!singleOwner && (
+                <span className="text-[10.5px] font-medium" style={{ color: C.textMuted }}>
+                  beneficiary ≠ building owner — landlord needed to expand
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3.5">
+              {owners.map(([label, value]) => <Field key={label} label={label} value={value} />)}
+            </div>
+            {intel.ownership_note && (
+              <p className="text-[12px] italic mt-3.5 pt-3 border-t leading-relaxed" style={{ color: C.textMuted, borderColor: C.border }}>{intel.ownership_note}</p>
+            )}
+          </SubCard>
+        </div>
       </div>
     </SectionBlock>
   );
@@ -681,7 +690,7 @@ export default function PersonalizedInfoPanel({ enrichment, leadId, companyName 
   const priorityVisible = PRIORITY_KEYS.filter(present);
   const rfaExtra = sortKeys(Object.keys(data).filter(k => k.startsWith("rfa_") && !PRIORITY_KEYS.includes(k) && present(k)), RFA_ORDER);
   const chExtra  = sortKeys(Object.keys(data).filter(k => k.startsWith("ch_")  && !PRIORITY_KEYS.includes(k) && present(k)), CH_ORDER);
-  const other    = sortKeys(Object.keys(data).filter(k => !k.startsWith("rfa_") && !k.startsWith("ch_") && !PRIORITY_KEYS.includes(k) && !ROOFTOP_KEYS.has(k) && present(k)), OTHER_ORDER);
+  const other    = sortKeys(Object.keys(data).filter(k => !k.startsWith("rfa_") && !k.startsWith("ch_") && !PRIORITY_KEYS.includes(k) && !ROOFTOP_KEYS.has(k) && !isHiddenKey(k) && present(k)), OTHER_ORDER);
 
   const showRooftop = present("rooftop_photo_url") || present("has_solar_panels");
 

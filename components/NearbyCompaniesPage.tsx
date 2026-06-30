@@ -173,7 +173,7 @@ export default function NearbyCompaniesPage({
           <div className="max-w-[68ch]">
             <span className="inline-flex items-center gap-2 text-[10.5px] font-bold uppercase tracking-[0.14em] px-2.5 py-1 rounded-full mb-3"
               style={{ backgroundColor: "color-mix(in srgb, var(--brand, #c9a83a) 18%, transparent)", color: N.goldOnDark, border: `1px solid color-mix(in srgb, var(--brand, #c9a83a) 30%, transparent)` }}>
-              <Zap size={12} /> {L("Opportunity 2 · Producer ↔ Consumer match", "Oportunidad 2 · Match productor ↔ consumidor")}
+              <Zap size={12} /> {L("Producer ↔ Consumer match", "Match productor ↔ consumidor")}
             </span>
             <h1 className="text-[30px] lg:text-[34px] font-bold tracking-tight leading-[1.1]" style={{ color: "#fff" }}>
               {L("Energy consumers around", "Consumidores de energía cerca de")}{" "}
