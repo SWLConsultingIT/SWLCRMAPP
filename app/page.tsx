@@ -1802,9 +1802,6 @@ export default async function DashboardPage({
           Client only needs presence subscription (no name-match needed). */}
       {(() => {
         const todayStr = new Date().toISOString().slice(0, 10);
-        const last7Days: string[] = Array.from({ length: 7 }, (_, i) => {
-          const d = new Date(); d.setDate(d.getDate() - i); return d.toISOString().slice(0, 10);
-        });
         // Index call outcomes by sellerId (which after attribution fix can be
         // sellers.id OR user_id for non-seller dialers like super_admin).
         const callsRowBySellerId = new Map<string, typeof data.callOutcomesBySeller[0]>();
@@ -1820,18 +1817,23 @@ export default async function DashboardPage({
           const callsRow = (m.sellerId ? callsRowBySellerId.get(m.sellerId) : null)
             ?? callsRowBySellerId.get(m.userId);
           const callsToday = callsRow?.byDay?.[todayStr]?.made ?? 0;
-          const callsWeek  = last7Days.reduce((s, d) => s + (callsRow?.byDay?.[d]?.made ?? 0), 0);
+          // Calls in the SELECTED period — use row.made (the exact same source
+          // and window as the "Calls by user" table) so the two tables always
+          // agree. Was a hardcoded rolling-7-day sum over byDay that ignored the
+          // dashboard period filter, so it dropped the period's boundary day
+          // (e.g. Jun 24 on a "7 days" filter) → the two tables disagreed.
+          const callsPeriod = callsRow?.made ?? 0;
           return {
             id:           m.userId,
             name:         m.displayName,
             userId:       m.userId,
             lastSeenAt:   m.lastSeenAt,
             callsToday,
-            callsWeek,
+            callsPeriod,
             pendingCalls: m.sellerId ? (pendingBySellerId.get(m.sellerId) ?? 0) : 0,
           };
         });
-        return <section><SellerPulseTable sellers={sellers} /></section>;
+        return <section><SellerPulseTable sellers={sellers} periodLabel={periodLabel} /></section>;
       })()}
 
       {/* Call outcomes by seller — per-seller, per-day call monitoring with

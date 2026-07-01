@@ -13,7 +13,7 @@ type SellerInput = {
   userId: string | null;
   lastSeenAt: string | null;
   callsToday: number;
-  callsWeek: number;
+  callsPeriod: number;
   pendingCalls: number;
 };
 
@@ -56,7 +56,7 @@ const STATUS_CONFIG: Record<StatusKind, { label: string; dotColor: string; textC
   offline: { label: "Offline",    dotColor: "#EF4444", textColor: "#EF4444" },
 };
 
-export default function SellerPulseTable({ sellers }: { sellers: SellerInput[] }) {
+export default function SellerPulseTable({ sellers, periodLabel }: { sellers: SellerInput[]; periodLabel?: string }) {
   const [presenceIds, setPresenceIds] = useState<Set<string>>(new Set());
   const [meId, setMeId]              = useState<string | null>(null);
 
@@ -128,7 +128,7 @@ export default function SellerPulseTable({ sellers }: { sellers: SellerInput[] }
             </span>
           </div>
           <p className="text-[11px] mt-0.5" style={{ color: "#8B9EB7" }}>
-            Last login · calls today · 7 days · queue
+            Last login · calls today · calls this period · queue
           </p>
         </div>
         <a href="/admin"
@@ -149,7 +149,7 @@ export default function SellerPulseTable({ sellers }: { sellers: SellerInput[] }
             <th className="px-3 py-2 text-left font-semibold">Status</th>
             <th className="px-3 py-2 text-left font-semibold whitespace-nowrap">Last seen</th>
             <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">Today</th>
-            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">7 days</th>
+            <th className="px-3 py-2 text-right font-semibold whitespace-nowrap" title={periodLabel ? `Calls in ${periodLabel}` : undefined}>Period</th>
             <th className="px-3 py-2 text-right font-semibold whitespace-nowrap">In queue</th>
           </tr>
         </thead>
@@ -233,10 +233,10 @@ export default function SellerPulseTable({ sellers }: { sellers: SellerInput[] }
                   </div>
                 </td>
 
-                {/* Calls this week */}
+                {/* Calls in the selected period (matches the "Calls by user" table) */}
                 <td className="px-3 py-3 text-right">
-                  <span className="text-[12px] font-semibold tabular-nums" style={{ color: row.callsWeek > 0 ? C.textBody : C.textDim }}>
-                    {row.callsWeek > 0 ? row.callsWeek : "—"}
+                  <span className="text-[12px] font-semibold tabular-nums" style={{ color: row.callsPeriod > 0 ? C.textBody : C.textDim }}>
+                    {row.callsPeriod > 0 ? row.callsPeriod : "—"}
                   </span>
                 </td>
 

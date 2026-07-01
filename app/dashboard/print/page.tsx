@@ -198,16 +198,15 @@ export default async function DashboardPrintPage({
   const today  = new Date().toLocaleDateString(L.locale, { day: "numeric", month: "long", year: "numeric" });
 
   const todayStr = new Date().toISOString().slice(0, 10);
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - i); return d.toISOString().slice(0, 10);
-  });
 
-  // Build calls maps keyed by sellerName
+  // Build calls maps keyed by sellerName. The period column uses row.made (the
+  // full selected period) so it matches the per-seller call table — was a
+  // hardcoded rolling-7-day sum that dropped the period's boundary day.
   const callsTodayMap = new Map<string, number>();
   const callsWeekMap  = new Map<string, number>();
   for (const row of callOutcomesBySeller) {
     callsTodayMap.set(row.sellerName, row.byDay?.[todayStr]?.made ?? 0);
-    callsWeekMap.set(row.sellerName, last7Days.reduce((s, d) => s + (row.byDay?.[d]?.made ?? 0), 0));
+    callsWeekMap.set(row.sellerName, row.made);
   }
 
   const channelMap: Record<string, (typeof channelBreakdown)[0]> = {};
