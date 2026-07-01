@@ -3,6 +3,7 @@ import { getSupabaseService } from "@/lib/supabase-service";
 import { prettyDisplayName } from "@/lib/display-name";
 import { getUserScope, getMyAssignedSellerIds } from "@/lib/scope";
 import { hydrateClientLeads } from "@/lib/leads-crypto";
+import { computePendingCalls } from "@/lib/pending-calls";
 import QueueClient from "./QueueClient";
 
 // Decrypts client-source `leads` objects nested inside join responses (eg
@@ -52,7 +53,10 @@ async function getQueueData() {
     .select("id, name, channel, current_step, sequence_steps, last_step_at, lead_id, seller_id, aircall_number_id, call_advance_mode, leads!inner(id, source, encrypted_payload, primary_first_name, primary_last_name, company_name, primary_title_role, primary_phone, primary_secondary_phone, primary_work_email, company_bio_id, call_talking_points, allow_call), sellers(name)")
     .eq("status", "active")
     .order("last_step_at", { ascending: true })
-    .limit(200);
+    // Was .limit(200): a hard cap silently dropped pending calls for any tenant
+    // with >200 active campaigns (SWL / Pathway), so "To Call" undercounted vs
+    // the dashboard. Range to 10k covers every real tenant (2026-07-01).
+    .range(0, 9999);
   if (scopedCompanyBioId) campQuery = campQuery.eq("leads.company_bio_id", scopedCompanyBioId);
   // Seller-tier filter on campaigns. Empty array → match nothing. The
   // sentinel UUID is a no-op match used because PostgREST .in([]) is
@@ -353,43 +357,31 @@ async function getQueueData() {
     }
   }
 
+  // Decide which call tasks are actionable using the CANONICAL predicate
+  // (lib/pending-calls) — the exact same rule the dashboard "Today's calls"
+  // count uses, so /queue and the dashboard can never disagree again. It folds
+  // in every guard the inline code used to do here (phone / allow_call / already-
+  // replied / queued-at-current-step / due-with-weekend-roll).
+  const pendingLeadById = new Map<string, any>();
+  for (const { c } of pendingCallCandidates) {
+    if (c.lead_id && (c as any).leads) pendingLeadById.set(c.lead_id as string, (c as any).leads);
+  }
+  const pendingByCampaign = computePendingCalls({
+    campaigns: pendingCallCandidates.map(x => x.c) as any,
+    leadById: pendingLeadById,
+    queuedCallStepsByCampaign,
+    repliedNonCallLeadIds: repliedLeadIds,
+    now,
+  });
+
   const pendingCalls: any[] = [];
   for (const { c, currentStepIdx, steps } of pendingCallCandidates) {
+    const info = pendingByCampaign.get(c.id as string);
+    if (!info) continue;
     const lead = c.leads as any;
-    // Skip call tasks that aren't actionable: the call channel is off for this
-    // lead (allow_call=false — wrong-number outcome OR call disabled), or there's
-    // no phone on file at all. Either way the seller can't / shouldn't dial, so
-    // the call step doesn't belong in "To Call".
-    const hasPhone = !!(lead?.primary_phone || lead?.primary_secondary_phone);
-    if (lead?.allow_call === false || !hasPhone) continue;
-    // Guard 1: the lead already engaged via an inbound message → not a cold
-    // call. Guard 2: no actionable queued call at the current step (cursor
-    // desynced). See the comment block above where both maps are built.
-    if (c.lead_id && repliedLeadIds.has(c.lead_id as string)) continue;
-    const queuedSteps = queuedCallStepsByCampaign.get(c.id as string);
-    if (!queuedSteps || !queuedSteps.has(currentStepIdx + 1)) continue;
     const leadName = lead ? `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown" : "Unknown";
-    const daysAfter = steps[currentStepIdx]?.daysAfter ?? 0;
-    // Working-days math: dueAt counts calendar days as before, but if the
-    // resulting due-date lands on a Saturday or Sunday we push it forward
-    // to the next Monday. Sellers don't want "due today" calls surfaced on
-    // weekends — boss flagged this on 2026-05-27.
-    const rollWeekendForward = (ts: number) => {
-      const d = new Date(ts);
-      while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
-      return d.getTime();
-    };
-    const rawDueAt = c.last_step_at ? new Date(c.last_step_at).getTime() + daysAfter * 86400000 : null;
-    const dueAt = rawDueAt !== null ? rollWeekendForward(rawDueAt) : null;
-    // Also gate on the viewing day: if today is Sat/Sun, no call should be
-    // "due today" — push the check to Monday's start.
-    const todayDow = new Date(now).getDay();
-    const isTodayWeekend = todayDow === 0 || todayDow === 6;
-    // Only show calls that are actually due (and not on a weekend).
-    const isDue = isTodayWeekend ? false : (dueAt !== null ? now >= dueAt : daysAfter === 0);
-    if (!isDue) continue;
-    const isOverdue = dueAt !== null && now > dueAt;
-    const overdueDays = isOverdue && dueAt ? Math.floor((now - dueAt) / 86400000) : 0;
+    const isOverdue = info.isOverdue;
+    const overdueDays = info.overdueDays;
     const latestCall = c.lead_id ? latestCallByLead.get(c.lead_id as string) ?? null : null;
 
     pendingCalls.push({

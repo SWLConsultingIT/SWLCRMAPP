@@ -8,6 +8,7 @@ import { getSupabaseServer } from "@/lib/supabase-server";
 import { getSupabaseService } from "@/lib/supabase-service";
 import { getUserScope } from "@/lib/scope";
 import { resolveTenantKey, decryptWithResolvedKey, bufferFromSupabaseBytea } from "@/lib/leads-crypto";
+import { computePendingCalls, type PendingCallCampaign, type PendingCallLead } from "@/lib/pending-calls";
 
 export type DashboardFilters = {
   /** ISO YYYY-MM-DD (inclusive). null = no lower bound. */
@@ -201,11 +202,11 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   // Each source uses a query FACTORY (fresh builder per page) because
   // .range() can only be applied to a builder once.
   const makeLeadsQ = () => {
-    const q = supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at, company_bio_id, company_name, primary_first_name, primary_last_name, primary_phone, source, encrypted_payload");
+    const q = supabase.from("leads").select("id, status, lead_score, is_priority, icp_profile_id, created_at, company_bio_id, company_name, primary_first_name, primary_last_name, primary_phone, primary_secondary_phone, allow_call, source, encrypted_payload");
     return bioId ? q.eq("company_bio_id", bioId) : q;
   };
   const makeCampsQ = () => {
-    const q = supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, created_at, stop_reason, leads!inner(company_bio_id)");
+    const q = supabase.from("campaigns").select("id, name, status, channel, current_step, sequence_steps, lead_id, seller_id, created_at, last_step_at, stop_reason, leads!inner(company_bio_id)");
     return bioId ? q.eq("leads.company_bio_id", bioId) : q;
   };
   const makeRepliesQ = () => {
@@ -1803,26 +1804,39 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
         .map(l => summarize(l.id))
         .filter((x): x is TodayLead => x !== null);
 
-      // Today's pending calls — call-channel campaign messages queued/pending
-      // for sellers to dial. Distinct-lead count + top-N preview.
       const campaignById = new Map(allCampaigns.map(c => [c.id, c]));
+
+      // Today's pending calls — uses the CANONICAL predicate shared with the
+      // /queue "To Call" list (lib/pending-calls). The old logic here counted
+      // every queued call message, so it over-counted relative to /queue, which
+      // drops replied / no-phone / allow_call=false / not-yet-due leads. That's
+      // why Grupo IEB showed 7 here but 6 in the Inbox (2026-07-01). Same inputs,
+      // same rule → the two numbers now always match.
+      const queuedCallStepsByCampaign = new Map<string, Set<number>>();
+      for (const m of allMessages) {
+        if (m.channel !== "call" || m.status !== "queued" || !m.campaign_id) continue;
+        const set = queuedCallStepsByCampaign.get(m.campaign_id) ?? new Set<number>();
+        set.add(m.step_number as number);
+        queuedCallStepsByCampaign.set(m.campaign_id, set);
+      }
+      const repliedNonCallLeadIds = new Set<string>();
+      for (const r of allReplies) {
+        if (r.lead_id && r.channel !== "call") repliedNonCallLeadIds.add(r.lead_id);
+      }
+      const pendingCallByCampaign = computePendingCalls({
+        campaigns: allCampaigns as unknown as PendingCallCampaign[],
+        leadById: leadById as unknown as Map<string, PendingCallLead>,
+        queuedCallStepsByCampaign,
+        repliedNonCallLeadIds,
+        now: Date.now(),
+      });
       const callsIds = new Set<string>();
       const callsList: TodayLead[] = [];
-      for (const m of allMessages) {
-        if (m.status !== "queued" && m.status !== "pending") continue;
-        if (!m.campaign_id) continue;
-        // Use the MESSAGE's own channel (dispatcher-stamped), not the campaign's
-        // top-level channel. Multi-channel flows (linkedin/email) have call steps
-        // whose m.channel="call" while camp.channel="linkedin" — the old check
-        // against camp.channel silently excluded all those calls.
-        if (m.channel !== "call") continue;
-        const camp = campaignById.get(m.campaign_id);
-        if (!camp) continue;
-        const leadId = camp.lead_id;
-        if (!leadId || !leadById.has(leadId) || callsIds.has(leadId)) continue;
-        callsIds.add(leadId);
+      for (const info of pendingCallByCampaign.values()) {
+        if (callsIds.has(info.leadId) || !leadById.has(info.leadId)) continue;
+        callsIds.add(info.leadId);
         if (callsList.length < TODAY_PREVIEW) {
-          const s = summarize(leadId, { when: null, tag: null });
+          const s = summarize(info.leadId, { when: null, tag: null });
           if (s) callsList.push(s);
         }
       }
