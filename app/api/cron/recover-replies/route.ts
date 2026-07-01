@@ -165,15 +165,29 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ── Email: poll Instantly received emails (rate-limited → backoff) ──
-  if (INSTANTLY_KEY) {
+  // ── Email: poll Instantly received emails across EVERY workspace ───
+  // Instantly is multi-workspace (one API key per workspace: Pathway, Arqy, …
+  // in `instantly_workspaces`, plus the env default). The env key only sees ONE
+  // workspace, so before this the cron's email backup silently skipped every
+  // other tenant's inbox — Pathway/Arqy replies would be invisible to the safety
+  // net if the primary n8n handler ever missed them. Gather all keys + dedupe,
+  // then run the same paginated poll per key. (2026-07-01)
+  const instantlyKeys = new Set<string>();
+  if (INSTANTLY_KEY) instantlyKeys.add(INSTANTLY_KEY);
+  const { data: workspaces } = await svc.from("instantly_workspaces").select("api_key");
+  for (const w of workspaces ?? []) {
+    const k = (w as any).api_key as string | null;
+    if (k) instantlyKeys.add(k);
+  }
+
+  for (const key of instantlyKeys) {
     let cursor: string | null = null;
     for (let page = 0; page < 15; page++) {
       let body: any = { items: [] };
       const url = `https://api.instantly.ai/api/v2/emails?limit=100&email_type=received${cursor ? `&starting_after=${cursor}` : ""}`;
       for (let t = 0; t < 5; t++) {
         try {
-          const r = await fetch(url, { headers: { Authorization: `Bearer ${INSTANTLY_KEY}`, accept: "application/json", "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36" } });
+          const r = await fetch(url, { headers: { Authorization: `Bearer ${key}`, accept: "application/json", "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36" } });
           if (r.status === 403 || r.status === 429) { await sleep(5000); continue; }
           body = await r.json(); break;
         } catch { await sleep(3000); }
@@ -208,5 +222,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, windowDays: days, linkedinRecovered, linkedinReinjected, emailRecovered });
+  return NextResponse.json({ ok: true, windowDays: days, instantlyWorkspaces: instantlyKeys.size, linkedinRecovered, linkedinReinjected, emailRecovered });
 }
