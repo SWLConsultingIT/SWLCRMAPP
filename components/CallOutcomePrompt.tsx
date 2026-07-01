@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, X, ThumbsUp, ThumbsDown, Calendar, PhoneOff, Check, Voicemail } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 // Post-call outcome prompt. Lifted OUT of CallButton and driven by
 // AircallPhoneProvider so it ALWAYS appears when a call ends — regardless of
@@ -19,6 +20,7 @@ import { C } from "@/lib/design";
 //   campaign keeps running) / Wrong number (skip call channel).
 export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string; onClose: () => void }) {
   const router = useRouter();
+  const { t } = useLocale();
   const [pendingOutcome, setPendingOutcome] = useState<"interested" | "not_interested" | null>(null);
   const [note, setNote] = useState("");
   const [classifying, setClassifying] = useState(false);
@@ -36,15 +38,15 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
         body: JSON.stringify({ outcome, note: n?.trim() || undefined }),
       });
       if (!r.ok) {
-        const { error } = await r.json().catch(() => ({ error: "Failed" }));
-        setErr(error || "Couldn't log outcome — try again.");
+        const { error } = await r.json().catch(() => ({ error: null }));
+        setErr(error || t("callOutcome.errLog"));
         return;
       }
       setSaved(true);
       router.refresh();
       window.setTimeout(onClose, 900);
     } catch {
-      setErr("Network error — try again.");
+      setErr(t("callOutcome.errNetwork"));
     } finally {
       setClassifying(false);
     }
@@ -70,7 +72,7 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
         <button
           type="button"
           onClick={onClose}
-          aria-label="Skip for now"
+          aria-label={t("callOutcome.skip")}
           className="absolute top-3 right-3 rounded p-1 hover:bg-black/[0.04] transition-colors"
           style={{ color: C.textDim }}
         >
@@ -82,7 +84,7 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
             <div className="w-11 h-11 rounded-full flex items-center justify-center" style={{ backgroundColor: `color-mix(in srgb, ${C.green} 14%, transparent)` }}>
               <Check size={22} style={{ color: C.green }} />
             </div>
-            <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>Outcome logged</p>
+            <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t("callOutcome.logged")}</p>
           </div>
         ) : pendingOutcome ? (
           (() => {
@@ -91,16 +93,16 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
             return (
               <>
                 <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: accent, letterSpacing: "0.18em" }}>
-                  {isPos ? "Interested" : "Not interested"}
+                  {isPos ? t("callOutcome.interested") : t("callOutcome.notInterested")}
                 </p>
                 <p className="text-sm font-semibold mb-3 pr-6" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
-                  Add a note (optional)
+                  {t("callOutcome.addNote")}
                 </p>
                 <textarea
                   autoFocus
                   value={note}
                   onChange={e => setNote(e.target.value)}
-                  placeholder={isPos ? "e.g. Keen — wants a demo next Tuesday, send pricing first." : "e.g. Using a competitor, revisit in Q4."}
+                  placeholder={isPos ? t("callOutcome.notePos") : t("callOutcome.noteNeg")}
                   rows={4}
                   className="w-full rounded-lg border px-3 py-2 text-[12px] resize-none outline-none focus:ring-2"
                   style={{ backgroundColor: C.surface, borderColor: C.border, color: C.textPrimary }}
@@ -114,7 +116,7 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
                     className="px-3 py-2 rounded-lg border text-[12px] font-semibold transition-opacity hover:opacity-80 disabled:opacity-50"
                     style={{ borderColor: C.border, color: C.textMuted }}
                   >
-                    Back
+                    {t("callOutcome.back")}
                   </button>
                   <button
                     type="button"
@@ -124,7 +126,7 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
                     style={{ backgroundColor: accent }}
                   >
                     {classifying ? <Loader2 size={13} className="animate-spin" /> : null}
-                    {isPos ? "Save — Interested" : "Save — Not interested"}
+                    {isPos ? t("callOutcome.savePos") : t("callOutcome.saveNeg")}
                   </button>
                 </div>
               </>
@@ -133,22 +135,22 @@ export default function CallOutcomePrompt({ leadId, onClose }: { leadId: string;
         ) : (
           <>
             <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: C.gold, letterSpacing: "0.18em" }}>
-              How did it go?
+              {t("callOutcome.howEyebrow")}
             </p>
             <p className="text-sm font-semibold mb-3 pr-6" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif", letterSpacing: "-0.01em" }}>
-              Log the call outcome
+              {t("callOutcome.title")}
             </p>
             <p className="text-[11px] mb-4" style={{ color: C.textMuted }}>
-              Interested / Not interested let you add a note — each option moves the lead through its flow correctly.
+              {t("callOutcome.hint")}
             </p>
             {err && <p className="text-[11px] mb-2" style={{ color: C.red }}>{err}</p>}
             <div className="grid grid-cols-2 gap-2">
               {([
-                { v: "interested" as const,     label: "Interested",     desc: "Book meeting",       icon: ThumbsUp,   color: C.green,     bg: `color-mix(in srgb, ${C.green} 12%, transparent)`,  note: true },
-                { v: "not_interested" as const, label: "Not interested", desc: "Close",              icon: ThumbsDown, color: C.red,       bg: `color-mix(in srgb, ${C.red} 12%, transparent)`,    note: true },
-                { v: "bad_timing" as const,     label: "Bad timing",     desc: "Answered, can't talk now", icon: Calendar,  color: "#D97706",   bg: "color-mix(in srgb, #D97706 12%, transparent)",     note: false },
-                { v: "voicemail" as const,      label: "Voicemail",      desc: "No answer / left message", icon: Voicemail, color: "#0EA5E9",   bg: "color-mix(in srgb, #0EA5E9 12%, transparent)",     note: false },
-                { v: "wrong_number" as const,   label: "Wrong number",   desc: "Skip call channel",  icon: PhoneOff,   color: C.textMuted, bg: C.surface,                                          note: false },
+                { v: "interested" as const,     label: t("callOutcome.interested"),    desc: t("callOutcome.book"),        icon: ThumbsUp,   color: C.green,     bg: `color-mix(in srgb, ${C.green} 12%, transparent)`,  note: true },
+                { v: "not_interested" as const, label: t("callOutcome.notInterested"), desc: t("callOutcome.close"),       icon: ThumbsDown, color: C.red,       bg: `color-mix(in srgb, ${C.red} 12%, transparent)`,    note: true },
+                { v: "bad_timing" as const,     label: t("callOutcome.badTiming"),     desc: t("callOutcome.badTimingDesc"), icon: Calendar,  color: "#D97706",   bg: "color-mix(in srgb, #D97706 12%, transparent)",     note: false },
+                { v: "voicemail" as const,      label: t("callOutcome.voicemail"),     desc: t("callOutcome.voicemailDesc"), icon: Voicemail, color: "#0EA5E9",   bg: "color-mix(in srgb, #0EA5E9 12%, transparent)",     note: false },
+                { v: "wrong_number" as const,   label: t("callOutcome.wrongNumber"),   desc: t("callOutcome.wrongNumberDesc"), icon: PhoneOff,   color: C.textMuted, bg: C.surface,                                          note: false },
               ]).map(opt => {
                 const OptIcon = opt.icon;
                 return (

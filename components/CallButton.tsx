@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Phone, Loader2, CheckCheck, PhoneOff, ChevronDown, RefreshCw } from "lucide-react";
 import { C } from "@/lib/design";
 import { useToast } from "@/lib/toast";
+import { useLocale } from "@/lib/i18n";
 import { useAircallPhone } from "@/components/AircallPhoneProvider";
 
 const DEFAULT_AIRCALL_USER_ID = process.env.NEXT_PUBLIC_AIRCALL_DEFAULT_USER_ID
@@ -60,6 +61,7 @@ type Props = {
 export default function CallButton({ phone, leadId, size = "md", variant = "solid", label, defaultNumberId, phones, isCallStep, nextStepName }: Props) {
   const router = useRouter();
   const toast = useToast();
+  const { t } = useLocale();
   // Aircall Everywhere SDK provider — gives us in-app calling (no desktop
   // Aircall required). Calling dial() opens the SWL-branded phone modal
   // and routes the call through the embedded workspace. The legacy POST
@@ -162,7 +164,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
         className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs"
         style={{ backgroundColor: C.surface, color: C.textDim }}
       >
-        <PhoneOff size={12} /> No phone number
+        <PhoneOff size={12} /> {t("call.noPhone")}
       </span>
     );
   }
@@ -172,15 +174,15 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
     if (busy) {
       toast.show({
         kind: "warning",
-        title: "Aircall is busy",
-        description: `${busy.byName} is currently on a call. Wait for it to end and try again.`,
+        title: t("call.busyTitle"),
+        description: t("call.busyDesc", { name: busy.byName }),
       });
       return;
     }
     // Validate if the lead is in a call step
     if (isCallStep === false) {
       const confirmed = confirm(
-        `This lead is not yet in the call step (${nextStepName ? `next: ${nextStepName}` : "another step is next"}). Are you sure you want to call anyway?`
+        t("call.notInStepConfirm", { next: nextStepName ? t("call.nextStep", { step: nextStepName }) : t("call.anotherStepNext") })
       );
       if (!confirmed) return;
     }
@@ -219,10 +221,10 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
       } else {
         // Surface common errors so the seller knows what to fix.
         const code = result.error || "unknown";
-        const msg = code === "not_ready" ? "Sign in to Aircall in the phone window to start the call."
-          : code === "in_call"  ? "Wait for the current call to end before starting another."
-          : `Couldn't start the call (${code}).`;
-        toast.show({ kind: "warning", title: "Call not started", description: msg });
+        const msg = code === "not_ready" ? t("call.errNotReady")
+          : code === "in_call"  ? t("call.errInCall")
+          : t("call.errGeneric", { code });
+        toast.show({ kind: "warning", title: t("call.notStartedTitle"), description: msg });
         setState("error");
         setTimeout(() => setState("idle"), 3000);
       }
@@ -263,14 +265,14 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
           }}
         >
           <Phone size={10} />
-          Aircall busy — {busy.byName} is on a call
+          {t("call.busyBanner", { name: busy.byName })}
         </div>
       )}
       <div className="inline-flex items-center gap-1.5 relative">
       <button
         onClick={handleDial}
         disabled={state === "calling" || !selectedNumberId || !!busy}
-        title={busy ? `Aircall in use by ${busy.byName} — wait for it to free up.` : undefined}
+        title={busy ? t("call.busyHint", { name: busy.byName }) : undefined}
         className={`flex items-center gap-1.5 rounded-lg ${padding} ${text} font-semibold transition-opacity hover:opacity-85 disabled:opacity-60 ${state === "idle" && variant === "solid" ? "animate-pulse" : ""}`}
         style={{
           ...baseStyle,
@@ -278,10 +280,10 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
           ...(state === "error" ? { backgroundColor: C.redLight, color: C.red, border: `1px solid ${C.red}30` } : {}),
         }}
       >
-        {state === "calling" ? <><Loader2 size={iconSize} className="animate-spin" /> Calling…</>
-          : state === "called" ? <><CheckCheck size={iconSize} /> Call initiated</>
-          : state === "error" ? <><PhoneOff size={iconSize} /> Failed</>
-          : <><Phone size={iconSize} /> {label ?? `Call ${dialingPhoneDisplay}`}</>
+        {state === "calling" ? <><Loader2 size={iconSize} className="animate-spin" /> {t("call.calling")}</>
+          : state === "called" ? <><CheckCheck size={iconSize} /> {t("call.initiated")}</>
+          : state === "error" ? <><PhoneOff size={iconSize} /> {t("call.failed")}</>
+          : <><Phone size={iconSize} /> {label ?? t("call.label", { phone: String(dialingPhoneDisplay ?? "") })}</>
         }
       </button>
 
@@ -294,10 +296,10 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
             onClick={() => setPhonePicker(v => !v)}
             className={`flex items-center gap-1 rounded-lg ${padding} ${text} font-medium`}
             style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}
-            title="Change which lead phone to dial"
+            title={t("call.changePhoneTitle")}
           >
             <Phone size={iconSize - 2} />
-            <span className="font-semibold">{selectedPhoneOpt?.label ?? "Phone"}</span>
+            <span className="font-semibold">{selectedPhoneOpt?.label ?? t("call.phoneFallback")}</span>
             <ChevronDown size={10} />
           </button>
           {phonePicker && (
@@ -306,7 +308,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
               style={{ backgroundColor: C.card, borderColor: C.border }}
             >
               <div className="px-3 py-2 border-b" style={{ borderColor: C.border }}>
-                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>Call which number</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("call.whichNumber")}</p>
               </div>
               {phoneOptions.map(opt => {
                 const isSel = opt.value === selectedPhone;
@@ -339,7 +341,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
           onClick={() => setPicker(v => !v)}
           className={`flex items-center gap-1 rounded-lg ${padding} ${text} font-medium`}
           style={{ backgroundColor: C.bg, color: C.textMuted, border: `1px solid ${C.border}` }}
-          title="Change outgoing number"
+          title={t("call.changeOutgoing")}
         >
           {selected ? (
             <>
@@ -357,7 +359,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
           style={{ backgroundColor: C.card, borderColor: C.border }}
         >
           <div className="px-3 py-2 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
-            <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>Call from</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{t("call.callFrom")}</p>
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); void refreshNumbers(); }}
@@ -367,7 +369,7 @@ export default function CallButton({ phone, leadId, size = "md", variant = "soli
               style={{ color: C.textMuted }}
             >
               <RefreshCw size={9} className={refreshing ? "animate-spin" : ""} />
-              {refreshing ? "Syncing" : "Refresh"}
+              {refreshing ? t("call.syncing") : t("call.refresh")}
             </button>
           </div>
           {numbers.map(n => {
