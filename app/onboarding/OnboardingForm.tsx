@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Building2, Sparkles, Target, Loader2, ChevronRight, ChevronLeft, CheckCircle2 } from "lucide-react";
+import { useLocale } from "@/lib/i18n";
 
 type Step = 1 | 2 | 3;
 
 export default function OnboardingForm({ displayName, email }: { displayName: string; email: string }) {
   const router = useRouter();
+  const { t } = useLocale();
   const [step, setStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,12 +59,12 @@ export default function OnboardingForm({ displayName, email }: { displayName: st
       });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
-        throw new Error(err.error ?? "Save failed");
+        throw new Error(err.error ?? t("onboarding.saveFailed"));
       }
       router.push("/");
       router.refresh();
     } catch (e: any) {
-      setError(e?.message ?? "Save failed");
+      setError(e?.message ?? t("onboarding.saveFailed"));
       setLoading(false);
     }
   }
@@ -81,7 +83,7 @@ export default function OnboardingForm({ displayName, email }: { displayName: st
         </div>
         <div className="hidden sm:block">
           <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: active ? "var(--brand-dark, #b79832)" : done ? "#22C55E" : "rgba(255,255,255,0.35)" }}>
-            Step {n}
+            {t("onboarding.step", { n })}
           </p>
           <p className="text-xs font-semibold" style={{ color: active || done ? "#f8fafc" : "rgba(255,255,255,0.45)" }}>{label}</p>
         </div>
@@ -113,22 +115,22 @@ export default function OnboardingForm({ displayName, email }: { displayName: st
         <div className="text-center mb-8">
           <img src="https://framerusercontent.com/images/xDo4WIo9yWn44s4NzORGGAUNxrI.png"
             alt="SWL" className="h-7 mx-auto mb-5" style={{ filter: "brightness(0) invert(1)" }} />
-          <p className="text-[11px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: "var(--brand-dark, #b79832)" }}>Welcome, {displayName || email}</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: "var(--brand-dark, #b79832)" }}>{t("onboarding.formWelcome", { name: displayName || email })}</p>
           <h1 className="text-3xl font-bold" style={{ color: "#f8fafc", fontFamily: "var(--font-outfit)" }}>
-            Let&apos;s set up your company
+            {t("onboarding.setupTitle")}
           </h1>
           <p className="text-sm mt-2" style={{ color: "rgba(217,222,226,0.55)" }}>
-            This info trains the AI to craft messages that sound like you. Takes ~2 minutes.
+            {t("onboarding.setupSubtitle")}
           </p>
         </div>
 
         {/* Progress */}
         <div className="flex items-center justify-between mb-6 px-2">
-          <StepHeader n={1} label="Basics" icon={Building2} />
+          <StepHeader n={1} label={t("onboarding.formStep1")} icon={Building2} />
           <div className="flex-1 h-px mx-2" style={{ backgroundColor: step > 1 ? "#22C55E" : "rgba(255,255,255,0.1)" }} />
-          <StepHeader n={2} label="What you do" icon={Sparkles} />
+          <StepHeader n={2} label={t("onboarding.formStep2")} icon={Sparkles} />
           <div className="flex-1 h-px mx-2" style={{ backgroundColor: step > 2 ? "#22C55E" : "rgba(255,255,255,0.1)" }} />
-          <StepHeader n={3} label="Target" icon={Target} />
+          <StepHeader n={3} label={t("onboarding.formStep3")} icon={Target} />
         </div>
 
         {/* Card */}
@@ -139,26 +141,26 @@ export default function OnboardingForm({ displayName, email }: { displayName: st
         }}>
           {step === 1 && (
             <>
-              <Field label="Company name *">
+              <Field label={t("onboarding.companyName")}>
                 <input className={inputCls} style={inputStyle} value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="SWL Consulting" />
               </Field>
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Website">
+                <Field label={t("onboarding.website")}>
                   <input className={inputCls} style={inputStyle} value={website} onChange={e => setWebsite(e.target.value)} placeholder="swlconsulting.com" />
                 </Field>
-                <Field label="Industry">
+                <Field label={t("onboarding.industry")}>
                   <input className={inputCls} style={inputStyle} value={industry} onChange={e => setIndustry(e.target.value)} placeholder="Business Consulting" />
                 </Field>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <Field label="Team size">
-                  <input className={inputCls} style={inputStyle} value={teamSize} onChange={e => setTeamSize(e.target.value)} placeholder="5-20 employees" />
+                <Field label={t("onboarding.teamSize")}>
+                  <input className={inputCls} style={inputStyle} value={teamSize} onChange={e => setTeamSize(e.target.value)} placeholder={t("onboarding.teamSizePh")} />
                 </Field>
-                <Field label="Location">
+                <Field label={t("onboarding.location")}>
                   <input className={inputCls} style={inputStyle} value={location} onChange={e => setLocation(e.target.value)} placeholder="Buenos Aires, AR" />
                 </Field>
               </div>
-              <Field label="LinkedIn company page">
+              <Field label={t("onboarding.linkedin")}>
                 <input className={inputCls} style={inputStyle} value={linkedin} onChange={e => setLinkedin(e.target.value)} placeholder="linkedin.com/company/swl-consulting" />
               </Field>
             </>
@@ -166,37 +168,37 @@ export default function OnboardingForm({ displayName, email }: { displayName: st
 
           {step === 2 && (
             <>
-              <Field label="Tagline / one-liner">
-                <input className={inputCls} style={inputStyle} value={tagline} onChange={e => setTagline(e.target.value)} placeholder="Human ideas. AI-powered systems." />
+              <Field label={t("onboarding.tagline")}>
+                <input className={inputCls} style={inputStyle} value={tagline} onChange={e => setTagline(e.target.value)} placeholder={t("onboarding.taglinePh")} />
               </Field>
-              <Field label="What does your company do? *">
+              <Field label={t("onboarding.whatYouDo")}>
                 <textarea className={inputCls} style={inputStyle} rows={3} value={description} onChange={e => setDescription(e.target.value)}
-                  placeholder="We help B2B companies scale their outbound with AI-driven lead mining, multichannel outreach, and a unified CRM..." />
+                  placeholder={t("onboarding.whatYouDoPh")} />
               </Field>
-              <Field label="Unique value proposition">
+              <Field label={t("onboarding.valueProp")}>
                 <textarea className={inputCls} style={inputStyle} rows={2} value={valueProp} onChange={e => setValueProp(e.target.value)}
-                  placeholder="Why do clients pick you over competitors?" />
+                  placeholder={t("onboarding.valuePropPh")} />
               </Field>
-              <Field label="Main services (comma separated)">
+              <Field label={t("onboarding.services")}>
                 <input className={inputCls} style={inputStyle} value={services} onChange={e => setServices(e.target.value)}
-                  placeholder="Lead generation, Sales automation, CRM setup, AI agents" />
+                  placeholder={t("onboarding.servicesPh")} />
               </Field>
-              <Field label="Key differentiators">
+              <Field label={t("onboarding.differentiators")}>
                 <textarea className={inputCls} style={inputStyle} rows={2} value={differentiators} onChange={e => setDifferentiators(e.target.value)}
-                  placeholder="What makes your approach different or better?" />
+                  placeholder={t("onboarding.differentiatorsPh")} />
               </Field>
             </>
           )}
 
           {step === 3 && (
             <>
-              <Field label="Target market — who do you sell to?">
+              <Field label={t("onboarding.targetMarket")}>
                 <textarea className={inputCls} style={inputStyle} rows={4} value={targetMarket} onChange={e => setTargetMarket(e.target.value)}
-                  placeholder="B2B SaaS founders, growth agencies in LatAm, mid-market companies (5-50 employees) looking to scale outbound..." />
+                  placeholder={t("onboarding.targetMarketPh")} />
               </Field>
               <div className="rounded-xl px-4 py-3 mt-4 text-[11px] leading-relaxed"
                 style={{ backgroundColor: "color-mix(in srgb, var(--brand-dark, #b79832) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--brand-dark, #b79832) 15%, transparent)", color: "rgba(217,222,226,0.7)" }}>
-                💡 Podés refinar esto más tarde en <strong>Company Bio</strong>. Esta info se usa para el tone-of-voice del AI.
+                {t("onboarding.refineHint")}
               </div>
             </>
           )}
@@ -216,7 +218,7 @@ export default function OnboardingForm({ displayName, email }: { displayName: st
             <button onClick={() => setStep((step - 1) as Step)} disabled={loading}
               className="flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
               style={{ color: "rgba(217,222,226,0.6)" }}>
-              <ChevronLeft size={14} /> Back
+              <ChevronLeft size={14} /> {t("onboarding.back")}
             </button>
           ) : <div />}
 
@@ -224,21 +226,21 @@ export default function OnboardingForm({ displayName, email }: { displayName: st
             <button onClick={() => setStep((step + 1) as Step)} disabled={step === 1 ? !canGoStep2 : !description.trim()}
               className="flex items-center gap-1.5 text-sm font-semibold px-5 py-2.5 rounded-lg transition-opacity hover:opacity-90 disabled:opacity-40"
               style={{ backgroundColor: "var(--brand-dark, #b79832)", color: "#04070d" }}>
-              Continue <ChevronRight size={14} />
+              {t("onboarding.continue")} <ChevronRight size={14} />
             </button>
           ) : (
             <button onClick={handleSubmit} disabled={!canSubmit || loading}
               className="flex items-center gap-1.5 text-sm font-semibold px-5 py-2.5 rounded-lg transition-opacity hover:opacity-90 disabled:opacity-40"
               style={{ backgroundColor: "var(--brand-dark, #b79832)", color: "#04070d" }}>
               {loading
-                ? <><Loader2 size={14} className="animate-spin" /> Saving…</>
-                : <>Finish setup <CheckCircle2 size={14} /></>}
+                ? <><Loader2 size={14} className="animate-spin" /> {t("onboarding.saving")}</>
+                : <>{t("onboarding.finish")} <CheckCircle2 size={14} /></>}
             </button>
           )}
         </div>
 
         <p className="text-center text-[10px] mt-6" style={{ color: "rgba(217,222,226,0.25)" }}>
-          SWL Consulting · Powered by GrowthAI
+          {t("onboarding.footer")}
         </p>
       </div>
     </div>

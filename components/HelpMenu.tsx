@@ -8,18 +8,19 @@ import {
   Sparkles, Send, Users, BarChart3, Plug, Shield, Inbox, Settings,
 } from "lucide-react";
 import { C } from "@/lib/design";
+import { useLocale } from "@/lib/i18n";
 
 // Global "?" help menu in the TopHeader. Opens a centered modal that (1) lets
 // the user send a support request to the SWL team (lands in /admin/support) and
-// (2) explains every view of the app, with a click-through link to each. Copy
-// is English to match the rest of the (largely hardcoded-English) deeper UI.
+// (2) explains every view of the app, with a click-through link to each.
 
-const REQUEST_CATEGORIES: { value: string; label: string }[] = [
-  { value: "general", label: "General" },
-  { value: "bug", label: "Something's broken" },
-  { value: "feature", label: "Feature request" },
-  { value: "question", label: "Question" },
-  { value: "billing", label: "Billing" },
+// Category values are stable; labels are resolved with t() inside the component.
+const REQUEST_CATEGORIES: { value: string; labelKey: string }[] = [
+  { value: "general", labelKey: "help.cat.general" },
+  { value: "bug", labelKey: "help.cat.bug" },
+  { value: "feature", labelKey: "help.cat.feature" },
+  { value: "question", labelKey: "help.cat.question" },
+  { value: "billing", labelKey: "help.cat.billing" },
 ];
 
 type MyRequest = {
@@ -31,65 +32,67 @@ type MyRequest = {
   created_at: string;
 };
 
-// Status pill colors for the requester's "Your requests" list.
-const STATUS_PILL: Record<string, { bg: string; fg: string; label: string }> = {
-  open: { bg: "color-mix(in srgb, #D97706 16%, transparent)", fg: "#B45309", label: "Open" },
-  in_progress: { bg: "color-mix(in srgb, #2563EB 16%, transparent)", fg: "#1D4ED8", label: "In progress" },
-  resolved: { bg: "color-mix(in srgb, #16A34A 16%, transparent)", fg: "#047857", label: "Resolved" },
-  rejected: { bg: "color-mix(in srgb, #DC2626 14%, transparent)", fg: "#B91C1C", label: "Rejected" },
+// Status pill colors for the requester's "Your requests" list. Labels resolved
+// with t() inside the component via help.status.* keyed on status.
+const STATUS_PILL: Record<string, { bg: string; fg: string }> = {
+  open: { bg: "color-mix(in srgb, #D97706 16%, transparent)", fg: "#B45309" },
+  in_progress: { bg: "color-mix(in srgb, #2563EB 16%, transparent)", fg: "#1D4ED8" },
+  resolved: { bg: "color-mix(in srgb, #16A34A 16%, transparent)", fg: "#047857" },
+  rejected: { bg: "color-mix(in srgb, #DC2626 14%, transparent)", fg: "#B91C1C" },
 };
 
 type ViewItem = {
   href: string;
-  label: string;
-  desc: string;
+  labelKey: string;
+  descKey: string;
   icon: React.ComponentType<{ size?: number | string; style?: React.CSSProperties }>;
   color: string;
 };
 
-type ViewGroup = { title: string; items: ViewItem[] };
+type ViewGroup = { titleKey: string; items: ViewItem[] };
 
 const GROUPS: ViewGroup[] = [
   {
-    title: "Main",
+    titleKey: "help.group.main",
     items: [
-      { href: "/", label: "Dashboard", icon: LayoutDashboard, color: C.gold,
-        desc: "Your home base — KPIs, today's activity, and a 30-day performance overview at a glance." },
-      { href: "/company-bios", label: "Company Bio", icon: Building2, color: C.blue,
-        desc: "Your company profile and positioning. This is the context the AI uses to write every message." },
-      { href: "/queue", label: "Inbox", icon: Bell, color: "#F97316",
-        desc: "Your daily action list: replies to triage, calls to make, and campaign steps awaiting your approval." },
+      { href: "/", labelKey: "nav.dashboard", icon: LayoutDashboard, color: C.gold,
+        descKey: "help.item.dashboard.desc" },
+      { href: "/company-bios", labelKey: "nav.companyBio", icon: Building2, color: C.blue,
+        descKey: "help.item.companyBio.desc" },
+      { href: "/queue", labelKey: "nav.queue", icon: Bell, color: "#F97316",
+        descKey: "help.item.inbox.desc" },
     ],
   },
   {
-    title: "Growth Engine",
+    titleKey: "help.group.growth",
     items: [
-      { href: "/icp", label: "Lead Miner™", icon: Sparkles, color: C.aiAccent,
-        desc: "Define your ideal customer profiles (ICPs) and mine matching leads to feed into campaigns." },
-      { href: "/campaigns", label: "Outreach Flow™", icon: Send, color: C.aiAccent,
-        desc: "Build and run multi-step LinkedIn + email sequences. The AI personalizes each message per lead." },
-      { href: "/leads", label: "Leads", icon: Users, color: C.green,
-        desc: "Every lead with status, score, and a full activity timeline. Filter, search, and drill into any contact." },
-      { href: "/results", label: "Results", icon: BarChart3, color: C.blue,
-        desc: "Campaign performance and conversion metrics — what's working, who replied, and where to double down." },
+      { href: "/icp", labelKey: "help.item.leadMiner.label", icon: Sparkles, color: C.aiAccent,
+        descKey: "help.item.leadMiner.desc" },
+      { href: "/campaigns", labelKey: "help.item.outreach.label", icon: Send, color: C.aiAccent,
+        descKey: "help.item.outreach.desc" },
+      { href: "/leads", labelKey: "nav.leads", icon: Users, color: C.green,
+        descKey: "help.item.leads.desc" },
+      { href: "/results", labelKey: "nav.results", icon: BarChart3, color: C.blue,
+        descKey: "help.item.results.desc" },
     ],
   },
   {
-    title: "Operations",
+    titleKey: "help.group.operations",
     items: [
-      { href: "/queue?tab=inbox", label: "Inbox", icon: Inbox, color: C.linkedin,
-        desc: "Every conversation across LinkedIn and email in one place. Reply or hand off to a seller." },
-      { href: "/accounts", label: "Accounts", icon: Plug, color: C.textMuted,
-        desc: "Connected channels and sending accounts (LinkedIn, email, phone) and their health." },
-      { href: "/admin", label: "Admin", icon: Shield, color: C.aiAccent,
-        desc: "Manage clients, team members, and approvals. Visible to admins and owners only." },
-      { href: "/settings", label: "Settings", icon: Settings, color: C.textMuted,
-        desc: "Your preferences: theme, language, password, and account details." },
+      { href: "/queue?tab=inbox", labelKey: "nav.queue", icon: Inbox, color: C.linkedin,
+        descKey: "help.item.opsInbox.desc" },
+      { href: "/accounts", labelKey: "nav.accounts", icon: Plug, color: C.textMuted,
+        descKey: "help.item.accounts.desc" },
+      { href: "/admin", labelKey: "nav.admin", icon: Shield, color: C.aiAccent,
+        descKey: "help.item.admin.desc" },
+      { href: "/settings", labelKey: "nav.settings", icon: Settings, color: C.textMuted,
+        descKey: "help.item.settings.desc" },
     ],
   },
 ];
 
 export default function HelpMenu({ variant = "header" }: { variant?: "header" | "sidebar" }) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [category, setCategory] = useState("general");
@@ -135,11 +138,11 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
         body: JSON.stringify({ category, subject: subject.trim(), body: message.trim() }),
       });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok) { setErr(j?.error ?? "Something went wrong"); return; }
+      if (!r.ok) { setErr(j?.error ?? t("help.errGeneric")); return; }
       setSent(true); setSubject(""); setMessage(""); setCategory("general");
       loadMine();
     } catch {
-      setErr("Network error — please try again");
+      setErr(t("help.errNetwork"));
     } finally {
       setSending(false);
     }
@@ -165,9 +168,9 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
             </div>
             <div>
               <h2 className="text-sm font-bold" style={{ color: C.textPrimary, fontFamily: "var(--font-outfit), system-ui, sans-serif" }}>
-                Help &amp; Guide
+                {t("help.title")}
               </h2>
-              <p className="text-[11px]" style={{ color: C.textMuted }}>Send a request or learn what each view does</p>
+              <p className="text-[11px]" style={{ color: C.textMuted }}>{t("help.subtitle")}</p>
             </div>
           </div>
           <button onClick={() => setOpen(false)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-black/[0.04]">
@@ -178,20 +181,20 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
         <div className="overflow-y-auto px-6 py-5 space-y-5">
           {/* Send a request to the SWL team */}
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.textDim }}>Need help?</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.textDim }}>{t("help.needHelp")}</p>
             <div className="rounded-xl border p-4" style={{ borderColor: C.border, backgroundColor: C.bg }}>
               {sent ? (
                 <div className="flex flex-col items-center text-center py-3">
                   <CheckCircle2 size={28} style={{ color: C.green }} className="mb-2" />
-                  <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>Request sent</p>
+                  <p className="text-sm font-semibold" style={{ color: C.textPrimary }}>{t("help.requestSent")}</p>
                   <p className="text-[11px] mt-1 max-w-sm" style={{ color: C.textMuted }}>
-                    The SWL team has been notified and will get back to you.
+                    {t("help.notified")}
                   </p>
                   <button
                     onClick={() => { setSent(false); setShowForm(false); }}
                     className="mt-3 text-[11px] font-semibold" style={{ color: C.aiAccent }}
                   >
-                    Send another
+                    {t("help.sendAnother")}
                   </button>
                 </div>
               ) : !showForm ? (
@@ -202,9 +205,9 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
                       <LifeBuoy size={16} />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>Send a request to the SWL team</p>
+                      <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>{t("help.sendRequestTitle")}</p>
                       <p className="text-[11px] mt-0.5" style={{ color: C.textMuted }}>
-                        Report a bug, ask a question, or request a feature — we&apos;ll get back to you.
+                        {t("help.sendRequestDesc")}
                       </p>
                     </div>
                   </div>
@@ -213,7 +216,7 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
                     className="shrink-0 text-xs font-semibold rounded-lg px-3 py-2 text-white"
                     style={{ backgroundColor: C.aiAccent }}
                   >
-                    New request
+                    {t("help.newRequest")}
                   </button>
                 </div>
               ) : (
@@ -228,14 +231,14 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
                           ? { backgroundColor: `color-mix(in srgb, ${C.aiAccent} 12%, transparent)`, borderColor: C.aiAccent, color: C.aiAccent }
                           : { borderColor: C.border, color: C.textMuted }}
                       >
-                        {c.label}
+                        {t(c.labelKey)}
                       </button>
                     ))}
                   </div>
                   <input
                     value={subject}
                     onChange={e => setSubject(e.target.value)}
-                    placeholder="Subject"
+                    placeholder={t("help.subject")}
                     maxLength={200}
                     className="w-full text-xs rounded-lg border px-3 py-2 outline-none"
                     style={{ borderColor: C.border, backgroundColor: C.card, color: C.textPrimary }}
@@ -243,7 +246,7 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
                   <textarea
                     value={message}
                     onChange={e => setMessage(e.target.value)}
-                    placeholder="Describe what you need…"
+                    placeholder={t("help.describe")}
                     rows={4}
                     maxLength={4000}
                     className="w-full text-xs rounded-lg border px-3 py-2 outline-none resize-none"
@@ -252,7 +255,7 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
                   {err && <p className="text-[11px]" style={{ color: C.red }}>{err}</p>}
                   <div className="flex items-center justify-end gap-2">
                     <button onClick={() => setShowForm(false)} className="text-[11px] font-semibold px-2.5 py-1.5" style={{ color: C.textMuted }}>
-                      Cancel
+                      {t("help.cancel")}
                     </button>
                     <button
                       onClick={submitRequest}
@@ -261,7 +264,7 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
                       style={{ backgroundColor: C.aiAccent }}
                     >
                       {sending ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
-                      {sending ? "Sending…" : "Send request"}
+                      {sending ? t("help.sending") : t("help.sendRequest")}
                     </button>
                   </div>
                 </div>
@@ -272,7 +275,7 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
           {/* Your requests — status of what this user has submitted */}
           {myRequests.length > 0 && (
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.textDim }}>Your requests</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.textDim }}>{t("help.yourRequests")}</p>
               <div className="space-y-1.5">
                 {myRequests.map(rq => {
                   const pill = STATUS_PILL[rq.status] ?? STATUS_PILL.open;
@@ -281,11 +284,11 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-xs font-semibold truncate" style={{ color: C.textPrimary }}>{rq.subject}</p>
                         <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide rounded-full px-2 py-0.5"
-                          style={{ backgroundColor: pill.bg, color: pill.fg }}>{pill.label}</span>
+                          style={{ backgroundColor: pill.bg, color: pill.fg }}>{t(`help.status.${rq.status}`)}</span>
                       </div>
                       {rq.admin_notes && (
                         <p className="text-[11px] mt-1.5 rounded-lg px-2 py-1.5" style={{ backgroundColor: C.bg, color: C.textMuted }}>
-                          <span className="font-semibold" style={{ color: C.textBody }}>SWL team:</span> {rq.admin_notes}
+                          <span className="font-semibold" style={{ color: C.textBody }}>{t("help.swlTeam")}</span> {rq.admin_notes}
                         </p>
                       )}
                     </div>
@@ -297,8 +300,8 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
 
           {/* Views */}
           {GROUPS.map(group => (
-            <div key={group.title}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.textDim }}>{group.title}</p>
+            <div key={group.titleKey}>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: C.textDim }}>{t(group.titleKey)}</p>
               <div className="grid sm:grid-cols-2 gap-2">
                 {group.items.map(item => {
                   const Icon = item.icon;
@@ -315,8 +318,8 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
                         <Icon size={14} />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-semibold leading-tight" style={{ color: C.textPrimary }}>{item.label}</p>
-                        <p className="text-[11px] leading-snug mt-0.5" style={{ color: C.textMuted }}>{item.desc}</p>
+                        <p className="text-xs font-semibold leading-tight" style={{ color: C.textPrimary }}>{t(item.labelKey)}</p>
+                        <p className="text-[11px] leading-snug mt-0.5" style={{ color: C.textMuted }}>{t(item.descKey)}</p>
                       </div>
                     </Link>
                   );
@@ -328,7 +331,7 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
 
         {/* Footer */}
         <div className="border-t px-6 py-3 text-[11px] shrink-0" style={{ borderColor: C.border, color: C.textDim }}>
-          Requests reach the SWL team directly — we&apos;ll get back to you as soon as we can.
+          {t("help.footer")}
         </div>
       </div>
     </div>
@@ -343,8 +346,8 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
       {variant === "sidebar" ? (
         <button
           onClick={() => setOpen(true)}
-          title="Help & guide"
-          aria-label="Help & guide"
+          title={t("help.tooltip")}
+          aria-label={t("help.tooltip")}
           className="w-8 h-8 flex items-center justify-center rounded-lg transition-[background-color,color] shrink-0"
           style={{ color: sidebarMuted }}
           onMouseEnter={(e) => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)"; }}
@@ -355,8 +358,8 @@ export default function HelpMenu({ variant = "header" }: { variant?: "header" | 
       ) : (
         <button
           onClick={() => setOpen(true)}
-          title="Help & guide"
-          aria-label="Help & guide"
+          title={t("help.tooltip")}
+          aria-label={t("help.tooltip")}
           className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors hover:bg-gray-100"
           style={{ color: C.textMuted }}
         >

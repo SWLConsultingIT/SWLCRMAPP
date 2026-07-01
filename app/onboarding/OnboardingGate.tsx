@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Clock, ArrowRight, LogOut, Loader2 } from "lucide-react";
 import OnboardingForm from "./OnboardingForm";
+import { useLocale } from "@/lib/i18n";
 
 // Gate shown to a logged-in user who has NO company assigned yet.
 // Default = a friendly "pending assignment" waiting screen (most people here
@@ -12,6 +13,7 @@ import OnboardingForm from "./OnboardingForm";
 // genuine new customers who signed up on their own.
 export default function OnboardingGate({ displayName, email }: { displayName: string; email: string }) {
   const router = useRouter();
+  const { t } = useLocale();
   const [creating, setCreating] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
@@ -49,17 +51,16 @@ export default function OnboardingGate({ displayName, email }: { displayName: st
         </div>
 
         <p className="text-[11px] font-bold uppercase tracking-[0.2em] mb-2" style={{ color: "var(--brand-dark, #b79832)" }}>
-          Account pending
+          {t("onboarding.accountPending")}
         </p>
         <h1 className="text-3xl font-bold" style={{ color: "#f8fafc", fontFamily: "var(--font-outfit)" }}>
-          You&apos;re almost in
+          {t("onboarding.almostIn")}
         </h1>
         <p className="text-sm mt-3 leading-relaxed" style={{ color: "rgba(217,222,226,0.65)" }}>
-          Your account is created but not assigned to a company yet. An administrator
-          will activate it shortly — you&apos;ll get full access as soon as that&apos;s done.
+          {t("onboarding.pendingDesc")}
         </p>
         <p className="text-xs mt-4" style={{ color: "rgba(217,222,226,0.4)" }}>
-          Signed in as <span style={{ color: "rgba(217,222,226,0.7)" }}>{email}</span>
+          {t("onboarding.signedInAs")} <span style={{ color: "rgba(217,222,226,0.7)" }}>{email}</span>
         </p>
 
         <div className="mt-8 flex flex-col items-center gap-3">
@@ -70,7 +71,7 @@ export default function OnboardingGate({ displayName, email }: { displayName: st
             style={{ backgroundColor: "var(--brand-dark, #b79832)", color: "#04070d" }}
           >
             {signingOut ? <Loader2 size={14} className="animate-spin" /> : <LogOut size={14} />}
-            Sign out
+            {t("onboarding.signOut")}
           </button>
 
           <button
@@ -78,12 +79,12 @@ export default function OnboardingGate({ displayName, email }: { displayName: st
             className="inline-flex items-center gap-1.5 text-xs font-medium transition-opacity hover:opacity-80"
             style={{ color: "rgba(217,222,226,0.55)" }}
           >
-            I&apos;m a new customer — create my own company <ArrowRight size={12} />
+            {t("onboarding.createOwn")} <ArrowRight size={12} />
           </button>
         </div>
 
         <p className="text-[11px] mt-8 max-w-sm mx-auto" style={{ color: "rgba(217,222,226,0.3)" }}>
-          Were you invited to an existing company? Just hang tight, or reach out to your administrator.
+          {t("onboarding.invitedHint")}
         </p>
       </div>
     </div>
