@@ -1,0 +1,460 @@
+/* ============================================================================
+   SWL Consulting — Brand Kit (CSS)  ·  faithful extract of the app's globals.css
+   Requires: `data-theme="dark"` on <html> for dark mode + Inter/Outfit fonts
+   exposed as --font-inter / --font-outfit (see README).
+
+   Contents: brand color + design tokens (light/dark) · base typography ·
+   focus ring · reduced-motion · card utilities · animations (fade/slide/
+   shimmer/reveal/lift/sheen/pulse) · the full LogoLoader styles.
+   ============================================================================ */
+
+/* Brand color — defaults to SWL gold. BrandProvider overrides at runtime
+   when the user's company_bio.use_brand_colors = true. */
+:root {
+  --brand:       #c9a83a;
+  --brand-dark:  #b79832;
+  --brand-soft:  rgba(201,168,58,0.15);
+}
+
+/* ─── Design tokens — light (default) ─── */
+:root {
+  --c-sidebarBg:          #FFFFFF;
+  --c-sidebarBorder:      #F0F0F5;
+  --c-sidebarText:        #6B7280;
+  --c-sidebarTextActive:  #1F2937;
+  --c-sidebarSection:     #9CA3AF;
+
+  --c-bg:       #F7F8FB;
+  --c-surface:  #FFFFFF;
+  --c-card:     #FFFFFF;
+  --c-cardHov:  #F9FAFB;
+  --c-border:   #E8EBF3;
+  --c-border2:  #D4D8E4;
+
+  --c-textPrimary: #111827;
+  --c-textBody:    #374151;
+  --c-textMuted:   #6B7280;
+  --c-textDim:     #9CA3AF;
+  --c-textOnDark:  #E6EAF4;
+  /* How much to lift saturated accent colors toward white. 0% in light (the
+     mid-tone hexes read fine on white cards); bumped in dark so the same
+     hexes don't sit dark-on-dark on the navy card. Use in color-mix. */
+  --c-accent-lift: 0%;
+
+  --c-shadow:   0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.07);
+  --c-shadowMd: 0 4px 20px rgba(0,0,0,0.09), 0 2px 6px rgba(0,0,0,0.04);
+  --c-shadowLg: 0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06);
+
+  --c-aiAccentLight: #F5F3FF;
+  --c-accentLight:   #E6F5F3;
+
+  --c-greenLight:  #ECFDF5;
+  --c-redLight:    #FEF2F2;
+  --c-orangeLight: #FFF7ED;
+  --c-blueLight:   #EFF6FF;
+  --c-yellowLight: #FFFBEB;
+
+  --c-main-bg:
+    radial-gradient(ellipse 65% 45% at 4% 12%,  rgba(201,168,58,0.055)  0%, transparent 55%),
+    radial-gradient(ellipse 45% 55% at 96% 88%,  rgba(37,99,235,0.03)   0%, transparent 55%),
+    radial-gradient(ellipse 35% 35% at 75% 10%,  rgba(26,127,116,0.025) 0%, transparent 50%),
+    #F7F8FB;
+
+  /* SWL signature logo: source PNG is white-on-transparent (designed for the
+     dark sidebar). On the light content surface we invert it to dark glyph. */
+  --swl-logo-filter: brightness(0) opacity(0.62);
+}
+
+/* ─── Design tokens — dark ─── */
+[data-theme="dark"] {
+  --c-sidebarBg:          #0A0D16;
+  --c-sidebarBorder:      #171E30;
+  --c-sidebarText:        #8892A8;
+  --c-sidebarTextActive:  #F1F5F9;
+  --c-sidebarSection:     #5C6780;
+
+  --c-bg:       #0B0F1A;
+  --c-surface:  #161D34;
+  --c-card:     #161E33;
+  --c-cardHov:  #1C2540;
+  /* Borders bumped 2026-05-28 — the prior #1F2842 was so close to the
+     card surface that cards visually bled into each other. The new
+     values give every card a perceptible edge against the page bg. */
+  --c-border:   #2B3559;
+  --c-border2:  #3A476B;
+
+  /* Dark-mode text ramp — bumped 2026-05-28. The original values
+     (textMuted #8892A8, textDim #5C6780) sat too close to the card
+     surface #141B2E and made hints + secondary labels unreadable. Each
+     step is now ~one shade brighter so KPI hints, captions and table
+     subtext pass WCAG AA contrast against the card background. */
+  --c-textPrimary: #F4F7FB;
+  --c-textBody:    #D4DAE8;
+  --c-textMuted:   #A3ADC2;
+  --c-textDim:     #7E8AA5;
+  --c-textOnDark:  #E8ECF5;
+  --c-accent-lift: 36%;  /* lighten saturated accents toward white so they read on the navy card */
+
+  --c-shadow:   0 1px 3px rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.6);
+  --c-shadowMd: 0 4px 20px rgba(0,0,0,0.6), 0 2px 6px rgba(0,0,0,0.5);
+  --c-shadowLg: 0 8px 32px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.6);
+
+  --c-aiAccentLight: #1C1840;
+  --c-accentLight:   #0A2420;
+
+  --c-greenLight:  #0A2418;
+  --c-redLight:    #2A1212;
+  --c-orangeLight: #2A1B08;
+  --c-blueLight:   #121F42;
+  --c-yellowLight: #2A1F08;
+
+  --c-main-bg:
+    radial-gradient(ellipse 65% 45% at 4% 12%,  rgba(201,168,58,0.05)  0%, transparent 55%),
+    radial-gradient(ellipse 45% 55% at 96% 88%,  rgba(37,99,235,0.04)  0%, transparent 55%),
+    radial-gradient(ellipse 35% 35% at 75% 10%,  rgba(26,127,116,0.02) 0%, transparent 50%),
+    #0B0F1A;
+
+  /* In dark mode the logo PNG is already designed to be visible on dark surfaces;
+     skip the inversion but keep it slightly faded so it doesn't fight the content. */
+  --swl-logo-filter: brightness(0) invert(1) opacity(0.55);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+
+body {
+  background-color: var(--c-bg);
+  /* Subtle gradient mesh — gives every authenticated page a premium feel
+     instead of a flat grey backdrop. The `--c-main-bg` token already defines
+     warm radial gradients in light mode (and is overridden in dark mode). */
+  background-image: var(--c-main-bg);
+  background-attachment: fixed;
+  color: var(--c-textBody);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Better digit rendering for stat cards, counters, dates — matches Linear/Vercel. */
+  font-feature-settings: "ss01", "cv11";
+}
+
+/* Outfit for headings + automatic widow prevention */
+h1, h2, h3 {
+  font-family: var(--font-outfit), system-ui, sans-serif;
+  text-wrap: pretty;
+}
+h1 { letter-spacing: -0.02em; }
+h2 { letter-spacing: -0.015em; }
+
+/* Tabular numerals everywhere a `.tabular` class or stat-card pattern appears.
+   Prevents the "1px dance" when numbers update in real-time. */
+.tabular,
+[data-stat],
+.font-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Universal focus ring (accessibility — was missing on most controls) ─── */
+*:focus { outline: none; }
+*:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: inherit;
+  transition: outline-offset 0.12s ease;
+}
+/* Form fields use a subtle ring inside the field, not a halo around it. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 0;
+  box-shadow: 0 0 0 4px var(--brand-soft);
+}
+
+/* ─── Reduced motion — kill animations for users who request it ─── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .shimmer {
+    background: #F0F0F5;
+    animation: none !important;
+  }
+}
+
+/* ─── Main content area — subtle warm gradient mesh ─── */
+.main-bg {
+  background: var(--c-main-bg);
+  background-attachment: fixed;
+}
+
+/* ─── Card shadow ─── */
+.card-shadow {
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.035),
+    0 2px 4px rgba(0,0,0,0.04),
+    0 6px 20px rgba(0,0,0,0.06);
+  transition: box-shadow 0.2s ease;
+}
+
+/* ─── Interactive card — lift on hover ─── */
+.card-lift {
+  transition: transform 0.2s cubic-bezier(0.22,1,0.36,1), box-shadow 0.2s ease;
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.035),
+    0 2px 4px rgba(0,0,0,0.04),
+    0 6px 20px rgba(0,0,0,0.06);
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 0 1px rgba(201,168,58,0.15),
+    0 8px 28px rgba(0,0,0,0.10),
+    0 3px 8px rgba(0,0,0,0.05);
+}
+
+/* ─── Glass card variant ─── */
+.card-glass {
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.8);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,0.04),
+    0 4px 24px rgba(0,0,0,0.08);
+}
+
+/* ─── Gradient border utility ─── */
+.border-gradient-gold {
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
+  position: relative;
+}
+.border-gradient-gold::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(201,168,58,0.5), rgba(201,168,58,0.15));
+  z-index: -1;
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: #C9C9D4;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover { background: #A0A0B0; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #2E3248; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #3E4360; }
+
+/* ─── Text selection ─── */
+::selection {
+  background-color: rgba(201,168,58,0.2);
+  color: #111827;
+}
+
+/* ─── Animated pulse dot ─── */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(1.5); }
+}
+.pulse-dot { animation: pulse-dot 2s ease-in-out infinite; }
+
+/* Today hero motion lives entirely in the LogoLoader animations
+   (logo-loader-mark-glow + logo-loader-mark-shine) applied to the
+   SWL mark on the right. The logo sits on a champagne "stage" so
+   its native gold gradient reads at full fidelity. */
+
+/* ─── Fade in ─── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 0.28s cubic-bezier(0.22,1,0.36,1); }
+
+/* ─── Slide up ─── */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.slide-up { animation: slideUp 0.32s cubic-bezier(0.22,1,0.36,1); }
+
+/* ─── Shimmer (loading skeleton) ─── */
+@keyframes shimmer {
+  from { background-position: -200% center; }
+  to   { background-position:  200% center; }
+}
+.shimmer {
+  background: linear-gradient(90deg, #F0F0F5 25%, #FAFAFA 50%, #F0F0F5 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: 6px;
+}
+[data-theme="dark"] .shimmer {
+  background: linear-gradient(90deg, #1E2133 25%, #252A3D 50%, #1E2133 75%);
+  background-size: 200% 100%;
+}
+
+/* ─── Progress bar fill ─── */
+@keyframes fillBar {
+  from { width: 0; }
+}
+.animate-fill { animation: fillBar 0.8s cubic-bezier(0.22,1,0.36,1); }
+
+/* ─── Reveal-on-load (used by lead-detail zones) ───────────────────────
+   Soft fade + rise. Apply `.reveal` and set --d for a per-element stagger
+   delay. Cards lift on hover via `.lift`. Honors prefers-reduced-motion
+   (the global reset at the top already kills animations there). */
+@keyframes revealUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.reveal {
+  animation: revealUp 0.55s cubic-bezier(0.21,0.6,0.35,1) both;
+  animation-delay: var(--d, 0ms);
+}
+.lift { transition: transform 0.2s cubic-bezier(0.22,1,0.36,1), box-shadow 0.2s ease; }
+.lift:hover { transform: translateY(-3px); }
+
+/* Soft sheen sweep across a surface (e.g. AI cards on hover). */
+@keyframes sheen {
+  0%   { transform: translateX(-120%); }
+  60%, 100% { transform: translateX(220%); }
+}
+.sheen-host { position: relative; overflow: hidden; }
+.sheen-host::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255,255,255,0.18), transparent);
+  transform: translateX(-120%); pointer-events: none;
+}
+.sheen-host:hover::after { animation: sheen 1.1s ease; }
+
+/* ─── LogoLoader: cropped brand-mark PNG + gold wordmark ──────────────
+   The brand PNG has its "SWL" lettering in white, which disappears on
+   light mode. We crop the PNG to just the gold parallelograms (left
+   ~34%), then render a gold-clipped italic "SWL" wordmark beside it.
+   Both pieces work on any theme. Halo + masked shine sweep follow the
+   visible mark silhouette. */
+
+.logo-loader-stage {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2vw, 28px);
+}
+
+/* Gold ambient backdrop behind the lockup — masks any tenant-tinted bleed
+   from --c-main-bg (which has a faint teal radial) so the loader is always
+   bathed in SWL gold light. */
+.logo-loader-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 18% 14% at 50% 50%, rgba(201, 168, 58, 0.20) 0%, rgba(201, 168, 58, 0.05) 50%, transparent 80%);
+  animation: logo-loader-backdrop-breathe 4.5s ease-in-out infinite;
+}
+
+@keyframes logo-loader-backdrop-breathe {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.05); }
+}
+
+[data-theme="dark"] .logo-loader-backdrop {
+  background:
+    radial-gradient(ellipse 18% 14% at 50% 50%, rgba(201, 168, 58, 0.26) 0%, rgba(201, 168, 58, 0.06) 50%, transparent 80%);
+}
+
+.logo-loader-mark-wrap {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  overflow: hidden;
+  filter: drop-shadow(0 0 14px rgba(201, 168, 58, 0.35));
+  animation: logo-loader-mark-glow 4.5s ease-in-out infinite;
+}
+
+.logo-loader-mark-img {
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Gold typographic SWL wordmark — SWL is the product identity, not the
+   tenant's, so this is hardcoded gold (does NOT honor --brand override).
+   Travels diagonally on the same 4.5s cycle as the mark halo. */
+.logo-loader-wordmark {
+  font-weight: 800;
+  letter-spacing: -0.07em;
+  font-style: italic;
+  display: inline-block;
+  transform: skewX(-2deg);
+  background: linear-gradient(
+    110deg,
+    #b79832 0%,
+    #c9a83a 28%,
+    #f0d97a 50%,
+    #c9a83a 72%,
+    #b79832 100%
+  );
+  background-size: 240% 240%;
+  background-position: 0% 0%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  filter: drop-shadow(0 0 12px rgba(201, 168, 58, 0.3));
+  animation: logo-loader-wordmark-shimmer 4.5s ease-in-out infinite;
+}
+
+@keyframes logo-loader-wordmark-shimmer {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+
+@keyframes logo-loader-mark-glow {
+  0%, 100% {
+    filter: drop-shadow(0 0 12px rgba(201, 168, 58, 0.28));
+  }
+  50% {
+    filter:
+      drop-shadow(0 0 26px rgba(201, 168, 58, 0.55))
+      drop-shadow(0 0 64px rgba(201, 168, 58, 0.18));
+  }
+}
+
+@keyframes logo-loader-mark-shine {
+  0%   { background-position: -130% 50%; opacity: 0; }
+  20%  { opacity: 1; }
+  60%  { opacity: 1; }
+  100% { background-position: 230% 50%;  opacity: 0; }
+}
+.logo-loader-mark-shine {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 38%,
+    rgba(255, 250, 220, 0.85) 50%,
+    transparent 62%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: logo-loader-mark-shine 4.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+[data-theme="dark"] .logo-loader-mark-wrap {
+  /* Slightly hotter glow on dark background so the gold reads. */
+  filter: drop-shadow(0 0 22px rgba(201, 168, 58, 0.55));
+}

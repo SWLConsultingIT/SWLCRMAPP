@@ -253,11 +253,15 @@ export default async function ResultsPage() {
         icon={Trophy}
         section={t("results.hero.preTitle")}
         title={t("results.hero.title")}
-        description={t("results.hero.description")}
+        description={isSwl
+          ? "Your positive results — every interested lead moving through the stages toward a booked meeting, then pushed to Odoo. Plus what didn't close and what's being re-nurtured."
+          : t("results.hero.description")}
         accentColor={C.green}
         status={{ label: "Live", active: true }}
         stats={[
-          { label: t("results.tab.won"),       value: wonLeads.length,         tone: wonLeads.length > 0 ? "positive" : "neutral" },
+          isSwl
+            ? { label: "Positive results", value: wonLeads.length, tone: wonLeads.length > 0 ? "positive" : "neutral" }
+            : { label: t("results.tab.won"), value: wonLeads.length, tone: wonLeads.length > 0 ? "positive" : "neutral" },
           { label: t("results.tab.lost"),      value: lostLeads.length,        tone: lostLeads.length > 0 ? "warning" : "neutral" },
           { label: t("results.tab.renurture"), value: renurturingLeads.length, tone: renurturingLeads.length > 0 ? "positive" : "neutral" },
         ]}

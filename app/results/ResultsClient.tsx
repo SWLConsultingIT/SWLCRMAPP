@@ -483,7 +483,7 @@ export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads, i
     // SWL: the Pipeline kanban IS the positives view (by stage) — it replaces the
     // flat "Won" tab so we don't show the same 10 leads twice. Other tenants keep Won.
     ...(isSwl
-      ? [{ key: "pipeline" as const, label: "Pipeline", count: wonLeads.length, color: C.blue, icon: LayoutGrid }]
+      ? [{ key: "pipeline" as const, label: "Positive Results", count: wonLeads.length, color: C.blue, icon: LayoutGrid }]
       : [{ key: "won" as const, label: t("results.tab.won"), count: wonLeads.length, color: C.green, icon: Trophy }]),
     { key: "lost"      as const, label: t("results.tab.lost"),      count: lostLeads.length,        color: C.red,   icon: X },
     { key: "renurture" as const, label: t("results.tab.renurture"), count: renurturingLeads.length, color: gold,    icon: RefreshCw },
@@ -548,7 +548,15 @@ export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads, i
       `}</style>
 
       {tab === "pipeline" && (
-        <ResultsPipeline leads={wonLeads} search={search} />
+        <>
+          <div className="mb-3 flex items-start gap-2">
+            <LayoutGrid size={14} className="mt-0.5 shrink-0" style={{ color: C.blue }} />
+            <p className="text-[12.5px] leading-snug" style={{ color: C.textMuted }}>
+              <span className="font-semibold" style={{ color: C.textBody }}>Positive results</span> — every lead that replied positively or booked a call. Drag each one through the stages, then <span className="font-semibold" style={{ color: C.green }}>Send to Odoo</span> from its detail.
+            </p>
+          </div>
+          <ResultsPipeline leads={wonLeads} search={search} />
+        </>
       )}
 
       <div className="results-acc">
