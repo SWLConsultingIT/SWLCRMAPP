@@ -285,12 +285,13 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
   const WinChIcon = winChMeta.icon;
   const cls = win ? (classColors[win.classification] ?? classColors.positive) : classColors.positive;
 
+  const isSwl = lead.companyBioId === "7c02e222-be59-416d-9434-acf4685f8590";
   return (
-    <div className="p-6 w-full max-w-6xl mx-auto">
+    <div className="p-4 sm:p-6 w-full">
       <Breadcrumb
         crumbs={[
           { label: "Results", href: "/results" },
-          { label: "Won", href: "/results" },
+          { label: isSwl ? "Positive Results" : "Won", href: "/results" },
           { label: lead.fullName },
         ]}
       />
@@ -378,6 +379,9 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
             {lead.transferredAt && (
               <span className="text-[10px]" style={{ color: C.textDim }}>Transferred {timeAgo(lead.transferredAt)}</span>
             )}
+            {isSwl && (
+              <SendToOdooPanel leadId={lead.id} transferred={lead.transferred} />
+            )}
           </div>
         </div>
 
@@ -463,9 +467,6 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
 
         {/* LEFT: Stage + Enrichment (2 cols) */}
         <div className="col-span-2 space-y-6">
-          {lead.companyBioId === "7c02e222-be59-416d-9434-acf4685f8590" && (
-            <SendToOdooPanel leadId={lead.id} transferred={lead.transferred} />
-          )}
           <OpportunityStagePanel
             leadId={lead.id}
             initialStage={data.opportunityStage}

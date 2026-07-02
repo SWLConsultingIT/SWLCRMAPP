@@ -68,9 +68,11 @@ export default function SendToOdooPanel({ leadId, transferred = false }: { leadI
   return (
     <>
       <button onClick={openPanel}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all hover:-translate-y-px"
-        style={{ background: transferred ? C.greenLight : `linear-gradient(135deg, ${N.ink2}, ${N.ink})`, color: transferred ? C.green : "#fff", border: transferred ? `1px solid color-mix(in srgb, ${C.green} 35%, transparent)` : `1px solid ${N.hairline}`, boxShadow: transferred ? undefined : "0 8px 22px -10px rgba(0,0,0,0.5)" }}>
-        {transferred ? <><Trophy size={15} /> Already in Odoo — review payload</> : <><Send size={15} style={{ color: gold }} /> Send to Odoo</>}
+        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-[13px] transition-all hover:-translate-y-px whitespace-nowrap"
+        style={transferred
+          ? { backgroundColor: C.greenLight, color: C.green, border: `1px solid color-mix(in srgb, ${C.green} 35%, transparent)` }
+          : { background: `linear-gradient(135deg, ${gold}, ${C.goldDim})`, color: N.ink, boxShadow: `0 10px 24px -8px color-mix(in srgb, ${gold} 60%, transparent)` }}>
+        {transferred ? <><Trophy size={14} /> Review Odoo payload</> : <><Send size={14} /> Send to Odoo</>}
       </button>
 
       {open && (
