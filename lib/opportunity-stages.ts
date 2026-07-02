@@ -7,17 +7,22 @@
 // terminal, system-owned column/badge (set by the Send-to-Odoo action, never by
 // a manual drag).
 
-export type OppStage = { id: string; label: string; color: string };
+export type OppStage = { id: string; label: string; es: string; color: string };
 
 export const OPP_STAGES: OppStage[] = [
-  { id: "interested",     label: "Interested",     color: "#2563EB" },
-  { id: "second_contact", label: "2nd contact",    color: "#7C3AED" },
-  { id: "meeting_booked", label: "Meeting booked", color: "#0EA5E9" },
-  { id: "proposal_sent",  label: "Proposal sent",  color: "#D97706" },
+  { id: "interested",     label: "Interested",     es: "Interesado",         color: "#2563EB" },
+  { id: "second_contact", label: "2nd contact",    es: "2º contacto",        color: "#7C3AED" },
+  { id: "meeting_booked", label: "Meeting booked", es: "Reunión agendada",   color: "#0EA5E9" },
+  { id: "proposal_sent",  label: "Proposal sent",  es: "Propuesta enviada",  color: "#D97706" },
 ];
 
 // Terminal, derived column — a lead lands here once it's pushed to Odoo.
-export const SENT_TO_ODOO: OppStage = { id: "sent_to_odoo", label: "Sent to Odoo", color: "#059669" };
+export const SENT_TO_ODOO: OppStage = { id: "sent_to_odoo", label: "Sent to Odoo", es: "Enviado a Odoo", color: "#059669" };
+
+// Locale-aware label for a stage (respects the app's language selector).
+export function stageLabel(stage: OppStage, locale: string): string {
+  return locale === "es" ? stage.es : stage.label;
+}
 
 // Map any legacy / unknown stored value onto a current working stage so old rows
 // (e.g. the pre-2026 "response_received" / "meeting_scheduled" / "negotiating")

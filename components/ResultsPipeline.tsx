@@ -11,7 +11,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { C, N } from "@/lib/design";
 import { Star, ChevronRight, Trophy, PhoneCall, MessageSquare, Loader2 } from "lucide-react";
-import { OPP_STAGES, SENT_TO_ODOO, normalizeStage } from "@/lib/opportunity-stages";
+import { OPP_STAGES, SENT_TO_ODOO, normalizeStage, stageLabel } from "@/lib/opportunity-stages";
+import { useLocale } from "@/lib/i18n";
 import type { OpportunityLead } from "@/components/OpportunitiesTable";
 
 const gold = "var(--brand, #c9a83a)";
@@ -26,6 +27,8 @@ function whyParts(text: string | null | undefined) {
 const COLUMNS = [...OPP_STAGES, SENT_TO_ODOO];
 
 export default function ResultsPipeline({ leads, search }: { leads: OpportunityLead[]; search: string }) {
+  const { locale } = useLocale();
+  const L = (en: string, es: string) => (locale === "es" ? es : en);
   // stageById holds the live column for each lead so drag-drop is instant.
   const [stageById, setStageById] = useState<Record<string, string>>(() => {
     const m: Record<string, string> = {};
@@ -90,7 +93,7 @@ export default function ResultsPipeline({ leads, search }: { leads: OpportunityL
                   <div className="h-[3px] w-full" style={{ background: isOdoo ? `linear-gradient(90deg, ${gold}, ${N.goldOnDark})` : col.color }} />
                   <div className="px-3.5 py-2.5 flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: isOdoo ? N.goldOnDark : col.color, boxShadow: `0 0 8px color-mix(in srgb, ${isOdoo ? gold : col.color} 60%, transparent)` }} />
-                    <span className="text-[12px] font-bold flex-1 truncate" style={{ color: "#fff", fontFamily: BRAND_FONT }}>{col.label}</span>
+                    <span className="text-[12px] font-bold flex-1 truncate" style={{ color: "#fff", fontFamily: BRAND_FONT }}>{stageLabel(col, locale)}</span>
                     <span className="text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-md" style={{ backgroundColor: "rgba(255,255,255,0.08)", color: isOdoo ? N.goldOnDark : "#fff" }}>{cards.length}</span>
                   </div>
                   {/* mini share bar */}
@@ -103,7 +106,7 @@ export default function ResultsPipeline({ leads, search }: { leads: OpportunityL
                 <div className="p-2 space-y-2 flex-1" style={{ minHeight: 160 }}>
                   {cards.length === 0 ? (
                     <div className="rounded-xl border border-dashed text-center text-[11px] py-10 select-none" style={{ borderColor: C.border, color: C.textDim }}>
-                      {isOdoo ? "Se llenan al enviar a Odoo" : "Arrastrá un lead acá"}
+                      {isOdoo ? L("Fills in on Send to Odoo", "Se llena al enviar a Odoo") : L("Drag a lead here", "Arrastrá un lead acá")}
                     </div>
                   ) : cards.map(lead => {
                     const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "—";
@@ -143,12 +146,12 @@ export default function ResultsPipeline({ leads, search }: { leads: OpportunityL
 
                         <div className="flex items-center justify-between mt-2.5">
                           {lead.transferred ? (
-                            <span className="inline-flex items-center gap-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: C.greenLight, color: C.green }}><Trophy size={8} /> In Odoo</span>
+                            <span className="inline-flex items-center gap-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: C.greenLight, color: C.green }}><Trophy size={8} /> {L("In Odoo", "En Odoo")}</span>
                           ) : lead.days_to_convert != null ? (
-                            <span className="text-[9.5px] font-semibold tabular-nums px-1.5 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${gold} 13%, transparent)`, color: C.goldDim }}>{lead.days_to_convert}d to reply</span>
+                            <span className="text-[9.5px] font-semibold tabular-nums px-1.5 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${gold} 13%, transparent)`, color: C.goldDim }}>{lead.days_to_convert}d {L("to reply", "para responder")}</span>
                           ) : <span />}
                           <Link href={`/opportunities/${lead.id}`} className="inline-flex items-center gap-0.5 text-[10.5px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: gold }}>
-                            Detalle <ChevronRight size={11} />
+                            {L("Details", "Detalle")} <ChevronRight size={11} />
                           </Link>
                         </div>
                       </div>

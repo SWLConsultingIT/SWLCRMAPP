@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { CheckCircle, Calendar, FileText, Loader2, Trophy } from "lucide-react";
 import { C } from "@/lib/design";
-import { OPP_STAGES as STAGES, normalizeStage } from "@/lib/opportunity-stages";
+import { OPP_STAGES as STAGES, normalizeStage, stageLabel } from "@/lib/opportunity-stages";
+import { useLocale } from "@/lib/i18n";
 
 type Props = {
   leadId: string;
@@ -14,6 +15,8 @@ type Props = {
 };
 
 export default function OpportunityStagePanel({ leadId, initialStage, initialNotes, initialNextAction, transferred = false }: Props) {
+  const { locale } = useLocale();
+  const L = (en: string, es: string) => (locale === "es" ? es : en);
   const [stage, setStage]           = useState(normalizeStage(initialStage));
   const [notes, setNotes]           = useState(initialNotes ?? "");
   const [nextAction, setNextAction] = useState(initialNextAction ?? "");
@@ -50,16 +53,16 @@ export default function OpportunityStagePanel({ leadId, initialStage, initialNot
       <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
         <div className="flex items-center gap-2">
           <CheckCircle size={13} style={{ color: C.green }} />
-          <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Pipeline Stage</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>{L("Pipeline Stage","Etapa del pipeline")}</h3>
         </div>
         <div className="flex items-center gap-2">
           {transferred && (
             <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md" style={{ backgroundColor: C.greenLight, color: C.green }}>
-              <Trophy size={9} /> Sent to Odoo
+              <Trophy size={9} /> {L("Sent to Odoo","Enviado a Odoo")}
             </span>
           )}
           {saving && <Loader2 size={12} className="animate-spin" style={{ color: C.textDim }} />}
-          {saved && <span className="text-[10px] font-medium" style={{ color: C.green }}>Saved</span>}
+          {saved && <span className="text-[10px] font-medium" style={{ color: C.green }}>{L("Saved","Guardado")}</span>}
           {error && <span className="text-[10px] font-medium" style={{ color: C.red }}>{error}</span>}
         </div>
       </div>
@@ -67,7 +70,7 @@ export default function OpportunityStagePanel({ leadId, initialStage, initialNot
       <div className="p-5 space-y-5">
         {/* Stage selector */}
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: C.textDim }}>Stage</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: C.textDim }}>{L("Stage","Etapa")}</p>
           <div className="flex flex-wrap gap-2">
             {STAGES.map((s, i) => {
               const isActive = stage === s.id;
@@ -83,7 +86,7 @@ export default function OpportunityStagePanel({ leadId, initialStage, initialNot
                   }}
                 >
                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: isActive ? s.color : C.textDim }} />
-                  {i + 1}. {s.label}
+                  {i + 1}. {stageLabel(s, locale)}
                 </button>
               );
             })}
@@ -100,20 +103,20 @@ export default function OpportunityStagePanel({ leadId, initialStage, initialNot
             />
           </div>
           <p className="text-[10px] mt-1.5 text-right" style={{ color: C.textDim }}>
-            Step {STAGES.findIndex(s => s.id === stage) + 1} of {STAGES.length}
+            {L("Step","Paso")} {STAGES.findIndex(s => s.id === stage) + 1} {L("of","de")} {STAGES.length}
           </p>
         </div>
 
         {/* Next action */}
         <div>
           <label className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: C.textDim }}>
-            <Calendar size={10} /> Next Action
+            <Calendar size={10} /> {L("Next Action","Próxima acción")}
           </label>
           <input
             value={nextAction}
             onChange={e => setNextAction(e.target.value)}
             onBlur={() => save({ opportunity_next_action: nextAction })}
-            placeholder="e.g. Send proposal by Friday, Follow up next week…"
+            placeholder={L("e.g. Send proposal by Friday, Follow up next week…","ej. Enviar propuesta el viernes, seguir la semana que viene…")}
             className="w-full px-3 py-2 rounded-lg border text-xs outline-none transition-[opacity,transform,box-shadow,background-color,border-color]"
             style={{
               backgroundColor: C.cardHov,
@@ -127,13 +130,13 @@ export default function OpportunityStagePanel({ leadId, initialStage, initialNot
         {/* Notes */}
         <div>
           <label className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: C.textDim }}>
-            <FileText size={10} /> Notes
+            <FileText size={10} /> {L("Notes","Notas")}
           </label>
           <textarea
             value={notes}
             onChange={e => setNotes(e.target.value)}
             onBlur={() => save({ opportunity_notes: notes })}
-            placeholder="Add notes about this opportunity…"
+            placeholder={L("Add notes about this opportunity…","Agregá notas sobre esta oportunidad…")}
             rows={3}
             className="w-full px-3 py-2 rounded-lg border text-xs outline-none transition-[opacity,transform,box-shadow,background-color,border-color] resize-none"
             style={{

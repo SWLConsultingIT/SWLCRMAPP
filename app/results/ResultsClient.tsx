@@ -356,7 +356,8 @@ function Section<L>({
 // ── Main client ───────────────────────────────────────────────────────
 
 export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads, isSwl = false }: Props) {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
+  const L = (en: string, es: string) => (locale === "es" ? es : en);
   const [tab, setTab] = useState<Tab>(
     isSwl ? "pipeline" : wonLeads.length > 0 ? "won" : lostLeads.length > 0 ? "lost" : "renurture",
   );
@@ -483,13 +484,13 @@ export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads, i
     // SWL: the Pipeline kanban IS the positives view (by stage) — it replaces the
     // flat "Won" tab so we don't show the same 10 leads twice. Other tenants keep Won.
     ...(isSwl
-      ? [{ key: "pipeline" as const, label: "Positive Results", count: wonLeads.length, color: C.blue, icon: LayoutGrid }]
+      ? [{ key: "pipeline" as const, label: L("Positive Results", "Resultados positivos"), count: wonLeads.length, color: C.blue, icon: LayoutGrid }]
       : [{ key: "won" as const, label: t("results.tab.won"), count: wonLeads.length, color: C.green, icon: Trophy }]),
     { key: "lost"      as const, label: t("results.tab.lost"),      count: lostLeads.length,        color: C.red,   icon: X },
     { key: "renurture" as const, label: t("results.tab.renurture"), count: renurturingLeads.length, color: gold,    icon: RefreshCw },
   ];
 
-  const searchPlaceholder = tab === "pipeline" ? "Search pipeline…" : tab === "won" ? t("results.search.won") : tab === "lost" ? t("results.search.lost") : t("results.search.renurture");
+  const searchPlaceholder = tab === "pipeline" ? L("Search pipeline…", "Buscar en el pipeline…") : tab === "won" ? t("results.search.won") : tab === "lost" ? t("results.search.lost") : t("results.search.renurture");
 
   return (
     <div className="w-full">
@@ -552,7 +553,9 @@ export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads, i
           <div className="mb-3 flex items-start gap-2">
             <LayoutGrid size={14} className="mt-0.5 shrink-0" style={{ color: C.blue }} />
             <p className="text-[12.5px] leading-snug" style={{ color: C.textMuted }}>
-              <span className="font-semibold" style={{ color: C.textBody }}>Positive results</span> — every lead that replied positively or booked a call. Drag each one through the stages, then <span className="font-semibold" style={{ color: C.green }}>Send to Odoo</span> from its detail.
+              <span className="font-semibold" style={{ color: C.textBody }}>{L("Positive results", "Resultados positivos")}</span>{" "}
+              {L("— every lead that replied positively or booked a call. Drag each one through the stages, then", "— cada lead que respondió positivo o agendó una llamada. Arrastralo por las etapas y después")}{" "}
+              <span className="font-semibold" style={{ color: C.green }}>Send to Odoo</span>{" "}{L("from its detail.", "desde su detalle.")}
             </p>
           </div>
           <ResultsPipeline leads={wonLeads} search={search} />
