@@ -1,0 +1,167 @@
+// POST /api/leads/[id]/send-to-odoo — Fase 3. Pushes a positive result into the
+// SWL Odoo CRM (PROSPECT column) with the full GROWTH ENGINE payload mapped onto
+// Odoo's custom (x_studio_*) fields, then flags the lead transferred so the
+// Results kanban moves the card to "Sent to Odoo".
+//
+// SWL-tenant only. Ports the company/contact/seller/crm.lead logic from the n8n
+// "SWL - CRM - Create Odoo Lead" workflow (kept as the reference source) and adds
+// the custom-field mapping introspected from crm.lead. Odoo creds mirror the
+// workflow's (hardcoded there too); move to env/DB config when we onboard a 2nd
+// tenant's Odoo.
+import { NextRequest, NextResponse } from "next/server";
+import { getSupabaseServer } from "@/lib/supabase-server";
+import { getSupabaseService } from "@/lib/supabase-service";
+import { getUserScope } from "@/lib/scope";
+
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+const SWL_BIO = "7c02e222-be59-416d-9434-acf4685f8590";
+const ODOO = {
+  url: "https://swlconsulting-swlodoosh.odoo.com/jsonrpc",
+  db: "juandevera92-swlodoo-main-29112709",
+  uid: 13,
+  key: "4726cf3709a64f6a0a954e271b69e08bb1e5f77b",
+  stageProspect: 9,
+};
+
+const esc = (s: unknown) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const htmlPara = (s: unknown) => { const t = String(s ?? "").trim(); return t ? `<p>${esc(t).replace(/\n/g, "<br/>")}</p>` : false; };
+
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const scope = await getUserScope();
+  if (!scope.userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const { id } = await params;
+
+  let body: any = {};
+  try { body = await req.json(); } catch { /* */ }
+  const drafts = (body?.drafts ?? {}) as Record<string, string>;
+
+  const svc = getSupabaseService();
+  const sb = await getSupabaseServer();
+
+  // Read the lead (user-scoped for the read) — select * to avoid column drift.
+  const { data: lead } = await sb.from("leads").select("*").eq("id", id).maybeSingle();
+  if (!lead) return NextResponse.json({ error: "lead not found" }, { status: 404 });
+  const L = lead as any;
+  if (L.company_bio_id !== SWL_BIO) return NextResponse.json({ error: "demo-only (SWL Consulting)" }, { status: 403 });
+  if (L.odoo_lead_id) return NextResponse.json({ ok: true, already: true, odooLeadId: L.odoo_lead_id });
+
+  // Seller name (for Odoo salesperson match) from the lead's latest campaign.
+  const { data: camp } = await sb.from("campaigns").select("seller_id, name, sellers(name)").eq("lead_id", id).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  const sellerName = ((camp as any)?.sellers?.name as string) ?? null;
+
+  // Conversation (sent + inbound) → chronological HTML for the Emails tab.
+  const [{ data: sent }, { data: replies }] = await Promise.all([
+    sb.from("campaign_messages").select("channel, content, sent_at, metadata").eq("lead_id", id).eq("status", "sent").order("sent_at", { ascending: true }),
+    sb.from("lead_replies").select("channel, reply_text, received_at").eq("lead_id", id).order("received_at", { ascending: true }),
+  ]);
+  const convo: Array<{ from: string; ch: string; text: string; at: string }> = [];
+  for (const m of sent ?? []) { const t = ((m as any).metadata?.rendered_content as string) || (m as any).content || ""; if (t) convo.push({ from: "Nosotros", ch: (m as any).channel ?? "", text: t, at: (m as any).sent_at ?? "" }); }
+  for (const r of replies ?? []) { if ((r as any).reply_text) convo.push({ from: "Lead", ch: (r as any).channel ?? "", text: (r as any).reply_text, at: (r as any).received_at ?? "" }); }
+  convo.sort((a, b) => a.at.localeCompare(b.at));
+  const convoHtml = convo.map(c => `<p><b>${c.from}</b> <i>(${esc(c.ch)})</i>: ${esc(c.text)}</p>`).join("") || false;
+  const lastAt = replies && replies.length ? (replies as any[])[replies.length - 1].received_at : (sent && sent.length ? (sent as any[])[sent.length - 1].sent_at : null);
+  const lastDate = lastAt ? String(lastAt).slice(0, 10) : false;
+
+  async function odoo(model: string, method: string, args: any[], kwargs: any = {}): Promise<any> {
+    const r = await fetch(ODOO.url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", method: "call", params: { service: "object", method: "execute_kw", args: [ODOO.db, ODOO.uid, ODOO.key, model, method, args, kwargs] } }) });
+    const j = await r.json();
+    if (j.error) throw new Error(typeof j.error === "object" ? (j.error.data?.message || j.error.message || JSON.stringify(j.error)).slice(0, 400) : String(j.error));
+    return j.result;
+  }
+
+  const fullName = `${L.primary_first_name ?? ""} ${L.primary_last_name ?? ""}`.trim() || "Unknown";
+  const email = L.primary_work_email || L.primary_personal_email || "";
+  const phone = L.primary_phone || "";
+  const companyName = L.company_name || "";
+  const website = L.company_website || "";
+  const domain = website ? website.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].toLowerCase() : "";
+
+  try {
+    // 1) company partner (find-or-create)
+    let companyId: number | null = null;
+    if (companyName) {
+      const found = await odoo("res.partner", "search_read", [["&", ["is_company", "=", true], "|", ["name", "ilike", companyName], domain ? ["website", "ilike", domain] : ["id", "=", 0]]], { fields: ["id"], limit: 1 });
+      if (found?.[0]?.id) companyId = found[0].id;
+      else companyId = await odoo("res.partner", "create", [{ name: companyName, is_company: true, website: website || false, comment: (L.organization_description || false) }]);
+    }
+    // 2) contact partner (find-or-create by email)
+    let contactId: number | null = null;
+    if (email) {
+      const found = await odoo("res.partner", "search_read", [[["email", "=ilike", email]]], { fields: ["id", "parent_id"], limit: 1 });
+      if (found?.[0]?.id) { contactId = found[0].id; if (companyId) await odoo("res.partner", "write", [[contactId], { parent_id: companyId }]); }
+    }
+    if (!contactId) {
+      contactId = await odoo("res.partner", "create", [{ name: fullName, is_company: false, parent_id: companyId || false, email: email || false, phone: phone || false, function: L.primary_title_role || false, website: L.primary_linkedin_url || false }]);
+    }
+    // 3) seller user
+    let userId = ODOO.uid;
+    if (sellerName) { const u = await odoo("res.users", "search_read", [[["name", "ilike", sellerName]]], { fields: ["id"], limit: 1 }); if (u?.[0]?.id) userId = u[0].id; }
+
+    // 4) crm.lead with GROWTH ENGINE payload → custom fields
+    const descParts = [
+      `<h3>Positive lead — via ${esc(L.current_channel ?? "outreach")}</h3>`,
+      drafts.conversationSummary ? `<p><b>Resumen de la conversación:</b><br/>${esc(drafts.conversationSummary).replace(/\n/g, "<br/>")}</p>` : "",
+      drafts.sellerComments ? `<p><b>Comentarios del vendedor:</b><br/>${esc(drafts.sellerComments).replace(/\n/g, "<br/>")}</p>` : "",
+    ].filter(Boolean).join("");
+
+    const empl = Number(L.employees); const rev = Number(L.annual_revenue);
+    const leadPayload: Record<string, unknown> = {
+      name: `${fullName} - ${companyName || "Lead"}`,
+      partner_id: contactId || false,
+      partner_name: companyName || false,
+      contact_name: fullName,
+      email_from: email || false,
+      phone: phone || false,
+      website: website || false,
+      stage_id: ODOO.stageProspect,
+      user_id: userId,
+      description: descParts || false,
+      // Contact
+      x_studio_headline: htmlPara(L.primary_headline),
+      x_studio_seniority: htmlPara(L.primary_seniority),
+      x_studio_linkedin_url: htmlPara(L.primary_linkedin_url),
+      // Enrichment
+      x_studio_company_overview: htmlPara(drafts.companySummary || L.organization_description),
+      x_studio_description: htmlPara(L.organization_description),
+      x_studio_keywords: htmlPara(L.keywords),
+      ...(Number.isFinite(empl) && empl > 0 ? { x_studio_employees: empl } : {}),
+      ...(Number.isFinite(rev) && rev > 0 ? { x_studio_monetary_field_5nb_1jl2cuqj2: rev } : {}),
+      // Personalized Info
+      x_studio_personalized_info_1: htmlPara(drafts.profileSummary || L.primary_headline),
+      x_studio_personalized_info_2: htmlPara(drafts.highlights),
+      x_studio_personalized_info_3: htmlPara(drafts.conversationSummary),
+      // Discovery + Notes
+      x_studio_lead_discovery: htmlPara(drafts.highlights),
+      x_studio_related_field_4bc_1jplfb7lt: htmlPara(drafts.sellerComments),
+      // Emails & Communication (full thread)
+      x_studio_emails: convoHtml,
+      x_email_comm_notes: htmlPara(drafts.conversationSummary),
+      // Meetings & Calls
+      x_studio_calls_records: htmlPara(drafts.conversationSummary),
+      // Last contact
+      ...(lastDate ? { x_studio_last: lastDate } : {}),
+      // Source
+      x_studio_source: htmlPara(L.source_campaign_name || L.source_tool),
+    };
+    // Drop false/empty custom fields so we never blank a field with junk.
+    for (const k of Object.keys(leadPayload)) if (leadPayload[k] === false || leadPayload[k] === undefined) delete leadPayload[k];
+    // Re-add the always-required standard fields (some legitimately false).
+    leadPayload.stage_id = ODOO.stageProspect;
+    leadPayload.name = `${fullName} - ${companyName || "Lead"}`;
+    leadPayload.contact_name = fullName;
+    if (contactId) leadPayload.partner_id = contactId;
+    leadPayload.user_id = userId;
+
+    const odooLeadId = await odoo("crm.lead", "create", [leadPayload]);
+    if (!odooLeadId) throw new Error("crm.lead create returned no id");
+
+    // 5) flag transferred → kanban moves the card to "Sent to Odoo"
+    await svc.from("leads").update({ odoo_lead_id: odooLeadId, transferred_to_odoo_at: new Date().toISOString() }).eq("id", id);
+
+    return NextResponse.json({ ok: true, odooLeadId, companyId, contactId });
+  } catch (e: any) {
+    return NextResponse.json({ error: `Odoo push failed: ${e?.message ?? "unknown"}` }, { status: 502 });
+  }
+}

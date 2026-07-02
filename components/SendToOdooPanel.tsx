@@ -8,7 +8,8 @@
 // action here previews + copies the payload; it doesn't write to Odoo yet.
 
 import { useState } from "react";
-import { Send, X, Loader2, Copy, Check, MessageSquare, Building2, User, ExternalLink, Trophy } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Send, X, Loader2, Copy, Check, MessageSquare, Building2, User, ExternalLink, Trophy, AlertTriangle } from "lucide-react";
 import { C, N } from "@/lib/design";
 
 const gold = "var(--brand, #c9a83a)";
@@ -21,11 +22,30 @@ type Payload = {
 };
 
 export default function SendToOdooPanel({ leadId, transferred = false }: { leadId: string; transferred?: boolean }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [p, setP] = useState<Payload | null>(null);
   const [drafts, setDrafts] = useState<Payload["drafts"] | null>(null);
   const [copied, setCopied] = useState(false);
+  // idle → confirm (aviso) → sending → done | error
+  const [phase, setPhase] = useState<"idle" | "confirm" | "sending" | "done" | "error">("idle");
+  const [errMsg, setErrMsg] = useState("");
+  const [odooId, setOdooId] = useState<number | null>(null);
+
+  async function sendToOdoo() {
+    if (!drafts) return;
+    setPhase("sending"); setErrMsg("");
+    try {
+      const r = await fetch(`/api/leads/${leadId}/send-to-odoo`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ drafts }),
+      });
+      const d = await r.json();
+      if (r.ok && d.ok) { setOdooId(d.odooLeadId ?? null); setPhase("done"); router.refresh(); }
+      else { setErrMsg(d.error || "No se pudo enviar a Odoo"); setPhase("error"); }
+    } catch { setErrMsg("Error de red"); setPhase("error"); }
+  }
 
   async function openPanel() {
     setOpen(true);
@@ -140,21 +160,45 @@ export default function SendToOdooPanel({ leadId, transferred = false }: { leadI
               )}
             </div>
 
+            {/* Aviso de confirmación (se muestra al tocar Enviar) */}
+            {phase === "confirm" && (
+              <div className="px-5 py-3 shrink-0 flex items-start gap-2" style={{ backgroundColor: "color-mix(in srgb, #D97706 10%, transparent)", borderTop: `1px solid ${C.border}` }}>
+                <AlertTriangle size={15} className="mt-0.5 shrink-0" style={{ color: "#B45309" }} />
+                <p className="text-[12px] leading-snug" style={{ color: C.textBody }}>
+                  Esto crea el prospecto en el <b>Odoo CRM de SWL</b> (columna PROSPECT) con todo este payload y lo marca como enviado. Revisá que los resúmenes estén bien — <b>no se puede deshacer desde acá</b>.
+                </p>
+              </div>
+            )}
+            {phase === "error" && (
+              <div className="px-5 py-2.5 shrink-0 text-[12px]" style={{ backgroundColor: C.redLight, color: C.red, borderTop: `1px solid ${C.border}` }}>{errMsg}</div>
+            )}
+
             {/* Footer */}
             <div className="px-5 py-3 border-t flex items-center gap-2 shrink-0" style={{ borderColor: C.border, backgroundColor: C.bg }}>
               <button onClick={copyPayload} disabled={!p} className="inline-flex items-center gap-1.5 text-[12.5px] font-semibold px-3 py-2 rounded-lg disabled:opacity-50" style={{ backgroundColor: C.card, border: `1px solid ${C.border}`, color: C.textBody }}>
                 {copied ? <><Check size={13} style={{ color: C.green }} /> Copiado</> : <><Copy size={13} /> Copiar payload</>}
               </button>
               <div className="flex-1" />
-              <button disabled title="El push real a Odoo se activa en la Fase 3"
-                className="inline-flex items-center gap-1.5 text-[12.5px] font-bold px-4 py-2 rounded-lg opacity-60 cursor-not-allowed"
-                style={{ background: `linear-gradient(135deg, ${gold}, ${C.goldDim})`, color: N.ink }}>
-                <Send size={13} /> Enviar a Odoo
-              </button>
+              {phase === "done" ? (
+                <a href={odooId ? `https://swlconsulting-swlodoosh.odoo.com/odoo/crm/${odooId}` : "#"} target="_blank" rel="noopener"
+                  className="inline-flex items-center gap-1.5 text-[12.5px] font-bold px-4 py-2 rounded-lg" style={{ backgroundColor: C.greenLight, color: C.green }}>
+                  <Check size={14} /> Enviado — ver en Odoo <ExternalLink size={12} />
+                </a>
+              ) : phase === "confirm" ? (
+                <>
+                  <button onClick={() => setPhase("idle")} className="text-[12.5px] font-semibold px-3 py-2 rounded-lg" style={{ color: C.textMuted, border: `1px solid ${C.border}` }}>Cancelar</button>
+                  <button onClick={sendToOdoo} className="inline-flex items-center gap-1.5 text-[12.5px] font-bold px-4 py-2 rounded-lg" style={{ background: `linear-gradient(135deg, ${gold}, ${C.goldDim})`, color: N.ink }}>
+                    <Send size={13} /> Confirmar envío
+                  </button>
+                </>
+              ) : (
+                <button onClick={() => setPhase("confirm")} disabled={!p || phase === "sending"}
+                  className="inline-flex items-center gap-1.5 text-[12.5px] font-bold px-4 py-2 rounded-lg disabled:opacity-50"
+                  style={{ background: `linear-gradient(135deg, ${gold}, ${C.goldDim})`, color: N.ink }}>
+                  {phase === "sending" ? <><Loader2 size={13} className="animate-spin" /> Enviando…</> : <><Send size={13} /> Enviar a Odoo</>}
+                </button>
+              )}
             </div>
-            <p className="px-5 pb-3 text-[10.5px] shrink-0" style={{ color: C.textDim, backgroundColor: C.bg }}>
-              Fase 2: este panel arma y previsualiza todo lo que se va a mandar. El envío real a Odoo (campos custom) se activa en la Fase 3.
-            </p>
           </div>
         </div>
       )}
