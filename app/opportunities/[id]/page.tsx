@@ -11,6 +11,7 @@ import {
 import OpportunityStagePanel from "@/components/OpportunityStagePanel";
 import PersonalizedInfoPanel from "@/components/PersonalizedInfoPanel";
 import SendToOdooPanel from "@/components/SendToOdooPanel";
+import LeadChatThread from "@/components/LeadChatThread";
 import Breadcrumb from "@/components/Breadcrumb";
 
 const gold = "var(--brand, #c9a83a)";
@@ -482,16 +483,18 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
           <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
             <div className="px-5 py-4 border-b flex items-center justify-between" style={{ borderColor: C.border }}>
               <div>
-                <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Journey to Win</h2>
+                <h2 className="text-sm font-bold" style={{ color: C.textPrimary }}>Conversation</h2>
                 <p className="text-xs mt-0.5" style={{ color: C.textMuted }}>
-                  Every touchpoint with {lead.firstName ?? "this lead"}, in order
+                  Every touchpoint with {lead.firstName ?? "this lead"} — read-only
                 </p>
               </div>
               <span className="text-[10px] font-bold px-2 py-1 rounded-full" style={{ backgroundColor: C.cardHov, color: C.textMuted }}>
                 {journey.length} events
               </span>
             </div>
-            <JourneyTimeline events={journey} />
+            <div className="p-4">
+              <LeadChatThread leadId={lead.id} leadName={lead.fullName} readOnly highlightText={win?.replyText ?? null} />
+            </div>
           </div>
         </div>
       </div>

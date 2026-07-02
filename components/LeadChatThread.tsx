@@ -8,7 +8,7 @@
 // toggle (Fran 2026-06-02).
 
 import { useCallback, useEffect, useState } from "react";
-import { Share2, Mail, Phone, Smartphone, MessageSquare, PhoneCall, ChevronRight } from "lucide-react";
+import { Share2, Mail, Phone, Smartphone, MessageSquare, PhoneCall, ChevronRight, Trophy } from "lucide-react";
 import Link from "next/link";
 import { C } from "@/lib/design";
 import InboxComposer from "./InboxComposer";
@@ -86,7 +86,7 @@ function dayLabel(iso: string) {
   return d.toLocaleDateString("es-AR", { weekday: "long", day: "2-digit", month: "short" });
 }
 
-export default function LeadChatThread({ leadId, leadName }: { leadId?: string; leadName?: string | null }) {
+export default function LeadChatThread({ leadId, leadName, readOnly = false, highlightText = null }: { leadId?: string; leadName?: string | null; readOnly?: boolean; highlightText?: string | null }) {
   const [thread, setThread] = useState<ThreadEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -137,7 +137,7 @@ export default function LeadChatThread({ leadId, leadName }: { leadId?: string; 
             Cuando el lead responda o le mandes algo, va a aparecer acá.
           </p>
         </div>
-        {leadId && <InboxComposer leadId={leadId} channel={lastInboundChannel} availableChannels={composerChannels} onSent={reload} defaultSubject={lastEmailSubject} />}
+        {!readOnly && leadId && <InboxComposer leadId={leadId} channel={lastInboundChannel} availableChannels={composerChannels} onSent={reload} defaultSubject={lastEmailSubject} />}
       </div>
     );
   }
@@ -184,21 +184,30 @@ export default function LeadChatThread({ leadId, leadName }: { leadId?: string; 
                 </div>
                 {entry.body && <p className="text-xs mt-0.5 truncate" style={{ color: C.textBody }}>{entry.body}</p>}
               </div>
-              {leadId && <ChevronRight size={14} style={{ color: C.textDim }} className="shrink-0" />}
+              {!readOnly && leadId && <ChevronRight size={14} style={{ color: C.textDim }} className="shrink-0" />}
             </div>
           );
           return (
             <div key={entry.id}>
               {daySep}
-              {leadId
-                ? <Link href={`/leads/${leadId}?tab=calls`} title="Ver la llamada (grabación + transcript + notas)">{card}</Link>
-                : card}
+              {readOnly ? (
+                <div>
+                  {card}
+                  {entry.hasRecording && entry.callId && (
+                    <audio controls preload="none" src={`/api/aircall/calls/${entry.callId}/play`} className="w-full h-9 mt-1.5" />
+                  )}
+                </div>
+              ) : leadId ? (
+                <Link href={`/leads/${leadId}?tab=calls`} title="Ver la llamada (grabación + transcript + notas)">{card}</Link>
+              ) : card}
             </div>
           );
         }
         const stepLabel = entry.stepNumber === 0 ? "Connection Request"
           : entry.stepNumber != null && entry.stepNumber > 0 ? `Step ${entry.stepNumber}`
           : (entry.kind === "auto_reply" || (entry.source === "unipile" && isOut)) ? "Auto-reply" : null;
+        const norm = (s: string) => s.trim().replace(/\s+/g, " ").slice(0, 60).toLowerCase();
+        const isWin = !isOut && !!highlightText && !!entry.body && norm(entry.body) === norm(highlightText);
         return (
           <div key={entry.id}>
             {showDay && (
@@ -217,12 +226,18 @@ export default function LeadChatThread({ leadId, leadName }: { leadId?: string; 
                 {isOut ? <Icon size={12} /> : leadAv}
               </div>
               <div className={`flex flex-col max-w-[78%] ${isOut ? "items-end" : "items-start"}`}>
+                {isWin && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold mb-1" style={{ color: C.green }}>
+                    <Trophy size={10} /> Winning reply
+                  </span>
+                )}
                 <div className="rounded-2xl px-4 py-2.5 shadow-sm"
                   style={{
                     borderTopLeftRadius: isOut ? 18 : 4,
                     borderTopRightRadius: isOut ? 4 : 18,
-                    backgroundColor: isOut ? `color-mix(in srgb, var(--brand, #c9a83a) 14%, transparent)` : C.card,
-                    border: `1px solid ${isOut ? `color-mix(in srgb, var(--brand, #c9a83a) 28%, transparent)` : C.border}`,
+                    backgroundColor: isWin ? C.greenLight : isOut ? `color-mix(in srgb, var(--brand, #c9a83a) 14%, transparent)` : C.card,
+                    border: `1px solid ${isWin ? `color-mix(in srgb, ${C.green} 45%, transparent)` : isOut ? `color-mix(in srgb, var(--brand, #c9a83a) 28%, transparent)` : C.border}`,
+                    boxShadow: isWin ? `0 0 0 3px color-mix(in srgb, ${C.green} 15%, transparent)` : undefined,
                     color: C.textPrimary,
                   }}>
                   {entry.subject && (
@@ -254,7 +269,7 @@ export default function LeadChatThread({ leadId, leadName }: { leadId?: string; 
         );
       })}
     </div>
-    {leadId && <InboxComposer leadId={leadId} channel={lastInboundChannel} availableChannels={composerChannels} onSent={reload} defaultSubject={lastEmailSubject} />}
+    {!readOnly && leadId && <InboxComposer leadId={leadId} channel={lastInboundChannel} availableChannels={composerChannels} onSent={reload} defaultSubject={lastEmailSubject} />}
     </div>
   );
 }
