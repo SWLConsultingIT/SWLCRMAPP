@@ -489,7 +489,7 @@ export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads, i
     { key: "renurture" as const, label: t("results.tab.renurture"), count: renurturingLeads.length, color: gold,    icon: RefreshCw },
   ];
 
-  const searchPlaceholder = tab === "won" ? t("results.search.won") : tab === "lost" ? t("results.search.lost") : t("results.search.renurture");
+  const searchPlaceholder = tab === "pipeline" ? "Search pipeline…" : tab === "won" ? t("results.search.won") : tab === "lost" ? t("results.search.lost") : t("results.search.renurture");
 
   return (
     <div className="w-full">
