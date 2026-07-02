@@ -442,6 +442,13 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
   const wonCount = wonLeadIds.size;
   const negativeCount = new Set(negativeReplies.map(r => r.lead_id).filter(Boolean) as string[]).size;
   const linkedinSentCount = linkedinSentLeadIds.size;
+  // Accepted invites among those actually SENT in this period. `connectedLeadIds`
+  // is an all-time lead state (includes leads whose CR went out before the
+  // period), so using it as the acceptance numerator over a period-scoped `sent`
+  // denominator produced impossible rates (>100%). Gate accepted ⊆ sent for any
+  // acceptance-RATE display. (The funnel STAGE below still uses connectedLeads —
+  // that's a running total, not a rate.)
+  const linkedinAcceptedInPeriod = new Set([...connectedLeadIds].filter(id => linkedinSentLeadIds.has(id))).size;
   const linkedinMessageCount = linkedinMessageLeadIds.size;
   const emailTouchCount = emailTouchLeadIds.size;
   const callTouchCount = callTouchLeadIds.size;
@@ -1136,8 +1143,15 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
       // Connection invite leg — LinkedIn campaigns send a CR as step 0.
       // This is campaign-channel-specific (only linkedin campaigns send CRs).
       if ((c.channel ?? "linkedin") === "linkedin") {
-        if (linkedinSentLeadIds.has(c.lead_id)) g.connectionsSent.add(c.lead_id);
-        if (connectedLeadIds.has(c.lead_id)) g.connectionsAccepted.add(c.lead_id);
+        // Acceptance rate = of the invites we SENT in this period, how many were
+        // accepted. `connectedLeadIds` is an all-time lead state, so counting an
+        // acceptance whose invite was sent BEFORE the period (not in
+        // linkedinSentLeadIds) inflated accepted past sent → rates like 533% /
+        // 7500%. Gate accepted ⊆ sent so the ratio can never exceed 100%.
+        if (linkedinSentLeadIds.has(c.lead_id)) {
+          g.connectionsSent.add(c.lead_id);
+          if (connectedLeadIds.has(c.lead_id)) g.connectionsAccepted.add(c.lead_id);
+        }
       }
       // Per-channel contacted/replied are built in the messages loop below
       // using m.channel (dispatcher-stamped), NOT c.channel. Using the
@@ -1678,7 +1692,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     // Exposed even after the funnel trim, so the LinkedIn Connections
     // card on the Channels tab can keep showing Sent → Accepted → rate
     // (those stages disappeared from the funnel proper).
-    linkedinConnections: { sent: linkedinSentCount, accepted: connectedLeads },
+    linkedinConnections: { sent: linkedinSentCount, accepted: linkedinAcceptedInPeriod },
     icpPerformance: icpPerformance.map(p => ({ ...p, spark: sparkByIcp.get(p.id) ?? new Array(14).fill(0), flows: flowsByIcp.get(p.id) ?? 0 })),
     campaignPerformance: campaignPerformance.map(c => ({ ...c, spark: sparkByCampaign.get(c.name) ?? new Array(14).fill(0) })),
     sellerPerformance: sellerPerformance.map(s => ({ ...s, spark: sparkBySeller.get(s.id) ?? new Array(14).fill(0) })),
