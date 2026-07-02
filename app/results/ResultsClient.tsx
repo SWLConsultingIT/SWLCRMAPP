@@ -43,15 +43,18 @@ function whyParts(text: string | null | undefined): { isCall: boolean; clean: st
 }
 import type { LostLead, RenurturingLead } from "@/components/LeadsCampaignsClient";
 import type { OpportunityLead } from "@/components/OpportunitiesTable";
+import ResultsPipeline from "@/components/ResultsPipeline";
+import { LayoutGrid } from "lucide-react";
 
 const gold = "var(--brand, #c9a83a)";
 
-type Tab = "won" | "lost" | "renurture";
+type Tab = "pipeline" | "won" | "lost" | "renurture";
 
 type Props = {
   wonLeads: OpportunityLead[];
   lostLeads: LostLead[];
   renurturingLeads: RenurturingLead[];
+  isSwl?: boolean;
 };
 
 type Tr = (key: string, vars?: Record<string, string | number>) => string;
@@ -352,10 +355,10 @@ function Section<L>({
 
 // ── Main client ───────────────────────────────────────────────────────
 
-export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads }: Props) {
+export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads, isSwl = false }: Props) {
   const { t } = useLocale();
   const [tab, setTab] = useState<Tab>(
-    wonLeads.length > 0 ? "won" : lostLeads.length > 0 ? "lost" : "renurture",
+    isSwl ? "pipeline" : wonLeads.length > 0 ? "won" : lostLeads.length > 0 ? "lost" : "renurture",
   );
   const [search, setSearch] = useState("");
 
@@ -477,6 +480,7 @@ export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads }:
   }
 
   const tabs = [
+    ...(isSwl ? [{ key: "pipeline" as const, label: "Pipeline", count: wonLeads.length, color: C.blue, icon: LayoutGrid }] : []),
     { key: "won"       as const, label: t("results.tab.won"),       count: wonLeads.length,         color: C.green, icon: Trophy },
     { key: "lost"      as const, label: t("results.tab.lost"),      count: lostLeads.length,        color: C.red,   icon: X },
     { key: "renurture" as const, label: t("results.tab.renurture"), count: renurturingLeads.length, color: gold,    icon: RefreshCw },
@@ -539,6 +543,10 @@ export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads }:
         .results-acc details[open] > summary .acc-chevron { transform: rotate(90deg); }
         .results-acc .acc-chevron { transition: transform 0.18s ease; }
       `}</style>
+
+      {tab === "pipeline" && (
+        <ResultsPipeline leads={wonLeads} search={search} />
+      )}
 
       <div className="results-acc">
         {tab === "won" && (

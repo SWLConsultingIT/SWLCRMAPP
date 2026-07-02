@@ -26,6 +26,7 @@ export type OpportunityLead = {
   score: number | null;
   is_priority: boolean;
   transferred: boolean;
+  opportunity_stage?: string | null;
   profile_name: string | null;
   campaign_name: string | null;
   campaign_id: string | null;

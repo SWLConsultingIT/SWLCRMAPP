@@ -1,26 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, Calendar, FileText, ChevronRight, Loader2 } from "lucide-react";
+import { CheckCircle, Calendar, FileText, Loader2, Trophy } from "lucide-react";
 import { C } from "@/lib/design";
-
-const STAGES = [
-  { id: "response_received", label: "Response Received", color: "#2563EB" },
-  { id: "meeting_scheduled", label: "Meeting Scheduled", color: "#7C3AED" },
-  { id: "proposal_sent",     label: "Proposal Sent",     color: "#D97706" },
-  { id: "negotiating",       label: "Negotiating",       color: "#EA580C" },
-  { id: "won",               label: "Won",               color: "#059669" },
-];
+import { OPP_STAGES as STAGES, normalizeStage } from "@/lib/opportunity-stages";
 
 type Props = {
   leadId: string;
   initialStage?: string | null;
   initialNotes?: string | null;
   initialNextAction?: string | null;
+  transferred?: boolean;
 };
 
-export default function OpportunityStagePanel({ leadId, initialStage, initialNotes, initialNextAction }: Props) {
-  const [stage, setStage]           = useState(initialStage ?? "response_received");
+export default function OpportunityStagePanel({ leadId, initialStage, initialNotes, initialNextAction, transferred = false }: Props) {
+  const [stage, setStage]           = useState(normalizeStage(initialStage));
   const [notes, setNotes]           = useState(initialNotes ?? "");
   const [nextAction, setNextAction] = useState(initialNextAction ?? "");
   const [saving, setSaving]         = useState(false);
@@ -59,6 +53,11 @@ export default function OpportunityStagePanel({ leadId, initialStage, initialNot
           <h3 className="text-xs font-semibold uppercase tracking-wider" style={{ color: C.textMuted }}>Pipeline Stage</h3>
         </div>
         <div className="flex items-center gap-2">
+          {transferred && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md" style={{ backgroundColor: C.greenLight, color: C.green }}>
+              <Trophy size={9} /> Sent to Odoo
+            </span>
+          )}
           {saving && <Loader2 size={12} className="animate-spin" style={{ color: C.textDim }} />}
           {saved && <span className="text-[10px] font-medium" style={{ color: C.green }}>Saved</span>}
           {error && <span className="text-[10px] font-medium" style={{ color: C.red }}>{error}</span>}

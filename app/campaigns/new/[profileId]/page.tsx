@@ -294,6 +294,11 @@ export default function NewCampaignWizard() {
   // Track when state has been hydrated at least once so the save effect
   // doesn't write a half-empty draft on the very first render.
   const draftHydratedRef = useRef(false);
+  // Ref mirror of draftRestored for synchronous reads inside async load().
+  // React state isn't visible across effects on the same render cycle, but
+  // a ref set synchronously in the restore effect IS visible to load() when
+  // it eventually reaches the auto-seller check (after several awaits).
+  const draftRestoredRef = useRef(false);
 
   // RESTORE on mount — runs BEFORE template apply so template-from-URL
   // takes precedence (user explicitly picked a template → ignore stale draft).
@@ -322,6 +327,7 @@ export default function NewCampaignWizard() {
       if (d.callAdvanceMode === "auto" || d.callAdvanceMode === "manual") setCallAdvanceMode(d.callAdvanceMode);
       if (d.flowType === "generic" || d.flowType === "tailored") setFlowType(d.flowType);
       setDraftRestored(true);
+      draftRestoredRef.current = true;
     } catch { /* corrupt draft — ignore */ }
     draftHydratedRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -447,7 +453,11 @@ export default function NewCampaignWizard() {
         sellerQ,
       ]);
       setSellers(sellerList ?? []);
-      if (sellerList && sellerList.length > 0) {
+      // Only auto-assign the first seller when the draft didn't already
+      // restore a seller selection. Use the ref (not the state) because
+      // React state set in the restore effect isn't visible here on the
+      // same render cycle; the ref is set synchronously and always current.
+      if (sellerList && sellerList.length > 0 && !draftRestoredRef.current) {
         setSellerQuotas([{ sellerId: sellerList[0].id, quota: 20 }]);
       }
 
@@ -1464,7 +1474,12 @@ export default function NewCampaignWizard() {
                     </div>
 
                     <div className="space-y-2">
-                      {sellerQuotas.length === 0 && (
+                      {sellerQuotas.length === 0 && sellers.length === 0 && (
+                        <p className="text-xs text-center py-3 rounded-lg border border-dashed" style={{ color: C.textDim, borderColor: C.border }}>
+                          No active sellers configured. Go to <b>Accounts → Sellers</b> and add one first.
+                        </p>
+                      )}
+                      {sellerQuotas.length === 0 && sellers.length > 0 && (
                         <p className="text-xs text-center py-3 rounded-lg border border-dashed" style={{ color: C.textDim, borderColor: C.border }}>
                           No sellers added yet. Click <b>Add seller</b>.
                         </p>

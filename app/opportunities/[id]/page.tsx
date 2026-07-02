@@ -466,6 +466,7 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
             initialStage={data.opportunityStage}
             initialNotes={data.opportunityNotes}
             initialNextAction={data.opportunityNextAction}
+            transferred={lead.transferred}
           />
           <PersonalizedInfoPanel enrichment={lead.enrichment} />
         </div>

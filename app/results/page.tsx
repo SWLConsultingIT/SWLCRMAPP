@@ -72,7 +72,7 @@ async function getData() {
   for (let i = 0; i < outcomeIds.length; i += 300) {
     let lq = supabase
       .from("leads")
-      .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at, source, encrypted_payload, company_bio_id, transferred_to_odoo_at")
+      .select("id, primary_first_name, primary_last_name, company_name, primary_title_role, primary_work_email, primary_linkedin_url, primary_phone, status, lead_score, is_priority, current_channel, icp_profile_id, created_at, source, encrypted_payload, company_bio_id, transferred_to_odoo_at, opportunity_stage")
       .in("id", outcomeIds.slice(i, i + 300));
     if (bioId) lq = lq.eq("company_bio_id", bioId);
     if (sellerFilterIds) lq = lq.in("seller_id", sellerFilterIds);
@@ -161,6 +161,7 @@ async function getData() {
       score: lead.lead_score,
       is_priority: !!lead.is_priority,
       transferred: isOdoo,
+      opportunity_stage: lead.opportunity_stage ?? null,
       profile_name: lead.icp_profile_id ? (icpMap[lead.icp_profile_id]?.profile_name ?? null) : null,
       campaign_name: camp?.name ?? null,
       campaign_id: camp?.id ?? null,
@@ -235,11 +236,13 @@ async function getData() {
     }
   }
 
-  return { wonLeads, lostLeads, renurturingLeads };
+  // Gruppo... no — Fase 1 del pipeline de resultados es SOLO para SWL Consulting.
+  const SWL_BIO = "7c02e222-be59-416d-9434-acf4685f8590";
+  return { wonLeads, lostLeads, renurturingLeads, isSwl: bioId === SWL_BIO };
 }
 
 export default async function ResultsPage() {
-  const [{ wonLeads, lostLeads, renurturingLeads }, t] = await Promise.all([
+  const [{ wonLeads, lostLeads, renurturingLeads, isSwl }, t] = await Promise.all([
     getData(),
     getT(),
   ]);
@@ -263,6 +266,7 @@ export default async function ResultsPage() {
         wonLeads={JSON.parse(JSON.stringify(wonLeads))}
         lostLeads={JSON.parse(JSON.stringify(lostLeads))}
         renurturingLeads={JSON.parse(JSON.stringify(renurturingLeads))}
+        isSwl={isSwl}
       />
     </div>
   );
