@@ -71,26 +71,6 @@ export default function ResultsPipeline({ leads, search }: { leads: OpportunityL
 
   return (
     <div className="w-full">
-      {/* Progress ribbon — SWL navy strip with a gold fill toward the goal (Odoo) */}
-      <div className="rounded-2xl border overflow-hidden mb-3.5 relative"
-        style={{ background: `linear-gradient(135deg, ${N.ink2}, ${N.ink})`, borderColor: N.hairline }}>
-        <div aria-hidden className="absolute pointer-events-none" style={{ top: -60, right: -30, width: 240, height: 240, borderRadius: "50%", background: `radial-gradient(circle, ${C.goldGlow}, transparent 70%)` }} />
-        <div className="relative flex items-stretch">
-          {COLUMNS.map((col, i) => {
-            const n = (byColumn[col.id] ?? []).length;
-            return (
-              <div key={col.id} className="flex-1 px-3.5 py-2.5" style={{ borderLeft: i === 0 ? undefined : `1px solid ${N.hairline}` }}>
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: col.id === SENT_TO_ODOO.id ? N.goldOnDark : col.color }} />
-                  <span className="text-[9.5px] font-bold uppercase tracking-wider truncate" style={{ color: "rgba(255,255,255,0.6)" }}>{col.label}</span>
-                </div>
-                <p className="text-[18px] font-bold leading-none mt-1" style={{ color: "#fff", fontFamily: BRAND_FONT, fontVariantNumeric: "tabular-nums" }}>{n}</p>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       <div className="w-full overflow-x-auto pb-2">
         <div className="flex gap-3.5" style={{ minWidth: COLUMNS.length * 276 }}>
           {COLUMNS.map(col => {
