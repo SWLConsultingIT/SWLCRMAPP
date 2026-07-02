@@ -66,83 +66,119 @@ export default function ResultsPipeline({ leads, search }: { leads: OpportunityL
     finally { setSaving(prev => { const n = new Set(prev); n.delete(leadId); return n; }); }
   }
 
+  const BRAND_FONT = "var(--font-outfit), system-ui, sans-serif";
+  const total = leads.length;
+
   return (
-    <div className="w-full overflow-x-auto pb-2">
-      <div className="flex gap-3" style={{ minWidth: COLUMNS.length * 272 }}>
-        {COLUMNS.map(col => {
-          const cards = byColumn[col.id] ?? [];
-          const isOdoo = col.id === SENT_TO_ODOO.id;
-          const isHover = hoverCol === col.id && !isOdoo && dragId != null;
-          return (
-            <div key={col.id} className="flex-1 min-w-[260px] flex flex-col rounded-2xl border"
-              style={{ borderColor: isHover ? col.color : C.border, backgroundColor: C.bg, boxShadow: isHover ? `0 0 0 2px color-mix(in srgb, ${col.color} 35%, transparent)` : undefined }}
-              onDragOver={e => { if (!isOdoo && dragId) { e.preventDefault(); setHoverCol(col.id); } }}
-              onDragLeave={() => setHoverCol(h => (h === col.id ? null : h))}
-              onDrop={e => { e.preventDefault(); const id = dragId ?? e.dataTransfer.getData("text/plain"); if (id) moveTo(id, col.id); setHoverCol(null); setDragId(null); }}
-            >
-              {/* Column header */}
-              <div className="px-3.5 py-3 flex items-center gap-2 border-b" style={{ borderColor: C.border }}>
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: col.color }} />
-                <span className="text-[12px] font-bold flex-1" style={{ color: C.textPrimary }}>{col.label}</span>
-                <span className="text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-md" style={{ backgroundColor: `color-mix(in srgb, ${col.color} 12%, transparent)`, color: col.color }}>{cards.length}</span>
+    <div className="w-full">
+      {/* Progress ribbon — SWL navy strip with a gold fill toward the goal (Odoo) */}
+      <div className="rounded-2xl border overflow-hidden mb-3.5 relative"
+        style={{ background: `linear-gradient(135deg, ${N.ink2}, ${N.ink})`, borderColor: N.hairline }}>
+        <div aria-hidden className="absolute pointer-events-none" style={{ top: -60, right: -30, width: 240, height: 240, borderRadius: "50%", background: `radial-gradient(circle, ${C.goldGlow}, transparent 70%)` }} />
+        <div className="relative flex items-stretch">
+          {COLUMNS.map((col, i) => {
+            const n = (byColumn[col.id] ?? []).length;
+            return (
+              <div key={col.id} className="flex-1 px-3.5 py-2.5" style={{ borderLeft: i === 0 ? undefined : `1px solid ${N.hairline}` }}>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: col.id === SENT_TO_ODOO.id ? N.goldOnDark : col.color }} />
+                  <span className="text-[9.5px] font-bold uppercase tracking-wider truncate" style={{ color: "rgba(255,255,255,0.6)" }}>{col.label}</span>
+                </div>
+                <p className="text-[18px] font-bold leading-none mt-1" style={{ color: "#fff", fontFamily: BRAND_FONT, fontVariantNumeric: "tabular-nums" }}>{n}</p>
               </div>
+            );
+          })}
+        </div>
+      </div>
 
-              {/* Cards */}
-              <div className="p-2 space-y-2 flex-1" style={{ minHeight: 140 }}>
-                {cards.length === 0 ? (
-                  <div className="text-center text-[11px] py-8 select-none" style={{ color: C.textDim }}>
-                    {isOdoo ? "Se llenan al enviar a Odoo" : "Arrastrá acá"}
+      <div className="w-full overflow-x-auto pb-2">
+        <div className="flex gap-3.5" style={{ minWidth: COLUMNS.length * 276 }}>
+          {COLUMNS.map(col => {
+            const cards = byColumn[col.id] ?? [];
+            const isOdoo = col.id === SENT_TO_ODOO.id;
+            const isHover = hoverCol === col.id && !isOdoo && dragId != null;
+            const share = total > 0 ? Math.round((cards.length / total) * 100) : 0;
+            return (
+              <div key={col.id} className="flex-1 min-w-[264px] flex flex-col rounded-2xl border overflow-hidden transition-[box-shadow,border-color]"
+                style={{ borderColor: isHover ? col.color : C.border, backgroundColor: C.bg, boxShadow: isHover ? `0 0 0 2px color-mix(in srgb, ${col.color} 40%, transparent), 0 10px 30px -12px color-mix(in srgb, ${col.color} 40%, transparent)` : "0 1px 2px rgba(11,15,26,0.04)" }}
+                onDragOver={e => { if (!isOdoo && dragId) { e.preventDefault(); setHoverCol(col.id); } }}
+                onDragLeave={() => setHoverCol(h => (h === col.id ? null : h))}
+                onDrop={e => { e.preventDefault(); const id = dragId ?? e.dataTransfer.getData("text/plain"); if (id) moveTo(id, col.id); setHoverCol(null); setDragId(null); }}
+              >
+                {/* Navy header with stage accent + gold count */}
+                <div className="relative" style={{ background: `linear-gradient(135deg, ${N.ink2}, ${N.ink})` }}>
+                  <div className="h-[3px] w-full" style={{ background: isOdoo ? `linear-gradient(90deg, ${gold}, ${N.goldOnDark})` : col.color }} />
+                  <div className="px-3.5 py-2.5 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: isOdoo ? N.goldOnDark : col.color, boxShadow: `0 0 8px color-mix(in srgb, ${isOdoo ? gold : col.color} 60%, transparent)` }} />
+                    <span className="text-[12px] font-bold flex-1 truncate" style={{ color: "#fff", fontFamily: BRAND_FONT }}>{col.label}</span>
+                    <span className="text-[10px] font-bold tabular-nums px-1.5 py-0.5 rounded-md" style={{ backgroundColor: "rgba(255,255,255,0.08)", color: isOdoo ? N.goldOnDark : "#fff" }}>{cards.length}</span>
                   </div>
-                ) : cards.map(lead => {
-                  const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "—";
-                  const w = whyParts(lead.win_text);
-                  const locked = isOdoo || lead.transferred;
-                  return (
-                    <div key={lead.id}
-                      draggable={!locked}
-                      onDragStart={e => { setDragId(lead.id); e.dataTransfer.setData("text/plain", lead.id); e.dataTransfer.effectAllowed = "move"; }}
-                      onDragEnd={() => { setDragId(null); setHoverCol(null); }}
-                      className="rounded-xl border p-3 group relative transition-shadow hover:shadow-md"
-                      style={{ backgroundColor: C.card, borderColor: C.border, borderLeftWidth: 3, borderLeftColor: col.color, cursor: locked ? "default" : "grab", opacity: dragId === lead.id ? 0.5 : 1 }}
-                    >
-                      <div className="flex items-start gap-2.5">
-                        <span className="w-8 h-8 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${col.color}, color-mix(in srgb, ${col.color} 70%, white))`, color: "#fff" }}>
-                          {(lead.company?.[0] ?? name[0] ?? "?").toUpperCase()}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1">
-                            <span className="text-[12.5px] font-bold truncate" style={{ color: C.textPrimary }}>{name}</span>
-                            {lead.is_priority && <Star size={9} fill={gold} stroke={gold} className="shrink-0" />}
-                            {saving.has(lead.id) && <Loader2 size={10} className="animate-spin shrink-0" style={{ color: C.textDim }} />}
-                          </div>
-                          <p className="text-[11px] truncate" style={{ color: C.textMuted }}>{lead.role ? `${lead.role} · ` : ""}{lead.company ?? "—"}</p>
-                        </div>
-                      </div>
+                  {/* mini share bar */}
+                  <div className="h-0.5 w-full" style={{ backgroundColor: "rgba(255,255,255,0.06)" }}>
+                    <div className="h-full" style={{ width: `${share}%`, background: isOdoo ? N.goldOnDark : col.color, opacity: 0.7 }} />
+                  </div>
+                </div>
 
-                      {w && (
-                        <div className="flex items-center gap-1 mt-2" title={w.clean}>
-                          {w.isCall ? <PhoneCall size={10} className="shrink-0" style={{ color: col.color }} /> : <MessageSquare size={10} className="shrink-0" style={{ color: col.color }} />}
-                          <p className="text-[10.5px] italic truncate" style={{ color: C.textBody }}>“{w.clean}”</p>
-                        </div>
-                      )}
-
-                      <div className="flex items-center justify-between mt-2.5">
-                        {lead.transferred ? (
-                          <span className="inline-flex items-center gap-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: C.greenLight, color: C.green }}><Trophy size={8} /> In Odoo</span>
-                        ) : lead.days_to_convert != null ? (
-                          <span className="text-[9.5px] tabular-nums px-1.5 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${gold} 12%, transparent)`, color: gold }}>{lead.days_to_convert}d to reply</span>
-                        ) : <span />}
-                        <Link href={`/opportunities/${lead.id}`} className="inline-flex items-center gap-0.5 text-[10.5px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: col.color }}>
-                          Detalle <ChevronRight size={11} />
-                        </Link>
-                      </div>
+                {/* Cards */}
+                <div className="p-2 space-y-2 flex-1" style={{ minHeight: 160 }}>
+                  {cards.length === 0 ? (
+                    <div className="rounded-xl border border-dashed text-center text-[11px] py-10 select-none" style={{ borderColor: C.border, color: C.textDim }}>
+                      {isOdoo ? "Se llenan al enviar a Odoo" : "Arrastrá un lead acá"}
                     </div>
-                  );
-                })}
+                  ) : cards.map(lead => {
+                    const name = `${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim() || "—";
+                    const w = whyParts(lead.win_text);
+                    const locked = isOdoo || lead.transferred;
+                    const accent = isOdoo ? C.green : col.color;
+                    return (
+                      <div key={lead.id}
+                        draggable={!locked}
+                        onDragStart={e => { setDragId(lead.id); e.dataTransfer.setData("text/plain", lead.id); e.dataTransfer.effectAllowed = "move"; }}
+                        onDragEnd={() => { setDragId(null); setHoverCol(null); }}
+                        className="block rounded-xl border p-3 group relative transition-[transform,box-shadow,border-color] hover:-translate-y-px"
+                        style={{ backgroundColor: C.card, borderColor: C.border, borderLeftWidth: 3, borderLeftColor: accent, cursor: locked ? "pointer" : "grab", opacity: dragId === lead.id ? 0.5 : 1 }}
+                        onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 8px 22px -12px color-mix(in srgb, ${gold} 45%, transparent), 0 0 0 1px color-mix(in srgb, ${gold} 22%, transparent)`; e.currentTarget.style.borderColor = `color-mix(in srgb, ${gold} 30%, transparent)`; }}
+                        onMouseLeave={e => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = C.border; }}
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <span className="w-9 h-9 rounded-lg flex items-center justify-center text-[13px] font-bold shrink-0" style={{ background: `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 66%, white))`, color: "#fff", fontFamily: BRAND_FONT, boxShadow: `0 3px 8px color-mix(in srgb, ${accent} 30%, transparent)` }}>
+                            {(lead.company?.[0] ?? name[0] ?? "?").toUpperCase()}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1">
+                              <span className="text-[13px] font-bold truncate" style={{ color: C.textPrimary, fontFamily: BRAND_FONT }}>{name}</span>
+                              {lead.is_priority && <Star size={9} fill={gold} stroke={gold} className="shrink-0" />}
+                              {saving.has(lead.id) && <Loader2 size={10} className="animate-spin shrink-0" style={{ color: C.textDim }} />}
+                            </div>
+                            <p className="text-[11px] truncate" style={{ color: C.textMuted }}>{lead.role ? `${lead.role} · ` : ""}{lead.company ?? "—"}</p>
+                          </div>
+                        </div>
+
+                        {w && (
+                          <div className="flex items-center gap-1 mt-2 rounded-md px-1.5 py-1" style={{ backgroundColor: C.bg }} title={w.clean}>
+                            {w.isCall ? <PhoneCall size={10} className="shrink-0" style={{ color: accent }} /> : <MessageSquare size={10} className="shrink-0" style={{ color: accent }} />}
+                            <p className="text-[10.5px] italic truncate" style={{ color: C.textBody }}>“{w.clean}”</p>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between mt-2.5">
+                          {lead.transferred ? (
+                            <span className="inline-flex items-center gap-1 text-[9.5px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: C.greenLight, color: C.green }}><Trophy size={8} /> In Odoo</span>
+                          ) : lead.days_to_convert != null ? (
+                            <span className="text-[9.5px] font-semibold tabular-nums px-1.5 py-0.5 rounded" style={{ backgroundColor: `color-mix(in srgb, ${gold} 13%, transparent)`, color: C.goldDim }}>{lead.days_to_convert}d to reply</span>
+                          ) : <span />}
+                          <Link href={`/opportunities/${lead.id}`} className="inline-flex items-center gap-0.5 text-[10.5px] font-semibold opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: gold }}>
+                            Detalle <ChevronRight size={11} />
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </div>
   );
