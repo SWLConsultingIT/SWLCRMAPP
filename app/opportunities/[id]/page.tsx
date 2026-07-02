@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import OpportunityStagePanel from "@/components/OpportunityStagePanel";
 import PersonalizedInfoPanel from "@/components/PersonalizedInfoPanel";
+import SendToOdooPanel from "@/components/SendToOdooPanel";
 import Breadcrumb from "@/components/Breadcrumb";
 
 const gold = "var(--brand, #c9a83a)";
@@ -148,6 +149,7 @@ async function getLeadOpportunity(id: string) {
     mode: "lead" as const,
     lead: {
       id: lead.id,
+      companyBioId: lead.company_bio_id ?? null,
       firstName: lead.primary_first_name ?? null,
       lastName: lead.primary_last_name ?? null,
       fullName: `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim() || "Unknown",
@@ -461,6 +463,9 @@ function LeadOpportunityDetail({ data }: { data: NonNullable<Awaited<ReturnType<
 
         {/* LEFT: Stage + Enrichment (2 cols) */}
         <div className="col-span-2 space-y-6">
+          {lead.companyBioId === "7c02e222-be59-416d-9434-acf4685f8590" && (
+            <SendToOdooPanel leadId={lead.id} transferred={lead.transferred} />
+          )}
           <OpportunityStagePanel
             leadId={lead.id}
             initialStage={data.opportunityStage}
