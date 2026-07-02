@@ -480,8 +480,11 @@ export default function ResultsClient({ wonLeads, lostLeads, renurturingLeads, i
   }
 
   const tabs = [
-    ...(isSwl ? [{ key: "pipeline" as const, label: "Pipeline", count: wonLeads.length, color: C.blue, icon: LayoutGrid }] : []),
-    { key: "won"       as const, label: t("results.tab.won"),       count: wonLeads.length,         color: C.green, icon: Trophy },
+    // SWL: the Pipeline kanban IS the positives view (by stage) — it replaces the
+    // flat "Won" tab so we don't show the same 10 leads twice. Other tenants keep Won.
+    ...(isSwl
+      ? [{ key: "pipeline" as const, label: "Pipeline", count: wonLeads.length, color: C.blue, icon: LayoutGrid }]
+      : [{ key: "won" as const, label: t("results.tab.won"), count: wonLeads.length, color: C.green, icon: Trophy }]),
     { key: "lost"      as const, label: t("results.tab.lost"),      count: lostLeads.length,        color: C.red,   icon: X },
     { key: "renurture" as const, label: t("results.tab.renurture"), count: renurturingLeads.length, color: gold,    icon: RefreshCw },
   ];
