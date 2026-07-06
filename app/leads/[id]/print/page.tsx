@@ -15,6 +15,30 @@ import PrintActions from "../../../reports/print/PrintActions";
 
 export const dynamic = "force-dynamic";
 
+// Set the document <title> to the lead's name so the browser's Save-as-PDF
+// dialog pre-fills the filename with it (e.g. "Berti Legnami S.r.l. — Lead
+// Sheet.pdf") instead of the app default. Overrides the root layout title.
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  try {
+    const scope = await getUserScope();
+    if (!scope.userId) return { title: "Lead Sheet" };
+    const svc = getSupabaseService();
+    let q = svc.from("leads").select("id, source, encrypted_payload, company_bio_id, company_name, primary_first_name, primary_last_name").eq("id", id);
+    if (scope.isScoped && scope.companyBioId) q = q.eq("company_bio_id", scope.companyBioId);
+    const { data } = await q.maybeSingle();
+    if (!data) return { title: "Lead Sheet" };
+    const [l] = await hydrateClientLeads([data as any]);
+    const lead = l as any;
+    const name = (lead.company_name && String(lead.company_name).trim())
+      || `${lead.primary_first_name ?? ""} ${lead.primary_last_name ?? ""}`.trim()
+      || "Lead";
+    return { title: `${name} — Lead Sheet` };
+  } catch {
+    return { title: "Lead Sheet" };
+  }
+}
+
 type Branding = { companyName: string; logoUrl: string | null; brandColor: string };
 
 async function getBranding(companyBioId: string | null): Promise<Branding> {
