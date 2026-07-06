@@ -630,12 +630,18 @@ function PlantIntelSection({ intel }: { intel: any }) {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 items-start">
-        {/* State incentive */}
-        <SubCard icon={CalendarClock} title="State incentive (GSE)">
+        {/* State incentive — GSE grant (CACER) or Conto Energia feed-in tariff */}
+        <SubCard icon={CalendarClock} title={intel.conto_energia_scheme ? "State incentive (Conto Energia)" : "State incentive (GSE)"}>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">
+            {intel.conto_energia_scheme && (
+              <div className="col-span-2"><Field label="Scheme" value={intel.conto_energia_scheme} /></div>
+            )}
+            <Field label="Feed-in tariff" value={typeof intel.feed_in_tariff_eur_kwh === "number" ? `€${intel.feed_in_tariff_eur_kwh.toFixed(3)}/kWh` : null} />
             <Field label="Granted" value={intel.incentive_granted} />
             <Field label="Valid until" value={intel.incentive_valid_until} />
             <Field label="Contributo" value={eur} />
+            <Field label="Convenzione" value={intel.convenzione} />
+            <Field label="Atto di concessione" value={intel.atto_concessione} />
             <Field label="CUP" value={intel.cup} />
             <Field label="COR" value={intel.cor} />
           </div>
