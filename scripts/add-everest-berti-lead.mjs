@@ -80,25 +80,26 @@ async function seqExists(seq) {
 // ── Berti Legnami plant intelligence (from the Pilot-1 opportunity sheet) ──
 const GEO = { lat: 45.7947888, lng: 12.676428 };
 
+// Verbatim from the Pilot-1 opportunity sheet, section 7. Only the contacts the
+// sheet actually lists are set (Schileo Leandro; Nicholas Trevisan + email);
+// everything the sheet marks N/A is left blank — no invented people or data.
 const NEARBY = [
-  { name: "Marchetti Mobili",                     industry: "Furniture Manufacturing", address: "Via Faè 7, 33076 Pravisdomini (PN)",                 phone: "0434 644672", web: "http://marchettimobili.com/",         distance_km: 1.0, mwh: 175,
-    first: "Andrea",  last: "Marchetti", title: "Operations Manager" },
-  { name: "Xivet LED Technology — Gielle Plast S.r.l.", industry: "Plastics / General Contractor", address: "Via Frattina 68, 33076 Pravisdomini (PN)", phone: "0434 644800", web: "https://xivet.tech/",                distance_km: 1.9, mwh: 110,
-    first: "Giovanni", last: "Bortolin", title: "Plant Manager" },
-  { name: "Termoidraulica di Schileo Leandro",    industry: "Plumbing & HVAC",         address: "Via A. Pacinotti 40, 30020 Pramaggiore — Blessaglia (VE)", phone: "0421 799961", web: "http://termoidraulicaschileo.com/", distance_km: 4.0, mwh: 50,
-    first: "Leandro", last: "Schileo",   title: "Owner" },
-  { name: "Ever S.r.l.",                          industry: "Industrial",              address: "Via A. Pacinotti 37, 30020 Pramaggiore (VE)",       phone: "0421 200455", web: "https://ever.it/",                  distance_km: 4.4, mwh: 175,
-    first: "Nicholas", last: "Trevisan",  title: "Energy Manager", email: "nicholas.trevisan@ever.it" },
-  { name: "Hotel Al Barco",                       industry: "Hospitality",             address: "Via Morer delle Anime 4, 30029 San Stino — Corbolone (VE)", phone: "0421 461827", web: "http://hotelalbarco.it/",          distance_km: 5.6, mwh: 175,
-    first: "Silvia",  last: "Marson",    title: "General Manager" },
+  { name: "Marchetti Mobili",                          industry: "Industrial / commercial", address: "Via Faè 7, Pravisdomini",                       phone: "0434 644672", web: "http://marchettimobili.com/",         distance_km: 1.0, mwh: 175 },
+  { name: "Xivet LED Technology — Gielle Plast S.r.l.", industry: "General contractor",       address: "Via Frattina 68, Pravisdomini",                 phone: "0434 644800", web: "https://xivet.tech/",                distance_km: 1.9, mwh: 110 },
+  { name: "Termoidraulica di Schileo Leandro",         industry: "Plumbing / installations", address: "Via A. Pacinotti 40, Pramaggiore Blessaglia",   phone: "0421 799961", web: "http://termoidraulicaschileo.com/", distance_km: 4.0, mwh: 50,
+    last: "Schileo Leandro" },
+  { name: "Ever S.r.l.",                               industry: "Industrial / commercial", address: "Via A. Pacinotti 37, Pramaggiore",              phone: "0421 200455", web: "https://ever.it/",                  distance_km: 4.4, mwh: 175,
+    first: "Nicholas", last: "Trevisan", email: "nicholas.trevisan@ever.it" },
+  { name: "Hotel Al Barco",                            industry: "Industrial / commercial", address: "Via Morer delle Anime 4, Corbolone",            phone: "0421 461827", web: "http://hotelalbarco.it/",          distance_km: 5.6, mwh: 175 },
 ];
 
 const plantIntel = {
   incentive_holder: "Berti Legnami S.r.l.",
   beneficiary: "Berti Legnami S.r.l.",
-  building_owner: "Berti Legnami (family group)",
-  installation_owner: "Berti Legnami (family group)",
-  ownership_note: "Beneficiary (Berti Legnami S.r.l.) and installation owner (Berti Legnami S.p.A.) are the same family group in two legal forms — no third-party landlord or split ownership. A single, aligned decision-maker and a clean engagement path: the party receiving the incentive also controls the asset.",
+  building_owner: null,                          // sheet: Not Available
+  installation_owner: "Berti Legnami S.p.A.",    // sheet: Installation Owner
+  ownership_type: "single",                      // sheet: "no third-party landlord or split ownership on record"
+  ownership_note: "Beneficiary (Berti Legnami S.r.l.) and installation owner (Berti Legnami S.p.A.) are the same family group in two legal forms — no third-party landlord or split ownership on record. Building-ownership records remain to be verified before contracting.",
   province: "Pordenone (PN)",
   city: "Pravisdomini",
   installation_type: "Rooftop",
@@ -128,12 +129,9 @@ const plantEnrichment = {
   rooftop_photo_url: "/everest-rooftops/berti-pravisdomini.png",
   has_solar_panels: "yes",
   rooftop_area_m2: 273,
-  proposed_system_kwp: 28.8,          // roof-expansion potential (validated scope)
-  estimated_savings_pct_year1: null,  // sheet gives €/yr, not a %; omit rather than invent
-  co2_offset_tons_year: 14.5,
-  payback_months: 44,
-  cer_eligible: true,
-  transizione_5_0_eligible: true,
+  proposed_system_kwp: 28.8,          // roof-expansion potential (validated scope, from sheet)
+  co2_offset_tons_year: 14.5,         // sheet: Annual CO₂ Reduction
+  payback_months: 44,                 // sheet: Estimated Payback
   ai_outreach_angle:
     "Berti Legnami runs a 199.88 kW rooftop PV plant on IV Conto Energia at €0.306/kWh — a legacy tariff far above today's market — with ~5.1 years (until Aug 2031) of guaranteed incentive still to run. Ownership is consolidated within the Berti family group, so there's a single, clean decision-maker. Play: protect and optimise the incentivised asset, add a ~28.8 kWp roof expansion under Scambio sul Posto, then replicate energy services across a dense C&I cluster (~685 MWh/yr combined) within 6 km.",
   rooftop_lat: GEO.lat,
@@ -147,7 +145,23 @@ const plantEnrichment = {
 // Drop null enrichment keys so they don't render as empty stats.
 for (const k of Object.keys(plantEnrichment)) if (plantEnrichment[k] === null) delete plantEnrichment[k];
 
+// Delete every Berti lead previously inserted (matched by enrichment.import_seq
+// prefix) so we can re-seed with the corrected, sheet-faithful data.
+async function resetBerti() {
+  const { data } = await svc.from("leads").select("id, encrypted_payload").eq("company_bio_id", BIO);
+  const { createDecipheriv } = await import("node:crypto");
+  const dec = b => { const d = createDecipheriv("aes-256-gcm", KEY, b.subarray(1,13)); d.setAuthTag(b.subarray(13,29)); return JSON.parse(Buffer.concat([d.update(b.subarray(29)), d.final()]).toString()); };
+  const ids = [];
+  for (const l of data || []) {
+    if (!l.encrypted_payload) continue;
+    try { const p = dec(Buffer.from(String(l.encrypted_payload).slice(2), "hex")); if (String(p?.enrichment?.import_seq || "").startsWith("berti")) ids.push(l.id); } catch {}
+  }
+  if (ids.length) { await svc.from("leads").delete().in("id", ids); console.log(`↺ reset: deleted ${ids.length} existing Berti lead(s)`); }
+}
+
 async function main() {
+  if (process.argv.includes("--reset")) await resetBerti();
+
   // 1) plant lead
   if (await seqExists("berti-plant")) {
     console.log("• Berti plant lead already exists — skipping");
@@ -158,19 +172,16 @@ async function main() {
       allow_linkedin: true, allow_email: true, allow_call: true,
       source_tool: "manual-demo", source_universe: "client",
       lead_score: 0,
+      // Contact: the sheet only lists the Legal Representative's NAME (Berti
+      // Luciano) — no email/phone/website/industry. Those stay blank.
       primary_first_name: "Luciano",
       primary_last_name: "Berti",
       primary_title_role: "Legal Representative",
-      primary_seniority: "owner",
-      primary_work_email: "amministrazione@bertilegnami.it",
-      primary_phone: "+39 0434 644811",
       company_name: "Berti Legnami S.r.l.",
-      company_website: "https://www.bertilegnami.it",
-      company_industry: "Wood / Sawmill & Timber",
       company_city: "Pravisdomini",
       company_state: "Pordenone",
       company_country: "Italy",
-      company_address_1: "Via Postumia 13, 33076 Pravisdomini (PN), Italy",
+      company_address_1: "Via Postumia 13, Pravisdomini (PN), Italy",
       enrichment: plantEnrichment,
     });
     console.log("✓ Berti Legnami plant lead created (ICP: CACER plants)");
@@ -213,11 +224,10 @@ async function main() {
       status: "new",
       allow_linkedin: true, allow_email: true, allow_call: true,
       source_tool: "manual-demo", source_universe: "client",
-      lead_score: Math.round(55 + c.mwh / 10),
-      primary_first_name: c.first,
-      primary_last_name: c.last,
-      primary_title_role: c.title,
-      primary_seniority: c.title === "Owner" ? "owner" : "manager",
+      lead_score: 0,
+      // Only set contact fields the sheet actually provides; rest stay blank.
+      primary_first_name: c.first ?? null,
+      primary_last_name: c.last ?? null,
       primary_work_email: c.email ?? null,
       primary_phone: c.phone,
       company_name: c.name,

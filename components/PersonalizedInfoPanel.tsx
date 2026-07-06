@@ -598,7 +598,9 @@ function PlantIntelSection({ intel }: { intel: any }) {
     ["Installation owner", intel.installation_owner],
   ] as [string, string][]).filter(([, v]) => !!v);
   const distinctOwners = new Set(owners.map(([, v]) => v));
-  const singleOwner = distinctOwners.size === 1;
+  // Honor an explicit ownership_type when the source states it (e.g. the sheet
+  // says "no split ownership on record"); otherwise infer from distinct names.
+  const singleOwner = intel.ownership_type ? intel.ownership_type === "single" : distinctOwners.size === 1;
 
   const Field = ({ label, value }: { label: string; value: React.ReactNode }) =>
     value == null || value === "" ? null : (
