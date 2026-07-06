@@ -7,7 +7,7 @@ import Link from "next/link";
 import {
   Mail, Phone, Building2,
   ExternalLink, CheckCircle2, AlertTriangle,
-  Megaphone, ChevronLeft, ChevronRight,
+  Megaphone, ChevronLeft, ChevronRight, FileDown,
 } from "lucide-react";
 import { LinkedInIcon } from "@/components/SocialIcons";
 import CompanyTabs from "@/components/CompanyTabs";
@@ -765,6 +765,24 @@ export default async function ContactDetailPage({ params }: { params: Promise<{ 
                   View flow
                 </Link>
               )}
+              {/* Export — opens a branded, print-ready sheet of this lead (all
+                  its info + photo) in a new tab; the /print route auto-fires the
+                  Save-as-PDF dialog. */}
+              <a
+                href={`/leads/${id}/print`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold whitespace-nowrap border transition-opacity hover:opacity-85"
+                style={{
+                  backgroundColor: `color-mix(in srgb, ${C.gold} 10%, transparent)`,
+                  color: C.gold ?? "#c9a83a",
+                  borderColor: `color-mix(in srgb, ${C.gold} 30%, transparent)`,
+                }}
+                title="Export this lead to a PDF sheet"
+              >
+                <FileDown size={14} />
+                Export
+              </a>
               <DeleteLeadButton leadId={id} leadName={contactName} />
 
               {/* Prev/next within the same flow (boss 2026-06-10) — two arrows
