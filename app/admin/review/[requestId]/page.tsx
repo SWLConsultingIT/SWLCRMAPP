@@ -4,7 +4,7 @@ import { C } from "@/lib/design";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
-  ArrowLeft, Share2, Mail, Phone, Megaphone, Clock, User,
+  ArrowLeft, Share2, Mail, Phone, Megaphone, Clock, User, Users,
   ThumbsUp, ThumbsDown, UserPlus, MessageCircle,
 } from "lucide-react";
 import AdminActions from "../../AdminActions";
@@ -35,6 +35,18 @@ async function getProfileInfo(profileId: string) {
   return data;
 }
 
+async function getSellerNames(ids: string[]): Promise<Map<string, string>> {
+  const uniq = [...new Set(ids.filter(Boolean))];
+  const m = new Map<string, string>();
+  if (uniq.length === 0) return m;
+  const { data } = await supabase.from("sellers").select("id, name").in("id", uniq);
+  for (const s of data ?? []) m.set((s as any).id, (s as any).name);
+  return m;
+}
+
+// Distinct accent per seller row (falls back to gold when the list is longer).
+const SELLER_COLORS = ["#2563EB", "#0D9488", "#D97706", "#7C3AED", "#DB2777", "#059669"];
+
 export default async function ReviewCampaignPage({ params }: { params: Promise<{ requestId: string }> }) {
   await requireAdminPage();
   const { requestId } = await params;
@@ -54,6 +66,27 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
   const steps: any[] = cm.steps ?? prompts.messages ?? [];
   const autoReplies = cm.autoReplies ?? {};
   const isIndividual = !!req.lead_id && req.target_leads_count === 1;
+
+  // Seller assignment: multi-seller uses prompts.sellerQuotas [{sellerId, quota}]
+  // (leads distributed in order); single-seller falls back to prompts.sellerId.
+  const rawQuotas: { sellerId: string; quota: number }[] =
+    Array.isArray(prompts.sellerQuotas) ? prompts.sellerQuotas.filter((q: any) => q && q.sellerId) : [];
+  const singleSellerId: string | null = prompts.sellerId ?? null;
+  const sellerNames = await getSellerNames(
+    rawQuotas.length ? rawQuotas.map(q => q.sellerId) : (singleSellerId ? [singleSellerId] : []),
+  );
+  const quotaSum = rawQuotas.reduce((a, q) => a + (Number(q.quota) || 0), 0);
+  // Rows to render: the multi-seller split, or a single 100% row, or nothing.
+  const sellerRows: { name: string; quota: number; pct: number }[] =
+    rawQuotas.length > 0
+      ? rawQuotas.map(q => ({
+          name: sellerNames.get(q.sellerId) ?? "Unknown seller",
+          quota: Number(q.quota) || 0,
+          pct: quotaSum > 0 ? Math.round(((Number(q.quota) || 0) / quotaSum) * 100) : 0,
+        }))
+      : singleSellerId
+      ? [{ name: sellerNames.get(singleSellerId) ?? "Unknown seller", quota: req.target_leads_count ?? 0, pct: 100 }]
+      : [];
 
   let totalDays = 0;
   let cumDay = 0;
@@ -142,6 +175,47 @@ export default async function ReviewCampaignPage({ params }: { params: Promise<{
           </div>
         </div>
       </div>
+
+      {/* Sellers & Split */}
+      {sellerRows.length > 0 && (
+        <div className="rounded-xl border p-5 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: C.textMuted }}>
+              <Users size={12} /> {sellerRows.length > 1 ? "Sellers & Split" : "Assigned Seller"}
+            </p>
+            {sellerRows.length > 1 && (
+              <span className="text-xs" style={{ color: C.textDim }}>
+                {quotaSum} {quotaSum === 1 ? "lead" : "leads"} across {sellerRows.length} sellers
+              </span>
+            )}
+          </div>
+          <div className="space-y-3">
+            {sellerRows.map((s, i) => {
+              const color = SELLER_COLORS[i % SELLER_COLORS.length];
+              const initials = s.name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase() ?? "").join("");
+              return (
+                <div key={i} className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold"
+                    style={{ backgroundColor: `${color}18`, color }}>
+                    {initials || <User size={13} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-semibold truncate" style={{ color: C.textPrimary }}>{s.name}</span>
+                      <span className="text-xs font-medium tabular-nums ml-2 shrink-0" style={{ color: C.textMuted }}>
+                        {s.quota} {s.quota === 1 ? "lead" : "leads"}{sellerRows.length > 1 ? ` · ${s.pct}%` : ""}
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: C.border }}>
+                      <div className="h-full rounded-full" style={{ width: `${s.pct}%`, backgroundColor: color }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Sequence Timeline */}
       <div className="rounded-xl border p-5 mb-6" style={{ backgroundColor: C.card, borderColor: C.border }}>
