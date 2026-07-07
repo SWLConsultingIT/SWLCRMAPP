@@ -829,7 +829,10 @@ export default function CampaignDetailClient({
               // displayBody: prefer sent/tracked message, fall back to wizard template
               const displayBody: string | null = msg?.content ?? tmpl?.body ?? null;
               const msgSubject = (msg?.metadata as { subject?: string } | null | undefined)?.subject;
-              const displaySubject: string | null = msgSubject ?? tmpl?.subject ?? null;
+              // Subjects only belong to email steps — LinkedIn/Call never carry
+              // one, so don't fall back to a (possibly misaligned) template
+              // subject on non-email rows.
+              const displaySubject: string | null = channel === "email" ? (msgSubject ?? tmpl?.subject ?? null) : null;
               const isSent = msg?.status === "sent";
               const isPending = msg?.status === "draft";
               const isPast = i < currentStep;

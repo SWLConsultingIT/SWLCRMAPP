@@ -477,10 +477,19 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   ]);
   const autoReplies = campRequest?.data?.message_prompts?.channelMessages?.autoReplies ?? {};
   const connectionNote = campRequest?.data?.message_prompts?.channelMessages?.connectionRequest ?? "";
-  const messageTemplates: { channel: string; body: string; subject?: string }[] =
+  const rawMessageTemplates: { channel: string; body: string; subject?: string }[] =
     campRequest?.data?.message_prompts?.channelMessages?.steps ?? [];
 
   const sequence: { channel: string; daysAfter: number }[] = campaign.sequence_steps ?? [];
+  // The wizard's channelMessages.steps[] reserves index 0 for the day-0
+  // Connection Request slot, but campaign.sequence_steps has that slot stripped
+  // (only numbered followups). Align the templates to the followup steps by
+  // dropping the leading CR slot(s), so per-step subject/body fallbacks land on
+  // the right step instead of being off-by-one (which surfaced the email's
+  // subject on the LinkedIn step — Fran 2026-07-07).
+  const messageTemplates = rawMessageTemplates.length > sequence.length
+    ? rawMessageTemplates.slice(rawMessageTemplates.length - sequence.length)
+    : rawMessageTemplates;
   const channels = [...new Set(sequence.map((s: any) => s.channel))];
   // Call-advance mode (only meaningful when the flow has a call step). 'manual'
   // = the sequence WAITS at the call step for the seller to dial (so a lead
