@@ -696,6 +696,22 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     }
     for (const k of toRemove) callGroups.delete(k);
   }
+  // Third pass: drop orphaned answered-only groups (dialer=null) when the same
+  // lead already has a group with a known dialer on the same day. Aircall
+  // delivers the answered webhook 1-2s after the app-initiated row; if they
+  // land in different minute buckets they don't deduplicate, and the answered
+  // orphan gets attributed to the flow owner instead of the actual dialer.
+  {
+    const leadDayHasDialer = new Set<string>(); // `${leadId}|${day}`
+    for (const g of callGroups.values()) {
+      if (g.leadId && g.dialer) leadDayHasDialer.add(`${g.leadId}|${g.day}`);
+    }
+    for (const [key, g] of callGroups) {
+      if (!g.dialer && g.leadId && leadDayHasDialer.has(`${g.leadId}|${g.day}`)) {
+        callGroups.delete(key);
+      }
+    }
+  }
 
   // Per-seller call CONTACTED / ANSWERED for the Channel Champion + per-seller
   // call metrics. Manual dials log to the `calls` table, NOT campaign_messages.
