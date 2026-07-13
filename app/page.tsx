@@ -43,7 +43,7 @@ import ChannelCard from "@/components/dashboard/ChannelCard";
 import CallsCard from "@/components/dashboard/CallsCard";
 import CallOutcomesBySeller from "@/components/dashboard/CallOutcomesBySeller";
 import SellerPulseTable from "@/components/dashboard/SellerPulseTable";
-import InsightPanel from "@/components/dashboard/InsightPanel";
+import SellerTrendTable from "@/components/dashboard/SellerTrendTable";
 import DimWhileLoading from "@/components/DimWhileLoading";
 import DashboardExportModal from "@/components/dashboard/DashboardExportModal";
 import LinkedInConnectionsCard from "@/components/dashboard/LinkedInConnectionsCard";
@@ -1866,42 +1866,22 @@ export default async function DashboardPage({
         </Panel>
       </section>
 
-      {/* ── AI Insights + Call timing heatmap ────────────────────────────────
-          Surfaces the computed insights (seller perf, channel mix, health signals)
-          alongside a "best hours to call" heatmap (answered/positive calls only). */}
-      {(data.insights.length > 0 || data.heatmapCalls.some(row => row.some(v => v > 0))) && (
+      {/* ── Seller trend vs prior period ─────────────────────────────────────
+          Shows each seller's current calls / answer % / interested alongside
+          the delta vs the immediately preceding window of equal length. */}
+      {data.callOutcomesBySeller.length > 0 && (
         <section>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {data.insights.length > 0 && (
-              <InsightPanel
-                title="Performance signals for this period"
-                insights={data.insights}
-                emptyText="No notable signals yet — keep running campaigns."
-              />
-            )}
-            {data.heatmapCalls.some(row => row.some(v => v > 0)) && (
-              <Panel
-                title="Best hours to call"
-                subtitle="Days and times when calls get answered or convert"
-                glow
-              >
-                <Heatmap
-                  matrix={data.heatmapCalls}
-                  byChannel={{ all: data.heatmapCalls, linkedin: data.heatmapCalls, email: data.heatmapCalls, call: data.heatmapCalls }}
-                  days={["sun", "mon", "tue", "wed", "thu", "fri", "sat"].map(d => t(`dashx.day.${d}`))}
-                  unitLabel="calls"
-                  legendMin="Few"
-                  legendMax="Most"
-                  channelLabels={{ all: "All calls", linkedin: "", email: "", call: "" }}
-                  bestWindowLabel="Best window"
-                  bestWindowSubtitle="Most connected calls"
-                  bestWindowEmpty="Not enough data yet"
-                  peakLabel="Peak hour"
-                  timezoneLabel="Argentina time"
-                />
-              </Panel>
-            )}
-          </div>
+          <Panel
+            title="Seller trend vs prior period"
+            subtitle={`Volume and quality compared to the previous ${periodLabel}`}
+            glow
+          >
+            <SellerTrendTable
+              rows={data.callOutcomesBySeller}
+              prior={data.priorCallsBySeller}
+              periodLabel={periodLabel}
+            />
+          </Panel>
         </section>
       )}
 

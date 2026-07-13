@@ -2,10 +2,9 @@
 
 // Call monitoring by seller (boss 2026-06-08): "quiero ver cuántas llamadas
 // hizo cada seller por día y cuál fue el problema de cada una". One row per
-// seller with the outcome breakdown (made / answered / interested / bad timing
-// / not interested / wrong number); expand a row for the per-day split. Honors
-// the dashboard's global period + seller filters (the data is pre-aggregated
-// server-side in lib/dashboard-data.ts).
+// seller with the outcome breakdown; expand for the per-day split.
+// Redesigned 2026-07-13: mini outcome bar replaces 4 individual outcome columns,
+// avatar uses brand navy+gold (was orange), expanded rows show color-coded chips.
 
 import { useState } from "react";
 import { ChevronRight, PhoneCall } from "lucide-react";
@@ -23,13 +22,12 @@ type SellerCallStats = Counts & {
   avgDurationSecs?: number; avgCoachScore?: number | null;
 };
 
-// Column key = a Counts field OR the derived "unclassified" (made minus the
-// five logged outcomes), so Total calls always reconciles with the columns.
-type ColKey = keyof Counts | "unclassified" | "classifiedPct" | "answerPct" | "avgDurationSecs" | "avgCoachScore";
+type ColKey =
+  | keyof Counts
+  | "unclassified" | "classifiedPct" | "answerPct"
+  | "avgDurationSecs" | "avgCoachScore"
+  | "_bar";
 
-// Unclassified = calls made but with no outcome logged yet. Clamped at 0 in
-// case of any data skew. This is what makes the row add up: Total calls =
-// Interested + Bad timing + Voicemail + Not interested + Wrong # + Sin clasificar.
 const unclassifiedOf = (c: Counts) =>
   Math.max(0, c.made - c.interested - c.badTiming - c.voicemail - c.notInterested - c.wrongNumber);
 const classifiedPctOf = (c: Counts) =>
@@ -48,73 +46,156 @@ const valueOf = (c: Counts | SellerCallStats, key: ColKey): number => {
   if (key === "answerPct") return answerPctOf(c as Counts);
   if (key === "avgDurationSecs") return (c as SellerCallStats).avgDurationSecs ?? 0;
   if (key === "avgCoachScore") return (c as SellerCallStats).avgCoachScore ?? 0;
+  if (key === "_bar") return 0;
   return (c as Counts)[key as keyof Counts];
 };
 
-// Column definitions — label + key + accent colour. "Answered" dropped
-// 2026-06-11 (Fran, unreliable). "Sin clasificar" added so the math closes.
+// Outcome mini-bar — proportional stacked breakdown replacing 4 individual columns.
+const BAR_SEGS = [
+  { field: "interested"    as const, color: "#22C55E" },
+  { field: "badTiming"     as const, color: "#EAB308" },
+  { field: "voicemail"     as const, color: "#A78BFA" },
+  { field: "notInterested" as const, color: "#EF4444" },
+  { field: "wrongNumber"   as const, color: "#6B7280" },
+];
+
+function OutcomeBar({ c }: { c: Counts }) {
+  if (c.made === 0) return <span style={{ fontSize: 11, color: C.textDim }}>—</span>;
+  const uncl = unclassifiedOf(c);
+  const segs = [
+    ...BAR_SEGS.map(s => ({ n: c[s.field], color: s.color })),
+    { n: uncl, color: "#991B1B" },
+  ].filter(s => s.n > 0);
+  return (
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
+      <div style={{
+        width: 72, height: 7, borderRadius: 4, overflow: "hidden",
+        display: "flex", gap: 1, backgroundColor: "rgba(255,255,255,0.05)",
+      }}>
+        {segs.map((seg, i) => (
+          <div key={i} style={{ width: `${(seg.n / c.made) * 100}%`, background: seg.color, minWidth: 2 }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BarLegend() {
+  const items = [
+    { label: "Interested",     color: "#22C55E" },
+    { label: "Bad timing",     color: "#EAB308" },
+    { label: "Voicemail",      color: "#A78BFA" },
+    { label: "Not interested", color: "#EF4444" },
+    { label: "Wrong #",        color: "#6B7280" },
+    { label: "Unclassified",   color: "#991B1B" },
+  ];
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", padding: "4px 0" }}>
+      {items.map(item => (
+        <span key={item.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <span style={{ width: 7, height: 7, borderRadius: 2, background: item.color, display: "inline-block", flexShrink: 0 }} />
+          <span style={{ fontSize: 10, color: C.textMuted, fontFamily: OUTFIT }}>{item.label}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function DayOutcomeChips({ counts }: { counts: DayCounts }) {
+  const chips = [
+    { n: counts.interested,      label: "interested",     color: "#22C55E" },
+    { n: counts.badTiming,       label: "bad timing",     color: "#EAB308" },
+    { n: counts.voicemail,       label: "voicemail",      color: "#A78BFA" },
+    { n: counts.notInterested,   label: "not interested", color: "#EF4444" },
+    { n: counts.wrongNumber,     label: "wrong #",        color: "#6B7280" },
+    { n: unclassifiedOf(counts), label: "unclassified",   color: "#991B1B" },
+  ].filter(c => c.n > 0);
+  if (chips.length === 0) {
+    return <span style={{ fontSize: 10, color: C.textDim }}>no outcomes logged</span>;
+  }
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+      {chips.map(chip => (
+        <span key={chip.label} style={{
+          fontSize: 10, padding: "2px 7px", borderRadius: 4,
+          background: `${chip.color}18`, color: chip.color,
+          border: `1px solid ${chip.color}30`,
+          fontFamily: OUTFIT, fontWeight: 600,
+        }}>
+          {chip.n} {chip.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// Reduced column list: mini bar replaces 4 individual outcome columns.
+// Full breakdown visible in expanded per-day rows.
 const COLS: { key: ColKey; label: string; color: string }[] = [
-  { key: "made",            label: "Total calls",   color: C.textPrimary },
-  { key: "answerPct",       label: "Answer %",      color: "#0EA5E9" },
-  { key: "interested",      label: "Interested",    color: C.green },
-  { key: "badTiming",       label: "Bad timing",    color: "#D97706" },
-  { key: "voicemail",       label: "Voicemail",     color: "#0EA5E9" },
-  { key: "notInterested",   label: "Not interested",color: C.red },
-  { key: "wrongNumber",     label: "Wrong #",       color: C.textMuted },
-  { key: "unclassified",    label: "Unclassified",  color: C.red },
-  { key: "classifiedPct",   label: "Classified %",  color: C.green },
-  { key: "avgDurationSecs", label: "Avg duration",  color: C.textMuted },
-  { key: "avgCoachScore",   label: "Coach score",   color: "#C9A83A" },
+  { key: "made",            label: "Total",        color: C.textPrimary },
+  { key: "answerPct",       label: "Answer %",     color: "#38BDF8"     },
+  { key: "_bar",            label: "Outcomes",     color: ""            },
+  { key: "interested",      label: "Interested",   color: "#22C55E"     },
+  { key: "unclassified",    label: "Unclassified", color: "#EF4444"     },
+  { key: "classifiedPct",   label: "Classified %", color: "#22C55E"     },
+  { key: "avgDurationSecs", label: "Duration",     color: C.textMuted   },
+  { key: "avgCoachScore",   label: "Coach",        color: "#C9A83A"     },
 ];
 
 function fmtDay(iso: string): string {
-  // iso = yyyy-mm-dd
   const d = new Date(`${iso}T12:00:00Z`);
   return d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
 }
 
-function Cell({ n, color, colKey, total, row }: { n: number; color: string; colKey: ColKey; total?: number; row?: SellerCallStats }) {
-  const isPct = colKey === "classifiedPct" || colKey === "answerPct";
-  const isClassifiedPct = colKey === "classifiedPct";
-  const isAnswerPct = colKey === "answerPct";
+function Cell({ n, color, colKey, total, s }: {
+  n: number; color: string; colKey: ColKey; total?: number; s?: SellerCallStats;
+}) {
+  if (colKey === "_bar") {
+    return (
+      <td className="text-center px-3 py-2.5">
+        <OutcomeBar c={s ?? { made: 0, answered: 0, interested: 0, badTiming: 0, voicemail: 0, notInterested: 0, wrongNumber: 0 }} />
+      </td>
+    );
+  }
+  const isPct      = colKey === "classifiedPct" || colKey === "answerPct";
   const isDuration = colKey === "avgDurationSecs";
-  const isCoach = colKey === "avgCoachScore";
-  const isUnclassified = colKey === "unclassified";
+  const isCoach    = colKey === "avgCoachScore";
+  const isUncl     = colKey === "unclassified";
 
-  const highUnclassified = isUnclassified && total && total > 0 && n / total > 0.4;
-  const lowClassified = isClassifiedPct && n < 60;
-  const lowAnswer = isAnswerPct && total && total > 0 && n < 30;
+  const highUncl  = isUncl && total && total > 0 && n / total > 0.4;
+  const lowClass  = colKey === "classifiedPct" && n < 60;
+  const lowAnswer = colKey === "answerPct" && total && total > 0 && n < 30;
 
   if (isDuration) {
-    const text = row ? fmtDuration(row.avgDurationSecs ?? 0) : fmtDuration(n);
+    const text = s ? fmtDuration(s.avgDurationSecs ?? 0) : fmtDuration(n);
     return (
-      <td className="text-center px-2 py-2 tabular-nums">
-        <span className="text-[11px]" style={{ color: n > 0 ? C.textMuted : C.textDim, fontFamily: OUTFIT }}>{text}</span>
+      <td className="text-center px-2 py-2.5 tabular-nums">
+        <span style={{ fontSize: 12, color: n > 0 ? C.textMuted : C.textDim, fontFamily: OUTFIT }}>{text}</span>
       </td>
     );
   }
   if (isCoach) {
-    const score = row?.avgCoachScore ?? null;
-    if (score == null) return <td className="text-center px-2 py-2"><span style={{ color: C.textDim }}>—</span></td>;
-    const scoreColor = score >= 80 ? C.green : score >= 60 ? "#D97706" : C.red;
+    const score = s?.avgCoachScore ?? null;
+    if (score == null) return <td className="text-center px-2 py-2.5"><span style={{ color: C.textDim }}>—</span></td>;
+    const scoreColor = score >= 80 ? "#22C55E" : score >= 60 ? "#EAB308" : "#EF4444";
     return (
-      <td className="text-center px-2 py-2 tabular-nums">
-        <span className="text-[12px] font-bold" style={{ color: scoreColor, fontFamily: OUTFIT }}>{score}</span>
+      <td className="text-center px-2 py-2.5 tabular-nums">
+        <span style={{ fontSize: 12, fontWeight: 700, color: scoreColor, fontFamily: OUTFIT }}>{score}</span>
       </td>
     );
   }
 
   const displayVal = isPct ? `${n}%` : String(n);
   return (
-    <td className="text-center px-2 py-2 tabular-nums">
-      {highUnclassified ? (
-        <span className="text-[11px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "rgba(239,68,68,0.15)", color: "#EF4444" }}>
+    <td className="text-center px-2 py-2.5 tabular-nums">
+      {highUncl ? (
+        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 6px", borderRadius: 4, backgroundColor: "rgba(239,68,68,0.12)", color: "#EF4444" }}>
           {displayVal} ⚠
         </span>
-      ) : lowClassified || lowAnswer ? (
-        <span className="text-[13px] font-bold" style={{ color: "#EF4444", fontFamily: OUTFIT }}>{displayVal}</span>
+      ) : (lowClass || lowAnswer) ? (
+        <span style={{ fontSize: 13, fontWeight: 700, color: "#EF4444", fontFamily: OUTFIT }}>{displayVal}</span>
       ) : (
-        <span className="text-[13px] font-bold" style={{ color: (isPct ? n < 100 : n > 0) ? color : C.textDim, fontFamily: OUTFIT }}>{displayVal}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: (isPct ? n < 100 : n > 0) ? color : C.textDim, fontFamily: OUTFIT }}>{displayVal}</span>
       )}
     </td>
   );
@@ -122,127 +203,195 @@ function Cell({ n, color, colKey, total, row }: { n: number; color: string; colK
 
 function SellerRow({ s }: { s: SellerCallStats }) {
   const [open, setOpen] = useState(false);
-  const days = Object.entries(s.byDay).sort((a, b) => (a[0] < b[0] ? 1 : -1)); // most recent first
+  const days     = Object.entries(s.byDay).sort((a, b) => (a[0] < b[0] ? 1 : -1));
   const inactive = s.active === false;
+  const colCount = 1 + COLS.length;
   return (
     <>
-      <tr className="border-t transition-colors hover:bg-black/[0.015] cursor-pointer" style={{ borderColor: C.border, opacity: inactive ? 0.55 : 1 }} onClick={() => setOpen(o => !o)}>
+      <tr
+        className="border-t transition-colors hover:bg-white/[0.02] cursor-pointer"
+        style={{ borderColor: C.border, opacity: inactive ? 0.5 : 1 }}
+        onClick={() => setOpen(o => !o)}
+      >
         <td className="px-3 py-2.5">
-          <span className="flex items-center gap-2">
-            <ChevronRight size={13} style={{ color: C.textDim, transform: open ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
-            <span className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
-              style={{ background: inactive ? "#374151" : "linear-gradient(135deg, #F97316, #FB923C)", color: "#fff" }}>
+          <span className="flex items-center gap-2.5">
+            <ChevronRight size={12} style={{
+              color: C.textDim,
+              transform: open ? "rotate(90deg)" : "none",
+              transition: "transform .15s",
+              flexShrink: 0,
+            }} />
+            <span
+              className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+              style={{
+                background: inactive ? "rgba(75,85,99,0.2)"          : "rgba(201,168,58,0.12)",
+                color:      inactive ? "#6B7280"                      : "#C9A83A",
+                border:     inactive ? "1px solid rgba(75,85,99,0.3)" : "1px solid rgba(201,168,58,0.28)",
+              }}
+            >
               {(s.sellerName[0] ?? "?").toUpperCase()}
             </span>
-            <span className="text-[13px] font-semibold truncate" style={{ color: C.textPrimary }}>{s.sellerName}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: inactive ? C.textMuted : C.textPrimary, fontFamily: OUTFIT }}>
+              {s.sellerName}
+            </span>
             {inactive && (
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0" style={{ background: "rgba(107,114,128,0.15)", color: "#6B7280" }}>left</span>
+              <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 10, background: "rgba(107,114,128,0.12)", color: "#6B7280", flexShrink: 0 }}>
+                left
+              </span>
             )}
           </span>
         </td>
-        {COLS.map(c => <Cell key={c.key} n={valueOf(s, c.key)} color={c.color} colKey={c.key} total={s.made} row={s} />)}
+        {COLS.map(c => (
+          <Cell key={c.key} n={valueOf(s, c.key)} color={c.color} colKey={c.key} total={s.made} s={s} />
+        ))}
       </tr>
-      {open && days.map(([day, counts]) => (
-        <tr key={day} className="border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-          <td className="px-3 py-1.5 pl-12">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[11px]" style={{ color: C.textMuted }}>{fmtDay(day)}</span>
-              {counts.campaigns && counts.campaigns.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-0.5">
-                  {counts.campaigns.map(name => (
-                    <span key={name} className="text-[9px] font-medium px-1.5 py-0.5 rounded-full truncate max-w-[160px]"
-                      style={{ background: "rgba(201,168,58,.12)", color: "#C9A83A", border: "1px solid rgba(201,168,58,.25)" }}>
-                      {name}
-                    </span>
-                  ))}
+
+      {open && (
+        <>
+          <tr className="border-t" style={{ borderColor: C.border, backgroundColor: "rgba(201,168,58,0.02)" }}>
+            <td colSpan={colCount} className="px-4 pt-2 pb-1">
+              <BarLegend />
+            </td>
+          </tr>
+          {days.map(([day, counts]) => (
+            <tr key={day} className="border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+              <td className="px-4 py-2 pl-14">
+                <div className="flex flex-col gap-1.5">
+                  <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, fontFamily: OUTFIT }}>
+                    {fmtDay(day)}
+                  </span>
+                  <DayOutcomeChips counts={counts} />
+                  {counts.campaigns && counts.campaigns.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-0.5">
+                      {counts.campaigns.map(name => (
+                        <span key={name} style={{
+                          fontSize: 9, fontWeight: 600, padding: "2px 7px", borderRadius: 10,
+                          background: "rgba(201,168,58,.1)", color: "#C9A83A",
+                          border: "1px solid rgba(201,168,58,.2)",
+                        }}>
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </td>
-          {COLS.map(c => {
-            const v = valueOf(counts, c.key);
-            return (
-              <td key={c.key} className="text-center px-2 py-1.5 tabular-nums">
-                <span className="text-[12px]" style={{ color: v > 0 ? C.textBody : C.textDim }}>{v}</span>
               </td>
-            );
-          })}
-        </tr>
-      ))}
+              {COLS.map(c => {
+                if (c.key === "_bar") {
+                  return (
+                    <td key="_bar" className="text-center px-3 py-2">
+                      <OutcomeBar c={counts} />
+                    </td>
+                  );
+                }
+                const v = valueOf(counts as any, c.key);
+                return (
+                  <td key={c.key} className="text-center px-2 py-2 tabular-nums">
+                    <span style={{ fontSize: 12, color: v > 0 ? C.textBody : C.textDim }}>{v}</span>
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </>
+      )}
     </>
   );
 }
 
-// `bare` = render just the table (no card chrome / header), for when the
-// caller wraps it in a <Panel> — so it matches the other dashboard tables
-// (dark Panel header + flush table) instead of a card-in-a-card.
 export default function CallOutcomesBySeller({ rows, bare = false }: { rows: SellerCallStats[]; bare?: boolean }) {
   if (!rows || rows.length === 0) {
     return (
       <div className={bare ? "px-4 py-6" : "rounded-xl border px-4 py-6"} style={{ backgroundColor: C.card, borderColor: C.border }}>
         <div className="flex items-start gap-3">
-          <PhoneCall size={16} style={{ color: C.textMuted, marginTop: "2px", flexShrink: 0 }} />
+          <PhoneCall size={16} style={{ color: C.textMuted, marginTop: 2, flexShrink: 0 }} />
           <div>
-            <p className="text-xs font-semibold" style={{ color: C.textPrimary }}>No calls yet</p>
-            <p className="text-xs mt-1" style={{ color: C.textMuted }}>Calls you dial will appear here with outcomes (interested, bad timing, wrong number, etc.)</p>
+            <p style={{ fontSize: 12, fontWeight: 600, color: C.textPrimary }}>No calls yet</p>
+            <p style={{ fontSize: 12, marginTop: 4, color: C.textMuted }}>
+              Calls you dial will appear here with outcomes (interested, bad timing, wrong number, etc.)
+            </p>
           </div>
         </div>
       </div>
     );
   }
+
   const tableEl = (
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead>
-            <tr>
-              <th className="text-left px-3 py-2 text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>Seller</th>
-              {COLS.map(c => (
-                <th key={c.key} className="text-center px-2 py-2 text-[10px] font-bold uppercase tracking-wider" style={{ color: C.textDim }}>{c.label}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(s => <SellerRow key={s.sellerId} s={s} />)}
-          </tbody>
-          {rows.length > 1 && (() => {
-            // Column totals across every seller — so the panel reconciles at a
-            // glance (Total calls = sum of the outcome columns, all sellers).
-            const totals = rows.reduce((acc, s) => {
-              acc.made += s.made; acc.interested += s.interested; acc.badTiming += s.badTiming;
-              acc.voicemail += s.voicemail; acc.notInterested += s.notInterested; acc.wrongNumber += s.wrongNumber;
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead>
+          <tr style={{ borderBottom: `1px solid ${C.border}` }}>
+            <th className="text-left px-3 py-2.5" style={{ fontSize: 10, fontWeight: 700, color: C.textDim, textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: OUTFIT }}>
+              Seller
+            </th>
+            {COLS.map(c => (
+              <th key={c.key} className="text-center px-2 py-2.5" style={{
+                fontSize: 10, fontWeight: 700,
+                color: c.key === "_bar" ? C.textDim : (c.color === C.textPrimary ? C.textDim : c.color),
+                textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: OUTFIT, opacity: 0.8,
+              }}>
+                {c.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(s => <SellerRow key={s.sellerId} s={s} />)}
+        </tbody>
+        {rows.length > 1 && (() => {
+          const totals = rows.reduce(
+            (acc, s) => {
+              acc.made += s.made; acc.interested += s.interested;
+              acc.badTiming += s.badTiming; acc.voicemail += s.voicemail;
+              acc.notInterested += s.notInterested; acc.wrongNumber += s.wrongNumber;
               return acc;
-            }, { made: 0, answered: 0, interested: 0, badTiming: 0, voicemail: 0, notInterested: 0, wrongNumber: 0 } as Counts);
-            return (
-              <tfoot>
-                <tr style={{ borderTop: `2px solid ${C.border}`, backgroundColor: C.bg }}>
-                  <td className="px-3 py-2.5 text-[12px] font-bold" style={{ color: C.textPrimary, fontFamily: OUTFIT }}>Total · {rows.length} sellers</td>
-                  {COLS.map(c => {
-                    if (c.key === "avgDurationSecs" || c.key === "avgCoachScore") {
-                      return <td key={c.key} className="text-center px-2 py-2.5"><span style={{ color: C.textDim }}>—</span></td>;
-                    }
-                    const v = valueOf(totals, c.key);
-                    const display = (c.key === "classifiedPct" || c.key === "answerPct") ? `${v}%` : String(v);
+            },
+            { made: 0, answered: 0, interested: 0, badTiming: 0, voicemail: 0, notInterested: 0, wrongNumber: 0 } as Counts,
+          );
+          return (
+            <tfoot>
+              <tr style={{ borderTop: `2px solid ${C.border}`, backgroundColor: C.bg }}>
+                <td className="px-3 py-2.5" style={{ fontSize: 12, fontWeight: 700, color: C.textPrimary, fontFamily: OUTFIT }}>
+                  All · {rows.length} sellers
+                </td>
+                {COLS.map(c => {
+                  if (c.key === "_bar") {
                     return (
-                      <td key={c.key} className="text-center px-2 py-2.5 tabular-nums">
-                        <span className="text-[13px] font-bold" style={{ color: v > 0 ? c.color : C.textDim, fontFamily: OUTFIT }}>{display}</span>
+                      <td key="_bar" className="text-center px-3 py-2.5">
+                        <OutcomeBar c={totals} />
                       </td>
                     );
-                  })}
-                </tr>
-              </tfoot>
-            );
-          })()}
-        </table>
-      </div>
+                  }
+                  if (c.key === "avgDurationSecs" || c.key === "avgCoachScore") {
+                    return <td key={c.key} className="text-center px-2 py-2.5"><span style={{ color: C.textDim }}>—</span></td>;
+                  }
+                  const v = valueOf(totals, c.key);
+                  const display = (c.key === "classifiedPct" || c.key === "answerPct") ? `${v}%` : String(v);
+                  return (
+                    <td key={c.key} className="text-center px-2 py-2.5 tabular-nums">
+                      <span style={{ fontSize: 13, fontWeight: 700, color: v > 0 ? c.color : C.textDim, fontFamily: OUTFIT }}>
+                        {display}
+                      </span>
+                    </td>
+                  );
+                })}
+              </tr>
+            </tfoot>
+          );
+        })()}
+      </table>
+    </div>
   );
-  // Bare = flush table for a <Panel> wrapper (matches the other tables).
+
   if (bare) return tableEl;
   return (
     <div className="rounded-xl border overflow-hidden" style={{ backgroundColor: C.card, borderColor: C.border }}>
       <div className="px-4 py-3 border-b flex items-center gap-2" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-        <PhoneCall size={13} style={{ color: "#F97316" }} />
-        <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: C.textBody }}>Call outcomes by seller</p>
-        <span className="text-[10px]" style={{ color: C.textDim }}>click a seller for the day-by-day split</span>
+        <PhoneCall size={13} style={{ color: "#38BDF8" }} />
+        <p style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.07em", color: C.textBody }}>
+          Call outcomes by seller
+        </p>
+        <span style={{ fontSize: 10, color: C.textDim }}>click a seller for the day-by-day split</span>
       </div>
       {tableEl}
     </div>

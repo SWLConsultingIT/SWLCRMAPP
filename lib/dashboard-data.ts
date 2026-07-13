@@ -149,6 +149,7 @@ const EMPTY_DASHBOARD = {
     call: Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]),
   } as Record<string, number[][]>,
   heatmapCalls: Array.from({ length: 7 }, () => new Array(24).fill(0) as number[]),
+  priorCallsBySeller: {} as Record<string, { made: number; answered: number; interested: number }>,
 };
 
 // Pages through a PostgREST query 1000 rows at a time until the tail is
@@ -1500,6 +1501,30 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     : 30 * 86_400_000;
   const priorTo = fromMs !== null ? fromMs : (Date.now() - 30 * 86_400_000);
   const priorFrom = priorTo - periodMs;
+
+  // Per-seller call stats for the prior period — powers the SellerTrendTable
+  // comparison widget in the Sellers tab. Single-pass dedup by lead+minute
+  // (no phone-suffix merge needed — just directional volume trends).
+  const priorCallsBySeller: Record<string, { made: number; answered: number; interested: number }> = {};
+  {
+    const seen = new Set<string>();
+    for (const c of allCalls) {
+      if (!c.started_at) continue;
+      const t = new Date(c.started_at).getTime();
+      if (t < priorFrom || t >= priorTo) continue;
+      const key = `${c.lead_id ?? "?"}|${c.started_at.slice(0, 16)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const dialerSeller = c.dialed_by_user_id ? userToSeller.get(c.dialed_by_user_id) : null;
+      const ownerSellerId = c.lead_id ? leadToSellerId.get(c.lead_id) : null;
+      const sid = dialerSeller?.id ?? (c.dialed_by_user_id ?? (ownerSellerId ?? "unassigned"));
+      if (!priorCallsBySeller[sid]) priorCallsBySeller[sid] = { made: 0, answered: 0, interested: 0 };
+      priorCallsBySeller[sid].made++;
+      if ((c.duration ?? 0) > 0) priorCallsBySeller[sid].answered++;
+      if (c.classification === "positive" || c.classification === "meeting_intent") priorCallsBySeller[sid].interested++;
+    }
+  }
+
   const priorReplies = allReplies.filter(r => {
     if (!r.received_at) return false;
     const t = new Date(r.received_at).getTime();
@@ -1999,6 +2024,7 @@ async function getDashboardDataInternal(filters: DashboardFilters) {
     heatmap, // [7][24] — Sun..Sat × 0..23h (aggregate across channels)
     heatmapByChannel,
     heatmapCalls, // [7][24] — calls that were answered or classified positive
+    priorCallsBySeller, // per-seller call stats for the immediately preceding period
   };
 }
 
