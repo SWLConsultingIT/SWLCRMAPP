@@ -1,10 +1,15 @@
 "use client";
 
-// Seller performance chart — professional dot+line SVG chart with seller
-// filter (up to 2) and metric tabs. Theme-aware: all colors via CSS variables
-// so it works in both light and dark mode.
+// Seller performance chart — compact dot+bezier-line chart.
+// Design principles (Vercel/shadcn style):
+//   • CatmullRom smooth curves — no jagged polylines
+//   • Gradient fill fades to transparent (0.18 → 0)
+//   • Dots only on data points, hidden when there's no data
+//   • Horizontal-only grid, no axis lines
+//   • All colors via CSS vars (theme-aware in both light + dark mode)
+//   • Labels only at first + last point to avoid clutter
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useId } from "react";
 import { C } from "@/lib/design";
 
 const OUTFIT = "var(--font-outfit), system-ui, sans-serif";
@@ -15,31 +20,27 @@ type DayCounts = {
   badTiming: number; voicemail: number; notInterested: number; wrongNumber: number;
 };
 type SellerStats = {
-  sellerId: string;
-  sellerName: string;
-  active?: boolean;
-  made: number;
-  answered: number;
-  interested: number;
+  sellerId: string; sellerName: string; active?: boolean;
+  made: number; answered: number; interested: number;
   byDay: Record<string, DayCounts>;
 };
 type MetricKey = "made" | "answerPct" | "interested" | "badTiming" | "voicemail";
 
 const METRICS: { key: MetricKey; label: string }[] = [
-  { key: "made",       label: "Calls made"  },
-  { key: "answerPct",  label: "Answer %"    },
-  { key: "interested", label: "Interested"  },
-  { key: "badTiming",  label: "Bad timing"  },
-  { key: "voicemail",  label: "Voicemail"   },
+  { key: "made",        label: "Calls made"  },
+  { key: "answerPct",   label: "Answer %"    },
+  { key: "interested",  label: "Interested"  },
+  { key: "badTiming",   label: "Bad timing"  },
+  { key: "voicemail",   label: "Voicemail"   },
 ];
 
 function dayValue(d: DayCounts | undefined, metric: MetricKey): number | null {
-  if (d === undefined) return null; // no data this day → gap in line
-  if (metric === "made")       return d.made;
-  if (metric === "answerPct")  return d.made === 0 ? 0 : Math.round((d.answered / d.made) * 100);
-  if (metric === "interested") return d.interested;
-  if (metric === "badTiming")  return d.badTiming;
-  if (metric === "voicemail")  return d.voicemail;
+  if (d === undefined) return null;
+  if (metric === "made")        return d.made;
+  if (metric === "answerPct")   return d.made === 0 ? 0 : Math.round((d.answered / d.made) * 100);
+  if (metric === "interested")  return d.interested;
+  if (metric === "badTiming")   return d.badTiming;
+  if (metric === "voicemail")   return d.voicemail;
   return 0;
 }
 
@@ -48,70 +49,101 @@ function fmtAxisDay(iso: string): string {
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
 }
 
-// Build an SVG path string that jumps to M on null segments (gap handling)
-function buildLinePath(
+// CatmullRom → Bezier smooth path (handles null gaps with M jumps)
+function smoothPath(
   values: (number | null)[],
   xOf: (i: number) => number,
   yOf: (v: number) => number,
+  tension = 0.35,
 ): string {
-  let path = "";
-  for (let i = 0; i < values.length; i++) {
-    const v = values[i];
-    if (v === null) continue;
-    const x = xOf(i).toFixed(1);
-    const y = yOf(v).toFixed(1);
-    if (path === "" || values[i - 1] === null) path += `M ${x} ${y}`;
-    else path += ` L ${x} ${y}`;
+  type Pt = { x: number; y: number; i: number };
+  const pts: Pt[] = values
+    .map((v, i) => (v !== null ? { x: xOf(i), y: yOf(v), i } : null))
+    .filter((p): p is Pt => p !== null);
+
+  if (pts.length === 0) return "";
+  if (pts.length === 1) return `M ${pts[0].x.toFixed(1)} ${pts[0].y.toFixed(1)}`;
+
+  // Split into contiguous segments (break on index gaps = null data)
+  const segs: Pt[][] = [];
+  let seg: Pt[] = [pts[0]];
+  for (let k = 1; k < pts.length; k++) {
+    if (pts[k].i === pts[k - 1].i + 1) {
+      seg.push(pts[k]);
+    } else {
+      segs.push(seg);
+      seg = [pts[k]];
+    }
   }
-  return path;
+  segs.push(seg);
+
+  let d = "";
+  for (const s of segs) {
+    d += `M ${s[0].x.toFixed(1)} ${s[0].y.toFixed(1)}`;
+    for (let j = 0; j < s.length - 1; j++) {
+      const p0 = s[Math.max(0, j - 1)];
+      const p1 = s[j];
+      const p2 = s[j + 1];
+      const p3 = s[Math.min(s.length - 1, j + 2)];
+      const cp1x = p1.x + (p2.x - p0.x) * tension;
+      const cp1y = p1.y + (p2.y - p0.y) * tension;
+      const cp2x = p2.x - (p3.x - p1.x) * tension;
+      const cp2y = p2.y - (p3.y - p1.y) * tension;
+      d += ` C ${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+    }
+  }
+  return d;
 }
 
-// Build a filled area path (only segments with contiguous non-null values)
-function buildAreaPath(
+function smoothAreaPath(
   values: (number | null)[],
   xOf: (i: number) => number,
   yOf: (v: number) => number,
   yBottom: number,
 ): string {
-  let path = "";
-  let segStart = -1;
-  const flush = (end: number) => {
-    if (segStart < 0) return;
-    const top = values
-      .slice(segStart, end + 1)
-      .map((v, j) => `${xOf(segStart + j).toFixed(1)},${yOf(v as number).toFixed(1)}`)
-      .join(" L ");
-    const x0 = xOf(segStart).toFixed(1);
-    const x1 = xOf(end).toFixed(1);
-    path += ` M ${x0},${yBottom.toFixed(1)} L ${top} L ${x1},${yBottom.toFixed(1)} Z`;
-    segStart = -1;
-  };
-  for (let i = 0; i < values.length; i++) {
-    if (values[i] !== null) {
-      if (segStart < 0) segStart = i;
-    } else {
-      flush(i - 1);
-    }
+  type Pt = { x: number; y: number; i: number };
+  const pts: Pt[] = values
+    .map((v, i) => (v !== null ? { x: xOf(i), y: yOf(v), i } : null))
+    .filter((p): p is Pt => p !== null);
+  if (pts.length < 2) return "";
+
+  const segs: Pt[][] = [];
+  let seg: Pt[] = [pts[0]];
+  for (let k = 1; k < pts.length; k++) {
+    if (pts[k].i === pts[k - 1].i + 1) seg.push(pts[k]);
+    else { segs.push(seg); seg = [pts[k]]; }
   }
-  flush(values.length - 1);
-  return path.trim();
+  segs.push(seg);
+
+  let d = "";
+  const T = 0.35;
+  for (const s of segs) {
+    if (s.length < 2) continue;
+    let curve = `M ${s[0].x.toFixed(1)} ${s[0].y.toFixed(1)}`;
+    for (let j = 0; j < s.length - 1; j++) {
+      const p0 = s[Math.max(0, j - 1)], p1 = s[j], p2 = s[j + 1], p3 = s[Math.min(s.length - 1, j + 2)];
+      const cp1x = p1.x + (p2.x - p0.x) * T, cp1y = p1.y + (p2.y - p0.y) * T;
+      const cp2x = p2.x - (p3.x - p1.x) * T, cp2y = p2.y - (p3.y - p1.y) * T;
+      curve += ` C ${cp1x.toFixed(1)},${cp1y.toFixed(1)} ${cp2x.toFixed(1)},${cp2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+    }
+    curve += ` L ${s[s.length - 1].x.toFixed(1)},${yBottom.toFixed(1)} L ${s[0].x.toFixed(1)},${yBottom.toFixed(1)} Z`;
+    d += curve;
+  }
+  return d;
 }
 
-// ── Chart layout constants ────────────────────────────────────────────────────
-const VW  = 800;
-const VH  = 290;
-const PAD = { top: 28, right: 90, bottom: 52, left: 52 };
+// ── Layout ────────────────────────────────────────────────────────────────────
+const VW  = 760;
+const VH  = 210;
+const PAD = { top: 24, right: 84, bottom: 40, left: 44 };
 const CW  = VW - PAD.left - PAD.right;
 const CH  = VH - PAD.top  - PAD.bottom;
 
 export default function SellerPerformanceChart({ rows }: { rows: SellerStats[] }) {
-  const allSellers = rows;
+  const uid = useId().replace(/:/g, "");
 
   const [selected, setSelected] = useState<string[]>(() =>
-    allSellers
-      .filter(r => r.active !== false)
-      .slice(0, Math.min(2, allSellers.length))
-      .map(r => r.sellerId),
+    rows.filter(r => r.active !== false).slice(0, 2).map(r => r.sellerId),
   );
   const [metric, setMetric] = useState<MetricKey>("made");
 
@@ -123,7 +155,7 @@ export default function SellerPerformanceChart({ rows }: { rows: SellerStats[] }
     });
   };
 
-  const selectedRows = allSellers.filter(r => selected.includes(r.sellerId));
+  const selectedRows = rows.filter(r => selected.includes(r.sellerId));
 
   const allDays: string[] = useMemo(() => {
     const s = new Set<string>();
@@ -132,149 +164,131 @@ export default function SellerPerformanceChart({ rows }: { rows: SellerStats[] }
   }, [selectedRows]);
 
   const series = selectedRows.map((r, idx) => ({
-    id:     r.sellerId,
-    name:   r.sellerName,
-    color:  PALETTE[idx % PALETTE.length],
+    id: r.sellerId, name: r.sellerName,
+    color: PALETTE[idx % PALETTE.length],
     values: allDays.map(d => dayValue(r.byDay[d], metric)),
   }));
 
   const allNonNull = series.flatMap(s => s.values.filter((v): v is number => v !== null));
-  const maxVal = Math.max(...allNonNull, metric === "answerPct" ? 20 : 5);
-  const yMax   = metric === "answerPct" ? Math.min(100, Math.ceil(maxVal / 10) * 10) : Math.ceil(maxVal * 1.15);
+  const maxVal = Math.max(...allNonNull, metric === "answerPct" ? 20 : 3);
+  const yMax   = metric === "answerPct"
+    ? Math.min(100, Math.ceil(maxVal / 10) * 10 + 10)
+    : Math.ceil(maxVal * 1.2 + 1);
 
-  const isPct  = metric === "answerPct";
-  const isSolo = allDays.length <= 1;
+  const isPct = metric === "answerPct";
+  const solo  = allDays.length <= 1;
 
   const xOf = (i: number) =>
-    PAD.left + (isSolo ? CW / 2 : (i / (allDays.length - 1)) * CW);
+    PAD.left + (solo ? CW / 2 : (i / Math.max(allDays.length - 1, 1)) * CW);
   const yOf = (v: number) =>
     PAD.top + CH - Math.max(0, Math.min(1, v / yMax)) * CH;
-
   const yBottom = PAD.top + CH;
 
-  // Y-axis: 5 ticks
-  const yTicks = Array.from({ length: 6 }, (_, i) => Math.round(yMax * i / 5));
+  // 4 Y-axis ticks
+  const yTicks = [0, 1, 2, 3].map(i => Math.round(yMax * i / 3));
 
-  // X-axis: max ~9 labels
-  const xStep = allDays.length <= 9 ? 1 : Math.ceil(allDays.length / 9);
+  // X-axis labels: at most 8 visible
+  const xStep = allDays.length <= 8 ? 1 : Math.ceil(allDays.length / 8);
 
-  if (allSellers.length === 0) return null;
+  if (rows.length === 0) return null;
 
   return (
-    <div style={{ padding: "20px 20px 4px" }}>
+    <div style={{ padding: "18px 20px 12px" }}>
 
-      {/* ── Metric tabs ──────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
-        {METRICS.map(m => {
-          const active = metric === m.key;
-          return (
-            <button
-              key={m.key}
-              onClick={() => setMetric(m.key)}
-              style={{
-                fontFamily: OUTFIT,
-                fontSize: 12, fontWeight: 700,
-                padding: "6px 14px", borderRadius: 8,
-                cursor: "pointer", transition: "all .12s",
-                background: active ? "rgba(201,168,58,0.12)" : "transparent",
-                color:      active ? "#C9A83A" : C.textMuted,
-                border:     active ? "1.5px solid rgba(201,168,58,0.35)" : `1.5px solid ${C.border}`,
-              }}
-            >
-              {m.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Seller toggles ───────────────────────────────────────────────── */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
-        <span style={{ fontFamily: OUTFIT, fontSize: 11, fontWeight: 700, color: C.textMuted, alignSelf: "center", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-          Sellers:
-        </span>
-        {allSellers.map(r => {
-          const isOn   = selected.includes(r.sellerId);
-          const selIdx = selected.indexOf(r.sellerId);
-          const color  = isOn ? PALETTE[selIdx % PALETTE.length] : undefined;
-          return (
-            <button
-              key={r.sellerId}
-              onClick={() => toggle(r.sellerId)}
-              style={{
-                fontFamily: OUTFIT,
-                display: "flex", alignItems: "center", gap: 7,
-                fontSize: 13, fontWeight: 700,
-                padding: "7px 16px", borderRadius: 8,
-                cursor: "pointer", transition: "all .15s",
-                background: isOn ? `${color}14` : "transparent",
-                color:      isOn ? color : C.textBody,
-                border:     `2px solid ${isOn ? `${color}55` : C.border}`,
-                opacity: r.active === false ? 0.5 : 1,
-                boxShadow: isOn ? `0 0 0 3px ${color}18` : "none",
-              }}
-            >
-              <span style={{
-                width: 10, height: 10, borderRadius: "50%",
-                background: isOn ? color : C.textDim,
-                display: "inline-block", flexShrink: 0,
-                boxShadow: isOn ? `0 0 6px ${color}80` : "none",
+      {/* ── Controls row: metric tabs + seller toggles ─────────────────── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+        {/* Metric pill group */}
+        <div style={{
+          display: "flex", gap: 2, padding: "3px",
+          borderRadius: 10, border: `1px solid ${C.border}`,
+          background: "rgba(0,0,0,0.03)",
+        }}>
+          {METRICS.map(m => {
+            const active = metric === m.key;
+            return (
+              <button key={m.key} onClick={() => setMetric(m.key)} style={{
+                fontFamily: OUTFIT, fontSize: 11.5, fontWeight: 700,
+                padding: "5px 12px", borderRadius: 7, cursor: "pointer",
                 transition: "all .15s",
-              }} />
-              {r.sellerName}
-            </button>
-          );
-        })}
-        {selected.length >= 2 && (
-          <span style={{ fontFamily: OUTFIT, fontSize: 11, color: C.textDim, alignSelf: "center" }}>
-            (máx. 2)
-          </span>
-        )}
+                background: active ? "#C9A83A" : "transparent",
+                color:      active ? "#000" : C.textMuted,
+                border:     "none",
+                lineHeight: 1,
+              }}>
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Divider */}
+        <div style={{ width: 1, height: 20, background: C.border, flexShrink: 0 }} />
+
+        {/* Seller toggles */}
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {rows.map(r => {
+            const isOn   = selected.includes(r.sellerId);
+            const selIdx = selected.indexOf(r.sellerId);
+            const color  = PALETTE[selIdx % PALETTE.length];
+            return (
+              <button key={r.sellerId} onClick={() => toggle(r.sellerId)} style={{
+                fontFamily: OUTFIT, fontSize: 12, fontWeight: 600,
+                display: "flex", alignItems: "center", gap: 6,
+                padding: "5px 13px", borderRadius: 7, cursor: "pointer",
+                transition: "all .15s",
+                background: isOn ? `${color}14` : "transparent",
+                color:      isOn ? color : C.textMuted,
+                border:     `1.5px solid ${isOn ? `${color}50` : C.border}`,
+                opacity: r.active === false ? 0.5 : 1,
+              }}>
+                <span style={{
+                  width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                  background: isOn ? color : C.textDim,
+                  boxShadow: isOn ? `0 0 5px ${color}70` : "none",
+                  transition: "all .15s",
+                }} />
+                {r.sellerName}
+              </button>
+            );
+          })}
+          {selected.length >= 2 && (
+            <span style={{ fontFamily: OUTFIT, fontSize: 10, color: C.textDim, alignSelf: "center" }}>
+              máx. 2
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* ── SVG chart ────────────────────────────────────────────────────── */}
+      {/* ── Chart ──────────────────────────────────────────────────────────── */}
       {allDays.length === 0 ? (
-        <div style={{ padding: "32px 0 24px", textAlign: "center" }}>
-          <p style={{ fontFamily: OUTFIT, fontSize: 13, color: C.textMuted }}>
-            Sin datos para el período seleccionado
-          </p>
+        <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <p style={{ fontFamily: OUTFIT, fontSize: 13, color: C.textMuted }}>Sin datos en el período</p>
         </div>
       ) : (
         <div style={{ overflowX: "auto" }}>
-          <svg
-            viewBox={`0 0 ${VW} ${VH}`}
-            style={{ width: "100%", minWidth: 420, height: "auto", display: "block" }}
-          >
-            {/* ── Axis lines ─────────────────────────────────────────────── */}
-            {/* Y axis */}
-            <line
-              x1={PAD.left} y1={PAD.top}
-              x2={PAD.left} y2={yBottom}
-              style={{ stroke: C.border }} strokeWidth={1.5}
-            />
-            {/* X axis */}
-            <line
-              x1={PAD.left} y1={yBottom}
-              x2={PAD.left + CW} y2={yBottom}
-              style={{ stroke: C.border }} strokeWidth={1.5}
-            />
+          <svg viewBox={`0 0 ${VW} ${VH}`} style={{ width: "100%", minWidth: 380, height: "auto", display: "block" }}>
+            <defs>
+              {series.map(s => (
+                <linearGradient key={s.id} id={`grad-${uid}-${s.id}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor={s.color} stopOpacity={0.18} />
+                  <stop offset="100%" stopColor={s.color} stopOpacity={0} />
+                </linearGradient>
+              ))}
+            </defs>
 
-            {/* ── Y-axis grid + labels ────────────────────────────────────── */}
+            {/* Y-axis grid lines + labels (horizontal only, no axis line) */}
             {yTicks.map(tick => (
               <g key={tick}>
-                {tick > 0 && (
-                  <line
-                    x1={PAD.left} y1={yOf(tick)}
-                    x2={PAD.left + CW} y2={yOf(tick)}
-                    style={{ stroke: C.border }}
-                    strokeDasharray="5 5"
-                    strokeWidth={0.75}
-                  />
-                )}
+                <line
+                  x1={PAD.left} y1={yOf(tick)}
+                  x2={PAD.left + CW} y2={yOf(tick)}
+                  style={{ stroke: C.border }}
+                  strokeWidth={0.8}
+                  strokeDasharray={tick === 0 ? "0" : "4 4"}
+                />
                 <text
-                  x={PAD.left - 10} y={yOf(tick) + 4}
-                  textAnchor="end"
-                  fontSize={11}
-                  fontWeight={500}
+                  x={PAD.left - 9} y={yOf(tick) + 4}
+                  textAnchor="end" fontSize={10.5} fontWeight={500}
                   style={{ fill: C.textMuted }}
                   fontFamily="system-ui, sans-serif"
                 >
@@ -283,16 +297,14 @@ export default function SellerPerformanceChart({ rows }: { rows: SellerStats[] }
               </g>
             ))}
 
-            {/* ── X-axis labels ───────────────────────────────────────────── */}
+            {/* X-axis labels */}
             {allDays.map((day, i) => {
               if (i % xStep !== 0 && i !== allDays.length - 1) return null;
               return (
                 <text
                   key={day}
-                  x={xOf(i)} y={yBottom + 20}
-                  textAnchor="middle"
-                  fontSize={11}
-                  fontWeight={500}
+                  x={xOf(i)} y={VH - 6}
+                  textAnchor="middle" fontSize={10.5} fontWeight={500}
                   style={{ fill: C.textMuted }}
                   fontFamily="system-ui, sans-serif"
                 >
@@ -301,83 +313,83 @@ export default function SellerPerformanceChart({ rows }: { rows: SellerStats[] }
               );
             })}
 
-            {/* ── Area fills (behind lines) ───────────────────────────────── */}
+            {/* Area fills */}
             {series.map(s => {
-              const areaPath = buildAreaPath(s.values, xOf, yOf, yBottom);
-              if (!areaPath) return null;
+              const aPath = smoothAreaPath(s.values, xOf, yOf, yBottom);
+              if (!aPath) return null;
+              return (
+                <path key={`area-${s.id}`} d={aPath} fill={`url(#grad-${uid}-${s.id})`} />
+              );
+            })}
+
+            {/* Lines */}
+            {series.map(s => {
+              const lPath = smoothPath(s.values, xOf, yOf);
+              if (!lPath) return null;
               return (
                 <path
-                  key={`area-${s.id}`}
-                  d={areaPath}
-                  fill={s.color}
-                  opacity={0.09}
+                  key={`line-${s.id}`} d={lPath}
+                  fill="none" stroke={s.color}
+                  strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
                 />
               );
             })}
 
-            {/* ── Lines ──────────────────────────────────────────────────── */}
+            {/* Dots — small on all points, prominent only on first/last */}
             {series.map(s => {
-              const linePath = buildLinePath(s.values, xOf, yOf);
-              if (!linePath) return null;
-              return (
-                <path
-                  key={`line-${s.id}`}
-                  d={linePath}
-                  fill="none"
-                  stroke={s.color}
-                  strokeWidth={2.5}
-                  strokeLinejoin="round"
-                  strokeLinecap="round"
-                  opacity={0.9}
-                />
-              );
-            })}
+              const validIndices = s.values
+                .map((v, i) => (v !== null ? i : -1))
+                .filter(i => i !== -1);
+              const firstIdx = validIndices[0] ?? -1;
+              const lastIdx  = validIndices[validIndices.length - 1] ?? -1;
 
-            {/* ── Dots ───────────────────────────────────────────────────── */}
-            {series.map(s =>
-              allDays.map((_, i) => {
-                const v = s.values[i];
+              return s.values.map((v, i) => {
                 if (v === null) return null;
-                const cx = xOf(i);
-                const cy = yOf(v);
+                const cx = xOf(i), cy = yOf(v);
+                const isKey = i === firstIdx || i === lastIdx;
                 return (
                   <g key={`dot-${s.id}-${i}`}>
-                    {/* Outer glow ring */}
-                    <circle cx={cx} cy={cy} r={7} fill={s.color} opacity={0.15} />
-                    {/* Dot */}
+                    {isKey && <circle cx={cx} cy={cy} r={8} fill={s.color} opacity={0.1} />}
                     <circle
-                      cx={cx} cy={cy} r={4.5}
+                      cx={cx} cy={cy}
+                      r={isKey ? 4.5 : 3}
                       fill={s.color}
                       style={{ stroke: C.bg }}
-                      strokeWidth={2}
+                      strokeWidth={isKey ? 2 : 1.5}
                     />
                   </g>
                 );
-              })
-            )}
+              });
+            })}
 
-            {/* ── Value labels above dots ─────────────────────────────────── */}
-            {allDays.length <= 16 && series.map(s =>
-              allDays.map((_, i) => {
+            {/* Value labels — only on first + last visible points */}
+            {series.map(s => {
+              const validIndices = s.values
+                .map((v, i) => (v !== null ? i : -1))
+                .filter(i => i !== -1);
+              const firstIdx = validIndices[0] ?? -1;
+              const lastIdx  = validIndices[validIndices.length - 1] ?? -1;
+
+              return [firstIdx, lastIdx].filter(i => i !== -1).map(i => {
                 const v = s.values[i];
-                if (v === null || v === 0) return null;
+                if (v === null) return null;
+                const cx = xOf(i), cy = yOf(v);
+                const labelY = cy - 10;
                 return (
                   <text
                     key={`lbl-${s.id}-${i}`}
-                    x={xOf(i)} y={yOf(v) - 12}
-                    textAnchor="middle"
-                    fontSize={11}
-                    fontWeight={700}
+                    x={cx} y={labelY}
+                    textAnchor="middle" fontSize={11} fontWeight={700}
                     fill={s.color}
                     fontFamily="system-ui, sans-serif"
                   >
                     {v}{isPct ? "%" : ""}
                   </text>
                 );
-              })
-            )}
+              });
+            })}
 
-            {/* ── Seller name tag at last visible dot ─────────────────────── */}
+            {/* Seller name at last dot */}
             {series.map(s => {
               let lastIdx = -1;
               for (let i = s.values.length - 1; i >= 0; i--) {
@@ -387,18 +399,17 @@ export default function SellerPerformanceChart({ rows }: { rows: SellerStats[] }
               const lastVal = s.values[lastIdx] as number;
               const cx = xOf(lastIdx);
               const cy = yOf(lastVal);
-              const rightEdge = cx + 8;
-              const anchor = rightEdge + 70 > VW ? "end" : "start";
-              const lx = anchor === "end" ? cx - 10 : cx + 10;
+              const isRight = cx + 12 + s.name.length * 7 > VW;
               return (
                 <text
                   key={`tag-${s.id}`}
-                  x={lx} y={cy + 4}
-                  textAnchor={anchor}
-                  fontSize={12}
-                  fontWeight={700}
+                  x={isRight ? cx - 12 : cx + 12}
+                  y={cy + 4}
+                  textAnchor={isRight ? "end" : "start"}
+                  fontSize={11.5} fontWeight={700}
                   fill={s.color}
                   fontFamily="system-ui, sans-serif"
+                  opacity={0.9}
                 >
                   {s.name}
                 </text>
