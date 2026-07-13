@@ -68,31 +68,6 @@ function fmtDay(iso: string): string {
   return d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
 }
 
-function DayOutcomeChips({ counts }: { counts: DayCounts }) {
-  const chips = [
-    { n: counts.interested,      label: "interested",     color: "#22C55E" },
-    { n: counts.badTiming,       label: "bad timing",     color: "#EAB308" },
-    { n: counts.voicemail,       label: "voicemail",      color: "#A78BFA" },
-    { n: counts.notInterested,   label: "not interested", color: "#EF4444" },
-    { n: counts.wrongNumber,     label: "wrong #",        color: "#6B7280" },
-    { n: unclassifiedOf(counts), label: "unclassified",   color: "#991B1B" },
-  ].filter(c => c.n > 0);
-  if (chips.length === 0) return <span style={{ fontSize: 10, color: C.textDim }}>no outcomes logged</span>;
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-      {chips.map(chip => (
-        <span key={chip.label} style={{
-          fontSize: 10, padding: "2px 7px", borderRadius: 4,
-          background: `${chip.color}18`, color: chip.color,
-          border: `1px solid ${chip.color}30`,
-          fontFamily: OUTFIT, fontWeight: 600,
-        }}>
-          {chip.n} {chip.label}
-        </span>
-      ))}
-    </div>
-  );
-}
 
 function Cell({ n, color, colKey, total, s }: {
   n: number; color: string; colKey: ColKey; total?: number; s?: SellerCallStats;
@@ -186,47 +161,75 @@ function SellerRow({ s }: { s: SellerCallStats }) {
         ))}
       </tr>
 
-      {/* Expanded per-day detail — single colSpan row per day, no duplicate number columns */}
-      {open && days.map(([day, counts]) => (
-        <tr key={day} className="border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-          <td colSpan={totalCols} style={{ padding: "10px 16px 10px 60px" }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 20 }}>
-              {/* Date */}
-              <div style={{ minWidth: 88, flexShrink: 0, paddingTop: 1 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: C.textMuted, fontFamily: OUTFIT }}>
+      {/* Expanded per-day detail — 4-column grid using full row width */}
+      {open && days.map(([day, counts]) => {
+        const outcomes = [
+          { n: counts.interested,      label: "interested",    color: "#22C55E" },
+          { n: counts.badTiming,       label: "bad timing",    color: "#EAB308" },
+          { n: counts.voicemail,       label: "voicemail",     color: "#A78BFA" },
+          { n: counts.notInterested,   label: "not interested",color: "#EF4444" },
+          { n: counts.wrongNumber,     label: "wrong #",       color: C.textMuted },
+          { n: unclassifiedOf(counts), label: "unclassified",  color: C.textMuted },
+        ].filter(o => o.n > 0);
+
+        return (
+          <tr key={day} className="border-t" style={{ borderColor: C.border }}>
+            <td colSpan={totalCols} style={{ padding: "14px 32px 14px 60px" }}>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "130px 180px 1fr auto",
+                gap: 24,
+                alignItems: "center",
+              }}>
+                {/* Date */}
+                <span style={{ fontSize: 12, fontWeight: 700, color: C.textMuted, fontFamily: OUTFIT }}>
                   {fmtDay(day)}
                 </span>
-              </div>
-              {/* Summary + chips */}
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: C.textBody, fontFamily: OUTFIT }}>
-                    {counts.made} calls
+
+                {/* Volume */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: C.textBody, fontFamily: OUTFIT, lineHeight: 1 }}>
+                    {counts.made} <span style={{ fontSize: 11, fontWeight: 400, color: C.textMuted }}>calls</span>
                   </span>
-                  <span style={{ color: C.textDim, fontSize: 10 }}>·</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#38BDF8", fontFamily: OUTFIT }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 600, color: C.textMuted, fontFamily: OUTFIT }}>
                     {answerPctOf(counts)}% answered
                   </span>
                 </div>
-                <DayOutcomeChips counts={counts} />
-                {counts.campaigns && counts.campaigns.length > 0 && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
-                    {counts.campaigns.map(name => (
-                      <span key={name} style={{
-                        fontSize: 9, fontWeight: 600, padding: "2px 7px", borderRadius: 10,
-                        background: "rgba(201,168,58,.1)", color: "#C9A83A",
-                        border: "1px solid rgba(201,168,58,.2)", fontFamily: OUTFIT,
-                      }}>
-                        {name}
-                      </span>
-                    ))}
-                  </div>
-                )}
+
+                {/* Outcomes — small dots + plain text, no colored backgrounds */}
+                <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" }}>
+                  {outcomes.length === 0 ? (
+                    <span style={{ fontSize: 11, color: C.textDim, fontFamily: OUTFIT }}>no outcomes logged</span>
+                  ) : outcomes.map(o => (
+                    <span key={o.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                      <span style={{
+                        width: 6, height: 6, borderRadius: "50%", flexShrink: 0,
+                        background: o.color, opacity: 0.8,
+                      }} />
+                      <span style={{ fontSize: 12, fontWeight: 700, color: C.textBody, fontFamily: OUTFIT }}>{o.n}</span>
+                      <span style={{ fontSize: 11.5, color: C.textMuted, fontFamily: OUTFIT }}>{o.label}</span>
+                    </span>
+                  ))}
+                </div>
+
+                {/* Campaigns — subtle, right-aligned */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 3, alignItems: "flex-end" }}>
+                  {(counts.campaigns ?? []).map(name => (
+                    <span key={name} style={{
+                      fontSize: 10.5, color: C.textMuted, fontFamily: OUTFIT,
+                      padding: "2px 9px", borderRadius: 20,
+                      border: `1px solid ${C.border}`,
+                      whiteSpace: "nowrap",
+                    }}>
+                      {name}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
-          </td>
-        </tr>
-      ))}
+            </td>
+          </tr>
+        );
+      })}
     </>
   );
 }
