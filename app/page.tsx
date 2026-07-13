@@ -43,7 +43,7 @@ import ChannelCard from "@/components/dashboard/ChannelCard";
 import CallsCard from "@/components/dashboard/CallsCard";
 import CallOutcomesBySeller from "@/components/dashboard/CallOutcomesBySeller";
 import SellerPulseTable from "@/components/dashboard/SellerPulseTable";
-import SellerTrendTable from "@/components/dashboard/SellerTrendTable";
+import SellerPerformanceChart from "@/components/dashboard/SellerPerformanceChart";
 import DimWhileLoading from "@/components/DimWhileLoading";
 import DashboardExportModal from "@/components/dashboard/DashboardExportModal";
 import LinkedInConnectionsCard from "@/components/dashboard/LinkedInConnectionsCard";
@@ -1866,21 +1866,17 @@ export default async function DashboardPage({
         </Panel>
       </section>
 
-      {/* ── Seller trend vs prior period ─────────────────────────────────────
-          Shows each seller's current calls / answer % / interested alongside
-          the delta vs the immediately preceding window of equal length. */}
+      {/* ── Seller performance chart ──────────────────────────────────────────
+          Dot + line chart showing daily values (calls / answer % / interested
+          / etc.) for up to 2 sellers selected via toggle buttons. */}
       {data.callOutcomesBySeller.length > 0 && (
         <section>
           <Panel
-            title="Seller trend vs prior period"
-            subtitle={`Volume and quality compared to the previous ${periodLabel}`}
+            title="Seller daily performance"
+            subtitle="Select up to 2 sellers to compare · click a metric to switch"
             glow
           >
-            <SellerTrendTable
-              rows={data.callOutcomesBySeller}
-              prior={data.priorCallsBySeller}
-              periodLabel={periodLabel}
-            />
+            <SellerPerformanceChart rows={data.callOutcomesBySeller} />
           </Panel>
         </section>
       )}

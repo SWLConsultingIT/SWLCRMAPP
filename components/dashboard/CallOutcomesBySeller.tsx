@@ -3,8 +3,8 @@
 // Call monitoring by seller (boss 2026-06-08): "quiero ver cuántas llamadas
 // hizo cada seller por día y cuál fue el problema de cada una". One row per
 // seller with the outcome breakdown; expand for the per-day split.
-// Redesigned 2026-07-13: mini outcome bar replaces 4 individual outcome columns,
-// avatar uses brand navy+gold (was orange), expanded rows show color-coded chips.
+// Redesigned 2026-07-13: avatar uses brand navy+gold (was orange),
+// bad timing = yellow, voicemail = violet, answer% = sky blue.
 
 import { useState } from "react";
 import { ChevronRight, PhoneCall } from "lucide-react";
@@ -25,8 +25,7 @@ type SellerCallStats = Counts & {
 type ColKey =
   | keyof Counts
   | "unclassified" | "classifiedPct" | "answerPct"
-  | "avgDurationSecs" | "avgCoachScore"
-  | "_bar";
+  | "avgDurationSecs" | "avgCoachScore";
 
 const unclassifiedOf = (c: Counts) =>
   Math.max(0, c.made - c.interested - c.badTiming - c.voicemail - c.notInterested - c.wrongNumber);
@@ -46,59 +45,27 @@ const valueOf = (c: Counts | SellerCallStats, key: ColKey): number => {
   if (key === "answerPct") return answerPctOf(c as Counts);
   if (key === "avgDurationSecs") return (c as SellerCallStats).avgDurationSecs ?? 0;
   if (key === "avgCoachScore") return (c as SellerCallStats).avgCoachScore ?? 0;
-  if (key === "_bar") return 0;
   return (c as Counts)[key as keyof Counts];
 };
 
-// Outcome mini-bar — proportional stacked breakdown replacing 4 individual columns.
-const BAR_SEGS = [
-  { field: "interested"    as const, color: "#22C55E" },
-  { field: "badTiming"     as const, color: "#EAB308" },
-  { field: "voicemail"     as const, color: "#A78BFA" },
-  { field: "notInterested" as const, color: "#EF4444" },
-  { field: "wrongNumber"   as const, color: "#6B7280" },
+// Column definitions — bad timing = yellow (not orange), voicemail = violet (not sky blue).
+const COLS: { key: ColKey; label: string; color: string }[] = [
+  { key: "made",            label: "Total",         color: C.textPrimary },
+  { key: "answerPct",       label: "Answer %",      color: "#38BDF8"     },
+  { key: "interested",      label: "Interested",    color: "#22C55E"     },
+  { key: "badTiming",       label: "Bad timing",    color: "#EAB308"     },
+  { key: "voicemail",       label: "Voicemail",     color: "#A78BFA"     },
+  { key: "notInterested",   label: "Not interested",color: "#EF4444"     },
+  { key: "wrongNumber",     label: "Wrong #",       color: C.textMuted   },
+  { key: "unclassified",    label: "Unclassified",  color: "#EF4444"     },
+  { key: "classifiedPct",   label: "Classified %",  color: "#22C55E"     },
+  { key: "avgDurationSecs", label: "Duration",      color: C.textMuted   },
+  { key: "avgCoachScore",   label: "Coach",         color: "#C9A83A"     },
 ];
 
-function OutcomeBar({ c }: { c: Counts }) {
-  if (c.made === 0) return <span style={{ fontSize: 11, color: C.textDim }}>—</span>;
-  const uncl = unclassifiedOf(c);
-  const segs = [
-    ...BAR_SEGS.map(s => ({ n: c[s.field], color: s.color })),
-    { n: uncl, color: "#991B1B" },
-  ].filter(s => s.n > 0);
-  return (
-    <div style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-      <div style={{
-        width: 72, height: 7, borderRadius: 4, overflow: "hidden",
-        display: "flex", gap: 1, backgroundColor: "rgba(255,255,255,0.05)",
-      }}>
-        {segs.map((seg, i) => (
-          <div key={i} style={{ width: `${(seg.n / c.made) * 100}%`, background: seg.color, minWidth: 2 }} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function BarLegend() {
-  const items = [
-    { label: "Interested",     color: "#22C55E" },
-    { label: "Bad timing",     color: "#EAB308" },
-    { label: "Voicemail",      color: "#A78BFA" },
-    { label: "Not interested", color: "#EF4444" },
-    { label: "Wrong #",        color: "#6B7280" },
-    { label: "Unclassified",   color: "#991B1B" },
-  ];
-  return (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", padding: "4px 0" }}>
-      {items.map(item => (
-        <span key={item.label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <span style={{ width: 7, height: 7, borderRadius: 2, background: item.color, display: "inline-block", flexShrink: 0 }} />
-          <span style={{ fontSize: 10, color: C.textMuted, fontFamily: OUTFIT }}>{item.label}</span>
-        </span>
-      ))}
-    </div>
-  );
+function fmtDay(iso: string): string {
+  const d = new Date(`${iso}T12:00:00Z`);
+  return d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
 }
 
 function DayOutcomeChips({ counts }: { counts: DayCounts }) {
@@ -110,9 +77,7 @@ function DayOutcomeChips({ counts }: { counts: DayCounts }) {
     { n: counts.wrongNumber,     label: "wrong #",        color: "#6B7280" },
     { n: unclassifiedOf(counts), label: "unclassified",   color: "#991B1B" },
   ].filter(c => c.n > 0);
-  if (chips.length === 0) {
-    return <span style={{ fontSize: 10, color: C.textDim }}>no outcomes logged</span>;
-  }
+  if (chips.length === 0) return <span style={{ fontSize: 10, color: C.textDim }}>no outcomes logged</span>;
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
       {chips.map(chip => (
@@ -129,34 +94,9 @@ function DayOutcomeChips({ counts }: { counts: DayCounts }) {
   );
 }
 
-// Reduced column list: mini bar replaces 4 individual outcome columns.
-// Full breakdown visible in expanded per-day rows.
-const COLS: { key: ColKey; label: string; color: string }[] = [
-  { key: "made",            label: "Total",        color: C.textPrimary },
-  { key: "answerPct",       label: "Answer %",     color: "#38BDF8"     },
-  { key: "_bar",            label: "Outcomes",     color: ""            },
-  { key: "interested",      label: "Interested",   color: "#22C55E"     },
-  { key: "unclassified",    label: "Unclassified", color: "#EF4444"     },
-  { key: "classifiedPct",   label: "Classified %", color: "#22C55E"     },
-  { key: "avgDurationSecs", label: "Duration",     color: C.textMuted   },
-  { key: "avgCoachScore",   label: "Coach",        color: "#C9A83A"     },
-];
-
-function fmtDay(iso: string): string {
-  const d = new Date(`${iso}T12:00:00Z`);
-  return d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
-}
-
 function Cell({ n, color, colKey, total, s }: {
   n: number; color: string; colKey: ColKey; total?: number; s?: SellerCallStats;
 }) {
-  if (colKey === "_bar") {
-    return (
-      <td className="text-center px-3 py-2.5">
-        <OutcomeBar c={s ?? { made: 0, answered: 0, interested: 0, badTiming: 0, voicemail: 0, notInterested: 0, wrongNumber: 0 }} />
-      </td>
-    );
-  }
   const isPct      = colKey === "classifiedPct" || colKey === "answerPct";
   const isDuration = colKey === "avgDurationSecs";
   const isCoach    = colKey === "avgCoachScore";
@@ -246,55 +186,39 @@ function SellerRow({ s }: { s: SellerCallStats }) {
         ))}
       </tr>
 
-      {open && (
-        <>
-          <tr className="border-t" style={{ borderColor: C.border, backgroundColor: "rgba(201,168,58,0.02)" }}>
-            <td colSpan={colCount} className="px-4 pt-2 pb-1">
-              <BarLegend />
-            </td>
-          </tr>
-          {days.map(([day, counts]) => (
-            <tr key={day} className="border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
-              <td className="px-4 py-2 pl-14">
-                <div className="flex flex-col gap-1.5">
-                  <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, fontFamily: OUTFIT }}>
-                    {fmtDay(day)}
-                  </span>
-                  <DayOutcomeChips counts={counts} />
-                  {counts.campaigns && counts.campaigns.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-0.5">
-                      {counts.campaigns.map(name => (
-                        <span key={name} style={{
-                          fontSize: 9, fontWeight: 600, padding: "2px 7px", borderRadius: 10,
-                          background: "rgba(201,168,58,.1)", color: "#C9A83A",
-                          border: "1px solid rgba(201,168,58,.2)",
-                        }}>
-                          {name}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+      {open && days.map(([day, counts]) => (
+        <tr key={day} className="border-t" style={{ borderColor: C.border, backgroundColor: C.bg }}>
+          <td className="px-4 py-2 pl-14">
+            <div className="flex flex-col gap-1.5">
+              <span style={{ fontSize: 11, fontWeight: 600, color: C.textMuted, fontFamily: OUTFIT }}>
+                {fmtDay(day)}
+              </span>
+              <DayOutcomeChips counts={counts} />
+              {counts.campaigns && counts.campaigns.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-0.5">
+                  {counts.campaigns.map(name => (
+                    <span key={name} style={{
+                      fontSize: 9, fontWeight: 600, padding: "2px 7px", borderRadius: 10,
+                      background: "rgba(201,168,58,.1)", color: "#C9A83A",
+                      border: "1px solid rgba(201,168,58,.2)",
+                    }}>
+                      {name}
+                    </span>
+                  ))}
                 </div>
+              )}
+            </div>
+          </td>
+          {COLS.map(c => {
+            const v = valueOf(counts as any, c.key);
+            return (
+              <td key={c.key} className="text-center px-2 py-2 tabular-nums">
+                <span style={{ fontSize: 12, color: v > 0 ? C.textBody : C.textDim }}>{v}</span>
               </td>
-              {COLS.map(c => {
-                if (c.key === "_bar") {
-                  return (
-                    <td key="_bar" className="text-center px-3 py-2">
-                      <OutcomeBar c={counts} />
-                    </td>
-                  );
-                }
-                const v = valueOf(counts as any, c.key);
-                return (
-                  <td key={c.key} className="text-center px-2 py-2 tabular-nums">
-                    <span style={{ fontSize: 12, color: v > 0 ? C.textBody : C.textDim }}>{v}</span>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </>
-      )}
+            );
+          })}
+        </tr>
+      ))}
     </>
   );
 }
@@ -327,7 +251,7 @@ export default function CallOutcomesBySeller({ rows, bare = false }: { rows: Sel
             {COLS.map(c => (
               <th key={c.key} className="text-center px-2 py-2.5" style={{
                 fontSize: 10, fontWeight: 700,
-                color: c.key === "_bar" ? C.textDim : (c.color === C.textPrimary ? C.textDim : c.color),
+                color: c.color === C.textPrimary ? C.textDim : c.color,
                 textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: OUTFIT, opacity: 0.8,
               }}>
                 {c.label}
@@ -355,13 +279,6 @@ export default function CallOutcomesBySeller({ rows, bare = false }: { rows: Sel
                   All · {rows.length} sellers
                 </td>
                 {COLS.map(c => {
-                  if (c.key === "_bar") {
-                    return (
-                      <td key="_bar" className="text-center px-3 py-2.5">
-                        <OutcomeBar c={totals} />
-                      </td>
-                    );
-                  }
                   if (c.key === "avgDurationSecs" || c.key === "avgCoachScore") {
                     return <td key={c.key} className="text-center px-2 py-2.5"><span style={{ color: C.textDim }}>—</span></td>;
                   }
