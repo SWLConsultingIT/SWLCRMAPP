@@ -172,11 +172,15 @@ export default function CallOutcomesBySeller({ rows, bare = false }: { rows: Sel
               <tfoot>
                 <tr style={{ borderTop: `2px solid ${C.border}`, backgroundColor: C.bg }}>
                   <td className="px-3 py-2.5 text-[12px] font-bold" style={{ color: C.textPrimary, fontFamily: OUTFIT }}>Total · {rows.length} sellers</td>
-                  {COLS.map(c => (
-                    <td key={c.key} className="text-center px-2 py-2.5 tabular-nums">
-                      <span className="text-[13px] font-bold" style={{ color: valueOf(totals, c.key) > 0 ? c.color : C.textDim, fontFamily: OUTFIT }}>{valueOf(totals, c.key)}</span>
-                    </td>
-                  ))}
+                  {COLS.map(c => {
+                    const v = valueOf(totals, c.key);
+                    const display = c.key === "classifiedPct" ? `${v}%` : String(v);
+                    return (
+                      <td key={c.key} className="text-center px-2 py-2.5 tabular-nums">
+                        <span className="text-[13px] font-bold" style={{ color: v > 0 ? c.color : C.textDim, fontFamily: OUTFIT }}>{display}</span>
+                      </td>
+                    );
+                  })}
                 </tr>
               </tfoot>
             );

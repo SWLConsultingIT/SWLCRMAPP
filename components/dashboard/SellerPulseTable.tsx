@@ -57,7 +57,7 @@ const STATUS_CONFIG: Record<StatusKind, { label: string; dotColor: string; textC
   offline: { label: "Offline",    dotColor: "#EF4444", textColor: "#EF4444" },
 };
 
-export default function SellerPulseTable({ sellers, periodLabel }: { sellers: SellerInput[]; periodLabel?: string }) {
+export default function SellerPulseTable({ sellers, periodLabel, dailyTarget = 5 }: { sellers: SellerInput[]; periodLabel?: string; dailyTarget?: number }) {
   const [presenceIds, setPresenceIds] = useState<Set<string>>(new Set());
   const [meId, setMeId]              = useState<string | null>(null);
 
@@ -103,6 +103,12 @@ export default function SellerPulseTable({ sellers, periodLabel }: { sellers: Se
       });
   }, [sellers, presenceIds, meId]);
 
+  const { activeSellers, onTrack } = useMemo(() => {
+    const active = rows.filter(r => r.status === "live" || r.status === "recent");
+    const on = active.filter(r => r.callsToday >= dailyTarget).length;
+    return { activeSellers: active.length, onTrack: on };
+  }, [rows, dailyTarget]);
+
   return (
     <div
       className="rounded-2xl border overflow-hidden"
@@ -128,9 +134,18 @@ export default function SellerPulseTable({ sellers, periodLabel }: { sellers: Se
               <span className="text-[9.5px] font-bold uppercase tracking-[0.14em]" style={{ color: "#22C55E" }}>Live</span>
             </span>
           </div>
-          <p className="text-[11px] mt-0.5" style={{ color: "#8B9EB7" }}>
-            Last login · last call · calls today · calls this period · queue
-          </p>
+          <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+            {activeSellers > 0 ? (
+              <>
+                <span className="text-[11px] font-semibold" style={{ color: onTrack === activeSellers ? "#22C55E" : onTrack > 0 ? "#C9A83A" : "#EF4444" }}>
+                  {onTrack}/{activeSellers} active sellers on track
+                </span>
+                <span className="text-[11px]" style={{ color: "#8B9EB7" }}>· goal: {dailyTarget}+ calls/day</span>
+              </>
+            ) : (
+              <span className="text-[11px]" style={{ color: "#8B9EB7" }}>Last login · last call · calls today · calls this period · queue</span>
+            )}
+          </div>
         </div>
         <a href="/admin"
           className="text-[10px] font-semibold uppercase tracking-widest shrink-0 transition-opacity hover:opacity-70"
@@ -164,7 +179,9 @@ export default function SellerPulseTable({ sellers, periodLabel }: { sellers: Se
             </tr>
           ) : rows.map(row => {
             const cfg = STATUS_CONFIG[row.status];
-            const noCallsAlert = row.callsToday === 0;
+            const isActive = row.status === "live" || row.status === "recent";
+            const hitGoal = row.callsToday >= dailyTarget;
+            const noCallsAlert = row.callsToday === 0 && isActive;
             return (
               <tr
                 key={row.id}
@@ -232,18 +249,29 @@ export default function SellerPulseTable({ sellers, periodLabel }: { sellers: Se
 
                 {/* Calls today */}
                 <td className="px-3 py-3 text-right">
-                  <div className="flex items-center justify-end gap-1.5">
-                    {noCallsAlert && (
-                      <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "rgba(239,68,68,0.12)", color: "#EF4444" }}>
-                        ⚠
+                  <div className="flex flex-col items-end gap-1">
+                    <div className="flex items-center justify-end gap-1.5">
+                      {noCallsAlert && (
+                        <span className="text-[9.5px] font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: "rgba(239,68,68,0.12)", color: "#EF4444" }}>
+                          ⚠
+                        </span>
+                      )}
+                      <span
+                        className="text-[13px] font-bold tabular-nums"
+                        style={{ color: hitGoal ? "#22C55E" : noCallsAlert ? "#EF4444" : C.textPrimary }}>
+                        {row.callsToday}
+                        {hitGoal && <span className="text-[10px] ml-0.5">✓</span>}
                       </span>
+                      <Phone size={10} style={{ color: hitGoal ? "#22C55E" : noCallsAlert ? "#EF4444" : C.textMuted }} />
+                    </div>
+                    {isActive && (
+                      <div className="w-10 h-[3px] rounded-full overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.08)" }}>
+                        <div className="h-full rounded-full" style={{
+                          width: `${Math.min(100, Math.round((row.callsToday / dailyTarget) * 100))}%`,
+                          backgroundColor: hitGoal ? "#22C55E" : row.callsToday > 0 ? "#C9A83A" : "#EF4444",
+                        }} />
+                      </div>
                     )}
-                    <span
-                      className="text-[13px] font-bold tabular-nums"
-                      style={{ color: noCallsAlert ? "#EF4444" : C.textPrimary }}>
-                      {row.callsToday}
-                    </span>
-                    <Phone size={10} style={{ color: noCallsAlert ? "#EF4444" : C.textMuted }} />
                   </div>
                 </td>
 
